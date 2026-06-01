@@ -1,0 +1,9 @@
+[package]
+name = "player-windows-mpv"
+version = "0.1.0"
+edition = "2024"
+description = "Dependency-free Windows libmpv loading spike"
+license = "MIT OR Apache-2.0"
+
+[lib]
+crate-type = ["lib"]

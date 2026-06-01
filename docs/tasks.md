@@ -9,13 +9,15 @@ the platform surface.
 - [x] Add a dependency-free Rust workspace and timeline index.
 - [x] Bootstrap Gradle 9.4.1 with a committed wrapper.
 - [x] Add a minimal shared Kotlin domain module.
-- [ ] Decide the Windows libmpv distribution strategy.
+- [x] Decide the Windows libmpv distribution strategy.
+- [x] Add a dependency-free Windows libmpv dynamic-loader spike.
+- [ ] Verify the dynamic-loader probe against an audited libmpv DLL.
 - [ ] Build a Windows libmpv playback spike.
 
 ## Next
 
-- [ ] Define the Kotlin playback contract.
-- [ ] Build a Compose Desktop shell.
+- [x] Define the Kotlin playback contract.
+- [x] Build a Compose Desktop shell.
 - [ ] Add local-file playback on Windows.
 - [ ] Add a synthetic danmaku overlay demo.
 - [ ] Measure overlay behavior with a large generated timeline.

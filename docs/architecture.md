@@ -98,6 +98,11 @@ observeState()
 Platform adapters own codecs, rendering surfaces, lifecycle integration,
 media sessions, hardware decoding, and DRM-capable platform APIs.
 
+The Windows adapter loads libmpv dynamically. Developer builds locate
+`libmpv-2.dll` from `DANMAKU_LIBMPV_PATH` or beside the packaged executable.
+Release packaging must use an audited, pinned libmpv bundle and include the
+applicable license notices. See ADR 0002.
+
 ## Danmaku Pipeline
 
 ```mermaid
@@ -148,4 +153,3 @@ WebSockets for live danmaku rooms and synchronization.
 - Do not log tokens, cookies, or signed media URLs.
 - Do not implement DRM circumvention.
 - Validate filenames, paths, manifests, and remote input.
-

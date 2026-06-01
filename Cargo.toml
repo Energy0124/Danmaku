@@ -1,4 +1,6 @@
 [workspace]
-members = ["native/rust-core"]
+members = [
+    "native/player-windows-mpv",
+    "native/rust-core",
+]
 resolver = "2"
-

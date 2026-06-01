@@ -7,10 +7,10 @@ local.properties
 
 target/
 **/target/
+runtime/windows/libmpv/
 
 *.iml
 *.log
 *.tmp
 .DS_Store
 Thumbs.db
-
