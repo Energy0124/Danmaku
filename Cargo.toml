@@ -1,0 +1,4 @@
+[workspace]
+members = ["native/rust-core"]
+resolver = "2"
+

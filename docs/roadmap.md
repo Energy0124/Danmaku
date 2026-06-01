@@ -1,0 +1,47 @@
+# Roadmap
+
+## Phase 0: Foundation
+
+- Record architecture and contribution rules.
+- Build and test a minimal Rust danmaku timeline index.
+- Bootstrap Gradle with a committed wrapper.
+- Add the shared Kotlin domain module.
+
+## Phase 1: Windows Playback Vertical Slice
+
+- Create a Compose Desktop shell.
+- Integrate libmpv behind a playback contract.
+- Play local files and remote HLS streams.
+- Draw a Compose danmaku overlay synchronized to playback.
+- Validate resize, fullscreen, seeking, hardware decoding, and 4K playback.
+
+## Phase 2: Android And Android TV Playback
+
+- Create Android mobile and Android TV apps.
+- Implement the shared playback contract with Media3 ExoPlayer.
+- Add MediaSession integration.
+- Build TV-specific screens, focus states, and D-pad navigation.
+- Verify overlay synchronization on typical TV hardware.
+
+## Phase 3: Library And Offline Downloads
+
+- Add SQLDelight schema and repositories.
+- Scan and manage local media.
+- Add queueing, pause, resume, retry, deletion, and disk quota behavior.
+- Use Media3 DownloadService on Android and TV.
+- Implement the Windows desktop download engine in Rust.
+
+## Phase 4: Sources And Product Features
+
+- Define authorized source plugin contracts.
+- Add subtitle and audio-track selection.
+- Add danmaku filters, density controls, and keyword blocking.
+- Add watch progress, favorites, playlists, and import/export.
+
+## Phase 5: Expansion
+
+- Reuse the desktop app for Linux and macOS.
+- Add iOS and iPadOS using shared KMP logic and AVPlayer.
+- Build a streaming-first React and TypeScript web client.
+- Add optional sync, accounts, live rooms, and moderation.
+
