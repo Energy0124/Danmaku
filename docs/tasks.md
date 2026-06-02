@@ -59,6 +59,15 @@ catalog and pass selected streams to Media3.
 
 - [ ] Define authorized-download policy fields in source contracts.
 - [ ] Define a platform-independent download manifest.
+- [ ] Add multiple Windows library roots with provenance and missing-folder state.
+- [ ] Import and incrementally rescan user-selected ani-rss-managed output folders.
+- [ ] Add an optional read-only Windows ani-rss adapter for health, subscriptions,
+  resolved download folders, completed episode lists, and download status.
+- [ ] Add an authenticated ani-rss completion-webhook endpoint that triggers a
+  bounded Windows library rescan.
+- [ ] Store ani-rss connection credentials securely and redact them from logs.
+- [ ] Decide whether ani-rss subscription and download-control actions are allowed
+  after the authorized-source policy is approved.
 - [ ] Add Media3 DownloadService for Android and TV.
 - [ ] Add the Rust desktop download engine.
 - [ ] Test interrupted transfers, retries, and disk-space failures.

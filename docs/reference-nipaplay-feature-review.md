@@ -163,6 +163,12 @@ Downloads remain authorized-source-only.
 - [ ] Define source policy fields: offline allowed, expiry, DRM status, attribution,
   and delete requirements.
 - [ ] Define a platform-independent download manifest and queue state machine.
+- [ ] Import and incrementally rescan user-selected ani-rss-managed output folders
+  through the Windows local-library indexer.
+- [ ] Add an optional read-only ani-rss adapter for subscriptions, completed episode
+  lists, resolved output folders, download status, and completion-triggered rescans.
+- [ ] Keep ani-rss subscription and download-control actions disabled until the
+  authorized-source policy explicitly permits them.
 - [ ] Persist queue, progress, retries, failures, and verified output paths.
 - [ ] Add Media3 `DownloadService` for Android and Android TV.
 - [ ] Add the Rust Windows download engine behind coarse-grained Kotlin APIs.
@@ -246,6 +252,8 @@ Review these before adding them to the committed roadmap:
 - [ ] Decide whether external plugins are required or built-in plugins are enough.
 - [ ] Decide whether torrent support is excluded, deferred, or allowed only for
   explicitly authorized sources.
+- [ ] Decide whether ani-rss is import-only, read-only monitored, or allowed to
+  receive subscription and download-control commands from Danmaku.
 - [ ] Decide whether Anime4K and CRT shaders are experiments or release features.
 - [ ] Decide whether AI spoiler filtering is worth the privacy, credential, and UX
   cost.
