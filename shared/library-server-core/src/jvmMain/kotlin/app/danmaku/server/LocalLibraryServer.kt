@@ -196,11 +196,11 @@ class LocalLibraryServer(
             endInclusive = fileSize - 1
         } else {
             start = startText.toLongOrNull()?.takeIf { it >= 0 } ?: return null
-            endInclusive = endText
-                .takeIf(String::isNotBlank)
-                ?.toLongOrNull()
-                ?.coerceAtMost(fileSize - 1)
-                ?: (fileSize - 1)
+            endInclusive = if (endText.isBlank()) {
+                fileSize - 1
+            } else {
+                endText.toLongOrNull()?.coerceAtMost(fileSize - 1) ?: return null
+            }
         }
         return (start..endInclusive).takeIf { start < fileSize && start <= endInclusive }
     }

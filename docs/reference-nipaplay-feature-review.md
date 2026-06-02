@@ -81,7 +81,7 @@ These remain the highest priority because they validate the platform foundation.
   physical hardware.
 - [x] Add same-PC Windows-to-Windows LAN streaming integration coverage for paired
   catalog requests, full-file reads, byte ranges, and progress round trips.
-- [ ] Test unauthorized media requests, invalid and unsatisfiable ranges, large
+- [x] Test unauthorized media requests, invalid and unsatisfiable ranges, large
   files, and concurrent streams.
 - [ ] Add an Android client integration test against a live local-server fixture.
 - [ ] Add an end-to-end Android Media3 streaming test with a real short fixture.

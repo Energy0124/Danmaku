@@ -84,6 +84,9 @@ Committed checkpoints:
   unsatisfiable ranges, and progress round trips.
 - JVM client-to-server loopback coverage for paired catalog browsing, generated
   stream consumption, token encoding, missing progress, and progress round trips.
+- Reusable LAN server reliability coverage for unauthorized media requests,
+  malformed and unsatisfiable byte ranges, valid open-ended and suffix ranges,
+  multi-megabyte media, and concurrent streams.
 
 ## Verification
 
@@ -94,6 +97,7 @@ cargo fmt --all --check
 cargo test --workspace
 .\gradlew.bat --no-daemon :shared:domain:jvmTest
 .\gradlew.bat --no-daemon :shared:library-client:jvmTest
+.\gradlew.bat --no-daemon :shared:library-server-core:jvmTest
 .\gradlew.bat --no-daemon :apps:desktop-windows:desktopTest
 .\gradlew.bat --no-daemon :apps:android-mobile:assembleDebug :apps:android-tv:assembleDebug
 ```

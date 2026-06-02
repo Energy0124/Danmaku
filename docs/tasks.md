@@ -60,7 +60,7 @@ catalog and pass selected streams to Media3.
 - [x] Add same-PC Windows-to-Windows LAN streaming integration coverage that starts
   the local server and exercises paired catalog requests, full-file reads, byte
   ranges, and progress round trips through the public HTTP contract.
-- [ ] Add LAN-server tests for unauthorized media requests, invalid and
+- [x] Add LAN-server tests for unauthorized media requests, invalid and
   unsatisfiable byte ranges, large files, and concurrent streams.
 - [ ] Add an Android client integration test against a live local-server fixture.
 - [ ] Add an end-to-end Android Media3 streaming test with a real short media
