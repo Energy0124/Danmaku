@@ -48,7 +48,7 @@ catalog and pass selected streams to Media3.
 - [x] Browse the Windows LAN catalog and stream selected episodes.
 - [x] Add in-process MediaSession integration.
 - [x] Add trusted-LAN pairing codes.
-- [ ] Add background MediaSession service integration.
+- [x] Add background MediaSession service integration.
 - [x] Add LAN server discovery.
 - [ ] Add TV D-pad and focus-navigation tests.
 - [ ] Verify playback and overlays on a physical Android TV device.

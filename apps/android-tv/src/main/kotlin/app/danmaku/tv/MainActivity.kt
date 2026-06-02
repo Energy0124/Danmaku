@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
 import androidx.media3.ui.PlayerView
 import androidx.tv.material3.Button
 import androidx.tv.material3.MaterialTheme
@@ -36,10 +37,12 @@ import androidx.tv.material3.Text
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.PlaybackCommand
+import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.PlaybackSource
 import app.danmaku.library.android.LanLibraryDiscoveryClient
 import app.danmaku.library.android.LanLibraryClient
 import app.danmaku.player.android.Media3PlaybackController
+import app.danmaku.player.android.Media3PlaybackServiceConnection
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -59,23 +62,42 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun TvPlayerScreen() {
     val context = LocalContext.current
-    val controller = remember { Media3PlaybackController(context.applicationContext) }
+    val playbackConnection = remember {
+        Media3PlaybackServiceConnection(context.applicationContext)
+    }
     val libraryClient = remember { LanLibraryClient() }
     val discoveryClient = remember { LanLibraryDiscoveryClient() }
     val scope = rememberCoroutineScope()
-    var snapshot by remember { mutableStateOf(controller.snapshot()) }
+    var controller by remember { mutableStateOf<Media3PlaybackController?>(null) }
+    var snapshot by remember { mutableStateOf(PlaybackSnapshot()) }
+    var playbackError by remember { mutableStateOf<String?>(null) }
     var serverUrl by remember { mutableStateOf("http://10.0.2.2:8686") }
     var pairingToken by remember { mutableStateOf("") }
     var catalog by remember { mutableStateOf<LibraryCatalog?>(null) }
     var libraryError by remember { mutableStateOf<String?>(null) }
 
-    DisposableEffect(controller) {
-        onDispose(controller::close)
+    DisposableEffect(playbackConnection) {
+        playbackConnection.connect(
+            executor = ContextCompat.getMainExecutor(context),
+            onConnected = {
+                controller = it
+                snapshot = it.snapshot()
+                playbackError = null
+            },
+            onFailure = {
+                playbackError = it.message
+            },
+        )
+        onDispose {
+            controller = null
+            playbackConnection.close()
+        }
     }
 
     LaunchedEffect(controller) {
+        val activeController = controller ?: return@LaunchedEffect
         while (true) {
-            snapshot = controller.snapshot()
+            snapshot = activeController.snapshot()
             delay(250)
         }
     }
@@ -88,21 +110,23 @@ private fun TvPlayerScreen() {
             Text("Danmaku TV", style = MaterialTheme.typography.headlineLarge)
             Text("Android TV PC-library streaming")
             AndroidView(
-                factory = { PlayerView(it).apply { player = controller.player } },
+                factory = { PlayerView(it) },
+                update = { it.player = controller?.player },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(300.dp),
             )
             Text("Player state: ${snapshot.status}")
+            playbackError?.let { Text("Playback connection error: $it") }
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Button(
-                    onClick = { controller.dispatch(PlaybackCommand.Play) },
+                    onClick = { controller?.dispatch(PlaybackCommand.Play) },
                     enabled = snapshot.source != null,
                 ) {
                     Text("Play")
                 }
                 Button(
-                    onClick = { controller.dispatch(PlaybackCommand.Pause) },
+                    onClick = { controller?.dispatch(PlaybackCommand.Pause) },
                     enabled = snapshot.source != null,
                 ) {
                     Text("Pause")
@@ -167,12 +191,12 @@ private fun TvPlayerScreen() {
             LibraryItems(
                 catalog = catalog,
                 onPlay = { item ->
-                    controller.load(
+                    controller?.load(
                         PlaybackSource.RemoteStream(
                             libraryClient.streamUrl(serverUrl, item, pairingToken),
                         ),
                     )
-                    controller.dispatch(PlaybackCommand.Play)
+                    controller?.dispatch(PlaybackCommand.Play)
                 },
             )
         }

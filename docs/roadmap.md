@@ -9,8 +9,9 @@ place. The Windows shell now indexes anime folders and streams indexed files
 over HTTP byte ranges to compiling Android mobile and Android TV Media3
 clients. The clients discover Windows servers over LAN UDP announcements and
 require the pairing code displayed by the Windows app. The desktop catalog is
-persisted in SQLDelight SQLite storage and incrementally refreshed. Native
-libmpv rendering validation still waits for an audited Windows DLL bundle.
+persisted in SQLDelight SQLite storage and incrementally refreshed. Android and
+TV playback now run in a shared MediaSession foreground service. Native libmpv
+rendering validation still waits for an audited Windows DLL bundle.
 
 ## Phase 0: Foundation
 

@@ -55,8 +55,8 @@ Committed checkpoints:
 - Windows distributable includes the `jdk.httpserver` and `java.sql` runtime
   modules required by the packaged LAN server and SQLite catalog.
 - Android mobile and dedicated Android TV Compose application modules.
-- Shared Android Media3 ExoPlayer playback adapter with an in-process
-  MediaSession.
+- Shared Android Media3 ExoPlayer adapter, foreground playback service, and
+  service-backed MediaController connection used by mobile and TV.
 - Android catalog client used by mobile and TV to browse the Windows index and
   stream selected episodes.
 - Workspace-local ignored Android SDK with API 36, Build Tools 36.0.0, and
@@ -78,11 +78,11 @@ cargo test --workspace
 
 ## Next Work
 
-1. Add background MediaSession service integration for Android and TV.
-2. Add Android TV D-pad and focus-navigation tests.
-3. Extend SQLDelight storage for playback progress, settings, and downloads.
-4. Select an audited Windows libmpv DLL bundle and run `mpv-probe`.
-5. Connect native Windows video rendering and local-file playback.
+1. Add Android TV D-pad and focus-navigation tests.
+2. Extend SQLDelight storage for playback progress, settings, and downloads.
+3. Select an audited Windows libmpv DLL bundle and run `mpv-probe`.
+4. Connect native Windows video rendering and local-file playback.
+5. Add playback-resumption metadata and persistence for Android and TV.
 
 ## Runtime Smoke Check
 

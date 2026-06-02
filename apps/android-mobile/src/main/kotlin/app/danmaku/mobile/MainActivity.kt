@@ -31,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
 import androidx.media3.ui.PlayerView
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryMediaItem
@@ -40,6 +41,7 @@ import app.danmaku.domain.PlaybackSource
 import app.danmaku.library.android.LanLibraryDiscoveryClient
 import app.danmaku.library.android.LanLibraryClient
 import app.danmaku.player.android.Media3PlaybackController
+import app.danmaku.player.android.Media3PlaybackServiceConnection
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -59,28 +61,49 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun MobilePlayerScreen() {
     val context = LocalContext.current
-    val controller = remember { Media3PlaybackController(context.applicationContext) }
+    val playbackConnection = remember {
+        Media3PlaybackServiceConnection(context.applicationContext)
+    }
     val libraryClient = remember { LanLibraryClient() }
     val discoveryClient = remember { LanLibraryDiscoveryClient() }
     val scope = rememberCoroutineScope()
-    var snapshot by remember { mutableStateOf(controller.snapshot()) }
+    var controller by remember { mutableStateOf<Media3PlaybackController?>(null) }
+    var snapshot by remember { mutableStateOf(PlaybackSnapshot()) }
+    var playbackError by remember { mutableStateOf<String?>(null) }
     var serverUrl by remember { mutableStateOf("http://10.0.2.2:8686") }
     var pairingToken by remember { mutableStateOf("") }
     var catalog by remember { mutableStateOf<LibraryCatalog?>(null) }
     var libraryError by remember { mutableStateOf<String?>(null) }
     val openDocument = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri ?: return@rememberLauncherForActivityResult
-        controller.load(PlaybackSource.LocalFile(uri.toString()))
-        snapshot = controller.snapshot()
+        controller?.let {
+            it.load(PlaybackSource.LocalFile(uri.toString()))
+            snapshot = it.snapshot()
+        }
     }
 
-    DisposableEffect(controller) {
-        onDispose(controller::close)
+    DisposableEffect(playbackConnection) {
+        playbackConnection.connect(
+            executor = ContextCompat.getMainExecutor(context),
+            onConnected = {
+                controller = it
+                snapshot = it.snapshot()
+                playbackError = null
+            },
+            onFailure = {
+                playbackError = it.message
+            },
+        )
+        onDispose {
+            controller = null
+            playbackConnection.close()
+        }
     }
 
     LaunchedEffect(controller) {
+        val activeController = controller ?: return@LaunchedEffect
         while (true) {
-            snapshot = controller.snapshot()
+            snapshot = activeController.snapshot()
             delay(250)
         }
     }
@@ -93,17 +116,19 @@ private fun MobilePlayerScreen() {
             Text("Danmaku", style = MaterialTheme.typography.headlineMedium)
             Text("Android library streaming")
             AndroidView(
-                factory = { PlayerView(it).apply { player = controller.player } },
+                factory = { PlayerView(it) },
+                update = { it.player = controller?.player },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(220.dp),
             )
             Text("Player state: ${snapshot.status}")
+            playbackError?.let { Text("Playback connection error: $it") }
             PlayerControls(
                 snapshot = snapshot,
                 onOpen = { openDocument.launch(arrayOf("video/*")) },
-                onPlay = { controller.dispatch(PlaybackCommand.Play) },
-                onPause = { controller.dispatch(PlaybackCommand.Pause) },
+                onPlay = { controller?.dispatch(PlaybackCommand.Play) },
+                onPause = { controller?.dispatch(PlaybackCommand.Pause) },
             )
             OutlinedTextField(
                 value = serverUrl,
@@ -160,12 +185,12 @@ private fun MobilePlayerScreen() {
             LibraryItems(
                 catalog = catalog,
                 onPlay = { item ->
-                    controller.load(
+                    controller?.load(
                         PlaybackSource.RemoteStream(
                             libraryClient.streamUrl(serverUrl, item, pairingToken),
                         ),
                     )
-                    controller.dispatch(PlaybackCommand.Play)
+                    controller?.dispatch(PlaybackCommand.Play)
                 },
             )
         }

@@ -17,7 +17,7 @@ Compose shell recursively indexes an anime folder and exposes a JSON catalog
 plus paired byte-range media streaming on port `8686`. Android mobile and
 Android TV clients compile into APKs, browse that PC catalog with the displayed
 pairing code, discover the server over the LAN, and hand selected streams to
-Media3 ExoPlayer.
+Media3 ExoPlayer hosted in a shared background playback service.
 
 The Windows shell remembers the selected anime folder, persists its normalized
 catalog in SQLite through SQLDelight, serves the cached index immediately on
