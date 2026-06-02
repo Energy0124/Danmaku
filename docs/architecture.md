@@ -57,6 +57,8 @@ apps/
 
 shared/
   domain/                Normalized models and contracts
+  library-server-core/   Planned reusable embedded LAN library server
+  library-client/        Planned shared LAN library client contract
   library-client-android Android LAN catalog client
   player-android-media3/ Shared Android and TV Media3 playback adapter
   database/              SQLDelight schema and repositories
@@ -70,6 +72,12 @@ native/
 
 Create modules when their first vertical slice needs them. Empty placeholder
 modules are avoided.
+
+`shared/library-server-core` and `shared/library-client` are planned extraction
+targets. They should be created when the Windows-to-Windows streaming slice
+needs them. The currently implemented LAN server still lives inside
+`apps/desktop-windows`, and Android-specific LAN client code still lives in
+`shared/library-client-android`.
 
 Currently implemented modules:
 
@@ -136,6 +144,30 @@ The Windows app also broadcasts a small UDP discovery announcement on port
 `8687`. Android clients derive the HTTP host from the packet source and the
 announced port. Pairing codes are deliberately excluded from discovery
 announcements and still require explicit entry on the client.
+
+### Server And Client Separation
+
+Separate the LAN server and client as reusable components before shipping them
+as separate Windows executables:
+
+```mermaid
+flowchart LR
+    Desktop["Windows desktop app"] --> Embedded["Embedded library-server-core"]
+    Headless["Optional later headless server"] --> Embedded
+    Embedded --> Catalog["Indexed library and progress storage"]
+    WinClient["Windows player client"] --> Client["Shared library-client contract"]
+    AndroidClient["Android and TV clients"] --> Client
+    Client --> Embedded
+```
+
+The Windows desktop app starts the embedded server by default. It also retains
+direct local-file playback for media on the same host. A Windows player may use
+the shared LAN client contract when browsing another server or when exercising
+the same-PC integration path.
+
+An optional headless server executable is a later packaging step. Add it only
+after the API, settings storage, lifecycle, diagnostics, and firewall behavior
+are stable. The split should not delay the Windows libmpv playback spike.
 
 ## Playback Boundary
 

@@ -49,6 +49,11 @@ path. Device execution remains part of TV hardware validation.
 - Add SQLDelight schema and repositories.
 - Persist and manage the local-media index.
 - Add trusted-device pairing and discovery for LAN streaming.
+- Extract a reusable LAN library-server core while keeping it embedded in the
+  Windows desktop app by default.
+- Add a shared LAN library-client contract for Windows, Android, and Android TV.
+- Add an optional headless server executable after the API, settings, lifecycle,
+  diagnostics, and firewall behavior stabilize.
 - Add queueing, pause, resume, retry, deletion, and disk quota behavior.
 - Use Media3 DownloadService on Android and TV.
 - Implement the Windows desktop download engine in Rust.
