@@ -63,6 +63,7 @@ cargo test --workspace
 .\gradlew.bat --no-daemon :shared:library-client:jvmTest
 .\gradlew.bat --no-daemon :shared:library-server-core:jvmTest
 .\gradlew.bat --no-daemon :apps:desktop-windows:desktopTest
+.\gradlew.bat --no-daemon :shared:player-android-media3:assembleDebugAndroidTest
 .\gradlew.bat --no-daemon :apps:android-mobile:assembleDebug :apps:android-tv:assembleDebug
 ```
 

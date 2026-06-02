@@ -84,7 +84,9 @@ These remain the highest priority because they validate the platform foundation.
 - [x] Test unauthorized media requests, invalid and unsatisfiable ranges, large
   files, and concurrent streams.
 - [x] Add an Android client integration test against a live local-server fixture.
-- [ ] Add an end-to-end Android Media3 streaming test with a real short fixture.
+- [x] Add a compile-checked Android Media3 instrumentation fixture with a real
+  short asset and loopback HTTP server.
+- [ ] Execute the Media3 streaming fixture on an emulator or physical device.
 - [ ] Test background-service progress uploads while the Android player UI is not
   active.
 - [ ] Add LAN-server integration tests for progress updates during pause, seek,

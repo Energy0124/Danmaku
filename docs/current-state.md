@@ -89,6 +89,9 @@ Committed checkpoints:
   multi-megabyte media, and concurrent streams.
 - Android HTTP adapter loopback coverage against a live local server for paired
   catalog browsing, generated stream consumption, and progress round trips.
+- Compile-checked Android Media3 instrumentation coverage with a deterministic
+  one-second MP4 asset and loopback HTTP server. Runtime execution still needs
+  an emulator package or connected Android device.
 
 ## Verification
 
@@ -101,12 +104,14 @@ cargo test --workspace
 .\gradlew.bat --no-daemon :shared:library-client:jvmTest
 .\gradlew.bat --no-daemon :shared:library-server-core:jvmTest
 .\gradlew.bat --no-daemon :apps:desktop-windows:desktopTest
+.\gradlew.bat --no-daemon :shared:player-android-media3:assembleDebugAndroidTest
 .\gradlew.bat --no-daemon :apps:android-mobile:assembleDebug :apps:android-tv:assembleDebug
 ```
 
 ## Next Work
 
-1. Run TV D-pad instrumentation tests on an emulator or physical TV device.
+1. Install an Android emulator package or connect a device, then run the Media3
+   streaming and TV D-pad instrumentation tests.
 2. Exercise cross-device resume behavior on Android and TV hardware.
 3. Extend SQLDelight storage for settings and downloads.
 4. Select an audited Windows libmpv DLL bundle and run `mpv-probe`.
