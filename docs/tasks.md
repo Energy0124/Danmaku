@@ -80,6 +80,8 @@ catalog and pass selected streams to Media3.
   dependencies.
 - [x] Define a shared LAN library-client contract for catalog browsing, stream URL
   generation, progress upload, and resume lookup.
+- [x] Add a JVM HTTP transport adapter and loopback client-to-server fixture for
+  the planned Windows remote-playback path.
 - [ ] Reuse the shared LAN client contract from Windows, Android, and Android TV
   while keeping platform transport adapters where required.
 - [x] Keep the Windows desktop app starting an embedded library server by default.

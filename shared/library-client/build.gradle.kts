@@ -28,5 +28,15 @@ kotlin {
         commonTest.dependencies {
             implementation(kotlin("test"))
         }
+
+        val jvmMain by getting
+        jvmMain.dependencies {
+            implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
+        }
+
+        val jvmTest by getting
+        jvmTest.dependencies {
+            implementation(project(":shared:library-server-core"))
+        }
     }
 }

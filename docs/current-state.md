@@ -69,8 +69,9 @@ Committed checkpoints:
 - Android catalog client used by mobile and TV to browse the Windows index and
   stream selected episodes.
 - Shared Kotlin `shared/library-client` contract for catalog browsing,
-  stream-URL generation, progress upload, and resume lookup. Android HTTP and
-  UDP discovery remain platform adapters.
+  stream-URL generation, progress upload, and resume lookup. Its JVM source set
+  includes the HTTP adapter for the planned Windows remote client. Android HTTP
+  and UDP discovery remain platform adapters.
 - Android TV launch focus on `Discover PC` plus compiled Compose instrumentation
   coverage for the initial focus and left-arrow path.
 - Workspace-local ignored Android SDK with API 36, Build Tools 36.0.0, and
@@ -80,6 +81,8 @@ Committed checkpoints:
 - Same-PC Windows host integration coverage for paired catalog requests,
   complete file reads, byte ranges, unauthorized media rejection,
   unsatisfiable ranges, and progress round trips.
+- JVM client-to-server loopback coverage for paired catalog browsing, generated
+  stream consumption, token encoding, missing progress, and progress round trips.
 
 ## Verification
 
