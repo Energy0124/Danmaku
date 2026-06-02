@@ -79,8 +79,17 @@ These remain the highest priority because they validate the platform foundation.
 - [ ] Run Android TV D-pad instrumentation tests on an online emulator or device.
 - [ ] Exercise PC-to-mobile and PC-to-TV streaming plus cross-device resume on
   physical hardware.
+- [ ] Add a same-PC Windows-to-Windows LAN streaming integration test for paired
+  catalog requests, full-file reads, byte ranges, and progress round trips.
+- [ ] Test unauthorized media requests, invalid and unsatisfiable ranges, large
+  files, and concurrent streams.
+- [ ] Add an Android client integration test against a live local-server fixture.
+- [ ] Add an end-to-end Android Media3 streaming test with a real short fixture.
+- [ ] Test background-service progress uploads while the Android player UI is not
+  active.
 - [ ] Add LAN-server integration tests for progress updates during pause, seek,
-  episode completion, and reconnect.
+  episode completion, reconnect, interruption, and slow-network conditions.
+- [ ] Add LAN subtitle streaming tests when subtitle endpoints are implemented.
 
 ### P1: Local Anime Library And Player
 

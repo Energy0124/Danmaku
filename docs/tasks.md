@@ -55,6 +55,24 @@ catalog and pass selected streams to Media3.
 - [x] Move LAN playback progress uploads into the background playback service.
 - [ ] Verify playback and overlays on a physical Android TV device.
 
+## Streaming Verification
+
+- [ ] Add a same-PC Windows-to-Windows LAN streaming integration test that starts
+  the local server and exercises paired catalog requests, full-file reads, byte
+  ranges, and progress round trips through the public HTTP contract.
+- [ ] Add LAN-server tests for unauthorized media requests, invalid and
+  unsatisfiable byte ranges, large files, and concurrent streams.
+- [ ] Add an Android client integration test against a live local-server fixture.
+- [ ] Add an end-to-end Android Media3 streaming test with a real short media
+  fixture.
+- [ ] Test background-service progress uploads while the Android player UI is not
+  active.
+- [ ] Test pause, seek, episode completion, reconnect, interrupted-network, and
+  slow-network behavior.
+- [ ] Add LAN subtitle streaming tests when subtitle endpoints are implemented.
+- [ ] Exercise PC-to-mobile and PC-to-TV streaming plus cross-device resume on
+  physical hardware.
+
 ## Downloads
 
 - [ ] Define authorized-download policy fields in source contracts.
