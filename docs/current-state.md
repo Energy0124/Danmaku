@@ -87,6 +87,8 @@ Committed checkpoints:
 - Reusable LAN server reliability coverage for unauthorized media requests,
   malformed and unsatisfiable byte ranges, valid open-ended and suffix ranges,
   multi-megabyte media, and concurrent streams.
+- Android HTTP adapter loopback coverage against a live local server for paired
+  catalog browsing, generated stream consumption, and progress round trips.
 
 ## Verification
 

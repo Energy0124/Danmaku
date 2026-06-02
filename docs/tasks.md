@@ -62,7 +62,7 @@ catalog and pass selected streams to Media3.
   ranges, and progress round trips through the public HTTP contract.
 - [x] Add LAN-server tests for unauthorized media requests, invalid and
   unsatisfiable byte ranges, large files, and concurrent streams.
-- [ ] Add an Android client integration test against a live local-server fixture.
+- [x] Add an Android client integration test against a live local-server fixture.
 - [ ] Add an end-to-end Android Media3 streaming test with a real short media
   fixture.
 - [ ] Test background-service progress uploads while the Android player UI is not
