@@ -28,8 +28,10 @@ discovery announcer now live in a reusable Compose-free JVM module while the
 Windows shell continues to start the server in embedded mode.
 
 The LAN catalog, stream-URL, progress, and resume operations are exposed
-through a shared Kotlin client contract. Android and Android TV currently use
-an Android HTTP adapter behind that contract.
+through a shared Kotlin client contract. Android and Android TV use an Android
+HTTP adapter behind that contract. The Windows shell uses the JVM adapter to
+browse its embedded same-PC server or another paired server and prepare stream
+URLs for the pending libmpv playback handoff.
 
 The Android TV shell starts remote focus on `Discover PC` and includes compiled
 Compose instrumentation coverage for its initial D-pad path.

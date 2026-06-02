@@ -78,8 +78,9 @@ Windows desktop host owns indexing and SQLite persistence, then publishes a
 narrow catalog and verified media-ID map to the embedded server.
 `shared/library-client` owns the portable catalog, stream-URL, progress, and
 resume contract plus the JVM HTTP adapter for Windows. Android-specific HTTP
-and discovery code lives in `shared/library-client-android`. Desktop player UI
-integration with the Windows client adapter remains planned.
+and discovery code lives in `shared/library-client-android`. The desktop shell
+uses the Windows adapter for paired-server browsing and stream selection; its
+native playback handoff remains planned.
 
 Currently implemented modules:
 
@@ -207,7 +208,8 @@ Portable LAN client behavior lives in `shared/library-client`. Platform
 adapters implement its catalog, stream-URL, progress upload, and resume lookup
 contract. Android and Android TV use the existing `HttpURLConnection` adapter;
 the JVM source set contains the corresponding Windows HTTP adapter and loopback
-integration fixture. Desktop remote-playback UI integration remains planned.
+integration fixture. The desktop shell browses paired catalogs and prepares LAN
+stream URLs through that adapter. Native playback handoff remains planned.
 
 The Windows adapter loads libmpv dynamically. Developer builds locate
 `libmpv-2.dll` from `DANMAKU_LIBMPV_PATH` or beside the packaged executable.

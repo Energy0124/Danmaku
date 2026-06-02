@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -11,9 +12,12 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Button
 import androidx.compose.material.MaterialTheme
+import androidx.compose.material.OutlinedTextField
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
@@ -35,10 +39,12 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import app.danmaku.domain.DanmakuEvent
 import app.danmaku.domain.DanmakuStyle
+import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.MeasuredDanmakuEvent
 import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.ScrollingDanmakuLaneScheduler
 import app.danmaku.domain.ScrollingDanmakuLayoutConfig
+import app.danmaku.library.jvm.JvmLanLibraryClient
 import app.danmaku.server.LocalLibraryDiscoveryAnnouncer
 import app.danmaku.server.LocalLibraryServer
 import app.danmaku.server.PublishedLibrary
@@ -126,7 +132,9 @@ private fun DesktopShell(snapshot: PlaybackSnapshot) {
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
             Column(
-                modifier = Modifier.padding(24.dp),
+                modifier = Modifier
+                    .padding(24.dp)
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Text(
@@ -173,10 +181,95 @@ private fun DesktopShell(snapshot: PlaybackSnapshot) {
                         Text("${item.seriesTitle} - ${item.episodeTitle}")
                     }
                 }
-                Text("Next: connect the libmpv render surface and playback clock.")
+                RemoteLibraryBrowser(
+                    defaultServerUrl = server.baseUrl(),
+                    defaultPairingToken = server.pairingToken,
+                )
+                Text("Next: connect prepared local or LAN streams to the libmpv playback clock.")
             }
         }
     }
+}
+
+@Composable
+private fun RemoteLibraryBrowser(
+    defaultServerUrl: String,
+    defaultPairingToken: String,
+) {
+    val libraryClient = remember { JvmLanLibraryClient() }
+    val scope = rememberCoroutineScope()
+    var serverUrl by remember(defaultServerUrl) { mutableStateOf(defaultServerUrl) }
+    var pairingToken by remember(defaultPairingToken) { mutableStateOf(defaultPairingToken) }
+    var catalog by remember { mutableStateOf<LibraryCatalog?>(null) }
+    var libraryError by remember { mutableStateOf<String?>(null) }
+    var selectedStreamUrl by remember { mutableStateOf<String?>(null) }
+    var isLoading by remember { mutableStateOf(false) }
+
+    fun refreshCatalog() {
+        val requestedServerUrl = serverUrl
+        val requestedPairingToken = pairingToken
+        scope.launch {
+            isLoading = true
+            selectedStreamUrl = null
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    libraryClient.fetchCatalog(requestedServerUrl, requestedPairingToken)
+                }
+            }.onSuccess {
+                catalog = it
+                libraryError = null
+            }.onFailure {
+                libraryError = it.message
+            }
+            isLoading = false
+        }
+    }
+
+    Text("Windows paired library client")
+    Text("Defaults to this app's embedded same-PC server. Enter another PC URL to browse remotely.")
+    OutlinedTextField(
+        value = serverUrl,
+        onValueChange = {
+            serverUrl = it
+            selectedStreamUrl = null
+        },
+        label = { Text("Library server URL") },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+    )
+    OutlinedTextField(
+        value = pairingToken,
+        onValueChange = {
+            pairingToken = it
+            selectedStreamUrl = null
+        },
+        label = { Text("Pairing code") },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+    )
+    Button(
+        onClick = ::refreshCatalog,
+        enabled = !isLoading,
+    ) {
+        Text(if (isLoading) "Loading..." else "Load paired server catalog")
+    }
+    libraryError?.let { Text("Paired library error: $it") }
+    Text("Paired episodes: ${catalog?.items?.size ?: 0}")
+    LazyColumn(modifier = Modifier.height(140.dp)) {
+        items(catalog?.items.orEmpty(), key = { it.id }) { item ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = {
+                        selectedStreamUrl = libraryClient.streamUrl(serverUrl, item, pairingToken)
+                    },
+                ) {
+                    Text("Prepare stream")
+                }
+                Text("${item.seriesTitle} - ${item.episodeTitle}")
+            }
+        }
+    }
+    selectedStreamUrl?.let { Text("Prepared LAN stream: $it") }
 }
 
 private fun IndexedLocalLibrary.toPublishedLibrary(): PublishedLibrary =

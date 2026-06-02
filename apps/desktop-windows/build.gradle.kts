@@ -13,6 +13,7 @@ kotlin {
 
         desktopMain.dependencies {
             implementation(project(":shared:domain"))
+            implementation(project(":shared:library-client"))
             implementation(project(":shared:library-server-core"))
             implementation(compose.desktop.currentOs)
             implementation("org.jetbrains.compose.material:material:1.11.0")

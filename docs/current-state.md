@@ -70,8 +70,9 @@ Committed checkpoints:
   stream selected episodes.
 - Shared Kotlin `shared/library-client` contract for catalog browsing,
   stream-URL generation, progress upload, and resume lookup. Its JVM source set
-  includes the HTTP adapter for the planned Windows remote client. Android HTTP
-  and UDP discovery remain platform adapters.
+  includes the HTTP adapter used by the Windows shell for same-PC or remote
+  paired-server browsing and stream selection. Android HTTP and UDP discovery
+  remain platform adapters.
 - Android TV launch focus on `Discover PC` plus compiled Compose instrumentation
   coverage for the initial focus and left-arrow path.
 - Workspace-local ignored Android SDK with API 36, Build Tools 36.0.0, and

@@ -21,7 +21,8 @@ the Windows desktop app by default.
 The portable LAN library-client contract and progress-sync policy have also
 been extracted for reuse by Android, Android TV, and Windows. A JVM HTTP
 adapter and live loopback fixture cover the planned Windows remote-playback
-path before desktop UI integration.
+path. The desktop shell now browses a paired catalog and prepares stream URLs
+through that adapter while native libmpv playback handoff remains pending.
 
 The dedicated TV shell requests an explicit `Discover PC` launch focus and has
 compiled Compose instrumentation coverage for its initial remote-navigation
