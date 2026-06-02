@@ -127,7 +127,7 @@ generates and displays a six-digit pairing code for the current server
 process. This first-stage HTTP server is for trusted local networks; use a
 stronger authenticated and encrypted transport before supporting untrusted
 networks. The Windows distributable explicitly includes the `jdk.httpserver`
-runtime module.
+and `java.sql` runtime modules.
 
 The Windows app also broadcasts a small UDP discovery announcement on port
 `8687`. Android clients derive the HTTP host from the packet source and the
@@ -187,6 +187,13 @@ entire scheduled track.
 Use SQLite through SQLDelight for the local library, playback progress,
 settings, source metadata, and download state. Store downloaded media outside
 the database and record verified paths and manifests.
+
+The Windows indexer currently persists normalized catalog rows and filesystem
+stamps in SQLite. On startup it can publish the cached catalog immediately,
+then walk the selected folder in the background. Files with the same relative
+path, byte size, and modified timestamp reuse their cached normalized row;
+added, changed, and deleted files are reflected by the replacement
+transaction.
 
 ## Rust Boundary
 

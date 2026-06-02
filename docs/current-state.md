@@ -48,10 +48,12 @@ Committed checkpoints:
   responses.
 - File-backed Windows library-folder selection, startup index restoration, and
   one-click rescanning.
+- SQLDelight 2.3.2 SQLite catalog persistence with immediate cached serving on
+  startup and unchanged-file reuse during background rescans.
 - Windows UDP announcements and Android discovery actions for finding the
   library server on the local network without typing its IP address.
-- Windows distributable includes the `jdk.httpserver` runtime module required
-  by the packaged LAN server.
+- Windows distributable includes the `jdk.httpserver` and `java.sql` runtime
+  modules required by the packaged LAN server and SQLite catalog.
 - Android mobile and dedicated Android TV Compose application modules.
 - Shared Android Media3 ExoPlayer playback adapter with an in-process
   MediaSession.
@@ -76,9 +78,9 @@ cargo test --workspace
 
 ## Next Work
 
-1. Add persistent SQLDelight library storage and incremental rescanning.
-2. Add background MediaSession service integration for Android and TV.
-3. Add Android TV D-pad and focus-navigation tests.
+1. Add background MediaSession service integration for Android and TV.
+2. Add Android TV D-pad and focus-navigation tests.
+3. Extend SQLDelight storage for playback progress, settings, and downloads.
 4. Select an audited Windows libmpv DLL bundle and run `mpv-probe`.
 5. Connect native Windows video rendering and local-file playback.
 
@@ -88,4 +90,6 @@ The packaged Windows executable was launched after adding pairing to the LAN
 server. Its Compose window opened successfully, displayed the generated
 pairing code, rejected an unpaired `GET http://127.0.0.1:8686/api/library`
 request with HTTP `401`, and returned the expected empty initial catalog when
-the displayed code was supplied.
+the displayed code was supplied. The packaged runtime was launched again after
+adding SQLDelight storage; its paired endpoint started successfully from the
+trimmed runtime image.

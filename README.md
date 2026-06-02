@@ -19,8 +19,9 @@ Android TV clients compile into APKs, browse that PC catalog with the displayed
 pairing code, discover the server over the LAN, and hand selected streams to
 Media3 ExoPlayer.
 
-The Windows shell remembers the selected anime folder, restores its index on
-the next launch, and provides a one-click rescan action.
+The Windows shell remembers the selected anime folder, persists its normalized
+catalog in SQLite through SQLDelight, serves the cached index immediately on
+the next launch, and provides a one-click incremental rescan action.
 
 Windows native playback rendering is not connected yet. The desktop shell also
 includes a synthetic animated overlay demo backed by the shared

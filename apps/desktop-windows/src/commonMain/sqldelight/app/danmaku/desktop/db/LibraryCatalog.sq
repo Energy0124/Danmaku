@@ -1,0 +1,63 @@
+CREATE TABLE library_metadata (
+  singleton_id INTEGER NOT NULL PRIMARY KEY CHECK (singleton_id = 1),
+  root_path TEXT NOT NULL,
+  root_name TEXT NOT NULL,
+  indexed_at_epoch_ms INTEGER NOT NULL
+);
+
+CREATE TABLE local_media_item (
+  relative_path TEXT NOT NULL PRIMARY KEY,
+  id TEXT NOT NULL,
+  series_title TEXT NOT NULL,
+  episode_title TEXT NOT NULL,
+  size_bytes INTEGER NOT NULL,
+  last_modified_epoch_ms INTEGER NOT NULL,
+  media_type TEXT NOT NULL,
+  stream_path TEXT NOT NULL
+);
+
+selectMetadata:
+SELECT root_path, root_name, indexed_at_epoch_ms
+FROM library_metadata
+WHERE singleton_id = 1;
+
+selectAllItems:
+SELECT
+  relative_path,
+  id,
+  series_title,
+  episode_title,
+  size_bytes,
+  last_modified_epoch_ms,
+  media_type,
+  stream_path
+FROM local_media_item
+ORDER BY series_title, relative_path;
+
+deleteMetadata:
+DELETE FROM library_metadata;
+
+deleteAllItems:
+DELETE FROM local_media_item;
+
+insertMetadata:
+INSERT INTO library_metadata(
+  singleton_id,
+  root_path,
+  root_name,
+  indexed_at_epoch_ms
+)
+VALUES (1, ?, ?, ?);
+
+insertItem:
+INSERT INTO local_media_item(
+  relative_path,
+  id,
+  series_title,
+  episode_title,
+  size_bytes,
+  last_modified_epoch_ms,
+  media_type,
+  stream_path
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);

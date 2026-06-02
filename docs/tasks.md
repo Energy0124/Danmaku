@@ -28,6 +28,7 @@ catalog and pass selected streams to Media3.
 - [x] Add recursive Windows anime-folder indexing.
 - [x] Add a paired trusted-LAN catalog server with HTTP byte-range streaming.
 - [x] Remember the selected Windows anime folder and add one-click rescanning.
+- [x] Persist the Windows catalog in SQLDelight and reuse unchanged rows.
 
 ## Next
 
@@ -62,7 +63,8 @@ catalog and pass selected streams to Media3.
 
 ## Later
 
-- [ ] Add SQLDelight library storage.
+- [x] Add initial SQLDelight library storage.
+- [ ] Extend SQLDelight storage for progress, settings, and downloads.
 - [ ] Add authorized source plugins.
 - [ ] Add macOS and Linux desktop packaging.
 - [ ] Add iOS and iPadOS.

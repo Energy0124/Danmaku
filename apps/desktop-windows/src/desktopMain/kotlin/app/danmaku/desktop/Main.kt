@@ -67,9 +67,12 @@ private fun DesktopShell(snapshot: PlaybackSnapshot) {
         }
     }
     val selectionStore = remember { LocalLibrarySelectionStore.default() }
+    val catalogStore = remember { DesktopLibraryCatalogStore.default() }
     val scope = rememberCoroutineScope()
-    var indexedLibrary by remember { mutableStateOf<IndexedLocalLibrary?>(null) }
     var selectedLibraryRoot by remember { mutableStateOf(selectionStore.load()) }
+    var indexedLibrary by remember {
+        mutableStateOf(selectedLibraryRoot?.let(catalogStore::load))
+    }
     var libraryError by remember { mutableStateOf<String?>(null) }
     var isIndexing by remember { mutableStateOf(false) }
     val networkUrls = remember(server) { server.networkUrls() }
@@ -80,7 +83,13 @@ private fun DesktopShell(snapshot: PlaybackSnapshot) {
             try {
                 runCatching {
                     withContext(Dispatchers.IO) {
-                        LocalMediaLibraryIndexer.index(root).also {
+                        LocalMediaLibraryIndexer.index(
+                            root = root,
+                            cachedItems = catalogStore.load(root)
+                                ?.fileMetadataByRelativePath
+                                .orEmpty(),
+                        ).also {
+                            catalogStore.replace(root, it)
                             selectionStore.save(root)
                         }
                     }
@@ -99,12 +108,14 @@ private fun DesktopShell(snapshot: PlaybackSnapshot) {
     }
 
     LaunchedEffect(Unit) {
+        indexedLibrary?.let(server::publish)
         selectedLibraryRoot?.let(::indexLibrary)
     }
 
     DisposableEffect(server, discoveryAnnouncer) {
         onDispose {
             discoveryAnnouncer.close()
+            catalogStore.close()
             server.close()
         }
     }
@@ -148,6 +159,12 @@ private fun DesktopShell(snapshot: PlaybackSnapshot) {
                 Text("Pairing code: ${server.pairingToken}")
                 libraryError?.let { Text("Library error: $it") }
                 Text("Indexed episodes: ${indexedLibrary?.catalog?.items?.size ?: 0}")
+                indexedLibrary?.scanStats?.let { stats ->
+                    Text(
+                        "Last scan: ${stats.reusedItemCount} unchanged, " +
+                            "${stats.refreshedItemCount} refreshed",
+                    )
+                }
                 LazyColumn(modifier = Modifier.height(140.dp)) {
                     items(indexedLibrary?.catalog?.items.orEmpty()) { item ->
                         Text("${item.seriesTitle} - ${item.episodeTitle}")
