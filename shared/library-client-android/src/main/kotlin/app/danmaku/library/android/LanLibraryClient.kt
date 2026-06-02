@@ -2,6 +2,8 @@ package app.danmaku.library.android
 
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryMediaItem
+import app.danmaku.domain.PlaybackProgress
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.net.HttpURLConnection
 import java.net.URI
@@ -35,6 +37,54 @@ class LanLibraryClient(
         pairingToken: String,
     ): String =
         "${baseUrl.trimEnd('/')}${item.streamPath}?token=${pairingToken.encoded()}"
+
+    fun fetchProgress(
+        baseUrl: String,
+        mediaId: String,
+        pairingToken: String,
+    ): PlaybackProgress? {
+        val connection = open(progressUrl(baseUrl, mediaId, pairingToken))
+        return try {
+            when (connection.responseCode) {
+                HttpURLConnection.HTTP_NOT_FOUND -> null
+                HttpURLConnection.HTTP_OK -> json.decodeFromString(
+                    connection.inputStream.bufferedReader().use { it.readText() },
+                )
+                else -> error("Library server returned HTTP ${connection.responseCode}")
+            }
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    fun saveProgress(
+        baseUrl: String,
+        pairingToken: String,
+        progress: PlaybackProgress,
+    ) {
+        val connection = open(progressUrl(baseUrl, progress.mediaId, pairingToken)).apply {
+            requestMethod = "PUT"
+            doOutput = true
+            setRequestProperty("Content-Type", "application/json; charset=utf-8")
+        }
+        try {
+            connection.outputStream.bufferedWriter().use {
+                it.write(json.encodeToString(progress))
+            }
+            check(connection.responseCode == HttpURLConnection.HTTP_NO_CONTENT) {
+                "Library server returned HTTP ${connection.responseCode}"
+            }
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    private fun progressUrl(
+        baseUrl: String,
+        mediaId: String,
+        pairingToken: String,
+    ): String =
+        "${baseUrl.trimEnd('/')}/api/progress/${mediaId.encoded()}?token=${pairingToken.encoded()}"
 
     private fun open(url: String): HttpURLConnection =
         (URI(url).toURL().openConnection() as HttpURLConnection).apply {

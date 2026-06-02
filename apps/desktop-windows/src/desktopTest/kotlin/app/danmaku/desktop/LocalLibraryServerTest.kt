@@ -1,7 +1,9 @@
 package app.danmaku.desktop
 
-import kotlinx.serialization.json.Json
 import app.danmaku.domain.LibraryCatalog
+import app.danmaku.domain.PlaybackProgress
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import java.net.HttpURLConnection
 import java.net.URI
 import kotlin.io.path.createDirectories
@@ -46,11 +48,70 @@ class LocalLibraryServerTest {
         root.toFile().deleteRecursively()
     }
 
+    @Test
+    fun persistsPairedPlaybackProgressForIndexedMedia() {
+        val root = createTempDirectory("danmaku-progress-server")
+        root.resolve("Example Show").createDirectories()
+            .resolve("Episode 01.mp4")
+            .writeBytes(byteArrayOf(0, 1, 2))
+        val indexed = LocalMediaLibraryIndexer.index(root)
+        val mediaId = indexed.catalog.items.single().id
+        val progress = PlaybackProgress(
+            mediaId = mediaId,
+            positionMs = 12_345,
+            durationMs = 98_765,
+            updatedAtEpochMs = 123,
+        )
+
+        LocalLibraryServer(port = 0, pairingToken = "123456").use { server ->
+            server.publish(indexed)
+            server.start()
+
+            assertEquals(
+                404,
+                connection("${server.baseUrl()}/api/progress/$mediaId?token=123456")
+                    .responseCode,
+            )
+            assertEquals(
+                204,
+                connection(
+                    url = "${server.baseUrl()}/api/progress/$mediaId?token=123456",
+                    method = "PUT",
+                    body = Json.encodeToString(progress),
+                ).responseCode,
+            )
+
+            val progressConnection =
+                connection("${server.baseUrl()}/api/progress/$mediaId?token=123456")
+            assertEquals(200, progressConnection.responseCode)
+            assertEquals(
+                progress,
+                Json.decodeFromString<PlaybackProgress>(
+                    progressConnection.inputStream.bufferedReader().use { it.readText() },
+                ),
+            )
+            assertEquals(
+                404,
+                connection("${server.baseUrl()}/api/progress/missing?token=123456")
+                    .responseCode,
+            )
+        }
+
+        root.toFile().deleteRecursively()
+    }
+
     private fun connection(
         url: String,
         range: String? = null,
+        method: String = "GET",
+        body: String? = null,
     ): HttpURLConnection =
         (URI(url).toURL().openConnection() as HttpURLConnection).apply {
+            requestMethod = method
             range?.let { setRequestProperty("Range", it) }
+            body?.let {
+                doOutput = true
+                outputStream.bufferedWriter().use { writer -> writer.write(it) }
+            }
         }
 }

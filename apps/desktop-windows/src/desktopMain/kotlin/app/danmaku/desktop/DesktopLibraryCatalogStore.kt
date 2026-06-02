@@ -4,12 +4,13 @@ import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import app.danmaku.desktop.db.DesktopLibraryDatabase
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryMediaItem
+import app.danmaku.domain.PlaybackProgress
 import java.nio.file.Files
 import java.nio.file.Path
 
 class DesktopLibraryCatalogStore(
     databasePath: Path,
-) : AutoCloseable {
+) : AutoCloseable, PlaybackProgressStore {
     private val driver: JdbcSqliteDriver
     private val database: DesktopLibraryDatabase
 
@@ -19,9 +20,15 @@ class DesktopLibraryCatalogStore(
             url = "jdbc:sqlite:${databasePath.toAbsolutePath().normalize()}",
             schema = DesktopLibraryDatabase.Schema,
         )
+        driver.execute(
+            identifier = null,
+            sql = CREATE_PLAYBACK_PROGRESS_TABLE_SQL,
+            parameters = 0,
+        )
         database = DesktopLibraryDatabase(driver)
     }
 
+    @Synchronized
     fun load(root: Path): IndexedLocalLibrary? {
         val normalizedRoot = root.toAbsolutePath().normalize()
         val metadata = database.libraryCatalogQueries
@@ -54,6 +61,7 @@ class DesktopLibraryCatalogStore(
         )
     }
 
+    @Synchronized
     fun replace(root: Path, library: IndexedLocalLibrary) {
         val normalizedRoot = root.toAbsolutePath().normalize()
         database.transaction {
@@ -80,11 +88,36 @@ class DesktopLibraryCatalogStore(
         }
     }
 
+    @Synchronized
+    override fun loadProgress(mediaId: String): PlaybackProgress? =
+        database.libraryCatalogQueries
+            .selectPlaybackProgress(mediaId, ::PlaybackProgress)
+            .executeAsOneOrNull()
+
+    @Synchronized
+    override fun saveProgress(progress: PlaybackProgress) {
+        database.libraryCatalogQueries.upsertPlaybackProgress(
+            progress.mediaId,
+            progress.positionMs,
+            progress.durationMs,
+            progress.updatedAtEpochMs,
+        )
+    }
+
     override fun close() {
         driver.close()
     }
 
     companion object {
+        private val CREATE_PLAYBACK_PROGRESS_TABLE_SQL = """
+            CREATE TABLE IF NOT EXISTS playback_progress (
+              media_id TEXT NOT NULL PRIMARY KEY,
+              position_ms INTEGER NOT NULL,
+              duration_ms INTEGER,
+              updated_at_epoch_ms INTEGER NOT NULL
+            )
+        """.trimIndent()
+
         fun default(): DesktopLibraryCatalogStore {
             val appDataRoot = System.getenv("LOCALAPPDATA")
                 ?.takeIf(String::isNotBlank)

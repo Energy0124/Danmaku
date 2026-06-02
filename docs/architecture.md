@@ -121,15 +121,16 @@ flowchart LR
     Server --> TV["Android TV Media3"]
 ```
 
-The server exposes paired `GET /api/library?token={code}` and
-`GET /media/{id}?token={code}` requests. Media responses support single HTTP
+The server exposes paired `GET /api/library?token={code}`,
+`GET /media/{id}?token={code}`, and `GET`/`PUT
+/api/progress/{id}?token={code}` requests. Media responses support single HTTP
 byte ranges so Media3 can seek efficiently. Only indexed IDs resolve to
-filesystem paths; clients never submit arbitrary Windows paths. The shell
-generates and displays a six-digit pairing code for the current server
-process. This first-stage HTTP server is for trusted local networks; use a
-stronger authenticated and encrypted transport before supporting untrusted
-networks. The Windows distributable explicitly includes the `jdk.httpserver`
-and `java.sql` runtime modules.
+filesystem paths or progress records; clients never submit arbitrary Windows
+paths. The shell generates and displays a six-digit pairing code for the
+current server process. This first-stage HTTP server is for trusted local
+networks; use a stronger authenticated and encrypted transport before
+supporting untrusted networks. The Windows distributable explicitly includes
+the `jdk.httpserver` and `java.sql` runtime modules.
 
 The Windows app also broadcasts a small UDP discovery announcement on port
 `8687`. Android clients derive the HTTP host from the packet source and the
@@ -198,7 +199,8 @@ stamps in SQLite. On startup it can publish the cached catalog immediately,
 then walk the selected folder in the background. Files with the same relative
 path, byte size, and modified timestamp reuse their cached normalized row;
 added, changed, and deleted files are reflected by the replacement
-transaction.
+transaction. Playback progress lives in a separate durable table so catalog
+rescans do not discard resume positions.
 
 ## Rust Boundary
 

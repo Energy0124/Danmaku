@@ -64,7 +64,8 @@ catalog and pass selected streams to Media3.
 ## Later
 
 - [x] Add initial SQLDelight library storage.
-- [ ] Extend SQLDelight storage for progress, settings, and downloads.
+- [x] Extend SQLDelight storage for playback progress.
+- [ ] Extend SQLDelight storage for settings and downloads.
 - [ ] Add authorized source plugins.
 - [ ] Add macOS and Linux desktop packaging.
 - [ ] Add iOS and iPadOS.

@@ -50,6 +50,8 @@ Committed checkpoints:
   one-click rescanning.
 - SQLDelight 2.3.2 SQLite catalog persistence with immediate cached serving on
   startup and unchanged-file reuse during background rescans.
+- Durable per-episode playback progress in the desktop SQLite database with a
+  paired LAN `GET`/`PUT /api/progress/{id}` contract and Android client methods.
 - Windows UDP announcements and Android discovery actions for finding the
   library server on the local network without typing its IP address.
 - Windows distributable includes the `jdk.httpserver` and `java.sql` runtime
@@ -81,10 +83,10 @@ cargo test --workspace
 ## Next Work
 
 1. Run TV D-pad instrumentation tests on an emulator or physical TV device.
-2. Extend SQLDelight storage for playback progress, settings, and downloads.
-3. Select an audited Windows libmpv DLL bundle and run `mpv-probe`.
-4. Connect native Windows video rendering and local-file playback.
-5. Add playback-resumption metadata and persistence for Android and TV.
+2. Wire automatic Android and TV progress upload plus resume seeking.
+3. Extend SQLDelight storage for settings and downloads.
+4. Select an audited Windows libmpv DLL bundle and run `mpv-probe`.
+5. Connect native Windows video rendering and local-file playback.
 
 ## Runtime Smoke Check
 

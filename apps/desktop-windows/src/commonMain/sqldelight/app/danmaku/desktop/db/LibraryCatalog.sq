@@ -16,6 +16,13 @@ CREATE TABLE local_media_item (
   stream_path TEXT NOT NULL
 );
 
+CREATE TABLE playback_progress (
+  media_id TEXT NOT NULL PRIMARY KEY,
+  position_ms INTEGER NOT NULL,
+  duration_ms INTEGER,
+  updated_at_epoch_ms INTEGER NOT NULL
+);
+
 selectMetadata:
 SELECT root_path, root_name, indexed_at_epoch_ms
 FROM library_metadata
@@ -61,3 +68,17 @@ INSERT INTO local_media_item(
   stream_path
 )
 VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+selectPlaybackProgress:
+SELECT media_id, position_ms, duration_ms, updated_at_epoch_ms
+FROM playback_progress
+WHERE media_id = ?;
+
+upsertPlaybackProgress:
+INSERT OR REPLACE INTO playback_progress(
+  media_id,
+  position_ms,
+  duration_ms,
+  updated_at_epoch_ms
+)
+VALUES (?, ?, ?, ?);

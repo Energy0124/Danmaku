@@ -1,5 +1,6 @@
 package app.danmaku.desktop
 
+import app.danmaku.domain.PlaybackProgress
 import kotlin.io.path.createDirectories
 import kotlin.io.path.createTempDirectory
 import kotlin.io.path.deleteExisting
@@ -7,6 +8,7 @@ import kotlin.io.path.writeBytes
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import java.sql.DriverManager
 
 class DesktopLibraryCatalogStoreTest {
     @Test
@@ -42,6 +44,53 @@ class DesktopLibraryCatalogStoreTest {
         DesktopLibraryCatalogStore(temp.resolve("catalog.db")).use { store ->
             store.replace(root, LocalMediaLibraryIndexer.index(root))
             assertNull(store.load(otherRoot))
+        }
+
+        temp.toFile().deleteRecursively()
+    }
+
+    @Test
+    fun persistsPlaybackProgress() {
+        val temp = createTempDirectory("danmaku-library-progress")
+        val progress = PlaybackProgress(
+            mediaId = "episode-id",
+            positionMs = 12_345,
+            durationMs = 98_765,
+            updatedAtEpochMs = 123,
+        )
+
+        DesktopLibraryCatalogStore(temp.resolve("catalog.db")).use { store ->
+            store.saveProgress(progress)
+            assertEquals(progress, store.loadProgress(progress.mediaId))
+            assertNull(store.loadProgress("missing-id"))
+        }
+
+        DesktopLibraryCatalogStore(temp.resolve("catalog.db")).use { store ->
+            assertEquals(progress, store.loadProgress(progress.mediaId))
+        }
+
+        temp.toFile().deleteRecursively()
+    }
+
+    @Test
+    fun addsProgressStorageToAnExistingCatalogDatabase() {
+        val temp = createTempDirectory("danmaku-existing-library-database")
+        val databasePath = temp.resolve("catalog.db")
+        DriverManager.getConnection("jdbc:sqlite:${databasePath.toAbsolutePath()}").use {
+            it.createStatement().use { statement ->
+                statement.execute("PRAGMA user_version = 1")
+            }
+        }
+        val progress = PlaybackProgress(
+            mediaId = "episode-id",
+            positionMs = 12_345,
+            durationMs = null,
+            updatedAtEpochMs = 123,
+        )
+
+        DesktopLibraryCatalogStore(databasePath).use { store ->
+            store.saveProgress(progress)
+            assertEquals(progress, store.loadProgress(progress.mediaId))
         }
 
         temp.toFile().deleteRecursively()

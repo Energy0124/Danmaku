@@ -1,6 +1,7 @@
 package app.danmaku.desktop
 
 import app.danmaku.domain.LibraryCatalog
+import app.danmaku.domain.PlaybackProgress
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
 import kotlinx.serialization.encodeToString
@@ -19,6 +20,7 @@ import java.util.concurrent.Executors
 class LocalLibraryServer(
     port: Int = DEFAULT_PORT,
     val pairingToken: String = generatePairingToken(),
+    private val progressStore: PlaybackProgressStore = InMemoryPlaybackProgressStore(),
 ) : AutoCloseable {
     private val server = HttpServer.create(InetSocketAddress(port), 0)
     private val executor = Executors.newCachedThreadPool()
@@ -39,6 +41,7 @@ class LocalLibraryServer(
     init {
         server.executor = executor
         server.createContext("/api/library", ::handleCatalog)
+        server.createContext("/api/progress/", ::handleProgress)
         server.createContext("/media/", ::handleMedia)
     }
 
@@ -143,6 +146,49 @@ class LocalLibraryServer(
         }
     }
 
+    private fun handleProgress(exchange: HttpExchange) {
+        if (exchange.requestMethod !in setOf("GET", "PUT")) {
+            exchange.sendStatus(405)
+            return
+        }
+        if (!exchange.isAuthorized()) {
+            exchange.sendStatus(401)
+            return
+        }
+
+        val mediaId = exchange.requestURI.path
+            .removePrefix("/api/progress/")
+            .takeIf(String::isNotBlank)
+            ?.let { URLDecoder.decode(it, Charsets.UTF_8) }
+            ?.takeIf { id -> library.catalog.items.any { it.id == id } }
+        if (mediaId == null) {
+            exchange.sendStatus(404)
+            return
+        }
+
+        if (exchange.requestMethod == "GET") {
+            val progress = progressStore.loadProgress(mediaId)
+            if (progress == null) {
+                exchange.sendStatus(404)
+                return
+            }
+            exchange.sendJson(Json.encodeToString(progress))
+            return
+        }
+
+        val progress = runCatching {
+            Json.decodeFromString<PlaybackProgress>(
+                exchange.requestBody.bufferedReader().use { it.readText() },
+            )
+        }.getOrNull()
+        if (progress == null || progress.mediaId != mediaId) {
+            exchange.sendStatus(400)
+            return
+        }
+        progressStore.saveProgress(progress)
+        exchange.sendStatus(204)
+    }
+
     private fun parseRange(header: String, fileSize: Long): LongRange? {
         if (!header.startsWith("bytes=") || fileSize == 0L) return null
         val value = header.removePrefix("bytes=")
@@ -193,6 +239,14 @@ class LocalLibraryServer(
     private fun HttpExchange.sendStatus(status: Int) {
         sendResponseHeaders(status, -1)
         close()
+    }
+
+    private fun HttpExchange.sendJson(json: String) {
+        val body = json.toByteArray()
+        responseHeaders["Content-Type"] = listOf("application/json; charset=utf-8")
+        responseHeaders["Cache-Control"] = listOf("no-store")
+        sendResponseHeaders(200, body.size.toLong())
+        responseBody.use { it.write(body) }
     }
 
     companion object {

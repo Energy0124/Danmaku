@@ -12,6 +12,8 @@ require the pairing code displayed by the Windows app. The desktop catalog is
 persisted in SQLDelight SQLite storage and incrementally refreshed. Android and
 TV playback now run in a shared MediaSession foreground service. Native libmpv
 rendering validation still waits for an audited Windows DLL bundle.
+The desktop database and paired LAN server also persist per-episode playback
+progress, establishing the transport for cross-device resume behavior.
 
 The dedicated TV shell requests an explicit `Discover PC` launch focus and has
 compiled Compose instrumentation coverage for its initial remote-navigation

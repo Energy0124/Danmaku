@@ -56,8 +56,10 @@ fun main() = application {
 
 @Composable
 private fun DesktopShell(snapshot: PlaybackSnapshot) {
-    val server = remember {
-        LocalLibraryServer().apply {
+    val selectionStore = remember { LocalLibrarySelectionStore.default() }
+    val catalogStore = remember { DesktopLibraryCatalogStore.default() }
+    val server = remember(catalogStore) {
+        LocalLibraryServer(progressStore = catalogStore).apply {
             start()
         }
     }
@@ -66,8 +68,6 @@ private fun DesktopShell(snapshot: PlaybackSnapshot) {
             start()
         }
     }
-    val selectionStore = remember { LocalLibrarySelectionStore.default() }
-    val catalogStore = remember { DesktopLibraryCatalogStore.default() }
     val scope = rememberCoroutineScope()
     var selectedLibraryRoot by remember { mutableStateOf(selectionStore.load()) }
     var indexedLibrary by remember {
@@ -115,8 +115,8 @@ private fun DesktopShell(snapshot: PlaybackSnapshot) {
     DisposableEffect(server, discoveryAnnouncer) {
         onDispose {
             discoveryAnnouncer.close()
-            catalogStore.close()
             server.close()
+            catalogStore.close()
         }
     }
 

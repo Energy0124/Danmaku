@@ -1,5 +1,7 @@
 package app.danmaku.domain
 
+import kotlinx.serialization.Serializable
+
 data class PlaybackPosition(
     val positionMs: Long,
     val durationMs: Long?,
@@ -9,6 +11,23 @@ data class PlaybackPosition(
         require(durationMs == null || durationMs >= 0) {
             "durationMs must not be negative"
         }
+    }
+}
+
+@Serializable
+data class PlaybackProgress(
+    val mediaId: String,
+    val positionMs: Long,
+    val durationMs: Long?,
+    val updatedAtEpochMs: Long,
+) {
+    init {
+        require(mediaId.isNotBlank()) { "mediaId must not be blank" }
+        require(positionMs >= 0) { "positionMs must not be negative" }
+        require(durationMs == null || durationMs >= 0) {
+            "durationMs must not be negative"
+        }
+        require(updatedAtEpochMs >= 0) { "updatedAtEpochMs must not be negative" }
     }
 }
 
@@ -27,4 +46,3 @@ sealed interface PlaybackCommand {
         }
     }
 }
-

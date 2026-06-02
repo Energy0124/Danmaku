@@ -21,7 +21,9 @@ Media3 ExoPlayer hosted in a shared background playback service.
 
 The Windows shell remembers the selected anime folder, persists its normalized
 catalog in SQLite through SQLDelight, serves the cached index immediately on
-the next launch, and provides a one-click incremental rescan action.
+the next launch, and provides a one-click incremental rescan action. The same
+paired LAN server now persists per-episode watch progress in SQLite for
+cross-device resume behavior.
 
 The Android TV shell starts remote focus on `Discover PC` and includes compiled
 Compose instrumentation coverage for its initial D-pad path.
