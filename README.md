@@ -42,6 +42,7 @@ collision-aware danmaku lane scheduler.
 - [Architecture](docs/architecture.md)
 - [Roadmap](docs/roadmap.md)
 - [Task backlog](docs/tasks.md)
+- [NipaPlay reference feature review](docs/reference-nipaplay-feature-review.md)
 - [Architecture decision: Kotlin, Compose, and focused Rust](docs/adr/0001-kotlin-compose-and-focused-rust.md)
 - [Architecture decision: Windows libmpv distribution](docs/adr/0002-windows-libmpv-distribution.md)
 
