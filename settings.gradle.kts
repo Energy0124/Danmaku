@@ -16,6 +16,7 @@ dependencyResolutionManagement {
 rootProject.name = "danmaku"
 
 include(":shared:domain")
+include(":shared:library-client")
 include(":shared:library-server-core")
 include(":shared:library-client-android")
 include(":shared:player-android-media3")

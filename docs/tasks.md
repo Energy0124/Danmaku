@@ -78,7 +78,7 @@ catalog and pass selected streams to Media3.
 - [x] Extract the paired LAN server, index publication, progress API, and discovery
   lifecycle into a reusable `shared:library-server-core` module without Compose
   dependencies.
-- [ ] Define a shared LAN library-client contract for catalog browsing, stream URL
+- [x] Define a shared LAN library-client contract for catalog browsing, stream URL
   generation, progress upload, and resume lookup.
 - [ ] Reuse the shared LAN client contract from Windows, Android, and Android TV
   while keeping platform transport adapters where required.

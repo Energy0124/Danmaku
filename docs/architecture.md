@@ -58,7 +58,7 @@ apps/
 shared/
   domain/                Normalized models and contracts
   library-server-core/   Reusable embedded LAN library server
-  library-client/        Planned shared LAN library client contract
+  library-client/        Shared LAN library client contract and sync policy
   library-client-android Android LAN catalog client
   player-android-media3/ Shared Android and TV Media3 playback adapter
   database/              SQLDelight schema and repositories
@@ -75,9 +75,10 @@ modules are avoided.
 
 `shared/library-server-core` is implemented as a Compose-free JVM module. The
 Windows desktop host owns indexing and SQLite persistence, then publishes a
-narrow catalog and verified media-ID map to the embedded server. The
-`shared/library-client` extraction remains planned. Android-specific LAN client
-code still lives in `shared/library-client-android`.
+narrow catalog and verified media-ID map to the embedded server.
+`shared/library-client` owns the portable catalog, stream-URL, progress, and
+resume contract. Android-specific HTTP and discovery code lives in
+`shared/library-client-android`. The Windows client adapter remains planned.
 
 Currently implemented modules:
 
@@ -85,6 +86,7 @@ Currently implemented modules:
 - `apps/android-mobile`
 - `apps/android-tv`
 - `shared/domain`
+- `shared/library-client`
 - `shared/library-server-core`
 - `shared/library-client-android`
 - `shared/player-android-media3`
@@ -199,6 +201,12 @@ remaining. The `MediaSessionService` uploads a snapshot every five seconds, so
 updates continue when the player screen leaves the foreground. The service
 recognizes paired LAN streams from their indexed `/media/{id}?token={code}` URL
 and ignores other playback sources.
+
+Portable LAN client behavior lives in `shared/library-client`. Platform
+adapters implement its catalog, stream-URL, progress upload, and resume lookup
+contract. Android and Android TV use the existing `HttpURLConnection` adapter;
+the Windows adapter should use the same contract when remote desktop playback
+is added.
 
 The Windows adapter loads libmpv dynamically. Developer builds locate
 `libmpv-2.dll` from `DANMAKU_LIBMPV_PATH` or beside the packaged executable.

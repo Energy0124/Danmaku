@@ -18,6 +18,9 @@ uploads from the background playback service and resume seeking.
 The paired HTTP server, progress-store contract, and UDP discovery announcer
 have been extracted into a Compose-free JVM module while remaining embedded in
 the Windows desktop app by default.
+The portable LAN library-client contract and progress-sync policy have also
+been extracted for reuse by Android, Android TV, and the planned Windows
+remote-playback adapter.
 
 The dedicated TV shell requests an explicit `Discover PC` launch focus and has
 compiled Compose instrumentation coverage for its initial remote-navigation

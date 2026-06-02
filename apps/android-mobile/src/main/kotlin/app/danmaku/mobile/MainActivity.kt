@@ -40,8 +40,8 @@ import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.PlaybackSource
 import app.danmaku.library.android.LanLibraryDiscoveryClient
 import app.danmaku.library.android.LanLibraryClient
-import app.danmaku.library.android.LanPlaybackProgressSync
-import app.danmaku.library.android.LanPlaybackTarget
+import app.danmaku.library.LanPlaybackProgressSync
+import app.danmaku.library.LanPlaybackTarget
 import app.danmaku.player.android.Media3PlaybackController
 import app.danmaku.player.android.Media3PlaybackServiceConnection
 import kotlinx.coroutines.Dispatchers
@@ -67,7 +67,9 @@ private fun MobilePlayerScreen() {
         Media3PlaybackServiceConnection(context.applicationContext)
     }
     val libraryClient = remember { LanLibraryClient() }
-    val progressSync = remember(libraryClient) { LanPlaybackProgressSync(libraryClient) }
+    val progressSync = remember(libraryClient) {
+        LanPlaybackProgressSync(libraryClient, System::currentTimeMillis)
+    }
     val discoveryClient = remember { LanLibraryDiscoveryClient() }
     val scope = rememberCoroutineScope()
     var controller by remember { mutableStateOf<Media3PlaybackController?>(null) }

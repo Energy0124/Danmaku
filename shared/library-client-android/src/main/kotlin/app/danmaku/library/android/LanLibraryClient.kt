@@ -3,9 +3,8 @@ package app.danmaku.library.android
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.PlaybackProgress
-import app.danmaku.domain.PlaybackSnapshot
-import app.danmaku.domain.resumePositionMs
-import app.danmaku.domain.toPlaybackProgress
+import app.danmaku.library.LanLibraryClient as SharedLanLibraryClient
+import app.danmaku.library.LanPlaybackTarget
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.net.HttpURLConnection
@@ -16,8 +15,8 @@ class LanLibraryClient(
     private val json: Json = Json {
         ignoreUnknownKeys = true
     },
-) {
-    fun fetchCatalog(
+) : SharedLanLibraryClient {
+    override fun fetchCatalog(
         baseUrl: String,
         pairingToken: String,
     ): LibraryCatalog {
@@ -34,14 +33,14 @@ class LanLibraryClient(
         }
     }
 
-    fun streamUrl(
+    override fun streamUrl(
         baseUrl: String,
         item: LibraryMediaItem,
         pairingToken: String,
     ): String =
         "${baseUrl.trimEnd('/')}${item.streamPath}?token=${pairingToken.encoded()}"
 
-    fun fetchProgress(
+    override fun fetchProgress(
         baseUrl: String,
         mediaId: String,
         pairingToken: String,
@@ -60,7 +59,7 @@ class LanLibraryClient(
         }
     }
 
-    fun saveProgress(
+    override fun saveProgress(
         baseUrl: String,
         pairingToken: String,
         progress: PlaybackProgress,
@@ -96,69 +95,35 @@ class LanLibraryClient(
     }
 }
 
-data class LanPlaybackTarget(
-    val baseUrl: String,
-    val pairingToken: String,
-    val mediaId: String,
-) {
-    init {
-        require(baseUrl.isNotBlank()) { "baseUrl must not be blank" }
-        require(mediaId.isNotBlank()) { "mediaId must not be blank" }
-    }
-
-    companion object {
-        fun fromStreamUrl(url: String): LanPlaybackTarget? =
-            runCatching {
-                val uri = URI(url)
-                val mediaId = uri.rawPath
-                    ?.takeIf { it.startsWith(MEDIA_PATH_PREFIX) }
-                    ?.removePrefix(MEDIA_PATH_PREFIX)
-                    ?.takeIf { it.isNotBlank() && '/' !in it }
-                    ?.decoded()
-                    ?: return null
-                val pairingToken = uri.rawQuery
-                    ?.split('&')
-                    ?.mapNotNull { parameter ->
-                        parameter.split('=', limit = 2)
-                            .takeIf { it.size == 2 }
-                            ?.let { (key, value) -> key.decoded() to value.decoded() }
-                    }
-                    ?.firstOrNull { (key) -> key == "token" }
-                    ?.second
-                    ?: return null
-                val baseUrl = "${uri.scheme}://${uri.rawAuthority}"
-                    .takeIf { uri.scheme in setOf("http", "https") && uri.rawAuthority != null }
-                    ?: return null
-                LanPlaybackTarget(baseUrl, pairingToken, mediaId)
-            }.getOrNull()
-
-        private const val MEDIA_PATH_PREFIX = "/media/"
-    }
-}
-
-class LanPlaybackProgressSync(
-    private val libraryClient: LanLibraryClient,
-    private val currentTimeMillis: () -> Long = System::currentTimeMillis,
-) {
-    fun fetchResumePositionMs(target: LanPlaybackTarget): Long? =
-        libraryClient
-            .fetchProgress(target.baseUrl, target.mediaId, target.pairingToken)
-            ?.resumePositionMs()
-
-    fun saveProgress(
-        target: LanPlaybackTarget,
-        snapshot: PlaybackSnapshot,
-    ) {
-        snapshot
-            .toPlaybackProgress(target.mediaId, currentTimeMillis())
-            ?.let {
-                libraryClient.saveProgress(target.baseUrl, target.pairingToken, it)
+fun lanPlaybackTargetFromStreamUrl(url: String): LanPlaybackTarget? =
+    runCatching {
+        val uri = URI(url)
+        val mediaId = uri.rawPath
+            ?.takeIf { it.startsWith(MEDIA_PATH_PREFIX) }
+            ?.removePrefix(MEDIA_PATH_PREFIX)
+            ?.takeIf { it.isNotBlank() && '/' !in it }
+            ?.decoded()
+            ?: return null
+        val pairingToken = uri.rawQuery
+            ?.split('&')
+            ?.mapNotNull { parameter ->
+                parameter.split('=', limit = 2)
+                    .takeIf { it.size == 2 }
+                    ?.let { (key, value) -> key.decoded() to value.decoded() }
             }
-    }
-}
+            ?.firstOrNull { (key) -> key == "token" }
+            ?.second
+            ?: return null
+        val baseUrl = "${uri.scheme}://${uri.rawAuthority}"
+            .takeIf { uri.scheme in setOf("http", "https") && uri.rawAuthority != null }
+            ?: return null
+        LanPlaybackTarget(baseUrl, pairingToken, mediaId)
+    }.getOrNull()
 
 private fun String.encoded(): String =
     URLEncoder.encode(this, Charsets.UTF_8.name())
 
 private fun String.decoded(): String =
     java.net.URLDecoder.decode(this, Charsets.UTF_8.name())
+
+private const val MEDIA_PATH_PREFIX = "/media/"

@@ -27,6 +27,10 @@ cross-device resume behavior. Its HTTP server, progress contract, and UDP
 discovery announcer now live in a reusable Compose-free JVM module while the
 Windows shell continues to start the server in embedded mode.
 
+The LAN catalog, stream-URL, progress, and resume operations are exposed
+through a shared Kotlin client contract. Android and Android TV currently use
+an Android HTTP adapter behind that contract.
+
 The Android TV shell starts remote focus on `Discover PC` and includes compiled
 Compose instrumentation coverage for its initial D-pad path.
 
@@ -54,6 +58,7 @@ collision-aware danmaku lane scheduler.
 ```powershell
 cargo test --workspace
 .\gradlew.bat --no-daemon :shared:domain:jvmTest
+.\gradlew.bat --no-daemon :shared:library-client:jvmTest
 .\gradlew.bat --no-daemon :apps:desktop-windows:desktopTest
 .\gradlew.bat --no-daemon :apps:android-mobile:assembleDebug :apps:android-tv:assembleDebug
 ```

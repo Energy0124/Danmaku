@@ -6,8 +6,8 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import app.danmaku.library.android.LanLibraryClient
-import app.danmaku.library.android.LanPlaybackProgressSync
-import app.danmaku.library.android.LanPlaybackTarget
+import app.danmaku.library.LanPlaybackProgressSync
+import app.danmaku.library.android.lanPlaybackTargetFromStreamUrl
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -20,7 +20,10 @@ import kotlinx.coroutines.withContext
 
 class DanmakuPlaybackService : MediaSessionService() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private val progressSync = LanPlaybackProgressSync(LanLibraryClient())
+    private val progressSync = LanPlaybackProgressSync(
+        LanLibraryClient(),
+        System::currentTimeMillis,
+    )
     private var mediaSession: MediaSession? = null
     private var progressUploadJob: Job? = null
 
@@ -65,7 +68,7 @@ class DanmakuPlaybackService : MediaSessionService() {
             ?.localConfiguration
             ?.uri
             ?.toString()
-            ?.let(LanPlaybackTarget::fromStreamUrl)
+            ?.let(::lanPlaybackTargetFromStreamUrl)
             ?: return
         progressUploadJob = serviceScope.launch {
             while (isActive) {

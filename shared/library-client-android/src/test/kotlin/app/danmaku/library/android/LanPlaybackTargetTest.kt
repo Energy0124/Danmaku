@@ -1,5 +1,6 @@
 package app.danmaku.library.android
 
+import app.danmaku.library.LanPlaybackTarget
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -13,7 +14,7 @@ class LanPlaybackTargetTest {
                 pairingToken = "12 34",
                 mediaId = "episode id",
             ),
-            LanPlaybackTarget.fromStreamUrl(
+            lanPlaybackTargetFromStreamUrl(
                 "http://192.168.1.20:8686/media/episode+id?token=12+34",
             ),
         )
@@ -21,8 +22,8 @@ class LanPlaybackTargetTest {
 
     @Test
     fun ignoresUrlsOutsideTheLanMediaContract() {
-        assertNull(LanPlaybackTarget.fromStreamUrl("https://example.com/video.m3u8"))
-        assertNull(LanPlaybackTarget.fromStreamUrl("http://192.168.1.20:8686/media/id"))
-        assertNull(LanPlaybackTarget.fromStreamUrl("file:///sdcard/episode.mkv"))
+        assertNull(lanPlaybackTargetFromStreamUrl("https://example.com/video.m3u8"))
+        assertNull(lanPlaybackTargetFromStreamUrl("http://192.168.1.20:8686/media/id"))
+        assertNull(lanPlaybackTargetFromStreamUrl("file:///sdcard/episode.mkv"))
     }
 }

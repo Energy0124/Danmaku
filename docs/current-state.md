@@ -68,6 +68,9 @@ Committed checkpoints:
   service-backed MediaController connection used by mobile and TV.
 - Android catalog client used by mobile and TV to browse the Windows index and
   stream selected episodes.
+- Shared Kotlin `shared/library-client` contract for catalog browsing,
+  stream-URL generation, progress upload, and resume lookup. Android HTTP and
+  UDP discovery remain platform adapters.
 - Android TV launch focus on `Discover PC` plus compiled Compose instrumentation
   coverage for the initial focus and left-arrow path.
 - Workspace-local ignored Android SDK with API 36, Build Tools 36.0.0, and
@@ -86,6 +89,7 @@ Run these commands after architecture or build changes:
 cargo fmt --all --check
 cargo test --workspace
 .\gradlew.bat --no-daemon :shared:domain:jvmTest
+.\gradlew.bat --no-daemon :shared:library-client:jvmTest
 .\gradlew.bat --no-daemon :apps:desktop-windows:desktopTest
 .\gradlew.bat --no-daemon :apps:android-mobile:assembleDebug :apps:android-tv:assembleDebug
 ```
