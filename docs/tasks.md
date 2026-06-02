@@ -27,6 +27,7 @@ catalog and pass selected streams to Media3.
 - [x] Add a shared scrolling danmaku lane scheduler with collision-aware tests.
 - [x] Add recursive Windows anime-folder indexing.
 - [x] Add a paired trusted-LAN catalog server with HTTP byte-range streaming.
+- [x] Remember the selected Windows anime folder and add one-click rescanning.
 
 ## Next
 

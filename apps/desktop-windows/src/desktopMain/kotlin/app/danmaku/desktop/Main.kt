@@ -23,6 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Modifier
@@ -38,6 +39,10 @@ import app.danmaku.domain.MeasuredDanmakuEvent
 import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.ScrollingDanmakuLaneScheduler
 import app.danmaku.domain.ScrollingDanmakuLayoutConfig
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.nio.file.Path
 import javax.swing.JFileChooser
 
 fun main() = application {
@@ -61,9 +66,41 @@ private fun DesktopShell(snapshot: PlaybackSnapshot) {
             start()
         }
     }
+    val selectionStore = remember { LocalLibrarySelectionStore.default() }
+    val scope = rememberCoroutineScope()
     var indexedLibrary by remember { mutableStateOf<IndexedLocalLibrary?>(null) }
+    var selectedLibraryRoot by remember { mutableStateOf(selectionStore.load()) }
     var libraryError by remember { mutableStateOf<String?>(null) }
+    var isIndexing by remember { mutableStateOf(false) }
     val networkUrls = remember(server) { server.networkUrls() }
+
+    fun indexLibrary(root: Path) {
+        scope.launch {
+            isIndexing = true
+            try {
+                runCatching {
+                    withContext(Dispatchers.IO) {
+                        LocalMediaLibraryIndexer.index(root).also {
+                            selectionStore.save(root)
+                        }
+                    }
+                }.onSuccess { library ->
+                    server.publish(library)
+                    indexedLibrary = library
+                    selectedLibraryRoot = root.toAbsolutePath().normalize()
+                    libraryError = null
+                }.onFailure { error ->
+                    libraryError = error.message
+                }
+            } finally {
+                isIndexing = false
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        selectedLibraryRoot?.let(::indexLibrary)
+    }
 
     DisposableEffect(server, discoveryAnnouncer) {
         onDispose {
@@ -89,21 +126,21 @@ private fun DesktopShell(snapshot: PlaybackSnapshot) {
                 Text("Windows anime library server")
                 Button(
                     onClick = {
-                        runCatching {
-                            selectLibraryDirectory()?.let(LocalMediaLibraryIndexer::index)
-                        }.onSuccess { library ->
-                            if (library != null) {
-                                server.publish(library)
-                                indexedLibrary = library
-                                libraryError = null
-                            }
-                        }.onFailure { error ->
-                            libraryError = error.message
-                        }
+                        selectLibraryDirectory()?.let(::indexLibrary)
                     },
+                    enabled = !isIndexing,
                 ) {
-                    Text("Choose anime folder and index")
+                    Text(if (isIndexing) "Indexing..." else "Choose anime folder and index")
                 }
+                Button(
+                    onClick = {
+                        selectedLibraryRoot?.let(::indexLibrary)
+                    },
+                    enabled = selectedLibraryRoot != null && !isIndexing,
+                ) {
+                    Text("Rescan indexed folder")
+                }
+                Text("Indexed folder: ${selectedLibraryRoot ?: "None selected"}")
                 networkUrls.forEach { url ->
                     Text("Library URL: $url")
                 }

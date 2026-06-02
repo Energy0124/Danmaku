@@ -46,6 +46,8 @@ Committed checkpoints:
 - Recursive Windows anime-folder indexer and trusted-LAN HTTP server exposing a
   paired normalized JSON catalog plus paired seekable byte-range media
   responses.
+- File-backed Windows library-folder selection, startup index restoration, and
+  one-click rescanning.
 - Windows UDP announcements and Android discovery actions for finding the
   library server on the local network without typing its IP address.
 - Windows distributable includes the `jdk.httpserver` runtime module required
