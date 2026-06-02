@@ -75,7 +75,7 @@ class Media3StreamingIntegrationTest {
     private class FixtureHttpServer(
         private val fixture: ByteArray,
     ) : AutoCloseable {
-        private val serverSocket = ServerSocket(0, 1, InetAddress.getLoopbackAddress())
+        private val serverSocket = ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))
         private val executor = Executors.newSingleThreadExecutor()
 
         val url: String =

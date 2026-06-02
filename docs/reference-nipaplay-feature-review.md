@@ -76,7 +76,8 @@ These remain the highest priority because they validate the platform foundation.
 - [ ] Synchronize the Compose danmaku overlay to the real playback clock.
 - [ ] Test Windows resize, fullscreen, seeking, pause/resume, rate changes,
   hardware decoding, 10-bit media, and 4K media.
-- [ ] Run Android TV D-pad instrumentation tests on an online emulator or device.
+- [x] Run Android TV D-pad instrumentation tests on a workspace-local API 34
+  emulator.
 - [ ] Exercise PC-to-mobile and PC-to-TV streaming plus cross-device resume on
   physical hardware.
 - [x] Add same-PC Windows-to-Windows LAN streaming integration coverage for paired
@@ -86,7 +87,7 @@ These remain the highest priority because they validate the platform foundation.
 - [x] Add an Android client integration test against a live local-server fixture.
 - [x] Add a compile-checked Android Media3 instrumentation fixture with a real
   short asset and loopback HTTP server.
-- [ ] Execute the Media3 streaming fixture on an emulator or physical device.
+- [x] Execute the Media3 streaming fixture on a workspace-local API 34 emulator.
 - [ ] Test background-service progress uploads while the Android player UI is not
   active.
 - [ ] Add LAN-server integration tests for progress updates during pause, seek,

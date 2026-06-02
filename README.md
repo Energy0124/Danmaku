@@ -33,8 +33,8 @@ HTTP adapter behind that contract. The Windows shell uses the JVM adapter to
 browse its embedded same-PC server or another paired server and prepare stream
 URLs for the pending libmpv playback handoff.
 
-The Android TV shell starts remote focus on `Discover PC` and includes compiled
-Compose instrumentation coverage for its initial D-pad path.
+The Android TV shell starts remote focus on `Discover PC` and has emulator-
+verified Compose instrumentation coverage for its initial D-pad path.
 
 Android mobile and TV fetch saved PC progress before starting a LAN episode,
 seek to meaningful in-progress positions, and upload progress every five
@@ -65,6 +65,13 @@ cargo test --workspace
 .\gradlew.bat --no-daemon :apps:desktop-windows:desktopTest
 .\gradlew.bat --no-daemon :shared:player-android-media3:assembleDebugAndroidTest
 .\gradlew.bat --no-daemon :apps:android-mobile:assembleDebug :apps:android-tv:assembleDebug
+```
+
+With an Android emulator or device online, run:
+
+```powershell
+.\gradlew.bat --no-daemon :shared:player-android-media3:connectedDebugAndroidTest
+.\gradlew.bat --no-daemon :apps:android-tv:connectedDebugAndroidTest
 ```
 
 ## Run The Windows Shell

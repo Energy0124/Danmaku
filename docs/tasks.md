@@ -65,7 +65,9 @@ catalog and pass selected streams to Media3.
 - [x] Add an Android client integration test against a live local-server fixture.
 - [x] Add a compile-checked Android Media3 instrumentation fixture with a real
   short media asset and loopback HTTP server.
-- [ ] Execute the Media3 streaming fixture on an emulator or physical device.
+- [x] Execute the Media3 streaming fixture on a workspace-local API 34 emulator.
+- [x] Execute the TV D-pad instrumentation suite on a workspace-local API 34
+  emulator.
 - [ ] Test background-service progress uploads while the Android player UI is not
   active.
 - [ ] Test pause, seek, episode completion, reconnect, interrupted-network, and

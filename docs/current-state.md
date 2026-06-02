@@ -73,10 +73,12 @@ Committed checkpoints:
   includes the HTTP adapter used by the Windows shell for same-PC or remote
   paired-server browsing and stream selection. Android HTTP and UDP discovery
   remain platform adapters.
-- Android TV launch focus on `Discover PC` plus compiled Compose instrumentation
-  coverage for the initial focus and left-arrow path.
+- Android TV launch focus on `Discover PC` plus API 34 emulator-verified Compose
+  instrumentation coverage for the initial focus and left-arrow path. The TV
+  row uses an explicit focus graph for deterministic remote navigation.
 - Workspace-local ignored Android SDK with API 36, Build Tools 36.0.0, and
-  platform tools. `local.properties` is ignored and points to that SDK.
+  platform tools. The ignored SDK also has an API 34 emulator image for runtime
+  instrumentation. `local.properties` is ignored and points to that SDK.
 - Architecture decisions for Kotlin with focused Rust and audited libmpv
   distribution.
 - Same-PC Windows host integration coverage for paired catalog requests,
@@ -89,9 +91,8 @@ Committed checkpoints:
   multi-megabyte media, and concurrent streams.
 - Android HTTP adapter loopback coverage against a live local server for paired
   catalog browsing, generated stream consumption, and progress round trips.
-- Compile-checked Android Media3 instrumentation coverage with a deterministic
-  one-second MP4 asset and loopback HTTP server. Runtime execution still needs
-  an emulator package or connected Android device.
+- API 34 emulator-verified Android Media3 instrumentation coverage with a
+  deterministic one-second MP4 asset and loopback HTTP server.
 
 ## Verification
 
@@ -108,11 +109,18 @@ cargo test --workspace
 .\gradlew.bat --no-daemon :apps:android-mobile:assembleDebug :apps:android-tv:assembleDebug
 ```
 
+With an Android emulator or device online, run:
+
+```powershell
+.\gradlew.bat --no-daemon :shared:player-android-media3:connectedDebugAndroidTest
+.\gradlew.bat --no-daemon :apps:android-tv:connectedDebugAndroidTest
+```
+
 ## Next Work
 
-1. Install an Android emulator package or connect a device, then run the Media3
-   streaming and TV D-pad instrumentation tests.
-2. Exercise cross-device resume behavior on Android and TV hardware.
+1. Exercise cross-device resume behavior on Android and TV hardware.
+2. Test background-service progress uploads while the Android player UI is not
+   active.
 3. Extend SQLDelight storage for settings and downloads.
 4. Select an audited Windows libmpv DLL bundle and run `mpv-probe`.
 5. Connect native Windows video rendering and local-file playback.
