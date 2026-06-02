@@ -28,6 +28,10 @@ cross-device resume behavior.
 The Android TV shell starts remote focus on `Discover PC` and includes compiled
 Compose instrumentation coverage for its initial D-pad path.
 
+Android mobile and TV fetch saved PC progress before starting a LAN episode,
+seek to meaningful in-progress positions, and upload progress every five
+seconds while the player screen is active.
+
 Windows native playback rendering is not connected yet. The desktop shell also
 includes a synthetic animated overlay demo backed by the shared
 collision-aware danmaku lane scheduler.

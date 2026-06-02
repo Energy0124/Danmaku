@@ -31,6 +31,31 @@ data class PlaybackProgress(
     }
 }
 
+fun PlaybackProgress.resumePositionMs(
+    minimumPositionMs: Long = 10_000,
+    minimumRemainingMs: Long = 30_000,
+): Long? {
+    require(minimumPositionMs >= 0) { "minimumPositionMs must not be negative" }
+    require(minimumRemainingMs >= 0) { "minimumRemainingMs must not be negative" }
+    return positionMs.takeIf {
+        it >= minimumPositionMs &&
+            (durationMs == null || durationMs - it >= minimumRemainingMs)
+    }
+}
+
+fun PlaybackSnapshot.toPlaybackProgress(
+    mediaId: String,
+    updatedAtEpochMs: Long,
+): PlaybackProgress? =
+    source?.let {
+        PlaybackProgress(
+            mediaId = mediaId,
+            positionMs = position.positionMs,
+            durationMs = position.durationMs,
+            updatedAtEpochMs = updatedAtEpochMs,
+        )
+    }
+
 sealed interface PlaybackCommand {
     data object Play : PlaybackCommand
     data object Pause : PlaybackCommand

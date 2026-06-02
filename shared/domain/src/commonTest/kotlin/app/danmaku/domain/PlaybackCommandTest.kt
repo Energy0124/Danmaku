@@ -1,7 +1,9 @@
 package app.danmaku.domain
 
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
 
 class PlaybackCommandTest {
     @Test
@@ -40,5 +42,43 @@ class PlaybackCommandTest {
                 updatedAtEpochMs = 3,
             )
         }
+    }
+
+    @Test
+    fun resumesMeaningfulInProgressPlayback() {
+        assertEquals(
+            45_000,
+            PlaybackProgress(
+                mediaId = "episode",
+                positionMs = 45_000,
+                durationMs = 120_000,
+                updatedAtEpochMs = 3,
+            ).resumePositionMs(),
+        )
+    }
+
+    @Test
+    fun restartsNearBeginningAndNearEndPlayback() {
+        assertNull(
+            PlaybackProgress(
+                mediaId = "episode",
+                positionMs = 9_999,
+                durationMs = 120_000,
+                updatedAtEpochMs = 3,
+            ).resumePositionMs(),
+        )
+        assertNull(
+            PlaybackProgress(
+                mediaId = "episode",
+                positionMs = 91_000,
+                durationMs = 120_000,
+                updatedAtEpochMs = 3,
+            ).resumePositionMs(),
+        )
+    }
+
+    @Test
+    fun snapshotsWithoutSourcesDoNotCreateProgress() {
+        assertNull(PlaybackSnapshot().toPlaybackProgress("episode", updatedAtEpochMs = 3))
     }
 }

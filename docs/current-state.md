@@ -52,6 +52,8 @@ Committed checkpoints:
   startup and unchanged-file reuse during background rescans.
 - Durable per-episode playback progress in the desktop SQLite database with a
   paired LAN `GET`/`PUT /api/progress/{id}` contract and Android client methods.
+- Android mobile and TV foreground progress syncing with five-second uploads,
+  resume seeking after 10 seconds, and near-end episode restart behavior.
 - Windows UDP announcements and Android discovery actions for finding the
   library server on the local network without typing its IP address.
 - Windows distributable includes the `jdk.httpserver` and `java.sql` runtime
@@ -83,7 +85,7 @@ cargo test --workspace
 ## Next Work
 
 1. Run TV D-pad instrumentation tests on an emulator or physical TV device.
-2. Wire automatic Android and TV progress upload plus resume seeking.
+2. Move Android and TV progress syncing into the background playback service.
 3. Extend SQLDelight storage for settings and downloads.
 4. Select an audited Windows libmpv DLL bundle and run `mpv-probe`.
 5. Connect native Windows video rendering and local-file playback.

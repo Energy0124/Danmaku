@@ -158,6 +158,13 @@ mobile and TV connect their UI to a shared `MediaSessionService`; the service
 owns ExoPlayer and the `MediaSession` so active playback can continue after an
 activity leaves the foreground.
 
+Android mobile and TV currently use the paired LAN progress API when a user
+starts an indexed PC episode. The clients seek to stored positions only after
+10 seconds of progress and restart episodes with less than 30 seconds
+remaining. While the player screen is active, they upload a snapshot every
+five seconds. Move that periodic upload into the playback service when
+background progress tracking is added.
+
 The Windows adapter loads libmpv dynamically. Developer builds locate
 `libmpv-2.dll` from `DANMAKU_LIBMPV_PATH` or beside the packaged executable.
 Release packaging must use an audited, pinned libmpv bundle and include the

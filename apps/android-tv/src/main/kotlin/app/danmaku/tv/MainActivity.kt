@@ -43,6 +43,8 @@ import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.PlaybackSource
 import app.danmaku.library.android.LanLibraryDiscoveryClient
 import app.danmaku.library.android.LanLibraryClient
+import app.danmaku.library.android.LanPlaybackProgressSync
+import app.danmaku.library.android.LanPlaybackTarget
 import app.danmaku.player.android.Media3PlaybackController
 import app.danmaku.player.android.Media3PlaybackServiceConnection
 import kotlinx.coroutines.Dispatchers
@@ -68,6 +70,7 @@ private fun TvPlayerScreen() {
         Media3PlaybackServiceConnection(context.applicationContext)
     }
     val libraryClient = remember { LanLibraryClient() }
+    val progressSync = remember(libraryClient) { LanPlaybackProgressSync(libraryClient) }
     val discoveryClient = remember { LanLibraryDiscoveryClient() }
     val discoverPcFocusRequester = remember { FocusRequester() }
     val scope = rememberCoroutineScope()
@@ -78,6 +81,7 @@ private fun TvPlayerScreen() {
     var pairingToken by remember { mutableStateOf("") }
     var catalog by remember { mutableStateOf<LibraryCatalog?>(null) }
     var libraryError by remember { mutableStateOf<String?>(null) }
+    var activePlaybackTarget by remember { mutableStateOf<LanPlaybackTarget?>(null) }
 
     DisposableEffect(playbackConnection) {
         playbackConnection.connect(
@@ -102,6 +106,22 @@ private fun TvPlayerScreen() {
         while (true) {
             snapshot = activeController.snapshot()
             delay(250)
+        }
+    }
+
+    LaunchedEffect(controller, activePlaybackTarget) {
+        val activeController = controller ?: return@LaunchedEffect
+        val target = activePlaybackTarget ?: return@LaunchedEffect
+        while (true) {
+            delay(PROGRESS_UPLOAD_INTERVAL_MS)
+            val currentSnapshot = activeController.snapshot()
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    progressSync.saveProgress(target, currentSnapshot)
+                }
+            }.onFailure {
+                libraryError = "Progress update failed: ${it.message}"
+            }
         }
     }
 
@@ -199,17 +219,38 @@ private fun TvPlayerScreen() {
             LibraryItems(
                 catalog = catalog,
                 onPlay = { item ->
-                    controller?.load(
-                        PlaybackSource.RemoteStream(
-                            libraryClient.streamUrl(serverUrl, item, pairingToken),
-                        ),
-                    )
-                    controller?.dispatch(PlaybackCommand.Play)
+                    val activeController = controller ?: return@LibraryItems
+                    val target = LanPlaybackTarget(serverUrl, pairingToken, item.id)
+                    scope.launch {
+                        val resumePosition = runCatching {
+                            withContext(Dispatchers.IO) {
+                                progressSync.fetchResumePositionMs(target)
+                            }
+                        }.onFailure {
+                            libraryError = "Resume lookup failed: ${it.message}"
+                        }.getOrNull()
+                        activePlaybackTarget = target
+                        activeController.load(
+                            PlaybackSource.RemoteStream(
+                                libraryClient.streamUrl(
+                                    target.baseUrl,
+                                    item,
+                                    target.pairingToken,
+                                ),
+                            ),
+                        )
+                        resumePosition?.let {
+                            activeController.dispatch(PlaybackCommand.SeekTo(it))
+                        }
+                        activeController.dispatch(PlaybackCommand.Play)
+                    }
                 },
             )
         }
     }
 }
+
+private const val PROGRESS_UPLOAD_INTERVAL_MS = 5_000L
 
 @Composable
 private fun LibraryItems(

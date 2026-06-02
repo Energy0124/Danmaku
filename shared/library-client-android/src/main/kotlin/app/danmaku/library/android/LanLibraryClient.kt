@@ -3,6 +3,9 @@ package app.danmaku.library.android
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.PlaybackProgress
+import app.danmaku.domain.PlaybackSnapshot
+import app.danmaku.domain.resumePositionMs
+import app.danmaku.domain.toPlaybackProgress
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.net.HttpURLConnection
@@ -90,6 +93,38 @@ class LanLibraryClient(
         (URI(url).toURL().openConnection() as HttpURLConnection).apply {
             connectTimeout = 5_000
             readTimeout = 10_000
+    }
+}
+
+data class LanPlaybackTarget(
+    val baseUrl: String,
+    val pairingToken: String,
+    val mediaId: String,
+) {
+    init {
+        require(baseUrl.isNotBlank()) { "baseUrl must not be blank" }
+        require(mediaId.isNotBlank()) { "mediaId must not be blank" }
+    }
+}
+
+class LanPlaybackProgressSync(
+    private val libraryClient: LanLibraryClient,
+    private val currentTimeMillis: () -> Long = System::currentTimeMillis,
+) {
+    fun fetchResumePositionMs(target: LanPlaybackTarget): Long? =
+        libraryClient
+            .fetchProgress(target.baseUrl, target.mediaId, target.pairingToken)
+            ?.resumePositionMs()
+
+    fun saveProgress(
+        target: LanPlaybackTarget,
+        snapshot: PlaybackSnapshot,
+    ) {
+        snapshot
+            .toPlaybackProgress(target.mediaId, currentTimeMillis())
+            ?.let {
+                libraryClient.saveProgress(target.baseUrl, target.pairingToken, it)
+            }
     }
 }
 
