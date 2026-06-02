@@ -46,6 +46,10 @@ Committed checkpoints:
 - Recursive Windows anime-folder indexer and trusted-LAN HTTP server exposing a
   paired normalized JSON catalog plus paired seekable byte-range media
   responses.
+- Compose-free `shared/library-server-core` JVM module containing the reusable
+  paired HTTP server, progress-store contract, verified media-ID publication
+  boundary, and UDP discovery announcer. The Windows desktop shell starts it in
+  embedded mode.
 - File-backed Windows library-folder selection, startup index restoration, and
   one-click rescanning.
 - SQLDelight 2.3.2 SQLite catalog persistence with immediate cached serving on
@@ -70,6 +74,9 @@ Committed checkpoints:
   platform tools. `local.properties` is ignored and points to that SDK.
 - Architecture decisions for Kotlin with focused Rust and audited libmpv
   distribution.
+- Same-PC Windows host integration coverage for paired catalog requests,
+  complete file reads, byte ranges, unauthorized media rejection,
+  unsatisfiable ranges, and progress round trips.
 
 ## Verification
 

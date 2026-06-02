@@ -15,6 +15,9 @@ rendering validation still waits for an audited Windows DLL bundle.
 The desktop database and paired LAN server also persist per-episode playback
 progress. Android and TV player screens use that transport for five-second
 uploads from the background playback service and resume seeking.
+The paired HTTP server, progress-store contract, and UDP discovery announcer
+have been extracted into a Compose-free JVM module while remaining embedded in
+the Windows desktop app by default.
 
 The dedicated TV shell requests an explicit `Discover PC` launch focus and has
 compiled Compose instrumentation coverage for its initial remote-navigation

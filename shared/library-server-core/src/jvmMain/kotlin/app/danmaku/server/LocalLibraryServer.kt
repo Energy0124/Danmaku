@@ -1,6 +1,5 @@
-package app.danmaku.desktop
+package app.danmaku.server
 
-import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.PlaybackProgress
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
@@ -26,14 +25,7 @@ class LocalLibraryServer(
     private val executor = Executors.newCachedThreadPool()
 
     @Volatile
-    private var library = IndexedLocalLibrary(
-        catalog = LibraryCatalog(
-            rootName = "No folder selected",
-            indexedAtEpochMs = 0,
-            items = emptyList(),
-        ),
-        filesById = emptyMap(),
-    )
+    private var library = PublishedLibrary.EMPTY
 
     val localPort: Int
         get() = server.address.port
@@ -49,7 +41,7 @@ class LocalLibraryServer(
         server.start()
     }
 
-    fun publish(library: IndexedLocalLibrary) {
+    fun publish(library: PublishedLibrary) {
         this.library = library
     }
 

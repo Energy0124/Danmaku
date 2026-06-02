@@ -39,6 +39,9 @@ import app.danmaku.domain.MeasuredDanmakuEvent
 import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.ScrollingDanmakuLaneScheduler
 import app.danmaku.domain.ScrollingDanmakuLayoutConfig
+import app.danmaku.server.LocalLibraryDiscoveryAnnouncer
+import app.danmaku.server.LocalLibraryServer
+import app.danmaku.server.PublishedLibrary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -94,7 +97,7 @@ private fun DesktopShell(snapshot: PlaybackSnapshot) {
                         }
                     }
                 }.onSuccess { library ->
-                    server.publish(library)
+                    server.publish(library.toPublishedLibrary())
                     indexedLibrary = library
                     selectedLibraryRoot = root.toAbsolutePath().normalize()
                     libraryError = null
@@ -108,7 +111,7 @@ private fun DesktopShell(snapshot: PlaybackSnapshot) {
     }
 
     LaunchedEffect(Unit) {
-        indexedLibrary?.let(server::publish)
+        indexedLibrary?.toPublishedLibrary()?.let(server::publish)
         selectedLibraryRoot?.let(::indexLibrary)
     }
 
@@ -175,6 +178,12 @@ private fun DesktopShell(snapshot: PlaybackSnapshot) {
         }
     }
 }
+
+private fun IndexedLocalLibrary.toPublishedLibrary(): PublishedLibrary =
+    PublishedLibrary(
+        catalog = catalog,
+        filesById = filesById,
+    )
 
 private fun selectLibraryDirectory() =
     JFileChooser().run {

@@ -5,6 +5,7 @@ import app.danmaku.desktop.db.DesktopLibraryDatabase
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.PlaybackProgress
+import app.danmaku.server.PlaybackProgressStore
 import java.nio.file.Files
 import java.nio.file.Path
 

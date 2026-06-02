@@ -2,6 +2,8 @@ package app.danmaku.desktop
 
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.PlaybackProgress
+import app.danmaku.server.LocalLibraryServer
+import app.danmaku.server.PublishedLibrary
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.net.HttpURLConnection
@@ -15,7 +17,7 @@ import kotlin.test.assertEquals
 
 class LocalLibraryServerTest {
     @Test
-    fun servesCatalogAndByteRanges() {
+    fun servesSamePcCatalogAndStreams() {
         val root = createTempDirectory("danmaku-server")
         root.resolve("Example Show").createDirectories()
             .resolve("Episode 01.mp4")
@@ -23,7 +25,7 @@ class LocalLibraryServerTest {
         val indexed = LocalMediaLibraryIndexer.index(root)
 
         LocalLibraryServer(port = 0, pairingToken = "123456").use { server ->
-            server.publish(indexed)
+            server.publish(indexed.toPublishedLibrary())
             server.start()
 
             val unauthorizedConnection = connection("${server.baseUrl()}/api/library")
@@ -36,6 +38,15 @@ class LocalLibraryServerTest {
             )
             assertEquals("Episode 01", catalog.items.single().episodeTitle)
 
+            val fullStreamConnection = connection(
+                "${server.baseUrl()}${catalog.items.single().streamPath}?token=123456",
+            )
+            assertEquals(200, fullStreamConnection.responseCode)
+            assertContentEquals(
+                byteArrayOf(0, 1, 2, 3, 4, 5),
+                fullStreamConnection.inputStream.readBytes(),
+            )
+
             val streamConnection = connection(
                 "${server.baseUrl()}${catalog.items.single().streamPath}?token=123456",
                 range = "bytes=2-4",
@@ -43,6 +54,18 @@ class LocalLibraryServerTest {
             assertEquals(206, streamConnection.responseCode)
             assertEquals("bytes 2-4/6", streamConnection.getHeaderField("Content-Range"))
             assertContentEquals(byteArrayOf(2, 3, 4), streamConnection.inputStream.readBytes())
+            assertEquals(
+                401,
+                connection("${server.baseUrl()}${catalog.items.single().streamPath}")
+                    .responseCode,
+            )
+            assertEquals(
+                416,
+                connection(
+                    "${server.baseUrl()}${catalog.items.single().streamPath}?token=123456",
+                    range = "bytes=9-10",
+                ).responseCode,
+            )
         }
 
         root.toFile().deleteRecursively()
@@ -64,7 +87,7 @@ class LocalLibraryServerTest {
         )
 
         LocalLibraryServer(port = 0, pairingToken = "123456").use { server ->
-            server.publish(indexed)
+            server.publish(indexed.toPublishedLibrary())
             server.start()
 
             assertEquals(
@@ -114,4 +137,10 @@ class LocalLibraryServerTest {
                 outputStream.bufferedWriter().use { writer -> writer.write(it) }
             }
         }
+
+    private fun IndexedLocalLibrary.toPublishedLibrary(): PublishedLibrary =
+        PublishedLibrary(
+            catalog = catalog,
+            filesById = filesById,
+        )
 }

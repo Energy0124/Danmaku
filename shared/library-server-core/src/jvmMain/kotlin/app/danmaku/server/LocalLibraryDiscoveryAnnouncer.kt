@@ -1,4 +1,4 @@
-package app.danmaku.desktop
+package app.danmaku.server
 
 import app.danmaku.domain.LanLibraryServerAnnouncement
 import kotlinx.serialization.encodeToString

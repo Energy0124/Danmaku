@@ -23,7 +23,9 @@ The Windows shell remembers the selected anime folder, persists its normalized
 catalog in SQLite through SQLDelight, serves the cached index immediately on
 the next launch, and provides a one-click incremental rescan action. The same
 paired LAN server now persists per-episode watch progress in SQLite for
-cross-device resume behavior.
+cross-device resume behavior. Its HTTP server, progress contract, and UDP
+discovery announcer now live in a reusable Compose-free JVM module while the
+Windows shell continues to start the server in embedded mode.
 
 The Android TV shell starts remote focus on `Discover PC` and includes compiled
 Compose instrumentation coverage for its initial D-pad path.

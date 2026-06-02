@@ -57,7 +57,7 @@ apps/
 
 shared/
   domain/                Normalized models and contracts
-  library-server-core/   Planned reusable embedded LAN library server
+  library-server-core/   Reusable embedded LAN library server
   library-client/        Planned shared LAN library client contract
   library-client-android Android LAN catalog client
   player-android-media3/ Shared Android and TV Media3 playback adapter
@@ -73,11 +73,11 @@ native/
 Create modules when their first vertical slice needs them. Empty placeholder
 modules are avoided.
 
-`shared/library-server-core` and `shared/library-client` are planned extraction
-targets. They should be created when the Windows-to-Windows streaming slice
-needs them. The currently implemented LAN server still lives inside
-`apps/desktop-windows`, and Android-specific LAN client code still lives in
-`shared/library-client-android`.
+`shared/library-server-core` is implemented as a Compose-free JVM module. The
+Windows desktop host owns indexing and SQLite persistence, then publishes a
+narrow catalog and verified media-ID map to the embedded server. The
+`shared/library-client` extraction remains planned. Android-specific LAN client
+code still lives in `shared/library-client-android`.
 
 Currently implemented modules:
 
@@ -85,6 +85,7 @@ Currently implemented modules:
 - `apps/android-mobile`
 - `apps/android-tv`
 - `shared/domain`
+- `shared/library-server-core`
 - `shared/library-client-android`
 - `shared/player-android-media3`
 - `native/rust-core`

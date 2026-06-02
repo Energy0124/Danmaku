@@ -79,7 +79,7 @@ These remain the highest priority because they validate the platform foundation.
 - [ ] Run Android TV D-pad instrumentation tests on an online emulator or device.
 - [ ] Exercise PC-to-mobile and PC-to-TV streaming plus cross-device resume on
   physical hardware.
-- [ ] Add a same-PC Windows-to-Windows LAN streaming integration test for paired
+- [x] Add same-PC Windows-to-Windows LAN streaming integration coverage for paired
   catalog requests, full-file reads, byte ranges, and progress round trips.
 - [ ] Test unauthorized media requests, invalid and unsatisfiable ranges, large
   files, and concurrent streams.

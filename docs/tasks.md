@@ -57,7 +57,7 @@ catalog and pass selected streams to Media3.
 
 ## Streaming Verification
 
-- [ ] Add a same-PC Windows-to-Windows LAN streaming integration test that starts
+- [x] Add same-PC Windows-to-Windows LAN streaming integration coverage that starts
   the local server and exercises paired catalog requests, full-file reads, byte
   ranges, and progress round trips through the public HTTP contract.
 - [ ] Add LAN-server tests for unauthorized media requests, invalid and
@@ -75,14 +75,14 @@ catalog and pass selected streams to Media3.
 
 ## Server Boundary
 
-- [ ] Extract the paired LAN server, index publication, progress API, and discovery
+- [x] Extract the paired LAN server, index publication, progress API, and discovery
   lifecycle into a reusable `shared:library-server-core` module without Compose
   dependencies.
 - [ ] Define a shared LAN library-client contract for catalog browsing, stream URL
   generation, progress upload, and resume lookup.
 - [ ] Reuse the shared LAN client contract from Windows, Android, and Android TV
   while keeping platform transport adapters where required.
-- [ ] Keep the Windows desktop app starting an embedded library server by default.
+- [x] Keep the Windows desktop app starting an embedded library server by default.
 - [ ] Add Windows player support for browsing and streaming from a paired LAN
   server, including the same-PC integration path.
 - [ ] Preserve direct local-file playback on the server host for efficiency.
