@@ -56,6 +56,8 @@ The NipaPlay repository exposes or documents these relevant product areas:
 - Picture-in-picture, file associations, desktop tray behavior, keyboard shortcuts,
   backup/restore, update checks, diagnostics, and localization.
 - Bangumi progress, collections, ratings, comments, and seasonal-anime views.
+- MyAnimeList watch-progress sync and manual anime rating updates are required
+  Danmaku end-goal integrations.
 - Plugin manifests, permissions, lifecycle hooks, settings, storage, and chained
   danmaku filtering.
 - Experimental Anime4K, CRT shaders, GPU danmaku rendering, HDR work, AI spoiler
@@ -192,6 +194,13 @@ rate-limit handling, and clear user consent.
 - [ ] Define metadata-provider contracts separately from media-source contracts.
 - [ ] Add series metadata matching and manual correction.
 - [ ] Add seasonal and weekly anime calendar views.
+- [ ] Add MyAnimeList OAuth account authorization and secure token storage.
+- [ ] Add MyAnimeList anime identity mapping with manual correction.
+- [ ] Automatically sync watched episode progress to MyAnimeList after meaningful
+  playback progress and episode completion.
+- [ ] Add manual MyAnimeList anime rating submission.
+- [ ] Add MyAnimeList sync retry behavior, last-success status, and user-visible
+  errors without logging credentials.
 - [ ] Evaluate Bangumi integration for collections, progress, ratings, and comments.
 - [ ] Evaluate an authorized danmaku provider integration for matching, fetching,
   progress sync, and comment submission.
@@ -231,6 +240,8 @@ Review these before adding them to the committed roadmap:
 - [ ] Approve Jellyfin before Emby, or reverse the order.
 - [ ] Decide whether the local-network browser remote is a first-release feature.
 - [ ] Decide whether Bangumi integration is in scope for the first public release.
+- [x] Include automatic MyAnimeList watch-progress sync and manual anime rating in
+  the end goal.
 - [ ] Decide which authorized danmaku provider integrations are acceptable.
 - [ ] Decide whether external plugins are required or built-in plugins are enough.
 - [ ] Decide whether torrent support is excluded, deferred, or allowed only for
