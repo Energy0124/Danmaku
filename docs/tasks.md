@@ -50,7 +50,7 @@ catalog and pass selected streams to Media3.
 - [x] Add trusted-LAN pairing codes.
 - [x] Add background MediaSession service integration.
 - [x] Add LAN server discovery.
-- [ ] Add TV D-pad and focus-navigation tests.
+- [x] Add TV D-pad and focus-navigation instrumentation tests.
 - [ ] Verify playback and overlays on a physical Android TV device.
 
 ## Downloads

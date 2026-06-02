@@ -13,6 +13,10 @@ persisted in SQLDelight SQLite storage and incrementally refreshed. Android and
 TV playback now run in a shared MediaSession foreground service. Native libmpv
 rendering validation still waits for an audited Windows DLL bundle.
 
+The dedicated TV shell requests an explicit `Discover PC` launch focus and has
+compiled Compose instrumentation coverage for its initial remote-navigation
+path. Device execution remains part of TV hardware validation.
+
 ## Phase 0: Foundation
 
 - Record architecture and contribution rules.

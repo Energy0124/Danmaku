@@ -24,6 +24,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -67,6 +69,7 @@ private fun TvPlayerScreen() {
     }
     val libraryClient = remember { LanLibraryClient() }
     val discoveryClient = remember { LanLibraryDiscoveryClient() }
+    val discoverPcFocusRequester = remember { FocusRequester() }
     val scope = rememberCoroutineScope()
     var controller by remember { mutableStateOf<Media3PlaybackController?>(null) }
     var snapshot by remember { mutableStateOf(PlaybackSnapshot()) }
@@ -100,6 +103,10 @@ private fun TvPlayerScreen() {
             snapshot = activeController.snapshot()
             delay(250)
         }
+    }
+
+    LaunchedEffect(Unit) {
+        discoverPcFocusRequester.requestFocus()
     }
 
     Surface(modifier = Modifier.fillMaxSize()) {
@@ -165,6 +172,7 @@ private fun TvPlayerScreen() {
                             }
                         }
                     },
+                    modifier = Modifier.focusRequester(discoverPcFocusRequester),
                 ) {
                     Text("Discover PC")
                 }

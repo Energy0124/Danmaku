@@ -44,6 +44,8 @@ flowchart TD
 
 Android TV is a dedicated application module. It shares domain behavior with
 Android mobile but owns its 10-foot layouts, focus states, and D-pad navigation.
+The first TV screen explicitly requests initial focus for `Discover PC`, then
+relies on Compose TV focus traversal for remote navigation.
 
 ## Repository Modules
 

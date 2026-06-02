@@ -59,6 +59,8 @@ Committed checkpoints:
   service-backed MediaController connection used by mobile and TV.
 - Android catalog client used by mobile and TV to browse the Windows index and
   stream selected episodes.
+- Android TV launch focus on `Discover PC` plus compiled Compose instrumentation
+  coverage for the initial focus and left-arrow path.
 - Workspace-local ignored Android SDK with API 36, Build Tools 36.0.0, and
   platform tools. `local.properties` is ignored and points to that SDK.
 - Architecture decisions for Kotlin with focused Rust and audited libmpv
@@ -78,7 +80,7 @@ cargo test --workspace
 
 ## Next Work
 
-1. Add Android TV D-pad and focus-navigation tests.
+1. Run TV D-pad instrumentation tests on an emulator or physical TV device.
 2. Extend SQLDelight storage for playback progress, settings, and downloads.
 3. Select an audited Windows libmpv DLL bundle and run `mpv-probe`.
 4. Connect native Windows video rendering and local-file playback.

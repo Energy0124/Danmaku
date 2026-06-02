@@ -23,6 +23,9 @@ The Windows shell remembers the selected anime folder, persists its normalized
 catalog in SQLite through SQLDelight, serves the cached index immediately on
 the next launch, and provides a one-click incremental rescan action.
 
+The Android TV shell starts remote focus on `Discover PC` and includes compiled
+Compose instrumentation coverage for its initial D-pad path.
+
 Windows native playback rendering is not connected yet. The desktop shell also
 includes a synthetic animated overlay demo backed by the shared
 collision-aware danmaku lane scheduler.
