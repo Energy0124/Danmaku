@@ -30,7 +30,7 @@ Compose instrumentation coverage for its initial D-pad path.
 
 Android mobile and TV fetch saved PC progress before starting a LAN episode,
 seek to meaningful in-progress positions, and upload progress every five
-seconds while the player screen is active.
+seconds from the background playback service.
 
 Windows native playback rendering is not connected yet. The desktop shell also
 includes a synthetic animated overlay demo backed by the shared

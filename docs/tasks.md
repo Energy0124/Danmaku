@@ -51,8 +51,8 @@ catalog and pass selected streams to Media3.
 - [x] Add background MediaSession service integration.
 - [x] Add LAN server discovery.
 - [x] Add TV D-pad and focus-navigation instrumentation tests.
-- [x] Add foreground LAN playback progress upload and resume seeking.
-- [ ] Move LAN playback progress uploads into the background playback service.
+- [x] Add LAN playback progress upload and resume seeking.
+- [x] Move LAN playback progress uploads into the background playback service.
 - [ ] Verify playback and overlays on a physical Android TV device.
 
 ## Downloads

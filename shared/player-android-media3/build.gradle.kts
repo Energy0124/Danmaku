@@ -13,6 +13,8 @@ android {
 
 dependencies {
     implementation(project(":shared:domain"))
+    implementation(project(":shared:library-client-android"))
     implementation("androidx.media3:media3-exoplayer:1.8.1")
     implementation("androidx.media3:media3-session:1.8.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
 }

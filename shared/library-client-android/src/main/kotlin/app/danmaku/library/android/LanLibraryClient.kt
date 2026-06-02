@@ -105,6 +105,35 @@ data class LanPlaybackTarget(
         require(baseUrl.isNotBlank()) { "baseUrl must not be blank" }
         require(mediaId.isNotBlank()) { "mediaId must not be blank" }
     }
+
+    companion object {
+        fun fromStreamUrl(url: String): LanPlaybackTarget? =
+            runCatching {
+                val uri = URI(url)
+                val mediaId = uri.rawPath
+                    ?.takeIf { it.startsWith(MEDIA_PATH_PREFIX) }
+                    ?.removePrefix(MEDIA_PATH_PREFIX)
+                    ?.takeIf { it.isNotBlank() && '/' !in it }
+                    ?.decoded()
+                    ?: return null
+                val pairingToken = uri.rawQuery
+                    ?.split('&')
+                    ?.mapNotNull { parameter ->
+                        parameter.split('=', limit = 2)
+                            .takeIf { it.size == 2 }
+                            ?.let { (key, value) -> key.decoded() to value.decoded() }
+                    }
+                    ?.firstOrNull { (key) -> key == "token" }
+                    ?.second
+                    ?: return null
+                val baseUrl = "${uri.scheme}://${uri.rawAuthority}"
+                    .takeIf { uri.scheme in setOf("http", "https") && uri.rawAuthority != null }
+                    ?: return null
+                LanPlaybackTarget(baseUrl, pairingToken, mediaId)
+            }.getOrNull()
+
+        private const val MEDIA_PATH_PREFIX = "/media/"
+    }
 }
 
 class LanPlaybackProgressSync(
@@ -130,3 +159,6 @@ class LanPlaybackProgressSync(
 
 private fun String.encoded(): String =
     URLEncoder.encode(this, Charsets.UTF_8.name())
+
+private fun String.decoded(): String =
+    java.net.URLDecoder.decode(this, Charsets.UTF_8.name())

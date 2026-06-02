@@ -81,7 +81,6 @@ private fun TvPlayerScreen() {
     var pairingToken by remember { mutableStateOf("") }
     var catalog by remember { mutableStateOf<LibraryCatalog?>(null) }
     var libraryError by remember { mutableStateOf<String?>(null) }
-    var activePlaybackTarget by remember { mutableStateOf<LanPlaybackTarget?>(null) }
 
     DisposableEffect(playbackConnection) {
         playbackConnection.connect(
@@ -106,22 +105,6 @@ private fun TvPlayerScreen() {
         while (true) {
             snapshot = activeController.snapshot()
             delay(250)
-        }
-    }
-
-    LaunchedEffect(controller, activePlaybackTarget) {
-        val activeController = controller ?: return@LaunchedEffect
-        val target = activePlaybackTarget ?: return@LaunchedEffect
-        while (true) {
-            delay(PROGRESS_UPLOAD_INTERVAL_MS)
-            val currentSnapshot = activeController.snapshot()
-            runCatching {
-                withContext(Dispatchers.IO) {
-                    progressSync.saveProgress(target, currentSnapshot)
-                }
-            }.onFailure {
-                libraryError = "Progress update failed: ${it.message}"
-            }
         }
     }
 
@@ -229,7 +212,6 @@ private fun TvPlayerScreen() {
                         }.onFailure {
                             libraryError = "Resume lookup failed: ${it.message}"
                         }.getOrNull()
-                        activePlaybackTarget = target
                         activeController.load(
                             PlaybackSource.RemoteStream(
                                 libraryClient.streamUrl(
@@ -249,8 +231,6 @@ private fun TvPlayerScreen() {
         }
     }
 }
-
-private const val PROGRESS_UPLOAD_INTERVAL_MS = 5_000L
 
 @Composable
 private fun LibraryItems(

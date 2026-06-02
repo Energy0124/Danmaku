@@ -14,7 +14,7 @@ TV playback now run in a shared MediaSession foreground service. Native libmpv
 rendering validation still waits for an audited Windows DLL bundle.
 The desktop database and paired LAN server also persist per-episode playback
 progress. Android and TV player screens use that transport for five-second
-foreground uploads and resume seeking.
+uploads from the background playback service and resume seeking.
 
 The dedicated TV shell requests an explicit `Discover PC` launch focus and has
 compiled Compose instrumentation coverage for its initial remote-navigation
