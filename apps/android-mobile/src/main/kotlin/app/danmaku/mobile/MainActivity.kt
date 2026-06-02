@@ -1,0 +1,210 @@
+package app.danmaku.mobile
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.media3.ui.PlayerView
+import app.danmaku.domain.LibraryCatalog
+import app.danmaku.domain.LibraryMediaItem
+import app.danmaku.domain.PlaybackCommand
+import app.danmaku.domain.PlaybackSnapshot
+import app.danmaku.domain.PlaybackSource
+import app.danmaku.library.android.LanLibraryDiscoveryClient
+import app.danmaku.library.android.LanLibraryClient
+import app.danmaku.player.android.Media3PlaybackController
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent {
+            MaterialTheme {
+                MobilePlayerScreen()
+            }
+        }
+    }
+}
+
+@Composable
+private fun MobilePlayerScreen() {
+    val context = LocalContext.current
+    val controller = remember { Media3PlaybackController(context.applicationContext) }
+    val libraryClient = remember { LanLibraryClient() }
+    val discoveryClient = remember { LanLibraryDiscoveryClient() }
+    val scope = rememberCoroutineScope()
+    var snapshot by remember { mutableStateOf(controller.snapshot()) }
+    var serverUrl by remember { mutableStateOf("http://10.0.2.2:8686") }
+    var pairingToken by remember { mutableStateOf("") }
+    var catalog by remember { mutableStateOf<LibraryCatalog?>(null) }
+    var libraryError by remember { mutableStateOf<String?>(null) }
+    val openDocument = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        controller.load(PlaybackSource.LocalFile(uri.toString()))
+        snapshot = controller.snapshot()
+    }
+
+    DisposableEffect(controller) {
+        onDispose(controller::close)
+    }
+
+    LaunchedEffect(controller) {
+        while (true) {
+            snapshot = controller.snapshot()
+            delay(250)
+        }
+    }
+
+    Surface(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text("Danmaku", style = MaterialTheme.typography.headlineMedium)
+            Text("Android library streaming")
+            AndroidView(
+                factory = { PlayerView(it).apply { player = controller.player } },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(220.dp),
+            )
+            Text("Player state: ${snapshot.status}")
+            PlayerControls(
+                snapshot = snapshot,
+                onOpen = { openDocument.launch(arrayOf("video/*")) },
+                onPlay = { controller.dispatch(PlaybackCommand.Play) },
+                onPause = { controller.dispatch(PlaybackCommand.Pause) },
+            )
+            OutlinedTextField(
+                value = serverUrl,
+                onValueChange = { serverUrl = it },
+                label = { Text("Windows server URL") },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = pairingToken,
+                onValueChange = { pairingToken = it },
+                label = { Text("Pairing code") },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            runCatching {
+                                withContext(Dispatchers.IO) {
+                                    discoveryClient.discover().firstOrNull()
+                                        ?: error("No Windows library server discovered")
+                                }
+                            }.onSuccess {
+                                serverUrl = it.baseUrl
+                                libraryError = null
+                            }.onFailure {
+                                libraryError = it.message
+                            }
+                        }
+                    },
+                ) {
+                    Text("Discover PC")
+                }
+                Button(
+                    onClick = {
+                        scope.launch {
+                            runCatching {
+                                withContext(Dispatchers.IO) {
+                                    libraryClient.fetchCatalog(serverUrl, pairingToken)
+                                }
+                            }.onSuccess {
+                                catalog = it
+                                libraryError = null
+                            }.onFailure {
+                                libraryError = it.message
+                            }
+                        }
+                    },
+                ) {
+                    Text("Refresh PC library")
+                }
+            }
+            libraryError?.let { Text("Library error: $it") }
+            LibraryItems(
+                catalog = catalog,
+                onPlay = { item ->
+                    controller.load(
+                        PlaybackSource.RemoteStream(
+                            libraryClient.streamUrl(serverUrl, item, pairingToken),
+                        ),
+                    )
+                    controller.dispatch(PlaybackCommand.Play)
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun PlayerControls(
+    snapshot: PlaybackSnapshot,
+    onOpen: () -> Unit,
+    onPlay: () -> Unit,
+    onPause: () -> Unit,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Button(onClick = onOpen) {
+            Text("Open video")
+        }
+        Button(onClick = onPlay, enabled = snapshot.source != null) {
+            Text("Play")
+        }
+        Button(onClick = onPause, enabled = snapshot.source != null) {
+            Text("Pause")
+        }
+    }
+}
+
+@Composable
+private fun LibraryItems(
+    catalog: LibraryCatalog?,
+    onPlay: (LibraryMediaItem) -> Unit,
+) {
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        items(catalog?.items.orEmpty(), key = LibraryMediaItem::id) { item ->
+            Button(
+                onClick = { onPlay(item) },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("${item.seriesTitle} - ${item.episodeTitle}")
+            }
+        }
+    }
+}

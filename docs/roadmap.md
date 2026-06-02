@@ -1,5 +1,16 @@
 # Roadmap
 
+## Current Position
+
+Phase 0 is complete. Phase 1 is active: the Compose Desktop shell, shared
+playback contract, and Windows libmpv dynamic-loader probe are implemented.
+The shared danmaku lane scheduler and synthetic overlay demo are also in
+place. The Windows shell now indexes anime folders and streams indexed files
+over HTTP byte ranges to compiling Android mobile and Android TV Media3
+clients. The clients discover Windows servers over LAN UDP announcements and
+require the pairing code displayed by the Windows app. Native libmpv rendering
+validation still waits for an audited Windows DLL bundle.
+
 ## Phase 0: Foundation
 
 - Record architecture and contribution rules.
@@ -19,14 +30,16 @@
 
 - Create Android mobile and Android TV apps.
 - Implement the shared playback contract with Media3 ExoPlayer.
-- Add MediaSession integration.
+- Add in-process MediaSession integration.
+- Add a background MediaSession service.
 - Build TV-specific screens, focus states, and D-pad navigation.
 - Verify overlay synchronization on typical TV hardware.
 
 ## Phase 3: Library And Offline Downloads
 
 - Add SQLDelight schema and repositories.
-- Scan and manage local media.
+- Persist and manage the local-media index.
+- Add trusted-device pairing and discovery for LAN streaming.
 - Add queueing, pause, resume, retry, deletion, and disk quota behavior.
 - Use Media3 DownloadService on Android and TV.
 - Implement the Windows desktop download engine in Rust.
@@ -44,4 +57,3 @@
 - Add iOS and iPadOS using shared KMP logic and AVPlayer.
 - Build a streaming-first React and TypeScript web client.
 - Add optional sync, accounts, live rooms, and moderation.
-

@@ -10,12 +10,22 @@ work.
 
 ## Current Status
 
-The repository is in foundation stage. It includes a shared Kotlin domain
-module, a dependency-free Rust danmaku timeline index, a Windows libmpv loader
-probe, and an initial Compose Desktop shell.
+The canonical checkout is `S:\Projects\Danmaku`.
+
+The repository has a working first local-network vertical slice. The Windows
+Compose shell recursively indexes an anime folder and exposes a JSON catalog
+plus paired byte-range media streaming on port `8686`. Android mobile and
+Android TV clients compile into APKs, browse that PC catalog with the displayed
+pairing code, discover the server over the LAN, and hand selected streams to
+Media3 ExoPlayer.
+
+Windows native playback rendering is not connected yet. The desktop shell also
+includes a synthetic animated overlay demo backed by the shared
+collision-aware danmaku lane scheduler.
 
 ## Documentation
 
+- [Current state](docs/current-state.md)
 - [Architecture](docs/architecture.md)
 - [Roadmap](docs/roadmap.md)
 - [Task backlog](docs/tasks.md)
@@ -27,7 +37,8 @@ probe, and an initial Compose Desktop shell.
 ```powershell
 cargo test --workspace
 .\gradlew.bat --no-daemon :shared:domain:jvmTest
-.\gradlew.bat --no-daemon :apps:desktop-windows:compileKotlinDesktop
+.\gradlew.bat --no-daemon :apps:desktop-windows:desktopTest
+.\gradlew.bat --no-daemon :apps:android-mobile:assembleDebug :apps:android-tv:assembleDebug
 ```
 
 ## Run The Windows Shell
@@ -35,6 +46,11 @@ cargo test --workspace
 ```powershell
 .\gradlew.bat :apps:desktop-windows:run
 ```
+
+Choose an anime folder in the Windows shell, then use `Discover PC` in the
+Android or Android TV client. Enter the pairing code displayed by Windows and
+refresh the PC library. Manual LAN URL entry remains available. The server is
+intended for trusted local networks only.
 
 ## Probe A Windows libmpv Bundle
 

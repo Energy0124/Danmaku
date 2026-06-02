@@ -9,12 +9,20 @@ danmaku overlays.
 The architecture prioritizes Windows, Android, and Android TV while leaving a
 clear path to macOS, Linux, iOS, iPadOS, and web.
 
+## Workspace
+
+The canonical checkout is `S:\Projects\Danmaku`. Any old
+`C:\Users\energy\OneDrive\Documents\Danmaku` directory is a stale empty
+placeholder and must not be used as a repository workspace.
+
 ## System Shape
 
 ```mermaid
 flowchart TD
     Apps["Compose apps"] --> Shared["Shared Kotlin modules"]
     Apps --> Players["Platform player adapters"]
+    Android["Android and TV clients"] --> Lan["Windows LAN library server"]
+    Lan --> Files["Indexed local anime files"]
     Shared --> Native["Focused Rust core"]
     Shared --> Db["SQLDelight / SQLite"]
     Shared --> Sources["Authorized source plugins"]
@@ -47,6 +55,8 @@ apps/
 
 shared/
   domain/                Normalized models and contracts
+  library-client-android Android LAN catalog client
+  player-android-media3/ Shared Android and TV Media3 playback adapter
   database/              SQLDelight schema and repositories
   networking/            Ktor clients and source transport
   danmaku/               Kotlin-facing scheduling and filtering facade
@@ -58,6 +68,17 @@ native/
 
 Create modules when their first vertical slice needs them. Empty placeholder
 modules are avoided.
+
+Currently implemented modules:
+
+- `apps/desktop-windows`
+- `apps/android-mobile`
+- `apps/android-tv`
+- `shared/domain`
+- `shared/library-client-android`
+- `shared/player-android-media3`
+- `native/rust-core`
+- `native/player-windows-mpv`
 
 ## Domain Model
 
@@ -79,6 +100,39 @@ PlaybackProgress
 Provider plugins may browse, search, resolve playable variants, retrieve
 danmaku tracks, and report whether downloads are allowed. Provider response
 types must remain at the plugin boundary.
+
+## Local Library Streaming
+
+The Windows desktop shell owns the first local-library vertical slice:
+
+```mermaid
+flowchart LR
+    Folder["Anime folder"] --> Indexer["Recursive Windows indexer"]
+    Indexer --> Catalog["Normalized JSON catalog"]
+    Indexer --> Files["Verified media ID to path map"]
+    Catalog --> Server["LAN HTTP server :8686"]
+    Files --> Server
+    Server --> Discovery["UDP discovery announcements :8687"]
+    Discovery --> Mobile
+    Discovery --> TV
+    Server --> Mobile["Android mobile Media3"]
+    Server --> TV["Android TV Media3"]
+```
+
+The server exposes paired `GET /api/library?token={code}` and
+`GET /media/{id}?token={code}` requests. Media responses support single HTTP
+byte ranges so Media3 can seek efficiently. Only indexed IDs resolve to
+filesystem paths; clients never submit arbitrary Windows paths. The shell
+generates and displays a six-digit pairing code for the current server
+process. This first-stage HTTP server is for trusted local networks; use a
+stronger authenticated and encrypted transport before supporting untrusted
+networks. The Windows distributable explicitly includes the `jdk.httpserver`
+runtime module.
+
+The Windows app also broadcasts a small UDP discovery announcement on port
+`8687`. Android clients derive the HTTP host from the packet source and the
+announced port. Pairing codes are deliberately excluded from discovery
+announcements and still require explicit entry on the client.
 
 ## Playback Boundary
 
@@ -118,6 +172,15 @@ flowchart LR
 Rust initially owns a compact time index for normalized events. Kotlin should
 request batches for a playback window. Rendering and animation remain in
 Compose so the native boundary is not crossed per frame or per comment.
+
+The shared Kotlin lane scheduler accepts renderer-measured comment widths and
+deterministically assigns scrolling comments to the first collision-free lane.
+It checks spacing both when a comment enters and when the overlap window ends,
+which prevents wider trailing comments from catching comments ahead of them.
+The renderer can rebuild the same layout after a seek without retaining
+per-frame scheduler state. Visible-comment lookup uses timestamp bounds before
+filtering, so animation frames inspect the active time window rather than the
+entire scheduled track.
 
 ## Storage
 

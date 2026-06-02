@@ -3,6 +3,17 @@
 The backlog is ordered. Complete the earliest unblocked task before expanding
 the platform surface.
 
+## Current Focus
+
+The checkout is `S:\Projects\Danmaku` on branch
+`codex/windows-playback-foundation`.
+
+Native render integration requires an audited Windows libmpv DLL bundle. The
+shared scrolling danmaku lane scheduler and synthetic Compose overlay demo are
+implemented. The Windows app also indexes local anime folders and streams
+indexed files over the LAN. Android mobile and TV clients can browse the
+catalog and pass selected streams to Media3.
+
 ## Active
 
 - [x] Record the initial architecture and platform priorities.
@@ -13,22 +24,30 @@ the platform surface.
 - [x] Add a dependency-free Windows libmpv dynamic-loader spike.
 - [ ] Verify the dynamic-loader probe against an audited libmpv DLL.
 - [ ] Build a Windows libmpv playback spike.
+- [x] Add a shared scrolling danmaku lane scheduler with collision-aware tests.
+- [x] Add recursive Windows anime-folder indexing.
+- [x] Add a paired trusted-LAN catalog server with HTTP byte-range streaming.
 
 ## Next
 
 - [x] Define the Kotlin playback contract.
 - [x] Build a Compose Desktop shell.
 - [ ] Add local-file playback on Windows.
-- [ ] Add a synthetic danmaku overlay demo.
+- [x] Add a synthetic danmaku overlay demo.
+- [x] Add bounded visible-window queries and generated-track scheduler tests.
 - [ ] Measure overlay behavior with a large generated timeline.
 - [ ] Add seek and playback-rate test cases.
 
 ## Android And TV
 
-- [ ] Create the Android mobile application.
-- [ ] Create the dedicated Android TV application.
-- [ ] Add Media3 ExoPlayer adapters.
-- [ ] Add MediaSession integration.
+- [x] Create the Android mobile application.
+- [x] Create the dedicated Android TV application.
+- [x] Add a shared Media3 ExoPlayer adapter.
+- [x] Browse the Windows LAN catalog and stream selected episodes.
+- [x] Add in-process MediaSession integration.
+- [x] Add trusted-LAN pairing codes.
+- [ ] Add background MediaSession service integration.
+- [x] Add LAN server discovery.
 - [ ] Add TV D-pad and focus-navigation tests.
 - [ ] Verify playback and overlays on a physical Android TV device.
 

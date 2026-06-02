@@ -1,5 +1,26 @@
 # Danmaku Project Agent Guide
 
+## Canonical Workspace
+
+The active repository checkout is:
+
+```text
+S:\Projects\Danmaku
+```
+
+Always run repository commands from this path. Do not use the previous
+`C:\Users\energy\OneDrive\Documents\Danmaku` path. Desktop thread metadata may
+temporarily retain that old location after the move, but the old directory is
+an empty placeholder rather than a checkout.
+
+## Current State
+
+The current branch is `codex/windows-playback-foundation`. The project has a
+tested Kotlin domain foundation, a dependency-free Rust danmaku timeline
+index, a Windows libmpv dynamic-loader probe, a Compose Desktop anime-library
+server, and compiling Android mobile and TV streaming clients. See
+`docs/current-state.md` for the detailed handoff.
+
 ## Product Direction
 
 Build a cross-platform media library, authorized download manager, streaming
@@ -47,10 +68,14 @@ docs/                 Architecture, roadmap, and decisions
 ## Development Order
 
 1. Prove Windows libmpv playback and overlay composition.
-2. Prove Android and Android TV Media3 playback.
-3. Implement danmaku parsing, scheduling, filtering, and seeking behavior.
-4. Add the local library and download queue.
-5. Add provider plugins and cloud features after local workflows are solid.
+2. Load and index a local Windows anime library and stream it to devices on the
+   local network.
+3. Prove Android and Android TV Media3 playback against the Windows library.
+4. Add shared danmaku lane scheduling while native DLL packaging is being
+   audited.
+5. Implement danmaku parsing, filtering, and seeking behavior.
+6. Add persistent library storage and the download queue.
+7. Add provider plugins and cloud features after local workflows are solid.
 
 ## Quality Gates
 
@@ -69,4 +94,3 @@ docs/                 Architecture, roadmap, and decisions
 - Use stable toolchain versions for committed build files.
 - Commit the Gradle wrapper when the Kotlin build is bootstrapped.
 - Do not commit local SDK paths, downloaded media, or generated build output.
-
