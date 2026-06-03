@@ -22,11 +22,14 @@ catalog and pass selected streams to Media3.
 - [x] Add a minimal shared Kotlin domain module.
 - [x] Decide the Windows libmpv distribution strategy.
 - [x] Add a dependency-free Windows libmpv dynamic-loader spike.
+- [x] Expose a Rust C ABI for creating an mpv context, executing command arrays,
+  and destroying the handle.
 - [x] Add a desktop mpv command planner for local files, LAN streams, seek, and
   playback-rate commands.
 - [x] Add a desktop `PlaybackController` wrapper around the mpv command boundary.
 - [x] Connect prepared local and paired-LAN playback requests to the desktop
   `PlaybackController` with resume seeking.
+- [ ] Bind the desktop Kotlin command executor to the Rust C ABI.
 - [ ] Verify the dynamic-loader probe against an audited libmpv DLL.
 - [ ] Build a Windows libmpv playback spike.
 - [x] Add a shared scrolling danmaku lane scheduler with collision-aware tests.

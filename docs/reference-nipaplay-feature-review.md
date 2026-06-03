@@ -33,6 +33,7 @@ Already implemented:
 - Paired trusted-LAN catalog and seekable byte-range streaming.
 - Windows paired-server playback preparation with resume lookup.
 - Windows host direct local-file playback preparation with resume lookup.
+- Rust C ABI for the Windows libmpv context and command boundary.
 - Desktop mpv command planning for local-file and LAN-stream playback sources.
 - Desktop playback-controller wrapper for the planned Windows mpv command
   boundary.

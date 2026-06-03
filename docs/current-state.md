@@ -38,6 +38,10 @@ Committed checkpoints:
 - Dependency-free Windows libmpv loader with DLL discovery, required-symbol
   loading, mpv context initialization, command dispatch, and clean shutdown.
 - `mpv-probe` executable for validating an audited `libmpv-2.dll`.
+- Windows libmpv Rust crate also builds a `cdylib` and exposes a small C ABI for
+  creating an mpv context, executing coarse command arrays, and destroying the
+  handle. The ABI uses explicit status codes and is covered for null pointers
+  and missing-DLL failures.
 - Desktop mpv command planner for loading local files or LAN streams and
   dispatching play, pause, absolute seek, and playback-rate commands before the
   Kotlin-to-native controller bridge is wired.
@@ -146,8 +150,7 @@ With an Android emulator or device online, run:
 
 1. Exercise cross-device resume behavior on Android and TV hardware.
 2. Select an audited Windows libmpv DLL bundle and run `mpv-probe`.
-3. Implement the native Windows libmpv command executor for the desktop
-   `PlaybackController`.
+3. Bind the desktop Kotlin mpv command executor to the Rust C ABI.
 4. Connect native Windows video rendering and local-file playback.
 
 ## Runtime Smoke Check
