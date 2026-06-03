@@ -25,6 +25,8 @@ catalog and pass selected streams to Media3.
 - [x] Add a desktop mpv command planner for local files, LAN streams, seek, and
   playback-rate commands.
 - [x] Add a desktop `PlaybackController` wrapper around the mpv command boundary.
+- [x] Connect prepared local and paired-LAN playback requests to the desktop
+  `PlaybackController` with resume seeking.
 - [ ] Verify the dynamic-loader probe against an audited libmpv DLL.
 - [ ] Build a Windows libmpv playback spike.
 - [x] Add a shared scrolling danmaku lane scheduler with collision-aware tests.
@@ -99,6 +101,8 @@ catalog and pass selected streams to Media3.
 - [x] Add shared LAN playback preparation for Windows remote-stream handoff with
   resume lookup.
 - [x] Add Windows host direct local-file playback preparation with resume lookup.
+- [x] Connect prepared local and paired-LAN playback requests to the desktop
+  playback controller.
 - [ ] Add Windows player support for browsing and streaming from a paired LAN
   server, including the same-PC integration path.
 - [ ] Preserve direct local-file playback on the server host for efficiency.

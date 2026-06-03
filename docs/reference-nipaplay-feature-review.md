@@ -36,6 +36,8 @@ Already implemented:
 - Desktop mpv command planning for local-file and LAN-stream playback sources.
 - Desktop playback-controller wrapper for the planned Windows mpv command
   boundary.
+- Desktop session wiring that loads prepared local-file or paired-LAN requests
+  into the playback controller with resume seeking.
 - Windows LAN discovery for Android and Android TV clients.
 - Android and Android TV Media3 playback through a background service.
 - Durable cross-device episode progress with resume seeking.

@@ -44,6 +44,10 @@ Committed checkpoints:
 - Desktop `PlaybackController` wrapper that executes planned mpv commands through
   an injectable command executor and tracks testable snapshot state for local
   files and LAN streams.
+- Desktop playback session wiring that loads prepared local-file or paired-LAN
+  requests into the controller and applies resume seeks in command order. The
+  shell currently shows the planned mpv command log until the native executor is
+  connected.
 - Shared scrolling danmaku lane scheduler with collision-aware tests, bounded
   visible-window lookup, backward-seek query coverage, and a 10,000-comment
   generated-track test.

@@ -25,6 +25,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -61,16 +62,25 @@ fun main() = application {
         onCloseRequest = ::exitApplication,
         title = "Danmaku",
     ) {
-        DesktopShell(snapshot = PlaybackSnapshot())
+        DesktopShell()
     }
 }
 
 @Composable
-private fun DesktopShell(snapshot: PlaybackSnapshot) {
+private fun DesktopShell() {
     val selectionStore = remember { LocalLibrarySelectionStore.default() }
     val catalogStore = remember { DesktopLibraryCatalogStore.default() }
     val localPlaybackPreparer = remember(catalogStore) {
         DesktopLocalPlaybackPreparer(catalogStore)
+    }
+    val mpvCommandLog = remember { mutableStateListOf<DesktopMpvCommand>() }
+    val playbackController = remember {
+        DesktopMpvPlaybackController { command ->
+            mpvCommandLog += command
+        }
+    }
+    val playbackSession = remember(playbackController) {
+        DesktopPlaybackSession(playbackController)
     }
     val server = remember(catalogStore) {
         LocalLibraryServer(progressStore = catalogStore).apply {
@@ -84,6 +94,7 @@ private fun DesktopShell(snapshot: PlaybackSnapshot) {
     }
     val scope = rememberCoroutineScope()
     var selectedLibraryRoot by remember { mutableStateOf(selectionStore.load()) }
+    var playbackSnapshot by remember { mutableStateOf(PlaybackSnapshot()) }
     var indexedLibrary by remember {
         mutableStateOf(selectedLibraryRoot?.let(catalogStore::load))
     }
@@ -152,7 +163,8 @@ private fun DesktopShell(snapshot: PlaybackSnapshot) {
                     style = MaterialTheme.typography.h4,
                 )
                 Text("Windows playback foundation")
-                Text("Player state: ${snapshot.status}")
+                Text("Player state: ${playbackSnapshot.status}")
+                playbackSnapshot.source?.let { Text("Player source: $it") }
                 Text("Synthetic overlay demo: collision-aware shared lane scheduler")
                 SyntheticOverlayDemo()
                 Text("Windows anime library server")
@@ -230,12 +242,31 @@ private fun DesktopShell(snapshot: PlaybackSnapshot) {
                     )
                     Text("Source: ${preparation.source.path}")
                     Text("Resume: ${preparation.resumePositionMs?.let { "$it ms" } ?: "start from beginning"}")
+                    Button(
+                        onClick = {
+                            playbackSnapshot = playbackSession.load(preparation.toPlaybackRequest())
+                        },
+                    ) {
+                        Text("Load into Windows controller")
+                    }
                 }
                 RemoteLibraryBrowser(
                     defaultServerUrl = server.baseUrl(),
                     defaultPairingToken = server.pairingToken,
+                    playbackSession = playbackSession,
+                    onPlaybackSnapshotChanged = {
+                        playbackSnapshot = it
+                    },
                 )
-                Text("Next: connect prepared local or LAN streams to the libmpv playback clock.")
+                if (mpvCommandLog.isNotEmpty()) {
+                    Text("Planned mpv commands")
+                    LazyColumn(modifier = Modifier.height(100.dp)) {
+                        items(mpvCommandLog) { command ->
+                            Text(command.args.joinToString(separator = " "))
+                        }
+                    }
+                }
+                Text("Next: connect the desktop controller command executor to native libmpv.")
             }
         }
     }
@@ -245,6 +276,8 @@ private fun DesktopShell(snapshot: PlaybackSnapshot) {
 private fun RemoteLibraryBrowser(
     defaultServerUrl: String,
     defaultPairingToken: String,
+    playbackSession: DesktopPlaybackSession,
+    onPlaybackSnapshotChanged: (PlaybackSnapshot) -> Unit,
 ) {
     val libraryClient = remember { JvmLanLibraryClient() }
     val playbackPreparer = remember(libraryClient) { LanPlaybackPreparer(libraryClient) }
@@ -347,6 +380,15 @@ private fun RemoteLibraryBrowser(
         Text("Prepared Windows playback: ${preparation.item.seriesTitle} - ${preparation.item.episodeTitle}")
         Text("Source: ${preparation.source.url.redactToken()}")
         Text("Resume: ${preparation.resumePositionMs?.let { "$it ms" } ?: "start from beginning"}")
+        Button(
+            onClick = {
+                onPlaybackSnapshotChanged(
+                    playbackSession.load(preparation.toDesktopPlaybackRequest()),
+                )
+            },
+        ) {
+            Text("Load into Windows controller")
+        }
     }
 }
 
