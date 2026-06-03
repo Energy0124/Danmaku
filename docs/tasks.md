@@ -5,9 +5,6 @@ the platform surface.
 
 ## Current Focus
 
-The checkout is `S:\Projects\Danmaku` on branch
-`codex/windows-playback-foundation`.
-
 Native render integration requires an audited Windows libmpv DLL bundle. The
 shared scrolling danmaku lane scheduler and synthetic Compose overlay demo are
 implemented. The Windows app also indexes local anime folders and streams

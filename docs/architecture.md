@@ -9,12 +9,6 @@ danmaku overlays.
 The architecture prioritizes Windows, Android, and Android TV while leaving a
 clear path to macOS, Linux, iOS, iPadOS, and web.
 
-## Workspace
-
-The canonical checkout is `S:\Projects\Danmaku`. Any old
-`C:\Users\energy\OneDrive\Documents\Danmaku` directory is a stale empty
-placeholder and must not be used as a repository workspace.
-
 ## System Shape
 
 ```mermaid

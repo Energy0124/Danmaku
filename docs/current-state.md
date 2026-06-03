@@ -2,33 +2,6 @@
 
 Updated on 2026-06-03.
 
-## Workspace
-
-The canonical checkout is:
-
-```text
-S:\Projects\Danmaku
-```
-
-The previous `C:\Users\energy\OneDrive\Documents\Danmaku` directory is an
-empty placeholder retained by an open desktop-session handle. It is not a Git
-checkout and must not be used for project commands.
-
-## Git
-
-Current branch:
-
-```text
-codex/windows-playback-foundation
-```
-
-Committed checkpoints:
-
-```text
-991e4f4 feat: add Windows playback foundation
-6ee283a chore: establish danmaku project foundation
-```
-
 ## Implemented
 
 - Gradle 9.4.1 wrapper and Kotlin 2.3.21 Multiplatform foundation.
