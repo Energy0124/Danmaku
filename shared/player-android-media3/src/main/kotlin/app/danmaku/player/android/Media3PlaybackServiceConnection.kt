@@ -2,13 +2,18 @@ package app.danmaku.player.android
 
 import android.content.ComponentName
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import java.util.concurrent.Executor
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 class Media3PlaybackServiceConnection(
     context: Context,
 ) : AutoCloseable {
+    private val mainHandler = Handler(Looper.getMainLooper())
     private val controllerFuture = MediaController.Builder(
         context,
         SessionToken(context, ComponentName(context, DanmakuPlaybackService::class.java)),
@@ -31,6 +36,18 @@ class Media3PlaybackServiceConnection(
     }
 
     override fun close() {
-        MediaController.releaseFuture(controllerFuture)
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            MediaController.releaseFuture(controllerFuture)
+            return
+        }
+        val released = CountDownLatch(1)
+        mainHandler.post {
+            try {
+                MediaController.releaseFuture(controllerFuture)
+            } finally {
+                released.countDown()
+            }
+        }
+        released.await(5, TimeUnit.SECONDS)
     }
 }

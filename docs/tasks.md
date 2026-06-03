@@ -68,7 +68,7 @@ catalog and pass selected streams to Media3.
 - [x] Execute the Media3 streaming fixture on a workspace-local API 34 emulator.
 - [x] Execute the TV D-pad instrumentation suite on a workspace-local API 34
   emulator.
-- [ ] Test background-service progress uploads while the Android player UI is not
+- [x] Test background-service progress uploads while the Android player UI is not
   active.
 - [ ] Test pause, seek, episode completion, reconnect, interrupted-network, and
   slow-network behavior.

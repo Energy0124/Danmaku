@@ -21,4 +21,5 @@ dependencies {
 
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
     androidTestImplementation("androidx.test:runner:1.7.0")
+    androidTestImplementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
 }

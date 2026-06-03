@@ -92,7 +92,8 @@ Committed checkpoints:
 - Android HTTP adapter loopback coverage against a live local server for paired
   catalog browsing, generated stream consumption, and progress round trips.
 - API 34 emulator-verified Android Media3 instrumentation coverage with a
-  deterministic one-second MP4 asset and loopback HTTP server.
+  deterministic one-second MP4 asset and loopback HTTP server, including
+  service-owned progress upload after the UI controller connection closes.
 
 ## Verification
 
@@ -119,8 +120,8 @@ With an Android emulator or device online, run:
 ## Next Work
 
 1. Exercise cross-device resume behavior on Android and TV hardware.
-2. Test background-service progress uploads while the Android player UI is not
-   active.
+2. Test pause, seek, episode completion, reconnect, interrupted-network, and
+   slow-network behavior.
 3. Extend SQLDelight storage for settings and downloads.
 4. Select an audited Windows libmpv DLL bundle and run `mpv-probe`.
 5. Connect native Windows video rendering and local-file playback.

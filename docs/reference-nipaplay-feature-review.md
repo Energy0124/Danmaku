@@ -88,7 +88,7 @@ These remain the highest priority because they validate the platform foundation.
 - [x] Add a compile-checked Android Media3 instrumentation fixture with a real
   short asset and loopback HTTP server.
 - [x] Execute the Media3 streaming fixture on a workspace-local API 34 emulator.
-- [ ] Test background-service progress uploads while the Android player UI is not
+- [x] Test background-service progress uploads while the Android player UI is not
   active.
 - [ ] Add LAN-server integration tests for progress updates during pause, seek,
   episode completion, reconnect, interruption, and slow-network conditions.
