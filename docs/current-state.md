@@ -1,6 +1,6 @@
 # Current State
 
-Updated on 2026-06-02.
+Updated on 2026-06-03.
 
 ## Workspace
 
@@ -56,6 +56,8 @@ Committed checkpoints:
   startup and unchanged-file reuse during background rescans.
 - Durable per-episode playback progress in the desktop SQLite database with a
   paired LAN `GET`/`PUT /api/progress/{id}` contract and Android client methods.
+- Desktop SQLDelight storage primitives for app settings and download queue
+  items, with compatibility creation for existing catalog databases.
 - Android mobile and TV progress syncing from the background playback service
   with five-second uploads, resume seeking after 10 seconds, and near-end
   episode restart behavior.
@@ -126,9 +128,10 @@ With an Android emulator or device online, run:
 ## Next Work
 
 1. Exercise cross-device resume behavior on Android and TV hardware.
-2. Extend SQLDelight storage for settings and downloads.
-3. Select an audited Windows libmpv DLL bundle and run `mpv-probe`.
-4. Connect native Windows video rendering and local-file playback.
+2. Select an audited Windows libmpv DLL bundle and run `mpv-probe`.
+3. Connect native Windows video rendering and local-file playback.
+4. Add Windows player support for browsing and streaming from a paired LAN
+   server, including the same-PC integration path.
 
 ## Runtime Smoke Check
 

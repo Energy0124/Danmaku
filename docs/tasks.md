@@ -101,6 +101,8 @@ catalog and pass selected streams to Media3.
 
 ## Downloads
 
+- [x] Add desktop SQLDelight storage primitives for app settings and download
+  queue items.
 - [ ] Define authorized-download policy fields in source contracts.
 - [ ] Define a platform-independent download manifest.
 - [ ] Add multiple Windows library roots with provenance and missing-folder state.
@@ -120,7 +122,7 @@ catalog and pass selected streams to Media3.
 
 - [x] Add initial SQLDelight library storage.
 - [x] Extend SQLDelight storage for playback progress.
-- [ ] Extend SQLDelight storage for settings and downloads.
+- [x] Extend SQLDelight storage for settings and downloads.
 - [ ] Add authorized source plugins.
 - [ ] Add macOS and Linux desktop packaging.
 - [ ] Add iOS and iPadOS.

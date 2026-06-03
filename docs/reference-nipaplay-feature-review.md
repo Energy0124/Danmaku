@@ -1,6 +1,6 @@
 # NipaPlay Reference Feature Review
 
-Updated on 2026-06-02.
+Updated on 2026-06-03.
 
 Reference project:
 
@@ -34,6 +34,8 @@ Already implemented:
 - Windows LAN discovery for Android and Android TV clients.
 - Android and Android TV Media3 playback through a background service.
 - Durable cross-device episode progress with resume seeking.
+- Desktop SQLDelight storage primitives for app settings and download queue
+  items.
 - Shared danmaku timeline indexing and collision-aware scrolling-lane scheduling.
 - Windows libmpv dynamic-loader probe.
 - Dedicated Android TV application module with initial D-pad focus coverage.
@@ -185,6 +187,7 @@ Downloads remain authorized-source-only.
   lists, resolved output folders, download status, and completion-triggered rescans.
 - [ ] Keep ani-rss subscription and download-control actions disabled until the
   authorized-source policy explicitly permits them.
+- [x] Add desktop SQLDelight storage primitives for queue items and app settings.
 - [ ] Persist queue, progress, retries, failures, and verified output paths.
 - [ ] Add Media3 `DownloadService` for Android and Android TV.
 - [ ] Add the Rust Windows download engine behind coarse-grained Kotlin APIs.
