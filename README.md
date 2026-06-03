@@ -1,5 +1,7 @@
 # Danmaku
 
+[![CI](https://github.com/Energy0124/Danmaku/actions/workflows/ci.yml/badge.svg)](https://github.com/Energy0124/Danmaku/actions/workflows/ci.yml)
+
 Danmaku is an early-stage cross-platform anime media app for local libraries,
 trusted-LAN streaming, synchronized watch progress, and scrolling danmaku
 overlays.
