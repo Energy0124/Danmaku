@@ -10,6 +10,7 @@ import kotlinx.serialization.json.Json
 import java.net.InetAddress
 import java.net.ServerSocket
 import java.net.Socket
+import java.net.SocketTimeoutException
 import java.net.URI
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
@@ -19,6 +20,7 @@ import kotlin.io.path.writeBytes
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 
 class JvmLanLibraryClientTest {
@@ -107,6 +109,17 @@ class JvmLanLibraryClientTest {
         }
     }
 
+    @Test
+    fun timesOutSlowCatalogResponses() {
+        SlowCatalogServer(responseDelayMillis = 1_000).use { server ->
+            val client = JvmLanLibraryClient(readTimeoutMillis = 100)
+
+            assertFailsWith<SocketTimeoutException> {
+                client.fetchCatalog(server.baseUrl, "123456")
+            }
+        }
+    }
+
     private class InterruptingCatalogServer(
         private val catalog: LibraryCatalog,
     ) : AutoCloseable {
@@ -153,6 +166,35 @@ class JvmLanLibraryClientTest {
             }
             getOutputStream().write(body)
             getOutputStream().flush()
+        }
+    }
+
+    private class SlowCatalogServer(
+        private val responseDelayMillis: Long,
+    ) : AutoCloseable {
+        private val socket = ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))
+        private val executor = Executors.newSingleThreadExecutor()
+
+        val baseUrl: String = "http://127.0.0.1:${socket.localPort}"
+
+        init {
+            executor.submit {
+                runCatching {
+                    socket.accept().use {
+                        it.readRequestAndWait(responseDelayMillis)
+                    }
+                }
+            }
+        }
+
+        override fun close() {
+            socket.close()
+            executor.shutdownNow()
+        }
+
+        private fun Socket.readRequestAndWait(responseDelayMillis: Long) {
+            getInputStream().bufferedReader().readLinesUntilBlank()
+            Thread.sleep(responseDelayMillis)
         }
     }
 }

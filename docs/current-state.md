@@ -72,7 +72,8 @@ Committed checkpoints:
   stream-URL generation, progress upload, and resume lookup. Its JVM source set
   includes the HTTP adapter used by the Windows shell for same-PC or remote
   paired-server browsing and stream selection. Android HTTP and UDP discovery
-  remain platform adapters.
+  remain platform adapters. JVM and Android LAN clients use configurable HTTP
+  connect/read timeouts with stable production defaults.
 - Android TV launch focus on `Discover PC` plus API 34 emulator-verified Compose
   instrumentation coverage for the initial focus and left-arrow path. The TV
   row uses an explicit focus graph for deterministic remote navigation.
@@ -88,6 +89,7 @@ Committed checkpoints:
   stream consumption, token encoding, missing progress, and progress round trips.
 - JVM LAN client recovery coverage for an interrupted catalog connection that
   reconnects and completes on a fresh socket.
+- JVM LAN client timeout coverage for slow catalog responses.
 - Reusable LAN server reliability coverage for unauthorized media requests,
   malformed and unsatisfiable byte ranges, valid open-ended and suffix ranges,
   multi-megabyte media, concurrent streams, and sequential pause, seek, and
@@ -123,7 +125,7 @@ With an Android emulator or device online, run:
 ## Next Work
 
 1. Exercise cross-device resume behavior on Android and TV hardware.
-2. Test slow-network behavior.
+2. Test slow media-stream playback and buffering behavior.
 3. Extend SQLDelight storage for settings and downloads.
 4. Select an audited Windows libmpv DLL bundle and run `mpv-probe`.
 5. Connect native Windows video rendering and local-file playback.
