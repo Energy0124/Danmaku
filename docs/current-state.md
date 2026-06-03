@@ -76,6 +76,10 @@ Committed checkpoints:
   paired-server browsing and stream selection. Android HTTP and UDP discovery
   remain platform adapters. JVM and Android LAN clients use configurable HTTP
   connect/read timeouts with stable production defaults.
+- Shared LAN playback preparation converts a paired catalog item into a
+  tokenized `RemoteStream` plus resume position; the Windows shell uses it for
+  same-PC or remote paired-server playback handoff state while native libmpv
+  rendering is still pending.
 - Android TV launch focus on `Discover PC` plus API 34 emulator-verified Compose
   instrumentation coverage for the initial focus and left-arrow path. The TV
   row uses an explicit focus graph for deterministic remote navigation.
@@ -130,8 +134,8 @@ With an Android emulator or device online, run:
 1. Exercise cross-device resume behavior on Android and TV hardware.
 2. Select an audited Windows libmpv DLL bundle and run `mpv-probe`.
 3. Connect native Windows video rendering and local-file playback.
-4. Add Windows player support for browsing and streaming from a paired LAN
-   server, including the same-PC integration path.
+4. Connect prepared local and LAN playback sources to the Windows libmpv
+   playback controller.
 
 ## Runtime Smoke Check
 

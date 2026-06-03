@@ -12,6 +12,79 @@ import kotlin.test.assertEquals
 
 class LanPlaybackProgressSyncTest {
     @Test
+    fun preparesRemotePlaybackStreamsWithResumePosition() {
+        val item = LibraryMediaItem(
+            id = "episode-id",
+            seriesTitle = "Example Show",
+            episodeTitle = "Episode 01",
+            relativePath = "Example Show/Episode 01.mp4",
+            sizeBytes = 123,
+            mediaType = "video/mp4",
+            streamPath = "/media/episode-id",
+        )
+        val client = RecordingLanLibraryClient(
+            streamUrl = "http://192.168.1.20:8686/media/episode-id?token=123456",
+            progress = PlaybackProgress(
+                mediaId = item.id,
+                positionMs = 12_345,
+                durationMs = 98_765,
+                updatedAtEpochMs = 789,
+            ),
+        )
+
+        val preparation = LanPlaybackPreparer(client).prepare(
+            baseUrl = "http://192.168.1.20:8686",
+            pairingToken = "123456",
+            item = item,
+        )
+
+        assertEquals(item, preparation.item)
+        assertEquals(
+            LanPlaybackTarget(
+                baseUrl = "http://192.168.1.20:8686",
+                pairingToken = "123456",
+                mediaId = item.id,
+            ),
+            preparation.target,
+        )
+        assertEquals(
+            PlaybackSource.RemoteStream("http://192.168.1.20:8686/media/episode-id?token=123456"),
+            preparation.source,
+        )
+        assertEquals(12_345, preparation.resumePositionMs)
+    }
+
+    @Test
+    fun ignoresNearEndedProgressWhenPreparingRemotePlayback() {
+        val item = LibraryMediaItem(
+            id = "episode-id",
+            seriesTitle = "Example Show",
+            episodeTitle = "Episode 01",
+            relativePath = "Example Show/Episode 01.mp4",
+            sizeBytes = 123,
+            mediaType = "video/mp4",
+            streamPath = "/media/episode-id",
+        )
+        val client = RecordingLanLibraryClient(
+            streamUrl = "http://192.168.1.20:8686/media/episode-id?token=123456",
+            progress = PlaybackProgress(
+                mediaId = item.id,
+                positionMs = 95_000,
+                durationMs = 98_765,
+                updatedAtEpochMs = 789,
+            ),
+        )
+
+        val preparation = LanPlaybackPreparer(client).prepare(
+            baseUrl = "http://192.168.1.20:8686",
+            pairingToken = "123456",
+            item = item,
+        )
+
+        assertEquals(null, preparation.resumePositionMs)
+    }
+
+    @Test
     fun fetchesMeaningfulResumePositionsFromTheClient() {
         val client = RecordingLanLibraryClient(
             progress = PlaybackProgress(
@@ -64,6 +137,7 @@ class LanPlaybackProgressSyncTest {
     }
 
     private class RecordingLanLibraryClient(
+        private val streamUrl: String = "http://example/media",
         private val progress: PlaybackProgress? = null,
     ) : LanLibraryClient {
         var savedProgress: PlaybackProgress? = null
@@ -75,7 +149,7 @@ class LanPlaybackProgressSyncTest {
             baseUrl: String,
             item: LibraryMediaItem,
             pairingToken: String,
-        ): String = error("not used")
+        ): String = streamUrl
 
         override fun fetchProgress(
             baseUrl: String,

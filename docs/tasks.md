@@ -93,6 +93,8 @@ catalog and pass selected streams to Media3.
 - [x] Keep the Windows desktop app starting an embedded library server by default.
 - [x] Add Windows paired-server catalog browsing and stream URL selection with
   embedded same-PC defaults.
+- [x] Add shared LAN playback preparation for Windows remote-stream handoff with
+  resume lookup.
 - [ ] Add Windows player support for browsing and streaming from a paired LAN
   server, including the same-PC integration path.
 - [ ] Preserve direct local-file playback on the server host for efficiency.

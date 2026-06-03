@@ -44,6 +44,8 @@ import app.danmaku.domain.MeasuredDanmakuEvent
 import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.ScrollingDanmakuLaneScheduler
 import app.danmaku.domain.ScrollingDanmakuLayoutConfig
+import app.danmaku.library.LanPlaybackPreparation
+import app.danmaku.library.LanPlaybackPreparer
 import app.danmaku.library.jvm.JvmLanLibraryClient
 import app.danmaku.server.LocalLibraryDiscoveryAnnouncer
 import app.danmaku.server.LocalLibraryServer
@@ -197,20 +199,24 @@ private fun RemoteLibraryBrowser(
     defaultPairingToken: String,
 ) {
     val libraryClient = remember { JvmLanLibraryClient() }
+    val playbackPreparer = remember(libraryClient) { LanPlaybackPreparer(libraryClient) }
     val scope = rememberCoroutineScope()
     var serverUrl by remember(defaultServerUrl) { mutableStateOf(defaultServerUrl) }
     var pairingToken by remember(defaultPairingToken) { mutableStateOf(defaultPairingToken) }
     var catalog by remember { mutableStateOf<LibraryCatalog?>(null) }
     var libraryError by remember { mutableStateOf<String?>(null) }
-    var selectedStreamUrl by remember { mutableStateOf<String?>(null) }
+    var selectedPlaybackPreparation by remember {
+        mutableStateOf<LanPlaybackPreparation?>(null)
+    }
     var isLoading by remember { mutableStateOf(false) }
+    var isPreparingPlayback by remember { mutableStateOf(false) }
 
     fun refreshCatalog() {
         val requestedServerUrl = serverUrl
         val requestedPairingToken = pairingToken
         scope.launch {
             isLoading = true
-            selectedStreamUrl = null
+            selectedPlaybackPreparation = null
             runCatching {
                 withContext(Dispatchers.IO) {
                     libraryClient.fetchCatalog(requestedServerUrl, requestedPairingToken)
@@ -231,7 +237,7 @@ private fun RemoteLibraryBrowser(
         value = serverUrl,
         onValueChange = {
             serverUrl = it
-            selectedStreamUrl = null
+            selectedPlaybackPreparation = null
         },
         label = { Text("Library server URL") },
         modifier = Modifier.fillMaxWidth(),
@@ -241,7 +247,7 @@ private fun RemoteLibraryBrowser(
         value = pairingToken,
         onValueChange = {
             pairingToken = it
-            selectedStreamUrl = null
+            selectedPlaybackPreparation = null
         },
         label = { Text("Pairing code") },
         modifier = Modifier.fillMaxWidth(),
@@ -260,16 +266,40 @@ private fun RemoteLibraryBrowser(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
                     onClick = {
-                        selectedStreamUrl = libraryClient.streamUrl(serverUrl, item, pairingToken)
+                        val requestedServerUrl = serverUrl
+                        val requestedPairingToken = pairingToken
+                        scope.launch {
+                            isPreparingPlayback = true
+                            runCatching {
+                                withContext(Dispatchers.IO) {
+                                    playbackPreparer.prepare(
+                                        baseUrl = requestedServerUrl,
+                                        pairingToken = requestedPairingToken,
+                                        item = item,
+                                    )
+                                }
+                            }.onSuccess {
+                                selectedPlaybackPreparation = it
+                                libraryError = null
+                            }.onFailure {
+                                libraryError = it.message
+                            }
+                            isPreparingPlayback = false
+                        }
                     },
+                    enabled = !isPreparingPlayback,
                 ) {
-                    Text("Prepare stream")
+                    Text(if (isPreparingPlayback) "Preparing..." else "Prepare playback")
                 }
                 Text("${item.seriesTitle} - ${item.episodeTitle}")
             }
         }
     }
-    selectedStreamUrl?.let { Text("Prepared LAN stream: $it") }
+    selectedPlaybackPreparation?.let { preparation ->
+        Text("Prepared Windows playback: ${preparation.item.seriesTitle} - ${preparation.item.episodeTitle}")
+        Text("Source: ${preparation.source.url.redactToken()}")
+        Text("Resume: ${preparation.resumePositionMs?.let { "$it ms" } ?: "start from beginning"}")
+    }
 }
 
 private fun IndexedLocalLibrary.toPublishedLibrary(): PublishedLibrary =
@@ -286,6 +316,9 @@ private fun selectLibraryDirectory() =
             ?.selectedFile
             ?.toPath()
     }
+
+private fun String.redactToken(): String =
+    replace(Regex("([?&]token=)[^&]+"), "\$1...")
 
 @Composable
 private fun SyntheticOverlayDemo() {
