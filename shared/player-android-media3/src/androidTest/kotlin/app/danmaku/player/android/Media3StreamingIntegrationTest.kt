@@ -35,6 +35,26 @@ class Media3StreamingIntegrationTest {
 
     @Test
     fun playsShortHttpFixtureToCompletion() {
+        playHttpFixtureToCompletion { fixture ->
+            FixtureHttpServer(fixture)
+        }
+    }
+
+    @Test
+    fun playsSlowHttpFixtureToCompletion() {
+        playHttpFixtureToCompletion(timeoutSeconds = 20) { fixture ->
+            FixtureHttpServer(
+                fixture = fixture,
+                chunkSize = 256,
+                chunkDelayMillis = 25,
+            )
+        }
+    }
+
+    private fun playHttpFixtureToCompletion(
+        timeoutSeconds: Long = 15,
+        serverFactory: (ByteArray) -> FixtureHttpServer,
+    ) {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val fixture = instrumentation.context.assets
             .open("short-stream.mp4")
@@ -43,7 +63,7 @@ class Media3StreamingIntegrationTest {
         val playerError = AtomicReference<PlaybackException?>()
         val durationMs = AtomicLong()
 
-        FixtureHttpServer(fixture).use { server ->
+        serverFactory(fixture).use { server ->
             lateinit var player: ExoPlayer
             instrumentation.runOnMainSync {
                 player = ExoPlayer.Builder(instrumentation.targetContext).build().apply {
@@ -69,7 +89,10 @@ class Media3StreamingIntegrationTest {
             }
 
             try {
-                assertTrue("Media3 did not finish the fixture", ended.await(15, TimeUnit.SECONDS))
+                assertTrue(
+                    "Media3 did not finish the fixture",
+                    ended.await(timeoutSeconds, TimeUnit.SECONDS),
+                )
                 assertNull(playerError.get()?.message, playerError.get())
                 instrumentation.runOnMainSync {
                     assertEquals(Player.STATE_ENDED, player.playbackState)
@@ -133,7 +156,14 @@ class Media3StreamingIntegrationTest {
     private class FixtureHttpServer(
         private val fixture: ByteArray,
         private val json: Json = Json,
+        private val chunkSize: Int = fixture.size.coerceAtLeast(1),
+        private val chunkDelayMillis: Long = 0,
     ) : AutoCloseable {
+        init {
+            require(chunkSize > 0) { "chunkSize must be positive" }
+            require(chunkDelayMillis >= 0) { "chunkDelayMillis must not be negative" }
+        }
+
         private val serverSocket = ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))
         private val executor = Executors.newSingleThreadExecutor()
         private val progressLatch = CountDownLatch(1)
@@ -222,8 +252,25 @@ class Media3StreamingIntegrationTest {
                 flush()
             }
             if (method != "HEAD") {
-                output.write(fixture, start, contentLength)
-                output.flush()
+                output.writeFixture(start, contentLength)
+            }
+        }
+
+        private fun java.io.OutputStream.writeFixture(
+            start: Int,
+            contentLength: Int,
+        ) {
+            var offset = start
+            var remaining = contentLength
+            while (remaining > 0) {
+                val count = minOf(chunkSize, remaining)
+                write(fixture, offset, count)
+                flush()
+                offset += count
+                remaining -= count
+                if (chunkDelayMillis > 0 && remaining > 0) {
+                    Thread.sleep(chunkDelayMillis)
+                }
             }
         }
     }

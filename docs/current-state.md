@@ -98,7 +98,8 @@ Committed checkpoints:
   catalog browsing, generated stream consumption, and progress round trips.
 - API 34 emulator-verified Android Media3 instrumentation coverage with a
   deterministic one-second MP4 asset and loopback HTTP server, including
-  service-owned progress upload after the UI controller connection closes.
+  service-owned progress upload after the UI controller connection closes and
+  slow chunked HTTP media playback.
 
 ## Verification
 
@@ -125,10 +126,9 @@ With an Android emulator or device online, run:
 ## Next Work
 
 1. Exercise cross-device resume behavior on Android and TV hardware.
-2. Test slow media-stream playback and buffering behavior.
-3. Extend SQLDelight storage for settings and downloads.
-4. Select an audited Windows libmpv DLL bundle and run `mpv-probe`.
-5. Connect native Windows video rendering and local-file playback.
+2. Extend SQLDelight storage for settings and downloads.
+3. Select an audited Windows libmpv DLL bundle and run `mpv-probe`.
+4. Connect native Windows video rendering and local-file playback.
 
 ## Runtime Smoke Check
 
