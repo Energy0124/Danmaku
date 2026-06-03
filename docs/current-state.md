@@ -86,6 +86,9 @@ Committed checkpoints:
   tokenized `RemoteStream` plus resume position; the Windows shell uses it for
   same-PC or remote paired-server playback handoff state while native libmpv
   rendering is still pending.
+- Windows local playback preparation resolves indexed host files directly to
+  `LocalFile` sources with resume lookup, preserving an efficient same-PC path
+  before the native player is connected.
 - Android TV launch focus on `Discover PC` plus API 34 emulator-verified Compose
   instrumentation coverage for the initial focus and left-arrow path. The TV
   row uses an explicit focus graph for deterministic remote navigation.

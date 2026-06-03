@@ -32,6 +32,7 @@ Already implemented:
 - Windows anime-folder indexing with incremental SQLite catalog persistence.
 - Paired trusted-LAN catalog and seekable byte-range streaming.
 - Windows paired-server playback preparation with resume lookup.
+- Windows host direct local-file playback preparation with resume lookup.
 - Desktop mpv command planning for local-file and LAN-stream playback sources.
 - Desktop playback-controller wrapper for the planned Windows mpv command
   boundary.

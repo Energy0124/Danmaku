@@ -69,6 +69,9 @@ fun main() = application {
 private fun DesktopShell(snapshot: PlaybackSnapshot) {
     val selectionStore = remember { LocalLibrarySelectionStore.default() }
     val catalogStore = remember { DesktopLibraryCatalogStore.default() }
+    val localPlaybackPreparer = remember(catalogStore) {
+        DesktopLocalPlaybackPreparer(catalogStore)
+    }
     val server = remember(catalogStore) {
         LocalLibraryServer(progressStore = catalogStore).apply {
             start()
@@ -84,8 +87,12 @@ private fun DesktopShell(snapshot: PlaybackSnapshot) {
     var indexedLibrary by remember {
         mutableStateOf(selectedLibraryRoot?.let(catalogStore::load))
     }
+    var selectedLocalPlaybackPreparation by remember {
+        mutableStateOf<DesktopLocalPlaybackPreparation?>(null)
+    }
     var libraryError by remember { mutableStateOf<String?>(null) }
     var isIndexing by remember { mutableStateOf(false) }
+    var isPreparingLocalPlayback by remember { mutableStateOf(false) }
     val networkUrls = remember(server) { server.networkUrls() }
 
     fun indexLibrary(root: Path) {
@@ -108,6 +115,7 @@ private fun DesktopShell(snapshot: PlaybackSnapshot) {
                     server.publish(library.toPublishedLibrary())
                     indexedLibrary = library
                     selectedLibraryRoot = root.toAbsolutePath().normalize()
+                    selectedLocalPlaybackPreparation = null
                     libraryError = null
                 }.onFailure { error ->
                     libraryError = error.message
@@ -179,9 +187,49 @@ private fun DesktopShell(snapshot: PlaybackSnapshot) {
                     )
                 }
                 LazyColumn(modifier = Modifier.height(140.dp)) {
-                    items(indexedLibrary?.catalog?.items.orEmpty()) { item ->
-                        Text("${item.seriesTitle} - ${item.episodeTitle}")
+                    items(indexedLibrary?.catalog?.items.orEmpty(), key = { it.id }) { item ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(
+                                onClick = {
+                                    val library = indexedLibrary
+                                    if (library != null) {
+                                        scope.launch {
+                                            isPreparingLocalPlayback = true
+                                            runCatching {
+                                                withContext(Dispatchers.IO) {
+                                                    localPlaybackPreparer.prepare(library, item)
+                                                }
+                                            }.onSuccess {
+                                                selectedLocalPlaybackPreparation = it
+                                                libraryError = null
+                                            }.onFailure {
+                                                libraryError = it.message
+                                            }
+                                            isPreparingLocalPlayback = false
+                                        }
+                                    }
+                                },
+                                enabled = !isPreparingLocalPlayback,
+                            ) {
+                                Text(
+                                    if (isPreparingLocalPlayback) {
+                                        "Preparing..."
+                                    } else {
+                                        "Prepare local playback"
+                                    },
+                                )
+                            }
+                            Text("${item.seriesTitle} - ${item.episodeTitle}")
+                        }
                     }
+                }
+                selectedLocalPlaybackPreparation?.let { preparation ->
+                    Text(
+                        "Prepared local playback: " +
+                            "${preparation.item.seriesTitle} - ${preparation.item.episodeTitle}",
+                    )
+                    Text("Source: ${preparation.source.path}")
+                    Text("Resume: ${preparation.resumePositionMs?.let { "$it ms" } ?: "start from beginning"}")
                 }
                 RemoteLibraryBrowser(
                     defaultServerUrl = server.baseUrl(),

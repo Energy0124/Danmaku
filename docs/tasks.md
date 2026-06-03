@@ -98,6 +98,7 @@ catalog and pass selected streams to Media3.
   embedded same-PC defaults.
 - [x] Add shared LAN playback preparation for Windows remote-stream handoff with
   resume lookup.
+- [x] Add Windows host direct local-file playback preparation with resume lookup.
 - [ ] Add Windows player support for browsing and streaming from a paired LAN
   server, including the same-PC integration path.
 - [ ] Preserve direct local-file playback on the server host for efficiency.
