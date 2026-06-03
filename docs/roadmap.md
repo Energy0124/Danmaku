@@ -25,8 +25,9 @@ path. The desktop shell now browses a paired catalog and prepares stream URLs
 through that adapter while native libmpv playback handoff remains pending.
 
 The dedicated TV shell requests an explicit `Discover PC` launch focus and has
-compiled Compose instrumentation coverage for its initial remote-navigation
-path. Device execution remains part of TV hardware validation.
+API 34 emulator-verified Compose instrumentation coverage for its initial
+remote-navigation path. Physical TV execution remains part of hardware
+validation.
 
 ## Phase 0: Foundation
 

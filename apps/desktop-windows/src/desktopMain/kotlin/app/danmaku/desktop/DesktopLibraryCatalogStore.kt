@@ -26,6 +26,16 @@ class DesktopLibraryCatalogStore(
             sql = CREATE_PLAYBACK_PROGRESS_TABLE_SQL,
             parameters = 0,
         )
+        driver.execute(
+            identifier = null,
+            sql = CREATE_APP_SETTING_TABLE_SQL,
+            parameters = 0,
+        )
+        driver.execute(
+            identifier = null,
+            sql = CREATE_DOWNLOAD_QUEUE_ITEM_TABLE_SQL,
+            parameters = 0,
+        )
         database = DesktopLibraryDatabase(driver)
     }
 
@@ -105,6 +115,64 @@ class DesktopLibraryCatalogStore(
         )
     }
 
+    @Synchronized
+    fun loadSetting(key: String): DesktopAppSetting? =
+        database.libraryCatalogQueries
+            .selectSetting(key, ::DesktopAppSetting)
+            .executeAsOneOrNull()
+
+    @Synchronized
+    fun loadSettings(): List<DesktopAppSetting> =
+        database.libraryCatalogQueries
+            .selectAllSettings(::DesktopAppSetting)
+            .executeAsList()
+
+    @Synchronized
+    fun saveSetting(setting: DesktopAppSetting) {
+        database.libraryCatalogQueries.upsertSetting(
+            setting.key,
+            setting.value,
+            setting.updatedAtEpochMs,
+        )
+    }
+
+    @Synchronized
+    fun deleteSetting(key: String) {
+        database.libraryCatalogQueries.deleteSetting(key)
+    }
+
+    @Synchronized
+    fun loadDownload(id: String): DesktopDownloadQueueItem? =
+        database.libraryCatalogQueries
+            .selectDownload(id, ::desktopDownloadQueueItem)
+            .executeAsOneOrNull()
+
+    @Synchronized
+    fun loadDownloads(): List<DesktopDownloadQueueItem> =
+        database.libraryCatalogQueries
+            .selectAllDownloads(::desktopDownloadQueueItem)
+            .executeAsList()
+
+    @Synchronized
+    fun saveDownload(item: DesktopDownloadQueueItem) {
+        database.libraryCatalogQueries.upsertDownload(
+            item.id,
+            item.sourceUri,
+            item.outputPath,
+            item.state,
+            item.positionBytes,
+            item.totalBytes,
+            item.createdAtEpochMs,
+            item.updatedAtEpochMs,
+            item.failureMessage,
+        )
+    }
+
+    @Synchronized
+    fun deleteDownload(id: String) {
+        database.libraryCatalogQueries.deleteDownload(id)
+    }
+
     override fun close() {
         driver.close()
     }
@@ -116,6 +184,28 @@ class DesktopLibraryCatalogStore(
               position_ms INTEGER NOT NULL,
               duration_ms INTEGER,
               updated_at_epoch_ms INTEGER NOT NULL
+            )
+        """.trimIndent()
+
+        private val CREATE_APP_SETTING_TABLE_SQL = """
+            CREATE TABLE IF NOT EXISTS app_setting (
+              setting_key TEXT NOT NULL PRIMARY KEY,
+              setting_value TEXT NOT NULL,
+              updated_at_epoch_ms INTEGER NOT NULL
+            )
+        """.trimIndent()
+
+        private val CREATE_DOWNLOAD_QUEUE_ITEM_TABLE_SQL = """
+            CREATE TABLE IF NOT EXISTS download_queue_item (
+              id TEXT NOT NULL PRIMARY KEY,
+              source_uri TEXT NOT NULL,
+              output_path TEXT NOT NULL,
+              state TEXT NOT NULL,
+              position_bytes INTEGER NOT NULL,
+              total_bytes INTEGER,
+              created_at_epoch_ms INTEGER NOT NULL,
+              updated_at_epoch_ms INTEGER NOT NULL,
+              failure_message TEXT
             )
         """.trimIndent()
 
@@ -151,6 +241,63 @@ class DesktopLibraryCatalogStore(
                 ),
                 lastModifiedEpochMs = lastModifiedEpochMs,
             )
+
+        private fun desktopDownloadQueueItem(
+            id: String,
+            sourceUri: String,
+            outputPath: String,
+            state: String,
+            positionBytes: Long,
+            totalBytes: Long?,
+            createdAtEpochMs: Long,
+            updatedAtEpochMs: Long,
+            failureMessage: String?,
+        ): DesktopDownloadQueueItem =
+            DesktopDownloadQueueItem(
+                id = id,
+                sourceUri = sourceUri,
+                outputPath = outputPath,
+                state = state,
+                positionBytes = positionBytes,
+                totalBytes = totalBytes,
+                createdAtEpochMs = createdAtEpochMs,
+                updatedAtEpochMs = updatedAtEpochMs,
+                failureMessage = failureMessage,
+            )
+    }
+}
+
+data class DesktopAppSetting(
+    val key: String,
+    val value: String,
+    val updatedAtEpochMs: Long,
+) {
+    init {
+        require(key.isNotBlank()) { "key must not be blank" }
+        require(updatedAtEpochMs >= 0) { "updatedAtEpochMs must not be negative" }
+    }
+}
+
+data class DesktopDownloadQueueItem(
+    val id: String,
+    val sourceUri: String,
+    val outputPath: String,
+    val state: String,
+    val positionBytes: Long,
+    val totalBytes: Long?,
+    val createdAtEpochMs: Long,
+    val updatedAtEpochMs: Long,
+    val failureMessage: String? = null,
+) {
+    init {
+        require(id.isNotBlank()) { "id must not be blank" }
+        require(sourceUri.isNotBlank()) { "sourceUri must not be blank" }
+        require(outputPath.isNotBlank()) { "outputPath must not be blank" }
+        require(state.isNotBlank()) { "state must not be blank" }
+        require(positionBytes >= 0) { "positionBytes must not be negative" }
+        require(totalBytes == null || totalBytes >= 0) { "totalBytes must not be negative" }
+        require(createdAtEpochMs >= 0) { "createdAtEpochMs must not be negative" }
+        require(updatedAtEpochMs >= 0) { "updatedAtEpochMs must not be negative" }
     }
 }
 

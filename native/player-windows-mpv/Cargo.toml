@@ -6,4 +6,4 @@ description = "Dependency-free Windows libmpv loading spike"
 license = "MIT OR Apache-2.0"
 
 [lib]
-crate-type = ["lib"]
+crate-type = ["lib", "cdylib"]

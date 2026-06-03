@@ -1,6 +1,6 @@
 # NipaPlay Reference Feature Review
 
-Updated on 2026-06-02.
+Updated on 2026-06-03.
 
 Reference project:
 
@@ -31,9 +31,20 @@ Already implemented:
 
 - Windows anime-folder indexing with incremental SQLite catalog persistence.
 - Paired trusted-LAN catalog and seekable byte-range streaming.
+- Windows paired-server playback preparation with resume lookup.
+- Windows host direct local-file playback preparation with resume lookup.
+- Rust C ABI for the Windows libmpv context and command boundary.
+- Desktop mpv command planning for local-file and LAN-stream playback sources.
+- Desktop playback-controller wrapper for the planned Windows mpv command
+  boundary.
+- Desktop session wiring that loads prepared local-file or paired-LAN requests
+  into the playback controller with resume seeking.
+- JNA-backed desktop command executor binding to the Rust libmpv C ABI.
 - Windows LAN discovery for Android and Android TV clients.
 - Android and Android TV Media3 playback through a background service.
 - Durable cross-device episode progress with resume seeking.
+- Desktop SQLDelight storage primitives for app settings and download queue
+  items.
 - Shared danmaku timeline indexing and collision-aware scrolling-lane scheduling.
 - Windows libmpv dynamic-loader probe.
 - Dedicated Android TV application module with initial D-pad focus coverage.
@@ -76,19 +87,26 @@ These remain the highest priority because they validate the platform foundation.
 - [ ] Synchronize the Compose danmaku overlay to the real playback clock.
 - [ ] Test Windows resize, fullscreen, seeking, pause/resume, rate changes,
   hardware decoding, 10-bit media, and 4K media.
-- [ ] Run Android TV D-pad instrumentation tests on an online emulator or device.
+- [x] Run Android TV D-pad instrumentation tests on a workspace-local API 34
+  emulator.
 - [ ] Exercise PC-to-mobile and PC-to-TV streaming plus cross-device resume on
   physical hardware.
 - [x] Add same-PC Windows-to-Windows LAN streaming integration coverage for paired
   catalog requests, full-file reads, byte ranges, and progress round trips.
-- [ ] Test unauthorized media requests, invalid and unsatisfiable ranges, large
+- [x] Test unauthorized media requests, invalid and unsatisfiable ranges, large
   files, and concurrent streams.
-- [ ] Add an Android client integration test against a live local-server fixture.
-- [ ] Add an end-to-end Android Media3 streaming test with a real short fixture.
-- [ ] Test background-service progress uploads while the Android player UI is not
+- [x] Add an Android client integration test against a live local-server fixture.
+- [x] Add a compile-checked Android Media3 instrumentation fixture with a real
+  short asset and loopback HTTP server.
+- [x] Execute the Media3 streaming fixture on a workspace-local API 34 emulator.
+- [x] Test background-service progress uploads while the Android player UI is not
   active.
-- [ ] Add LAN-server integration tests for progress updates during pause, seek,
-  episode completion, reconnect, interruption, and slow-network conditions.
+- [x] Add LAN-server integration tests for progress updates during pause, seek,
+  and episode completion.
+- [x] Add LAN-client integration tests for reconnect after an interrupted
+  catalog request.
+- [x] Add LAN-client integration tests for slow catalog response timeouts.
+- [x] Add LAN integration tests for slow media-stream playback and buffering.
 - [ ] Add LAN subtitle streaming tests when subtitle endpoints are implemented.
 
 ### P1: Local Anime Library And Player
@@ -178,6 +196,7 @@ Downloads remain authorized-source-only.
   lists, resolved output folders, download status, and completion-triggered rescans.
 - [ ] Keep ani-rss subscription and download-control actions disabled until the
   authorized-source policy explicitly permits them.
+- [x] Add desktop SQLDelight storage primitives for queue items and app settings.
 - [ ] Persist queue, progress, retries, failures, and verified output paths.
 - [ ] Add Media3 `DownloadService` for Android and Android TV.
 - [ ] Add the Rust Windows download engine behind coarse-grained Kotlin APIs.

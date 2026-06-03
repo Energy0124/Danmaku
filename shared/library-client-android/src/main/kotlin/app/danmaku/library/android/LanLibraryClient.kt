@@ -15,7 +15,14 @@ class LanLibraryClient(
     private val json: Json = Json {
         ignoreUnknownKeys = true
     },
+    private val connectTimeoutMillis: Int = DEFAULT_CONNECT_TIMEOUT_MILLIS,
+    private val readTimeoutMillis: Int = DEFAULT_READ_TIMEOUT_MILLIS,
 ) : SharedLanLibraryClient {
+    init {
+        require(connectTimeoutMillis > 0) { "connectTimeoutMillis must be positive" }
+        require(readTimeoutMillis > 0) { "readTimeoutMillis must be positive" }
+    }
+
     override fun fetchCatalog(
         baseUrl: String,
         pairingToken: String,
@@ -90,8 +97,13 @@ class LanLibraryClient(
 
     private fun open(url: String): HttpURLConnection =
         (URI(url).toURL().openConnection() as HttpURLConnection).apply {
-            connectTimeout = 5_000
-            readTimeout = 10_000
+            connectTimeout = connectTimeoutMillis
+            readTimeout = readTimeoutMillis
+        }
+
+    private companion object {
+        const val DEFAULT_CONNECT_TIMEOUT_MILLIS = 5_000
+        const val DEFAULT_READ_TIMEOUT_MILLIS = 10_000
     }
 }
 

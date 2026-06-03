@@ -5,9 +5,6 @@ the platform surface.
 
 ## Current Focus
 
-The checkout is `S:\Projects\Danmaku` on branch
-`codex/windows-playback-foundation`.
-
 Native render integration requires an audited Windows libmpv DLL bundle. The
 shared scrolling danmaku lane scheduler and synthetic Compose overlay demo are
 implemented. The Windows app also indexes local anime folders and streams
@@ -22,7 +19,17 @@ catalog and pass selected streams to Media3.
 - [x] Add a minimal shared Kotlin domain module.
 - [x] Decide the Windows libmpv distribution strategy.
 - [x] Add a dependency-free Windows libmpv dynamic-loader spike.
+- [x] Expose a Rust C ABI for creating an mpv context, executing command arrays,
+  and destroying the handle.
+- [x] Add a desktop mpv command planner for local files, LAN streams, seek, and
+  playback-rate commands.
+- [x] Add a desktop `PlaybackController` wrapper around the mpv command boundary.
+- [x] Connect prepared local and paired-LAN playback requests to the desktop
+  `PlaybackController` with resume seeking.
+- [x] Bind the desktop Kotlin command executor to the Rust C ABI with JNA.
 - [ ] Verify the dynamic-loader probe against an audited libmpv DLL.
+- [ ] Wire the JNA mpv command executor into the desktop shell after selecting
+  the audited native bundle.
 - [ ] Build a Windows libmpv playback spike.
 - [x] Add a shared scrolling danmaku lane scheduler with collision-aware tests.
 - [x] Add recursive Windows anime-folder indexing.
@@ -60,15 +67,21 @@ catalog and pass selected streams to Media3.
 - [x] Add same-PC Windows-to-Windows LAN streaming integration coverage that starts
   the local server and exercises paired catalog requests, full-file reads, byte
   ranges, and progress round trips through the public HTTP contract.
-- [ ] Add LAN-server tests for unauthorized media requests, invalid and
+- [x] Add LAN-server tests for unauthorized media requests, invalid and
   unsatisfiable byte ranges, large files, and concurrent streams.
-- [ ] Add an Android client integration test against a live local-server fixture.
-- [ ] Add an end-to-end Android Media3 streaming test with a real short media
-  fixture.
-- [ ] Test background-service progress uploads while the Android player UI is not
+- [x] Add an Android client integration test against a live local-server fixture.
+- [x] Add a compile-checked Android Media3 instrumentation fixture with a real
+  short media asset and loopback HTTP server.
+- [x] Execute the Media3 streaming fixture on a workspace-local API 34 emulator.
+- [x] Execute the TV D-pad instrumentation suite on a workspace-local API 34
+  emulator.
+- [x] Test background-service progress uploads while the Android player UI is not
   active.
-- [ ] Test pause, seek, episode completion, reconnect, interrupted-network, and
-  slow-network behavior.
+- [x] Test pause, seek, and episode-completion progress persistence through
+  sequential LAN progress updates.
+- [x] Test reconnect after an interrupted LAN catalog request.
+- [x] Test slow LAN catalog response timeout behavior.
+- [x] Test slow media-stream playback and buffering behavior.
 - [ ] Add LAN subtitle streaming tests when subtitle endpoints are implemented.
 - [ ] Exercise PC-to-mobile and PC-to-TV streaming plus cross-device resume on
   physical hardware.
@@ -87,6 +100,11 @@ catalog and pass selected streams to Media3.
 - [x] Keep the Windows desktop app starting an embedded library server by default.
 - [x] Add Windows paired-server catalog browsing and stream URL selection with
   embedded same-PC defaults.
+- [x] Add shared LAN playback preparation for Windows remote-stream handoff with
+  resume lookup.
+- [x] Add Windows host direct local-file playback preparation with resume lookup.
+- [x] Connect prepared local and paired-LAN playback requests to the desktop
+  playback controller.
 - [ ] Add Windows player support for browsing and streaming from a paired LAN
   server, including the same-PC integration path.
 - [ ] Preserve direct local-file playback on the server host for efficiency.
@@ -95,6 +113,8 @@ catalog and pass selected streams to Media3.
 
 ## Downloads
 
+- [x] Add desktop SQLDelight storage primitives for app settings and download
+  queue items.
 - [ ] Define authorized-download policy fields in source contracts.
 - [ ] Define a platform-independent download manifest.
 - [ ] Add multiple Windows library roots with provenance and missing-folder state.
@@ -114,7 +134,7 @@ catalog and pass selected streams to Media3.
 
 - [x] Add initial SQLDelight library storage.
 - [x] Extend SQLDelight storage for playback progress.
-- [ ] Extend SQLDelight storage for settings and downloads.
+- [x] Extend SQLDelight storage for settings and downloads.
 - [ ] Add authorized source plugins.
 - [ ] Add macOS and Linux desktop packaging.
 - [ ] Add iOS and iPadOS.

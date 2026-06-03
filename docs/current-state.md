@@ -1,33 +1,6 @@
 # Current State
 
-Updated on 2026-06-02.
-
-## Workspace
-
-The canonical checkout is:
-
-```text
-S:\Projects\Danmaku
-```
-
-The previous `C:\Users\energy\OneDrive\Documents\Danmaku` directory is an
-empty placeholder retained by an open desktop-session handle. It is not a Git
-checkout and must not be used for project commands.
-
-## Git
-
-Current branch:
-
-```text
-codex/windows-playback-foundation
-```
-
-Committed checkpoints:
-
-```text
-991e4f4 feat: add Windows playback foundation
-6ee283a chore: establish danmaku project foundation
-```
+Updated on 2026-06-03.
 
 ## Implemented
 
@@ -38,6 +11,23 @@ Committed checkpoints:
 - Dependency-free Windows libmpv loader with DLL discovery, required-symbol
   loading, mpv context initialization, command dispatch, and clean shutdown.
 - `mpv-probe` executable for validating an audited `libmpv-2.dll`.
+- Windows libmpv Rust crate also builds a `cdylib` and exposes a small C ABI for
+  creating an mpv context, executing coarse command arrays, and destroying the
+  handle. The ABI uses explicit status codes and is covered for null pointers
+  and missing-DLL failures.
+- Desktop mpv command planner for loading local files or LAN streams and
+  dispatching play, pause, absolute seek, and playback-rate commands before the
+  Kotlin-to-native controller bridge is wired.
+- Desktop `PlaybackController` wrapper that executes planned mpv commands through
+  an injectable command executor and tracks testable snapshot state for local
+  files and LAN streams.
+- Desktop playback session wiring that loads prepared local-file or paired-LAN
+  requests into the controller and applies resume seeks in command order. The
+  shell currently shows the planned mpv command log until the native executor is
+  connected.
+- Desktop JNA binding for the Rust libmpv C ABI, including native handle
+  creation, command-array forwarding, destroy calls, and explicit native
+  status-code failures behind `DesktopMpvCommandExecutor`.
 - Shared scrolling danmaku lane scheduler with collision-aware tests, bounded
   visible-window lookup, backward-seek query coverage, and a 10,000-comment
   generated-track test.
@@ -56,6 +46,8 @@ Committed checkpoints:
   startup and unchanged-file reuse during background rescans.
 - Durable per-episode playback progress in the desktop SQLite database with a
   paired LAN `GET`/`PUT /api/progress/{id}` contract and Android client methods.
+- Desktop SQLDelight storage primitives for app settings and download queue
+  items, with compatibility creation for existing catalog databases.
 - Android mobile and TV progress syncing from the background playback service
   with five-second uploads, resume seeking after 10 seconds, and near-end
   episode restart behavior.
@@ -72,11 +64,21 @@ Committed checkpoints:
   stream-URL generation, progress upload, and resume lookup. Its JVM source set
   includes the HTTP adapter used by the Windows shell for same-PC or remote
   paired-server browsing and stream selection. Android HTTP and UDP discovery
-  remain platform adapters.
-- Android TV launch focus on `Discover PC` plus compiled Compose instrumentation
-  coverage for the initial focus and left-arrow path.
+  remain platform adapters. JVM and Android LAN clients use configurable HTTP
+  connect/read timeouts with stable production defaults.
+- Shared LAN playback preparation converts a paired catalog item into a
+  tokenized `RemoteStream` plus resume position; the Windows shell uses it for
+  same-PC or remote paired-server playback handoff state while native libmpv
+  rendering is still pending.
+- Windows local playback preparation resolves indexed host files directly to
+  `LocalFile` sources with resume lookup, preserving an efficient same-PC path
+  before the native player is connected.
+- Android TV launch focus on `Discover PC` plus API 34 emulator-verified Compose
+  instrumentation coverage for the initial focus and left-arrow path. The TV
+  row uses an explicit focus graph for deterministic remote navigation.
 - Workspace-local ignored Android SDK with API 36, Build Tools 36.0.0, and
-  platform tools. `local.properties` is ignored and points to that SDK.
+  platform tools. The ignored SDK also has an API 34 emulator image for runtime
+  instrumentation. `local.properties` is ignored and points to that SDK.
 - Architecture decisions for Kotlin with focused Rust and audited libmpv
   distribution.
 - Same-PC Windows host integration coverage for paired catalog requests,
@@ -84,6 +86,19 @@ Committed checkpoints:
   unsatisfiable ranges, and progress round trips.
 - JVM client-to-server loopback coverage for paired catalog browsing, generated
   stream consumption, token encoding, missing progress, and progress round trips.
+- JVM LAN client recovery coverage for an interrupted catalog connection that
+  reconnects and completes on a fresh socket.
+- JVM LAN client timeout coverage for slow catalog responses.
+- Reusable LAN server reliability coverage for unauthorized media requests,
+  malformed and unsatisfiable byte ranges, valid open-ended and suffix ranges,
+  multi-megabyte media, concurrent streams, and sequential pause, seek, and
+  completion-style progress updates.
+- Android HTTP adapter loopback coverage against a live local server for paired
+  catalog browsing, generated stream consumption, and progress round trips.
+- API 34 emulator-verified Android Media3 instrumentation coverage with a
+  deterministic one-second MP4 asset and loopback HTTP server, including
+  service-owned progress upload after the UI controller connection closes and
+  slow chunked HTTP media playback.
 
 ## Verification
 
@@ -94,17 +109,26 @@ cargo fmt --all --check
 cargo test --workspace
 .\gradlew.bat --no-daemon :shared:domain:jvmTest
 .\gradlew.bat --no-daemon :shared:library-client:jvmTest
+.\gradlew.bat --no-daemon :shared:library-server-core:jvmTest
 .\gradlew.bat --no-daemon :apps:desktop-windows:desktopTest
+.\gradlew.bat --no-daemon :shared:player-android-media3:assembleDebugAndroidTest
 .\gradlew.bat --no-daemon :apps:android-mobile:assembleDebug :apps:android-tv:assembleDebug
+```
+
+With an Android emulator or device online, run:
+
+```powershell
+.\gradlew.bat --no-daemon :shared:player-android-media3:connectedDebugAndroidTest
+.\gradlew.bat --no-daemon :apps:android-tv:connectedDebugAndroidTest
 ```
 
 ## Next Work
 
-1. Run TV D-pad instrumentation tests on an emulator or physical TV device.
-2. Exercise cross-device resume behavior on Android and TV hardware.
-3. Extend SQLDelight storage for settings and downloads.
-4. Select an audited Windows libmpv DLL bundle and run `mpv-probe`.
-5. Connect native Windows video rendering and local-file playback.
+1. Exercise cross-device resume behavior on Android and TV hardware.
+2. Select an audited Windows libmpv DLL bundle and run `mpv-probe`.
+3. Wire the JNA mpv command executor into the desktop shell once an audited
+   `libmpv-2.dll` and Rust `cdylib` bundle are selected.
+4. Connect native Windows video rendering and local-file playback.
 
 ## Runtime Smoke Check
 

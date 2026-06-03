@@ -25,6 +25,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -74,6 +75,7 @@ private fun TvPlayerScreen() {
         LanPlaybackProgressSync(libraryClient, System::currentTimeMillis)
     }
     val discoveryClient = remember { LanLibraryDiscoveryClient() }
+    val refreshPcFocusRequester = remember { FocusRequester() }
     val discoverPcFocusRequester = remember { FocusRequester() }
     val scope = rememberCoroutineScope()
     var controller by remember { mutableStateOf<Media3PlaybackController?>(null) }
@@ -158,6 +160,11 @@ private fun TvPlayerScreen() {
                             }
                         }
                     },
+                    modifier = Modifier
+                        .focusRequester(refreshPcFocusRequester)
+                        .focusProperties {
+                            right = discoverPcFocusRequester
+                        },
                 ) {
                     Text("Refresh PC library")
                 }
@@ -177,7 +184,11 @@ private fun TvPlayerScreen() {
                             }
                         }
                     },
-                    modifier = Modifier.focusRequester(discoverPcFocusRequester),
+                    modifier = Modifier
+                        .focusRequester(discoverPcFocusRequester)
+                        .focusProperties {
+                            left = refreshPcFocusRequester
+                        },
                 ) {
                     Text("Discover PC")
                 }

@@ -23,6 +23,24 @@ CREATE TABLE playback_progress (
   updated_at_epoch_ms INTEGER NOT NULL
 );
 
+CREATE TABLE app_setting (
+  setting_key TEXT NOT NULL PRIMARY KEY,
+  setting_value TEXT NOT NULL,
+  updated_at_epoch_ms INTEGER NOT NULL
+);
+
+CREATE TABLE download_queue_item (
+  id TEXT NOT NULL PRIMARY KEY,
+  source_uri TEXT NOT NULL,
+  output_path TEXT NOT NULL,
+  state TEXT NOT NULL,
+  position_bytes INTEGER NOT NULL,
+  total_bytes INTEGER,
+  created_at_epoch_ms INTEGER NOT NULL,
+  updated_at_epoch_ms INTEGER NOT NULL,
+  failure_message TEXT
+);
+
 selectMetadata:
 SELECT root_path, root_name, indexed_at_epoch_ms
 FROM library_metadata
@@ -82,3 +100,71 @@ INSERT OR REPLACE INTO playback_progress(
   updated_at_epoch_ms
 )
 VALUES (?, ?, ?, ?);
+
+selectSetting:
+SELECT setting_key, setting_value, updated_at_epoch_ms
+FROM app_setting
+WHERE setting_key = ?;
+
+selectAllSettings:
+SELECT setting_key, setting_value, updated_at_epoch_ms
+FROM app_setting
+ORDER BY setting_key;
+
+upsertSetting:
+INSERT OR REPLACE INTO app_setting(
+  setting_key,
+  setting_value,
+  updated_at_epoch_ms
+)
+VALUES (?, ?, ?);
+
+deleteSetting:
+DELETE FROM app_setting
+WHERE setting_key = ?;
+
+selectDownload:
+SELECT
+  id,
+  source_uri,
+  output_path,
+  state,
+  position_bytes,
+  total_bytes,
+  created_at_epoch_ms,
+  updated_at_epoch_ms,
+  failure_message
+FROM download_queue_item
+WHERE id = ?;
+
+selectAllDownloads:
+SELECT
+  id,
+  source_uri,
+  output_path,
+  state,
+  position_bytes,
+  total_bytes,
+  created_at_epoch_ms,
+  updated_at_epoch_ms,
+  failure_message
+FROM download_queue_item
+ORDER BY created_at_epoch_ms, id;
+
+upsertDownload:
+INSERT OR REPLACE INTO download_queue_item(
+  id,
+  source_uri,
+  output_path,
+  state,
+  position_bytes,
+  total_bytes,
+  created_at_epoch_ms,
+  updated_at_epoch_ms,
+  failure_message
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteDownload:
+DELETE FROM download_queue_item
+WHERE id = ?;

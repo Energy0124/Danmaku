@@ -4,6 +4,7 @@ import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.domain.PlaybackSnapshot
+import app.danmaku.domain.PlaybackSource
 import app.danmaku.domain.resumePositionMs
 import app.danmaku.domain.toPlaybackProgress
 
@@ -40,6 +41,39 @@ data class LanPlaybackTarget(
     init {
         require(baseUrl.isNotBlank()) { "baseUrl must not be blank" }
         require(mediaId.isNotBlank()) { "mediaId must not be blank" }
+    }
+}
+
+data class LanPlaybackPreparation(
+    val item: LibraryMediaItem,
+    val target: LanPlaybackTarget,
+    val source: PlaybackSource.RemoteStream,
+    val resumePositionMs: Long?,
+)
+
+class LanPlaybackPreparer(
+    private val libraryClient: LanLibraryClient,
+) {
+    fun prepare(
+        baseUrl: String,
+        pairingToken: String,
+        item: LibraryMediaItem,
+    ): LanPlaybackPreparation {
+        val target = LanPlaybackTarget(
+            baseUrl = baseUrl,
+            pairingToken = pairingToken,
+            mediaId = item.id,
+        )
+        return LanPlaybackPreparation(
+            item = item,
+            target = target,
+            source = PlaybackSource.RemoteStream(
+                libraryClient.streamUrl(baseUrl, item, pairingToken),
+            ),
+            resumePositionMs = libraryClient
+                .fetchProgress(baseUrl, item.id, pairingToken)
+                ?.resumePositionMs(),
+        )
     }
 }
 
