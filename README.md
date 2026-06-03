@@ -182,8 +182,3 @@ Near-term priorities:
 Later priorities include authorized download management, ani-rss monitoring,
 MyAnimeList progress/rating sync, provider plugins, danmaku parsing/filtering,
 and additional desktop/mobile/web platforms.
-
-## License
-
-No repository-level license has been published yet. Do not assume redistribution
-rights until a license file is added.
