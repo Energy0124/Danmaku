@@ -2,6 +2,9 @@ package app.danmaku.server
 
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryMediaItem
+import app.danmaku.domain.PlaybackProgress
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import java.net.HttpURLConnection
 import java.net.URI
 import java.util.concurrent.Callable
@@ -92,6 +95,55 @@ class LocalLibraryServerTest {
         }
     }
 
+    @Test
+    fun storesSequentialProgressUpdates() {
+        withServer(byteArrayOf(0, 1, 2, 3, 4, 5)) { server, item ->
+            val progressUrl = "${server.baseUrl()}/api/progress/${item.id}?token=123456"
+            val paused = PlaybackProgress(
+                mediaId = item.id,
+                positionMs = 12_345,
+                durationMs = 98_765,
+                updatedAtEpochMs = 100,
+            )
+            val seeked = paused.copy(
+                positionMs = 45_000,
+                updatedAtEpochMs = 200,
+            )
+            val completed = paused.copy(
+                positionMs = 98_765,
+                updatedAtEpochMs = 300,
+            )
+
+            assertEquals(404, connection(progressUrl).responseCode)
+
+            listOf(paused, seeked, completed).forEach { progress ->
+                assertEquals(
+                    204,
+                    connection(
+                        url = progressUrl,
+                        method = "PUT",
+                        body = Json.encodeToString(progress),
+                    ).responseCode,
+                )
+                assertEquals(
+                    progress,
+                    Json.decodeFromString<PlaybackProgress>(
+                        connection(progressUrl).inputStream.bufferedReader().use { it.readText() },
+                    ),
+                )
+            }
+
+            assertEquals(
+                400,
+                connection(
+                    url = progressUrl,
+                    method = "PUT",
+                    body = Json.encodeToString(completed.copy(mediaId = "other")),
+                ).responseCode,
+            )
+        }
+    }
+
     private fun withServer(
         mediaBytes: ByteArray,
         block: (LocalLibraryServer, LibraryMediaItem) -> Unit,
@@ -131,9 +183,17 @@ class LocalLibraryServerTest {
     private fun connection(
         url: String,
         range: String? = null,
+        method: String = "GET",
+        body: String? = null,
     ): HttpURLConnection =
         (URI(url).toURL().openConnection() as HttpURLConnection).apply {
+            requestMethod = method
             range?.let { setRequestProperty("Range", it) }
+            body?.let {
+                doOutput = true
+                setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                outputStream.bufferedWriter().use { writer -> writer.write(it) }
+            }
         }
 
     private companion object {

@@ -90,8 +90,10 @@ These remain the highest priority because they validate the platform foundation.
 - [x] Execute the Media3 streaming fixture on a workspace-local API 34 emulator.
 - [x] Test background-service progress uploads while the Android player UI is not
   active.
-- [ ] Add LAN-server integration tests for progress updates during pause, seek,
-  episode completion, reconnect, interruption, and slow-network conditions.
+- [x] Add LAN-server integration tests for progress updates during pause, seek,
+  and episode completion.
+- [ ] Add LAN-server integration tests for reconnect, interruption, and
+  slow-network conditions.
 - [ ] Add LAN subtitle streaming tests when subtitle endpoints are implemented.
 
 ### P1: Local Anime Library And Player

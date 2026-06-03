@@ -70,8 +70,9 @@ catalog and pass selected streams to Media3.
   emulator.
 - [x] Test background-service progress uploads while the Android player UI is not
   active.
-- [ ] Test pause, seek, episode completion, reconnect, interrupted-network, and
-  slow-network behavior.
+- [x] Test pause, seek, and episode-completion progress persistence through
+  sequential LAN progress updates.
+- [ ] Test reconnect, interrupted-network, and slow-network behavior.
 - [ ] Add LAN subtitle streaming tests when subtitle endpoints are implemented.
 - [ ] Exercise PC-to-mobile and PC-to-TV streaming plus cross-device resume on
   physical hardware.
