@@ -22,6 +22,8 @@ catalog and pass selected streams to Media3.
 - [x] Add a minimal shared Kotlin domain module.
 - [x] Decide the Windows libmpv distribution strategy.
 - [x] Add a dependency-free Windows libmpv dynamic-loader spike.
+- [x] Add a desktop mpv command planner for local files, LAN streams, seek, and
+  playback-rate commands.
 - [ ] Verify the dynamic-loader probe against an audited libmpv DLL.
 - [ ] Build a Windows libmpv playback spike.
 - [x] Add a shared scrolling danmaku lane scheduler with collision-aware tests.

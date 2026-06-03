@@ -32,6 +32,7 @@ Already implemented:
 - Windows anime-folder indexing with incremental SQLite catalog persistence.
 - Paired trusted-LAN catalog and seekable byte-range streaming.
 - Windows paired-server playback preparation with resume lookup.
+- Desktop mpv command planning for local-file and LAN-stream playback sources.
 - Windows LAN discovery for Android and Android TV clients.
 - Android and Android TV Media3 playback through a background service.
 - Durable cross-device episode progress with resume seeking.
