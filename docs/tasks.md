@@ -29,8 +29,10 @@ catalog and pass selected streams to Media3.
 - [x] Add a desktop `PlaybackController` wrapper around the mpv command boundary.
 - [x] Connect prepared local and paired-LAN playback requests to the desktop
   `PlaybackController` with resume seeking.
-- [ ] Bind the desktop Kotlin command executor to the Rust C ABI.
+- [x] Bind the desktop Kotlin command executor to the Rust C ABI with JNA.
 - [ ] Verify the dynamic-loader probe against an audited libmpv DLL.
+- [ ] Wire the JNA mpv command executor into the desktop shell after selecting
+  the audited native bundle.
 - [ ] Build a Windows libmpv playback spike.
 - [x] Add a shared scrolling danmaku lane scheduler with collision-aware tests.
 - [x] Add recursive Windows anime-folder indexing.

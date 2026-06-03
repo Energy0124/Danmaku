@@ -39,6 +39,7 @@ Already implemented:
   boundary.
 - Desktop session wiring that loads prepared local-file or paired-LAN requests
   into the playback controller with resume seeking.
+- JNA-backed desktop command executor binding to the Rust libmpv C ABI.
 - Windows LAN discovery for Android and Android TV clients.
 - Android and Android TV Media3 playback through a background service.
 - Durable cross-device episode progress with resume seeking.

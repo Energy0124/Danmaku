@@ -52,6 +52,9 @@ Committed checkpoints:
   requests into the controller and applies resume seeks in command order. The
   shell currently shows the planned mpv command log until the native executor is
   connected.
+- Desktop JNA binding for the Rust libmpv C ABI, including native handle
+  creation, command-array forwarding, destroy calls, and explicit native
+  status-code failures behind `DesktopMpvCommandExecutor`.
 - Shared scrolling danmaku lane scheduler with collision-aware tests, bounded
   visible-window lookup, backward-seek query coverage, and a 10,000-comment
   generated-track test.
@@ -150,7 +153,8 @@ With an Android emulator or device online, run:
 
 1. Exercise cross-device resume behavior on Android and TV hardware.
 2. Select an audited Windows libmpv DLL bundle and run `mpv-probe`.
-3. Bind the desktop Kotlin mpv command executor to the Rust C ABI.
+3. Wire the JNA mpv command executor into the desktop shell once an audited
+   `libmpv-2.dll` and Rust `cdylib` bundle are selected.
 4. Connect native Windows video rendering and local-file playback.
 
 ## Runtime Smoke Check
