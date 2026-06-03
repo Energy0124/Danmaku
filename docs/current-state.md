@@ -86,6 +86,8 @@ Committed checkpoints:
   unsatisfiable ranges, and progress round trips.
 - JVM client-to-server loopback coverage for paired catalog browsing, generated
   stream consumption, token encoding, missing progress, and progress round trips.
+- JVM LAN client recovery coverage for an interrupted catalog connection that
+  reconnects and completes on a fresh socket.
 - Reusable LAN server reliability coverage for unauthorized media requests,
   malformed and unsatisfiable byte ranges, valid open-ended and suffix ranges,
   multi-megabyte media, concurrent streams, and sequential pause, seek, and
@@ -121,7 +123,7 @@ With an Android emulator or device online, run:
 ## Next Work
 
 1. Exercise cross-device resume behavior on Android and TV hardware.
-2. Test reconnect, interrupted-network, and slow-network behavior.
+2. Test slow-network behavior.
 3. Extend SQLDelight storage for settings and downloads.
 4. Select an audited Windows libmpv DLL bundle and run `mpv-probe`.
 5. Connect native Windows video rendering and local-file playback.

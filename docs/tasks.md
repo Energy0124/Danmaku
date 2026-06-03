@@ -72,7 +72,8 @@ catalog and pass selected streams to Media3.
   active.
 - [x] Test pause, seek, and episode-completion progress persistence through
   sequential LAN progress updates.
-- [ ] Test reconnect, interrupted-network, and slow-network behavior.
+- [x] Test reconnect after an interrupted LAN catalog request.
+- [ ] Test slow-network behavior.
 - [ ] Add LAN subtitle streaming tests when subtitle endpoints are implemented.
 - [ ] Exercise PC-to-mobile and PC-to-TV streaming plus cross-device resume on
   physical hardware.

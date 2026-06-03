@@ -92,8 +92,9 @@ These remain the highest priority because they validate the platform foundation.
   active.
 - [x] Add LAN-server integration tests for progress updates during pause, seek,
   and episode completion.
-- [ ] Add LAN-server integration tests for reconnect, interruption, and
-  slow-network conditions.
+- [x] Add LAN-client integration tests for reconnect after an interrupted
+  catalog request.
+- [ ] Add LAN integration tests for slow-network conditions.
 - [ ] Add LAN subtitle streaming tests when subtitle endpoints are implemented.
 
 ### P1: Local Anime Library And Player
