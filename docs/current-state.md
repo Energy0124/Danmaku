@@ -41,6 +41,9 @@ Committed checkpoints:
 - Desktop mpv command planner for loading local files or LAN streams and
   dispatching play, pause, absolute seek, and playback-rate commands before the
   Kotlin-to-native controller bridge is wired.
+- Desktop `PlaybackController` wrapper that executes planned mpv commands through
+  an injectable command executor and tracks testable snapshot state for local
+  files and LAN streams.
 - Shared scrolling danmaku lane scheduler with collision-aware tests, bounded
   visible-window lookup, backward-seek query coverage, and a 10,000-comment
   generated-track test.
@@ -136,7 +139,8 @@ With an Android emulator or device online, run:
 
 1. Exercise cross-device resume behavior on Android and TV hardware.
 2. Select an audited Windows libmpv DLL bundle and run `mpv-probe`.
-3. Connect planned mpv commands to the native Windows libmpv controller bridge.
+3. Implement the native Windows libmpv command executor for the desktop
+   `PlaybackController`.
 4. Connect native Windows video rendering and local-file playback.
 
 ## Runtime Smoke Check
