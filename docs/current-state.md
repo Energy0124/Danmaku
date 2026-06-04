@@ -59,6 +59,9 @@ Updated on 2026-06-04.
 - Desktop root scanner can import ani-rss output folders, reuse unchanged media
   rows during incremental rescans, mark unavailable roots missing, and produce
   a merged library for LAN publication.
+- Windows desktop shell actions let users add normal library roots or ani-rss
+  completed-media output folders, rescan all registered roots, and inspect each
+  root's provenance and availability state.
 - Shared source and download domain contracts for authorized offline storage
   policy, source capabilities, and platform-independent download manifests.
 - Android mobile and TV progress syncing from the background playback service

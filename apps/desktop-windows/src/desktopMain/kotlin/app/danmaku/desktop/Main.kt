@@ -70,6 +70,10 @@ fun main() = application {
 private fun DesktopShell() {
     val selectionStore = remember { LocalLibrarySelectionStore.default() }
     val catalogStore = remember { DesktopLibraryCatalogStore.default() }
+    val rootRegistry = remember(catalogStore) { DesktopLibraryRootRegistry(catalogStore) }
+    val rootScanner = remember(catalogStore, rootRegistry) {
+        DesktopLibraryRootScanner(catalogStore, rootRegistry)
+    }
     val localPlaybackPreparer = remember(catalogStore) {
         DesktopLocalPlaybackPreparer(catalogStore)
     }
@@ -93,10 +97,17 @@ private fun DesktopShell() {
         }
     }
     val scope = rememberCoroutineScope()
-    var selectedLibraryRoot by remember { mutableStateOf(selectionStore.load()) }
+    val legacySelectedLibraryRoot = remember { selectionStore.load() }
+    var registeredRoots by remember { mutableStateOf(rootRegistry.loadRoots()) }
     var playbackSnapshot by remember { mutableStateOf(PlaybackSnapshot()) }
     var indexedLibrary by remember {
-        mutableStateOf(selectedLibraryRoot?.let(catalogStore::load))
+        mutableStateOf(
+            if (registeredRoots.isNotEmpty()) {
+                catalogStore.loadRegisteredLibrary()
+            } else {
+                legacySelectedLibraryRoot?.let(catalogStore::load)
+            },
+        )
     }
     var selectedLocalPlaybackPreparation by remember {
         mutableStateOf<DesktopLocalPlaybackPreparation?>(null)
@@ -104,32 +115,82 @@ private fun DesktopShell() {
     var libraryError by remember { mutableStateOf<String?>(null) }
     var isIndexing by remember { mutableStateOf(false) }
     var isPreparingLocalPlayback by remember { mutableStateOf(false) }
+    var lastScanStats by remember { mutableStateOf<LocalMediaLibraryScanStats?>(null) }
     val networkUrls = remember(server) { server.networkUrls() }
 
-    fun indexLibrary(root: Path) {
+    fun applyPublishedLibrary(library: IndexedLocalLibrary) {
+        server.publish(library.toPublishedLibrary())
+        indexedLibrary = library
+        registeredRoots = rootRegistry.loadRoots()
+        selectedLocalPlaybackPreparation = null
+        libraryError = null
+    }
+
+    fun registerAndScanUserRoot(root: Path) {
         scope.launch {
             isIndexing = true
             try {
                 runCatching {
                     withContext(Dispatchers.IO) {
-                        LocalMediaLibraryIndexer.index(
-                            root = root,
-                            cachedItems = catalogStore.load(root)
-                                ?.fileMetadataByRelativePath
-                                .orEmpty(),
-                        ).also {
-                            catalogStore.replace(root, it)
+                        rootRegistry.addUserSelectedRoot(root).let(rootScanner::scan).also {
                             selectionStore.save(root)
                         }
                     }
-                }.onSuccess { library ->
-                    server.publish(library.toPublishedLibrary())
-                    indexedLibrary = library
-                    selectedLibraryRoot = root.toAbsolutePath().normalize()
-                    selectedLocalPlaybackPreparation = null
-                    libraryError = null
+                }.onSuccess { result ->
+                    lastScanStats = result.indexedLibrary?.scanStats
+                    applyPublishedLibrary(result.publishedLibrary)
                 }.onFailure { error ->
                     libraryError = error.message
+                    registeredRoots = rootRegistry.loadRoots()
+                }
+            } finally {
+                isIndexing = false
+            }
+        }
+    }
+
+    fun importAndScanAniRssRoot(root: Path) {
+        scope.launch {
+            isIndexing = true
+            try {
+                runCatching {
+                    withContext(Dispatchers.IO) {
+                        rootScanner.importAniRssOutputRoot(root)
+                    }
+                }.onSuccess { result ->
+                    lastScanStats = result.indexedLibrary?.scanStats
+                    applyPublishedLibrary(result.publishedLibrary)
+                }.onFailure { error ->
+                    libraryError = error.message
+                    registeredRoots = rootRegistry.loadRoots()
+                }
+            } finally {
+                isIndexing = false
+            }
+        }
+    }
+
+    fun rescanRegisteredRoots() {
+        scope.launch {
+            isIndexing = true
+            try {
+                runCatching {
+                    withContext(Dispatchers.IO) {
+                        rootScanner.scanAll()
+                    }
+                }.onSuccess { batch ->
+                    lastScanStats = LocalMediaLibraryScanStats(
+                        reusedItemCount = batch.results.sumOf {
+                            it.indexedLibrary?.scanStats?.reusedItemCount ?: 0
+                        },
+                        refreshedItemCount = batch.results.sumOf {
+                            it.indexedLibrary?.scanStats?.refreshedItemCount ?: 0
+                        },
+                    )
+                    applyPublishedLibrary(batch.publishedLibrary)
+                }.onFailure { error ->
+                    libraryError = error.message
+                    registeredRoots = rootRegistry.loadRoots()
                 }
             } finally {
                 isIndexing = false
@@ -139,7 +200,11 @@ private fun DesktopShell() {
 
     LaunchedEffect(Unit) {
         indexedLibrary?.toPublishedLibrary()?.let(server::publish)
-        selectedLibraryRoot?.let(::indexLibrary)
+        if (registeredRoots.isNotEmpty()) {
+            rescanRegisteredRoots()
+        } else {
+            legacySelectedLibraryRoot?.let(::registerAndScanUserRoot)
+        }
     }
 
     DisposableEffect(server, discoveryAnnouncer) {
@@ -170,21 +235,39 @@ private fun DesktopShell() {
                 Text("Windows anime library server")
                 Button(
                     onClick = {
-                        selectLibraryDirectory()?.let(::indexLibrary)
+                        selectLibraryDirectory(
+                            title = "Choose anime library folder",
+                        )?.let(::registerAndScanUserRoot)
                     },
                     enabled = !isIndexing,
                 ) {
-                    Text(if (isIndexing) "Indexing..." else "Choose anime folder and index")
+                    Text(if (isIndexing) "Indexing..." else "Add anime library folder")
                 }
                 Button(
                     onClick = {
-                        selectedLibraryRoot?.let(::indexLibrary)
+                        selectLibraryDirectory(
+                            title = "Choose ani-rss completed-media folder",
+                        )?.let(::importAndScanAniRssRoot)
                     },
-                    enabled = selectedLibraryRoot != null && !isIndexing,
+                    enabled = !isIndexing,
                 ) {
-                    Text("Rescan indexed folder")
+                    Text("Add ani-rss output folder")
                 }
-                Text("Indexed folder: ${selectedLibraryRoot ?: "None selected"}")
+                Button(
+                    onClick = ::rescanRegisteredRoots,
+                    enabled = registeredRoots.isNotEmpty() && !isIndexing,
+                ) {
+                    Text("Rescan registered folders")
+                }
+                Text("Registered folders: ${registeredRoots.size}")
+                LazyColumn(modifier = Modifier.height(100.dp)) {
+                    items(registeredRoots, key = { it.id }) { root ->
+                        Text(
+                            "${root.displayName} | ${root.provenance} | ${root.state} | " +
+                                root.normalizedPath,
+                        )
+                    }
+                }
                 networkUrls.forEach { url ->
                     Text("Library URL: $url")
                 }
@@ -192,7 +275,7 @@ private fun DesktopShell() {
                 Text("Pairing code: ${server.pairingToken}")
                 libraryError?.let { Text("Library error: $it") }
                 Text("Indexed episodes: ${indexedLibrary?.catalog?.items?.size ?: 0}")
-                indexedLibrary?.scanStats?.let { stats ->
+                lastScanStats?.let { stats ->
                     Text(
                         "Last scan: ${stats.reusedItemCount} unchanged, " +
                             "${stats.refreshedItemCount} refreshed",
@@ -398,10 +481,10 @@ private fun IndexedLocalLibrary.toPublishedLibrary(): PublishedLibrary =
         filesById = filesById,
     )
 
-private fun selectLibraryDirectory() =
+private fun selectLibraryDirectory(title: String) =
     JFileChooser().run {
         fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
-        dialogTitle = "Choose anime library folder"
+        dialogTitle = title
         takeIf { showOpenDialog(null) == JFileChooser.APPROVE_OPTION }
             ?.selectedFile
             ?.toPath()

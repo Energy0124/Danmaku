@@ -25,6 +25,8 @@ Implemented today:
 
 - Windows Compose desktop shell
 - Recursive Windows anime-folder indexing
+- Multiple Windows library roots, including user-selected ani-rss output-folder
+  import and incremental rescanning
 - SQLDelight catalog, playback-progress, settings, and download-queue storage
 - Paired trusted-LAN library server with JSON catalog, byte-range media
   streaming, and progress API
@@ -46,7 +48,6 @@ Not implemented yet:
 - Real Windows video rendering in the Compose shell
 - Audited/pinned Windows libmpv runtime bundle
 - Subtitle streaming and subtitle selection
-- Persistent multi-root library management
 - Authorized download engine
 - Provider plugins, MyAnimeList integration, and danmaku provider integrations
 

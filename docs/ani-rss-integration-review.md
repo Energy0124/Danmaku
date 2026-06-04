@@ -1,6 +1,6 @@
 # ani-rss Integration Review
 
-Updated on 2026-06-02.
+Updated on 2026-06-04.
 
 Reference project:
 
@@ -162,7 +162,7 @@ Danmaku should not reproduce ani-rss source-search or RSS parsing logic.
 
 ## Review Decisions
 
-- [ ] Approve folder import as the first ani-rss integration slice.
+- [x] Approve folder import as the first ani-rss integration slice.
 - [ ] Approve optional read-only ani-rss API monitoring after folder import.
 - [ ] Approve completion-triggered rescans through an authenticated webhook.
 - [ ] Decide whether Danmaku may open the external ani-rss WebUI.
