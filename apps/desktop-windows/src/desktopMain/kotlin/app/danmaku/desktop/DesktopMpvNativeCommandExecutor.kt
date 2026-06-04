@@ -48,7 +48,7 @@ class DesktopMpvNativeException(
 class DesktopMpvNativeCommandExecutor private constructor(
     private val nativeLibrary: DesktopMpvNativeLibrary,
     private val handle: Pointer,
-) : DesktopMpvCommandExecutor, AutoCloseable {
+) : CloseableDesktopMpvCommandExecutor {
     override fun execute(command: DesktopMpvCommand) {
         val args = StringArray(command.args.toTypedArray(), Charsets.UTF_8.name())
         val status = DesktopMpvNativeStatus.fromCode(

@@ -44,7 +44,7 @@ indexed sidecar subtitles to Media3.
   License 2.0 text plus generated dependency inventories.
 - [x] Approve direct redistribution of the pinned zhongfly LGPL libmpv build
   with GPL/LGPL texts, source/provenance notice, and CI hash verification.
-- [ ] Wire the JNA mpv command executor into the desktop shell using the pinned
+- [x] Wire the JNA mpv command executor into the desktop shell using the pinned
   approved native dependency.
 - [ ] Build a Windows libmpv playback spike.
 - [x] Add a shared scrolling danmaku lane scheduler with collision-aware tests.

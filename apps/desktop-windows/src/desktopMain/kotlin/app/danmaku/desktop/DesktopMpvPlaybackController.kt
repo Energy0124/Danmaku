@@ -11,6 +11,8 @@ fun interface DesktopMpvCommandExecutor {
     fun execute(command: DesktopMpvCommand)
 }
 
+interface CloseableDesktopMpvCommandExecutor : DesktopMpvCommandExecutor, AutoCloseable
+
 class DesktopMpvPlaybackController(
     private val commandExecutor: DesktopMpvCommandExecutor,
 ) : PlaybackController {

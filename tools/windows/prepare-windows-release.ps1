@@ -10,6 +10,9 @@ param(
             "..\..\apps\desktop-windows\build\release\windows-portable"
         )
     ),
+    [string]$MpvBridgePath = (
+        Join-Path $PSScriptRoot "..\..\target\release\player_windows_mpv.dll"
+    ),
     [string]$LibmpvArchivePath
 )
 
@@ -25,6 +28,11 @@ if (-not (Test-Path -LiteralPath $sourceDistributionFullPath -PathType Container
 $sourceAppPath = Join-Path $sourceDistributionFullPath "app"
 if (-not (Test-Path -LiteralPath $sourceAppPath -PathType Container)) {
     throw "Windows desktop application directory does not exist: $sourceAppPath"
+}
+
+$mpvBridgeFullPath = [System.IO.Path]::GetFullPath($MpvBridgePath)
+if (-not (Test-Path -LiteralPath $mpvBridgeFullPath -PathType Leaf)) {
+    throw "Windows mpv bridge DLL does not exist: $mpvBridgeFullPath. Run cargo build --release -p player-windows-mpv --lib."
 }
 
 $releaseFullPath = [System.IO.Path]::GetFullPath($ReleasePath)
@@ -51,6 +59,10 @@ $licensePath = Join-Path $releaseFullPath "licenses"
 New-Item -ItemType Directory -Path $dependencyPath -Force | Out-Null
 New-Item -ItemType Directory -Path $licensePath -Force | Out-Null
 Copy-Item -LiteralPath $sourceAppPath -Destination $releaseFullPath -Recurse
+Copy-Item `
+    -LiteralPath $mpvBridgeFullPath `
+    -Destination (Join-Path $releaseFullPath "app\player_windows_mpv.dll") `
+    -Force
 
 Copy-Item -LiteralPath (Join-Path $repoRoot "LICENSE") -Destination $releaseFullPath -Force
 Copy-Item `
@@ -104,4 +116,4 @@ if (Test-Path -LiteralPath (Join-Path $releaseFullPath "runtime")) {
     throw "Runtime-free Windows release must not contain a bundled Java runtime."
 }
 
-Write-Host "Prepared runtime-free Windows release with approved LGPL libmpv at $releaseFullPath"
+Write-Host "Prepared runtime-free Windows release with the MIT mpv bridge and approved LGPL libmpv at $releaseFullPath"

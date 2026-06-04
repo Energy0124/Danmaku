@@ -93,6 +93,7 @@ foreach ($requiredFile in @(
     "licenses\LGPL-2.1.txt",
     "licenses\LGPL-3.0.txt",
     "run-danmaku.ps1",
+    "app\player_windows_mpv.dll",
     "app\libmpv-2.dll",
     "dependencies\libmpv\install-libmpv-dependency.ps1",
     "dependencies\libmpv\zhongfly-lgpl-x86_64-20260604.json",

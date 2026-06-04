@@ -15,6 +15,9 @@ below.
 - The Windows archive directly includes the approved pinned `libmpv-2.dll` as a
   separately licensed LGPLv3-or-later dependency. It also includes GPL/LGPL
   texts, the exact manifest, and a source and provenance notice.
+- The Windows archive includes Danmaku's MIT-licensed
+  `player_windows_mpv.dll` bridge, which the desktop shell uses to call the
+  separately licensed libmpv dependency.
 
 The user's Java runtime remains under its own license and is not redistributed
 or relicensed by Danmaku.
@@ -28,9 +31,11 @@ Run these before publishing artifacts:
 .\tools\windows\test-install-libmpv-dependency.ps1
 cargo fmt --all --check
 cargo test --workspace
+cargo build --release -p player-windows-mpv --lib
 .\gradlew.bat --no-daemon :apps:desktop-windows:licensee :apps:android-mobile:licenseeDebug :apps:android-tv:licenseeDebug
 .\gradlew.bat --no-daemon :shared:domain:jvmTest :shared:library-client:jvmTest :shared:library-server-core:jvmTest :apps:desktop-windows:desktopTest :shared:library-client-android:testDebugUnitTest :shared:player-android-media3:assembleDebugAndroidTest :apps:android-mobile:assembleDebug :apps:android-tv:assembleDebug :apps:desktop-windows:createDistributable
 .\tools\windows\prepare-windows-release.ps1
+.\tools\windows\verify-windows-mpv-runtime.ps1
 .\tools\windows\verify-release-licensing.ps1
 ```
 

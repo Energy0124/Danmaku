@@ -56,16 +56,15 @@ Implemented today:
   upload
 - Shared Kotlin playback, library-client, and danmaku scheduling contracts
 - Desktop preparation for local-file and paired-LAN playback requests, including
-  resume seeks and planned mpv command output
+  resume seeks and native mpv command execution
 - Rust libmpv loader/probe plus a small C ABI and Kotlin/JNA binding for the
-  future Windows native command executor
+  Windows native command executor
 - Tested LAN server/client behavior, byte ranges, progress updates, reconnects,
   timeouts, slow streams, and Android/TV instrumentation paths
 
 Not implemented yet:
 
 - Real Windows video rendering in the Compose shell
-- Real Windows playback wiring against the approved pinned libmpv dependency
 - Windows subtitle attachment and runtime track discovery
 - Authorized download engine
 - Provider plugins, MyAnimeList integration, and danmaku provider integrations
@@ -170,8 +169,9 @@ In the Windows shell:
 4. On Android or Android TV, use `Discover PC` or manually enter the LAN URL.
 5. Enter the pairing code and refresh the PC library.
 
-The Windows shell can currently prepare local or LAN playback requests and show
-the planned mpv commands. Actual Windows video rendering is still pending.
+The Windows shell can prepare local or LAN playback requests and execute their
+commands through the packaged Rust/JNA/libmpv chain. Actual Windows video
+rendering inside the Compose shell is still pending.
 
 ## Probe A Windows libmpv Bundle
 
@@ -184,7 +184,7 @@ its license and install the same dependency into the ignored runtime directory:
 ```
 
 Then set `DANMAKU_LIBMPV_PATH` to the installed `libmpv-2.dll` or its
-directory and run:
+directory and run the Rust probe:
 
 ```powershell
 cargo run -p player-windows-mpv --bin mpv-probe
@@ -192,6 +192,16 @@ cargo run -p player-windows-mpv --bin mpv-probe
 
 The probe loads the DLL, prints the mpv client API version, initializes an mpv
 context, and shuts it down cleanly.
+
+To run the desktop shell with native command execution in a developer checkout,
+build the Rust bridge and expose both native paths:
+
+```powershell
+cargo build -p player-windows-mpv --lib
+$env:DANMAKU_MPV_BRIDGE_PATH = (Resolve-Path .\target\debug\player_windows_mpv.dll).Path
+$env:DANMAKU_LIBMPV_PATH = (Resolve-Path .\runtime\windows\libmpv\libmpv-2.dll).Path
+.\gradlew.bat --no-daemon :apps:desktop-windows:run
+```
 
 For the pinned-bundle manifest, checksum verification, probe, and release
 packaging workflow, see
@@ -219,7 +229,6 @@ Project rules:
 Near-term priorities:
 
 - Use the approved pinned Windows libmpv bundle for development and releases.
-- Wire the JNA mpv command executor into the Windows shell.
 - Render libmpv video in the Compose desktop app.
 - Synchronize the danmaku overlay to the real playback clock.
 - Exercise PC-to-mobile and PC-to-TV streaming on physical hardware.

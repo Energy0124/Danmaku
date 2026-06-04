@@ -17,6 +17,10 @@ if (-not (Test-Path -LiteralPath $appPath -PathType Container)) {
 
 $mainClass = "app.danmaku.desktop.MainKt"
 $classPath = Join-Path $appPath "*"
+$mpvBridgePath = Join-Path $appPath "player_windows_mpv.dll"
+if (Test-Path -LiteralPath $mpvBridgePath -PathType Leaf) {
+    $env:DANMAKU_MPV_BRIDGE_PATH = $mpvBridgePath
+}
 $libmpvPath = Join-Path $appPath "libmpv-2.dll"
 if (Test-Path -LiteralPath $libmpvPath -PathType Leaf) {
     $env:DANMAKU_LIBMPV_PATH = $libmpvPath

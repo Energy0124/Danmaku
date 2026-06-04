@@ -80,10 +80,13 @@ private fun DesktopShell() {
         DesktopLocalPlaybackPreparer(catalogStore)
     }
     val mpvCommandLog = remember { mutableStateListOf<DesktopMpvCommand>() }
-    val playbackController = remember {
-        DesktopMpvPlaybackController { command ->
+    val mpvRuntime = remember {
+        DesktopMpvCommandExecutorRuntimeFactory().create { command ->
             mpvCommandLog += command
         }
+    }
+    val playbackController = remember(mpvRuntime) {
+        DesktopMpvPlaybackController(mpvRuntime.executor)
     }
     val playbackSession = remember(playbackController) {
         DesktopPlaybackSession(playbackController)
@@ -220,8 +223,9 @@ private fun DesktopShell() {
         }
     }
 
-    DisposableEffect(serverRuntime, discoveryAnnouncer) {
+    DisposableEffect(serverRuntime, discoveryAnnouncer, mpvRuntime) {
         onDispose {
+            mpvRuntime.close()
             discoveryAnnouncer.close()
             serverRuntime.close()
             catalogStore.close()
@@ -241,6 +245,7 @@ private fun DesktopShell() {
                     style = MaterialTheme.typography.h4,
                 )
                 Text("Windows playback foundation")
+                Text("mpv executor: ${mpvRuntime.statusMessage}")
                 Text("Player state: ${playbackSnapshot.status}")
                 playbackSnapshot.source?.let { Text("Player source: $it") }
                 Text("Synthetic overlay demo: collision-aware shared lane scheduler")
@@ -360,14 +365,13 @@ private fun DesktopShell() {
                     },
                 )
                 if (mpvCommandLog.isNotEmpty()) {
-                    Text("Planned mpv commands")
+                    Text("mpv command attempts")
                     LazyColumn(modifier = Modifier.height(100.dp)) {
                         items(mpvCommandLog) { command ->
                             Text(command.args.joinToString(separator = " "))
                         }
                     }
                 }
-                Text("Next: connect the desktop controller command executor to native libmpv.")
             }
         }
     }

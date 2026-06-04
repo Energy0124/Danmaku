@@ -43,18 +43,19 @@ Updated on 2026-06-04.
   handle. The ABI uses explicit status codes and is covered for null pointers
   and missing-DLL failures.
 - Desktop mpv command planner for loading local files or LAN streams and
-  dispatching play, pause, absolute seek, and playback-rate commands before the
-  Kotlin-to-native controller bridge is wired.
+  dispatching play, pause, absolute seek, and playback-rate commands.
 - Desktop `PlaybackController` wrapper that executes planned mpv commands through
   an injectable command executor and tracks testable snapshot state for local
   files and LAN streams.
 - Desktop playback session wiring that loads prepared local-file or paired-LAN
-  requests into the controller and applies resume seeks in command order. The
-  shell currently shows the planned mpv command log until the native executor is
-  connected.
+  requests into the controller and applies resume seeks in command order.
 - Desktop JNA binding for the Rust libmpv C ABI, including native handle
   creation, command-array forwarding, destroy calls, and explicit native
   status-code failures behind `DesktopMpvCommandExecutor`.
+- Desktop shell runtime selection that activates the JNA executor when the
+  packaged Rust bridge and libmpv DLL are present, reports command-log-only
+  fallback mode when they are unavailable, and closes the native handle on
+  shutdown.
 - Shared scrolling danmaku lane scheduler with collision-aware tests, bounded
   visible-window lookup, backward-seek query coverage, and a 10,000-comment
   generated-track test. The scheduler also exposes sampled visibility metrics
@@ -197,12 +198,8 @@ With an Android emulator or device online, run:
 ## Next Work
 
 1. Exercise cross-device resume behavior on Android and TV hardware.
-2. Run `mpv-probe` against the approved bundled Windows libmpv DLL in the
-   packaged Windows workflow.
-3. Wire the JNA mpv command executor into the desktop shell using the approved
-   bundled `libmpv-2.dll` and Rust `cdylib`.
-4. Connect native Windows video rendering and local-file playback.
-5. Re-audit the libmpv bundle before changing its producer artifact or hashes.
+2. Connect native Windows video rendering and local-file playback.
+3. Re-audit the libmpv bundle before changing its producer artifact or hashes.
 
 ## Runtime Smoke Check
 
