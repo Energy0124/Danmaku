@@ -70,7 +70,7 @@ validation.
 ## Phase 4: Sources And Product Features
 
 - Define authorized source plugin contracts.
-- Add subtitle and audio-track selection.
+- Complete subtitle and audio-track selection on Windows after Android and TV.
 - Add danmaku filters, density controls, and keyword blocking.
 - Add watch progress, favorites, playlists, and import/export.
 

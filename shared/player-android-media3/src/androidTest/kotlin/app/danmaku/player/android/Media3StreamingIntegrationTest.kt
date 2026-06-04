@@ -2,6 +2,7 @@ package app.danmaku.player.android
 
 import android.os.Handler
 import android.os.Looper
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
@@ -14,6 +15,7 @@ import app.danmaku.domain.LibrarySubtitleTrack
 import app.danmaku.domain.PlaybackCommand
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.domain.PlaybackSource
+import app.danmaku.domain.PlaybackTrackKind
 import app.danmaku.library.LanPlaybackPreparation
 import app.danmaku.library.LanPlaybackTarget
 import app.danmaku.library.LanSubtitlePreparation
@@ -28,6 +30,7 @@ import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -101,6 +104,101 @@ class Media3StreamingIntegrationTest {
                 assertEquals(preparation.subtitles.single().source.url, subtitle.uri.toString())
             } finally {
                 player.release()
+            }
+        }
+    }
+
+    @Test
+    fun discoversSelectsAndDisablesPreparedLanSubtitles() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val fixture = instrumentation.context.assets
+            .open("short-stream.mp4")
+            .use { it.readBytes() }
+        val subtitleFixture = "1\n00:00:00,000 --> 00:00:01,000\nHello\n".toByteArray()
+        val tracksKnown = CountDownLatch(1)
+        val playerError = AtomicReference<PlaybackException?>()
+
+        FixtureHttpServer(fixture, subtitleFixture = subtitleFixture).use { server ->
+            val subtitleTrack = LibrarySubtitleTrack(
+                id = "subtitle-id",
+                label = "English",
+                relativePath = "Example Show/Episode 01.en.srt",
+                mediaType = "application/x-subrip",
+                streamPath = "/subtitles/subtitle-id",
+            )
+            val preparation = LanPlaybackPreparation(
+                item = LibraryMediaItem(
+                    id = "episode-id",
+                    seriesTitle = "Example Show",
+                    episodeTitle = "Episode 01",
+                    relativePath = "Example Show/Episode 01.mp4",
+                    sizeBytes = fixture.size.toLong(),
+                    mediaType = "video/mp4",
+                    streamPath = "/media/episode-id",
+                    subtitles = listOf(subtitleTrack),
+                ),
+                target = LanPlaybackTarget(server.url, "123456", "episode-id"),
+                source = PlaybackSource.RemoteStream(server.url),
+                resumePositionMs = null,
+                subtitles = listOf(
+                    LanSubtitlePreparation(
+                        track = subtitleTrack,
+                        source = PlaybackSource.RemoteStream(
+                            server.subtitleUrl(subtitleTrack.id, "123456"),
+                        ),
+                    ),
+                ),
+            )
+
+            lateinit var player: ExoPlayer
+            lateinit var controller: Media3PlaybackController
+            instrumentation.runOnMainSync {
+                player = ExoPlayer.Builder(instrumentation.targetContext).build().apply {
+                    addListener(
+                        object : Player.Listener {
+                            override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
+                                if (tracks.containsType(C.TRACK_TYPE_TEXT)) {
+                                    tracksKnown.countDown()
+                                }
+                            }
+
+                            override fun onPlayerError(error: PlaybackException) {
+                                playerError.set(error)
+                                tracksKnown.countDown()
+                            }
+                        },
+                    )
+                }
+                controller = Media3PlaybackController(player)
+                controller.load(preparation)
+            }
+
+            try {
+                assertTrue("Media3 did not discover the sidecar subtitle", tracksKnown.await(10, TimeUnit.SECONDS))
+                assertNull(playerError.get()?.message, playerError.get())
+                instrumentation.runOnMainSync {
+                    val track = controller.snapshot().tracks
+                        .single { it.kind == PlaybackTrackKind.SUBTITLE }
+                    assertEquals("English", track.label)
+                    assertTrue(track.supported)
+
+                    controller.dispatch(PlaybackCommand.SelectSubtitleTrack(track.id))
+                    assertFalse(
+                        player.trackSelectionParameters.disabledTrackTypes
+                            .contains(C.TRACK_TYPE_TEXT),
+                    )
+                    assertTrue(player.trackSelectionParameters.overrides.isNotEmpty())
+
+                    controller.dispatch(PlaybackCommand.SelectSubtitleTrack(null))
+                    assertTrue(
+                        player.trackSelectionParameters.disabledTrackTypes
+                            .contains(C.TRACK_TYPE_TEXT),
+                    )
+                }
+            } finally {
+                instrumentation.runOnMainSync {
+                    player.release()
+                }
             }
         }
     }
@@ -223,6 +321,7 @@ class Media3StreamingIntegrationTest {
         private val json: Json = Json,
         private val chunkSize: Int = fixture.size.coerceAtLeast(1),
         private val chunkDelayMillis: Long = 0,
+        private val subtitleFixture: ByteArray? = null,
     ) : AutoCloseable {
         init {
             require(chunkSize > 0) { "chunkSize must be positive" }
@@ -242,6 +341,12 @@ class Media3StreamingIntegrationTest {
             pairingToken: String,
         ): String =
             "http://127.0.0.1:${serverSocket.localPort}/media/${mediaId.encoded()}?token=${pairingToken.encoded()}"
+
+        fun subtitleUrl(
+            subtitleId: String,
+            pairingToken: String,
+        ): String =
+            "http://127.0.0.1:${serverSocket.localPort}/subtitles/${subtitleId.encoded()}?token=${pairingToken.encoded()}"
 
         fun awaitProgress(
             timeout: Long,
@@ -294,34 +399,45 @@ class Media3StreamingIntegrationTest {
                 }
                 return
             }
+            val responseBody = if (path.startsWith("/subtitles/")) {
+                subtitleFixture ?: return
+            } else {
+                fixture
+            }
+            val contentType = if (path.startsWith("/subtitles/")) {
+                "application/x-subrip"
+            } else {
+                "video/mp4"
+            }
             val range = request
                 .firstOrNull { it.startsWith("Range:", ignoreCase = true) }
                 ?.substringAfter(':')
                 ?.trim()
-                ?.parseRange(fixture.size)
+                ?.parseRange(responseBody.size)
             val start = range?.first ?: 0
-            val endInclusive = range?.last ?: fixture.lastIndex
+            val endInclusive = range?.last ?: responseBody.lastIndex
             val contentLength = endInclusive - start + 1
             val output = socket.getOutputStream()
 
             output.bufferedWriter().apply {
                 write("HTTP/1.1 ${if (range == null) "200 OK" else "206 Partial Content"}\r\n")
-                write("Content-Type: video/mp4\r\n")
+                write("Content-Type: $contentType\r\n")
                 write("Accept-Ranges: bytes\r\n")
                 write("Content-Length: $contentLength\r\n")
                 range?.let {
-                    write("Content-Range: bytes $start-$endInclusive/${fixture.size}\r\n")
+                    write("Content-Range: bytes $start-$endInclusive/${responseBody.size}\r\n")
                 }
                 write("Connection: close\r\n")
                 write("\r\n")
                 flush()
             }
             if (method != "HEAD") {
-                output.writeFixture(start, contentLength)
+                output.writeFixture(responseBody, start, contentLength)
             }
         }
 
         private fun java.io.OutputStream.writeFixture(
+            bytes: ByteArray,
             start: Int,
             contentLength: Int,
         ) {
@@ -329,7 +445,7 @@ class Media3StreamingIntegrationTest {
             var remaining = contentLength
             while (remaining > 0) {
                 val count = minOf(chunkSize, remaining)
-                write(fixture, offset, count)
+                write(bytes, offset, count)
                 flush()
                 offset += count
                 remaining -= count

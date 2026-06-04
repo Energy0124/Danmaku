@@ -53,6 +53,9 @@ class DesktopMpvPlaybackController(
                         playbackRate = command.rate,
                         errorMessage = null,
                     )
+                    is PlaybackCommand.SelectAudioTrack,
+                    is PlaybackCommand.SelectSubtitleTrack,
+                    -> snapshot.copy(errorMessage = null)
                 }
             },
         )

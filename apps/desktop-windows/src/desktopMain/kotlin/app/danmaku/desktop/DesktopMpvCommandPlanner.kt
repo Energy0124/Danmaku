@@ -49,6 +49,12 @@ object DesktopMpvCommandPlanner {
                     command.rate.toStableMpvFloat(),
                 ),
             )
+            is PlaybackCommand.SelectAudioTrack -> DesktopMpvCommand(
+                listOf("set", "aid", command.trackId),
+            )
+            is PlaybackCommand.SelectSubtitleTrack -> DesktopMpvCommand(
+                listOf("set", "sid", command.trackId ?: "no"),
+            )
         }
 }
 

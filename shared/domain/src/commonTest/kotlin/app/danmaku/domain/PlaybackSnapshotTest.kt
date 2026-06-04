@@ -17,4 +17,16 @@ class PlaybackSnapshotTest {
             PlaybackSource.LocalFile(" ")
         }
     }
+
+    @Test
+    fun rejectsDuplicateTrackIds() {
+        assertFailsWith<IllegalArgumentException> {
+            PlaybackSnapshot(
+                tracks = listOf(
+                    PlaybackTrack("audio-1", PlaybackTrackKind.AUDIO, "English"),
+                    PlaybackTrack("audio-1", PlaybackTrackKind.SUBTITLE, "English"),
+                ),
+            )
+        }
+    }
 }

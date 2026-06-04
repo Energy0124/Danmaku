@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
@@ -41,6 +42,8 @@ import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.PlaybackCommand
 import app.danmaku.domain.PlaybackSnapshot
+import app.danmaku.domain.PlaybackTrack
+import app.danmaku.domain.PlaybackTrackKind
 import app.danmaku.library.android.LanLibraryDiscoveryClient
 import app.danmaku.library.android.LanLibraryClient
 import app.danmaku.library.LanPlaybackPreparer
@@ -133,6 +136,15 @@ private fun TvPlayerScreen() {
             )
             Text("Player state: ${snapshot.status}")
             playbackError?.let { Text("Playback connection error: $it") }
+            TrackControls(
+                snapshot = snapshot,
+                onSelectAudio = {
+                    controller?.dispatch(PlaybackCommand.SelectAudioTrack(it))
+                },
+                onSelectSubtitle = {
+                    controller?.dispatch(PlaybackCommand.SelectSubtitleTrack(it))
+                },
+            )
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Button(
                     onClick = { controller?.dispatch(PlaybackCommand.Play) },
@@ -243,6 +255,67 @@ private fun TvPlayerScreen() {
         }
     }
 }
+
+@Composable
+private fun TrackControls(
+    snapshot: PlaybackSnapshot,
+    onSelectAudio: (String) -> Unit,
+    onSelectSubtitle: (String?) -> Unit,
+) {
+    val audioTracks = snapshot.tracks.filter { it.kind == PlaybackTrackKind.AUDIO }
+    val subtitleTracks = snapshot.tracks.filter { it.kind == PlaybackTrackKind.SUBTITLE }
+    if (audioTracks.isNotEmpty()) {
+        Text("Audio tracks")
+        TrackButtons(audioTracks, onSelectAudio)
+    }
+    if (subtitleTracks.isNotEmpty()) {
+        Text("Subtitle tracks")
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            item(key = "subtitle-off") {
+                Button(
+                    onClick = { onSelectSubtitle(null) },
+                    enabled = subtitleTracks.any(PlaybackTrack::selected),
+                ) {
+                    Text("Off")
+                }
+            }
+            items(subtitleTracks, key = PlaybackTrack::id) { track ->
+                Button(
+                    onClick = { onSelectSubtitle(track.id) },
+                    enabled = track.supported && !track.selected,
+                ) {
+                    Text(track.buttonLabel())
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TrackButtons(
+    tracks: List<PlaybackTrack>,
+    onSelect: (String) -> Unit,
+) {
+    LazyRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        items(tracks, key = PlaybackTrack::id) { track ->
+            Button(
+                onClick = { onSelect(track.id) },
+                enabled = track.supported && !track.selected,
+            ) {
+                Text(track.buttonLabel())
+            }
+        }
+    }
+}
+
+private fun PlaybackTrack.buttonLabel(): String =
+    if (selected) "$label (selected)" else label
 
 @Composable
 private fun LibraryItems(

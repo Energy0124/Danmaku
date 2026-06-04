@@ -61,6 +61,8 @@ catalog and pass selected streams plus indexed sidecar subtitles to Media3.
 - [x] Add LAN playback progress upload and resume seeking.
 - [x] Move LAN playback progress uploads into the background playback service.
 - [x] Attach indexed LAN sidecar subtitle tracks to Media3 playback items.
+- [x] Add shared runtime audio/subtitle track state and Android/TV selection
+  controls.
 - [ ] Verify playback and overlays on a physical Android TV device.
 
 ## Streaming Verification

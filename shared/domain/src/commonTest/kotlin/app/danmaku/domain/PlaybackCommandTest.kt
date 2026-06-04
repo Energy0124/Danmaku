@@ -21,6 +21,16 @@ class PlaybackCommandTest {
     }
 
     @Test
+    fun rejectsBlankTrackSelections() {
+        assertFailsWith<IllegalArgumentException> {
+            PlaybackCommand.SelectAudioTrack(" ")
+        }
+        assertFailsWith<IllegalArgumentException> {
+            PlaybackCommand.SelectSubtitleTrack(" ")
+        }
+    }
+
+    @Test
     fun rejectsProgressWithoutAMediaId() {
         assertFailsWith<IllegalArgumentException> {
             PlaybackProgress(

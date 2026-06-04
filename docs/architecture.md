@@ -206,7 +206,9 @@ Platform adapters own codecs, rendering surfaces, lifecycle integration,
 media sessions, hardware decoding, and DRM-capable platform APIs. Android
 mobile and TV connect their UI to a shared `MediaSessionService`; the service
 owns ExoPlayer and the `MediaSession` so active playback can continue after an
-activity leaves the foreground.
+activity leaves the foreground. Playback snapshots expose platform-neutral
+runtime audio and subtitle track state, while selection commands let platform
+adapters apply engine-specific track overrides.
 
 Android mobile and TV currently use the paired LAN progress API when a user
 starts an indexed PC episode. The clients seek to stored positions only after
@@ -216,7 +218,9 @@ updates continue when the player screen leaves the foreground. The service
 recognizes paired LAN streams from their indexed `/media/{id}?token={code}` URL
 and ignores other playback sources. Shared LAN playback preparation also turns
 indexed sidecars into tokenized subtitle sources; the Media3 adapter attaches
-those sources to the video `MediaItem` with stable track metadata.
+those sources to the video `MediaItem` with stable track metadata. Android
+mobile and TV expose the discovered audio and subtitle tracks as selectable
+controls, including a subtitle-off action.
 
 Portable LAN client behavior lives in `shared/library-client`. Platform
 adapters implement its catalog, stream-URL, progress upload, and resume lookup

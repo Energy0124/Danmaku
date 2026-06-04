@@ -66,6 +66,22 @@ class DesktopMpvCommandPlannerTest {
     }
 
     @Test
+    fun plansAudioAndSubtitleTrackSelectionCommands() {
+        assertEquals(
+            DesktopMpvCommand(listOf("set", "aid", "2")),
+            DesktopMpvCommandPlanner.dispatch(PlaybackCommand.SelectAudioTrack("2")),
+        )
+        assertEquals(
+            DesktopMpvCommand(listOf("set", "sid", "3")),
+            DesktopMpvCommandPlanner.dispatch(PlaybackCommand.SelectSubtitleTrack("3")),
+        )
+        assertEquals(
+            DesktopMpvCommand(listOf("set", "sid", "no")),
+            DesktopMpvCommandPlanner.dispatch(PlaybackCommand.SelectSubtitleTrack(null)),
+        )
+    }
+
+    @Test
     fun rejectsCommandsWithNullBytesBeforeCrossingTheNativeBoundary() {
         assertFailsWith<IllegalArgumentException> {
             DesktopMpvCommand(listOf("loadfile", "bad\u0000path", "replace"))

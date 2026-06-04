@@ -70,4 +70,16 @@ sealed interface PlaybackCommand {
             require(rate > 0) { "rate must be positive" }
         }
     }
+
+    data class SelectAudioTrack(val trackId: String) : PlaybackCommand {
+        init {
+            require(trackId.isNotBlank()) { "trackId must not be blank" }
+        }
+    }
+
+    data class SelectSubtitleTrack(val trackId: String?) : PlaybackCommand {
+        init {
+            require(trackId == null || trackId.isNotBlank()) { "trackId must not be blank" }
+        }
+    }
 }
