@@ -9,7 +9,8 @@ param(
         Join-Path $PSScriptRoot (
             "..\..\apps\desktop-windows\build\release\windows-portable"
         )
-    )
+    ),
+    [string]$LibmpvArchivePath
 )
 
 Set-StrictMode -Version Latest
@@ -60,6 +61,12 @@ Copy-Item `
     -LiteralPath (Join-Path $repoRoot "third_party\licenses\APACHE-2.0.txt") `
     -Destination $licensePath `
     -Force
+foreach ($licenseFile in @("GPL-3.0.txt", "LGPL-2.1.txt", "LGPL-3.0.txt")) {
+    Copy-Item `
+        -LiteralPath (Join-Path $repoRoot "third_party\licenses\$licenseFile") `
+        -Destination $licensePath `
+        -Force
+}
 Copy-Item `
     -LiteralPath (
         Join-Path $repoRoot "apps\desktop-windows\build\reports\licensee\desktop\artifacts.json"
@@ -80,20 +87,21 @@ Copy-Item `
     ) `
     -Destination $dependencyPath `
     -Force
+Copy-Item `
+    -LiteralPath (Join-Path $repoRoot "third_party\windows\libmpv\SOURCE.md") `
+    -Destination $dependencyPath `
+    -Force
 
-$forbiddenDll = Get-ChildItem `
-    -LiteralPath $releaseFullPath `
-    -Recurse `
-    -Filter "libmpv-2.dll" `
-    -File `
-    -ErrorAction SilentlyContinue |
-    Select-Object -First 1
-if ($null -ne $forbiddenDll) {
-    throw "DLL-free Windows release must not contain libmpv-2.dll: $($forbiddenDll.FullName)"
-}
+& (Join-Path $repoRoot "tools\windows\install-libmpv-dependency.ps1") `
+    -ManifestPath (
+        Join-Path $repoRoot "third_party\windows\libmpv\zhongfly-lgpl-x86_64-20260604.json"
+    ) `
+    -InstallPath (Join-Path $releaseFullPath "app") `
+    -ArchivePath $LibmpvArchivePath `
+    -AcceptLicense
 
 if (Test-Path -LiteralPath (Join-Path $releaseFullPath "runtime")) {
     throw "Runtime-free Windows release must not contain a bundled Java runtime."
 }
 
-Write-Host "Prepared runtime-free, DLL-free Windows release at $releaseFullPath"
+Write-Host "Prepared runtime-free Windows release with approved LGPL libmpv at $releaseFullPath"

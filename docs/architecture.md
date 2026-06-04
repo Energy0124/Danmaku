@@ -232,10 +232,10 @@ stream URLs through that adapter. Native playback handoff remains planned.
 
 The Windows adapter loads libmpv dynamically. Developer builds locate
 `libmpv-2.dll` from `DANMAKU_LIBMPV_PATH` or beside the packaged executable.
-Danmaku's MIT release artifacts remain DLL-free and include a user-invoked,
-hash-verified installer for the pinned optional LGPL dependency. Any future
-direct libmpv redistribution must use an audited bundle with complete license
-notices and corresponding source obligations. See ADR 0002.
+Danmaku's Windows release directly redistributes an approved, pinned,
+hash-verified LGPL libmpv DLL as a separately licensed dependency. Release
+packaging includes the applicable license texts, source and provenance notice,
+and exact manifest. See ADR 0002.
 
 ## Danmaku Pipeline
 

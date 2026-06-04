@@ -14,17 +14,18 @@ Updated on 2026-06-04.
 - Opt-in Windows libmpv bundle manifest verifier for provenance, versions,
   configuration, license-file inventory, SHA-256 validation, probe execution,
   and copying only verified files into a desktop distributable. CI self-tests
-  the verifier without downloading or approving a native bundle.
-- Root MIT license, third-party notice, and DLL-free Windows release packaging.
-  The Windows artifact includes an optional user-invoked installer and pinned
-  manifest for downloading the zhongfly LGPL candidate after explicit license
-  acceptance. The installer verifies both archive and DLL SHA-256 hashes.
+  the generic verifier and directly packages only the approved pinned zhongfly
+  bundle.
+- Root MIT license, third-party notice, and approved Windows libmpv release
+  packaging. Release preparation downloads the pinned zhongfly LGPL artifact,
+  verifies both archive and DLL SHA-256 hashes, and directly bundles only
+  `libmpv-2.dll` with GPL/LGPL texts plus a source and provenance notice.
 - Android mobile and TV APKs include the MIT license and third-party notice as
   packaged assets. Cash App Licensee validates the distributable Gradle
   dependency graphs, which currently resolve to Apache License 2.0
   dependencies, and produces versioned inventories. CI verifies those assets,
-  the Windows legal files and installer, and the absence of a bundled
-  `libmpv-2.dll`.
+  the Windows legal files, the approved libmpv manifest, and the bundled DLL
+  hash.
 - The uploaded Windows distributable is runtime-free and requires
   user-installed Java 17 or newer, avoiding redistribution of an OpenJDK
   runtime inside the release archive.
@@ -35,8 +36,8 @@ Updated on 2026-06-04.
 - Local `mpv-probe` smoke testing against zhongfly's
   `mpv-dev-lgpl-x86_64-20260604-git-1d82932cce.7z` also succeeded with client
   API version `131077`. Its LGPL build patch uses `-Dgpl=false`, removes
-  FFmpeg's `--enable-gpl`, and omits known GPL dependencies. It is the preferred
-  candidate, pending a complete component/license inventory and added notices.
+  FFmpeg's `--enable-gpl`, and omits known GPL dependencies. It is approved for
+  direct redistribution as a separately licensed LGPLv3-or-later dependency.
 - Windows libmpv Rust crate also builds a `cdylib` and exposes a small C ABI for
   creating an mpv context, executing coarse command arrays, and destroying the
   handle. The ABI uses explicit status codes and is covered for null pointers
@@ -196,13 +197,12 @@ With an Android emulator or device online, run:
 ## Next Work
 
 1. Exercise cross-device resume behavior on Android and TV hardware.
-2. Use the pinned optional Windows libmpv installer and run `mpv-probe` in the
+2. Run `mpv-probe` against the approved bundled Windows libmpv DLL in the
    packaged Windows workflow.
-3. Wire the JNA mpv command executor into the desktop shell using the optional
-   installed `libmpv-2.dll` and Rust `cdylib`.
+3. Wire the JNA mpv command executor into the desktop shell using the approved
+   bundled `libmpv-2.dll` and Rust `cdylib`.
 4. Connect native Windows video rendering and local-file playback.
-5. Complete a component and license inventory before any future direct libmpv
-   redistribution.
+5. Re-audit the libmpv bundle before changing its producer artifact or hashes.
 
 ## Runtime Smoke Check
 

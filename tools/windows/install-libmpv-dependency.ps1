@@ -147,7 +147,10 @@ if ($manifest.schemaVersion -ne 1) {
 Assert-Sha256 -Value $manifest.archiveSha256 -Description "archiveSha256"
 Assert-Sha256 -Value $manifest.dllSha256 -Description "dllSha256"
 
-if ($manifest.distributionModel -ne "optional-user-download") {
+if ($manifest.distributionModel -notin @(
+    "optional-user-download",
+    "approved-direct-redistribution"
+)) {
     throw "Unsupported dependency distribution model '$($manifest.distributionModel)'."
 }
 if (-not $AcceptLicense) {
@@ -164,7 +167,7 @@ try {
 
     if ([string]::IsNullOrWhiteSpace($ArchivePath)) {
         $archiveFullPath = Join-Path $temporaryRoot $manifest.archiveFileName
-        Write-Host "Downloading pinned optional dependency from $($manifest.archiveUrl)"
+        Write-Host "Downloading pinned dependency from $($manifest.archiveUrl)"
         Invoke-WebRequest -Uri $manifest.archiveUrl -OutFile $archiveFullPath -UseBasicParsing
     } else {
         $archiveFullPath = Get-FullPath $ArchivePath
@@ -198,7 +201,7 @@ try {
     $destinationPath = Join-Path $installFullPath $manifest.dependencyName
     Copy-Item -LiteralPath $dllPath -Destination $destinationPath -Force
 
-    Write-Host "Installed optional $($manifest.dependencyName) dependency to $destinationPath"
+    Write-Host "Installed $($manifest.dependencyName) dependency to $destinationPath"
     Write-Host "License: $($manifest.license) ($($manifest.licenseUrl))"
     Write-Host "Project: $($manifest.projectUrl)"
     Write-Host "Release: $($manifest.releaseUrl)"

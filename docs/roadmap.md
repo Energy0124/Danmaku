@@ -11,8 +11,8 @@ clients. The clients discover Windows servers over LAN UDP announcements and
 require the pairing code displayed by the Windows app. The desktop catalog is
 persisted in SQLDelight SQLite storage and incrementally refreshed. Android and
 TV playback now run in a shared MediaSession foreground service. A pinned,
-hash-verified optional LGPL libmpv installer is available for native rendering
-validation while release artifacts remain DLL-free.
+hash-verified LGPL libmpv bundle is approved for Windows release packaging and
+native rendering validation.
 The desktop database and paired LAN server also persist per-episode playback
 progress. Android and TV player screens use that transport for five-second
 uploads from the background playback service and resume seeking.

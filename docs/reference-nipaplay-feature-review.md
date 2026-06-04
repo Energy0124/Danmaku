@@ -80,8 +80,8 @@ The NipaPlay repository exposes or documents these relevant product areas:
 
 These remain the highest priority because they validate the platform foundation.
 
-- [x] Add a pinned, hash-verified optional Windows `libmpv-2.dll` installer.
-- [ ] Run `mpv-probe` against the optional DLL in CI and a packaged Windows
+- [x] Approve and package a pinned, hash-verified Windows `libmpv-2.dll` bundle.
+- [ ] Run `mpv-probe` against the approved DLL in CI and a packaged Windows
   build.
 - [ ] Render libmpv video in the Windows Compose shell.
 - [ ] Play indexed local Windows episodes through the shared playback contract.
@@ -94,7 +94,7 @@ These remain the highest priority because they validate the platform foundation.
   physical hardware.
 - [x] Add same-PC Windows-to-Windows LAN streaming integration coverage for paired
   catalog requests, full-file reads, byte ranges, and progress round trips.
-- [ ] Complete a component and license inventory before any future direct
+- [x] Package GPL/LGPL texts plus source and provenance information for direct
   libmpv redistribution.
 - [x] Test unauthorized media requests, invalid and unsatisfiable ranges, large
   files, and concurrent streams.

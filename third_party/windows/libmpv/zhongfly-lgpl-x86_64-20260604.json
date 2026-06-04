@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "dependencyName": "libmpv-2.dll",
-  "distributionModel": "optional-user-download",
+  "distributionModel": "approved-direct-redistribution",
   "license": "LGPL-3.0-or-later",
   "licenseUrl": "https://www.gnu.org/licenses/lgpl-3.0.html",
   "projectUrl": "https://github.com/zhongfly/mpv-winbuild",
@@ -24,7 +24,14 @@
   "verifiedBuildProperties": [
     "mpv is configured with -Dgpl=false",
     "FFmpeg is built without --enable-gpl",
-    "known GPL dependencies x264 and x265 are removed by the producer LGPL patch"
+    "known GPL dependencies x264 and x265 are removed by the producer LGPL patch",
+    "the producer build log reports mpv gpl: false",
+    "the producer build log reports FFmpeg License: LGPL version 3 or later"
   ],
-  "caveat": "The producer states that it cannot guarantee every LGPL-incompatible package has been disabled."
+  "approval": {
+    "status": "approved",
+    "approvedOn": "2026-06-04",
+    "basis": "Danmaku relies on the producer's explicit mpv-dev-lgpl artifact designation, the pinned artifact hashes, mpv's gpl=false configure result, and FFmpeg's LGPL version 3 or later configure result.",
+    "residualRisk": "The producer states that it cannot guarantee every LGPL-incompatible package has been disabled. This is accepted as a project distribution risk rather than treated as a prohibition."
+  }
 }

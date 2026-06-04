@@ -16,6 +16,11 @@ The Windows desktop archive is runtime-free and requires a user-installed Java
 17 or newer runtime. This keeps the published archive from redistributing an
 OpenJDK runtime; see [Releasing](docs/releasing.md) for the artifact boundaries.
 
+The Windows release uses code from
+[FFmpeg](https://ffmpeg.org/) under LGPLv3-or-later terms. Its corresponding
+source and build provenance are documented in
+[libmpv source information](third_party/windows/libmpv/SOURCE.md).
+
 The first-class targets are:
 
 - Windows desktop
@@ -60,7 +65,7 @@ Implemented today:
 Not implemented yet:
 
 - Real Windows video rendering in the Compose shell
-- Real Windows playback wiring against the pinned optional libmpv dependency
+- Real Windows playback wiring against the approved pinned libmpv dependency
 - Windows subtitle attachment and runtime track discovery
 - Authorized download engine
 - Provider plugins, MyAnimeList integration, and danmaku provider integrations
@@ -170,9 +175,9 @@ the planned mpv commands. Actual Windows video rendering is still pending.
 
 ## Probe A Windows libmpv Bundle
 
-Danmaku release artifacts do not redistribute libmpv or FFmpeg. To install the
-pinned optional LGPL Windows playback dependency into the ignored local runtime
-directory, review its license and run:
+Danmaku's Windows release directly redistributes a pinned, hash-verified LGPL
+libmpv build as a separately licensed dependency. For local development, review
+its license and install the same dependency into the ignored runtime directory:
 
 ```powershell
 .\tools\windows\install-libmpv-dependency.ps1 -AcceptLicense
@@ -188,11 +193,11 @@ cargo run -p player-windows-mpv --bin mpv-probe
 The probe loads the DLL, prints the mpv client API version, initializes an mpv
 context, and shuts it down cleanly.
 
-For the pinned-bundle manifest, checksum verification, probe, and opt-in
+For the pinned-bundle manifest, checksum verification, probe, and release
 packaging workflow, see
-[Windows libmpv Bundle Audit](docs/windows-libmpv-bundle.md). Direct native
-bundle redistribution remains unapproved; the optional installer downloads the
-dependency from its producer after explicit user acceptance.
+[Windows libmpv Bundle Audit](docs/windows-libmpv-bundle.md). The release
+artifact includes the required GPL/LGPL texts, source and provenance notice,
+and the exact approved DLL hash.
 
 ## Security And Source Policy
 
@@ -213,16 +218,14 @@ Project rules:
 
 Near-term priorities:
 
-- Use the pinned optional Windows libmpv installer for development and user
-  setup.
+- Use the approved pinned Windows libmpv bundle for development and releases.
 - Wire the JNA mpv command executor into the Windows shell.
 - Render libmpv video in the Compose desktop app.
 - Synchronize the danmaku overlay to the real playback clock.
 - Exercise PC-to-mobile and PC-to-TV streaming on physical hardware.
 - Attach discovered subtitle tracks to Windows playback and expose libmpv
   runtime track discovery.
-- Complete a component and license inventory only if direct libmpv
-  redistribution becomes necessary.
+- Re-audit the libmpv bundle before changing its producer artifact or hashes.
 
 Later priorities include authorized download management, ani-rss monitoring,
 MyAnimeList progress/rating sync, provider plugins, danmaku parsing/filtering,
@@ -230,6 +233,6 @@ and additional desktop/mobile/web platforms.
 
 ## License
 
-Danmaku is licensed under the [MIT License](LICENSE). The optional Windows
+Danmaku is licensed under the [MIT License](LICENSE). The bundled Windows
 libmpv dependency and all other third-party components remain under their own
 licenses.

@@ -111,7 +111,7 @@ try {
         throw "Installer did not reject a mismatched archive hash."
     }
 
-    Write-Host "Optional libmpv dependency installer self-test passed."
+    Write-Host "libmpv dependency installer self-test passed."
 } finally {
     $resolvedTestRoot = [System.IO.Path]::GetFullPath($testRoot)
     $systemTemporaryRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())

@@ -12,9 +12,9 @@ below.
 - The Windows desktop archive includes the same project and Gradle dependency
   materials plus a PowerShell launcher. It is runtime-free and requires
   user-installed Java 17 or newer.
-- The Windows archive does not include `libmpv-2.dll`, FFmpeg, or their bundled
-  dependencies. It includes an optional, user-invoked installer that downloads
-  a pinned artifact from its producer after explicit license acceptance.
+- The Windows archive directly includes the approved pinned `libmpv-2.dll` as a
+  separately licensed LGPLv3-or-later dependency. It also includes GPL/LGPL
+  texts, the exact manifest, and a source and provenance notice.
 
 The user's Java runtime remains under its own license and is not redistributed
 or relicensed by Danmaku.
@@ -42,11 +42,12 @@ CI runs the same release licensing gates before uploading artifacts.
   its compatibility and redistribution requirements.
 - Add the full license text and any required notices to release artifacts when
   a new allowed license appears.
-- Do not approve direct libmpv redistribution until its complete component and
-  license inventory, notices, and corresponding-source obligations are
-  documented.
-- Keep the optional libmpv manifest URL and hashes pinned to a reviewed
+- Keep the approved libmpv manifest URL and hashes pinned to the reviewed
   producer artifact.
+- Repeat the libmpv license, build-output, source, and provenance review before
+  changing the producer artifact or hashes.
+- Keep clear source directions beside every distributed libmpv DLL for as long
+  as the corresponding binary remains available.
 
 This documentation is an engineering release gate, not legal advice. Obtain
 legal review before a production or commercial distribution.

@@ -1,8 +1,8 @@
 # Windows libmpv Bundle Audit
 
-Danmaku does not commit or automatically download native media DLLs. A release
-bundle must be reviewed, pinned, and verified before it is copied into the
-Windows application directory.
+Danmaku does not commit native media DLLs. Release preparation may download only
+an approved, pinned, and verified bundle before copying it into the Windows
+application directory.
 
 Danmaku's own source code is MIT licensed. libmpv, FFmpeg, and their bundled
 dependencies are not MIT licensed and cannot be relicensed by Danmaku.
@@ -21,7 +21,8 @@ Primary references:
 
 ## Current Release Model
 
-Danmaku's Windows release artifact is DLL-free. It includes:
+Danmaku's Windows release directly redistributes the approved pinned zhongfly
+LGPL libmpv DLL as a separately licensed dependency. It includes:
 
 ```text
 desktop-windows/
@@ -30,19 +31,23 @@ desktop-windows/
   THIRD_PARTY_DEPENDENCIES.json
   run-danmaku.ps1
   app/
+    libmpv-2.dll
   licenses/
     APACHE-2.0.txt
+    GPL-3.0.txt
+    LGPL-2.1.txt
+    LGPL-3.0.txt
   dependencies/libmpv/
+    SOURCE.md
     install-libmpv-dependency.ps1
     zhongfly-lgpl-x86_64-20260604.json
 ```
 
-The optional installer is never run automatically. After explicit license
-acceptance, it downloads the pinned zhongfly LGPL artifact from the producer,
-verifies the archive SHA-256, extracts only `libmpv-2.dll`, verifies the DLL
-SHA-256, and places it in the portable package's `app` directory. The launcher
-exposes that path through `DANMAKU_LIBMPV_PATH`. This means Danmaku distributes
-an MIT application and an installer, not the LGPL DLL.
+Release preparation downloads the pinned zhongfly LGPL artifact from the
+producer, verifies the archive SHA-256, extracts only `libmpv-2.dll`, verifies
+the DLL SHA-256, and places it in the portable package's `app` directory. The
+launcher exposes that path through `DANMAKU_LIBMPV_PATH`. Danmaku's code remains
+MIT licensed while the bundled DLL remains LGPLv3-or-later licensed.
 
 The Windows archive is runtime-free and requires user-installed Java 17 or
 newer. This avoids redistributing an OpenJDK runtime inside the release
@@ -54,15 +59,11 @@ From a source checkout:
 .\tools\windows\install-libmpv-dependency.ps1 -AcceptLicense
 ```
 
-From the packaged Windows artifact:
-
-```powershell
-.\dependencies\libmpv\install-libmpv-dependency.ps1 -AcceptLicense
-```
-
 The pinned dependency manifest is committed at
 `third_party/windows/libmpv/zhongfly-lgpl-x86_64-20260604.json`. Do not change
 its URL or hashes without repeating the producer-build review and local probe.
+The corresponding source and provenance notice is committed beside it as
+`SOURCE.md`.
 
 ## Local Bundle Layout
 
@@ -153,9 +154,9 @@ its executable:
   -DistributionPath .\apps\desktop-windows\build\compose\binaries\main\app\desktop-windows
 ```
 
-This direct-bundle workflow is intentionally opt-in. CI builds a DLL-free
-distributable until a specific bundle has passed review and its redistribution
-obligations are documented.
+This generic direct-bundle workflow remains available for reviewing future
+candidate bundles. CI directly packages only the specifically approved zhongfly
+manifest.
 
 ## Candidate Review: shinchiro 20260604
 
@@ -203,7 +204,7 @@ Reviewed on 2026-06-04:
 - Local `mpv-probe` result: loaded successfully, reported client API version
   `131077`, initialized an mpv context, and shut down cleanly.
 
-This is the pinned optional download candidate for an MIT-licensed Danmaku
+This is the approved direct-redistribution bundle for an MIT-licensed Danmaku
 application with separately licensed LGPL playback dependencies:
 
 - The project publishes specifically named `mpv-dev-lgpl-*` artifacts.
@@ -215,16 +216,19 @@ application with separately licensed LGPL playback dependencies:
   linked FFmpeg under LGPLv3. Treat the combined DLL distribution as requiring
   LGPLv3 compliance.
 
-The candidate is **not approved for direct Danmaku redistribution**:
+Approval is based on:
 
-- The maintainer states that they cannot guarantee every LGPL-incompatible
-  package has been disabled.
-- The archive contains the DLL, import library, and headers, but no license or
-  notice files.
-- Danmaku still needs a complete bundled-component version and license
-  inventory, corresponding source links or archives, build configuration, and
-  required notices before publishing the DLL.
+- The producer's explicit `mpv-dev-lgpl-*` artifact designation.
+- The reviewed mpv configure result `gpl: false`.
+- The reviewed FFmpeg configure result `License: LGPL version 3 or later`.
+- The pinned archive and DLL SHA-256 hashes.
+- Danmaku packaging the GPL/LGPL license texts, exact manifest, and source and
+  provenance notice.
+
+The maintainer states that they cannot guarantee every LGPL-incompatible
+package has been disabled. Danmaku accepts that residual risk as a project
+distribution decision rather than treating it as a prohibition.
 
 The repository's MIT license applies to its build scripts, not to libmpv,
-FFmpeg, or the resulting DLL. Danmaku's own source may remain MIT licensed
-while users optionally download the playback dependency under its LGPL terms.
+FFmpeg, or the resulting DLL. Directly redistributing the LGPL DLL does not
+relicense Danmaku's own source.

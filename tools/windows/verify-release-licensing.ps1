@@ -37,6 +37,19 @@ function Assert-File {
     }
 }
 
+function Assert-Hash {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$ExpectedHash,
+        [Parameter(Mandatory)][string]$Description
+    )
+
+    $actualHash = (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash
+    if ($actualHash -ne $ExpectedHash) {
+        throw "SHA-256 mismatch for ${Description}: expected $ExpectedHash, got $actualHash."
+    }
+}
+
 function Assert-ApkLegalAssets {
     param(
         [Parameter(Mandatory)][string]$ApkPath,
@@ -76,25 +89,34 @@ foreach ($requiredFile in @(
     "THIRD_PARTY_NOTICES.md",
     "THIRD_PARTY_DEPENDENCIES.json",
     "licenses\APACHE-2.0.txt",
+    "licenses\GPL-3.0.txt",
+    "licenses\LGPL-2.1.txt",
+    "licenses\LGPL-3.0.txt",
     "run-danmaku.ps1",
+    "app\libmpv-2.dll",
     "dependencies\libmpv\install-libmpv-dependency.ps1",
-    "dependencies\libmpv\zhongfly-lgpl-x86_64-20260604.json"
+    "dependencies\libmpv\zhongfly-lgpl-x86_64-20260604.json",
+    "dependencies\libmpv\SOURCE.md"
 )) {
     Assert-File `
         -Path (Join-Path $windowsFullPath $requiredFile) `
         -Description "Windows release file '$requiredFile'"
 }
 
-$forbiddenDll = Get-ChildItem `
-    -LiteralPath $windowsFullPath `
-    -Recurse `
-    -Filter "libmpv-2.dll" `
-    -File `
-    -ErrorAction SilentlyContinue |
-    Select-Object -First 1
-if ($null -ne $forbiddenDll) {
-    throw "DLL-free Windows release must not contain libmpv-2.dll."
+$manifestPath = Join-Path (
+    $windowsFullPath
+) "dependencies\libmpv\zhongfly-lgpl-x86_64-20260604.json"
+$manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+if ($manifest.distributionModel -ne "approved-direct-redistribution") {
+    throw "Windows release libmpv manifest is not approved for direct redistribution."
 }
+if ($manifest.approval.status -ne "approved") {
+    throw "Windows release libmpv manifest approval status is not approved."
+}
+Assert-Hash `
+    -Path (Join-Path $windowsFullPath "app\libmpv-2.dll") `
+    -ExpectedHash $manifest.dllSha256 `
+    -Description "bundled libmpv-2.dll"
 
 if (Test-Path -LiteralPath (Join-Path $windowsFullPath "runtime")) {
     throw "Runtime-free Windows release must not contain a bundled Java runtime."

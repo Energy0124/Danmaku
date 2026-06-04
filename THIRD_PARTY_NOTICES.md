@@ -3,13 +3,11 @@
 Danmaku is licensed under the MIT License. Third-party software used by,
 downloaded for, or linked with Danmaku remains under its own license.
 
-## Optional Windows Playback Dependency
+## Windows Playback Dependency
 
 Danmaku's Windows playback foundation is designed to load `libmpv-2.dll`
-dynamically. Danmaku release artifacts do not include libmpv or FFmpeg.
-
-The included optional dependency installer can download this pinned third-party
-artifact after the user explicitly accepts its license:
+dynamically. The Windows release directly redistributes this pinned third-party
+DLL as a separately licensed dependency:
 
 - Artifact:
   `mpv-dev-lgpl-x86_64-20260604-git-1d82932cce.7z`
@@ -31,13 +29,17 @@ artifact after the user explicitly accepts its license:
   [GNU Lesser General Public License version 3](https://www.gnu.org/licenses/lgpl-3.0.html)
 
 The producer describes the `mpv-dev-lgpl-*` artifact as LGPLv2.1+ libmpv with
-statically linked FFmpeg under LGPLv3. Danmaku therefore presents the optional
+statically linked FFmpeg under LGPLv3. Danmaku therefore presents the bundled
 dependency as an LGPLv3 dependency. The producer also states that it cannot
-guarantee every LGPL-incompatible package has been disabled.
+guarantee every LGPL-incompatible package has been disabled. Danmaku accepts
+that residual risk as a project distribution decision based on the producer's
+explicit LGPL artifact designation and the reviewed build output.
 
 Danmaku verifies the pinned archive and extracted DLL SHA-256 hashes before
-installation. Installing the dependency does not change Danmaku's MIT license,
-and it does not relicense libmpv, FFmpeg, or their bundled dependencies.
+packaging. The Windows release includes the GPL/LGPL license texts and a source
+and provenance notice under `dependencies/libmpv`. Redistributing the
+dependency does not change Danmaku's MIT license, and it does not relicense
+libmpv, FFmpeg, or their bundled dependencies.
 
 ## Application Dependencies
 
