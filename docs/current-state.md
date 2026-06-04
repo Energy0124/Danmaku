@@ -51,6 +51,8 @@ Updated on 2026-06-04.
   items, with compatibility creation for existing catalog databases.
 - Desktop SQLDelight storage primitives for multiple Windows library roots,
   including root provenance and available/missing state.
+- Desktop library-root registry helper for stable root IDs, user-selected roots,
+  ani-rss output roots, and scan-result state updates.
 - Shared source and download domain contracts for authorized offline storage
   policy, source capabilities, and platform-independent download manifests.
 - Android mobile and TV progress syncing from the background playback service
