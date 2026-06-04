@@ -2,6 +2,7 @@
 .idea/
 .kotlin/
 .android-sdk/
+.antigravitycli/
 .codex-remote-attachments/
 build/
 **/build/
