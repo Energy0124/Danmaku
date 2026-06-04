@@ -117,7 +117,7 @@ catalog and pass selected streams to Media3.
   queue items.
 - [x] Define authorized-download policy fields in source contracts.
 - [x] Define a platform-independent download manifest.
-- [ ] Add multiple Windows library roots with provenance and missing-folder state.
+- [x] Add multiple Windows library roots with provenance and missing-folder state.
 - [ ] Import and incrementally rescan user-selected ani-rss-managed output folders.
 - [ ] Add an optional read-only Windows ani-rss adapter for health, subscriptions,
   resolved download folders, completed episode lists, and download status.

@@ -41,6 +41,11 @@ class DesktopLibraryCatalogStore(
             sql = CREATE_LIBRARY_ROOT_TABLE_SQL,
             parameters = 0,
         )
+        driver.execute(
+            identifier = null,
+            sql = CREATE_LIBRARY_ROOT_MEDIA_ITEM_TABLE_SQL,
+            parameters = 0,
+        )
         database = DesktopLibraryDatabase(driver)
     }
 
@@ -91,6 +96,90 @@ class DesktopLibraryCatalogStore(
             library.fileMetadataByRelativePath.values.forEach { cachedItem ->
                 val item = cachedItem.item
                 database.libraryCatalogQueries.insertItem(
+                    item.relativePath,
+                    item.id,
+                    item.seriesTitle,
+                    item.episodeTitle,
+                    item.sizeBytes,
+                    cachedItem.lastModifiedEpochMs,
+                    item.mediaType,
+                    item.streamPath,
+                )
+            }
+        }
+    }
+
+    @Synchronized
+    fun load(root: DesktopLibraryRoot): IndexedLocalLibrary? {
+        val storedRoot = loadLibraryRoot(root.id) ?: return null
+        val rootPath = storedRoot.normalizedPath
+        val filesById = linkedMapOf<String, Path>()
+        val itemMetadata = database.libraryCatalogQueries
+            .selectRootItems(root.id, ::storedItem)
+            .executeAsList()
+            .mapNotNull { cachedItem ->
+                val path = rootPath.resolve(cachedItem.item.relativePath)
+                    .normalize()
+                    .takeIf { it.startsWith(rootPath) }
+                    ?.takeIf(Files::isRegularFile)
+                    ?: return@mapNotNull null
+                filesById[cachedItem.item.id] = path
+                cachedItem.item.relativePath to cachedItem
+            }
+            .toMap(linkedMapOf())
+        return IndexedLocalLibrary(
+            catalog = LibraryCatalog(
+                rootName = storedRoot.displayName,
+                indexedAtEpochMs = storedRoot.lastScannedAtEpochMs ?: storedRoot.addedAtEpochMs,
+                items = itemMetadata.values.map(CachedLocalMediaItem::item),
+            ),
+            filesById = filesById,
+            fileMetadataByRelativePath = itemMetadata,
+        )
+    }
+
+    @Synchronized
+    fun loadRegisteredLibrary(): IndexedLocalLibrary {
+        val filesById = linkedMapOf<String, Path>()
+        val itemMetadata = linkedMapOf<String, CachedLocalMediaItem>()
+        var indexedAtEpochMs = 0L
+
+        loadLibraryRoots()
+            .filter { it.state == DesktopLibraryRootState.AVAILABLE }
+            .forEach { root ->
+                val library = load(root) ?: return@forEach
+                indexedAtEpochMs = maxOf(indexedAtEpochMs, library.catalog.indexedAtEpochMs)
+                filesById += library.filesById
+                library.fileMetadataByRelativePath.forEach { (relativePath, cachedItem) ->
+                    val publishedRelativePath = "${root.displayName}/$relativePath"
+                    itemMetadata["${root.id}/$relativePath"] = cachedItem.copy(
+                        item = cachedItem.item.copy(relativePath = publishedRelativePath),
+                    )
+                }
+            }
+
+        return IndexedLocalLibrary(
+            catalog = LibraryCatalog(
+                rootName = "Registered Libraries",
+                indexedAtEpochMs = indexedAtEpochMs,
+                items = itemMetadata.values
+                    .map(CachedLocalMediaItem::item)
+                    .sortedWith(compareBy(LibraryMediaItem::seriesTitle, LibraryMediaItem::relativePath)),
+            ),
+            filesById = filesById,
+            fileMetadataByRelativePath = itemMetadata,
+        )
+    }
+
+    @Synchronized
+    fun replace(root: DesktopLibraryRoot, library: IndexedLocalLibrary) {
+        database.transaction {
+            saveLibraryRoot(root)
+            database.libraryCatalogQueries.deleteRootItems(root.id)
+            library.fileMetadataByRelativePath.values.forEach { cachedItem ->
+                val item = cachedItem.item
+                database.libraryCatalogQueries.insertRootItem(
+                    root.id,
                     item.relativePath,
                     item.id,
                     item.seriesTitle,
@@ -241,6 +330,21 @@ class DesktopLibraryCatalogStore(
               added_at_epoch_ms INTEGER NOT NULL,
               last_scanned_at_epoch_ms INTEGER,
               last_error TEXT
+            )
+        """.trimIndent()
+
+        private val CREATE_LIBRARY_ROOT_MEDIA_ITEM_TABLE_SQL = """
+            CREATE TABLE IF NOT EXISTS library_root_media_item (
+              root_id TEXT NOT NULL,
+              relative_path TEXT NOT NULL,
+              id TEXT NOT NULL UNIQUE,
+              series_title TEXT NOT NULL,
+              episode_title TEXT NOT NULL,
+              size_bytes INTEGER NOT NULL,
+              last_modified_epoch_ms INTEGER NOT NULL,
+              media_type TEXT NOT NULL,
+              stream_path TEXT NOT NULL,
+              PRIMARY KEY(root_id, relative_path)
             )
         """.trimIndent()
 

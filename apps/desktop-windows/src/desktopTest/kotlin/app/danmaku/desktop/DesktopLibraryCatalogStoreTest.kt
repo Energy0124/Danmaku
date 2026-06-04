@@ -8,6 +8,7 @@ import kotlin.io.path.writeBytes
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import java.sql.DriverManager
 
 class DesktopLibraryCatalogStoreTest {
@@ -148,6 +149,94 @@ class DesktopLibraryCatalogStoreTest {
             assertNull(store.loadLibraryRoot(userSelectedRoot.id))
             assertEquals(missingAniRssRoot, store.loadLibraryRoot(aniRssOutputRoot.id))
             assertEquals(listOf(missingAniRssRoot), store.loadLibraryRoots())
+        }
+
+        temp.toFile().deleteRecursively()
+    }
+
+    @Test
+    fun persistsAndMergesCatalogsForRegisteredLibraryRoots() {
+        val temp = createTempDirectory("danmaku-library-root-catalogs")
+        val firstRootPath = temp.resolve("First").createDirectories()
+        val secondRootPath = temp.resolve("Second").createDirectories()
+        firstRootPath.resolve("Example Show").createDirectories()
+            .resolve("Episode 01.mkv")
+            .writeBytes(byteArrayOf(1, 2, 3))
+        secondRootPath.resolve("Example Show").createDirectories()
+            .resolve("Episode 01.mkv")
+            .writeBytes(byteArrayOf(4, 5, 6))
+        val firstRoot = DesktopLibraryRoot(
+            id = "first-root",
+            path = firstRootPath,
+            displayName = "First",
+            provenance = DesktopLibraryRootProvenance.USER_SELECTED,
+            state = DesktopLibraryRootState.AVAILABLE,
+            addedAtEpochMs = 100,
+            lastScannedAtEpochMs = 150,
+        )
+        val secondRoot = DesktopLibraryRoot(
+            id = "second-root",
+            path = secondRootPath,
+            displayName = "Second",
+            provenance = DesktopLibraryRootProvenance.ANI_RSS_OUTPUT_FOLDER,
+            state = DesktopLibraryRootState.AVAILABLE,
+            addedAtEpochMs = 200,
+            lastScannedAtEpochMs = 250,
+        )
+
+        DesktopLibraryCatalogStore(temp.resolve("catalog.db")).use { store ->
+            store.replace(
+                firstRoot,
+                LocalMediaLibraryIndexer.index(firstRootPath, idNamespace = firstRoot.id),
+            )
+            store.replace(
+                secondRoot,
+                LocalMediaLibraryIndexer.index(secondRootPath, idNamespace = secondRoot.id),
+            )
+
+            val firstLoaded = store.load(firstRoot)
+            val combined = store.loadRegisteredLibrary()
+
+            assertEquals("First", firstLoaded?.catalog?.rootName)
+            assertEquals(1, firstLoaded?.catalog?.items?.size)
+            assertEquals(2, combined.catalog.items.size)
+            assertEquals(2, combined.filesById.size)
+            assertEquals(
+                listOf(
+                    "First/Example Show/Episode 01.mkv",
+                    "Second/Example Show/Episode 01.mkv",
+                ),
+                combined.catalog.items.map { it.relativePath },
+            )
+            assertTrue(combined.catalog.items[0].id != combined.catalog.items[1].id)
+        }
+
+        temp.toFile().deleteRecursively()
+    }
+
+    @Test
+    fun skipsMissingRegisteredRootFilesWhenLoadingCombinedCatalog() {
+        val temp = createTempDirectory("danmaku-library-root-catalogs")
+        val rootPath = temp.resolve("Anime").createDirectories()
+        val episode = rootPath.resolve("Example Show").createDirectories()
+            .resolve("Episode 01.mkv")
+        episode.writeBytes(byteArrayOf(1, 2, 3))
+        val root = DesktopLibraryRoot(
+            id = "root",
+            path = rootPath,
+            displayName = "Anime",
+            provenance = DesktopLibraryRootProvenance.USER_SELECTED,
+            state = DesktopLibraryRootState.AVAILABLE,
+            addedAtEpochMs = 100,
+            lastScannedAtEpochMs = 150,
+        )
+
+        DesktopLibraryCatalogStore(temp.resolve("catalog.db")).use { store ->
+            store.replace(root, LocalMediaLibraryIndexer.index(rootPath, idNamespace = root.id))
+            episode.deleteExisting()
+
+            assertEquals(emptyList(), store.load(root)?.catalog?.items)
+            assertEquals(emptyList(), store.loadRegisteredLibrary().catalog.items)
         }
 
         temp.toFile().deleteRecursively()

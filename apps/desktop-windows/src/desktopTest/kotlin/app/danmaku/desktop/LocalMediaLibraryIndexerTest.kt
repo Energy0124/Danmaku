@@ -52,4 +52,33 @@ class LocalMediaLibraryIndexerTest {
 
         root.toFile().deleteRecursively()
     }
+
+    @Test
+    fun namespacesIdsForMultipleRootIndexes() {
+        val temp = createTempDirectory("danmaku-library")
+        val firstRoot = temp.resolve("First").createDirectories()
+        val secondRoot = temp.resolve("Second").createDirectories()
+        firstRoot.resolve("Example Show").createDirectories()
+            .resolve("Episode 01.mkv")
+            .writeBytes(byteArrayOf(1, 2, 3))
+        secondRoot.resolve("Example Show").createDirectories()
+            .resolve("Episode 01.mkv")
+            .writeBytes(byteArrayOf(4, 5, 6))
+
+        val firstItem = LocalMediaLibraryIndexer.index(
+            root = firstRoot,
+            idNamespace = "first-root",
+        ).catalog.items.single()
+        val secondItem = LocalMediaLibraryIndexer.index(
+            root = secondRoot,
+            idNamespace = "second-root",
+        ).catalog.items.single()
+
+        assertEquals("Example Show/Episode 01.mkv", firstItem.relativePath)
+        assertEquals("Example Show/Episode 01.mkv", secondItem.relativePath)
+        assertTrue(firstItem.id != secondItem.id)
+        assertTrue(firstItem.streamPath != secondItem.streamPath)
+
+        temp.toFile().deleteRecursively()
+    }
 }

@@ -27,7 +27,11 @@ object LocalMediaLibraryIndexer {
     fun index(
         root: Path,
         cachedItems: Map<String, CachedLocalMediaItem> = emptyMap(),
+        idNamespace: String? = null,
     ): IndexedLocalLibrary {
+        require(idNamespace == null || idNamespace.isNotBlank()) {
+            "idNamespace must not be blank"
+        }
         require(Files.isDirectory(root)) { "library root must be a directory" }
         val normalizedRoot = root.toAbsolutePath().normalize()
         val filesById = linkedMapOf<String, Path>()
@@ -53,6 +57,7 @@ object LocalMediaLibraryIndexer {
                             path = path,
                             relativePath = relativePath,
                             sizeBytes = sizeBytes,
+                            idNamespace = idNamespace,
                         )
                     if (cachedItem != null) reusedItemCount += 1
                     filesById[item.id] = path
@@ -86,8 +91,9 @@ object LocalMediaLibraryIndexer {
         path: Path,
         relativePath: String,
         sizeBytes: Long,
+        idNamespace: String?,
     ): LibraryMediaItem {
-        val id = sha256(relativePath).take(24)
+        val id = sha256(idNamespace?.let { "$it/$relativePath" } ?: relativePath).take(24)
         return LibraryMediaItem(
             id = id,
             seriesTitle = path.parent?.fileName?.toString() ?: root.fileName.toString(),

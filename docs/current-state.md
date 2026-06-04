@@ -53,6 +53,9 @@ Updated on 2026-06-04.
   including root provenance and available/missing state.
 - Desktop library-root registry helper for stable root IDs, user-selected roots,
   ani-rss output roots, and scan-result state updates.
+- Desktop catalog storage can persist indexed media per registered root and
+  publish a merged catalog with root-prefixed relative paths and namespaced
+  media IDs.
 - Shared source and download domain contracts for authorized offline storage
   policy, source capabilities, and platform-independent download manifests.
 - Android mobile and TV progress syncing from the background playback service
