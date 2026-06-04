@@ -121,7 +121,7 @@ catalog and pass selected streams to Media3.
 - [x] Import and incrementally rescan user-selected ani-rss-managed output folders.
 - [x] Add an optional read-only Windows ani-rss adapter for health, subscriptions,
   resolved download folders, completed episode lists, and download status.
-- [ ] Add an authenticated ani-rss completion-webhook endpoint that triggers a
+- [x] Add an authenticated ani-rss completion-webhook endpoint that triggers a
   bounded Windows library rescan.
 - [ ] Store ani-rss connection credentials securely and redact them from logs.
 - [ ] Decide whether ani-rss subscription and download-control actions are allowed

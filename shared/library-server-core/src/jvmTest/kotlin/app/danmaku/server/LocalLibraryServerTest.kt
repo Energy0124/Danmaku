@@ -9,6 +9,7 @@ import java.net.HttpURLConnection
 import java.net.URI
 import java.util.concurrent.Callable
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.io.path.createTempFile
 import kotlin.io.path.deleteIfExists
 import kotlin.io.path.writeBytes
@@ -17,6 +18,49 @@ import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 
 class LocalLibraryServerTest {
+    @Test
+    fun acceptsOnlyAuthenticatedPostHooks() {
+        val accepted = AtomicInteger()
+        val hook = AuthenticatedPostHook(
+            path = "/api/hooks/test",
+            token = "0123456789abcdef",
+            onAccepted = accepted::incrementAndGet,
+        )
+
+        LocalLibraryServer(
+            port = 0,
+            pairingToken = "123456",
+            authenticatedPostHooks = listOf(hook),
+        ).use { server ->
+            server.start()
+            val url = "${server.baseUrl()}${hook.path}"
+
+            assertEquals(405, connection(url).responseCode)
+            assertEquals(401, connection(url, method = "POST").responseCode)
+            assertEquals(
+                401,
+                connection(
+                    url = url,
+                    method = "POST",
+                    headers = mapOf(LocalLibraryServer.WEBHOOK_TOKEN_HEADER to "wrong-token-value"),
+                ).responseCode,
+            )
+            assertEquals(
+                202,
+                connection(
+                    url = url,
+                    method = "POST",
+                    headers = mapOf(LocalLibraryServer.WEBHOOK_TOKEN_HEADER to "0123456789abcdef"),
+                ).responseCode,
+            )
+            assertEquals(1, accepted.get())
+            assertEquals(
+                "AuthenticatedPostHook(path=/api/hooks/test, token=<redacted>)",
+                hook.toString(),
+            )
+        }
+    }
+
     @Test
     fun rejectsUnauthorizedMediaRequestsAndInvalidRanges() {
         withServer(byteArrayOf(0, 1, 2, 3, 4, 5)) { server, item ->
@@ -185,10 +229,12 @@ class LocalLibraryServerTest {
         range: String? = null,
         method: String = "GET",
         body: String? = null,
+        headers: Map<String, String> = emptyMap(),
     ): HttpURLConnection =
         (URI(url).toURL().openConnection() as HttpURLConnection).apply {
             requestMethod = method
             range?.let { setRequestProperty("Range", it) }
+            headers.forEach(::setRequestProperty)
             body?.let {
                 doOutput = true
                 setRequestProperty("Content-Type", "application/json; charset=utf-8")

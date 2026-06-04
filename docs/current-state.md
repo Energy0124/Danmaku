@@ -67,6 +67,11 @@ Updated on 2026-06-04.
   observations, and external downloader status. Provider responses are
   normalized without retaining API keys, RSS URLs, magnet links, torrent URLs,
   or arbitrary playable paths.
+- Authenticated `POST /api/hooks/ani-rss/download-end` Windows-host webhook for
+  debounced rescans of only ani-rss output roots. The desktop shell displays the
+  generated `X-Danmaku-Webhook-Token` value and LAN webhook URLs; the token is
+  currently in memory and rotates on restart until secure credential storage is
+  implemented.
 - Shared source and download domain contracts for authorized offline storage
   policy, source capabilities, and platform-independent download manifests.
 - Android mobile and TV progress syncing from the background playback service

@@ -105,4 +105,36 @@ class DesktopLibraryRootScannerTest {
 
         temp.toFile().deleteRecursively()
     }
+
+    @Test
+    fun scansOnlyAniRssRootsForCompletionNotifications() {
+        val temp = createTempDirectory("danmaku-root-scanner")
+        val userPath = temp.resolve("User").createDirectories()
+        val aniRssPath = temp.resolve("AniRss").createDirectories()
+        userPath.resolve("User Show").createDirectories()
+            .resolve("Episode 01.mkv")
+            .writeBytes(byteArrayOf(1))
+        aniRssPath.resolve("AniRss Show").createDirectories()
+            .resolve("Episode 01.mkv")
+            .writeBytes(byteArrayOf(2))
+
+        DesktopLibraryCatalogStore(temp.resolve("catalog.db")).use { store ->
+            val registry = DesktopLibraryRootRegistry(store) { 100 }
+            val scanner = DesktopLibraryRootScanner(store, registry)
+            registry.addUserSelectedRoot(userPath)
+            registry.addAniRssOutputRoot(aniRssPath)
+
+            val batch = scanner.scanAniRssRoots()
+
+            assertEquals(1, batch.results.size)
+            assertEquals(
+                DesktopLibraryRootProvenance.ANI_RSS_OUTPUT_FOLDER,
+                batch.results.single().root.provenance,
+            )
+            assertEquals(1, batch.publishedLibrary.catalog.items.size)
+            assertEquals("AniRss Show", batch.publishedLibrary.catalog.items.single().seriesTitle)
+        }
+
+        temp.toFile().deleteRecursively()
+    }
 }

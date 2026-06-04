@@ -147,6 +147,14 @@ networks; use a stronger authenticated and encrypted transport before
 supporting untrusted networks. The Windows distributable explicitly includes
 the `jdk.httpserver` and `java.sql` runtime modules.
 
+The Windows host also registers authenticated provider-completion hooks on the
+same server. The initial `POST /api/hooks/ani-rss/download-end` endpoint
+requires a separate high-entropy `X-Danmaku-Webhook-Token` header, debounces
+repeated notifications, and rescans only roots explicitly tagged as ani-rss
+output folders. The token is never placed in the URL or discovery
+announcements. It is currently generated per process until secure credential
+storage is implemented.
+
 The Windows app also broadcasts a small UDP discovery announcement on port
 `8687`. Android clients derive the HTTP host from the packet source and the
 announced port. Pairing codes are deliberately excluded from discovery

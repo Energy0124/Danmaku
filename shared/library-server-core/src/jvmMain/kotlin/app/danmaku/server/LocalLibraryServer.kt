@@ -21,6 +21,7 @@ class LocalLibraryServer(
     port: Int = DEFAULT_PORT,
     val pairingToken: String = generatePairingToken(),
     private val progressStore: PlaybackProgressStore = InMemoryPlaybackProgressStore(),
+    authenticatedPostHooks: List<AuthenticatedPostHook> = emptyList(),
 ) : AutoCloseable {
     private val server = HttpServer.create(InetSocketAddress(port), 0)
     private val executor = Executors.newCachedThreadPool()
@@ -32,10 +33,18 @@ class LocalLibraryServer(
         get() = server.address.port
 
     init {
+        require(authenticatedPostHooks.map(AuthenticatedPostHook::path).distinct().size == authenticatedPostHooks.size) {
+            "authenticated hook paths must be unique"
+        }
         server.executor = executor
         server.createContext("/api/library", ::handleCatalog)
         server.createContext("/api/progress/", ::handleProgress)
         server.createContext("/media/", ::handleMedia)
+        authenticatedPostHooks.forEach { hook ->
+            server.createContext(hook.path) { exchange ->
+                handleAuthenticatedPostHook(exchange, hook)
+            }
+        }
     }
 
     fun start() {
@@ -190,6 +199,25 @@ class LocalLibraryServer(
         exchange.sendStatus(204)
     }
 
+    private fun handleAuthenticatedPostHook(
+        exchange: HttpExchange,
+        hook: AuthenticatedPostHook,
+    ) {
+        if (exchange.requestMethod != "POST") {
+            exchange.sendStatus(405)
+            return
+        }
+        val suppliedToken = exchange.requestHeaders.getFirst(WEBHOOK_TOKEN_HEADER)
+        if (!hook.isAuthorized(suppliedToken)) {
+            exchange.sendStatus(401)
+            return
+        }
+
+        runCatching(hook::accept)
+            .onSuccess { exchange.sendStatus(202) }
+            .onFailure { exchange.sendStatus(500) }
+    }
+
     private fun parseRange(header: String, fileSize: Long): LongRange? {
         if (!header.startsWith("bytes=") || fileSize == 0L) return null
         val value = header.removePrefix("bytes=")
@@ -252,6 +280,7 @@ class LocalLibraryServer(
 
     companion object {
         const val DEFAULT_PORT = 8686
+        const val WEBHOOK_TOKEN_HEADER = "X-Danmaku-Webhook-Token"
 
         private fun generatePairingToken(): String =
             SecureRandom()

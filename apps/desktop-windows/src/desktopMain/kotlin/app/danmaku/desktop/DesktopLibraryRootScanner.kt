@@ -7,6 +7,7 @@ class DesktopLibraryRootScanner(
     private val store: DesktopLibraryCatalogStore,
     private val registry: DesktopLibraryRootRegistry,
 ) {
+    @Synchronized
     fun importAniRssOutputRoot(
         path: Path,
         displayName: String = path.toAbsolutePath().normalize().fileName?.toString()
@@ -14,6 +15,7 @@ class DesktopLibraryRootScanner(
     ): DesktopLibraryRootScanResult =
         scan(registry.addAniRssOutputRoot(path, displayName))
 
+    @Synchronized
     fun scan(root: DesktopLibraryRoot): DesktopLibraryRootScanResult {
         if (!Files.isDirectory(root.normalizedPath)) {
             val missingRoot = registry.markMissing(root, MISSING_ROOT_ERROR)
@@ -40,8 +42,20 @@ class DesktopLibraryRootScanner(
         )
     }
 
-    fun scanAll(): DesktopLibraryScanBatchResult {
-        val results = registry.loadRoots().map(::scan)
+    @Synchronized
+    fun scanAll(): DesktopLibraryScanBatchResult =
+        scanRoots(registry.loadRoots())
+
+    @Synchronized
+    fun scanAniRssRoots(): DesktopLibraryScanBatchResult =
+        scanRoots(
+            registry.loadRoots().filter {
+                it.provenance == DesktopLibraryRootProvenance.ANI_RSS_OUTPUT_FOLDER
+            },
+        )
+
+    private fun scanRoots(roots: List<DesktopLibraryRoot>): DesktopLibraryScanBatchResult {
+        val results = roots.map(::scan)
         return DesktopLibraryScanBatchResult(
             results = results,
             publishedLibrary = store.loadRegisteredLibrary(),

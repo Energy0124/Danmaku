@@ -28,6 +28,7 @@ Implemented today:
 - Multiple Windows library roots, including user-selected ani-rss output-folder
   import and incremental rescanning
 - Optional read-only Windows ani-rss monitoring adapter
+- Authenticated ani-rss completion webhook for bounded output-folder rescans
 - SQLDelight catalog, playback-progress, settings, and download-queue storage
 - Paired trusted-LAN library server with JSON catalog, byte-range media
   streaming, and progress API

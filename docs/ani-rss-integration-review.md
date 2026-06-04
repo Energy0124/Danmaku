@@ -126,13 +126,19 @@ normalized library database or logs.
 
 ### Phase C: Completion-Triggered Rescans
 
-- Add a Windows-host endpoint dedicated to ani-rss rescan notifications.
-- Require a separate generated webhook token and redact it from logs.
-- Configure ani-rss WebHook notifications for `DOWNLOAD_END`.
-- Trigger a bounded rescan of configured ani-rss roots.
-- Debounce repeated notifications and retain periodic rescans as a fallback.
+- [x] Add a Windows-host endpoint dedicated to ani-rss rescan notifications.
+- [x] Require a separate generated webhook token and redact it from logs.
+- [ ] Configure ani-rss WebHook notifications for `DOWNLOAD_END`.
+- [x] Trigger a bounded rescan of configured ani-rss roots.
+- [x] Debounce repeated notifications and retain periodic rescans as a fallback.
 
 The webhook is an optimization. Correctness must not depend on delivery.
+
+The Windows shell displays the current webhook URL, the
+`X-Danmaku-Webhook-Token` header name, and a generated token. Configure an
+ani-rss WebHook notification for `DOWNLOAD_END` with an HTTP `POST` request and
+that custom header. The token currently rotates whenever Danmaku restarts;
+secure persistence remains a separate task.
 
 ### Phase D: Optional Control Actions
 
@@ -165,7 +171,7 @@ Danmaku should not reproduce ani-rss source-search or RSS parsing logic.
 
 - [x] Approve folder import as the first ani-rss integration slice.
 - [x] Approve optional read-only ani-rss API monitoring after folder import.
-- [ ] Approve completion-triggered rescans through an authenticated webhook.
+- [x] Approve completion-triggered rescans through an authenticated webhook.
 - [ ] Decide whether Danmaku may open the external ani-rss WebUI.
 - [ ] Decide whether subscription and download-control actions are permitted.
 - [ ] Decide whether Danmaku should support a bundled ani-rss deployment or only

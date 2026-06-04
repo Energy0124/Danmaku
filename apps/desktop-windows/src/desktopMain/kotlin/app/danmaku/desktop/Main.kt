@@ -49,7 +49,6 @@ import app.danmaku.library.LanPlaybackPreparation
 import app.danmaku.library.LanPlaybackPreparer
 import app.danmaku.library.jvm.JvmLanLibraryClient
 import app.danmaku.server.LocalLibraryDiscoveryAnnouncer
-import app.danmaku.server.LocalLibraryServer
 import app.danmaku.server.PublishedLibrary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -86,16 +85,6 @@ private fun DesktopShell() {
     val playbackSession = remember(playbackController) {
         DesktopPlaybackSession(playbackController)
     }
-    val server = remember(catalogStore) {
-        LocalLibraryServer(progressStore = catalogStore).apply {
-            start()
-        }
-    }
-    val discoveryAnnouncer = remember(server) {
-        LocalLibraryDiscoveryAnnouncer(server.localPort).apply {
-            start()
-        }
-    }
     val scope = rememberCoroutineScope()
     val legacySelectedLibraryRoot = remember { selectionStore.load() }
     var registeredRoots by remember { mutableStateOf(rootRegistry.loadRoots()) }
@@ -116,6 +105,26 @@ private fun DesktopShell() {
     var isIndexing by remember { mutableStateOf(false) }
     var isPreparingLocalPlayback by remember { mutableStateOf(false) }
     var lastScanStats by remember { mutableStateOf<LocalMediaLibraryScanStats?>(null) }
+    val serverRuntime = remember(catalogStore, rootScanner, scope) {
+        DesktopLibraryServerRuntime.start(
+            catalogStore = catalogStore,
+            rootScanner = rootScanner,
+            onLibraryPublished = { library ->
+                scope.launch {
+                    indexedLibrary = library
+                    registeredRoots = rootRegistry.loadRoots()
+                    selectedLocalPlaybackPreparation = null
+                    libraryError = null
+                }
+            },
+        )
+    }
+    val server = serverRuntime.server
+    val discoveryAnnouncer = remember(server) {
+        LocalLibraryDiscoveryAnnouncer(server.localPort).apply {
+            start()
+        }
+    }
     val networkUrls = remember(server) { server.networkUrls() }
 
     fun applyPublishedLibrary(library: IndexedLocalLibrary) {
@@ -207,10 +216,10 @@ private fun DesktopShell() {
         }
     }
 
-    DisposableEffect(server, discoveryAnnouncer) {
+    DisposableEffect(serverRuntime, discoveryAnnouncer) {
         onDispose {
             discoveryAnnouncer.close()
-            server.close()
+            serverRuntime.close()
             catalogStore.close()
         }
     }
@@ -273,6 +282,11 @@ private fun DesktopShell() {
                 }
                 Text("LAN discovery: UDP port ${app.danmaku.domain.LanLibraryServerAnnouncement.DEFAULT_DISCOVERY_PORT}")
                 Text("Pairing code: ${server.pairingToken}")
+                serverRuntime.aniRssWebhookUrls().forEach { url ->
+                    Text("ani-rss DOWNLOAD_END webhook URL: $url")
+                }
+                Text("ani-rss webhook header: X-Danmaku-Webhook-Token")
+                Text("ani-rss webhook token: ${serverRuntime.aniRssWebhookToken}")
                 libraryError?.let { Text("Library error: $it") }
                 Text("Indexed episodes: ${indexedLibrary?.catalog?.items?.size ?: 0}")
                 lastScanStats?.let { stats ->
@@ -475,7 +489,7 @@ private fun RemoteLibraryBrowser(
     }
 }
 
-private fun IndexedLocalLibrary.toPublishedLibrary(): PublishedLibrary =
+internal fun IndexedLocalLibrary.toPublishedLibrary(): PublishedLibrary =
     PublishedLibrary(
         catalog = catalog,
         filesById = filesById,
