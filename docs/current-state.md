@@ -62,6 +62,11 @@ Updated on 2026-06-04.
 - Windows desktop shell actions let users add normal library roots or ani-rss
   completed-media output folders, rescan all registered roots, and inspect each
   root's provenance and availability state.
+- Windows-only read-only ani-rss HTTP adapter for health, version diagnostics,
+  subscription inventory, resolved output folders, completed episode
+  observations, and external downloader status. Provider responses are
+  normalized without retaining API keys, RSS URLs, magnet links, torrent URLs,
+  or arbitrary playable paths.
 - Shared source and download domain contracts for authorized offline storage
   policy, source capabilities, and platform-independent download manifests.
 - Android mobile and TV progress syncing from the background playback service

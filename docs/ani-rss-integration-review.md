@@ -8,10 +8,11 @@ Reference project:
 https://github.com/wushuo894/ani-rss
 ```
 
-Analyzed reference snapshot:
+Analyzed reference snapshots:
 
 ```text
 2fbd161eba019e0d5686f2684e2870f26c7803c9
+5b1851a2d6675f3f0ad0dbb3e4aa04c111ac78e7
 ```
 
 ## Decision Summary
@@ -37,10 +38,10 @@ documentation describes subscription, downloader configuration, rename,
 scrape, and notification workflows. It supports Transmission, qBittorrent,
 Aria2, and OpenList.
 
-The inspected `v3.1.45` snapshot exposes Spring REST controllers under `/api`.
-Swagger can be enabled by configuration. API-key authentication accepts the
-`api-key` header documented by Swagger; the implementation also accepts
-`x-api-key` and `s`.
+The inspected `v3.1.45` snapshot and `v3.1.46` master snapshot expose Spring
+REST controllers under `/api`. Swagger can be enabled by configuration.
+API-key authentication accepts the `api-key` header documented by Swagger; the
+implementation also accepts `x-api-key` and `s`.
 
 Relevant read-only endpoints:
 
@@ -163,7 +164,7 @@ Danmaku should not reproduce ani-rss source-search or RSS parsing logic.
 ## Review Decisions
 
 - [x] Approve folder import as the first ani-rss integration slice.
-- [ ] Approve optional read-only ani-rss API monitoring after folder import.
+- [x] Approve optional read-only ani-rss API monitoring after folder import.
 - [ ] Approve completion-triggered rescans through an authenticated webhook.
 - [ ] Decide whether Danmaku may open the external ani-rss WebUI.
 - [ ] Decide whether subscription and download-control actions are permitted.

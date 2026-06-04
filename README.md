@@ -27,6 +27,7 @@ Implemented today:
 - Recursive Windows anime-folder indexing
 - Multiple Windows library roots, including user-selected ani-rss output-folder
   import and incremental rescanning
+- Optional read-only Windows ani-rss monitoring adapter
 - SQLDelight catalog, playback-progress, settings, and download-queue storage
 - Paired trusted-LAN library server with JSON catalog, byte-range media
   streaming, and progress API
