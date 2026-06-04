@@ -15,6 +15,7 @@ import java.nio.file.Path
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 class LocalLibraryServer(
     port: Int = DEFAULT_PORT,
@@ -60,8 +61,16 @@ class LocalLibraryServer(
         "http://$host:$localPort"
 
     override fun close() {
-        server.stop(0)
-        executor.shutdownNow()
+        server.stop(1)
+        executor.shutdown()
+        try {
+            if (!executor.awaitTermination(1, TimeUnit.SECONDS)) {
+                executor.shutdownNow()
+            }
+        } catch (_: InterruptedException) {
+            executor.shutdownNow()
+            Thread.currentThread().interrupt()
+        }
     }
 
     private fun handleCatalog(exchange: HttpExchange) {
