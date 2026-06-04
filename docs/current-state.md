@@ -15,6 +15,10 @@ Updated on 2026-06-04.
   configuration, license-file inventory, SHA-256 validation, probe execution,
   and copying only verified files into a desktop distributable. CI self-tests
   the verifier without downloading or approving a native bundle.
+- Local `mpv-probe` smoke testing against the shinchiro 20260604 x86-64
+  development archive succeeded with client API version `131077`. The candidate
+  is documented as unapproved for redistribution because its tagged FFmpeg
+  build enables GPL/version-3 features and the archive omits license notices.
 - Windows libmpv Rust crate also builds a `cdylib` and exposes a small C ABI for
   creating an mpv context, executing coarse command arrays, and destroying the
   handle. The ABI uses explicit status codes and is covered for null pointers

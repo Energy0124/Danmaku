@@ -30,6 +30,8 @@ catalog and pass selected streams plus indexed sidecar subtitles to Media3.
   `PlaybackController` with resume seeking.
 - [x] Bind the desktop Kotlin command executor to the Rust C ABI with JNA.
 - [ ] Verify the dynamic-loader probe against an audited libmpv DLL.
+- [x] Smoke-test the dynamic-loader probe against a pinned third-party libmpv
+  candidate without approving it for redistribution.
 - [ ] Wire the JNA mpv command executor into the desktop shell after selecting
   the audited native bundle.
 - [ ] Build a Windows libmpv playback spike.

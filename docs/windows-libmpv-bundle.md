@@ -108,3 +108,35 @@ its executable:
 This workflow is intentionally opt-in. CI continues to build a DLL-free
 distributable until a specific bundle has passed review and its redistribution
 obligations are documented.
+
+## Candidate Review: shinchiro 20260604
+
+Reviewed on 2026-06-04:
+
+- Release:
+  [shinchiro/mpv-winbuild-cmake 20260604](https://github.com/shinchiro/mpv-winbuild-cmake/releases/tag/20260604)
+- Archive: `mpv-dev-x86_64-20260604-git-6d5c859.7z`
+- Release SHA-256:
+  `3ddcaba4143d35a63a3fee9ae9cd4189ad25887d3399e32cc49ceb3fb2da6569`
+- Tagged build-repository commit:
+  `5efd298cb51513c2410e4e9029b5e56b83c2aaac`
+- Local `mpv-probe` result: loaded successfully, reported client API version
+  `131077`, initialized an mpv context, and shut down cleanly.
+
+This candidate is **not approved for Danmaku redistribution**:
+
+- mpv's installation page describes Windows binary packages as unofficial
+  third-party builds.
+- The tagged
+  [FFmpeg configuration](https://github.com/shinchiro/mpv-winbuild-cmake/blob/20260604/packages/ffmpeg.cmake)
+  explicitly enables GPL and version 3 features.
+- The tagged
+  [mpv configuration](https://github.com/shinchiro/mpv-winbuild-cmake/blob/20260604/packages/mpv.cmake)
+  does not set `-Dgpl=false`.
+- The development archive contains `libmpv-2.dll`, an import library, and
+  headers, but no license or notice files.
+
+The archive is suitable only as an ignored local loader smoke-test candidate.
+Do not copy it into a published Danmaku artifact. A release candidate still
+needs an LGPL-compatible build or an explicit project decision to distribute
+under GPL with complete notices and source-availability obligations.
