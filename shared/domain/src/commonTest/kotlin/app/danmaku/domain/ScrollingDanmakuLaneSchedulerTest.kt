@@ -2,6 +2,7 @@ package app.danmaku.domain
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -107,6 +108,41 @@ class ScrollingDanmakuLaneSchedulerTest {
 
         assertEquals(10_000, schedule.placements.size)
         assertTrue(schedule.visibleAt(1_000_000).size <= 24)
+    }
+
+    @Test
+    fun measuresVisibilityDensityFromALargeGeneratedTrack() {
+        val generatedTrack = List(10_000) { index ->
+            event(
+                id = index.toString(),
+                timestampMs = index * 250L,
+                widthPx = 80f,
+            )
+        }
+        val schedule = ScrollingDanmakuLaneScheduler.schedule(
+            events = generatedTrack,
+            config = ScrollingDanmakuLayoutConfig(
+                viewportWidthPx = 1_920f,
+                laneCount = 24,
+                travelDurationMs = 6_000,
+            ),
+        )
+
+        val metrics = schedule.visibilityMetrics(sampleEveryMs = 1_000)
+
+        assertEquals(10_000, metrics.placedEvents)
+        assertEquals(0, metrics.droppedEvents)
+        assertTrue(metrics.sampledPositions > 2_000)
+        assertTrue(metrics.peakVisiblePlacements <= 24)
+        assertTrue(metrics.averageVisiblePlacements > 0f)
+    }
+
+    @Test
+    fun rejectsNonPositiveVisibilityMetricIntervals() {
+        assertFailsWith<IllegalArgumentException> {
+            schedule(event(id = "first", timestampMs = 0, widthPx = 20f))
+                .visibilityMetrics(sampleEveryMs = 0)
+        }
     }
 
     private fun schedule(

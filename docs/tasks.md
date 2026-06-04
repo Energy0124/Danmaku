@@ -44,8 +44,8 @@ catalog and pass selected streams to Media3.
 - [ ] Add local-file playback on Windows.
 - [x] Add a synthetic danmaku overlay demo.
 - [x] Add bounded visible-window queries and generated-track scheduler tests.
-- [ ] Measure overlay behavior with a large generated timeline.
-- [ ] Add seek and playback-rate test cases.
+- [x] Measure overlay behavior with a large generated timeline.
+- [x] Add seek and playback-rate test cases.
 
 ## Android And TV
 

@@ -89,6 +89,62 @@ data class ScrollingDanmakuSchedule(
             .subList(firstCandidateIndex, afterLastCandidateIndex)
             .filter { it.isVisibleAt(positionMs) }
     }
+
+    fun visibilityMetrics(sampleEveryMs: Long): ScrollingDanmakuVisibilityMetrics {
+        require(sampleEveryMs > 0) { "sampleEveryMs must be positive" }
+        if (placements.isEmpty()) {
+            return ScrollingDanmakuVisibilityMetrics(
+                placedEvents = 0,
+                droppedEvents = droppedEvents.size,
+                sampledPositions = 0,
+                peakVisiblePlacements = 0,
+                averageVisiblePlacements = 0f,
+            )
+        }
+
+        val lastVisiblePositionMs = placements.maxOf { it.endsAtMs - 1 }
+        var positionMs = 0L
+        var sampledPositions = 0
+        var totalVisiblePlacements = 0L
+        var peakVisiblePlacements = 0
+
+        while (positionMs <= lastVisiblePositionMs) {
+            val visibleCount = visibleAt(positionMs).size
+            sampledPositions += 1
+            totalVisiblePlacements += visibleCount
+            peakVisiblePlacements = maxOf(peakVisiblePlacements, visibleCount)
+            if (Long.MAX_VALUE - positionMs < sampleEveryMs) {
+                break
+            }
+            positionMs += sampleEveryMs
+        }
+
+        return ScrollingDanmakuVisibilityMetrics(
+            placedEvents = placements.size,
+            droppedEvents = droppedEvents.size,
+            sampledPositions = sampledPositions,
+            peakVisiblePlacements = peakVisiblePlacements,
+            averageVisiblePlacements = totalVisiblePlacements.toFloat() / sampledPositions,
+        )
+    }
+}
+
+data class ScrollingDanmakuVisibilityMetrics(
+    val placedEvents: Int,
+    val droppedEvents: Int,
+    val sampledPositions: Int,
+    val peakVisiblePlacements: Int,
+    val averageVisiblePlacements: Float,
+) {
+    init {
+        require(placedEvents >= 0) { "placedEvents must not be negative" }
+        require(droppedEvents >= 0) { "droppedEvents must not be negative" }
+        require(sampledPositions >= 0) { "sampledPositions must not be negative" }
+        require(peakVisiblePlacements >= 0) { "peakVisiblePlacements must not be negative" }
+        require(averageVisiblePlacements >= 0f) {
+            "averageVisiblePlacements must not be negative"
+        }
+    }
 }
 
 object ScrollingDanmakuLaneScheduler {

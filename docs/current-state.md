@@ -1,6 +1,6 @@
 # Current State
 
-Updated on 2026-06-03.
+Updated on 2026-06-04.
 
 ## Implemented
 
@@ -30,7 +30,8 @@ Updated on 2026-06-03.
   status-code failures behind `DesktopMpvCommandExecutor`.
 - Shared scrolling danmaku lane scheduler with collision-aware tests, bounded
   visible-window lookup, backward-seek query coverage, and a 10,000-comment
-  generated-track test.
+  generated-track test. The scheduler also exposes sampled visibility metrics
+  for measuring peak and average overlay density on large tracks.
 - Compose Multiplatform 1.11.0 Windows desktop shell with a synthetic animated
   overlay demo backed by the shared scheduler.
 - Recursive Windows anime-folder indexer and trusted-LAN HTTP server exposing a
