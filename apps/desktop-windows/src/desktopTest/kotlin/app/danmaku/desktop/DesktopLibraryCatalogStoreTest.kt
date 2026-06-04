@@ -105,6 +105,55 @@ class DesktopLibraryCatalogStoreTest {
     }
 
     @Test
+    fun persistsLibraryRootsWithProvenanceAndMissingState() {
+        val temp = createTempDirectory("danmaku-library-roots")
+        val databasePath = temp.resolve("catalog.db")
+        val animeRoot = temp.resolve("Anime").createDirectories()
+        val aniRssRoot = temp.resolve("ani-rss").createDirectories()
+        val userSelectedRoot = DesktopLibraryRoot(
+            id = "root-user",
+            path = animeRoot,
+            displayName = "Anime",
+            provenance = DesktopLibraryRootProvenance.USER_SELECTED,
+            state = DesktopLibraryRootState.AVAILABLE,
+            addedAtEpochMs = 100,
+            lastScannedAtEpochMs = 150,
+        )
+        val aniRssOutputRoot = DesktopLibraryRoot(
+            id = "root-ani-rss",
+            path = aniRssRoot,
+            displayName = "ani-rss output",
+            provenance = DesktopLibraryRootProvenance.ANI_RSS_OUTPUT_FOLDER,
+            state = DesktopLibraryRootState.AVAILABLE,
+            addedAtEpochMs = 200,
+        )
+        val missingAniRssRoot = aniRssOutputRoot.copy(
+            state = DesktopLibraryRootState.MISSING,
+            lastScannedAtEpochMs = 250,
+            lastError = "Folder is no longer available",
+        )
+
+        DesktopLibraryCatalogStore(databasePath).use { store ->
+            store.saveLibraryRoot(userSelectedRoot)
+            store.saveLibraryRoot(aniRssOutputRoot)
+
+            assertEquals(userSelectedRoot, store.loadLibraryRoot(userSelectedRoot.id))
+            assertEquals(listOf(userSelectedRoot, aniRssOutputRoot), store.loadLibraryRoots())
+
+            store.saveLibraryRoot(missingAniRssRoot)
+            store.deleteLibraryRoot(userSelectedRoot.id)
+        }
+
+        DesktopLibraryCatalogStore(databasePath).use { store ->
+            assertNull(store.loadLibraryRoot(userSelectedRoot.id))
+            assertEquals(missingAniRssRoot, store.loadLibraryRoot(aniRssOutputRoot.id))
+            assertEquals(listOf(missingAniRssRoot), store.loadLibraryRoots())
+        }
+
+        temp.toFile().deleteRecursively()
+    }
+
+    @Test
     fun persistsDownloadQueueItems() {
         val temp = createTempDirectory("danmaku-download-queue")
         val databasePath = temp.resolve("catalog.db")
@@ -198,6 +247,33 @@ class DesktopLibraryCatalogStoreTest {
 
             assertEquals(setting, store.loadSetting(setting.key))
             assertEquals(download, store.loadDownload(download.id))
+        }
+
+        temp.toFile().deleteRecursively()
+    }
+
+    @Test
+    fun addsLibraryRootStorageToAnExistingCatalogDatabase() {
+        val temp = createTempDirectory("danmaku-existing-root-database")
+        val databasePath = temp.resolve("catalog.db")
+        DriverManager.getConnection("jdbc:sqlite:${databasePath.toAbsolutePath()}").use {
+            it.createStatement().use { statement ->
+                statement.execute("PRAGMA user_version = 1")
+            }
+        }
+        val root = DesktopLibraryRoot(
+            id = "root-user",
+            path = temp.resolve("Anime"),
+            displayName = "Anime",
+            provenance = DesktopLibraryRootProvenance.USER_SELECTED,
+            state = DesktopLibraryRootState.MISSING,
+            addedAtEpochMs = 100,
+            lastError = "Folder missing at startup",
+        )
+
+        DesktopLibraryCatalogStore(databasePath).use { store ->
+            store.saveLibraryRoot(root)
+            assertEquals(root, store.loadLibraryRoot(root.id))
         }
 
         temp.toFile().deleteRecursively()

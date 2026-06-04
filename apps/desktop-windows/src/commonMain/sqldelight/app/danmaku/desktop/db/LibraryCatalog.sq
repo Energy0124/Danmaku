@@ -29,6 +29,17 @@ CREATE TABLE app_setting (
   updated_at_epoch_ms INTEGER NOT NULL
 );
 
+CREATE TABLE library_root (
+  root_id TEXT NOT NULL PRIMARY KEY,
+  path TEXT NOT NULL UNIQUE,
+  display_name TEXT NOT NULL,
+  provenance TEXT NOT NULL,
+  state TEXT NOT NULL,
+  added_at_epoch_ms INTEGER NOT NULL,
+  last_scanned_at_epoch_ms INTEGER,
+  last_error TEXT
+);
+
 CREATE TABLE download_queue_item (
   id TEXT NOT NULL PRIMARY KEY,
   source_uri TEXT NOT NULL,
@@ -122,6 +133,49 @@ VALUES (?, ?, ?);
 deleteSetting:
 DELETE FROM app_setting
 WHERE setting_key = ?;
+
+selectLibraryRoot:
+SELECT
+  root_id,
+  path,
+  display_name,
+  provenance,
+  state,
+  added_at_epoch_ms,
+  last_scanned_at_epoch_ms,
+  last_error
+FROM library_root
+WHERE root_id = ?;
+
+selectAllLibraryRoots:
+SELECT
+  root_id,
+  path,
+  display_name,
+  provenance,
+  state,
+  added_at_epoch_ms,
+  last_scanned_at_epoch_ms,
+  last_error
+FROM library_root
+ORDER BY added_at_epoch_ms, display_name, root_id;
+
+upsertLibraryRoot:
+INSERT OR REPLACE INTO library_root(
+  root_id,
+  path,
+  display_name,
+  provenance,
+  state,
+  added_at_epoch_ms,
+  last_scanned_at_epoch_ms,
+  last_error
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteLibraryRoot:
+DELETE FROM library_root
+WHERE root_id = ?;
 
 selectDownload:
 SELECT

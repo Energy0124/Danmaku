@@ -36,6 +36,11 @@ class DesktopLibraryCatalogStore(
             sql = CREATE_DOWNLOAD_QUEUE_ITEM_TABLE_SQL,
             parameters = 0,
         )
+        driver.execute(
+            identifier = null,
+            sql = CREATE_LIBRARY_ROOT_TABLE_SQL,
+            parameters = 0,
+        )
         database = DesktopLibraryDatabase(driver)
     }
 
@@ -142,6 +147,37 @@ class DesktopLibraryCatalogStore(
     }
 
     @Synchronized
+    fun loadLibraryRoot(id: String): DesktopLibraryRoot? =
+        database.libraryCatalogQueries
+            .selectLibraryRoot(id, ::desktopLibraryRoot)
+            .executeAsOneOrNull()
+
+    @Synchronized
+    fun loadLibraryRoots(): List<DesktopLibraryRoot> =
+        database.libraryCatalogQueries
+            .selectAllLibraryRoots(::desktopLibraryRoot)
+            .executeAsList()
+
+    @Synchronized
+    fun saveLibraryRoot(root: DesktopLibraryRoot) {
+        database.libraryCatalogQueries.upsertLibraryRoot(
+            root.id,
+            root.normalizedPath.toString(),
+            root.displayName,
+            root.provenance.name,
+            root.state.name,
+            root.addedAtEpochMs,
+            root.lastScannedAtEpochMs,
+            root.lastError,
+        )
+    }
+
+    @Synchronized
+    fun deleteLibraryRoot(id: String) {
+        database.libraryCatalogQueries.deleteLibraryRoot(id)
+    }
+
+    @Synchronized
     fun loadDownload(id: String): DesktopDownloadQueueItem? =
         database.libraryCatalogQueries
             .selectDownload(id, ::desktopDownloadQueueItem)
@@ -195,6 +231,19 @@ class DesktopLibraryCatalogStore(
             )
         """.trimIndent()
 
+        private val CREATE_LIBRARY_ROOT_TABLE_SQL = """
+            CREATE TABLE IF NOT EXISTS library_root (
+              root_id TEXT NOT NULL PRIMARY KEY,
+              path TEXT NOT NULL UNIQUE,
+              display_name TEXT NOT NULL,
+              provenance TEXT NOT NULL,
+              state TEXT NOT NULL,
+              added_at_epoch_ms INTEGER NOT NULL,
+              last_scanned_at_epoch_ms INTEGER,
+              last_error TEXT
+            )
+        """.trimIndent()
+
         private val CREATE_DOWNLOAD_QUEUE_ITEM_TABLE_SQL = """
             CREATE TABLE IF NOT EXISTS download_queue_item (
               id TEXT NOT NULL PRIMARY KEY,
@@ -242,6 +291,27 @@ class DesktopLibraryCatalogStore(
                 lastModifiedEpochMs = lastModifiedEpochMs,
             )
 
+        private fun desktopLibraryRoot(
+            id: String,
+            path: String,
+            displayName: String,
+            provenance: String,
+            state: String,
+            addedAtEpochMs: Long,
+            lastScannedAtEpochMs: Long?,
+            lastError: String?,
+        ): DesktopLibraryRoot =
+            DesktopLibraryRoot(
+                id = id,
+                path = Path.of(path).toAbsolutePath().normalize(),
+                displayName = displayName,
+                provenance = DesktopLibraryRootProvenance.valueOf(provenance),
+                state = DesktopLibraryRootState.valueOf(state),
+                addedAtEpochMs = addedAtEpochMs,
+                lastScannedAtEpochMs = lastScannedAtEpochMs,
+                lastError = lastError,
+            )
+
         private fun desktopDownloadQueueItem(
             id: String,
             sourceUri: String,
@@ -265,6 +335,42 @@ class DesktopLibraryCatalogStore(
                 failureMessage = failureMessage,
             )
     }
+}
+
+data class DesktopLibraryRoot(
+    val id: String,
+    val path: Path,
+    val displayName: String,
+    val provenance: DesktopLibraryRootProvenance,
+    val state: DesktopLibraryRootState,
+    val addedAtEpochMs: Long,
+    val lastScannedAtEpochMs: Long? = null,
+    val lastError: String? = null,
+) {
+    val normalizedPath: Path
+        get() = path.toAbsolutePath().normalize()
+
+    init {
+        require(id.isNotBlank()) { "id must not be blank" }
+        require(displayName.isNotBlank()) { "displayName must not be blank" }
+        require(addedAtEpochMs >= 0) { "addedAtEpochMs must not be negative" }
+        require(lastScannedAtEpochMs == null || lastScannedAtEpochMs >= 0) {
+            "lastScannedAtEpochMs must not be negative"
+        }
+        require(lastError == null || lastError.isNotBlank()) {
+            "lastError must not be blank"
+        }
+    }
+}
+
+enum class DesktopLibraryRootProvenance {
+    USER_SELECTED,
+    ANI_RSS_OUTPUT_FOLDER,
+}
+
+enum class DesktopLibraryRootState {
+    AVAILABLE,
+    MISSING,
 }
 
 data class DesktopAppSetting(

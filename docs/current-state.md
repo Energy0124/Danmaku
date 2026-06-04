@@ -49,6 +49,8 @@ Updated on 2026-06-04.
   paired LAN `GET`/`PUT /api/progress/{id}` contract and Android client methods.
 - Desktop SQLDelight storage primitives for app settings and download queue
   items, with compatibility creation for existing catalog databases.
+- Desktop SQLDelight storage primitives for multiple Windows library roots,
+  including root provenance and available/missing state.
 - Shared source and download domain contracts for authorized offline storage
   policy, source capabilities, and platform-independent download manifests.
 - Android mobile and TV progress syncing from the background playback service
