@@ -39,21 +39,21 @@ jobs:
         run: .\gradlew.bat --no-daemon :shared:domain:jvmTest :shared:library-client:jvmTest :shared:library-server-core:jvmTest :apps:desktop-windows:desktopTest :shared:library-client-android:testDebugUnitTest :shared:player-android-media3:assembleDebugAndroidTest :apps:android-mobile:assembleDebug :apps:android-tv:assembleDebug :apps:desktop-windows:createDistributable
 
       - name: Upload Android Mobile APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: danmaku-android-mobile-debug
           path: apps/android-mobile/build/outputs/apk/debug/android-mobile-debug.apk
           if-no-files-found: error
 
       - name: Upload Android TV APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: danmaku-android-tv-debug
           path: apps/android-tv/build/outputs/apk/debug/android-tv-debug.apk
           if-no-files-found: error
 
       - name: Upload Windows Desktop Distributable
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: danmaku-windows-desktop
           path: apps/desktop-windows/build/compose/binaries/main/app/desktop-windows/
