@@ -25,10 +25,13 @@ class DesktopMpvCommandExecutorRuntimeFactory(
     private val librarySearchPaths: List<Path> = defaultLibrarySearchPaths(),
     private val isRegularFile: (Path) -> Boolean = { Files.isRegularFile(it) },
     private val isDirectory: (Path) -> Boolean = { Files.isDirectory(it) },
-    private val loadNativeExecutor: (Path, Path) -> CloseableDesktopMpvCommandExecutor =
+    private val loadNativeExecutor: (Path, Path, Map<String, String>) -> CloseableDesktopMpvCommandExecutor =
         DesktopMpvNativeCommandExecutor::load,
 ) {
-    fun create(commandObserver: (DesktopMpvCommand) -> Unit): DesktopMpvCommandExecutorRuntime {
+    fun create(
+        nativeOptions: Map<String, String> = emptyMap(),
+        commandObserver: (DesktopMpvCommand) -> Unit,
+    ): DesktopMpvCommandExecutorRuntime {
         val dependencies = runCatching { resolveDependencies() }
             .getOrElse { error ->
                 return fallback(commandObserver, "Native mpv dependency lookup failed: ${error.message}")
@@ -42,6 +45,7 @@ class DesktopMpvCommandExecutorRuntimeFactory(
             val nativeExecutor = loadNativeExecutor(
                 dependencies.bridgePath,
                 dependencies.libmpvPath,
+                nativeOptions,
             )
             DesktopMpvCommandExecutorRuntime(
                 executor = observingExecutor(nativeExecutor, commandObserver),

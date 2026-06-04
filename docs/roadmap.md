@@ -12,7 +12,9 @@ require the pairing code displayed by the Windows app. The desktop catalog is
 persisted in SQLDelight SQLite storage and incrementally refreshed. Android and
 TV playback now run in a shared MediaSession foreground service. A pinned,
 hash-verified LGPL libmpv bundle is approved for Windows release packaging and
-native rendering validation.
+native rendering validation. The desktop shell now activates its packaged
+Rust/JNA/libmpv command executor and can pass pre-initialize mpv options for an
+upcoming embedded Windows video host.
 The desktop database and paired LAN server also persist per-episode playback
 progress. Android and TV player screens use that transport for five-second
 uploads from the background playback service and resume seeking.
@@ -23,7 +25,8 @@ The portable LAN library-client contract and progress-sync policy have also
 been extracted for reuse by Android, Android TV, and Windows. A JVM HTTP
 adapter and live loopback fixture cover the planned Windows remote-playback
 path. The desktop shell now browses a paired catalog and prepares stream URLs
-through that adapter while native libmpv playback handoff remains pending.
+through that adapter, then hands those sources to the native mpv command
+executor.
 
 The dedicated TV shell requests an explicit `Discover PC` launch focus and has
 API 34 emulator-verified Compose instrumentation coverage for its initial

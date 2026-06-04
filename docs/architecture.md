@@ -234,6 +234,8 @@ The Windows adapter loads libmpv dynamically. Developer builds locate
 `libmpv-2.dll` from `DANMAKU_LIBMPV_PATH` or beside the packaged executable.
 The desktop JNA runtime locates Danmaku's Rust bridge from
 `DANMAKU_MPV_BRIDGE_PATH` or the JVM native-library search path.
+The bridge accepts coarse mpv options before initialization so the Windows host
+can provide `wid` without crossing the native boundary per frame.
 Danmaku's Windows release directly redistributes an approved, pinned,
 hash-verified LGPL libmpv DLL as a separately licensed dependency. Release
 packaging includes the applicable license texts, source and provenance notice,

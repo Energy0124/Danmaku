@@ -13,6 +13,7 @@ type MpvInitialize = unsafe extern "C" fn(*mut MpvHandle) -> i32;
 type MpvDestroy = unsafe extern "C" fn(*mut MpvHandle);
 type MpvTerminateDestroy = unsafe extern "C" fn(*mut MpvHandle);
 type MpvCommand = unsafe extern "C" fn(*mut MpvHandle, *const *const c_char) -> i32;
+type MpvSetOptionString = unsafe extern "C" fn(*mut MpvHandle, *const c_char, *const c_char) -> i32;
 
 #[repr(C)]
 struct MpvHandle {
@@ -31,6 +32,7 @@ struct MpvApi {
     destroy: MpvDestroy,
     terminate_destroy: MpvTerminateDestroy,
     command: MpvCommand,
+    set_option_string: MpvSetOptionString,
 }
 
 impl MpvLibrary {
@@ -55,6 +57,11 @@ impl MpvLibrary {
         };
         let command =
             unsafe { mem::transmute::<*mut c_void, MpvCommand>(module.symbol("mpv_command")?) };
+        let set_option_string = unsafe {
+            mem::transmute::<*mut c_void, MpvSetOptionString>(
+                module.symbol("mpv_set_option_string")?,
+            )
+        };
 
         Ok(Self {
             api: Arc::new(MpvApi {
@@ -65,6 +72,7 @@ impl MpvLibrary {
                 destroy,
                 terminate_destroy,
                 command,
+                set_option_string,
             }),
         })
     }
@@ -78,8 +86,37 @@ impl MpvLibrary {
     }
 
     pub fn create(&self) -> Result<Mpv, MpvError> {
+        self.create_with_options(&[])
+    }
+
+    pub fn create_with_options(&self, options: &[(&str, &str)]) -> Result<Mpv, MpvError> {
+        let options = options
+            .iter()
+            .map(|(name, value)| {
+                Ok((
+                    CString::new(*name)
+                        .map_err(|_| MpvError::InvalidOptionName((*name).to_owned()))?,
+                    CString::new(*value)
+                        .map_err(|_| MpvError::InvalidOptionValue((*value).to_owned()))?,
+                ))
+            })
+            .collect::<Result<Vec<_>, MpvError>>()?;
         let handle = unsafe { (self.api.create)() };
         let handle = NonNull::new(handle).ok_or(MpvError::CreateFailed)?;
+        for (name, value) in options {
+            let status = unsafe {
+                (self.api.set_option_string)(handle.as_ptr(), name.as_ptr(), value.as_ptr())
+            };
+            if status < 0 {
+                unsafe {
+                    (self.api.destroy)(handle.as_ptr());
+                }
+                return Err(MpvError::SetOptionFailed {
+                    name: name.to_string_lossy().into_owned(),
+                    status,
+                });
+            }
+        }
         let status = unsafe { (self.api.initialize)(handle.as_ptr()) };
 
         if status < 0 {
@@ -160,6 +197,9 @@ impl std::error::Error for LibraryLoadError {}
 pub enum MpvError {
     CreateFailed,
     InitializeFailed(i32),
+    InvalidOptionName(String),
+    InvalidOptionValue(String),
+    SetOptionFailed { name: String, status: i32 },
     InvalidCommandArgument(String),
     CommandFailed(i32),
 }
@@ -170,6 +210,15 @@ impl fmt::Display for MpvError {
             Self::CreateFailed => write!(formatter, "mpv_create returned a null handle"),
             Self::InitializeFailed(status) => {
                 write!(formatter, "mpv_initialize failed with status {status}")
+            }
+            Self::InvalidOptionName(name) => {
+                write!(formatter, "mpv option name contains a null byte: {name}")
+            }
+            Self::InvalidOptionValue(value) => {
+                write!(formatter, "mpv option value contains a null byte: {value}")
+            }
+            Self::SetOptionFailed { name, status } => {
+                write!(formatter, "mpv option {name} failed with status {status}")
             }
             Self::InvalidCommandArgument(argument) => {
                 write!(

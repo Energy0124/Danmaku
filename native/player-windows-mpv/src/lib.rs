@@ -19,8 +19,8 @@ mod ffi;
 
 #[cfg(windows)]
 pub use ffi::{
-    DanmakuMpv, DanmakuMpvStatus, danmaku_mpv_command, danmaku_mpv_create, danmaku_mpv_destroy,
-    danmaku_mpv_status_ok,
+    DanmakuMpv, DanmakuMpvStatus, danmaku_mpv_command, danmaku_mpv_create,
+    danmaku_mpv_create_with_options, danmaku_mpv_destroy, danmaku_mpv_status_ok,
 };
 
 #[cfg(windows)]

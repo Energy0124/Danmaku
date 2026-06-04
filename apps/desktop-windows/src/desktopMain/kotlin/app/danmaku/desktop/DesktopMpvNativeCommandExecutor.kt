@@ -8,8 +8,11 @@ import com.sun.jna.ptr.PointerByReference
 import java.nio.file.Path
 
 interface DesktopMpvNativeLibrary : Library {
-    fun danmaku_mpv_create(
+    fun danmaku_mpv_create_with_options(
         libmpvPath: String,
+        optionNames: Pointer?,
+        optionValues: Pointer?,
+        optionsLen: Long,
         outHandle: PointerByReference,
     ): Int
 
@@ -31,6 +34,7 @@ enum class DesktopMpvNativeStatus(
     LOAD_FAILED(-3),
     CREATE_FAILED(-4),
     COMMAND_FAILED(-5),
+    SET_OPTION_FAILED(-6),
     UNKNOWN(Int.MIN_VALUE),
     ;
 
@@ -69,22 +73,29 @@ class DesktopMpvNativeCommandExecutor private constructor(
         fun load(
             nativeLibraryPath: Path,
             libmpvPath: Path,
+            options: Map<String, String> = emptyMap(),
         ): DesktopMpvNativeCommandExecutor {
             val nativeLibrary = Native.load(
                 nativeLibraryPath.toAbsolutePath().normalize().toString(),
                 DesktopMpvNativeLibrary::class.java,
             )
-            return create(nativeLibrary, libmpvPath)
+            return create(nativeLibrary, libmpvPath, options)
         }
 
         fun create(
             nativeLibrary: DesktopMpvNativeLibrary,
             libmpvPath: Path,
+            options: Map<String, String> = emptyMap(),
         ): DesktopMpvNativeCommandExecutor {
             val outHandle = PointerByReference()
+            val optionNames = stringArrayOrNull(options.keys)
+            val optionValues = stringArrayOrNull(options.values)
             val status = DesktopMpvNativeStatus.fromCode(
-                nativeLibrary.danmaku_mpv_create(
+                nativeLibrary.danmaku_mpv_create_with_options(
                     libmpvPath.toAbsolutePath().normalize().toString(),
+                    optionNames,
+                    optionValues,
+                    options.size.toLong(),
                     outHandle,
                 ),
             )
@@ -96,6 +107,13 @@ class DesktopMpvNativeCommandExecutor private constructor(
                 )
             return DesktopMpvNativeCommandExecutor(nativeLibrary, handle)
         }
+
+        private fun stringArrayOrNull(values: Collection<String>): Pointer? =
+            if (values.isEmpty()) {
+                null
+            } else {
+                StringArray(values.toTypedArray(), Charsets.UTF_8.name())
+            }
 
         private fun checkStatus(
             status: DesktopMpvNativeStatus,

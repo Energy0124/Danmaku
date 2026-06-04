@@ -26,12 +26,13 @@ class DesktopMpvCommandExecutorRuntimeTest {
         val runtime = DesktopMpvCommandExecutorRuntimeFactory(
             environment = emptyMap(),
             librarySearchPaths = listOf(temp),
-            loadNativeExecutor = { bridge, libmpv ->
+            loadNativeExecutor = { bridge, libmpv, options ->
                 loadedBridgePath = bridge
                 loadedLibmpvPath = libmpv
+                assertEquals(emptyMap(), options)
                 nativeExecutor
             },
-        ).create(commands::add)
+        ).create(commandObserver = commands::add)
 
         val command = DesktopMpvCommand(listOf("set", "pause", "no"))
         runtime.executor.execute(command)
@@ -56,6 +57,7 @@ class DesktopMpvCommandExecutorRuntimeTest {
             temp.resolve(DesktopMpvCommandExecutorRuntimeFactory.LIBMPV_DLL_NAME),
         )
         var loadedPaths = emptyList<java.nio.file.Path>()
+        var loadedOptions = emptyMap<String, String>()
 
         val runtime = DesktopMpvCommandExecutorRuntimeFactory(
             environment = mapOf(
@@ -63,14 +65,16 @@ class DesktopMpvCommandExecutorRuntimeTest {
                 DesktopMpvCommandExecutorRuntimeFactory.LIBMPV_PATH_ENV to temp.toString(),
             ),
             librarySearchPaths = emptyList(),
-            loadNativeExecutor = { bridge, libmpv ->
+            loadNativeExecutor = { bridge, libmpv, options ->
                 loadedPaths = listOf(bridge, libmpv)
+                loadedOptions = options
                 RecordingCloseableExecutor()
             },
-        ).create {}
+        ).create(nativeOptions = mapOf("wid" to "1234")) {}
 
         assertEquals(DesktopMpvCommandExecutorMode.NATIVE, runtime.mode)
         assertEquals(listOf(bridgePath, libmpvPath), loadedPaths)
+        assertEquals(mapOf("wid" to "1234"), loadedOptions)
         runtime.close()
         temp.toFile().deleteRecursively()
     }
@@ -82,11 +86,11 @@ class DesktopMpvCommandExecutorRuntimeTest {
         val runtime = DesktopMpvCommandExecutorRuntimeFactory(
             environment = emptyMap(),
             librarySearchPaths = emptyList(),
-            loadNativeExecutor = { _, _ ->
+            loadNativeExecutor = { _, _, _ ->
                 loaderCalled = true
                 RecordingCloseableExecutor()
             },
-        ).create(commands::add)
+        ).create(commandObserver = commands::add)
 
         val command = DesktopMpvCommand(listOf("loadfile", "S:\\Anime\\Episode 01.mkv", "replace"))
         runtime.executor.execute(command)

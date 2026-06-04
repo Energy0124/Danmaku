@@ -3,7 +3,9 @@ package app.danmaku.desktop
 object DesktopMpvNativeProbe {
     @JvmStatic
     fun main(args: Array<String>) {
-        val runtime = DesktopMpvCommandExecutorRuntimeFactory().create {}
+        val runtime = DesktopMpvCommandExecutorRuntimeFactory().create(
+            nativeOptions = mapOf("config" to "no"),
+        ) {}
         runtime.use {
             println(it.statusMessage)
             check(it.mode == DesktopMpvCommandExecutorMode.NATIVE) {

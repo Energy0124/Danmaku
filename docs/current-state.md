@@ -52,6 +52,9 @@ Updated on 2026-06-04.
 - Desktop JNA binding for the Rust libmpv C ABI, including native handle
   creation, command-array forwarding, destroy calls, and explicit native
   status-code failures behind `DesktopMpvCommandExecutor`.
+- Rust and JNA creation APIs accept coarse pre-initialize mpv option maps,
+  including an unsigned Windows `wid` value for the upcoming embedded video
+  host.
 - Desktop shell runtime selection that activates the JNA executor when the
   packaged Rust bridge and libmpv DLL are present, reports command-log-only
   fallback mode when they are unavailable, and closes the native handle on
@@ -136,11 +139,10 @@ Updated on 2026-06-04.
   connect/read timeouts with stable production defaults.
 - Shared LAN playback preparation converts a paired catalog item into a
   tokenized `RemoteStream` plus resume position; the Windows shell uses it for
-  same-PC or remote paired-server playback handoff state while native libmpv
+  same-PC or remote paired-server playback handoff while embedded native libmpv
   rendering is still pending.
 - Windows local playback preparation resolves indexed host files directly to
-  `LocalFile` sources with resume lookup, preserving an efficient same-PC path
-  before the native player is connected.
+  `LocalFile` sources with resume lookup, preserving an efficient same-PC path.
 - Android TV launch focus on `Discover PC` plus API 34 emulator-verified Compose
   instrumentation coverage for the initial focus and left-arrow path. The TV
   row uses an explicit focus graph for deterministic remote navigation.

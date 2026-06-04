@@ -16,6 +16,10 @@ class DesktopMpvNativeCommandExecutorTest {
         val executor = DesktopMpvNativeCommandExecutor.create(
             nativeLibrary = nativeLibrary,
             libmpvPath = Path.of("S:/runtime/windows/libmpv/libmpv-2.dll"),
+            options = mapOf(
+                "wid" to "4294967295",
+                "hwdec" to "auto-safe",
+            ),
         )
 
         executor.execute(
@@ -30,6 +34,13 @@ class DesktopMpvNativeCommandExecutorTest {
         executor.close()
 
         assertTrue(nativeLibrary.createdLibmpvPath.endsWith("runtime\\windows\\libmpv\\libmpv-2.dll"))
+        assertEquals(
+            mapOf(
+                "wid" to "4294967295",
+                "hwdec" to "auto-safe",
+            ),
+            nativeLibrary.createdOptions,
+        )
         assertEquals(
             listOf(
                 listOf(
@@ -57,6 +68,23 @@ class DesktopMpvNativeCommandExecutorTest {
         }
 
         assertEquals(DesktopMpvNativeStatus.LOAD_FAILED, error.status)
+    }
+
+    @Test
+    fun reportsNativeOptionFailures() {
+        val nativeLibrary = RecordingDesktopMpvNativeLibrary(
+            createStatus = DesktopMpvNativeStatus.SET_OPTION_FAILED,
+        )
+
+        val error = assertFailsWith<DesktopMpvNativeException> {
+            DesktopMpvNativeCommandExecutor.create(
+                nativeLibrary = nativeLibrary,
+                libmpvPath = Path.of("S:/runtime/windows/libmpv/libmpv-2.dll"),
+                options = mapOf("wid" to "1234"),
+            )
+        }
+
+        assertEquals(DesktopMpvNativeStatus.SET_OPTION_FAILED, error.status)
     }
 
     @Test
@@ -96,14 +124,21 @@ class DesktopMpvNativeCommandExecutorTest {
         private val commandStatus: DesktopMpvNativeStatus = DesktopMpvNativeStatus.OK,
     ) : DesktopMpvNativeLibrary {
         var createdLibmpvPath: String = ""
+        var createdOptions: Map<String, String> = emptyMap()
         var destroyedHandle: Pointer? = null
         val commands = mutableListOf<List<String>>()
 
-        override fun danmaku_mpv_create(
+        override fun danmaku_mpv_create_with_options(
             libmpvPath: String,
+            optionNames: Pointer?,
+            optionValues: Pointer?,
+            optionsLen: Long,
             outHandle: PointerByReference,
         ): Int {
             createdLibmpvPath = libmpvPath
+            createdOptions = readStrings(optionNames, optionsLen)
+                .zip(readStrings(optionValues, optionsLen))
+                .toMap()
             outHandle.value = handle
             return createStatus.code
         }
@@ -113,16 +148,22 @@ class DesktopMpvNativeCommandExecutorTest {
             args: Pointer,
             argsLen: Long,
         ): Int {
-            commands += (0 until argsLen).map { index ->
-                args
-                    .getPointer(index * Native.POINTER_SIZE.toLong())
-                    .getString(0, Charsets.UTF_8.name())
-            }
+            commands += readStrings(args, argsLen)
             return commandStatus.code
         }
 
         override fun danmaku_mpv_destroy(handle: Pointer?) {
             destroyedHandle = handle
         }
+
+        private fun readStrings(
+            values: Pointer?,
+            valuesLen: Long,
+        ): List<String> =
+            (0 until valuesLen).map { index ->
+                requireNotNull(values)
+                    .getPointer(index * Native.POINTER_SIZE.toLong())
+                    .getString(0, Charsets.UTF_8.name())
+            }
     }
 }
