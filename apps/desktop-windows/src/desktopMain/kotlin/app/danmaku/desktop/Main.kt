@@ -80,8 +80,13 @@ private fun DesktopShell() {
         DesktopLocalPlaybackPreparer(catalogStore)
     }
     val mpvCommandLog = remember { mutableStateListOf<DesktopMpvCommand>() }
-    val mpvRuntime = remember {
-        DesktopMpvCommandExecutorRuntimeFactory().create { command ->
+    var mpvVideoWindowId by remember { mutableStateOf<Long?>(null) }
+    val mpvRuntime = remember(mpvVideoWindowId) {
+        DesktopMpvCommandExecutorRuntimeFactory().create(
+            nativeOptions = mpvVideoWindowId
+                ?.let(DesktopMpvWindowsOptions::forWindowId)
+                .orEmpty(),
+        ) { command ->
             mpvCommandLog += command
         }
     }
@@ -223,9 +228,14 @@ private fun DesktopShell() {
         }
     }
 
-    DisposableEffect(serverRuntime, discoveryAnnouncer, mpvRuntime) {
+    DisposableEffect(mpvRuntime) {
         onDispose {
             mpvRuntime.close()
+        }
+    }
+
+    DisposableEffect(serverRuntime, discoveryAnnouncer) {
+        onDispose {
             discoveryAnnouncer.close()
             serverRuntime.close()
             catalogStore.close()
@@ -246,8 +256,21 @@ private fun DesktopShell() {
                 )
                 Text("Windows playback foundation")
                 Text("mpv executor: ${mpvRuntime.statusMessage}")
+                Text(
+                    if (mpvVideoWindowId == null) {
+                        "Video host: waiting for native window"
+                    } else {
+                        "Video host: attached"
+                    },
+                )
                 Text("Player state: ${playbackSnapshot.status}")
                 playbackSnapshot.source?.let { Text("Player source: $it") }
+                DesktopMpvVideoHost(
+                    onWindowIdChanged = { mpvVideoWindowId = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(360.dp),
+                )
                 Text("Synthetic overlay demo: collision-aware shared lane scheduler")
                 SyntheticOverlayDemo()
                 Text("Windows anime library server")

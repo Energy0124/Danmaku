@@ -14,7 +14,9 @@ TV playback now run in a shared MediaSession foreground service. A pinned,
 hash-verified LGPL libmpv bundle is approved for Windows release packaging and
 native rendering validation. The desktop shell now activates its packaged
 Rust/JNA/libmpv command executor and can pass pre-initialize mpv options for an
-upcoming embedded Windows video host.
+initial SwingPanel-backed native child-window video host. Visual playback
+validation and the final overlay-compatible renderer remain active Phase 1
+work.
 The desktop database and paired LAN server also persist per-episode playback
 progress. Android and TV player screens use that transport for five-second
 uploads from the background playback service and resume seeking.

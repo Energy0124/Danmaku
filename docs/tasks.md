@@ -46,7 +46,7 @@ indexed sidecar subtitles to Media3.
   with GPL/LGPL texts, source/provenance notice, and CI hash verification.
 - [x] Wire the JNA mpv command executor into the desktop shell using the pinned
   approved native dependency.
-- [ ] Build a Windows libmpv playback spike.
+- [x] Build a Windows libmpv playback spike using a native child-window host.
 - [x] Add a shared scrolling danmaku lane scheduler with collision-aware tests.
 - [x] Add recursive Windows anime-folder indexing.
 - [x] Add a paired trusted-LAN catalog server with HTTP byte-range streaming.
@@ -58,6 +58,8 @@ indexed sidecar subtitles to Media3.
 - [x] Define the Kotlin playback contract.
 - [x] Build a Compose Desktop shell.
 - [ ] Add local-file playback on Windows.
+- [ ] Validate the Windows child-window playback spike with local files, resize,
+  fullscreen, hardware decoding, and 4K media.
 - [x] Add a synthetic danmaku overlay demo.
 - [x] Add bounded visible-window queries and generated-track scheduler tests.
 - [x] Measure overlay behavior with a large generated timeline.

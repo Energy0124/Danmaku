@@ -169,9 +169,10 @@ In the Windows shell:
 4. On Android or Android TV, use `Discover PC` or manually enter the LAN URL.
 5. Enter the pairing code and refresh the PC library.
 
-The Windows shell can prepare local or LAN playback requests and execute their
-commands through the packaged Rust/JNA/libmpv chain. Actual Windows video
-rendering inside the Compose shell is still pending.
+The Windows shell can prepare local or LAN playback requests, execute their
+commands through the packaged Rust/JNA/libmpv chain, and host mpv in an initial
+native child-window playback surface. Visual playback validation and the final
+overlay-compatible rendering path are still pending.
 
 ## Probe A Windows libmpv Bundle
 

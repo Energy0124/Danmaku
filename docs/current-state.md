@@ -59,6 +59,10 @@ Updated on 2026-06-04.
   packaged Rust bridge and libmpv DLL are present, reports command-log-only
   fallback mode when they are unavailable, and closes the native handle on
   shutdown.
+- Initial Windows video-host spike using a SwingPanel-backed native child
+  window and libmpv's pre-initialize `wid` option. This proves the host boundary
+  but still needs visual playback validation and an overlay-compatible final
+  rendering path.
 - Shared scrolling danmaku lane scheduler with collision-aware tests, bounded
   visible-window lookup, backward-seek query coverage, and a 10,000-comment
   generated-track test. The scheduler also exposes sampled visibility metrics
@@ -200,8 +204,11 @@ With an Android emulator or device online, run:
 ## Next Work
 
 1. Exercise cross-device resume behavior on Android and TV hardware.
-2. Connect native Windows video rendering and local-file playback.
-3. Re-audit the libmpv bundle before changing its producer artifact or hashes.
+2. Validate the Windows child-window playback spike with local files, resize,
+   fullscreen, hardware decoding, and 4K media.
+3. Choose and implement the final overlay-compatible Windows video rendering
+   path.
+4. Re-audit the libmpv bundle before changing its producer artifact or hashes.
 
 ## Runtime Smoke Check
 
