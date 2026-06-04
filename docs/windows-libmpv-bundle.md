@@ -140,3 +140,44 @@ The archive is suitable only as an ignored local loader smoke-test candidate.
 Do not copy it into a published Danmaku artifact. A release candidate still
 needs an LGPL-compatible build or an explicit project decision to distribute
 under GPL with complete notices and source-availability obligations.
+
+## Preferred Candidate: zhongfly LGPL Build
+
+Reviewed on 2026-06-04:
+
+- Project:
+  [zhongfly/mpv-winbuild](https://github.com/zhongfly/mpv-winbuild)
+- Release:
+  [2026-06-04-1d82932cce](https://github.com/zhongfly/mpv-winbuild/releases/tag/2026-06-04-1d82932cce)
+- Archive: `mpv-dev-lgpl-x86_64-20260604-git-1d82932cce.7z`
+- Release SHA-256:
+  `eacba7b1afdb5620fd556da1141fc5267dca9d81a5d7a649a36384af77405855`
+- Local `mpv-probe` result: loaded successfully, reported client API version
+  `131077`, initialized an mpv context, and shut down cleanly.
+
+This is the preferred current candidate for an MIT-licensed Danmaku
+application with separately licensed LGPL playback dependencies:
+
+- The project publishes specifically named `mpv-dev-lgpl-*` artifacts.
+- Its
+  [LGPL build patch](https://github.com/zhongfly/mpv-winbuild/blob/main/compile-lgpl-libmpv.patch)
+  builds mpv with `-Dgpl=false`, removes FFmpeg's `--enable-gpl`, and removes
+  known GPL-incompatible dependencies such as x264 and x265.
+- The project describes the LGPL libmpv artifact as LGPLv2.1+ with statically
+  linked FFmpeg under LGPLv3. Treat the combined DLL distribution as requiring
+  LGPLv3 compliance.
+
+The candidate is **not yet approved for Danmaku redistribution**:
+
+- The maintainer states that they cannot guarantee every LGPL-incompatible
+  package has been disabled.
+- The archive contains the DLL, import library, and headers, but no license or
+  notice files.
+- Danmaku still needs a complete bundled-component version and license
+  inventory, corresponding source links or archives, build configuration, and
+  required notices before publishing the DLL.
+
+The repository's MIT license applies to its build scripts, not to libmpv,
+FFmpeg, or the resulting DLL. Danmaku's own source may remain MIT licensed
+while the bundled playback dependency is identified and distributed under its
+LGPL terms.

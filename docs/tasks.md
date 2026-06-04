@@ -32,6 +32,10 @@ catalog and pass selected streams plus indexed sidecar subtitles to Media3.
 - [ ] Verify the dynamic-loader probe against an audited libmpv DLL.
 - [x] Smoke-test the dynamic-loader probe against a pinned third-party libmpv
   candidate without approving it for redistribution.
+- [x] Identify and smoke-test a pinned LGPL libmpv candidate for the MIT
+  application distribution model.
+- [ ] Complete the zhongfly LGPL libmpv component/license inventory and add
+  required notices before approving redistribution.
 - [ ] Wire the JNA mpv command executor into the desktop shell after selecting
   the audited native bundle.
 - [ ] Build a Windows libmpv playback spike.

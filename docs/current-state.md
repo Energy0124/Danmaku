@@ -19,6 +19,11 @@ Updated on 2026-06-04.
   development archive succeeded with client API version `131077`. The candidate
   is documented as unapproved for redistribution because its tagged FFmpeg
   build enables GPL/version-3 features and the archive omits license notices.
+- Local `mpv-probe` smoke testing against zhongfly's
+  `mpv-dev-lgpl-x86_64-20260604-git-1d82932cce.7z` also succeeded with client
+  API version `131077`. Its LGPL build patch uses `-Dgpl=false`, removes
+  FFmpeg's `--enable-gpl`, and omits known GPL dependencies. It is the preferred
+  candidate, pending a complete component/license inventory and added notices.
 - Windows libmpv Rust crate also builds a `cdylib` and exposes a small C ABI for
   creating an mpv context, executing coarse command arrays, and destroying the
   handle. The ABI uses explicit status codes and is covered for null pointers
