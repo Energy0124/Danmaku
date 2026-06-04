@@ -152,8 +152,9 @@ same server. The initial `POST /api/hooks/ani-rss/download-end` endpoint
 requires a separate high-entropy `X-Danmaku-Webhook-Token` header, debounces
 repeated notifications, and rescans only roots explicitly tagged as ani-rss
 output folders. The token is never placed in the URL or discovery
-announcements. It is currently generated per process until secure credential
-storage is implemented.
+announcements. The Windows host encrypts ani-rss API keys and webhook tokens
+with DPAPI before persisting them in SQLDelight settings, binding those secrets
+to the current Windows user.
 
 The Windows app also broadcasts a small UDP discovery announcement on port
 `8687`. Android clients derive the HTTP host from the packet source and the

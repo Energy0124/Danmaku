@@ -73,6 +73,9 @@ private fun DesktopShell() {
     val rootScanner = remember(catalogStore, rootRegistry) {
         DesktopLibraryRootScanner(catalogStore, rootRegistry)
     }
+    val aniRssCredentialStore = remember(catalogStore) {
+        AniRssCredentialStore(catalogStore)
+    }
     val localPlaybackPreparer = remember(catalogStore) {
         DesktopLocalPlaybackPreparer(catalogStore)
     }
@@ -109,6 +112,7 @@ private fun DesktopShell() {
         DesktopLibraryServerRuntime.start(
             catalogStore = catalogStore,
             rootScanner = rootScanner,
+            aniRssWebhookToken = aniRssCredentialStore.loadOrCreateWebhookToken(),
             onLibraryPublished = { library ->
                 scope.launch {
                     indexedLibrary = library

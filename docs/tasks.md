@@ -123,7 +123,7 @@ catalog and pass selected streams to Media3.
   resolved download folders, completed episode lists, and download status.
 - [x] Add an authenticated ani-rss completion-webhook endpoint that triggers a
   bounded Windows library rescan.
-- [ ] Store ani-rss connection credentials securely and redact them from logs.
+- [x] Store ani-rss connection credentials securely and redact them from logs.
 - [ ] Decide whether ani-rss subscription and download-control actions are allowed
   after the authorized-source policy is approved.
 - [ ] Add Media3 DownloadService for Android and TV.

@@ -137,8 +137,8 @@ The webhook is an optimization. Correctness must not depend on delivery.
 The Windows shell displays the current webhook URL, the
 `X-Danmaku-Webhook-Token` header name, and a generated token. Configure an
 ani-rss WebHook notification for `DOWNLOAD_END` with an HTTP `POST` request and
-that custom header. The token currently rotates whenever Danmaku restarts;
-secure persistence remains a separate task.
+that custom header. Danmaku encrypts the token with Windows DPAPI before
+persisting it so the same configuration remains valid across restarts.
 
 ### Phase D: Optional Control Actions
 
@@ -157,7 +157,7 @@ Danmaku should not reproduce ani-rss source-search or RSS parsing logic.
 
 - Treat ani-rss as a user-configured external service for authorized content.
 - Keep RSS acquisition and external downloader configuration outside Danmaku.
-- Store the ani-rss API key and webhook token in platform secure storage.
+- [x] Store the ani-rss API key and webhook token in platform secure storage.
 - Never log API keys, webhook tokens, magnet links, torrent URLs, or signed URLs.
 - Default to LAN or VPN connections. Do not expose ani-rss or Danmaku's trusted-LAN
   server directly to the public internet.

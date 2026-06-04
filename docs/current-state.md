@@ -69,9 +69,11 @@ Updated on 2026-06-04.
   or arbitrary playable paths.
 - Authenticated `POST /api/hooks/ani-rss/download-end` Windows-host webhook for
   debounced rescans of only ani-rss output roots. The desktop shell displays the
-  generated `X-Danmaku-Webhook-Token` value and LAN webhook URLs; the token is
-  currently in memory and rotates on restart until secure credential storage is
-  implemented.
+  generated `X-Danmaku-Webhook-Token` value and LAN webhook URLs.
+- Windows DPAPI-backed ani-rss credential store that encrypts API keys and
+  webhook tokens before placing them in SQLDelight settings. The webhook token
+  is reused across restarts, while normalized adapter models and diagnostic
+  string representations omit secrets and provider URLs.
 - Shared source and download domain contracts for authorized offline storage
   policy, source capabilities, and platform-independent download manifests.
 - Android mobile and TV progress syncing from the background playback service

@@ -2,8 +2,6 @@ package app.danmaku.desktop
 
 import app.danmaku.server.AuthenticatedPostHook
 import app.danmaku.server.LocalLibraryServer
-import java.security.SecureRandom
-import java.util.Base64
 
 class DesktopLibraryServerRuntime private constructor(
     val server: LocalLibraryServer,
@@ -29,7 +27,7 @@ class DesktopLibraryServerRuntime private constructor(
             rootScanner: DesktopLibraryRootScanner,
             port: Int = LocalLibraryServer.DEFAULT_PORT,
             pairingToken: String? = null,
-            aniRssWebhookToken: String = generateWebhookToken(),
+            aniRssWebhookToken: String,
             debounceMillis: Long = 1_000L,
             onLibraryPublished: (IndexedLocalLibrary) -> Unit = {},
         ): DesktopLibraryServerRuntime {
@@ -72,12 +70,6 @@ class DesktopLibraryServerRuntime private constructor(
                 trigger.close()
                 throw error
             }
-        }
-
-        private fun generateWebhookToken(): String {
-            val bytes = ByteArray(32)
-            SecureRandom().nextBytes(bytes)
-            return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
         }
     }
 }
