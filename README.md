@@ -6,6 +6,16 @@ Danmaku is an early-stage cross-platform anime media app for local libraries,
 trusted-LAN streaming, synchronized watch progress, and scrolling danmaku
 overlays.
 
+Danmaku's own source code is licensed under the [MIT License](LICENSE).
+Third-party dependencies retain their own licenses; see
+[Third-Party Notices](THIRD_PARTY_NOTICES.md). Release builds validate their
+transitive dependency graphs and package the applicable license text plus a
+versioned dependency inventory.
+
+The Windows desktop archive is runtime-free and requires a user-installed Java
+17 or newer runtime. This keeps the published archive from redistributing an
+OpenJDK runtime; see [Releasing](docs/releasing.md) for the artifact boundaries.
+
 The first-class targets are:
 
 - Windows desktop
@@ -50,7 +60,7 @@ Implemented today:
 Not implemented yet:
 
 - Real Windows video rendering in the Compose shell
-- Audited/pinned Windows libmpv runtime bundle
+- Real Windows playback wiring against the pinned optional libmpv dependency
 - Windows subtitle attachment and runtime track discovery
 - Authorized download engine
 - Provider plugins, MyAnimeList integration, and danmaku provider integrations
@@ -124,6 +134,16 @@ cargo test --workspace
 .\gradlew.bat --no-daemon :apps:android-mobile:assembleDebug :apps:android-tv:assembleDebug
 ```
 
+To prepare the runtime-free Windows portable release:
+
+```powershell
+.\gradlew.bat --no-daemon :apps:desktop-windows:licensee :apps:desktop-windows:createDistributable
+.\tools\windows\prepare-windows-release.ps1
+.\tools\windows\verify-release-licensing.ps1
+```
+
+Run it with `apps\desktop-windows\build\release\windows-portable\run-danmaku.ps1`.
+
 With an Android emulator or device online:
 
 ```powershell
@@ -150,8 +170,16 @@ the planned mpv commands. Actual Windows video rendering is still pending.
 
 ## Probe A Windows libmpv Bundle
 
-Set `DANMAKU_LIBMPV_PATH` to an audited `libmpv-2.dll` or to a directory
-containing it, then run:
+Danmaku release artifacts do not redistribute libmpv or FFmpeg. To install the
+pinned optional LGPL Windows playback dependency into the ignored local runtime
+directory, review its license and run:
+
+```powershell
+.\tools\windows\install-libmpv-dependency.ps1 -AcceptLicense
+```
+
+Then set `DANMAKU_LIBMPV_PATH` to the installed `libmpv-2.dll` or its
+directory and run:
 
 ```powershell
 cargo run -p player-windows-mpv --bin mpv-probe
@@ -162,8 +190,9 @@ context, and shuts it down cleanly.
 
 For the pinned-bundle manifest, checksum verification, probe, and opt-in
 packaging workflow, see
-[Windows libmpv Bundle Audit](docs/windows-libmpv-bundle.md). No native bundle
-has been approved for redistribution yet.
+[Windows libmpv Bundle Audit](docs/windows-libmpv-bundle.md). Direct native
+bundle redistribution remains unapproved; the optional installer downloads the
+dependency from its producer after explicit user acceptance.
 
 ## Security And Source Policy
 
@@ -184,14 +213,23 @@ Project rules:
 
 Near-term priorities:
 
-- Select and audit a pinned Windows libmpv bundle.
+- Use the pinned optional Windows libmpv installer for development and user
+  setup.
 - Wire the JNA mpv command executor into the Windows shell.
 - Render libmpv video in the Compose desktop app.
 - Synchronize the danmaku overlay to the real playback clock.
 - Exercise PC-to-mobile and PC-to-TV streaming on physical hardware.
 - Attach discovered subtitle tracks to Windows playback and expose libmpv
   runtime track discovery.
+- Complete a component and license inventory only if direct libmpv
+  redistribution becomes necessary.
 
 Later priorities include authorized download management, ani-rss monitoring,
 MyAnimeList progress/rating sync, provider plugins, danmaku parsing/filtering,
 and additional desktop/mobile/web platforms.
+
+## License
+
+Danmaku is licensed under the [MIT License](LICENSE). The optional Windows
+libmpv dependency and all other third-party components remain under their own
+licenses.

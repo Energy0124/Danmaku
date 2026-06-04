@@ -5,11 +5,13 @@ the platform surface.
 
 ## Current Focus
 
-Native render integration requires an audited Windows libmpv DLL bundle. The
-shared scrolling danmaku lane scheduler and synthetic Compose overlay demo are
-implemented. The Windows app also indexes local anime folders and streams
-indexed files over the LAN. Android mobile and TV clients can browse the
-catalog and pass selected streams plus indexed sidecar subtitles to Media3.
+Native render integration can use the pinned optional Windows libmpv dependency
+installer while direct redistribution remains blocked on a complete component
+and license inventory. The shared scrolling danmaku lane scheduler and
+synthetic Compose overlay demo are implemented. The Windows app also indexes
+local anime folders and streams indexed files over the LAN. Android mobile and
+TV clients can browse the catalog and pass selected streams plus indexed
+sidecar subtitles to Media3.
 
 ## Active
 
@@ -29,15 +31,22 @@ catalog and pass selected streams plus indexed sidecar subtitles to Media3.
 - [x] Connect prepared local and paired-LAN playback requests to the desktop
   `PlaybackController` with resume seeking.
 - [x] Bind the desktop Kotlin command executor to the Rust C ABI with JNA.
-- [ ] Verify the dynamic-loader probe against an audited libmpv DLL.
+- [x] Verify the dynamic-loader probe against the pinned optional LGPL libmpv
+  dependency.
 - [x] Smoke-test the dynamic-loader probe against a pinned third-party libmpv
   candidate without approving it for redistribution.
 - [x] Identify and smoke-test a pinned LGPL libmpv candidate for the MIT
   application distribution model.
+- [x] License Danmaku under MIT and add a pinned, hash-verified optional libmpv
+  dependency installer for DLL-free release artifacts.
+- [x] Include MIT and third-party notices in Windows, Android mobile, and
+  Android TV build artifacts, with CI verification.
+- [x] Validate distributable Gradle dependency licenses and package the Apache
+  License 2.0 text plus generated dependency inventories.
 - [ ] Complete the zhongfly LGPL libmpv component/license inventory and add
   required notices before approving redistribution.
-- [ ] Wire the JNA mpv command executor into the desktop shell after selecting
-  the audited native bundle.
+- [ ] Wire the JNA mpv command executor into the desktop shell using the pinned
+  optional native dependency.
 - [ ] Build a Windows libmpv playback spike.
 - [x] Add a shared scrolling danmaku lane scheduler with collision-aware tests.
 - [x] Add recursive Windows anime-folder indexing.

@@ -145,9 +145,10 @@ catalog item. Only indexed IDs resolve to filesystem paths or progress records;
 clients never submit arbitrary Windows paths. The shell generates and displays
 a six-digit pairing code for the current server process. This first-stage HTTP
 server is for trusted local networks; use a stronger authenticated and
-encrypted transport before supporting untrusted networks. The Windows
-distributable explicitly includes the `jdk.httpserver` and `java.sql` runtime
-modules.
+encrypted transport before supporting untrusted networks. The intermediate
+Compose app image explicitly includes the `jdk.httpserver` and `java.sql`
+runtime modules. The uploaded portable Windows release is runtime-free and
+uses user-installed Java 17 or newer.
 
 The Windows host also registers authenticated provider-completion hooks on the
 same server. The initial `POST /api/hooks/ani-rss/download-end` endpoint
@@ -231,8 +232,10 @@ stream URLs through that adapter. Native playback handoff remains planned.
 
 The Windows adapter loads libmpv dynamically. Developer builds locate
 `libmpv-2.dll` from `DANMAKU_LIBMPV_PATH` or beside the packaged executable.
-Release packaging must use an audited, pinned libmpv bundle and include the
-applicable license notices. See ADR 0002.
+Danmaku's MIT release artifacts remain DLL-free and include a user-invoked,
+hash-verified installer for the pinned optional LGPL dependency. Any future
+direct libmpv redistribution must use an audited bundle with complete license
+notices and corresponding source obligations. See ADR 0002.
 
 ## Danmaku Pipeline
 

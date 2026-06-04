@@ -15,6 +15,19 @@ Updated on 2026-06-04.
   configuration, license-file inventory, SHA-256 validation, probe execution,
   and copying only verified files into a desktop distributable. CI self-tests
   the verifier without downloading or approving a native bundle.
+- Root MIT license, third-party notice, and DLL-free Windows release packaging.
+  The Windows artifact includes an optional user-invoked installer and pinned
+  manifest for downloading the zhongfly LGPL candidate after explicit license
+  acceptance. The installer verifies both archive and DLL SHA-256 hashes.
+- Android mobile and TV APKs include the MIT license and third-party notice as
+  packaged assets. Cash App Licensee validates the distributable Gradle
+  dependency graphs, which currently resolve to Apache License 2.0
+  dependencies, and produces versioned inventories. CI verifies those assets,
+  the Windows legal files and installer, and the absence of a bundled
+  `libmpv-2.dll`.
+- The uploaded Windows distributable is runtime-free and requires
+  user-installed Java 17 or newer, avoiding redistribution of an OpenJDK
+  runtime inside the release archive.
 - Local `mpv-probe` smoke testing against the shinchiro 20260604 x86-64
   development archive succeeded with client API version `131077`. The candidate
   is documented as unapproved for redistribution because its tagged FFmpeg
@@ -97,8 +110,10 @@ Updated on 2026-06-04.
   episode restart behavior.
 - Windows UDP announcements and Android discovery actions for finding the
   library server on the local network without typing its IP address.
-- Windows distributable includes the `jdk.httpserver` and `java.sql` runtime
-  modules required by the packaged LAN server and SQLite catalog.
+- The intermediate Compose app image includes the `jdk.httpserver` and
+  `java.sql` modules required by the LAN server and SQLite catalog. The
+  uploaded portable release omits that Java runtime and uses user-installed
+  Java 17 or newer.
 - Android mobile and dedicated Android TV Compose application modules.
 - Shared Android Media3 ExoPlayer adapter, foreground playback service, and
   service-backed MediaController connection used by mobile and TV.
@@ -159,8 +174,10 @@ Run these commands after architecture or build changes:
 
 ```powershell
 .\tools\windows\test-verify-libmpv-bundle.ps1
+.\tools\windows\test-install-libmpv-dependency.ps1
 cargo fmt --all --check
 cargo test --workspace
+.\gradlew.bat --no-daemon :apps:desktop-windows:licensee :apps:android-mobile:licenseeDebug :apps:android-tv:licenseeDebug
 .\gradlew.bat --no-daemon :shared:domain:jvmTest
 .\gradlew.bat --no-daemon :shared:library-client:jvmTest
 .\gradlew.bat --no-daemon :shared:library-server-core:jvmTest
@@ -179,10 +196,13 @@ With an Android emulator or device online, run:
 ## Next Work
 
 1. Exercise cross-device resume behavior on Android and TV hardware.
-2. Select an audited Windows libmpv DLL bundle and run `mpv-probe`.
-3. Wire the JNA mpv command executor into the desktop shell once an audited
-   `libmpv-2.dll` and Rust `cdylib` bundle are selected.
+2. Use the pinned optional Windows libmpv installer and run `mpv-probe` in the
+   packaged Windows workflow.
+3. Wire the JNA mpv command executor into the desktop shell using the optional
+   installed `libmpv-2.dll` and Rust `cdylib`.
 4. Connect native Windows video rendering and local-file playback.
+5. Complete a component and license inventory before any future direct libmpv
+   redistribution.
 
 ## Runtime Smoke Check
 

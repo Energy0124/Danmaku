@@ -1,6 +1,42 @@
+import org.gradle.api.DefaultTask
+import org.gradle.api.file.ConfigurableFileCollection
+import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.file.FileSystemOperations
+import org.gradle.api.tasks.InputFiles
+import org.gradle.api.tasks.OutputDirectory
+import org.gradle.api.tasks.TaskAction
+import javax.inject.Inject
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
+    id("app.cash.licensee")
+}
+
+abstract class CopyLegalAssetsTask : DefaultTask() {
+    @get:Inject
+    abstract val fileSystemOperations: FileSystemOperations
+
+    @get:InputFiles
+    abstract val sourceFiles: ConfigurableFileCollection
+
+    @get:OutputDirectory
+    abstract val outputDirectory: DirectoryProperty
+
+    @TaskAction
+    fun copyFiles() {
+        fileSystemOperations.copy {
+            from(sourceFiles)
+            into(outputDirectory)
+        }
+    }
+}
+
+val copyLegalAssets = tasks.register<CopyLegalAssetsTask>("copyLegalAssets") {
+    sourceFiles.from(rootProject.file("LICENSE"))
+    sourceFiles.from(rootProject.file("THIRD_PARTY_NOTICES.md"))
+    sourceFiles.from(rootProject.file("third_party/licenses/APACHE-2.0.txt"))
+    outputDirectory.set(layout.buildDirectory.dir("generated/legalAssets"))
 }
 
 android {
@@ -18,6 +54,20 @@ android {
     buildFeatures {
         compose = true
     }
+}
+
+androidComponents {
+    onVariants(selector().all()) { variant ->
+        variant.sources.assets?.addGeneratedSourceDirectory(
+            copyLegalAssets,
+            CopyLegalAssetsTask::outputDirectory,
+        )
+    }
+}
+
+licensee {
+    allow("Apache-2.0")
+    bundleAndroidAsset = true
 }
 
 dependencies {

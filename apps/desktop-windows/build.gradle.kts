@@ -3,6 +3,7 @@ plugins {
     id("org.jetbrains.compose")
     id("org.jetbrains.kotlin.plugin.compose")
     id("app.cash.sqldelight")
+    id("app.cash.licensee")
 }
 
 kotlin {
@@ -36,6 +37,10 @@ sqldelight {
             packageName.set("app.danmaku.desktop.db")
         }
     }
+}
+
+licensee {
+    allow("Apache-2.0")
 }
 
 compose.desktop {

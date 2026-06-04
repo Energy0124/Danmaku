@@ -4,6 +4,9 @@ Danmaku is in early foundation work. Contributions are welcome, especially when
 they keep the first release targets focused: Windows desktop, Android, and
 Android TV.
 
+By contributing, you agree that your contributions may be distributed under
+the project's [MIT License](LICENSE).
+
 ## Development Priorities
 
 - Keep Windows, Android, and Android TV as first-class targets.
@@ -32,8 +35,10 @@ Android TV.
 Run the relevant checks for your change:
 
 ```powershell
+.\tools\windows\test-install-libmpv-dependency.ps1
 cargo fmt --all --check
 cargo test --workspace
+.\gradlew.bat --no-daemon :apps:desktop-windows:licensee :apps:android-mobile:licenseeDebug :apps:android-tv:licenseeDebug
 .\gradlew.bat --no-daemon :shared:domain:jvmTest
 .\gradlew.bat --no-daemon :shared:library-client:jvmTest
 .\gradlew.bat --no-daemon :shared:library-server-core:jvmTest

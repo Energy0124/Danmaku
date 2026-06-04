@@ -38,9 +38,25 @@ jobs:
         shell: pwsh
         run: .\tools\windows\test-verify-libmpv-bundle.ps1
 
+      - name: Test optional libmpv dependency installer
+        shell: pwsh
+        run: .\tools\windows\test-install-libmpv-dependency.ps1
+
+      - name: Validate distributable dependency licenses
+        shell: pwsh
+        run: .\gradlew.bat --no-daemon :apps:desktop-windows:licensee :apps:android-mobile:licenseeDebug :apps:android-tv:licenseeDebug
+
       - name: Build and test JVM/Android targets
         shell: pwsh
         run: .\gradlew.bat --no-daemon :shared:domain:jvmTest :shared:library-client:jvmTest :shared:library-server-core:jvmTest :apps:desktop-windows:desktopTest :shared:library-client-android:testDebugUnitTest :shared:player-android-media3:assembleDebugAndroidTest :apps:android-mobile:assembleDebug :apps:android-tv:assembleDebug :apps:desktop-windows:createDistributable
+
+      - name: Prepare runtime-free DLL-free Windows release
+        shell: pwsh
+        run: .\tools\windows\prepare-windows-release.ps1
+
+      - name: Verify release licensing materials
+        shell: pwsh
+        run: .\tools\windows\verify-release-licensing.ps1
 
       - name: Upload Android Mobile APK
         uses: actions/upload-artifact@v7
@@ -60,7 +76,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: danmaku-windows-desktop
-          path: apps/desktop-windows/build/compose/binaries/main/app/desktop-windows/
+          path: apps/desktop-windows/build/release/windows-portable/
           if-no-files-found: error
 
   rust:

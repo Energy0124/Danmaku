@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "dependencyName": "libmpv-2.dll",
+  "distributionModel": "optional-user-download",
+  "license": "LGPL-3.0-or-later",
+  "licenseUrl": "https://www.gnu.org/licenses/lgpl-3.0.html",
+  "projectUrl": "https://github.com/zhongfly/mpv-winbuild",
+  "releaseUrl": "https://github.com/zhongfly/mpv-winbuild/releases/tag/2026-06-04-1d82932cce",
+  "buildRunUrl": "https://github.com/zhongfly/mpv-winbuild/actions/runs/26950382201",
+  "archiveFileName": "mpv-dev-lgpl-x86_64-20260604-git-1d82932cce.7z",
+  "archiveUrl": "https://github.com/zhongfly/mpv-winbuild/releases/download/2026-06-04-1d82932cce/mpv-dev-lgpl-x86_64-20260604-git-1d82932cce.7z",
+  "archiveSha256": "eacba7b1afdb5620fd556da1141fc5267dca9d81a5d7a649a36384af77405855",
+  "dllArchivePath": "libmpv-2.dll",
+  "dllSha256": "7e68bedee4c2241056ad9fb9fb3fca5a967d442f900e3891dfd5be95b8fecf49",
+  "source": {
+    "mpvCommit": "1d82932ccebd562a3edb85581c93d89d5c904b26",
+    "mpvUrl": "https://github.com/mpv-player/mpv/commit/1d82932ccebd562a3edb85581c93d89d5c904b26",
+    "ffmpegCommit": "c27a3b12e3bfdedbd3af6cab9ed95c0a39ae3416",
+    "ffmpegUrl": "https://github.com/FFmpeg/FFmpeg/commit/c27a3b12e3bfdedbd3af6cab9ed95c0a39ae3416",
+    "producerCommit": "970da30d1d88d8d1e863e0f0cf4b57f2a5abdcc5",
+    "producerUrl": "https://github.com/zhongfly/mpv-winbuild/commit/970da30d1d88d8d1e863e0f0cf4b57f2a5abdcc5",
+    "lgplPatchUrl": "https://github.com/zhongfly/mpv-winbuild/blob/970da30d1d88d8d1e863e0f0cf4b57f2a5abdcc5/compile-lgpl-libmpv.patch"
+  },
+  "verifiedBuildProperties": [
+    "mpv is configured with -Dgpl=false",
+    "FFmpeg is built without --enable-gpl",
+    "known GPL dependencies x264 and x265 are removed by the producer LGPL patch"
+  ],
+  "caveat": "The producer states that it cannot guarantee every LGPL-incompatible package has been disabled."
+}

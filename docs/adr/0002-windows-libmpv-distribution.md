@@ -26,11 +26,19 @@ During development, find the DLL in this order:
 Do not commit native DLLs to the repository. Contributor builds and unit tests
 must work without libmpv installed.
 
-For releases, package an audited and pinned bundle beside the executable.
-Prefer an LGPL-compatible build configured with `-Dgpl=false` unless the
-project deliberately chooses GPL distribution. Record the exact mpv, FFmpeg,
-and transitive dependency versions, configuration flags, provenance, checksums,
-license notices, and any source-availability obligations before redistribution.
+Danmaku's own source code is MIT licensed. Until a native bundle has a complete
+component/license inventory, notices, and corresponding source material,
+Danmaku release artifacts remain DLL-free. They include an explicit
+user-invoked installer that downloads a pinned LGPL-oriented libmpv artifact
+from its producer, verifies the archive and DLL hashes, and requires license
+acceptance before installation.
+
+For any future direct redistribution, package an audited and pinned bundle
+beside the executable. Prefer an LGPL-compatible build configured with
+`-Dgpl=false` unless the project deliberately chooses GPL distribution. Record
+the exact mpv, FFmpeg, and transitive dependency versions, configuration flags,
+provenance, checksums, license notices, and any source-availability obligations
+before redistribution.
 
 Use the repository's manifest verifier to reject missing metadata, unlisted
 license files, and checksum mismatches before running `mpv-probe` or copying
