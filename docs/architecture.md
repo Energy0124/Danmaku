@@ -110,6 +110,14 @@ Provider plugins may browse, search, resolve playable variants, retrieve
 danmaku tracks, and report whether downloads are allowed. Provider response
 types must remain at the plugin boundary.
 
+Source descriptors expose normalized capabilities plus an authorized-download
+policy before any download manifest can be created. The policy records whether
+offline storage is allowed, what user or service authorization permits it,
+whether playback relies on DRM, optional expiry, attribution, and terms. A
+download manifest is platform-independent and stores relative output paths for
+media, subtitles, danmaku tracks, and artwork; platform download engines decide
+how to execute that manifest.
+
 ## Local Library Streaming
 
 The Windows desktop shell owns the first local-library vertical slice:

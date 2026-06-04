@@ -115,8 +115,8 @@ catalog and pass selected streams to Media3.
 
 - [x] Add desktop SQLDelight storage primitives for app settings and download
   queue items.
-- [ ] Define authorized-download policy fields in source contracts.
-- [ ] Define a platform-independent download manifest.
+- [x] Define authorized-download policy fields in source contracts.
+- [x] Define a platform-independent download manifest.
 - [ ] Add multiple Windows library roots with provenance and missing-folder state.
 - [ ] Import and incrementally rescan user-selected ani-rss-managed output folders.
 - [ ] Add an optional read-only Windows ani-rss adapter for health, subscriptions,
