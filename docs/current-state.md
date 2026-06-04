@@ -63,6 +63,8 @@ Updated on 2026-06-04.
   window and libmpv's pre-initialize `wid` option. This proves the host boundary
   but still needs visual playback validation and an overlay-compatible final
   rendering path.
+- Desktop shell play, pause, and ten-second seek controls routed through the
+  shared playback command contract.
 - Shared scrolling danmaku lane scheduler with collision-aware tests, bounded
   visible-window lookup, backward-seek query coverage, and a 10,000-comment
   generated-track test. The scheduler also exposes sampled visibility metrics

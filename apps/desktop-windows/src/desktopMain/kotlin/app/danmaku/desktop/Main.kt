@@ -42,6 +42,7 @@ import app.danmaku.domain.DanmakuEvent
 import app.danmaku.domain.DanmakuStyle
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.MeasuredDanmakuEvent
+import app.danmaku.domain.PlaybackCommand
 import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.ScrollingDanmakuLaneScheduler
 import app.danmaku.domain.ScrollingDanmakuLayoutConfig
@@ -265,6 +266,53 @@ private fun DesktopShell() {
                 )
                 Text("Player state: ${playbackSnapshot.status}")
                 playbackSnapshot.source?.let { Text("Player source: $it") }
+                playbackSnapshot.errorMessage?.let { Text("Player error: $it") }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = {
+                            playbackController.dispatch(PlaybackCommand.Play)
+                            playbackSnapshot = playbackController.snapshot()
+                        },
+                        enabled = playbackSnapshot.source != null,
+                    ) {
+                        Text("Play")
+                    }
+                    Button(
+                        onClick = {
+                            playbackController.dispatch(PlaybackCommand.Pause)
+                            playbackSnapshot = playbackController.snapshot()
+                        },
+                        enabled = playbackSnapshot.source != null,
+                    ) {
+                        Text("Pause")
+                    }
+                    Button(
+                        onClick = {
+                            playbackController.dispatch(
+                                PlaybackCommand.SeekTo(
+                                    maxOf(0, playbackSnapshot.position.positionMs - 10_000),
+                                ),
+                            )
+                            playbackSnapshot = playbackController.snapshot()
+                        },
+                        enabled = playbackSnapshot.source != null,
+                    ) {
+                        Text("-10s")
+                    }
+                    Button(
+                        onClick = {
+                            playbackController.dispatch(
+                                PlaybackCommand.SeekTo(
+                                    playbackSnapshot.position.positionMs + 10_000,
+                                ),
+                            )
+                            playbackSnapshot = playbackController.snapshot()
+                        },
+                        enabled = playbackSnapshot.source != null,
+                    ) {
+                        Text("+10s")
+                    }
+                }
                 DesktopMpvVideoHost(
                     onWindowIdChanged = { mpvVideoWindowId = it },
                     modifier = Modifier
