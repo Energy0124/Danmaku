@@ -56,6 +56,9 @@ Updated on 2026-06-04.
 - Desktop catalog storage can persist indexed media per registered root and
   publish a merged catalog with root-prefixed relative paths and namespaced
   media IDs.
+- Desktop root scanner can import ani-rss output folders, reuse unchanged media
+  rows during incremental rescans, mark unavailable roots missing, and produce
+  a merged library for LAN publication.
 - Shared source and download domain contracts for authorized offline storage
   policy, source capabilities, and platform-independent download manifests.
 - Android mobile and TV progress syncing from the background playback service
