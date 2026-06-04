@@ -5,6 +5,7 @@ import app.danmaku.domain.PlaybackController
 import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.PlaybackSource
 import app.danmaku.library.LanPlaybackPreparation
+import java.nio.file.Path
 
 data class DesktopPlaybackRequest(
     val label: String,
@@ -34,6 +35,15 @@ fun DesktopLocalPlaybackPreparation.toPlaybackRequest(): DesktopPlaybackRequest 
         source = source,
         resumePositionMs = resumePositionMs,
     )
+
+fun Path.toDirectLocalPlaybackRequest(): DesktopPlaybackRequest {
+    val normalizedPath = toAbsolutePath().normalize()
+    return DesktopPlaybackRequest(
+        label = normalizedPath.fileName?.toString() ?: normalizedPath.toString(),
+        source = PlaybackSource.LocalFile(normalizedPath.toString()),
+        resumePositionMs = null,
+    )
+}
 
 fun LanPlaybackPreparation.toDesktopPlaybackRequest(): DesktopPlaybackRequest =
     DesktopPlaybackRequest(

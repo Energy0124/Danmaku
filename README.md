@@ -172,6 +172,7 @@ In the Windows shell:
 The Windows shell can prepare local or LAN playback requests, execute their
 commands through the packaged Rust/JNA/libmpv chain, and host mpv in an initial
 native child-window playback surface with play, pause, and seek controls.
+It also has a direct media-file picker for quick Windows playback validation.
 Visual playback validation and the final overlay-compatible rendering path are
 still pending.
 

@@ -57,7 +57,7 @@ indexed sidecar subtitles to Media3.
 
 - [x] Define the Kotlin playback contract.
 - [x] Build a Compose Desktop shell.
-- [ ] Add local-file playback on Windows.
+- [x] Add local-file playback on Windows.
 - [ ] Validate the Windows child-window playback spike with local files, resize,
   fullscreen, hardware decoding, and 4K media.
 - [x] Add a synthetic danmaku overlay demo.

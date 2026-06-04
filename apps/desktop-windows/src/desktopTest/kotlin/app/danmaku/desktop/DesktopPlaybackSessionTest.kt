@@ -5,6 +5,7 @@ import app.danmaku.domain.PlaybackSource
 import app.danmaku.domain.PlaybackStatus
 import app.danmaku.library.LanPlaybackPreparation
 import app.danmaku.library.LanPlaybackTarget
+import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -109,6 +110,19 @@ class DesktopPlaybackSessionTest {
                 source = source,
                 resumePositionMs = 12_345,
             ).toPlaybackRequest(),
+        )
+    }
+
+    @Test
+    fun mapsArbitraryLocalFilesToPlaybackRequests() {
+        assertEquals(
+            DesktopPlaybackRequest(
+                label = "Episode 01.mkv",
+                source = PlaybackSource.LocalFile("S:\\Anime\\Example Show\\Episode 01.mkv"),
+                resumePositionMs = null,
+            ),
+            Path.of("S:/Anime/Example Show/../Example Show/Episode 01.mkv")
+                .toDirectLocalPlaybackRequest(),
         )
     }
 

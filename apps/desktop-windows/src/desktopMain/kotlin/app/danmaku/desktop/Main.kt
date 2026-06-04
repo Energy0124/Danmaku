@@ -56,6 +56,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.nio.file.Path
 import javax.swing.JFileChooser
+import javax.swing.filechooser.FileNameExtensionFilter
 
 fun main() = application {
     Window(
@@ -267,6 +268,20 @@ private fun DesktopShell() {
                 Text("Player state: ${playbackSnapshot.status}")
                 playbackSnapshot.source?.let { Text("Player source: $it") }
                 playbackSnapshot.errorMessage?.let { Text("Player error: $it") }
+                Button(
+                    onClick = {
+                        selectMediaFile(
+                            title = "Choose media file for Windows playback",
+                        )?.let { mediaFile ->
+                            playbackSnapshot = playbackSession.load(
+                                mediaFile.toDirectLocalPlaybackRequest(),
+                            )
+                        }
+                    },
+                    enabled = mpvVideoWindowId != null,
+                ) {
+                    Text("Open media file")
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
                         onClick = {
@@ -579,6 +594,26 @@ private fun selectLibraryDirectory(title: String) =
     JFileChooser().run {
         fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
         dialogTitle = title
+        takeIf { showOpenDialog(null) == JFileChooser.APPROVE_OPTION }
+            ?.selectedFile
+            ?.toPath()
+    }
+
+private fun selectMediaFile(title: String) =
+    JFileChooser().run {
+        fileSelectionMode = JFileChooser.FILES_ONLY
+        dialogTitle = title
+        fileFilter = FileNameExtensionFilter(
+            "Video files",
+            "mkv",
+            "mp4",
+            "m4v",
+            "avi",
+            "mov",
+            "webm",
+            "ts",
+            "m2ts",
+        )
         takeIf { showOpenDialog(null) == JFileChooser.APPROVE_OPTION }
             ?.selectedFile
             ?.toPath()

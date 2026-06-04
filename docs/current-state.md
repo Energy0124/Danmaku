@@ -65,6 +65,8 @@ Updated on 2026-06-04.
   rendering path.
 - Desktop shell play, pause, and ten-second seek controls routed through the
   shared playback command contract.
+- Direct Windows media-file picker that loads arbitrary local video files into
+  the native mpv host without requiring a library scan first.
 - Shared scrolling danmaku lane scheduler with collision-aware tests, bounded
   visible-window lookup, backward-seek query coverage, and a 10,000-comment
   generated-track test. The scheduler also exposes sampled visibility metrics
