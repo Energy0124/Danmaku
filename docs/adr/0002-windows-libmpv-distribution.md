@@ -32,6 +32,11 @@ project deliberately chooses GPL distribution. Record the exact mpv, FFmpeg,
 and transitive dependency versions, configuration flags, provenance, checksums,
 license notices, and any source-availability obligations before redistribution.
 
+Use the repository's manifest verifier to reject missing metadata, unlisted
+license files, and checksum mismatches before running `mpv-probe` or copying
+manifest-listed files into a distributable. The verifier does not replace the
+human license and supply-chain review.
+
 ## Consequences
 
 - The Kotlin and Rust foundation remains buildable without a native media

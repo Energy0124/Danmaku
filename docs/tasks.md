@@ -18,6 +18,8 @@ catalog and pass selected streams plus indexed sidecar subtitles to Media3.
 - [x] Bootstrap Gradle 9.4.1 with a committed wrapper.
 - [x] Add a minimal shared Kotlin domain module.
 - [x] Decide the Windows libmpv distribution strategy.
+- [x] Add a reproducible Windows libmpv bundle manifest verifier and opt-in
+  distributable packaging path.
 - [x] Add a dependency-free Windows libmpv dynamic-loader spike.
 - [x] Expose a Rust C ABI for creating an mpv context, executing command arrays,
   and destroying the handle.

@@ -11,6 +11,10 @@ Updated on 2026-06-04.
 - Dependency-free Windows libmpv loader with DLL discovery, required-symbol
   loading, mpv context initialization, command dispatch, and clean shutdown.
 - `mpv-probe` executable for validating an audited `libmpv-2.dll`.
+- Opt-in Windows libmpv bundle manifest verifier for provenance, versions,
+  configuration, license-file inventory, SHA-256 validation, probe execution,
+  and copying only verified files into a desktop distributable. CI self-tests
+  the verifier without downloading or approving a native bundle.
 - Windows libmpv Rust crate also builds a `cdylib` and exposes a small C ABI for
   creating an mpv context, executing coarse command arrays, and destroying the
   handle. The ABI uses explicit status codes and is covered for null pointers
@@ -145,6 +149,7 @@ Updated on 2026-06-04.
 Run these commands after architecture or build changes:
 
 ```powershell
+.\tools\windows\test-verify-libmpv-bundle.ps1
 cargo fmt --all --check
 cargo test --workspace
 .\gradlew.bat --no-daemon :shared:domain:jvmTest

@@ -160,6 +160,11 @@ cargo run -p player-windows-mpv --bin mpv-probe
 The probe loads the DLL, prints the mpv client API version, initializes an mpv
 context, and shuts it down cleanly.
 
+For the pinned-bundle manifest, checksum verification, probe, and opt-in
+packaging workflow, see
+[Windows libmpv Bundle Audit](docs/windows-libmpv-bundle.md). No native bundle
+has been approved for redistribution yet.
+
 ## Security And Source Policy
 
 The current LAN server is intended only for trusted local networks. Pairing
