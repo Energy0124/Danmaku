@@ -176,6 +176,13 @@ It also has a direct media-file picker for quick Windows playback validation.
 Visual playback validation and the final overlay-compatible rendering path are
 still pending.
 
+For a packaged local-file smoke test without driving the full UI, pass a real
+media file to the Windows runtime probe:
+
+```powershell
+.\tools\windows\verify-windows-mpv-runtime.ps1 -MediaPath C:\media\sample.mkv
+```
+
 ## Probe A Windows libmpv Bundle
 
 Danmaku's Windows release directly redistributes a pinned, hash-verified LGPL

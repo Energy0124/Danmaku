@@ -67,6 +67,8 @@ Updated on 2026-06-04.
   shared playback command contract.
 - Direct Windows media-file picker that loads arbitrary local video files into
   the native mpv host without requiring a library scan first.
+- Packaged Windows runtime probe can optionally load a supplied local media
+  file through the same native mpv command path used by the desktop shell.
 - Shared scrolling danmaku lane scheduler with collision-aware tests, bounded
   visible-window lookup, backward-seek query coverage, and a 10,000-comment
   generated-track test. The scheduler also exposes sampled visibility metrics

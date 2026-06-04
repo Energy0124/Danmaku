@@ -39,6 +39,13 @@ cargo build --release -p player-windows-mpv --lib
 .\tools\windows\verify-release-licensing.ps1
 ```
 
+To smoke-test packaged local-file playback with a real media sample, pass the
+sample path to the runtime probe:
+
+```powershell
+.\tools\windows\verify-windows-mpv-runtime.ps1 -MediaPath C:\media\sample.mkv
+```
+
 CI runs the same release licensing gates before uploading artifacts.
 
 ## Dependency Changes

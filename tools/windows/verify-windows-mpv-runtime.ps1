@@ -4,7 +4,8 @@ param(
         Join-Path $PSScriptRoot (
             "..\..\apps\desktop-windows\build\release\windows-portable"
         )
-    )
+    ),
+    [string]$MediaPath
 )
 
 Set-StrictMode -Version Latest
@@ -35,10 +36,20 @@ $previousLibmpvPath = $env:DANMAKU_LIBMPV_PATH
 try {
     $env:DANMAKU_MPV_BRIDGE_PATH = $mpvBridgePath
     $env:DANMAKU_LIBMPV_PATH = $libmpvPath
-    & $javaCommand.Source `
-        "-Djava.library.path=$appPath" `
-        -cp (Join-Path $appPath "*") `
+    $javaArgs = @(
+        "-Djava.library.path=$appPath"
+        "-cp"
+        (Join-Path $appPath "*")
         "app.danmaku.desktop.DesktopMpvNativeProbe"
+    )
+    if (-not [string]::IsNullOrWhiteSpace($MediaPath)) {
+        $mediaFullPath = [System.IO.Path]::GetFullPath($MediaPath)
+        if (-not (Test-Path -LiteralPath $mediaFullPath -PathType Leaf)) {
+            throw "Probe media file does not exist: $mediaFullPath"
+        }
+        $javaArgs += $mediaFullPath
+    }
+    & $javaCommand.Source @javaArgs
     if ($LASTEXITCODE -ne 0) {
         throw "Packaged Windows mpv runtime probe failed with exit code $LASTEXITCODE."
     }
