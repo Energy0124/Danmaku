@@ -9,7 +9,7 @@ Native render integration requires an audited Windows libmpv DLL bundle. The
 shared scrolling danmaku lane scheduler and synthetic Compose overlay demo are
 implemented. The Windows app also indexes local anime folders and streams
 indexed files over the LAN. Android mobile and TV clients can browse the
-catalog and pass selected streams to Media3.
+catalog and pass selected streams plus indexed sidecar subtitles to Media3.
 
 ## Active
 
@@ -60,6 +60,7 @@ catalog and pass selected streams to Media3.
 - [x] Add TV D-pad and focus-navigation instrumentation tests.
 - [x] Add LAN playback progress upload and resume seeking.
 - [x] Move LAN playback progress uploads into the background playback service.
+- [x] Attach indexed LAN sidecar subtitle tracks to Media3 playback items.
 - [ ] Verify playback and overlays on a physical Android TV device.
 
 ## Streaming Verification

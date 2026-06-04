@@ -56,6 +56,12 @@ data class LanPlaybackPreparation(
     val target: LanPlaybackTarget,
     val source: PlaybackSource.RemoteStream,
     val resumePositionMs: Long?,
+    val subtitles: List<LanSubtitlePreparation> = emptyList(),
+)
+
+data class LanSubtitlePreparation(
+    val track: LibrarySubtitleTrack,
+    val source: PlaybackSource.RemoteStream,
 )
 
 class LanPlaybackPreparer(
@@ -65,6 +71,21 @@ class LanPlaybackPreparer(
         baseUrl: String,
         pairingToken: String,
         item: LibraryMediaItem,
+    ): LanPlaybackPreparation =
+        prepare(
+            baseUrl = baseUrl,
+            pairingToken = pairingToken,
+            item = item,
+            resumePositionMs = libraryClient
+                .fetchProgress(baseUrl, item.id, pairingToken)
+                ?.resumePositionMs(),
+        )
+
+    fun prepare(
+        baseUrl: String,
+        pairingToken: String,
+        item: LibraryMediaItem,
+        resumePositionMs: Long?,
     ): LanPlaybackPreparation {
         val target = LanPlaybackTarget(
             baseUrl = baseUrl,
@@ -77,9 +98,15 @@ class LanPlaybackPreparer(
             source = PlaybackSource.RemoteStream(
                 libraryClient.streamUrl(baseUrl, item, pairingToken),
             ),
-            resumePositionMs = libraryClient
-                .fetchProgress(baseUrl, item.id, pairingToken)
-                ?.resumePositionMs(),
+            subtitles = item.subtitles.map { subtitle ->
+                LanSubtitlePreparation(
+                    track = subtitle,
+                    source = PlaybackSource.RemoteStream(
+                        libraryClient.subtitleUrl(baseUrl, subtitle, pairingToken),
+                    ),
+                )
+            },
+            resumePositionMs = resumePositionMs,
         )
     }
 }

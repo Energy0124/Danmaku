@@ -40,6 +40,7 @@ import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.PlaybackSource
 import app.danmaku.library.android.LanLibraryDiscoveryClient
 import app.danmaku.library.android.LanLibraryClient
+import app.danmaku.library.LanPlaybackPreparer
 import app.danmaku.library.LanPlaybackProgressSync
 import app.danmaku.library.LanPlaybackTarget
 import app.danmaku.player.android.Media3PlaybackController
@@ -70,6 +71,7 @@ private fun MobilePlayerScreen() {
     val progressSync = remember(libraryClient) {
         LanPlaybackProgressSync(libraryClient, System::currentTimeMillis)
     }
+    val playbackPreparer = remember(libraryClient) { LanPlaybackPreparer(libraryClient) }
     val discoveryClient = remember { LanLibraryDiscoveryClient() }
     val scope = rememberCoroutineScope()
     var controller by remember { mutableStateOf<Media3PlaybackController?>(null) }
@@ -200,16 +202,14 @@ private fun MobilePlayerScreen() {
                         }.onFailure {
                             libraryError = "Resume lookup failed: ${it.message}"
                         }.getOrNull()
-                        activeController.load(
-                            PlaybackSource.RemoteStream(
-                                libraryClient.streamUrl(
-                                    target.baseUrl,
-                                    item,
-                                    target.pairingToken,
-                                ),
-                            ),
+                        val preparation = playbackPreparer.prepare(
+                            baseUrl = target.baseUrl,
+                            pairingToken = target.pairingToken,
+                            item = item,
+                            resumePositionMs = resumePosition,
                         )
-                        resumePosition?.let {
+                        activeController.load(preparation)
+                        preparation.resumePositionMs?.let {
                             activeController.dispatch(PlaybackCommand.SeekTo(it))
                         }
                         activeController.dispatch(PlaybackCommand.Play)

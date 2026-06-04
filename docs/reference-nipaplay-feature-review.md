@@ -123,6 +123,8 @@ This turns the technical slice into a usable local media-center application.
 - [ ] Add embedded audio-track and subtitle-track selection to the playback contract.
 - [ ] Load local `ASS`, `SSA`, `SRT`, and `VTT` subtitles where supported.
 - [x] Add local subtitle discovery next to indexed media files.
+- [x] Attach indexed LAN sidecar subtitle tracks to Android and Android TV
+  Media3 playback items.
 - [ ] Add playback controls for seek, rate, volume, fullscreen, and aspect ratio.
 - [ ] Add Android TV player controls with visible focus states and remote-friendly
   seek behavior.

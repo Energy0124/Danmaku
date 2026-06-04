@@ -3,14 +3,20 @@ package app.danmaku.player.android
 import android.os.Handler
 import android.os.Looper
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import app.danmaku.domain.LibraryMediaItem
+import app.danmaku.domain.LibrarySubtitleTrack
 import app.danmaku.domain.PlaybackCommand
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.domain.PlaybackSource
+import app.danmaku.library.LanPlaybackPreparation
+import app.danmaku.library.LanPlaybackTarget
+import app.danmaku.library.LanSubtitlePreparation
 import java.net.InetAddress
 import java.net.ServerSocket
 import java.net.Socket
@@ -37,6 +43,65 @@ class Media3StreamingIntegrationTest {
     fun playsShortHttpFixtureToCompletion() {
         playHttpFixtureToCompletion { fixture ->
             FixtureHttpServer(fixture)
+        }
+    }
+
+    @Test
+    fun attachesPreparedLanSubtitlesToMediaItem() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val subtitleTrack = LibrarySubtitleTrack(
+            id = "subtitle-id",
+            label = "English",
+            relativePath = "Example Show/Episode 01.en.srt",
+            mediaType = "text/x-ass",
+            streamPath = "/subtitles/subtitle-id",
+        )
+        val preparation = LanPlaybackPreparation(
+            item = LibraryMediaItem(
+                id = "episode-id",
+                seriesTitle = "Example Show",
+                episodeTitle = "Episode 01",
+                relativePath = "Example Show/Episode 01.mp4",
+                sizeBytes = 123,
+                mediaType = "video/mp4",
+                streamPath = "/media/episode-id",
+                subtitles = listOf(subtitleTrack),
+            ),
+            target = LanPlaybackTarget(
+                baseUrl = "http://127.0.0.1:8686",
+                pairingToken = "123456",
+                mediaId = "episode-id",
+            ),
+            source = PlaybackSource.RemoteStream(
+                "http://127.0.0.1:8686/media/episode-id?token=123456",
+            ),
+            subtitles = listOf(
+                LanSubtitlePreparation(
+                    track = subtitleTrack,
+                    source = PlaybackSource.RemoteStream(
+                        "http://127.0.0.1:8686/subtitles/subtitle-id?token=123456",
+                    ),
+                ),
+            ),
+            resumePositionMs = null,
+        )
+
+        instrumentation.runOnMainSync {
+            val player = ExoPlayer.Builder(instrumentation.targetContext).build()
+            try {
+                Media3PlaybackController(player).load(preparation)
+
+                val mediaItem = checkNotNull(player.currentMediaItem)
+                val subtitle = checkNotNull(mediaItem.localConfiguration)
+                    .subtitleConfigurations
+                    .single()
+                assertEquals(subtitleTrack.id, subtitle.id)
+                assertEquals(subtitleTrack.label, subtitle.label)
+                assertEquals(MimeTypes.TEXT_SSA, subtitle.mimeType)
+                assertEquals(preparation.subtitles.single().source.url, subtitle.uri.toString())
+            } finally {
+                player.release()
+            }
         }
     }
 

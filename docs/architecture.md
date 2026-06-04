@@ -211,11 +211,12 @@ activity leaves the foreground.
 Android mobile and TV currently use the paired LAN progress API when a user
 starts an indexed PC episode. The clients seek to stored positions only after
 10 seconds of progress and restart episodes with less than 30 seconds
-remaining. While the player screen is active, they upload a snapshot every
 remaining. The `MediaSessionService` uploads a snapshot every five seconds, so
 updates continue when the player screen leaves the foreground. The service
 recognizes paired LAN streams from their indexed `/media/{id}?token={code}` URL
-and ignores other playback sources.
+and ignores other playback sources. Shared LAN playback preparation also turns
+indexed sidecars into tokenized subtitle sources; the Media3 adapter attaches
+those sources to the video `MediaItem` with stable track metadata.
 
 Portable LAN client behavior lives in `shared/library-client`. Platform
 adapters implement its catalog, stream-URL, progress upload, and resume lookup

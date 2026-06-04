@@ -89,6 +89,10 @@ Updated on 2026-06-04.
 - Android mobile and dedicated Android TV Compose application modules.
 - Shared Android Media3 ExoPlayer adapter, foreground playback service, and
   service-backed MediaController connection used by mobile and TV.
+- Shared LAN playback preparation carries tokenized indexed sidecar subtitle
+  sources, and Android mobile and TV attach them to Media3 playback items with
+  stable track IDs, labels, and MIME types. ASS tracks are normalized to
+  Media3's SSA/ASS MIME type at the player boundary.
 - Android catalog client used by mobile and TV to browse the Windows index and
   stream selected episodes.
 - Shared Kotlin `shared/library-client` contract for catalog browsing,
@@ -129,8 +133,8 @@ Updated on 2026-06-04.
   progress round trips.
 - API 34 emulator-verified Android Media3 instrumentation coverage with a
   deterministic one-second MP4 asset and loopback HTTP server, including
-  service-owned progress upload after the UI controller connection closes and
-  slow chunked HTTP media playback.
+  prepared sidecar subtitle attachment, service-owned progress upload after the
+  UI controller connection closes, and slow chunked HTTP media playback.
 
 ## Verification
 

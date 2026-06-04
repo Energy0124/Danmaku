@@ -22,9 +22,19 @@ class LanPlaybackProgressSyncTest {
             sizeBytes = 123,
             mediaType = "video/mp4",
             streamPath = "/media/episode-id",
+            subtitles = listOf(
+                LibrarySubtitleTrack(
+                    id = "subtitle-id",
+                    label = "English",
+                    relativePath = "Example Show/Episode 01.en.srt",
+                    mediaType = "application/x-subrip",
+                    streamPath = "/subtitles/subtitle-id",
+                ),
+            ),
         )
         val client = RecordingLanLibraryClient(
             streamUrl = "http://192.168.1.20:8686/media/episode-id?token=123456",
+            subtitleUrl = "http://192.168.1.20:8686/subtitles/subtitle-id?token=123456",
             progress = PlaybackProgress(
                 mediaId = item.id,
                 positionMs = 12_345,
@@ -51,6 +61,17 @@ class LanPlaybackProgressSyncTest {
         assertEquals(
             PlaybackSource.RemoteStream("http://192.168.1.20:8686/media/episode-id?token=123456"),
             preparation.source,
+        )
+        assertEquals(
+            listOf(
+                LanSubtitlePreparation(
+                    track = item.subtitles.single(),
+                    source = PlaybackSource.RemoteStream(
+                        "http://192.168.1.20:8686/subtitles/subtitle-id?token=123456",
+                    ),
+                ),
+            ),
+            preparation.subtitles,
         )
         assertEquals(12_345, preparation.resumePositionMs)
     }
@@ -139,6 +160,7 @@ class LanPlaybackProgressSyncTest {
 
     private class RecordingLanLibraryClient(
         private val streamUrl: String = "http://example/media",
+        private val subtitleUrl: String = "http://example/subtitle",
         private val progress: PlaybackProgress? = null,
     ) : LanLibraryClient {
         var savedProgress: PlaybackProgress? = null
@@ -156,7 +178,7 @@ class LanPlaybackProgressSyncTest {
             baseUrl: String,
             subtitle: LibrarySubtitleTrack,
             pairingToken: String,
-        ): String = error("not used")
+        ): String = subtitleUrl
 
         override fun fetchProgress(
             baseUrl: String,

@@ -3,6 +3,7 @@ package app.danmaku.player.android
 import android.net.Uri
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
 import app.danmaku.domain.PlaybackCommand
 import app.danmaku.domain.PlaybackController
@@ -10,6 +11,7 @@ import app.danmaku.domain.PlaybackPosition
 import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.PlaybackSource
 import app.danmaku.domain.PlaybackStatus
+import app.danmaku.library.LanPlaybackPreparation
 import java.io.File
 
 class Media3PlaybackController(
@@ -19,9 +21,34 @@ class Media3PlaybackController(
     private var hasStartedPlayback = false
 
     override fun load(source: PlaybackSource) {
+        loadMediaItem(source, MediaItem.fromUri(source.toUri()))
+    }
+
+    fun load(preparation: LanPlaybackPreparation) {
+        loadMediaItem(
+            source = preparation.source,
+            mediaItem = MediaItem.Builder()
+                .setUri(preparation.source.toUri())
+                .setSubtitleConfigurations(
+                    preparation.subtitles.map { subtitle ->
+                        MediaItem.SubtitleConfiguration.Builder(subtitle.source.toUri())
+                            .setId(subtitle.track.id)
+                            .setLabel(subtitle.track.label)
+                            .setMimeType(subtitle.track.mediaType.toMedia3SubtitleMimeType())
+                            .build()
+                    },
+                )
+                .build(),
+        )
+    }
+
+    private fun loadMediaItem(
+        source: PlaybackSource,
+        mediaItem: MediaItem,
+    ) {
         this.source = source
         hasStartedPlayback = false
-        player.setMediaItem(MediaItem.fromUri(source.toUri()))
+        player.setMediaItem(mediaItem)
         player.prepare()
     }
 
@@ -82,4 +109,10 @@ private fun Uri.toPlaybackSource(): PlaybackSource =
     when (scheme) {
         "content", "file" -> PlaybackSource.LocalFile(toString())
         else -> PlaybackSource.RemoteStream(toString())
+    }
+
+private fun String.toMedia3SubtitleMimeType(): String =
+    when (lowercase()) {
+        "text/x-ass" -> MimeTypes.TEXT_SSA
+        else -> this
     }
