@@ -6,6 +6,7 @@ import java.nio.file.Path
 data class PublishedLibrary(
     val catalog: LibraryCatalog,
     val filesById: Map<String, Path>,
+    val subtitleFilesById: Map<String, Path> = emptyMap(),
 ) {
     companion object {
         val EMPTY = PublishedLibrary(
@@ -15,6 +16,7 @@ data class PublishedLibrary(
                 items = emptyList(),
             ),
             filesById = emptyMap(),
+            subtitleFilesById = emptyMap(),
         )
     }
 }

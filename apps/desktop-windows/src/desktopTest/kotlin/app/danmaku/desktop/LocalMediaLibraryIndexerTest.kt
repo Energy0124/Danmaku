@@ -28,6 +28,34 @@ class LocalMediaLibraryIndexerTest {
     }
 
     @Test
+    fun indexesMatchingSidecarSubtitlesAndDiscoversNewTracksForCachedVideos() {
+        val root = createTempDirectory("danmaku-library")
+        val series = root.resolve("Example Show").createDirectories()
+        series.resolve("Episode 01.mkv").writeBytes(byteArrayOf(1, 2, 3))
+        series.resolve("episode 01.en.srt").writeText("1\n00:00:00,000 --> 00:00:01,000\nHello")
+        series.resolve("Episode 02.srt").writeText("not a match")
+
+        val first = LocalMediaLibraryIndexer.index(root)
+        val firstTrack = first.catalog.items.single().subtitles.single()
+
+        assertEquals("en", firstTrack.label)
+        assertEquals("application/x-subrip", firstTrack.mediaType)
+        assertEquals("Example Show/episode 01.en.srt", firstTrack.relativePath)
+        assertEquals(series.resolve("episode 01.en.srt"), first.subtitleFilesById[firstTrack.id])
+
+        series.resolve("Episode 01.ass").writeText("[Script Info]")
+        val cached = LocalMediaLibraryIndexer.index(
+            root = root,
+            cachedItems = first.fileMetadataByRelativePath,
+        )
+
+        assertEquals(1, cached.scanStats.reusedItemCount)
+        assertEquals(2, cached.catalog.items.single().subtitles.size)
+
+        root.toFile().deleteRecursively()
+    }
+
+    @Test
     fun reusesUnchangedItemsAndRefreshesChangedFiles() {
         val root = createTempDirectory("danmaku-library")
         val series = root.resolve("Example Show").createDirectories()

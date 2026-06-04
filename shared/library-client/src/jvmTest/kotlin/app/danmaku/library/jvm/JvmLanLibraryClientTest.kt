@@ -2,6 +2,7 @@ package app.danmaku.library.jvm
 
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryMediaItem
+import app.danmaku.domain.LibrarySubtitleTrack
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.server.LocalLibraryServer
 import app.danmaku.server.PublishedLibrary
@@ -37,6 +38,15 @@ class JvmLanLibraryClientTest {
             sizeBytes = mediaBytes.size.toLong(),
             mediaType = "video/mp4",
             streamPath = "/media/episode-id",
+            subtitles = listOf(
+                LibrarySubtitleTrack(
+                    id = "subtitle-id",
+                    label = "English",
+                    relativePath = "Example Show/Episode 01.en.srt",
+                    mediaType = "application/x-subrip",
+                    streamPath = "/subtitles/subtitle-id",
+                ),
+            ),
         )
         val catalog = LibraryCatalog(
             rootName = "Example Library",
@@ -68,6 +78,10 @@ class JvmLanLibraryClientTest {
                         .toURL()
                         .openStream()
                         .use { it.readBytes() },
+                )
+                assertEquals(
+                    "${server.baseUrl()}/subtitles/subtitle-id?token=token+with+spaces",
+                    client.subtitleUrl(server.baseUrl(), item.subtitles.single(), server.pairingToken),
                 )
                 assertNull(client.fetchProgress(server.baseUrl(), item.id, server.pairingToken))
 

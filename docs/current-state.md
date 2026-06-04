@@ -37,6 +37,9 @@ Updated on 2026-06-04.
 - Recursive Windows anime-folder indexer and trusted-LAN HTTP server exposing a
   paired normalized JSON catalog plus paired seekable byte-range media
   responses.
+- Local indexer discovery and SQLDelight persistence for matching `ASS`, `SSA`,
+  `SRT`, and `VTT` sidecar subtitles, with paired verified-ID
+  `GET`/`HEAD /subtitles/{id}` streaming and JVM/Android client URL generation.
 - Compose-free `shared/library-server-core` JVM module containing the reusable
   paired HTTP server, progress-store contract, verified media-ID publication
   boundary, and UDP discovery announcer. The Windows desktop shell starts it in
@@ -122,7 +125,8 @@ Updated on 2026-06-04.
   multi-megabyte media, concurrent streams, and sequential pause, seek, and
   completion-style progress updates.
 - Android HTTP adapter loopback coverage against a live local server for paired
-  catalog browsing, generated stream consumption, and progress round trips.
+  catalog browsing, generated media and subtitle stream consumption, and
+  progress round trips.
 - API 34 emulator-verified Android Media3 instrumentation coverage with a
   deterministic one-second MP4 asset and loopback HTTP server, including
   service-owned progress upload after the UI controller connection closes and

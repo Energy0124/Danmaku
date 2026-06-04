@@ -82,7 +82,7 @@ catalog and pass selected streams to Media3.
 - [x] Test reconnect after an interrupted LAN catalog request.
 - [x] Test slow LAN catalog response timeout behavior.
 - [x] Test slow media-stream playback and buffering behavior.
-- [ ] Add LAN subtitle streaming tests when subtitle endpoints are implemented.
+- [x] Add LAN subtitle streaming tests for verified sidecar subtitle endpoints.
 - [ ] Exercise PC-to-mobile and PC-to-TV streaming plus cross-device resume on
   physical hardware.
 

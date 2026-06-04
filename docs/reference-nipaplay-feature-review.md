@@ -107,7 +107,7 @@ These remain the highest priority because they validate the platform foundation.
   catalog request.
 - [x] Add LAN-client integration tests for slow catalog response timeouts.
 - [x] Add LAN integration tests for slow media-stream playback and buffering.
-- [ ] Add LAN subtitle streaming tests when subtitle endpoints are implemented.
+- [x] Add LAN subtitle streaming tests for verified sidecar subtitle endpoints.
 
 ### P1: Local Anime Library And Player
 
@@ -122,7 +122,7 @@ This turns the technical slice into a usable local media-center application.
 - [ ] Add favorites and playlists after normalized episode identity is stable.
 - [ ] Add embedded audio-track and subtitle-track selection to the playback contract.
 - [ ] Load local `ASS`, `SSA`, `SRT`, and `VTT` subtitles where supported.
-- [ ] Add local subtitle discovery next to indexed media files.
+- [x] Add local subtitle discovery next to indexed media files.
 - [ ] Add playback controls for seek, rate, volume, fullscreen, and aspect ratio.
 - [ ] Add Android TV player controls with visible focus states and remote-friendly
   seek behavior.
@@ -175,7 +175,8 @@ remote-access server by accident.
 - [ ] Persist trusted-device settings without logging tokens.
 - [ ] Add QR pairing for mobile setup.
 - [ ] Add API version negotiation and compatibility errors.
-- [ ] Stream subtitles and selected external audio over the LAN.
+- [x] Stream subtitles over the LAN.
+- [ ] Stream selected external audio over the LAN.
 - [ ] Add thumbnail endpoints for seek previews.
 - [ ] Add a remote-control API for play, pause, seek, volume, and current state.
 - [ ] Add a responsive local-network web remote after the remote-control API is

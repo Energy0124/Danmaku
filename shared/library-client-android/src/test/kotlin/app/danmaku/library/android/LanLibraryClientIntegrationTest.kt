@@ -2,6 +2,7 @@ package app.danmaku.library.android
 
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryMediaItem
+import app.danmaku.domain.LibrarySubtitleTrack
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.server.LocalLibraryServer
 import app.danmaku.server.PublishedLibrary
@@ -19,7 +20,16 @@ class LanLibraryClientIntegrationTest {
     fun browsesStreamsAndSynchronizesProgressAgainstLocalServer() {
         val mediaBytes = byteArrayOf(0, 1, 2, 3, 4, 5)
         val mediaFile = createTempFile("danmaku-android-client", ".mp4")
+        val subtitleFile = createTempFile("danmaku-android-client", ".srt")
         mediaFile.writeBytes(mediaBytes)
+        subtitleFile.writeBytes("Hello".toByteArray())
+        val subtitle = LibrarySubtitleTrack(
+            id = "subtitle-id",
+            label = "English",
+            relativePath = "Example Show/Episode 01.en.srt",
+            mediaType = "application/x-subrip",
+            streamPath = "/subtitles/subtitle-id",
+        )
         val item = LibraryMediaItem(
             id = "episode-id",
             seriesTitle = "Example Show",
@@ -28,6 +38,7 @@ class LanLibraryClientIntegrationTest {
             sizeBytes = mediaBytes.size.toLong(),
             mediaType = "video/mp4",
             streamPath = "/media/episode-id",
+            subtitles = listOf(subtitle),
         )
         val catalog = LibraryCatalog(
             rootName = "Example Library",
@@ -47,6 +58,7 @@ class LanLibraryClientIntegrationTest {
                     PublishedLibrary(
                         catalog = catalog,
                         filesById = mapOf(item.id to mediaFile),
+                        subtitleFilesById = mapOf(subtitle.id to subtitleFile),
                     ),
                 )
                 server.start()
@@ -56,6 +68,13 @@ class LanLibraryClientIntegrationTest {
                 assertArrayEquals(
                     mediaBytes,
                     URI(client.streamUrl(server.baseUrl(), item, server.pairingToken))
+                        .toURL()
+                        .openStream()
+                        .use { it.readBytes() },
+                )
+                assertArrayEquals(
+                    "Hello".toByteArray(),
+                    URI(client.subtitleUrl(server.baseUrl(), subtitle, server.pairingToken))
                         .toURL()
                         .openStream()
                         .use { it.readBytes() },
@@ -71,6 +90,7 @@ class LanLibraryClientIntegrationTest {
             }
         } finally {
             mediaFile.deleteIfExists()
+            subtitleFile.deleteIfExists()
         }
     }
 }

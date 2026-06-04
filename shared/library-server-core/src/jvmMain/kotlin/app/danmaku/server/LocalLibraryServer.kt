@@ -40,6 +40,7 @@ class LocalLibraryServer(
         server.createContext("/api/library", ::handleCatalog)
         server.createContext("/api/progress/", ::handleProgress)
         server.createContext("/media/", ::handleMedia)
+        server.createContext("/subtitles/", ::handleSubtitle)
         authenticatedPostHooks.forEach { hook ->
             server.createContext(hook.path) { exchange ->
                 handleAuthenticatedPostHook(exchange, hook)
@@ -156,6 +157,38 @@ class LocalLibraryServer(
         }
     }
 
+    private fun handleSubtitle(exchange: HttpExchange) {
+        if (exchange.requestMethod !in setOf("GET", "HEAD")) {
+            exchange.sendStatus(405)
+            return
+        }
+        if (!exchange.isAuthorized()) {
+            exchange.sendStatus(401)
+            return
+        }
+
+        val id = exchange.requestURI.path.removePrefix("/subtitles/")
+        val path = library.subtitleFilesById[id]
+        if (path == null || !Files.isRegularFile(path)) {
+            exchange.sendStatus(404)
+            return
+        }
+
+        val contentLength = Files.size(path)
+        exchange.responseHeaders["Content-Type"] = listOf(contentType(path))
+        exchange.responseHeaders["Cache-Control"] = listOf("no-store")
+        if (exchange.requestMethod == "HEAD") {
+            exchange.responseHeaders["Content-Length"] = listOf(contentLength.toString())
+            exchange.sendResponseHeaders(200, -1)
+            exchange.close()
+            return
+        }
+        exchange.sendResponseHeaders(200, contentLength)
+        Files.newInputStream(path).use { input ->
+            exchange.responseBody.use(input::copyTo)
+        }
+    }
+
     private fun handleProgress(exchange: HttpExchange) {
         if (exchange.requestMethod !in setOf("GET", "PUT")) {
             exchange.sendStatus(405)
@@ -243,7 +276,13 @@ class LocalLibraryServer(
     }
 
     private fun contentType(path: Path): String =
-        Files.probeContentType(path) ?: "application/octet-stream"
+        when (path.fileName.toString().substringAfterLast('.', "").lowercase()) {
+            "ass" -> "text/x-ass"
+            "srt" -> "application/x-subrip"
+            "ssa" -> "text/x-ssa"
+            "vtt" -> "text/vtt"
+            else -> Files.probeContentType(path) ?: "application/octet-stream"
+        }
 
     private fun HttpExchange.isAuthorized(): Boolean {
         val suppliedToken = requestURI.rawQuery

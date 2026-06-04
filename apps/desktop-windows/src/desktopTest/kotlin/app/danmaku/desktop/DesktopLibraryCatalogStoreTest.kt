@@ -5,6 +5,7 @@ import kotlin.io.path.createDirectories
 import kotlin.io.path.createTempDirectory
 import kotlin.io.path.deleteExisting
 import kotlin.io.path.writeBytes
+import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -19,6 +20,8 @@ class DesktopLibraryCatalogStoreTest {
         val episode = root.resolve("Example Show").createDirectories()
             .resolve("Episode 01.mkv")
         episode.writeBytes(byteArrayOf(1, 2, 3))
+        val subtitle = episode.parent.resolve("Episode 01.en.srt")
+        subtitle.writeText("Hello")
         val databasePath = temp.resolve("catalog.db")
 
         DesktopLibraryCatalogStore(databasePath).use { store ->
@@ -28,6 +31,13 @@ class DesktopLibraryCatalogStoreTest {
             val loaded = store.load(root)
             assertEquals(indexed.catalog.items, loaded?.catalog?.items)
             assertEquals(1, loaded?.fileMetadataByRelativePath?.size)
+            assertEquals(
+                subtitle,
+                loaded?.subtitleFilesById?.get(indexed.catalog.items.single().subtitles.single().id),
+            )
+
+            subtitle.deleteExisting()
+            assertEquals(emptyList(), store.load(root)?.catalog?.items?.single()?.subtitles)
 
             episode.deleteExisting()
             assertEquals(emptyList(), store.load(root)?.catalog?.items)

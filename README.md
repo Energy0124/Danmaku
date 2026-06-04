@@ -32,7 +32,7 @@ Implemented today:
 - Windows DPAPI-backed ani-rss API-key and webhook-token storage
 - SQLDelight catalog, playback-progress, settings, and download-queue storage
 - Paired trusted-LAN library server with JSON catalog, byte-range media
-  streaming, and progress API
+  streaming, sidecar subtitle streaming, and progress API
 - UDP discovery for finding the Windows library server from Android clients
 - Android mobile and Android TV apps that browse the Windows catalog and stream
   selected episodes through Media3
@@ -50,7 +50,7 @@ Not implemented yet:
 
 - Real Windows video rendering in the Compose shell
 - Audited/pinned Windows libmpv runtime bundle
-- Subtitle streaming and subtitle selection
+- Subtitle selection and player attachment
 - Authorized download engine
 - Provider plugins, MyAnimeList integration, and danmaku provider integrations
 
@@ -183,7 +183,7 @@ Near-term priorities:
 - Render libmpv video in the Compose desktop app.
 - Synchronize the danmaku overlay to the real playback clock.
 - Exercise PC-to-mobile and PC-to-TV streaming on physical hardware.
-- Add subtitle endpoints and subtitle streaming tests.
+- Attach discovered subtitle tracks to Media3 and Windows playback.
 
 Later priorities include authorized download management, ani-rss monitoring,
 MyAnimeList progress/rating sync, provider plugins, danmaku parsing/filtering,

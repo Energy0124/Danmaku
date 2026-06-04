@@ -497,6 +497,7 @@ internal fun IndexedLocalLibrary.toPublishedLibrary(): PublishedLibrary =
     PublishedLibrary(
         catalog = catalog,
         filesById = filesById,
+        subtitleFilesById = subtitleFilesById,
     )
 
 private fun selectLibraryDirectory(title: String) =

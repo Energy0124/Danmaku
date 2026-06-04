@@ -2,6 +2,7 @@ package app.danmaku.library
 
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryMediaItem
+import app.danmaku.domain.LibrarySubtitleTrack
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.PlaybackSource
@@ -17,6 +18,12 @@ interface LanLibraryClient {
     fun streamUrl(
         baseUrl: String,
         item: LibraryMediaItem,
+        pairingToken: String,
+    ): String
+
+    fun subtitleUrl(
+        baseUrl: String,
+        subtitle: LibrarySubtitleTrack,
         pairingToken: String,
     ): String
 

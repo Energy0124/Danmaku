@@ -2,6 +2,7 @@ package app.danmaku.library.jvm
 
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryMediaItem
+import app.danmaku.domain.LibrarySubtitleTrack
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.library.LanLibraryClient
 import kotlinx.serialization.encodeToString
@@ -45,6 +46,13 @@ class JvmLanLibraryClient(
         pairingToken: String,
     ): String =
         "${baseUrl.trimEnd('/')}${item.streamPath}?token=${pairingToken.encoded()}"
+
+    override fun subtitleUrl(
+        baseUrl: String,
+        subtitle: LibrarySubtitleTrack,
+        pairingToken: String,
+    ): String =
+        "${baseUrl.trimEnd('/')}${subtitle.streamPath}?token=${pairingToken.encoded()}"
 
     override fun fetchProgress(
         baseUrl: String,

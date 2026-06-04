@@ -2,6 +2,7 @@ package app.danmaku.server
 
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryMediaItem
+import app.danmaku.domain.LibrarySubtitleTrack
 import app.danmaku.domain.PlaybackProgress
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -18,6 +19,48 @@ import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 
 class LocalLibraryServerTest {
+    @Test
+    fun streamsOnlyPublishedSubtitleTracks() {
+        val subtitleFile = createTempFile("danmaku-subtitle", ".srt")
+        val subtitleBody = "1\n00:00:00,000 --> 00:00:01,000\nHello\n"
+        subtitleFile.writeBytes(subtitleBody.toByteArray())
+        val track = LibrarySubtitleTrack(
+            id = "subtitle-id",
+            label = "English",
+            relativePath = "Example Show/Episode 01.en.srt",
+            mediaType = "application/x-subrip",
+            streamPath = "/subtitles/subtitle-id",
+        )
+
+        try {
+            LocalLibraryServer(port = 0, pairingToken = "123456").use { server ->
+                server.publish(
+                    PublishedLibrary(
+                        catalog = LibraryCatalog("Example", 123, emptyList()),
+                        filesById = emptyMap(),
+                        subtitleFilesById = mapOf(track.id to subtitleFile),
+                    ),
+                )
+                server.start()
+                val url = "${server.baseUrl()}${track.streamPath}"
+
+                assertEquals(401, connection(url).responseCode)
+                assertEquals(404, connection("${server.baseUrl()}/subtitles/missing?token=123456").responseCode)
+                val headResponse = connection("$url?token=123456").apply {
+                    requestMethod = "HEAD"
+                }
+                assertEquals(200, headResponse.responseCode)
+                assertEquals(subtitleBody.toByteArray().size.toString(), headResponse.getHeaderField("Content-Length"))
+                val response = connection("$url?token=123456")
+                assertEquals(200, response.responseCode)
+                assertEquals("application/x-subrip", response.getHeaderField("Content-Type"))
+                assertEquals(subtitleBody, response.inputStream.bufferedReader().use { it.readText() })
+            }
+        } finally {
+            subtitleFile.deleteIfExists()
+        }
+    }
+
     @Test
     fun acceptsOnlyAuthenticatedPostHooks() {
         val accepted = AtomicInteger()

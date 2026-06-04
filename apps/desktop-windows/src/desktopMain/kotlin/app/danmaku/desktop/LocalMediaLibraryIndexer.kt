@@ -2,6 +2,7 @@ package app.danmaku.desktop
 
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryMediaItem
+import app.danmaku.domain.LibrarySubtitleTrack
 import java.nio.file.Files
 import java.nio.file.Path
 import java.security.MessageDigest
@@ -23,6 +24,7 @@ object LocalMediaLibraryIndexer {
         "webm",
         "wmv",
     )
+    private val subtitleExtensions = setOf("ass", "srt", "ssa", "vtt")
 
     fun index(
         root: Path,
@@ -35,6 +37,7 @@ object LocalMediaLibraryIndexer {
         require(Files.isDirectory(root)) { "library root must be a directory" }
         val normalizedRoot = root.toAbsolutePath().normalize()
         val filesById = linkedMapOf<String, Path>()
+        val subtitleFilesById = linkedMapOf<String, Path>()
         val fileMetadataByRelativePath = linkedMapOf<String, CachedLocalMediaItem>()
         var reusedItemCount = 0
 
@@ -51,16 +54,26 @@ object LocalMediaLibraryIndexer {
                             it.item.sizeBytes == sizeBytes &&
                                 it.lastModifiedEpochMs == lastModifiedEpochMs
                         }
+                    val subtitles = sidecarSubtitles(
+                        root = normalizedRoot,
+                        videoPath = path,
+                        idNamespace = idNamespace,
+                    )
                     val item = cachedItem?.item
+                        ?.copy(subtitles = subtitles.map(LibrarySubtitleFile::track))
                         ?: indexedItem(
                             root = normalizedRoot,
                             path = path,
                             relativePath = relativePath,
                             sizeBytes = sizeBytes,
                             idNamespace = idNamespace,
+                            subtitles = subtitles.map(LibrarySubtitleFile::track),
                         )
                     if (cachedItem != null) reusedItemCount += 1
                     filesById[item.id] = path
+                    subtitles.forEach { subtitle ->
+                        subtitleFilesById[subtitle.track.id] = subtitle.path
+                    }
                     fileMetadataByRelativePath[relativePath] = CachedLocalMediaItem(
                         item = item,
                         lastModifiedEpochMs = lastModifiedEpochMs,
@@ -78,6 +91,7 @@ object LocalMediaLibraryIndexer {
                 items = items,
             ),
             filesById = filesById,
+            subtitleFilesById = subtitleFilesById,
             fileMetadataByRelativePath = fileMetadataByRelativePath,
             scanStats = LocalMediaLibraryScanStats(
                 reusedItemCount = reusedItemCount,
@@ -92,6 +106,7 @@ object LocalMediaLibraryIndexer {
         relativePath: String,
         sizeBytes: Long,
         idNamespace: String?,
+        subtitles: List<LibrarySubtitleTrack>,
     ): LibraryMediaItem {
         val id = sha256(idNamespace?.let { "$it/$relativePath" } ?: relativePath).take(24)
         return LibraryMediaItem(
@@ -102,7 +117,49 @@ object LocalMediaLibraryIndexer {
             sizeBytes = sizeBytes,
             mediaType = mediaType(path.extension),
             streamPath = "/media/$id",
+            subtitles = subtitles,
         )
+    }
+
+    private fun sidecarSubtitles(
+        root: Path,
+        videoPath: Path,
+        idNamespace: String?,
+    ): List<LibrarySubtitleFile> {
+        val parent = videoPath.parent ?: return emptyList()
+        val videoBaseName = videoPath.nameWithoutExtension
+        return Files.list(parent).use { paths ->
+            paths
+                .filter(Files::isRegularFile)
+                .filter { it.extension.lowercase() in subtitleExtensions }
+                .filter { subtitlePath ->
+                    val subtitleBaseName = subtitlePath.nameWithoutExtension
+                    subtitleBaseName.equals(videoBaseName, ignoreCase = true) ||
+                        subtitleBaseName.startsWith("$videoBaseName.", ignoreCase = true)
+                }
+                .map { subtitlePath ->
+                    val relativePath = root.relativeMediaPath(subtitlePath)
+                    val id = sha256(
+                        idNamespace?.let { "$it/subtitle/$relativePath" }
+                            ?: "subtitle/$relativePath",
+                    ).take(24)
+                    val suffix = subtitlePath.nameWithoutExtension
+                        .drop(videoBaseName.length)
+                        .trimStart('.')
+                    LibrarySubtitleFile(
+                        track = LibrarySubtitleTrack(
+                            id = id,
+                            label = suffix.ifBlank { subtitlePath.extension.uppercase() },
+                            relativePath = relativePath,
+                            mediaType = subtitleMediaType(subtitlePath.extension),
+                            streamPath = "/subtitles/$id",
+                        ),
+                        path = subtitlePath,
+                    )
+                }
+                .sorted(compareBy { it.track.relativePath })
+                .toList()
+        }
     }
 
     private fun Path.relativeMediaPath(path: Path): String =
@@ -116,6 +173,15 @@ object LocalMediaLibraryIndexer {
             else -> "application/octet-stream"
         }
 
+    private fun subtitleMediaType(extension: String): String =
+        when (extension.lowercase()) {
+            "srt" -> "application/x-subrip"
+            "vtt" -> "text/vtt"
+            "ass" -> "text/x-ass"
+            "ssa" -> "text/x-ssa"
+            else -> "text/plain"
+        }
+
     private fun sha256(value: String): String =
         MessageDigest
             .getInstance("SHA-256")
@@ -126,8 +192,14 @@ object LocalMediaLibraryIndexer {
 data class IndexedLocalLibrary(
     val catalog: LibraryCatalog,
     val filesById: Map<String, Path>,
+    val subtitleFilesById: Map<String, Path> = emptyMap(),
     val fileMetadataByRelativePath: Map<String, CachedLocalMediaItem> = emptyMap(),
     val scanStats: LocalMediaLibraryScanStats = LocalMediaLibraryScanStats(),
+)
+
+private data class LibrarySubtitleFile(
+    val track: LibrarySubtitleTrack,
+    val path: Path,
 )
 
 data class CachedLocalMediaItem(

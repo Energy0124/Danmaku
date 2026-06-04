@@ -137,15 +137,17 @@ flowchart LR
 ```
 
 The server exposes paired `GET /api/library?token={code}`,
-`GET /media/{id}?token={code}`, and `GET`/`PUT
-/api/progress/{id}?token={code}` requests. Media responses support single HTTP
-byte ranges so Media3 can seek efficiently. Only indexed IDs resolve to
-filesystem paths or progress records; clients never submit arbitrary Windows
-paths. The shell generates and displays a six-digit pairing code for the
-current server process. This first-stage HTTP server is for trusted local
-networks; use a stronger authenticated and encrypted transport before
-supporting untrusted networks. The Windows distributable explicitly includes
-the `jdk.httpserver` and `java.sql` runtime modules.
+`GET /media/{id}?token={code}`, `GET /subtitles/{id}?token={code}`, and
+`GET`/`PUT /api/progress/{id}?token={code}` requests. Media responses support
+single HTTP byte ranges so Media3 can seek efficiently. Subtitle responses are
+limited to indexed `ASS`, `SSA`, `SRT`, and `VTT` sidecars associated with a
+catalog item. Only indexed IDs resolve to filesystem paths or progress records;
+clients never submit arbitrary Windows paths. The shell generates and displays
+a six-digit pairing code for the current server process. This first-stage HTTP
+server is for trusted local networks; use a stronger authenticated and
+encrypted transport before supporting untrusted networks. The Windows
+distributable explicitly includes the `jdk.httpserver` and `java.sql` runtime
+modules.
 
 The Windows host also registers authenticated provider-completion hooks on the
 same server. The initial `POST /api/hooks/ani-rss/download-end` endpoint

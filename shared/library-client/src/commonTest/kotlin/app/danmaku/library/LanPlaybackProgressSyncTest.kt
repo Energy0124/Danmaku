@@ -2,6 +2,7 @@ package app.danmaku.library
 
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryMediaItem
+import app.danmaku.domain.LibrarySubtitleTrack
 import app.danmaku.domain.PlaybackPosition
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.domain.PlaybackSnapshot
@@ -150,6 +151,12 @@ class LanPlaybackProgressSyncTest {
             item: LibraryMediaItem,
             pairingToken: String,
         ): String = streamUrl
+
+        override fun subtitleUrl(
+            baseUrl: String,
+            subtitle: LibrarySubtitleTrack,
+            pairingToken: String,
+        ): String = error("not used")
 
         override fun fetchProgress(
             baseUrl: String,

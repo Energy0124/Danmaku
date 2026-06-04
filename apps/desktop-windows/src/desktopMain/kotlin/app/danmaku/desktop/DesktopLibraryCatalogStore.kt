@@ -4,8 +4,11 @@ import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import app.danmaku.desktop.db.DesktopLibraryDatabase
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryMediaItem
+import app.danmaku.domain.LibrarySubtitleTrack
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.server.PlaybackProgressStore
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import java.nio.file.Files
 import java.nio.file.Path
 
@@ -46,6 +49,8 @@ class DesktopLibraryCatalogStore(
             sql = CREATE_LIBRARY_ROOT_MEDIA_ITEM_TABLE_SQL,
             parameters = 0,
         )
+        addColumnIfMissing("local_media_item", "subtitles_json", "TEXT NOT NULL DEFAULT '[]'")
+        addColumnIfMissing("library_root_media_item", "subtitles_json", "TEXT NOT NULL DEFAULT '[]'")
         database = DesktopLibraryDatabase(driver)
     }
 
@@ -58,6 +63,7 @@ class DesktopLibraryCatalogStore(
             ?.takeIf { Path.of(it.rootPath).toAbsolutePath().normalize() == normalizedRoot }
             ?: return null
         val filesById = linkedMapOf<String, Path>()
+        val subtitleFilesById = linkedMapOf<String, Path>()
         val itemMetadata = database.libraryCatalogQueries
             .selectAllItems(::storedItem)
             .executeAsList()
@@ -66,9 +72,17 @@ class DesktopLibraryCatalogStore(
                     .normalize()
                     .takeIf { it.startsWith(normalizedRoot) }
                     ?.takeIf(Files::isRegularFile)
-                    ?: return@mapNotNull null
-                filesById[cachedItem.item.id] = path
-                cachedItem.item.relativePath to cachedItem
+                ?: return@mapNotNull null
+                val availableItem = cachedItem.copy(
+                    item = cachedItem.item.copy(
+                        subtitles = cachedItem.item.subtitles.resolveExistingFiles(
+                            normalizedRoot,
+                            subtitleFilesById,
+                        ),
+                    ),
+                )
+                filesById[availableItem.item.id] = path
+                availableItem.item.relativePath to availableItem
             }
             .toMap(linkedMapOf())
         return IndexedLocalLibrary(
@@ -78,6 +92,7 @@ class DesktopLibraryCatalogStore(
                 items = itemMetadata.values.map(CachedLocalMediaItem::item),
             ),
             filesById = filesById,
+            subtitleFilesById = subtitleFilesById,
             fileMetadataByRelativePath = itemMetadata,
         )
     }
@@ -104,6 +119,7 @@ class DesktopLibraryCatalogStore(
                     cachedItem.lastModifiedEpochMs,
                     item.mediaType,
                     item.streamPath,
+                    Json.encodeToString(item.subtitles),
                 )
             }
         }
@@ -114,6 +130,7 @@ class DesktopLibraryCatalogStore(
         val storedRoot = loadLibraryRoot(root.id) ?: return null
         val rootPath = storedRoot.normalizedPath
         val filesById = linkedMapOf<String, Path>()
+        val subtitleFilesById = linkedMapOf<String, Path>()
         val itemMetadata = database.libraryCatalogQueries
             .selectRootItems(root.id, ::storedItem)
             .executeAsList()
@@ -122,9 +139,17 @@ class DesktopLibraryCatalogStore(
                     .normalize()
                     .takeIf { it.startsWith(rootPath) }
                     ?.takeIf(Files::isRegularFile)
-                    ?: return@mapNotNull null
-                filesById[cachedItem.item.id] = path
-                cachedItem.item.relativePath to cachedItem
+                ?: return@mapNotNull null
+                val availableItem = cachedItem.copy(
+                    item = cachedItem.item.copy(
+                        subtitles = cachedItem.item.subtitles.resolveExistingFiles(
+                            rootPath,
+                            subtitleFilesById,
+                        ),
+                    ),
+                )
+                filesById[availableItem.item.id] = path
+                availableItem.item.relativePath to availableItem
             }
             .toMap(linkedMapOf())
         return IndexedLocalLibrary(
@@ -134,6 +159,7 @@ class DesktopLibraryCatalogStore(
                 items = itemMetadata.values.map(CachedLocalMediaItem::item),
             ),
             filesById = filesById,
+            subtitleFilesById = subtitleFilesById,
             fileMetadataByRelativePath = itemMetadata,
         )
     }
@@ -141,6 +167,7 @@ class DesktopLibraryCatalogStore(
     @Synchronized
     fun loadRegisteredLibrary(): IndexedLocalLibrary {
         val filesById = linkedMapOf<String, Path>()
+        val subtitleFilesById = linkedMapOf<String, Path>()
         val itemMetadata = linkedMapOf<String, CachedLocalMediaItem>()
         var indexedAtEpochMs = 0L
 
@@ -150,10 +177,16 @@ class DesktopLibraryCatalogStore(
                 val library = load(root) ?: return@forEach
                 indexedAtEpochMs = maxOf(indexedAtEpochMs, library.catalog.indexedAtEpochMs)
                 filesById += library.filesById
+                subtitleFilesById += library.subtitleFilesById
                 library.fileMetadataByRelativePath.forEach { (relativePath, cachedItem) ->
                     val publishedRelativePath = "${root.displayName}/$relativePath"
                     itemMetadata["${root.id}/$relativePath"] = cachedItem.copy(
-                        item = cachedItem.item.copy(relativePath = publishedRelativePath),
+                        item = cachedItem.item.copy(
+                            relativePath = publishedRelativePath,
+                            subtitles = cachedItem.item.subtitles.map { subtitle ->
+                                subtitle.copy(relativePath = "${root.displayName}/${subtitle.relativePath}")
+                            },
+                        ),
                     )
                 }
             }
@@ -167,6 +200,7 @@ class DesktopLibraryCatalogStore(
                     .sortedWith(compareBy(LibraryMediaItem::seriesTitle, LibraryMediaItem::relativePath)),
             ),
             filesById = filesById,
+            subtitleFilesById = subtitleFilesById,
             fileMetadataByRelativePath = itemMetadata,
         )
     }
@@ -188,6 +222,7 @@ class DesktopLibraryCatalogStore(
                     cachedItem.lastModifiedEpochMs,
                     item.mediaType,
                     item.streamPath,
+                    Json.encodeToString(item.subtitles),
                 )
             }
         }
@@ -302,6 +337,20 @@ class DesktopLibraryCatalogStore(
         driver.close()
     }
 
+    private fun addColumnIfMissing(
+        table: String,
+        column: String,
+        definition: String,
+    ) {
+        runCatching {
+            driver.execute(
+                identifier = null,
+                sql = "ALTER TABLE $table ADD COLUMN $column $definition",
+                parameters = 0,
+            )
+        }
+    }
+
     companion object {
         private val CREATE_PLAYBACK_PROGRESS_TABLE_SQL = """
             CREATE TABLE IF NOT EXISTS playback_progress (
@@ -344,6 +393,7 @@ class DesktopLibraryCatalogStore(
               last_modified_epoch_ms INTEGER NOT NULL,
               media_type TEXT NOT NULL,
               stream_path TEXT NOT NULL,
+              subtitles_json TEXT NOT NULL DEFAULT '[]',
               PRIMARY KEY(root_id, relative_path)
             )
         """.trimIndent()
@@ -381,6 +431,7 @@ class DesktopLibraryCatalogStore(
             lastModifiedEpochMs: Long,
             mediaType: String,
             streamPath: String,
+            subtitlesJson: String,
         ): CachedLocalMediaItem =
             CachedLocalMediaItem(
                 item = LibraryMediaItem(
@@ -391,6 +442,7 @@ class DesktopLibraryCatalogStore(
                     sizeBytes = sizeBytes,
                     mediaType = mediaType,
                     streamPath = streamPath,
+                    subtitles = Json.decodeFromString<List<LibrarySubtitleTrack>>(subtitlesJson),
                 ),
                 lastModifiedEpochMs = lastModifiedEpochMs,
             )
@@ -440,6 +492,20 @@ class DesktopLibraryCatalogStore(
             )
     }
 }
+
+private fun List<LibrarySubtitleTrack>.resolveExistingFiles(
+    root: Path,
+    destination: MutableMap<String, Path>,
+): List<LibrarySubtitleTrack> =
+    mapNotNull { subtitle ->
+        val path = root.resolve(subtitle.relativePath)
+            .normalize()
+            .takeIf { it.startsWith(root) }
+            ?.takeIf(Files::isRegularFile)
+            ?: return@mapNotNull null
+        destination[subtitle.id] = path
+        subtitle
+    }
 
 data class DesktopLibraryRoot(
     val id: String,
