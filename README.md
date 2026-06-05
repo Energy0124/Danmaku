@@ -71,6 +71,8 @@ Implemented today:
 - Android background playback service with resume lookup and periodic progress
   upload
 - Shared Kotlin playback, library-client, and danmaku scheduling contracts
+- Shared normalized danmaku event modes plus dependency-free local Bilibili XML
+  and normalized JSON parsing
 - Desktop preparation for local-file and paired-LAN playback requests, including
   resume seeks and native mpv command execution
 - Rust libmpv loader/probe plus a small C ABI and Kotlin/JNA binding for the

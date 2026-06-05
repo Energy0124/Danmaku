@@ -97,6 +97,9 @@ Updated on 2026-06-05.
   visible-window lookup, backward-seek query coverage, and a 10,000-comment
   generated-track test. The scheduler also exposes sampled visibility metrics
   for measuring peak and average overlay density on large tracks.
+- Shared local danmaku parser for common Bilibili-style XML `<d p="...">`
+  comments and normalized JSON arrays/envelopes, producing provider-independent
+  scrolling, top, and bottom `DanmakuEvent` modes.
 - Compose Multiplatform 1.11.0 Windows desktop shell with synthetic danmaku
   scheduling backed by the shared scheduler and rendered over mpv as ASS.
 - Recursive Windows anime-folder indexer and trusted-LAN HTTP server exposing a

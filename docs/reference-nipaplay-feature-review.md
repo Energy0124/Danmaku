@@ -156,8 +156,8 @@ This turns the technical slice into a usable local media-center application.
 
 Danmaku is a first-class product feature, not a visual add-on.
 
-- [ ] Define normalized scrolling, top, and bottom danmaku event types.
-- [ ] Parse local XML and JSON danmaku files.
+- [x] Define normalized scrolling, top, and bottom danmaku event types.
+- [x] Parse local XML and JSON danmaku files.
 - [ ] Add manual danmaku-file mounting for an episode.
 - [ ] Add timeline offset controls and remember per-episode offsets.
 - [ ] Add show/hide, opacity, font-size, speed, density, and display-area settings.

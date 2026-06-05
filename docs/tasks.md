@@ -64,6 +64,9 @@ indexed sidecar subtitles to Media3.
 - [x] Render a synthetic danmaku overlay on top of Windows mpv playback.
 - [x] Add bounded visible-window queries and generated-track scheduler tests.
 - [x] Measure overlay behavior with a large generated timeline.
+- [x] Define normalized scrolling, top, and bottom danmaku event modes.
+- [x] Parse local Bilibili-style XML and normalized JSON danmaku files into the
+  shared domain model.
 - [x] Add seek and playback-rate test cases.
 - [x] Add Windows progress-bar scrubbing, live mpv position polling, and
   throttled local/paired progress persistence.
