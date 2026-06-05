@@ -399,6 +399,68 @@ private fun DesktopShell() {
                         .fillMaxSize()
                         .padding(24.dp),
                 ) {
+                    PlaybackTab(
+                        playbackSnapshot = playbackSnapshot,
+                        mpvRuntimeStatus = mpvRuntime.statusMessage,
+                        videoHostStatus = if (mpvVideoWindowId == null) {
+                            "waiting for native window"
+                        } else {
+                            "attached"
+                        },
+                        overlayStatus = overlayStatus,
+                        mpvCommandLog = mpvCommandLog,
+                        diagnosticLog = diagnosticLog,
+                        appLogPath = diagnosticFileLog.appLogPath,
+                        mpvLogPath = diagnosticFileLog.mpvLogPath,
+                        onWindowIdChanged = { mpvVideoWindowId = it },
+                        onOpenMediaFile = {
+                            appendDiagnostic("playback", "Opening direct media file picker")
+                            selectMediaFile(
+                                title = "Choose media file for Windows playback",
+                            )?.let { mediaFile ->
+                                appendDiagnostic("playback", "Loading direct media file: $mediaFile")
+                                playbackSnapshot = playbackSession.load(
+                                    mediaFile.toDirectLocalPlaybackRequest(),
+                                )
+                            }
+                        },
+                        onPlay = {
+                            appendDiagnostic("playback", "Dispatch Play")
+                            playbackController.dispatch(PlaybackCommand.Play)
+                            playbackSnapshot = playbackController.snapshot()
+                        },
+                        onPause = {
+                            appendDiagnostic("playback", "Dispatch Pause")
+                            playbackController.dispatch(PlaybackCommand.Pause)
+                            playbackSnapshot = playbackController.snapshot()
+                        },
+                        onSeekBackward = {
+                            appendDiagnostic("playback", "Dispatch Seek -10s")
+                            playbackController.dispatch(
+                                PlaybackCommand.SeekTo(
+                                    maxOf(0, playbackSnapshot.position.positionMs - 10_000),
+                                ),
+                            )
+                            playbackSnapshot = playbackController.snapshot()
+                        },
+                        onSeekForward = {
+                            appendDiagnostic("playback", "Dispatch Seek +10s")
+                            playbackController.dispatch(
+                                PlaybackCommand.SeekTo(
+                                    playbackSnapshot.position.positionMs + 10_000,
+                                ),
+                            )
+                            playbackSnapshot = playbackController.snapshot()
+                        },
+                        canOpenMedia = mpvVideoWindowId != null,
+                        modifier = if (selectedTab == DesktopShellTab.PLAYBACK) {
+                            Modifier.fillMaxSize()
+                        } else {
+                            Modifier
+                                .width(1.dp)
+                                .height(1.dp)
+                        },
+                    )
                     when (selectedTab) {
                         DesktopShellTab.HOME -> HomeTab(
                             playbackSnapshot = playbackSnapshot,
@@ -411,61 +473,7 @@ private fun DesktopShell() {
                             lastScanStats = lastScanStats,
                             diagnosticLog = diagnosticLog,
                         )
-                        DesktopShellTab.PLAYBACK -> PlaybackTab(
-                            playbackSnapshot = playbackSnapshot,
-                            mpvRuntimeStatus = mpvRuntime.statusMessage,
-                            videoHostStatus = if (mpvVideoWindowId == null) {
-                                "waiting for native window"
-                            } else {
-                                "attached"
-                            },
-                            overlayStatus = overlayStatus,
-                            mpvCommandLog = mpvCommandLog,
-                            diagnosticLog = diagnosticLog,
-                            appLogPath = diagnosticFileLog.appLogPath,
-                            mpvLogPath = diagnosticFileLog.mpvLogPath,
-                            onWindowIdChanged = { mpvVideoWindowId = it },
-                            onOpenMediaFile = {
-                                appendDiagnostic("playback", "Opening direct media file picker")
-                                selectMediaFile(
-                                    title = "Choose media file for Windows playback",
-                                )?.let { mediaFile ->
-                                    appendDiagnostic("playback", "Loading direct media file: $mediaFile")
-                                    playbackSnapshot = playbackSession.load(
-                                        mediaFile.toDirectLocalPlaybackRequest(),
-                                    )
-                                }
-                            },
-                            onPlay = {
-                                appendDiagnostic("playback", "Dispatch Play")
-                                playbackController.dispatch(PlaybackCommand.Play)
-                                playbackSnapshot = playbackController.snapshot()
-                            },
-                            onPause = {
-                                appendDiagnostic("playback", "Dispatch Pause")
-                                playbackController.dispatch(PlaybackCommand.Pause)
-                                playbackSnapshot = playbackController.snapshot()
-                            },
-                            onSeekBackward = {
-                                appendDiagnostic("playback", "Dispatch Seek -10s")
-                                playbackController.dispatch(
-                                    PlaybackCommand.SeekTo(
-                                        maxOf(0, playbackSnapshot.position.positionMs - 10_000),
-                                    ),
-                                )
-                                playbackSnapshot = playbackController.snapshot()
-                            },
-                            onSeekForward = {
-                                appendDiagnostic("playback", "Dispatch Seek +10s")
-                                playbackController.dispatch(
-                                    PlaybackCommand.SeekTo(
-                                        playbackSnapshot.position.positionMs + 10_000,
-                                    ),
-                                )
-                                playbackSnapshot = playbackController.snapshot()
-                            },
-                            canOpenMedia = mpvVideoWindowId != null,
-                        )
+                        DesktopShellTab.PLAYBACK -> Unit
                         DesktopShellTab.MEDIA_LIBRARY -> MediaLibraryTab(
                             registeredRoots = registeredRoots,
                             indexedLibrary = indexedLibrary,
@@ -720,8 +728,9 @@ private fun PlaybackTab(
     onSeekBackward: () -> Unit,
     onSeekForward: () -> Unit,
     canOpenMedia: Boolean,
+    modifier: Modifier = Modifier,
 ) {
-    TabScaffold {
+    TabScaffold(modifier = modifier) {
         SectionCard("Video Playback") {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -948,10 +957,11 @@ private fun ProfileTab(
 
 @Composable
 private fun TabScaffold(
+    modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp),
