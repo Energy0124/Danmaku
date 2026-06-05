@@ -74,8 +74,9 @@ indexed sidecar subtitles to Media3.
   AppId/AppSecret credentials with secure storage and redacted diagnostics.
 - [x] Attach matched dandanplay-fetched tracks to Windows local-library playback
   by rendering fetched comments into a cached ASS overlay file.
-- [ ] Persist chosen dandanplay `episodeId` values and fetched raw comments per
-  local catalog item so rematches are avoidable and cache expiry can be explicit.
+- [x] Persist chosen dandanplay `episodeId` values and fetched raw comments per
+  local catalog item so rematches are avoidable when file fingerprints match.
+- [ ] Add dandanplay manual rematch and cache-expiry controls.
 - [x] Add seek and playback-rate test cases.
 - [x] Add Windows progress-bar scrubbing, live mpv position polling, and
   throttled local/paired progress persistence.

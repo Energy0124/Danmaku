@@ -67,6 +67,21 @@ CREATE TABLE download_queue_item (
   failure_message TEXT
 );
 
+CREATE TABLE dandanplay_comment_cache (
+  media_id TEXT NOT NULL PRIMARY KEY,
+  file_hash TEXT NOT NULL,
+  file_name TEXT NOT NULL,
+  file_size_bytes INTEGER NOT NULL,
+  episode_id INTEGER,
+  anime_id INTEGER,
+  anime_title TEXT,
+  episode_title TEXT,
+  shift_seconds REAL,
+  comments_json TEXT NOT NULL,
+  rendered_ass_path TEXT,
+  fetched_at_epoch_ms INTEGER NOT NULL
+);
+
 selectMetadata:
 SELECT root_path, root_name, indexed_at_epoch_ms
 FROM library_metadata
@@ -278,3 +293,41 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
 deleteDownload:
 DELETE FROM download_queue_item
 WHERE id = ?;
+
+selectDandanplayCommentCache:
+SELECT
+  media_id,
+  file_hash,
+  file_name,
+  file_size_bytes,
+  episode_id,
+  anime_id,
+  anime_title,
+  episode_title,
+  shift_seconds,
+  comments_json,
+  rendered_ass_path,
+  fetched_at_epoch_ms
+FROM dandanplay_comment_cache
+WHERE media_id = ?;
+
+upsertDandanplayCommentCache:
+INSERT OR REPLACE INTO dandanplay_comment_cache(
+  media_id,
+  file_hash,
+  file_name,
+  file_size_bytes,
+  episode_id,
+  anime_id,
+  anime_title,
+  episode_title,
+  shift_seconds,
+  comments_json,
+  rendered_ass_path,
+  fetched_at_epoch_ms
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteDandanplayCommentCache:
+DELETE FROM dandanplay_comment_cache
+WHERE media_id = ?;

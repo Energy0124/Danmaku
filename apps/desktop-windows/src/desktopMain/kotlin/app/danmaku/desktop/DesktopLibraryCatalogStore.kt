@@ -14,7 +14,7 @@ import java.nio.file.Path
 
 class DesktopLibraryCatalogStore(
     databasePath: Path,
-) : AutoCloseable, PlaybackProgressStore {
+) : AutoCloseable, PlaybackProgressStore, DandanplayCommentCacheStore {
     private val driver: JdbcSqliteDriver
     private val database: DesktopLibraryDatabase
 
@@ -47,6 +47,11 @@ class DesktopLibraryCatalogStore(
         driver.execute(
             identifier = null,
             sql = CREATE_LIBRARY_ROOT_MEDIA_ITEM_TABLE_SQL,
+            parameters = 0,
+        )
+        driver.execute(
+            identifier = null,
+            sql = CREATE_DANDANPLAY_COMMENT_CACHE_TABLE_SQL,
             parameters = 0,
         )
         addColumnIfMissing("local_media_item", "subtitles_json", "TEXT NOT NULL DEFAULT '[]'")
@@ -339,6 +344,35 @@ class DesktopLibraryCatalogStore(
         database.libraryCatalogQueries.deleteDownload(id)
     }
 
+    @Synchronized
+    override fun loadDandanplayCommentCache(mediaId: String): DesktopDandanplayCommentCache? =
+        database.libraryCatalogQueries
+            .selectDandanplayCommentCache(mediaId, ::desktopDandanplayCommentCache)
+            .executeAsOneOrNull()
+
+    @Synchronized
+    override fun saveDandanplayCommentCache(cache: DesktopDandanplayCommentCache) {
+        database.libraryCatalogQueries.upsertDandanplayCommentCache(
+            cache.mediaId,
+            cache.fileHash,
+            cache.fileName,
+            cache.fileSizeBytes,
+            cache.episodeId,
+            cache.animeId,
+            cache.animeTitle,
+            cache.episodeTitle,
+            cache.shiftSeconds,
+            cache.commentsJson,
+            cache.renderedAssPath,
+            cache.fetchedAtEpochMs,
+        )
+    }
+
+    @Synchronized
+    fun deleteDandanplayCommentCache(mediaId: String) {
+        database.libraryCatalogQueries.deleteDandanplayCommentCache(mediaId)
+    }
+
     override fun close() {
         driver.close()
     }
@@ -415,6 +449,23 @@ class DesktopLibraryCatalogStore(
               created_at_epoch_ms INTEGER NOT NULL,
               updated_at_epoch_ms INTEGER NOT NULL,
               failure_message TEXT
+            )
+        """.trimIndent()
+
+        private val CREATE_DANDANPLAY_COMMENT_CACHE_TABLE_SQL = """
+            CREATE TABLE IF NOT EXISTS dandanplay_comment_cache (
+              media_id TEXT NOT NULL PRIMARY KEY,
+              file_hash TEXT NOT NULL,
+              file_name TEXT NOT NULL,
+              file_size_bytes INTEGER NOT NULL,
+              episode_id INTEGER,
+              anime_id INTEGER,
+              anime_title TEXT,
+              episode_title TEXT,
+              shift_seconds REAL,
+              comments_json TEXT NOT NULL,
+              rendered_ass_path TEXT,
+              fetched_at_epoch_ms INTEGER NOT NULL
             )
         """.trimIndent()
 
@@ -495,6 +546,35 @@ class DesktopLibraryCatalogStore(
                 createdAtEpochMs = createdAtEpochMs,
                 updatedAtEpochMs = updatedAtEpochMs,
                 failureMessage = failureMessage,
+            )
+
+        private fun desktopDandanplayCommentCache(
+            mediaId: String,
+            fileHash: String,
+            fileName: String,
+            fileSizeBytes: Long,
+            episodeId: Long?,
+            animeId: Long?,
+            animeTitle: String?,
+            episodeTitle: String?,
+            shiftSeconds: Double?,
+            commentsJson: String,
+            renderedAssPath: String?,
+            fetchedAtEpochMs: Long,
+        ): DesktopDandanplayCommentCache =
+            DesktopDandanplayCommentCache(
+                mediaId = mediaId,
+                fileHash = fileHash,
+                fileName = fileName,
+                fileSizeBytes = fileSizeBytes,
+                episodeId = episodeId,
+                animeId = animeId,
+                animeTitle = animeTitle,
+                episodeTitle = episodeTitle,
+                shiftSeconds = shiftSeconds,
+                commentsJson = commentsJson,
+                renderedAssPath = renderedAssPath,
+                fetchedAtEpochMs = fetchedAtEpochMs,
             )
     }
 }
@@ -580,6 +660,32 @@ data class DesktopDownloadQueueItem(
         require(totalBytes == null || totalBytes >= 0) { "totalBytes must not be negative" }
         require(createdAtEpochMs >= 0) { "createdAtEpochMs must not be negative" }
         require(updatedAtEpochMs >= 0) { "updatedAtEpochMs must not be negative" }
+    }
+}
+
+data class DesktopDandanplayCommentCache(
+    val mediaId: String,
+    val fileHash: String,
+    val fileName: String,
+    val fileSizeBytes: Long,
+    val episodeId: Long?,
+    val animeId: Long?,
+    val animeTitle: String?,
+    val episodeTitle: String?,
+    val shiftSeconds: Double?,
+    val commentsJson: String,
+    val renderedAssPath: String?,
+    val fetchedAtEpochMs: Long,
+) {
+    init {
+        require(mediaId.isNotBlank()) { "mediaId must not be blank" }
+        require(fileHash.matches(Regex("[A-Fa-f0-9]{32}"))) { "fileHash must be a 32-character MD5 hex digest" }
+        require(fileName.isNotBlank()) { "fileName must not be blank" }
+        require(fileSizeBytes >= 0) { "fileSizeBytes must not be negative" }
+        require(episodeId == null || episodeId > 0) { "episodeId must be positive" }
+        require(animeId == null || animeId > 0) { "animeId must be positive" }
+        require(commentsJson.isNotBlank()) { "commentsJson must not be blank" }
+        require(fetchedAtEpochMs >= 0) { "fetchedAtEpochMs must not be negative" }
     }
 }
 

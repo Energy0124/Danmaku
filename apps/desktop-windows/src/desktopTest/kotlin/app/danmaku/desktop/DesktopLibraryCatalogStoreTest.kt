@@ -319,6 +319,39 @@ class DesktopLibraryCatalogStoreTest {
     }
 
     @Test
+    fun persistsDandanplayCommentCache() {
+        val temp = createTempDirectory("danmaku-dandanplay-cache")
+        val databasePath = temp.resolve("catalog.db")
+        val cache = DesktopDandanplayCommentCache(
+            mediaId = "episode-id",
+            fileHash = "5d41402abc4b2a76b9719d911017c592",
+            fileName = "Episode 01.mkv",
+            fileSizeBytes = 123,
+            episodeId = 456,
+            animeId = 789,
+            animeTitle = "Example Anime",
+            episodeTitle = "Episode 01",
+            shiftSeconds = 0.5,
+            commentsJson = """{"events":[{"timestampMs":1000,"text":"hello"}]}""",
+            renderedAssPath = temp.resolve("cache.ass").toString(),
+            fetchedAtEpochMs = 1234,
+        )
+
+        DesktopLibraryCatalogStore(databasePath).use { store ->
+            store.saveDandanplayCommentCache(cache)
+            assertEquals(cache, store.loadDandanplayCommentCache(cache.mediaId))
+        }
+
+        DesktopLibraryCatalogStore(databasePath).use { store ->
+            assertEquals(cache, store.loadDandanplayCommentCache(cache.mediaId))
+            store.deleteDandanplayCommentCache(cache.mediaId)
+            assertNull(store.loadDandanplayCommentCache(cache.mediaId))
+        }
+
+        temp.toFile().deleteRecursively()
+    }
+
+    @Test
     fun addsProgressStorageToAnExistingCatalogDatabase() {
         val temp = createTempDirectory("danmaku-existing-library-database")
         val databasePath = temp.resolve("catalog.db")
@@ -400,6 +433,38 @@ class DesktopLibraryCatalogStoreTest {
         DesktopLibraryCatalogStore(databasePath).use { store ->
             store.saveLibraryRoot(root)
             assertEquals(root, store.loadLibraryRoot(root.id))
+        }
+
+        temp.toFile().deleteRecursively()
+    }
+
+    @Test
+    fun addsDandanplayCommentCacheStorageToAnExistingCatalogDatabase() {
+        val temp = createTempDirectory("danmaku-existing-dandanplay-cache-database")
+        val databasePath = temp.resolve("catalog.db")
+        DriverManager.getConnection("jdbc:sqlite:${databasePath.toAbsolutePath()}").use {
+            it.createStatement().use { statement ->
+                statement.execute("PRAGMA user_version = 1")
+            }
+        }
+        val cache = DesktopDandanplayCommentCache(
+            mediaId = "episode-id",
+            fileHash = "5d41402abc4b2a76b9719d911017c592",
+            fileName = "Episode 01.mkv",
+            fileSizeBytes = 123,
+            episodeId = 456,
+            animeId = null,
+            animeTitle = null,
+            episodeTitle = null,
+            shiftSeconds = null,
+            commentsJson = """{"events":[]}""",
+            renderedAssPath = null,
+            fetchedAtEpochMs = 1234,
+        )
+
+        DesktopLibraryCatalogStore(databasePath).use { store ->
+            store.saveDandanplayCommentCache(cache)
+            assertEquals(cache, store.loadDandanplayCommentCache(cache.mediaId))
         }
 
         temp.toFile().deleteRecursively()

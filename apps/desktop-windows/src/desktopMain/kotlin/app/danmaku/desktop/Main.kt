@@ -137,6 +137,7 @@ private fun DesktopShell() {
     val dandanplayDanmakuResolver = remember(dandanplayCredentialStore) {
         DesktopDandanplayDanmakuResolver(
             loadConnection = dandanplayCredentialStore::loadConnection,
+            cacheStore = catalogStore,
         )
     }
     val lanProgressSync = remember {
@@ -549,7 +550,7 @@ private fun DesktopShell() {
                         appendDiagnostic(
                             "danmaku",
                             "Attached dandanplay match ${result.dandanplayResolution.match?.displayTitle ?: "unknown"} " +
-                                "with ${result.dandanplayResolution.eventCount} comments",
+                                "with ${result.dandanplayResolution.eventCount} comments from ${result.dandanplayResolution.source.name.lowercase()}",
                         )
                     result.dandanplayResolution?.match != null ->
                         appendDiagnostic(

@@ -115,6 +115,11 @@ Updated on 2026-06-05.
   mpv in place of the synthetic demo track. Fetching is skipped until the user
   either configures official credentials or points the app at a non-default
   compatible API server.
+- The desktop SQLite catalog now persists dandanplay match metadata, local media
+  fingerprints, raw normalized comment JSON, rendered ASS cache paths, and fetch
+  timestamps per local media item. The resolver reuses cached comments when the
+  current fingerprint matches and refreshes from the provider when the file
+  hash or size changes.
 - Compose Multiplatform 1.11.0 Windows desktop shell with synthetic danmaku
   scheduling backed by the shared scheduler and rendered over mpv as ASS.
 - Recursive Windows anime-folder indexer and trusted-LAN HTTP server exposing a
@@ -262,8 +267,7 @@ With an Android emulator or device online, run:
 2. Validate the Windows child-window playback spike with local files, resize,
    fullscreen, hardware decoding, 4K media, and the mpv-rendered synthetic ASS
    overlay.
-3. Persist dandanplay match choices and fetched raw comments per episode, then
-   add manual rematch and cache-expiry controls.
+3. Add dandanplay manual rematch and cache-expiry controls.
 4. Re-audit the libmpv bundle before changing its producer artifact or hashes.
 
 ## Runtime Smoke Check
