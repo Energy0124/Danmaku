@@ -138,15 +138,24 @@ cargo test --workspace
 .\gradlew.bat --no-daemon :apps:android-mobile:assembleDebug :apps:android-tv:assembleDebug
 ```
 
-To prepare the runtime-free Windows portable release:
+To build and run the Windows shell in a developer checkout:
 
 ```powershell
-.\gradlew.bat --no-daemon :apps:desktop-windows:licensee :apps:desktop-windows:createDistributable
-.\tools\windows\prepare-windows-release.ps1
-.\tools\windows\verify-release-licensing.ps1
+.\run-windows.ps1
 ```
 
-Run it with `apps\desktop-windows\build\release\windows-portable\run-danmaku.ps1`.
+This builds the Rust mpv bridge, installs the pinned LGPL libmpv dependency
+only when it is missing, exports the native paths for the current process, and
+starts the Compose Desktop app.
+
+To build and run the runtime-free Windows portable release:
+
+```powershell
+.\run-windows.ps1 -Portable
+```
+
+The prepared portable launcher is
+`apps\desktop-windows\build\release\windows-portable\run-danmaku.ps1`.
 
 With an Android emulator or device online:
 
@@ -158,7 +167,7 @@ With an Android emulator or device online:
 ## Run The Windows Shell
 
 ```powershell
-.\gradlew.bat --no-daemon :apps:desktop-windows:run
+.\run-windows.ps1
 ```
 
 In the Windows shell:
@@ -203,8 +212,8 @@ cargo run -p player-windows-mpv --bin mpv-probe
 The probe loads the DLL, prints the mpv client API version, initializes an mpv
 context, and shuts it down cleanly.
 
-To run the desktop shell with native command execution in a developer checkout,
-build the Rust bridge and expose both native paths:
+If you need to run each native setup step manually, build the Rust bridge and
+expose both native paths:
 
 ```powershell
 cargo build -p player-windows-mpv --lib
