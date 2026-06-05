@@ -55,6 +55,20 @@ class DesktopMpvNativeCommandExecutorTest {
     }
 
     @Test
+    fun readsNativeProperties() {
+        val nativeLibrary = RecordingDesktopMpvNativeLibrary(
+            properties = mapOf("time-pos" to "12.345"),
+        )
+        val executor = DesktopMpvNativeCommandExecutor.create(
+            nativeLibrary = nativeLibrary,
+            libmpvPath = Path.of("S:/runtime/windows/libmpv/libmpv-2.dll"),
+        )
+
+        assertEquals("12.345", executor.readProperty("time-pos"))
+        assertEquals(null, executor.readProperty("duration"))
+    }
+
+    @Test
     fun reportsNativeCreationFailures() {
         val nativeLibrary = RecordingDesktopMpvNativeLibrary(
             createStatus = DesktopMpvNativeStatus.LOAD_FAILED,
@@ -122,6 +136,7 @@ class DesktopMpvNativeCommandExecutorTest {
         val handle: Pointer? = Pointer.createConstant(0x1234),
         private val createStatus: DesktopMpvNativeStatus = DesktopMpvNativeStatus.OK,
         private val commandStatus: DesktopMpvNativeStatus = DesktopMpvNativeStatus.OK,
+        private val properties: Map<String, String> = emptyMap(),
     ) : DesktopMpvNativeLibrary {
         var createdLibmpvPath: String = ""
         var createdOptions: Map<String, String> = emptyMap()
@@ -150,6 +165,19 @@ class DesktopMpvNativeCommandExecutorTest {
         ): Int {
             commands += readStrings(args, argsLen)
             return commandStatus.code
+        }
+
+        override fun danmaku_mpv_get_property_string(
+            handle: Pointer,
+            name: String,
+            outValue: Pointer,
+            outValueLen: Long,
+        ): Int {
+            val value = properties[name].orEmpty().toByteArray(Charsets.UTF_8)
+            if (value.size + 1 > outValueLen) return DesktopMpvNativeStatus.BUFFER_TOO_SMALL.code
+            outValue.write(0, value, 0, value.size)
+            outValue.setByte(value.size.toLong(), 0)
+            return DesktopMpvNativeStatus.OK.code
         }
 
         override fun danmaku_mpv_destroy(handle: Pointer?) {

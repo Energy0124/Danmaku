@@ -23,6 +23,7 @@ import androidx.compose.material.Card
 import androidx.compose.material.Divider
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.OutlinedTextField
+import androidx.compose.material.Slider
 import androidx.compose.material.Surface
 import androidx.compose.material.Tab
 import androidx.compose.material.TabRow
@@ -145,7 +146,10 @@ private fun DesktopShell() {
         }
     }
     val playbackController = remember(mpvRuntime) {
-        DesktopMpvPlaybackController(mpvRuntime.executor)
+        DesktopMpvPlaybackController(
+            commandExecutor = mpvRuntime.executor,
+            propertyReader = mpvRuntime.propertyReader,
+        )
     }
     LaunchedEffect(mpvRuntime, mpvVideoWindowId) {
         appendDiagnostic(
@@ -362,6 +366,16 @@ private fun DesktopShell() {
         pendingPlaybackRequest = null
     }
 
+    LaunchedEffect(playbackController) {
+        while (true) {
+            delay(PLAYBACK_SNAPSHOT_POLL_INTERVAL_MS)
+            val nextSnapshot = playbackController.snapshot()
+            if (nextSnapshot != playbackSnapshot) {
+                playbackSnapshot = nextSnapshot
+            }
+        }
+    }
+
     DisposableEffect(mpvRuntime) {
         onDispose {
             mpvRuntime.close()
@@ -443,6 +457,15 @@ private fun DesktopShell() {
                             )
                             playbackSnapshot = playbackController.snapshot()
                         },
+                        onSeekBackwardLarge = {
+                            appendDiagnostic("playback", "Dispatch Seek -30s")
+                            playbackController.dispatch(
+                                PlaybackCommand.SeekTo(
+                                    maxOf(0, playbackSnapshot.position.positionMs - 30_000),
+                                ),
+                            )
+                            playbackSnapshot = playbackController.snapshot()
+                        },
                         onSeekForward = {
                             appendDiagnostic("playback", "Dispatch Seek +10s")
                             playbackController.dispatch(
@@ -450,6 +473,25 @@ private fun DesktopShell() {
                                     playbackSnapshot.position.positionMs + 10_000,
                                 ),
                             )
+                            playbackSnapshot = playbackController.snapshot()
+                        },
+                        onSeekForwardLarge = {
+                            appendDiagnostic("playback", "Dispatch Seek +30s")
+                            playbackController.dispatch(
+                                PlaybackCommand.SeekTo(
+                                    playbackSnapshot.position.positionMs + 30_000,
+                                ),
+                            )
+                            playbackSnapshot = playbackController.snapshot()
+                        },
+                        onSeekTo = { positionMs ->
+                            appendDiagnostic("playback", "Dispatch Seek ${positionMs}ms")
+                            playbackController.dispatch(PlaybackCommand.SeekTo(positionMs))
+                            playbackSnapshot = playbackController.snapshot()
+                        },
+                        onSetPlaybackRate = { rate ->
+                            appendDiagnostic("playback", "Dispatch playback rate ${rate}x")
+                            playbackController.dispatch(PlaybackCommand.SetPlaybackRate(rate))
                             playbackSnapshot = playbackController.snapshot()
                         },
                         canOpenMedia = mpvVideoWindowId != null,
@@ -726,7 +768,11 @@ private fun PlaybackTab(
     onPlay: () -> Unit,
     onPause: () -> Unit,
     onSeekBackward: () -> Unit,
+    onSeekBackwardLarge: () -> Unit,
     onSeekForward: () -> Unit,
+    onSeekForwardLarge: () -> Unit,
+    onSeekTo: (Long) -> Unit,
+    onSetPlaybackRate: (Float) -> Unit,
     canOpenMedia: Boolean,
     modifier: Modifier = Modifier,
 ) {
@@ -745,11 +791,17 @@ private fun PlaybackTab(
                 Button(onClick = onPause, enabled = playbackSnapshot.source != null) {
                     Text("Pause")
                 }
+                Button(onClick = onSeekBackwardLarge, enabled = playbackSnapshot.source != null) {
+                    Text("-30s")
+                }
                 Button(onClick = onSeekBackward, enabled = playbackSnapshot.source != null) {
                     Text("-10s")
                 }
                 Button(onClick = onSeekForward, enabled = playbackSnapshot.source != null) {
                     Text("+10s")
+                }
+                Button(onClick = onSeekForwardLarge, enabled = playbackSnapshot.source != null) {
+                    Text("+30s")
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))
@@ -761,9 +813,20 @@ private fun PlaybackTab(
                     .clip(RoundedCornerShape(12.dp)),
             )
             Spacer(modifier = Modifier.height(12.dp))
+            PlaybackProgressControls(
+                playbackSnapshot = playbackSnapshot,
+                onSeekTo = onSeekTo,
+                onSetPlaybackRate = onSetPlaybackRate,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
             MetadataRow("State", playbackSnapshot.status.name)
             MetadataRow("Source", playbackSnapshot.source?.toString()?.redactToken() ?: "No media loaded")
-            MetadataRow("Position", "${playbackSnapshot.position.positionMs} ms")
+            MetadataRow(
+                "Position",
+                "${playbackSnapshot.position.positionMs.formatPlaybackTime()} / " +
+                    (playbackSnapshot.position.durationMs?.formatPlaybackTime() ?: "unknown"),
+            )
+            MetadataRow("Rate", "${playbackSnapshot.playbackRate}x")
             MetadataRow("Overlay", overlayStatus)
             playbackSnapshot.errorMessage?.let { MetadataRow("Error", it, valueColor = DanmakuColors.Warning) }
         }
@@ -788,6 +851,79 @@ private fun PlaybackTab(
             }
         }
         DiagnosticsPanel(diagnosticLog)
+    }
+}
+
+@Composable
+private fun PlaybackProgressControls(
+    playbackSnapshot: PlaybackSnapshot,
+    onSeekTo: (Long) -> Unit,
+    onSetPlaybackRate: (Float) -> Unit,
+) {
+    val durationMs = playbackSnapshot.position.durationMs?.takeIf { it > 0 }
+    val currentPositionMs = durationMs
+        ?.let { playbackSnapshot.position.positionMs.coerceIn(0, it) }
+        ?: playbackSnapshot.position.positionMs
+    var sliderPositionMs by remember(playbackSnapshot.source, durationMs) {
+        mutableStateOf(currentPositionMs.toFloat())
+    }
+    var isDragging by remember(playbackSnapshot.source) { mutableStateOf(false) }
+
+    LaunchedEffect(currentPositionMs, durationMs, isDragging) {
+        if (!isDragging) {
+            sliderPositionMs = currentPositionMs.toFloat()
+        }
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = currentPositionMs.formatPlaybackTime(),
+                color = DanmakuColors.TextMuted,
+                modifier = Modifier.width(72.dp),
+            )
+            Slider(
+                value = durationMs
+                    ?.let { sliderPositionMs.coerceIn(0f, it.toFloat()) }
+                    ?: 0f,
+                onValueChange = {
+                    isDragging = true
+                    sliderPositionMs = it
+                },
+                onValueChangeFinished = {
+                    isDragging = false
+                    durationMs?.let {
+                        onSeekTo(sliderPositionMs.toLong().coerceIn(0, it))
+                    }
+                },
+                valueRange = 0f..(durationMs ?: 1L).toFloat(),
+                enabled = durationMs != null,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = durationMs?.formatPlaybackTime() ?: "--:--",
+                color = DanmakuColors.TextMuted,
+                modifier = Modifier.width(72.dp),
+            )
+        }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("Speed", color = DanmakuColors.TextMuted)
+            listOf(0.5f, 1f, 1.25f, 1.5f, 2f).forEach { rate ->
+                Button(
+                    onClick = { onSetPlaybackRate(rate) },
+                    enabled = playbackSnapshot.source != null,
+                ) {
+                    Text(if (rate == 1f) "1x" else "${rate}x")
+                }
+            }
+        }
     }
 }
 
@@ -1338,7 +1474,21 @@ private fun Long.toDiagnosticTime(): String =
         Instant.ofEpochMilli(this).atZone(ZoneId.systemDefault()),
     )
 
+private fun Long.formatPlaybackTime(): String {
+    val totalSeconds = (this / 1_000).coerceAtLeast(0)
+    val hours = totalSeconds / 3_600
+    val minutes = (totalSeconds % 3_600) / 60
+    val seconds = totalSeconds % 60
+    return if (hours > 0) {
+        "$hours:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}"
+    } else {
+        "$minutes:${seconds.toString().padStart(2, '0')}"
+    }
+}
+
 private const val PLAYBACK_HOST_SETTLE_DELAY_MS = 300L
+
+private const val PLAYBACK_SNAPSHOT_POLL_INTERVAL_MS = 500L
 
 private const val MAX_DIAGNOSTIC_LOG_ENTRIES = 200
 

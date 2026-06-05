@@ -11,6 +11,7 @@ enum class DesktopMpvCommandExecutorMode {
 
 class DesktopMpvCommandExecutorRuntime(
     val executor: DesktopMpvCommandExecutor,
+    val propertyReader: DesktopMpvPropertyReader? = null,
     val mode: DesktopMpvCommandExecutorMode,
     val statusMessage: String,
     private val closeAction: () -> Unit = {},
@@ -49,6 +50,7 @@ class DesktopMpvCommandExecutorRuntimeFactory(
             )
             DesktopMpvCommandExecutorRuntime(
                 executor = observingExecutor(nativeExecutor, commandObserver),
+                propertyReader = nativeExecutor as? DesktopMpvPropertyReader,
                 mode = DesktopMpvCommandExecutorMode.NATIVE,
                 statusMessage = "Native libmpv executor active.",
                 closeAction = nativeExecutor::close,

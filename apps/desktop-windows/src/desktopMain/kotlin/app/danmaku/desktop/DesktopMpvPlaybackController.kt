@@ -11,10 +11,15 @@ fun interface DesktopMpvCommandExecutor {
     fun execute(command: DesktopMpvCommand)
 }
 
+fun interface DesktopMpvPropertyReader {
+    fun readProperty(name: String): String?
+}
+
 interface CloseableDesktopMpvCommandExecutor : DesktopMpvCommandExecutor, AutoCloseable
 
 class DesktopMpvPlaybackController(
     private val commandExecutor: DesktopMpvCommandExecutor,
+    private val propertyReader: DesktopMpvPropertyReader? = null,
 ) : PlaybackController {
     private var snapshot = PlaybackSnapshot()
 
@@ -63,7 +68,40 @@ class DesktopMpvPlaybackController(
         )
     }
 
-    override fun snapshot(): PlaybackSnapshot = snapshot
+    override fun snapshot(): PlaybackSnapshot {
+        val reader = propertyReader ?: return snapshot
+        if (snapshot.source == null || snapshot.status == PlaybackStatus.ERROR) {
+            return snapshot
+        }
+        return runCatching {
+            val positionMs = reader.readSecondsProperty("time-pos")?.toMillis()
+                ?: snapshot.position.positionMs
+            val durationMs = reader.readSecondsProperty("duration")?.toMillis()
+                ?: snapshot.position.durationMs
+            val pause = reader.readBooleanProperty("pause")
+            val eofReached = reader.readBooleanProperty("eof-reached") ?: false
+            val rate = reader.readProperty("speed")?.toFloatOrNull()?.takeIf { it > 0 }
+                ?: snapshot.playbackRate
+            val status = when {
+                eofReached -> PlaybackStatus.ENDED
+                pause == true -> PlaybackStatus.PAUSED
+                pause == false -> PlaybackStatus.PLAYING
+                snapshot.status == PlaybackStatus.LOADING && (positionMs > 0 || durationMs != null) ->
+                    PlaybackStatus.READY
+                else -> snapshot.status
+            }
+            snapshot = snapshot.copy(
+                status = status,
+                position = PlaybackPosition(
+                    positionMs = durationMs?.let { positionMs.coerceAtMost(it) } ?: positionMs,
+                    durationMs = durationMs,
+                ),
+                playbackRate = rate,
+                errorMessage = null,
+            )
+            snapshot
+        }.getOrDefault(snapshot)
+    }
 
     private fun execute(
         command: DesktopMpvCommand,
@@ -81,3 +119,16 @@ class DesktopMpvPlaybackController(
         }
     }
 }
+
+private fun DesktopMpvPropertyReader.readSecondsProperty(name: String): Double? =
+    readProperty(name)?.toDoubleOrNull()?.takeIf { it.isFinite() && it >= 0 }
+
+private fun DesktopMpvPropertyReader.readBooleanProperty(name: String): Boolean? =
+    when (readProperty(name)?.lowercase()) {
+        "yes", "true", "1" -> true
+        "no", "false", "0" -> false
+        else -> null
+    }
+
+private fun Double.toMillis(): Long =
+    (this * 1_000.0).toLong().coerceAtLeast(0)

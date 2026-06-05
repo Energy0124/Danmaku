@@ -1,5 +1,5 @@
 use std::{
-    ffi::{CString, c_char, c_void},
+    ffi::{CStr, CString, c_char, c_void},
     fmt, mem,
     os::windows::ffi::OsStrExt,
     path::{Path, PathBuf},
@@ -14,6 +14,8 @@ type MpvDestroy = unsafe extern "C" fn(*mut MpvHandle);
 type MpvTerminateDestroy = unsafe extern "C" fn(*mut MpvHandle);
 type MpvCommand = unsafe extern "C" fn(*mut MpvHandle, *const *const c_char) -> i32;
 type MpvSetOptionString = unsafe extern "C" fn(*mut MpvHandle, *const c_char, *const c_char) -> i32;
+type MpvGetPropertyString = unsafe extern "C" fn(*mut MpvHandle, *const c_char) -> *mut c_char;
+type MpvFree = unsafe extern "C" fn(*mut c_void);
 
 #[repr(C)]
 struct MpvHandle {
@@ -33,6 +35,8 @@ struct MpvApi {
     terminate_destroy: MpvTerminateDestroy,
     command: MpvCommand,
     set_option_string: MpvSetOptionString,
+    get_property_string: MpvGetPropertyString,
+    free: MpvFree,
 }
 
 impl MpvLibrary {
@@ -62,6 +66,12 @@ impl MpvLibrary {
                 module.symbol("mpv_set_option_string")?,
             )
         };
+        let get_property_string = unsafe {
+            mem::transmute::<*mut c_void, MpvGetPropertyString>(
+                module.symbol("mpv_get_property_string")?,
+            )
+        };
+        let free = unsafe { mem::transmute::<*mut c_void, MpvFree>(module.symbol("mpv_free")?) };
 
         Ok(Self {
             api: Arc::new(MpvApi {
@@ -73,6 +83,8 @@ impl MpvLibrary {
                 terminate_destroy,
                 command,
                 set_option_string,
+                get_property_string,
+                free,
             }),
         })
     }
@@ -157,6 +169,22 @@ impl Mpv {
             Ok(())
         }
     }
+
+    pub fn property_string(&self, name: &str) -> Result<Option<String>, MpvError> {
+        let name = CString::new(name)
+            .map_err(|_| MpvError::InvalidPropertyName(name.to_owned()))?;
+        let value = unsafe { (self.api.get_property_string)(self.handle.as_ptr(), name.as_ptr()) };
+        let Some(value) = NonNull::new(value.cast::<c_void>()) else {
+            return Ok(None);
+        };
+        let text = unsafe { CStr::from_ptr(value.as_ptr().cast::<c_char>()) }
+            .to_string_lossy()
+            .into_owned();
+        unsafe {
+            (self.api.free)(value.as_ptr());
+        }
+        Ok(Some(text))
+    }
 }
 
 impl Drop for Mpv {
@@ -199,6 +227,7 @@ pub enum MpvError {
     InitializeFailed(i32),
     InvalidOptionName(String),
     InvalidOptionValue(String),
+    InvalidPropertyName(String),
     SetOptionFailed { name: String, status: i32 },
     InvalidCommandArgument(String),
     CommandFailed(i32),
@@ -216,6 +245,9 @@ impl fmt::Display for MpvError {
             }
             Self::InvalidOptionValue(value) => {
                 write!(formatter, "mpv option value contains a null byte: {value}")
+            }
+            Self::InvalidPropertyName(name) => {
+                write!(formatter, "mpv property name contains a null byte: {name}")
             }
             Self::SetOptionFailed { name, status } => {
                 write!(formatter, "mpv option {name} failed with status {status}")

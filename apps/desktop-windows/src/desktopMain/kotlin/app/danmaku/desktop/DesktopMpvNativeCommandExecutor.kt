@@ -1,6 +1,7 @@
 package app.danmaku.desktop
 
 import com.sun.jna.Library
+import com.sun.jna.Memory
 import com.sun.jna.Native
 import com.sun.jna.Pointer
 import com.sun.jna.StringArray
@@ -22,6 +23,13 @@ interface DesktopMpvNativeLibrary : Library {
         argsLen: Long,
     ): Int
 
+    fun danmaku_mpv_get_property_string(
+        handle: Pointer,
+        name: String,
+        outValue: Pointer,
+        outValueLen: Long,
+    ): Int
+
     fun danmaku_mpv_destroy(handle: Pointer?)
 }
 
@@ -35,6 +43,7 @@ enum class DesktopMpvNativeStatus(
     CREATE_FAILED(-4),
     COMMAND_FAILED(-5),
     SET_OPTION_FAILED(-6),
+    BUFFER_TOO_SMALL(-7),
     UNKNOWN(Int.MIN_VALUE),
     ;
 
@@ -52,7 +61,7 @@ class DesktopMpvNativeException(
 class DesktopMpvNativeCommandExecutor private constructor(
     private val nativeLibrary: DesktopMpvNativeLibrary,
     private val handle: Pointer,
-) : CloseableDesktopMpvCommandExecutor {
+) : CloseableDesktopMpvCommandExecutor, DesktopMpvPropertyReader {
     override fun execute(command: DesktopMpvCommand) {
         val args = StringArray(command.args.toTypedArray(), Charsets.UTF_8.name())
         val status = DesktopMpvNativeStatus.fromCode(
@@ -63,6 +72,33 @@ class DesktopMpvNativeCommandExecutor private constructor(
             ),
         )
         checkStatus(status, "mpv command failed: ${command.args.joinToString(" ")}")
+    }
+
+    override fun readProperty(name: String): String? {
+        val buffer = Memory(PROPERTY_BUFFER_BYTES)
+        val status = DesktopMpvNativeStatus.fromCode(
+            nativeLibrary.danmaku_mpv_get_property_string(
+                handle = handle,
+                name = name,
+                outValue = buffer,
+                outValueLen = PROPERTY_BUFFER_BYTES,
+            ),
+        )
+        if (status == DesktopMpvNativeStatus.BUFFER_TOO_SMALL) {
+            val largeBuffer = Memory(LARGE_PROPERTY_BUFFER_BYTES)
+            val largeStatus = DesktopMpvNativeStatus.fromCode(
+                nativeLibrary.danmaku_mpv_get_property_string(
+                    handle = handle,
+                    name = name,
+                    outValue = largeBuffer,
+                    outValueLen = LARGE_PROPERTY_BUFFER_BYTES,
+                ),
+            )
+            checkStatus(largeStatus, "mpv property read failed: $name")
+            return largeBuffer.getString(0, Charsets.UTF_8.name()).takeIf(String::isNotBlank)
+        }
+        checkStatus(status, "mpv property read failed: $name")
+        return buffer.getString(0, Charsets.UTF_8.name()).takeIf(String::isNotBlank)
     }
 
     override fun close() {
@@ -123,5 +159,8 @@ class DesktopMpvNativeCommandExecutor private constructor(
                 throw DesktopMpvNativeException(status, "$message ($status)")
             }
         }
+
+        private const val PROPERTY_BUFFER_BYTES = 4_096L
+        private const val LARGE_PROPERTY_BUFFER_BYTES = 65_536L
     }
 }

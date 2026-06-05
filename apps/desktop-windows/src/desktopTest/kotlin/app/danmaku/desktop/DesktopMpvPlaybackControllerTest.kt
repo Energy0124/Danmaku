@@ -72,6 +72,30 @@ class DesktopMpvPlaybackControllerTest {
     }
 
     @Test
+    fun pollsPlaybackPropertiesFromNativeReader() {
+        val executor = RecordingDesktopMpvCommandExecutor()
+        val properties = mutableMapOf(
+            "time-pos" to "45.5",
+            "duration" to "120.0",
+            "pause" to "no",
+            "speed" to "1.25",
+            "eof-reached" to "no",
+        )
+        val controller = DesktopMpvPlaybackController(
+            commandExecutor = executor,
+            propertyReader = DesktopMpvPropertyReader { properties[it] },
+        )
+        val source = PlaybackSource.LocalFile("S:\\Anime\\Example Show\\Episode 01.mkv")
+
+        controller.load(source)
+        val snapshot = controller.snapshot()
+
+        assertEquals(PlaybackStatus.PLAYING, snapshot.status)
+        assertEquals(PlaybackPosition(positionMs = 45_500, durationMs = 120_000), snapshot.position)
+        assertEquals(1.25f, snapshot.playbackRate)
+    }
+
+    @Test
     fun reportsExecutorFailuresAsPlaybackErrors() {
         val executor = RecordingDesktopMpvCommandExecutor(
             failure = IllegalStateException("libmpv command failed"),

@@ -2,6 +2,7 @@ use crate::{Mpv, MpvLibrary};
 use std::{
     ffi::{CStr, c_char},
     path::Path,
+    ptr,
     slice,
 };
 
@@ -20,6 +21,7 @@ pub enum DanmakuMpvStatus {
     CreateFailed = -4,
     CommandFailed = -5,
     SetOptionFailed = -6,
+    BufferTooSmall = -7,
 }
 
 #[unsafe(no_mangle)]
@@ -109,6 +111,43 @@ pub unsafe extern "C" fn danmaku_mpv_command(
     }
 }
 
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn danmaku_mpv_get_property_string(
+    handle: *mut DanmakuMpv,
+    name: *const c_char,
+    out_value: *mut c_char,
+    out_value_len: usize,
+) -> DanmakuMpvStatus {
+    if handle.is_null() || name.is_null() || out_value.is_null() || out_value_len == 0 {
+        return DanmakuMpvStatus::NullPointer;
+    }
+
+    let handle = unsafe { &mut *handle };
+    let name = unsafe { CStr::from_ptr(name) };
+    let Ok(name) = name.to_str() else {
+        return DanmakuMpvStatus::InvalidUtf8;
+    };
+    let value = match handle.mpv.property_string(name) {
+        Ok(Some(value)) => value,
+        Ok(None) => {
+            unsafe {
+                *out_value = 0;
+            }
+            return DanmakuMpvStatus::Ok;
+        }
+        Err(_) => return DanmakuMpvStatus::CommandFailed,
+    };
+    let value_bytes = value.as_bytes();
+    if value_bytes.len() + 1 > out_value_len {
+        return DanmakuMpvStatus::BufferTooSmall;
+    }
+    unsafe {
+        ptr::copy_nonoverlapping(value_bytes.as_ptr(), out_value.cast::<u8>(), value_bytes.len());
+        *out_value.add(value_bytes.len()) = 0;
+    }
+    DanmakuMpvStatus::Ok
+}
+
 unsafe fn read_string_array(
     values: *const *const c_char,
     values_len: usize,
@@ -150,7 +189,7 @@ pub extern "C" fn danmaku_mpv_status_ok() -> DanmakuMpvStatus {
 mod tests {
     use super::{
         DanmakuMpv, DanmakuMpvStatus, danmaku_mpv_command, danmaku_mpv_create,
-        danmaku_mpv_create_with_options, danmaku_mpv_destroy,
+        danmaku_mpv_create_with_options, danmaku_mpv_destroy, danmaku_mpv_get_property_string,
     };
     use std::{ffi::CString, ptr};
 
@@ -204,6 +243,19 @@ mod tests {
 
         assert_eq!(DanmakuMpvStatus::NullPointer, unsafe {
             danmaku_mpv_command(null_handle(), &mut command, 1)
+        },);
+        unsafe {
+            danmaku_mpv_destroy(null_handle());
+        }
+    }
+
+    #[test]
+    fn rejects_null_property_arguments() {
+        let name = CString::new("time-pos").unwrap();
+        let mut out = [0i8; 16];
+
+        assert_eq!(DanmakuMpvStatus::NullPointer, unsafe {
+            danmaku_mpv_get_property_string(null_handle(), name.as_ptr(), out.as_mut_ptr(), out.len())
         },);
         unsafe {
             danmaku_mpv_destroy(null_handle());
