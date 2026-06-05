@@ -4,6 +4,7 @@ import app.danmaku.domain.PlaybackCommand
 import app.danmaku.domain.PlaybackPosition
 import app.danmaku.domain.PlaybackSource
 import app.danmaku.domain.PlaybackStatus
+import app.danmaku.domain.PlaybackTrackKind
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -93,6 +94,91 @@ class DesktopMpvPlaybackControllerTest {
         assertEquals(PlaybackStatus.PLAYING, snapshot.status)
         assertEquals(PlaybackPosition(positionMs = 45_500, durationMs = 120_000), snapshot.position)
         assertEquals(1.25f, snapshot.playbackRate)
+    }
+
+    @Test
+    fun pollsRuntimeAudioAndSubtitleTracksFromNativeReader() {
+        val executor = RecordingDesktopMpvCommandExecutor()
+        val properties = mutableMapOf(
+            "time-pos" to "0",
+            "duration" to "120.0",
+            "pause" to "yes",
+            "speed" to "1.0",
+            "eof-reached" to "no",
+            "track-list/count" to "3",
+            "track-list/0/type" to "video",
+            "track-list/0/id" to "1",
+            "track-list/1/type" to "audio",
+            "track-list/1/id" to "2",
+            "track-list/1/title" to "Japanese Stereo",
+            "track-list/1/lang" to "jpn",
+            "track-list/1/selected" to "yes",
+            "track-list/2/type" to "sub",
+            "track-list/2/id" to "2",
+            "track-list/2/title" to "English Signs",
+            "track-list/2/lang" to "eng",
+            "track-list/2/selected" to "no",
+        )
+        val controller = DesktopMpvPlaybackController(
+            commandExecutor = executor,
+            propertyReader = DesktopMpvPropertyReader { properties[it] },
+        )
+
+        controller.load(PlaybackSource.LocalFile("S:\\Anime\\Example Show\\Episode 01.mkv"))
+        val snapshot = controller.snapshot()
+
+        assertEquals(2, snapshot.tracks.size)
+        assertEquals("mpv:audio:2", snapshot.tracks[0].id)
+        assertEquals(PlaybackTrackKind.AUDIO, snapshot.tracks[0].kind)
+        assertEquals("Japanese Stereo / JPN", snapshot.tracks[0].label)
+        assertEquals("jpn", snapshot.tracks[0].language)
+        assertEquals(true, snapshot.tracks[0].selected)
+        assertEquals("mpv:subtitle:2", snapshot.tracks[1].id)
+        assertEquals(PlaybackTrackKind.SUBTITLE, snapshot.tracks[1].kind)
+        assertEquals("English Signs / ENG", snapshot.tracks[1].label)
+        assertEquals(false, snapshot.tracks[1].selected)
+    }
+
+    @Test
+    fun updatesRuntimeTrackSelectionSnapshotAfterCommands() {
+        val executor = RecordingDesktopMpvCommandExecutor()
+        val properties = mutableMapOf(
+            "time-pos" to "0",
+            "duration" to "120.0",
+            "pause" to "yes",
+            "speed" to "1.0",
+            "eof-reached" to "no",
+            "track-list/count" to "2",
+            "track-list/0/type" to "audio",
+            "track-list/0/id" to "2",
+            "track-list/0/selected" to "no",
+            "track-list/1/type" to "sub",
+            "track-list/1/id" to "3",
+            "track-list/1/selected" to "yes",
+        )
+        val controller = DesktopMpvPlaybackController(
+            commandExecutor = executor,
+            propertyReader = DesktopMpvPropertyReader { properties[it] },
+        )
+
+        controller.load(PlaybackSource.LocalFile("S:\\Anime\\Example Show\\Episode 01.mkv"))
+        controller.snapshot()
+        controller.dispatch(PlaybackCommand.SelectAudioTrack("mpv:audio:2"))
+        controller.dispatch(PlaybackCommand.SelectSubtitleTrack(null))
+        properties["track-list/0/selected"] = "yes"
+        properties["track-list/1/selected"] = "no"
+
+        assertEquals(
+            listOf(
+                DesktopMpvCommand(listOf("loadfile", "S:\\Anime\\Example Show\\Episode 01.mkv", "replace")),
+                DesktopMpvCommand(listOf("set", "aid", "2")),
+                DesktopMpvCommand(listOf("set", "sid", "no")),
+            ),
+            executor.commands,
+        )
+        val snapshot = controller.snapshot()
+        assertEquals(true, snapshot.tracks.single { it.kind == PlaybackTrackKind.AUDIO }.selected)
+        assertEquals(false, snapshot.tracks.single { it.kind == PlaybackTrackKind.SUBTITLE }.selected)
     }
 
     @Test

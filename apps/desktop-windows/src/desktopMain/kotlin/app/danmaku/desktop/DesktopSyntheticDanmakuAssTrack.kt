@@ -122,10 +122,19 @@ internal fun DesktopMpvCommandPlanner.addSubtitle(
     path: Path,
     title: String,
 ): DesktopMpvCommand =
+    addSubtitle(
+        source = path.toAbsolutePath().normalize().absolutePathString(),
+        title = title,
+    )
+
+internal fun DesktopMpvCommandPlanner.addSubtitle(
+    source: String,
+    title: String,
+): DesktopMpvCommand =
     DesktopMpvCommand(
         listOf(
             "sub-add",
-            path.toAbsolutePath().normalize().absolutePathString(),
+            source,
             "select",
             title,
         ),

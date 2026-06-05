@@ -52,6 +52,8 @@ import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.PlaybackCommand
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.domain.PlaybackSnapshot
+import app.danmaku.domain.PlaybackTrack
+import app.danmaku.domain.PlaybackTrackKind
 import app.danmaku.domain.toPlaybackProgress
 import app.danmaku.library.LanPlaybackPreparation
 import app.danmaku.library.LanPlaybackPreparer
@@ -176,18 +178,32 @@ private fun DesktopShell() {
     val syntheticOverlayTrack = remember { DesktopSyntheticDanmakuAssTrack.createDefault() }
     var overlayStatus by remember { mutableStateOf("Synthetic danmaku overlay: waiting for media load") }
     val playbackSession = remember(playbackController, syntheticOverlayTrack, mpvRuntime) {
-        DesktopPlaybackSession(playbackController) {
-            runCatching {
-                appendDiagnostic("overlay", "Attaching synthetic ASS danmaku track after loading ${it.label}")
-                syntheticOverlayTrack.attachTo(mpvRuntime.executor)
-            }.onSuccess {
-                overlayStatus = "Synthetic danmaku overlay: attached to mpv video"
-                appendDiagnostic("overlay", "Synthetic ASS danmaku track attached")
-            }.onFailure { error ->
-                overlayStatus = "Synthetic danmaku overlay error: ${error.message}"
-                appendDiagnostic("overlay", "Synthetic ASS danmaku attach failed: ${error.message}")
-            }
-        }
+        DesktopPlaybackSession(
+            controller = playbackController,
+            afterLoad = {
+                runCatching {
+                    appendDiagnostic("overlay", "Attaching synthetic ASS danmaku track after loading ${it.label}")
+                    syntheticOverlayTrack.attachTo(mpvRuntime.executor)
+                }.onSuccess {
+                    overlayStatus = "Synthetic danmaku overlay: attached to mpv video"
+                    appendDiagnostic("overlay", "Synthetic ASS danmaku track attached")
+                }.onFailure { error ->
+                    overlayStatus = "Synthetic danmaku overlay error: ${error.message}"
+                    appendDiagnostic("overlay", "Synthetic ASS danmaku attach failed: ${error.message}")
+                }
+            },
+            attachSubtitle = { subtitle ->
+                runCatching {
+                    mpvRuntime.executor.execute(
+                        DesktopMpvCommandPlanner.addSubtitle(subtitle.source, subtitle.label),
+                    )
+                }.onSuccess {
+                    appendDiagnostic("subtitle", "Attached subtitle track ${subtitle.label}: ${subtitle.source.redactToken()}")
+                }.onFailure { error ->
+                    appendDiagnostic("subtitle", "Subtitle attach failed for ${subtitle.label}: ${error.message}")
+                }
+            },
+        )
     }
     val legacySelectedLibraryRoot = remember { selectionStore.load() }
     var registeredRoots by remember { mutableStateOf(rootRegistry.loadRoots()) }
@@ -569,6 +585,16 @@ private fun DesktopShell() {
                             playbackController.dispatch(PlaybackCommand.SetPlaybackRate(rate))
                             playbackSnapshot = playbackController.snapshot()
                         },
+                        onSelectAudioTrack = { trackId ->
+                            appendDiagnostic("playback", "Dispatch audio track $trackId")
+                            playbackController.dispatch(PlaybackCommand.SelectAudioTrack(trackId))
+                            playbackSnapshot = playbackController.snapshot()
+                        },
+                        onSelectSubtitleTrack = { trackId ->
+                            appendDiagnostic("playback", "Dispatch subtitle track ${trackId ?: "off"}")
+                            playbackController.dispatch(PlaybackCommand.SelectSubtitleTrack(trackId))
+                            playbackSnapshot = playbackController.snapshot()
+                        },
                         canOpenMedia = mpvVideoWindowId != null,
                         modifier = if (selectedTab == DesktopShellTab.PLAYBACK) {
                             Modifier.fillMaxSize()
@@ -848,6 +874,8 @@ private fun PlaybackTab(
     onSeekForwardLarge: () -> Unit,
     onSeekTo: (Long) -> Unit,
     onSetPlaybackRate: (Float) -> Unit,
+    onSelectAudioTrack: (String) -> Unit,
+    onSelectSubtitleTrack: (String?) -> Unit,
     canOpenMedia: Boolean,
     modifier: Modifier = Modifier,
 ) {
@@ -894,6 +922,12 @@ private fun PlaybackTab(
                 onSetPlaybackRate = onSetPlaybackRate,
             )
             Spacer(modifier = Modifier.height(12.dp))
+            TrackControls(
+                playbackSnapshot = playbackSnapshot,
+                onSelectAudioTrack = onSelectAudioTrack,
+                onSelectSubtitleTrack = onSelectSubtitleTrack,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
             MetadataRow("State", playbackSnapshot.status.name)
             MetadataRow("Source", playbackSnapshot.source?.toString()?.redactToken() ?: "No media loaded")
             MetadataRow(
@@ -928,6 +962,77 @@ private fun PlaybackTab(
         DiagnosticsPanel(diagnosticLog)
     }
 }
+
+@Composable
+private fun TrackControls(
+    playbackSnapshot: PlaybackSnapshot,
+    onSelectAudioTrack: (String) -> Unit,
+    onSelectSubtitleTrack: (String?) -> Unit,
+) {
+    val audioTracks = playbackSnapshot.tracks.filter { it.kind == PlaybackTrackKind.AUDIO }
+    val subtitleTracks = playbackSnapshot.tracks.filter { it.kind == PlaybackTrackKind.SUBTITLE }
+    if (audioTracks.isEmpty() && subtitleTracks.isEmpty()) {
+        Text("No runtime audio or subtitle tracks discovered yet.", color = DanmakuColors.TextMuted)
+        return
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (audioTracks.isNotEmpty()) {
+            Text("Audio Tracks", fontWeight = FontWeight.Bold)
+            TrackButtonRow(audioTracks, onSelectAudioTrack)
+        }
+        if (subtitleTracks.isNotEmpty()) {
+            Text("Subtitle Tracks", fontWeight = FontWeight.Bold)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Button(
+                    onClick = { onSelectSubtitleTrack(null) },
+                    enabled = subtitleTracks.any(PlaybackTrack::selected),
+                ) {
+                    Text("Off")
+                }
+                subtitleTracks.forEach { track ->
+                    Button(
+                        onClick = { onSelectSubtitleTrack(track.id) },
+                        enabled = track.supported && !track.selected,
+                    ) {
+                        Text(track.buttonLabel())
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TrackButtonRow(
+    tracks: List<PlaybackTrack>,
+    onSelectTrack: (String) -> Unit,
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        tracks.forEach { track ->
+            Button(
+                onClick = { onSelectTrack(track.id) },
+                enabled = track.supported && !track.selected,
+            ) {
+                Text(track.buttonLabel())
+            }
+        }
+    }
+}
+
+private fun PlaybackTrack.buttonLabel(): String =
+    buildString {
+        append(label)
+        language?.let { append(" [$it]") }
+        if (selected) {
+            append(" (selected)")
+        }
+    }
 
 @Composable
 private fun PlaybackProgressControls(

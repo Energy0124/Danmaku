@@ -50,10 +50,10 @@ object DesktopMpvCommandPlanner {
                 ),
             )
             is PlaybackCommand.SelectAudioTrack -> DesktopMpvCommand(
-                listOf("set", "aid", command.trackId),
+                listOf("set", "aid", command.trackId.toMpvTrackId()),
             )
             is PlaybackCommand.SelectSubtitleTrack -> DesktopMpvCommand(
-                listOf("set", "sid", command.trackId ?: "no"),
+                listOf("set", "sid", command.trackId?.toMpvTrackId() ?: "no"),
             )
         }
 }
@@ -69,3 +69,6 @@ private fun Float.toStableMpvFloat(): String =
 
 private fun String.trimTrailingZeroFraction(): String =
     trimEnd('0').trimEnd('.')
+
+private fun String.toMpvTrackId(): String =
+    substringAfterLast(":", this)

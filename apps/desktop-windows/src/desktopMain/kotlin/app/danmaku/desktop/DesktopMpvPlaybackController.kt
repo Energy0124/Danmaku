@@ -6,6 +6,8 @@ import app.danmaku.domain.PlaybackPosition
 import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.PlaybackSource
 import app.danmaku.domain.PlaybackStatus
+import app.danmaku.domain.PlaybackTrack
+import app.danmaku.domain.PlaybackTrackKind
 
 fun interface DesktopMpvCommandExecutor {
     fun execute(command: DesktopMpvCommand)
@@ -60,9 +62,26 @@ class DesktopMpvPlaybackController(
                         playbackRate = command.rate,
                         errorMessage = null,
                     )
-                    is PlaybackCommand.SelectAudioTrack,
-                    is PlaybackCommand.SelectSubtitleTrack,
-                    -> snapshot.copy(errorMessage = null)
+                    is PlaybackCommand.SelectAudioTrack -> snapshot.copy(
+                        tracks = snapshot.tracks.map { track ->
+                            if (track.kind == PlaybackTrackKind.AUDIO) {
+                                track.copy(selected = track.id == command.trackId)
+                            } else {
+                                track
+                            }
+                        },
+                        errorMessage = null,
+                    )
+                    is PlaybackCommand.SelectSubtitleTrack -> snapshot.copy(
+                        tracks = snapshot.tracks.map { track ->
+                            if (track.kind == PlaybackTrackKind.SUBTITLE) {
+                                track.copy(selected = track.id == command.trackId)
+                            } else {
+                                track
+                            }
+                        },
+                        errorMessage = null,
+                    )
                 }
             },
         )
@@ -82,6 +101,7 @@ class DesktopMpvPlaybackController(
             val eofReached = reader.readBooleanProperty("eof-reached") ?: false
             val rate = reader.readProperty("speed")?.toFloatOrNull()?.takeIf { it > 0 }
                 ?: snapshot.playbackRate
+            val tracks = reader.readPlaybackTracks()
             val status = when {
                 eofReached -> PlaybackStatus.ENDED
                 pause == true -> PlaybackStatus.PAUSED
@@ -97,6 +117,7 @@ class DesktopMpvPlaybackController(
                     durationMs = durationMs,
                 ),
                 playbackRate = rate,
+                tracks = tracks.ifEmpty { snapshot.tracks },
                 errorMessage = null,
             )
             snapshot
@@ -130,5 +151,66 @@ private fun DesktopMpvPropertyReader.readBooleanProperty(name: String): Boolean?
         else -> null
     }
 
+private fun DesktopMpvPropertyReader.readPlaybackTracks(): List<PlaybackTrack> {
+    val count = readProperty("track-list/count")
+        ?.toIntOrNull()
+        ?.coerceIn(0, MAX_MPV_TRACK_COUNT)
+        ?: return emptyList()
+    return (0 until count).mapNotNull { index ->
+        val kind = readTrackKind(index) ?: return@mapNotNull null
+        val mpvId = readProperty("track-list/$index/id")
+            ?.takeIf { it.isNotBlank() && it != "no" }
+            ?: return@mapNotNull null
+        val language = readProperty("track-list/$index/lang")
+            ?.takeIf { it.isNotBlank() && it != "und" }
+        PlaybackTrack(
+            id = kind.toMpvPlaybackTrackId(mpvId),
+            kind = kind,
+            label = trackLabel(
+                kind = kind,
+                index = index,
+                id = mpvId,
+                title = readProperty("track-list/$index/title"),
+                language = language,
+            ),
+            language = language,
+            selected = readBooleanProperty("track-list/$index/selected") ?: false,
+            supported = true,
+        )
+    }
+}
+
+private fun DesktopMpvPropertyReader.readTrackKind(index: Int): PlaybackTrackKind? =
+    when (readProperty("track-list/$index/type")?.lowercase()) {
+        "audio" -> PlaybackTrackKind.AUDIO
+        "sub", "subtitle" -> PlaybackTrackKind.SUBTITLE
+        else -> null
+    }
+
+private fun trackLabel(
+    kind: PlaybackTrackKind,
+    index: Int,
+    id: String,
+    title: String?,
+    language: String?,
+): String =
+    listOfNotNull(
+        title?.takeIf(String::isNotBlank),
+        language?.takeIf(String::isNotBlank)?.uppercase(),
+    ).distinct().joinToString(separator = " / ").ifBlank {
+        "${kind.displayName()} ${index + 1} (mpv $id)"
+    }
+
+private fun PlaybackTrackKind.displayName(): String =
+    when (this) {
+        PlaybackTrackKind.AUDIO -> "Audio"
+        PlaybackTrackKind.SUBTITLE -> "Subtitle"
+    }
+
+private fun PlaybackTrackKind.toMpvPlaybackTrackId(mpvId: String): String =
+    "mpv:${name.lowercase()}:$mpvId"
+
 private fun Double.toMillis(): Long =
     (this * 1_000.0).toLong().coerceAtLeast(0)
+
+private const val MAX_MPV_TRACK_COUNT = 64

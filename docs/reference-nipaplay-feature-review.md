@@ -124,12 +124,13 @@ This turns the technical slice into a usable local media-center application.
 - [ ] Add previous episode, next episode, and configurable auto-next behavior.
 - [ ] Add favorites and playlists after normalized episode identity is stable.
 - [x] Add embedded audio-track and subtitle-track selection to the playback contract.
-- [ ] Load local `ASS`, `SSA`, `SRT`, and `VTT` subtitles where supported.
+- [x] Load indexed local and paired-LAN `ASS`, `SSA`, `SRT`, and `VTT` sidecar
+  subtitles on Windows where libmpv supports them.
 - [x] Add local subtitle discovery next to indexed media files.
 - [x] Attach indexed LAN sidecar subtitle tracks to Android and Android TV
   Media3 playback items.
 - [x] Add Android and Android TV runtime audio/subtitle track selection controls.
-- [ ] Add playback controls for seek, rate, volume, fullscreen, and aspect ratio.
+- [ ] Add remaining playback controls for volume, fullscreen, and aspect ratio.
 - [ ] Add Android TV player controls with visible focus states and remote-friendly
   seek behavior.
 - [ ] Persist player, library, and UI settings in SQLDelight.

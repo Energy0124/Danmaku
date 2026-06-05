@@ -67,6 +67,8 @@ indexed sidecar subtitles to Media3.
 - [x] Add seek and playback-rate test cases.
 - [x] Add Windows progress-bar scrubbing, live mpv position polling, and
   throttled local/paired progress persistence.
+- [x] Attach indexed local and paired-LAN sidecar subtitles to Windows playback.
+- [x] Add Windows runtime audio/subtitle track discovery and selection controls.
 
 ## Android And TV
 

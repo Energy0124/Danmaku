@@ -82,6 +82,18 @@ class DesktopMpvCommandPlannerTest {
     }
 
     @Test
+    fun stripsNamespacedWindowsTrackIdsForMpvSelectionCommands() {
+        assertEquals(
+            DesktopMpvCommand(listOf("set", "aid", "2")),
+            DesktopMpvCommandPlanner.dispatch(PlaybackCommand.SelectAudioTrack("mpv:audio:2")),
+        )
+        assertEquals(
+            DesktopMpvCommand(listOf("set", "sid", "3")),
+            DesktopMpvCommandPlanner.dispatch(PlaybackCommand.SelectSubtitleTrack("mpv:subtitle:3")),
+        )
+    }
+
+    @Test
     fun rejectsCommandsWithNullBytesBeforeCrossingTheNativeBoundary() {
         assertFailsWith<IllegalArgumentException> {
             DesktopMpvCommand(listOf("loadfile", "bad\u0000path", "replace"))

@@ -52,6 +52,8 @@ Implemented today:
 - Android mobile and Android TV apps that browse the Windows catalog and stream
   selected episodes through Media3 with indexed sidecar subtitle attachment and
   runtime audio/subtitle track controls
+- Windows playback with indexed sidecar subtitle attachment plus runtime
+  audio/subtitle track discovery and selection controls
 - Android background playback service with resume lookup and periodic progress
   upload
 - Shared Kotlin playback, library-client, and danmaku scheduling contracts
@@ -64,8 +66,8 @@ Implemented today:
 
 Not implemented yet:
 
-- Real Windows video rendering in the Compose shell
-- Windows subtitle attachment and runtime track discovery
+- Windows fullscreen/aspect-ratio controls and broad resize/4K/hardware-decoding
+  validation
 - Authorized download engine
 - Provider plugins, MyAnimeList integration, and danmaku provider integrations
 
@@ -249,11 +251,10 @@ Project rules:
 Near-term priorities:
 
 - Use the approved pinned Windows libmpv bundle for development and releases.
-- Render libmpv video in the Compose desktop app.
 - Synchronize the danmaku overlay to the real playback clock.
 - Exercise PC-to-mobile and PC-to-TV streaming on physical hardware.
-- Attach discovered subtitle tracks to Windows playback and expose libmpv
-  runtime track discovery.
+- Add Windows fullscreen/aspect-ratio controls and validate resize, 4K media,
+  and hardware decoding.
 - Re-audit the libmpv bundle before changing its producer artifact or hashes.
 
 Later priorities include authorized download management, ani-rss monitoring,

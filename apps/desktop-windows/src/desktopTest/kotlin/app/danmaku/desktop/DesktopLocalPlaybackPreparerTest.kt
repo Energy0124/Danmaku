@@ -18,7 +18,9 @@ class DesktopLocalPlaybackPreparerTest {
         val temp = createTempDirectory("danmaku-local-playback")
         val episode = temp.resolve("Example Show").createDirectories()
             .resolve("Episode 01.mkv")
+        val subtitle = episode.parent.resolve("Episode 01.en.ass")
         episode.writeBytes(byteArrayOf(1, 2, 3))
+        subtitle.writeBytes("[Script Info]".encodeToByteArray())
         val library = LocalMediaLibraryIndexer.index(temp)
         val item = library.catalog.items.single()
         val progressStore = InMemoryPlaybackProgressStore().apply {
@@ -40,6 +42,15 @@ class DesktopLocalPlaybackPreparerTest {
             preparation.source,
         )
         assertEquals(12_345, preparation.resumePositionMs)
+        assertEquals(
+            listOf(
+                DesktopPlaybackSubtitle(
+                    source = subtitle.toAbsolutePath().normalize().toString(),
+                    label = "en",
+                ),
+            ),
+            preparation.subtitles,
+        )
 
         temp.toFile().deleteRecursively()
     }

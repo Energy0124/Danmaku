@@ -8,10 +8,21 @@ import app.danmaku.library.LanPlaybackPreparation
 import app.danmaku.library.LanPlaybackTarget
 import java.nio.file.Path
 
+data class DesktopPlaybackSubtitle(
+    val source: String,
+    val label: String,
+) {
+    init {
+        require(source.isNotBlank()) { "subtitle source must not be blank" }
+        require(label.isNotBlank()) { "subtitle label must not be blank" }
+    }
+}
+
 data class DesktopPlaybackRequest(
     val label: String,
     val source: PlaybackSource,
     val resumePositionMs: Long?,
+    val subtitles: List<DesktopPlaybackSubtitle> = emptyList(),
     val progressMediaId: String? = null,
     val progressTarget: LanPlaybackTarget? = null,
 ) {
@@ -26,9 +37,11 @@ data class DesktopPlaybackRequest(
 class DesktopPlaybackSession(
     private val controller: PlaybackController,
     private val afterLoad: (DesktopPlaybackRequest) -> Unit = {},
+    private val attachSubtitle: (DesktopPlaybackSubtitle) -> Unit = {},
 ) {
     fun load(request: DesktopPlaybackRequest): PlaybackSnapshot {
         controller.load(request.source)
+        request.subtitles.forEach(attachSubtitle)
         request.resumePositionMs?.let {
             controller.dispatch(PlaybackCommand.SeekTo(it))
         }
@@ -42,6 +55,7 @@ fun DesktopLocalPlaybackPreparation.toPlaybackRequest(): DesktopPlaybackRequest 
         label = "${item.seriesTitle} - ${item.episodeTitle}",
         source = source,
         resumePositionMs = resumePositionMs,
+        subtitles = subtitles,
         progressMediaId = item.id,
     )
 
@@ -59,6 +73,12 @@ fun LanPlaybackPreparation.toDesktopPlaybackRequest(): DesktopPlaybackRequest =
         label = "${item.seriesTitle} - ${item.episodeTitle}",
         source = source,
         resumePositionMs = resumePositionMs,
+        subtitles = subtitles.map {
+            DesktopPlaybackSubtitle(
+                source = it.source.url,
+                label = it.track.label,
+            )
+        },
         progressMediaId = target.mediaId,
         progressTarget = target,
     )

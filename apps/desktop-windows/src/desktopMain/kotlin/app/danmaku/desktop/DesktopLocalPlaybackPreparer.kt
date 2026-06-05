@@ -10,6 +10,7 @@ data class DesktopLocalPlaybackPreparation(
     val item: LibraryMediaItem,
     val source: PlaybackSource.LocalFile,
     val resumePositionMs: Long?,
+    val subtitles: List<DesktopPlaybackSubtitle> = emptyList(),
 )
 
 class DesktopLocalPlaybackPreparer(
@@ -30,6 +31,14 @@ class DesktopLocalPlaybackPreparer(
             resumePositionMs = progressStore
                 .loadProgress(item.id)
                 ?.resumePositionMs(),
+            subtitles = item.subtitles.mapNotNull { subtitle ->
+                library.subtitleFilesById[subtitle.id]?.let { path ->
+                    DesktopPlaybackSubtitle(
+                        source = path.toAbsolutePath().normalize().toString(),
+                        label = subtitle.label,
+                    )
+                }
+            },
         )
     }
 }
