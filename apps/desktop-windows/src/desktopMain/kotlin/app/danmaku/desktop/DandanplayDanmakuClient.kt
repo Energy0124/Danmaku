@@ -1,0 +1,352 @@
+package app.danmaku.desktop
+
+import app.danmaku.domain.DanmakuEvent
+import app.danmaku.domain.LocalDanmakuParser
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.longOrNull
+import kotlinx.serialization.json.put
+import java.net.HttpURLConnection
+import java.net.URI
+import java.nio.file.Files
+import java.nio.file.Path
+import java.security.MessageDigest
+import java.time.Clock
+import java.util.Base64
+
+class DandanplayConnection(
+    baseUrl: String = DEFAULT_BASE_URL,
+    appId: String? = null,
+    appSecret: String? = null,
+    val authenticationMode: DandanplayAuthenticationMode = DandanplayAuthenticationMode.SIGNED,
+) {
+    val baseUri: URI = validatedBaseUri(baseUrl)
+    internal val appId: String? = appId?.trim()?.takeIf(String::isNotEmpty)
+    internal val appSecret: String? = appSecret?.trim()?.takeIf(String::isNotEmpty)
+
+    init {
+        require((this.appId == null) == (this.appSecret == null)) {
+            "dandanplay AppId and AppSecret must be configured together"
+        }
+    }
+
+    val hasCredentials: Boolean
+        get() = appId != null && appSecret != null
+
+    override fun toString(): String =
+        "DandanplayConnection(baseUri=$baseUri, appId=${appId ?: "<none>"}, appSecret=<redacted>, authenticationMode=$authenticationMode)"
+
+    private companion object {
+        const val DEFAULT_BASE_URL = "https://api.dandanplay.net"
+
+        fun validatedBaseUri(baseUrl: String): URI {
+            val uri = URI(baseUrl.trim())
+            require(uri.scheme.equals("http", ignoreCase = true) || uri.scheme.equals("https", ignoreCase = true)) {
+                "dandanplay base URL must use http or https"
+            }
+            require(!uri.host.isNullOrBlank()) { "dandanplay base URL must include a host" }
+            require(uri.userInfo == null) { "dandanplay base URL must not include user info" }
+            require(uri.query == null) { "dandanplay base URL must not include a query" }
+            require(uri.fragment == null) { "dandanplay base URL must not include a fragment" }
+            return URI(uri.toString().trimEnd('/') + "/")
+        }
+    }
+}
+
+enum class DandanplayAuthenticationMode {
+    SIGNED,
+    CREDENTIAL,
+}
+
+class DandanplayDanmakuClient(
+    private val connection: DandanplayConnection = DandanplayConnection(),
+    private val json: Json = Json {
+        ignoreUnknownKeys = true
+    },
+    private val clock: Clock = Clock.systemUTC(),
+    private val connectTimeoutMillis: Int = DEFAULT_CONNECT_TIMEOUT_MILLIS,
+    private val readTimeoutMillis: Int = DEFAULT_READ_TIMEOUT_MILLIS,
+    private val maxResponseBytes: Int = DEFAULT_MAX_RESPONSE_BYTES,
+) {
+    init {
+        require(connectTimeoutMillis > 0) { "connectTimeoutMillis must be positive" }
+        require(readTimeoutMillis > 0) { "readTimeoutMillis must be positive" }
+        require(maxResponseBytes in 1 until Int.MAX_VALUE) {
+            "maxResponseBytes must be positive and less than Int.MAX_VALUE"
+        }
+    }
+
+    fun match(fingerprint: DandanplayMediaFingerprint): List<DandanplayMatch> {
+        val data = requestJson(
+            method = "POST",
+            apiPath = "/api/v2/match",
+            body = fingerprint.toMatchRequest(),
+        ).asObject()
+        check(data.boolean("success") != false) {
+            "dandanplay match failed: ${data.string("message") ?: "unknown error"}"
+        }
+        return data.array("matches")
+            .mapNotNull(JsonElement::asObjectOrNull)
+            .mapNotNull(JsonObject::toDandanplayMatch)
+    }
+
+    fun fetchComments(
+        episodeId: Long,
+        withRelated: Boolean = false,
+    ): List<DanmakuEvent> {
+        require(episodeId > 0) { "episodeId must be positive" }
+        val apiPath = "/api/v2/comment/$episodeId"
+        val query = if (withRelated) "withRelated=true" else null
+        val data = requestJson(
+            method = "GET",
+            apiPath = apiPath,
+            query = query,
+        ).asObject()
+        check(data.boolean("success") != false) {
+            "dandanplay comment fetch failed: ${data.string("message") ?: "unknown error"}"
+        }
+        return data.array("comments")
+            .mapIndexedNotNull { index, element ->
+                element.asObjectOrNull()?.toDanmakuEvent(index)
+            }
+    }
+
+    fun fetchBestMatchComments(
+        fingerprint: DandanplayMediaFingerprint,
+        withRelated: Boolean = true,
+    ): DandanplayCommentTrack? {
+        val bestMatch = match(fingerprint).firstOrNull() ?: return null
+        return DandanplayCommentTrack(
+            match = bestMatch,
+            events = fetchComments(bestMatch.episodeId, withRelated),
+        )
+    }
+
+    private fun requestJson(
+        method: String,
+        apiPath: String,
+        query: String? = null,
+        body: JsonObject? = null,
+    ): JsonElement {
+        val urlPath = apiPath.trimStart('/')
+        val endpoint = if (query == null) urlPath else "$urlPath?$query"
+        val httpConnection = (connection.baseUri.resolve(endpoint).toURL().openConnection() as HttpURLConnection).apply {
+            requestMethod = method
+            instanceFollowRedirects = false
+            connectTimeout = connectTimeoutMillis
+            readTimeout = readTimeoutMillis
+            setRequestProperty("Accept", "application/json")
+            setAuthenticationHeaders(apiPath)
+            if (body != null) {
+                doOutput = true
+                setRequestProperty("Content-Type", "application/json; charset=utf-8")
+            }
+        }
+
+        return try {
+            if (body != null) {
+                httpConnection.outputStream.bufferedWriter().use {
+                    it.write(body.toString())
+                }
+            }
+            val status = httpConnection.responseCode
+            val responseBody = httpConnection.responseStream(status).use { input ->
+                val bytes = input.readNBytes(maxResponseBytes + 1)
+                check(bytes.size <= maxResponseBytes) {
+                    "dandanplay response exceeded $maxResponseBytes bytes"
+                }
+                bytes.toString(Charsets.UTF_8)
+            }
+            check(status == HttpURLConnection.HTTP_OK) {
+                "dandanplay returned HTTP $status"
+            }
+            json.parseToJsonElement(responseBody)
+        } finally {
+            httpConnection.disconnect()
+        }
+    }
+
+    private fun HttpURLConnection.setAuthenticationHeaders(apiPath: String) {
+        if (!connection.hasCredentials) return
+
+        val appId = connection.appId ?: return
+        val appSecret = connection.appSecret ?: return
+        setRequestProperty("X-AppId", appId)
+        when (connection.authenticationMode) {
+            DandanplayAuthenticationMode.CREDENTIAL -> {
+                setRequestProperty("X-AppSecret", appSecret)
+            }
+            DandanplayAuthenticationMode.SIGNED -> {
+                val timestamp = clock.instant().epochSecond
+                setRequestProperty("X-Timestamp", timestamp.toString())
+                setRequestProperty("X-Signature", generateSignature(appId, timestamp, apiPath.lowercase(), appSecret))
+            }
+        }
+    }
+
+    private fun HttpURLConnection.responseStream(status: Int) =
+        if (status >= HttpURLConnection.HTTP_BAD_REQUEST) {
+            errorStream ?: inputStream
+        } else {
+            inputStream
+        }
+
+    private companion object {
+        const val DEFAULT_CONNECT_TIMEOUT_MILLIS = 5_000
+        const val DEFAULT_READ_TIMEOUT_MILLIS = 15_000
+        const val DEFAULT_MAX_RESPONSE_BYTES = 16 * 1024 * 1024
+    }
+}
+
+data class DandanplayMediaFingerprint(
+    val fileName: String,
+    val fileHash: String,
+    val fileSizeBytes: Long,
+    val videoDurationSeconds: Long? = null,
+) {
+    init {
+        require(fileName.isNotBlank()) { "fileName must not be blank" }
+        require(fileHash.matches(Regex("[A-Fa-f0-9]{32}"))) { "fileHash must be a 32-character MD5 hex digest" }
+        require(fileSizeBytes >= 0) { "fileSizeBytes must not be negative" }
+        require(videoDurationSeconds == null || videoDurationSeconds >= 0) {
+            "videoDurationSeconds must not be negative"
+        }
+    }
+
+    val normalizedFileHash: String = fileHash.lowercase()
+
+    fun toMatchRequest(): JsonObject =
+        buildJsonObject {
+            put("fileName", fileName)
+            put("fileHash", normalizedFileHash)
+            put("fileSize", fileSizeBytes)
+            put("matchMode", "hashAndFileName")
+            videoDurationSeconds?.let { put("videoDuration", it) }
+        }
+
+    companion object {
+        private const val HASH_PREFIX_BYTES = 16 * 1024 * 1024
+
+        fun fromPath(path: Path, videoDurationSeconds: Long? = null): DandanplayMediaFingerprint {
+            require(Files.isRegularFile(path)) { "media path must be a file: $path" }
+            return DandanplayMediaFingerprint(
+                fileName = path.fileName.toString(),
+                fileHash = calculatePrefixMd5(path),
+                fileSizeBytes = Files.size(path),
+                videoDurationSeconds = videoDurationSeconds,
+            )
+        }
+
+        private fun calculatePrefixMd5(path: Path): String {
+            val digest = MessageDigest.getInstance("MD5")
+            Files.newInputStream(path).use { input ->
+                val buffer = ByteArray(64 * 1024)
+                var remaining = HASH_PREFIX_BYTES
+                while (remaining > 0) {
+                    val read = input.read(buffer, 0, minOf(buffer.size, remaining))
+                    if (read <= 0) break
+                    digest.update(buffer, 0, read)
+                    remaining -= read
+                }
+            }
+            return digest.digest().joinToString(separator = "") { "%02x".format(it.toInt() and 0xff) }
+        }
+    }
+}
+
+data class DandanplayMatch(
+    val episodeId: Long,
+    val animeId: Long?,
+    val animeTitle: String?,
+    val episodeTitle: String?,
+    val shiftSeconds: Double?,
+) {
+    val displayTitle: String =
+        listOfNotNull(animeTitle, episodeTitle)
+            .joinToString(" - ")
+            .ifBlank { episodeId.toString() }
+}
+
+data class DandanplayCommentTrack(
+    val match: DandanplayMatch,
+    val events: List<DanmakuEvent>,
+)
+
+private fun generateSignature(
+    appId: String,
+    timestamp: Long,
+    apiPath: String,
+    appSecret: String,
+): String {
+    val digest = MessageDigest.getInstance("SHA-256")
+        .digest("$appId$timestamp$apiPath$appSecret".toByteArray(Charsets.UTF_8))
+    return Base64.getEncoder().encodeToString(digest)
+}
+
+private fun JsonObject.toDandanplayMatch(): DandanplayMatch? {
+    val episodeId = long("episodeId")
+        ?: long("EpisodeId")
+        ?: return null
+    return DandanplayMatch(
+        episodeId = episodeId,
+        animeId = long("animeId") ?: long("AnimeId"),
+        animeTitle = string("animeTitle") ?: string("AnimeTitle"),
+        episodeTitle = string("episodeTitle") ?: string("EpisodeTitle"),
+        shiftSeconds = double("shift") ?: double("Shift"),
+    )
+}
+
+private fun JsonObject.toDanmakuEvent(index: Int): DanmakuEvent? {
+    val parameter = string("p")
+        ?: string("P")
+        ?: string("parameter")
+        ?: return null
+    val text = string("m")
+        ?: string("M")
+        ?: string("text")
+        ?: string("Text")
+        ?: return null
+    val fallbackId = string("cid")
+        ?: string("id")
+        ?: string("Id")
+        ?: "dandanplay-$index"
+    return LocalDanmakuParser.parseBilibiliParameterString(
+        parameter = parameter,
+        text = text,
+        fallbackId = fallbackId,
+    )
+}
+
+private fun JsonElement.asObject(): JsonObject =
+    asObjectOrNull() ?: JsonObject(emptyMap())
+
+private fun JsonElement.asObjectOrNull(): JsonObject? =
+    this as? JsonObject
+
+private fun JsonElement.asArray(): JsonArray =
+    this as? JsonArray ?: JsonArray(emptyList())
+
+private fun JsonObject.array(key: String): JsonArray =
+    get(key)?.asArray() ?: JsonArray(emptyList())
+
+private fun JsonObject.string(key: String): String? =
+    (get(key) as? JsonPrimitive)?.contentOrNull
+
+private fun JsonObject.boolean(key: String): Boolean? =
+    (get(key) as? JsonPrimitive)?.booleanOrNull
+
+private fun JsonObject.long(key: String): Long? =
+    (get(key) as? JsonPrimitive)?.longOrNull?.takeIf { it >= 0 }
+
+private fun JsonObject.double(key: String): Double? =
+    (get(key) as? JsonPrimitive)
+        ?.jsonPrimitive
+        ?.contentOrNull
+        ?.toDoubleOrNull()

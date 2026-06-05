@@ -15,31 +15,45 @@ object LocalDanmakuParser {
             .findAll(source)
             .mapIndexedNotNull { index, match ->
                 val attributes = match.groupValues[1].parseXmlAttributes()
-                val parts = attributes["p"]
-                    ?.split(',')
-                    ?.map(String::trim)
-                    ?: return@mapIndexedNotNull null
-                val timestampMs = parts.getOrNull(0)
-                    ?.toDoubleOrNull()
-                    ?.takeIf { it >= 0 }
-                    ?.let { (it * 1_000.0).toLong() }
-                    ?: return@mapIndexedNotNull null
                 val text = match.groupValues[2].decodeXmlText().trim()
                     .takeIf(String::isNotBlank)
                     ?: return@mapIndexedNotNull null
-
-                DanmakuEvent(
-                    id = parts.getOrNull(7)?.takeIf(String::isNotBlank) ?: "xml-$index",
-                    timestampMs = timestampMs,
+                parseBilibiliParameterString(
+                    parameter = attributes["p"] ?: return@mapIndexedNotNull null,
                     text = text,
-                    style = DanmakuStyle(
-                        colorArgb = parts.getOrNull(3)?.toArgbColor() ?: DEFAULT_DANMAKU_COLOR,
-                        mode = parts.getOrNull(1)?.toBilibiliDanmakuMode() ?: DanmakuMode.SCROLLING,
-                        size = parts.getOrNull(2)?.toDanmakuSize() ?: DanmakuSize.NORMAL,
-                    ),
+                    fallbackId = "xml-$index",
                 )
             }
             .toList()
+
+    fun parseBilibiliParameterString(
+        parameter: String,
+        text: String,
+        fallbackId: String,
+    ): DanmakuEvent? {
+        val parts = parameter
+            .split(',')
+            .map(String::trim)
+        val timestampMs = parts.getOrNull(0)
+            ?.toDoubleOrNull()
+            ?.takeIf { it >= 0 }
+            ?.let { (it * 1_000.0).toLong() }
+            ?: return null
+        val trimmedText = text.trim()
+            .takeIf(String::isNotBlank)
+            ?: return null
+
+        return DanmakuEvent(
+            id = parts.getOrNull(7)?.takeIf(String::isNotBlank) ?: fallbackId,
+            timestampMs = timestampMs,
+            text = trimmedText,
+            style = DanmakuStyle(
+                colorArgb = parts.getOrNull(3)?.toArgbColor() ?: DEFAULT_DANMAKU_COLOR,
+                mode = parts.getOrNull(1)?.toBilibiliDanmakuMode() ?: DanmakuMode.SCROLLING,
+                size = parts.getOrNull(2)?.toDanmakuSize() ?: DanmakuSize.NORMAL,
+            ),
+        )
+    }
 
     fun parseNormalizedJson(source: String): List<DanmakuEvent> {
         val root = Json.parseToJsonElement(source)

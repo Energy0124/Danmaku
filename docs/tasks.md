@@ -67,6 +67,13 @@ indexed sidecar subtitles to Media3.
 - [x] Define normalized scrolling, top, and bottom danmaku event modes.
 - [x] Parse local Bilibili-style XML and normalized JSON danmaku files into the
   shared domain model.
+- [x] Add a Windows dandanplay-compatible API client for first-16MB MD5 media
+  matching, optional 弹弹play开放平台 authentication headers, and fetched-comment
+  normalization into shared danmaku events.
+- [ ] Add Windows settings for dandanplay-compatible API base URL and optional
+  AppId/AppSecret credentials with secure storage and redacted diagnostics.
+- [ ] Attach matched dandanplay-fetched tracks to Windows playback and cache the
+  chosen `episodeId` plus fetched comments per local catalog item.
 - [x] Add seek and playback-rate test cases.
 - [x] Add Windows progress-bar scrubbing, live mpv position polling, and
   throttled local/paired progress persistence.

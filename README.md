@@ -73,6 +73,10 @@ Implemented today:
 - Shared Kotlin playback, library-client, and danmaku scheduling contracts
 - Shared normalized danmaku event modes plus dependency-free local Bilibili XML
   and normalized JSON parsing
+- Windows dandanplay-compatible danmaku API client foundation for
+  first-16MB MD5 media matching, optional signed or credential-based
+  弹弹play开放平台 authentication, and comment normalization into shared
+  `DanmakuEvent` rows
 - Desktop preparation for local-file and paired-LAN playback requests, including
   resume seeks and native mpv command execution
 - Rust libmpv loader/probe plus a small C ABI and Kotlin/JNA binding for the
@@ -84,7 +88,8 @@ Not implemented yet:
 
 - Broad Windows resize/fullscreen/4K/hardware-decoding validation
 - Authorized download engine
-- Provider plugins, MyAnimeList integration, and danmaku provider integrations
+- UI-integrated provider plugins, MyAnimeList integration, and persisted
+  danmaku provider settings/cache
 
 ## Architecture
 

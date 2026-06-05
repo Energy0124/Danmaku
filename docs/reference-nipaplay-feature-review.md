@@ -46,6 +46,8 @@ Already implemented:
 - Desktop SQLDelight storage primitives for app settings and download queue
   items.
 - Shared danmaku timeline indexing and collision-aware scrolling-lane scheduling.
+- Windows dandanplay-compatible danmaku API client foundation for media matching,
+  optional 弹弹play开放平台 authentication, and fetched-comment normalization.
 - Windows libmpv dynamic-loader probe.
 - Dedicated Android TV application module with initial D-pad focus coverage.
 
@@ -158,7 +160,11 @@ Danmaku is a first-class product feature, not a visual add-on.
 
 - [x] Define normalized scrolling, top, and bottom danmaku event types.
 - [x] Parse local XML and JSON danmaku files.
+- [x] Add a Windows dandanplay-compatible API client foundation for media
+  matching and fetched-comment normalization.
 - [ ] Add manual danmaku-file mounting for an episode.
+- [ ] Add dandanplay-compatible API server settings, secure credential storage,
+  per-episode match caching, and playback attachment.
 - [ ] Add timeline offset controls and remember per-episode offsets.
 - [ ] Add show/hide, opacity, font-size, speed, density, and display-area settings.
 - [ ] Add keyword, regular-expression, and user-defined filtering.

@@ -100,6 +100,12 @@ Updated on 2026-06-05.
 - Shared local danmaku parser for common Bilibili-style XML `<d p="...">`
   comments and normalized JSON arrays/envelopes, producing provider-independent
   scrolling, top, and bottom `DanmakuEvent` modes.
+- Windows dandanplay-compatible danmaku API client foundation for calculating
+  the first-16MB MD5 media fingerprint, matching files through `/api/v2/match`,
+  fetching `/api/v2/comment/{episodeId}` comments, using optional signed or
+  credential-based 弹弹play开放平台 headers, and normalizing comments into shared
+  `DanmakuEvent` rows. Playback UI wiring, per-episode cache storage, and user
+  settings are still pending.
 - Compose Multiplatform 1.11.0 Windows desktop shell with synthetic danmaku
   scheduling backed by the shared scheduler and rendered over mpv as ASS.
 - Recursive Windows anime-folder indexer and trusted-LAN HTTP server exposing a
@@ -247,8 +253,8 @@ With an Android emulator or device online, run:
 2. Validate the Windows child-window playback spike with local files, resize,
    fullscreen, hardware decoding, 4K media, and the mpv-rendered synthetic ASS
    overlay.
-3. Replace the synthetic overlay with parsed danmaku tracks synchronized to the
-   real playback clock.
+3. Wire parsed local and dandanplay-fetched danmaku tracks into playback, cache
+   them per episode, and synchronize them to the real playback clock.
 4. Re-audit the libmpv bundle before changing its producer artifact or hashes.
 
 ## Runtime Smoke Check
