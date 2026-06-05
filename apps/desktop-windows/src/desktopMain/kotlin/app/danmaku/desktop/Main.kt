@@ -94,7 +94,7 @@ private data class DesktopDiagnosticLogEntry(
     val message: String,
 )
 
-private data class DesktopContinueWatchingItem(
+private data class DesktopPlaybackProgressItem(
     val mediaItem: LibraryMediaItem,
     val progress: PlaybackProgress,
 )
@@ -1172,6 +1172,9 @@ private fun MediaLibraryTab(
         val continueWatchingItems = remember(indexedLibrary, playbackProgresses) {
             indexedLibrary?.catalog?.continueWatchingItems(playbackProgresses).orEmpty()
         }
+        val recentlyWatchedItems = remember(indexedLibrary, playbackProgresses) {
+            indexedLibrary?.catalog?.recentlyWatchedItems(playbackProgresses).orEmpty()
+        }
         SectionCard("Local Media Library") {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(onClick = onAddLibraryFolder, enabled = !isIndexing) {
@@ -1192,17 +1195,43 @@ private fun MediaLibraryTab(
                 MetadataRow("Last scan", "${it.reusedItemCount} unchanged, ${it.refreshedItemCount} refreshed")
             }
         }
-        SectionCard("Continue Watching") {
-            if (continueWatchingItems.isEmpty()) {
-                EmptyState("No in-progress local episodes yet.")
-            } else {
-                LazyColumn(modifier = Modifier.heightIn(max = 220.dp)) {
-                    items(continueWatchingItems, key = { it.mediaItem.id }) { item ->
-                        ContinueWatchingRow(
-                            item = item,
-                            isPreparing = isPreparingLocalPlayback,
-                            onPrepareLocalPlayback = onPrepareLocalPlayback,
-                        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            SectionCard(
+                title = "Continue Watching",
+                modifier = Modifier.weight(1f),
+            ) {
+                if (continueWatchingItems.isEmpty()) {
+                    EmptyState("No in-progress local episodes yet.")
+                } else {
+                    LazyColumn(modifier = Modifier.heightIn(max = 220.dp)) {
+                        items(continueWatchingItems, key = { it.mediaItem.id }) { item ->
+                            ContinueWatchingRow(
+                                item = item,
+                                isPreparing = isPreparingLocalPlayback,
+                                onPrepareLocalPlayback = onPrepareLocalPlayback,
+                            )
+                        }
+                    }
+                }
+            }
+            SectionCard(
+                title = "Recently Watched",
+                modifier = Modifier.weight(1f),
+            ) {
+                if (recentlyWatchedItems.isEmpty()) {
+                    EmptyState("No saved local playback activity yet.")
+                } else {
+                    LazyColumn(modifier = Modifier.heightIn(max = 220.dp)) {
+                        items(recentlyWatchedItems, key = { it.mediaItem.id }) { item ->
+                            RecentlyWatchedRow(
+                                item = item,
+                                isPreparing = isPreparingLocalPlayback,
+                                onPrepareLocalPlayback = onPrepareLocalPlayback,
+                            )
+                        }
                     }
                 }
             }
@@ -1547,16 +1576,31 @@ private fun DiagnosticLogRow(entry: DesktopDiagnosticLogEntry) {
 
 private fun LibraryCatalog.continueWatchingItems(
     progresses: List<PlaybackProgress>,
-): List<DesktopContinueWatchingItem> {
+): List<DesktopPlaybackProgressItem> {
     val progressByMediaId = progresses.associateBy(PlaybackProgress::mediaId)
     return items
         .mapNotNull { item ->
             val progress = progressByMediaId[item.id]
                 ?.takeIf { it.resumePositionMs() != null }
                 ?: return@mapNotNull null
-            DesktopContinueWatchingItem(item, progress)
+            DesktopPlaybackProgressItem(item, progress)
         }
         .sortedByDescending { it.progress.updatedAtEpochMs }
+}
+
+private fun LibraryCatalog.recentlyWatchedItems(
+    progresses: List<PlaybackProgress>,
+    limit: Int = 8,
+): List<DesktopPlaybackProgressItem> {
+    require(limit > 0) { "limit must be positive" }
+    val itemsById = items.associateBy(LibraryMediaItem::id)
+    return progresses
+        .mapNotNull { progress ->
+            val item = itemsById[progress.mediaId] ?: return@mapNotNull null
+            DesktopPlaybackProgressItem(item, progress)
+        }
+        .sortedByDescending { it.progress.updatedAtEpochMs }
+        .take(limit)
 }
 
 @Composable
@@ -1584,7 +1628,7 @@ private fun MediaRootRow(root: DesktopLibraryRoot) {
 
 @Composable
 private fun ContinueWatchingRow(
-    item: DesktopContinueWatchingItem,
+    item: DesktopPlaybackProgressItem,
     isPreparing: Boolean,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
 ) {
@@ -1611,6 +1655,40 @@ private fun ContinueWatchingRow(
             enabled = !isPreparing,
         ) {
             Text(if (isPreparing) "Preparing..." else "Resume")
+        }
+    }
+}
+
+@Composable
+private fun RecentlyWatchedRow(
+    item: DesktopPlaybackProgressItem,
+    isPreparing: Boolean,
+    onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(item.mediaItem.seriesTitle, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(item.mediaItem.episodeTitle, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                "Last seen ${item.progress.updatedAtEpochMs.toDiagnosticTime()} at " +
+                    "${item.progress.positionMs.formatPlaybackTime()} / " +
+                    (item.progress.durationMs?.formatPlaybackTime() ?: "unknown"),
+                color = DanmakuColors.TextMuted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Button(
+            onClick = { onPrepareLocalPlayback(item.mediaItem) },
+            enabled = !isPreparing,
+        ) {
+            Text(if (isPreparing) "Preparing..." else "Prepare")
         }
     }
 }

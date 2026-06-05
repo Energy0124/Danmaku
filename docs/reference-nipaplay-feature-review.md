@@ -122,8 +122,10 @@ This turns the technical slice into a usable local media-center application.
   Windows, Android mobile, and Android TV.
 - [x] Add a Windows continue-watching list backed by persisted local playback
   progress.
-- [ ] Add richer library filters, recently watched, cross-device continue
-  watching, and scan status views.
+- [x] Add a Windows recently-watched list backed by persisted local playback
+  progress.
+- [ ] Add richer library filters, cross-device watch history, cross-device
+  continue watching, and scan status views.
 - [ ] Add episode detail and series detail screens.
 - [ ] Add previous episode, next episode, and configurable auto-next behavior.
 - [ ] Add favorites and playlists after normalized episode identity is stable.

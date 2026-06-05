@@ -75,6 +75,8 @@ indexed sidecar subtitles to Media3.
   across Windows, Android mobile, and Android TV catalog screens.
 - [x] Add a Windows continue-watching list backed by persisted local playback
   progress.
+- [x] Add a Windows recently-watched list backed by persisted local playback
+  progress.
 
 ## Android And TV
 
