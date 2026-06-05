@@ -8,6 +8,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.net.HttpURLConnection
 import java.net.URI
+import java.util.Collections
 import java.util.concurrent.Callable
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
@@ -17,6 +18,7 @@ import kotlin.io.path.writeBytes
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class LocalLibraryServerTest {
     @Test
@@ -123,6 +125,42 @@ class LocalLibraryServerTest {
                 assertEquals("bytes */6", response.getHeaderField("Content-Range"))
             }
         }
+    }
+
+    @Test
+    fun emitsDiagnosticEventsForPublishedLibrariesAndMediaRequests() {
+        val events = Collections.synchronizedList(mutableListOf<LocalLibraryServerEvent>())
+
+        withServer(
+            mediaBytes = byteArrayOf(0, 1, 2, 3, 4, 5),
+            eventSink = events::add,
+        ) { server, item ->
+            val mediaUrl = "${server.baseUrl()}${item.streamPath}?token=123456"
+            val response = connection(mediaUrl, "bytes=1-3")
+
+            assertEquals(206, response.responseCode)
+            assertContentEquals(byteArrayOf(1, 2, 3), response.inputStream.use { it.readBytes() })
+        }
+
+        assertTrue(
+            events.any { event ->
+                event.category == "library" &&
+                    event.method == "PUBLISH" &&
+                    event.path == "/api/library" &&
+                    event.status == 200 &&
+                    event.detail == "items=1"
+            },
+        )
+        assertTrue(
+            events.any { event ->
+                event.category == "media" &&
+                    event.method == "GET" &&
+                    event.path == "/media/episode-id" &&
+                    event.status == 206 &&
+                    "range=bytes=1-3" in event.detail &&
+                    "bytes=3" in event.detail
+            },
+        )
     }
 
     @Test
@@ -233,6 +271,7 @@ class LocalLibraryServerTest {
 
     private fun withServer(
         mediaBytes: ByteArray,
+        eventSink: (LocalLibraryServerEvent) -> Unit = {},
         block: (LocalLibraryServer, LibraryMediaItem) -> Unit,
     ) {
         val mediaFile = createTempFile("danmaku-server-core", ".mp4")
@@ -248,7 +287,11 @@ class LocalLibraryServerTest {
         )
 
         try {
-            LocalLibraryServer(port = 0, pairingToken = "123456").use { server ->
+            LocalLibraryServer(
+                port = 0,
+                pairingToken = "123456",
+                eventSink = eventSink,
+            ).use { server ->
                 server.publish(
                     PublishedLibrary(
                         catalog = LibraryCatalog(

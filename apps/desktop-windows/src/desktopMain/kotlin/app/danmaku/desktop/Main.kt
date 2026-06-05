@@ -54,10 +54,14 @@ import app.danmaku.library.LanPlaybackPreparation
 import app.danmaku.library.LanPlaybackPreparer
 import app.danmaku.library.jvm.JvmLanLibraryClient
 import app.danmaku.server.LocalLibraryDiscoveryAnnouncer
+import app.danmaku.server.LocalLibraryServerEvent
 import app.danmaku.server.PublishedLibrary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.nio.file.Path
 import javax.swing.JFileChooser
 import javax.swing.filechooser.FileNameExtensionFilter
@@ -70,6 +74,12 @@ fun main() = application {
         DesktopShell()
     }
 }
+
+private data class DesktopDiagnosticLogEntry(
+    val occurredAtEpochMs: Long,
+    val category: String,
+    val message: String,
+)
 
 @Composable
 private fun DesktopShell() {
@@ -85,7 +95,29 @@ private fun DesktopShell() {
     val localPlaybackPreparer = remember(catalogStore) {
         DesktopLocalPlaybackPreparer(catalogStore)
     }
+    val scope = rememberCoroutineScope()
     val mpvCommandLog = remember { mutableStateListOf<DesktopMpvCommand>() }
+    val diagnosticLog = remember { mutableStateListOf<DesktopDiagnosticLogEntry>() }
+    fun appendDiagnostic(category: String, message: String) {
+        diagnosticLog += DesktopDiagnosticLogEntry(
+            occurredAtEpochMs = System.currentTimeMillis(),
+            category = category,
+            message = message.redactToken(),
+        )
+        while (diagnosticLog.size > MAX_DIAGNOSTIC_LOG_ENTRIES) {
+            diagnosticLog.removeAt(0)
+        }
+    }
+    fun appendServerEvent(event: LocalLibraryServerEvent) {
+        diagnosticLog += DesktopDiagnosticLogEntry(
+            occurredAtEpochMs = event.occurredAtEpochMs,
+            category = "server:${event.category}",
+            message = "${event.method} ${event.path} -> ${event.status} ${event.detail}".redactToken(),
+        )
+        while (diagnosticLog.size > MAX_DIAGNOSTIC_LOG_ENTRIES) {
+            diagnosticLog.removeAt(0)
+        }
+    }
     var mpvVideoWindowId by remember { mutableStateOf<Long?>(null) }
     val mpvRuntime = remember(mpvVideoWindowId) {
         DesktopMpvCommandExecutorRuntimeFactory().create(
@@ -94,25 +126,38 @@ private fun DesktopShell() {
                 .orEmpty(),
         ) { command ->
             mpvCommandLog += command
+            appendDiagnostic("mpv", "command ${command.args.joinToString(separator = " ")}")
         }
     }
     val playbackController = remember(mpvRuntime) {
         DesktopMpvPlaybackController(mpvRuntime.executor)
+    }
+    LaunchedEffect(mpvRuntime, mpvVideoWindowId) {
+        appendDiagnostic(
+            "mpv",
+            if (mpvVideoWindowId == null) {
+                "Created mpv runtime without video window"
+            } else {
+                "Created mpv runtime for native window $mpvVideoWindowId"
+            },
+        )
     }
     val syntheticOverlayTrack = remember { DesktopSyntheticDanmakuAssTrack.createDefault() }
     var overlayStatus by remember { mutableStateOf("Synthetic danmaku overlay: waiting for media load") }
     val playbackSession = remember(playbackController, syntheticOverlayTrack, mpvRuntime) {
         DesktopPlaybackSession(playbackController) {
             runCatching {
+                appendDiagnostic("overlay", "Attaching synthetic ASS danmaku track after loading ${it.label}")
                 syntheticOverlayTrack.attachTo(mpvRuntime.executor)
             }.onSuccess {
                 overlayStatus = "Synthetic danmaku overlay: attached to mpv video"
+                appendDiagnostic("overlay", "Synthetic ASS danmaku track attached")
             }.onFailure { error ->
                 overlayStatus = "Synthetic danmaku overlay error: ${error.message}"
+                appendDiagnostic("overlay", "Synthetic ASS danmaku attach failed: ${error.message}")
             }
         }
     }
-    val scope = rememberCoroutineScope()
     val legacySelectedLibraryRoot = remember { selectionStore.load() }
     var registeredRoots by remember { mutableStateOf(rootRegistry.loadRoots()) }
     var playbackSnapshot by remember { mutableStateOf(PlaybackSnapshot()) }
@@ -143,6 +188,12 @@ private fun DesktopShell() {
                     registeredRoots = rootRegistry.loadRoots()
                     selectedLocalPlaybackPreparation = null
                     libraryError = null
+                    appendDiagnostic("library", "Published updated library from server runtime: ${library.catalog.items.size} items")
+                }
+            },
+            onServerEvent = { event ->
+                scope.launch {
+                    appendServerEvent(event)
                 }
             },
         )
@@ -156,6 +207,7 @@ private fun DesktopShell() {
     val networkUrls = remember(server) { server.networkUrls() }
 
     fun applyPublishedLibrary(library: IndexedLocalLibrary) {
+        appendDiagnostic("library", "Publishing library: ${library.catalog.items.size} items")
         server.publish(library.toPublishedLibrary())
         indexedLibrary = library
         registeredRoots = rootRegistry.loadRoots()
@@ -165,6 +217,7 @@ private fun DesktopShell() {
 
     fun registerAndScanUserRoot(root: Path) {
         scope.launch {
+            appendDiagnostic("library", "Scanning user library root: $root")
             isIndexing = true
             try {
                 runCatching {
@@ -176,9 +229,14 @@ private fun DesktopShell() {
                 }.onSuccess { result ->
                     lastScanStats = result.indexedLibrary?.scanStats
                     applyPublishedLibrary(result.publishedLibrary)
+                    appendDiagnostic(
+                        "library",
+                        "Scan complete: ${result.publishedLibrary.catalog.items.size} published items",
+                    )
                 }.onFailure { error ->
                     libraryError = error.message
                     registeredRoots = rootRegistry.loadRoots()
+                    appendDiagnostic("library", "Scan failed: ${error.message}")
                 }
             } finally {
                 isIndexing = false
@@ -188,6 +246,7 @@ private fun DesktopShell() {
 
     fun importAndScanAniRssRoot(root: Path) {
         scope.launch {
+            appendDiagnostic("downloads", "Importing ani-rss output root: $root")
             isIndexing = true
             try {
                 runCatching {
@@ -197,9 +256,14 @@ private fun DesktopShell() {
                 }.onSuccess { result ->
                     lastScanStats = result.indexedLibrary?.scanStats
                     applyPublishedLibrary(result.publishedLibrary)
+                    appendDiagnostic(
+                        "downloads",
+                        "ani-rss root scan complete: ${result.publishedLibrary.catalog.items.size} published items",
+                    )
                 }.onFailure { error ->
                     libraryError = error.message
                     registeredRoots = rootRegistry.loadRoots()
+                    appendDiagnostic("downloads", "ani-rss root scan failed: ${error.message}")
                 }
             } finally {
                 isIndexing = false
@@ -209,6 +273,7 @@ private fun DesktopShell() {
 
     fun rescanRegisteredRoots() {
         scope.launch {
+            appendDiagnostic("library", "Rescanning ${registeredRoots.size} registered folders")
             isIndexing = true
             try {
                 runCatching {
@@ -225,9 +290,14 @@ private fun DesktopShell() {
                         },
                     )
                     applyPublishedLibrary(batch.publishedLibrary)
+                    appendDiagnostic(
+                        "library",
+                        "Rescan complete: ${batch.publishedLibrary.catalog.items.size} published items",
+                    )
                 }.onFailure { error ->
                     libraryError = error.message
                     registeredRoots = rootRegistry.loadRoots()
+                    appendDiagnostic("library", "Rescan failed: ${error.message}")
                 }
             } finally {
                 isIndexing = false
@@ -287,6 +357,7 @@ private fun DesktopShell() {
                             overlayStatus = overlayStatus,
                             libraryError = libraryError,
                             lastScanStats = lastScanStats,
+                            diagnosticLog = diagnosticLog,
                         )
                         DesktopShellTab.PLAYBACK -> PlaybackTab(
                             playbackSnapshot = playbackSnapshot,
@@ -298,25 +369,31 @@ private fun DesktopShell() {
                             },
                             overlayStatus = overlayStatus,
                             mpvCommandLog = mpvCommandLog,
+                            diagnosticLog = diagnosticLog,
                             onWindowIdChanged = { mpvVideoWindowId = it },
                             onOpenMediaFile = {
+                                appendDiagnostic("playback", "Opening direct media file picker")
                                 selectMediaFile(
                                     title = "Choose media file for Windows playback",
                                 )?.let { mediaFile ->
+                                    appendDiagnostic("playback", "Loading direct media file: $mediaFile")
                                     playbackSnapshot = playbackSession.load(
                                         mediaFile.toDirectLocalPlaybackRequest(),
                                     )
                                 }
                             },
                             onPlay = {
+                                appendDiagnostic("playback", "Dispatch Play")
                                 playbackController.dispatch(PlaybackCommand.Play)
                                 playbackSnapshot = playbackController.snapshot()
                             },
                             onPause = {
+                                appendDiagnostic("playback", "Dispatch Pause")
                                 playbackController.dispatch(PlaybackCommand.Pause)
                                 playbackSnapshot = playbackController.snapshot()
                             },
                             onSeekBackward = {
+                                appendDiagnostic("playback", "Dispatch Seek -10s")
                                 playbackController.dispatch(
                                     PlaybackCommand.SeekTo(
                                         maxOf(0, playbackSnapshot.position.positionMs - 10_000),
@@ -325,6 +402,7 @@ private fun DesktopShell() {
                                 playbackSnapshot = playbackController.snapshot()
                             },
                             onSeekForward = {
+                                appendDiagnostic("playback", "Dispatch Seek +10s")
                                 playbackController.dispatch(
                                     PlaybackCommand.SeekTo(
                                         playbackSnapshot.position.positionMs + 10_000,
@@ -352,6 +430,7 @@ private fun DesktopShell() {
                                 val library = indexedLibrary
                                 if (library != null) {
                                     scope.launch {
+                                        appendDiagnostic("playback", "Preparing local library playback: ${item.id}")
                                         isPreparingLocalPlayback = true
                                         runCatching {
                                             withContext(Dispatchers.IO) {
@@ -360,14 +439,23 @@ private fun DesktopShell() {
                                         }.onSuccess {
                                             selectedLocalPlaybackPreparation = it
                                             libraryError = null
+                                            appendDiagnostic(
+                                                "playback",
+                                                "Prepared local playback: ${item.id}; source=${it.source.path}; resume=${it.resumePositionMs}",
+                                            )
                                         }.onFailure {
                                             libraryError = it.message
+                                            appendDiagnostic("playback", "Prepare local playback failed: ${it.message}")
                                         }
                                         isPreparingLocalPlayback = false
                                     }
                                 }
                             },
                             onLoadPreparedPlayback = { preparation ->
+                                appendDiagnostic(
+                                    "playback",
+                                    "Loading prepared local playback: ${preparation.item.id}; source=${preparation.source.path}",
+                                )
                                 playbackSnapshot = playbackSession.load(preparation.toPlaybackRequest())
                                 selectedTab = DesktopShellTab.PLAYBACK
                             },
@@ -376,6 +464,7 @@ private fun DesktopShell() {
                                     defaultServerUrl = server.baseUrl(),
                                     defaultPairingToken = server.pairingToken,
                                     playbackSession = playbackSession,
+                                    appendDiagnostic = ::appendDiagnostic,
                                     onPlaybackSnapshotChanged = {
                                         playbackSnapshot = it
                                         selectedTab = DesktopShellTab.PLAYBACK
@@ -404,6 +493,7 @@ private fun DesktopShell() {
                             serverBaseUrl = server.baseUrl(),
                             networkUrls = networkUrls,
                             pairingToken = server.pairingToken,
+                            diagnosticLog = diagnosticLog,
                         )
                     }
                 }
@@ -510,6 +600,7 @@ private fun HomeTab(
     overlayStatus: String,
     libraryError: String?,
     lastScanStats: LocalMediaLibraryScanStats?,
+    diagnosticLog: List<DesktopDiagnosticLogEntry>,
 ) {
     TabScaffold {
         Row(
@@ -551,6 +642,7 @@ private fun HomeTab(
             }
             libraryError?.let { MetadataRow("Library error", it, valueColor = DanmakuColors.Warning) }
         }
+        DiagnosticsPanel(diagnosticLog)
     }
 }
 
@@ -561,6 +653,7 @@ private fun PlaybackTab(
     videoHostStatus: String,
     overlayStatus: String,
     mpvCommandLog: List<DesktopMpvCommand>,
+    diagnosticLog: List<DesktopDiagnosticLogEntry>,
     onWindowIdChanged: (Long?) -> Unit,
     onOpenMediaFile: () -> Unit,
     onPlay: () -> Unit,
@@ -624,6 +717,7 @@ private fun PlaybackTab(
                 }
             }
         }
+        DiagnosticsPanel(diagnosticLog)
     }
 }
 
@@ -766,6 +860,7 @@ private fun ProfileTab(
     serverBaseUrl: String,
     networkUrls: List<String>,
     pairingToken: String,
+    diagnosticLog: List<DesktopDiagnosticLogEntry>,
 ) {
     TabScaffold {
         SectionCard("Local Server") {
@@ -782,6 +877,7 @@ private fun ProfileTab(
             MetadataRow("Video host", videoHostStatus)
             MetadataRow("Renderer", "mpv child window with generated ASS danmaku overlay")
         }
+        DiagnosticsPanel(diagnosticLog)
     }
 }
 
@@ -893,6 +989,58 @@ private fun EmptyState(text: String) {
 }
 
 @Composable
+private fun DiagnosticsPanel(
+    diagnosticLog: List<DesktopDiagnosticLogEntry>,
+    modifier: Modifier = Modifier,
+) {
+    SectionCard(
+        title = "Diagnostics",
+        modifier = modifier,
+    ) {
+        if (diagnosticLog.isEmpty()) {
+            EmptyState("No diagnostics yet. Start playback or scan a library to populate this log.")
+            return@SectionCard
+        }
+        LazyColumn(modifier = Modifier.height(240.dp)) {
+            items(diagnosticLog.asReversed()) { entry ->
+                DiagnosticLogRow(entry)
+            }
+        }
+    }
+}
+
+@Composable
+private fun DiagnosticLogRow(entry: DesktopDiagnosticLogEntry) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(
+            text = entry.occurredAtEpochMs.toDiagnosticTime(),
+            color = DanmakuColors.TextMuted,
+            modifier = Modifier.width(76.dp),
+            maxLines = 1,
+        )
+        Text(
+            text = entry.category,
+            color = DanmakuColors.Accent,
+            modifier = Modifier.width(96.dp),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            text = entry.message,
+            color = Color.White,
+            modifier = Modifier.weight(1f),
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
 private fun MediaRootRow(root: DesktopLibraryRoot) {
     Column(
         modifier = Modifier
@@ -946,6 +1094,7 @@ private fun RemoteLibraryBrowser(
     defaultServerUrl: String,
     defaultPairingToken: String,
     playbackSession: DesktopPlaybackSession,
+    appendDiagnostic: (String, String) -> Unit,
     onPlaybackSnapshotChanged: (PlaybackSnapshot) -> Unit,
 ) {
     val libraryClient = remember { JvmLanLibraryClient() }
@@ -964,6 +1113,7 @@ private fun RemoteLibraryBrowser(
     fun refreshCatalog() {
         val requestedServerUrl = serverUrl
         val requestedPairingToken = pairingToken
+        appendDiagnostic("remote-client", "Fetching catalog from $requestedServerUrl")
         scope.launch {
             isLoading = true
             selectedPlaybackPreparation = null
@@ -974,8 +1124,10 @@ private fun RemoteLibraryBrowser(
             }.onSuccess {
                 catalog = it
                 libraryError = null
+                appendDiagnostic("remote-client", "Fetched catalog: ${it.items.size} items")
             }.onFailure {
                 libraryError = it.message
+                appendDiagnostic("remote-client", "Fetch catalog failed: ${it.message}")
             }
             isLoading = false
         }
@@ -1018,6 +1170,10 @@ private fun RemoteLibraryBrowser(
                     onClick = {
                         val requestedServerUrl = serverUrl
                         val requestedPairingToken = pairingToken
+                        appendDiagnostic(
+                            "remote-client",
+                            "Preparing remote playback: ${item.id} from $requestedServerUrl",
+                        )
                         scope.launch {
                             isPreparingPlayback = true
                             runCatching {
@@ -1031,8 +1187,13 @@ private fun RemoteLibraryBrowser(
                             }.onSuccess {
                                 selectedPlaybackPreparation = it
                                 libraryError = null
+                                appendDiagnostic(
+                                    "remote-client",
+                                    "Prepared remote playback: ${item.id}; stream=${it.source.url}; resume=${it.resumePositionMs}; subtitles=${it.subtitles.size}",
+                                )
                             }.onFailure {
                                 libraryError = it.message
+                                appendDiagnostic("remote-client", "Prepare remote playback failed: ${it.message}")
                             }
                             isPreparingPlayback = false
                         }
@@ -1051,6 +1212,10 @@ private fun RemoteLibraryBrowser(
         Text("Resume: ${preparation.resumePositionMs?.let { "$it ms" } ?: "start from beginning"}")
         Button(
             onClick = {
+                appendDiagnostic(
+                    "playback",
+                    "Loading remote stream into Windows controller: ${preparation.item.id}; source=${preparation.source.url}",
+                )
                 onPlaybackSnapshotChanged(
                     playbackSession.load(preparation.toDesktopPlaybackRequest()),
                 )
@@ -1099,3 +1264,13 @@ private fun selectMediaFile(title: String) =
 
 private fun String.redactToken(): String =
     replace(Regex("([?&]token=)[^&]+"), "\$1...")
+
+private fun Long.toDiagnosticTime(): String =
+    DIAGNOSTIC_TIME_FORMATTER.format(
+        Instant.ofEpochMilli(this).atZone(ZoneId.systemDefault()),
+    )
+
+private const val MAX_DIAGNOSTIC_LOG_ENTRIES = 200
+
+private val DIAGNOSTIC_TIME_FORMATTER: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("HH:mm:ss")

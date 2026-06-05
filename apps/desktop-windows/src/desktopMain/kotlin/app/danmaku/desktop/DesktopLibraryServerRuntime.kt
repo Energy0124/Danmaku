@@ -2,6 +2,7 @@ package app.danmaku.desktop
 
 import app.danmaku.server.AuthenticatedPostHook
 import app.danmaku.server.LocalLibraryServer
+import app.danmaku.server.LocalLibraryServerEvent
 
 class DesktopLibraryServerRuntime private constructor(
     val server: LocalLibraryServer,
@@ -30,6 +31,7 @@ class DesktopLibraryServerRuntime private constructor(
             aniRssWebhookToken: String,
             debounceMillis: Long = 1_000L,
             onLibraryPublished: (IndexedLocalLibrary) -> Unit = {},
+            onServerEvent: (LocalLibraryServerEvent) -> Unit = {},
         ): DesktopLibraryServerRuntime {
             lateinit var server: LocalLibraryServer
             val trigger = AniRssCompletionRescanTrigger(
@@ -51,6 +53,7 @@ class DesktopLibraryServerRuntime private constructor(
                         port = port,
                         progressStore = catalogStore,
                         authenticatedPostHooks = listOf(hook),
+                        eventSink = onServerEvent,
                     )
                 } else {
                     LocalLibraryServer(
@@ -58,6 +61,7 @@ class DesktopLibraryServerRuntime private constructor(
                         pairingToken = pairingToken,
                         progressStore = catalogStore,
                         authenticatedPostHooks = listOf(hook),
+                        eventSink = onServerEvent,
                     )
                 }
                 server.start()

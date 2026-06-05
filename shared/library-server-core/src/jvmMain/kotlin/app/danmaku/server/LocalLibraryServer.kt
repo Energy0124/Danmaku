@@ -22,6 +22,7 @@ class LocalLibraryServer(
     val pairingToken: String = generatePairingToken(),
     private val progressStore: PlaybackProgressStore = InMemoryPlaybackProgressStore(),
     authenticatedPostHooks: List<AuthenticatedPostHook> = emptyList(),
+    private val eventSink: (LocalLibraryServerEvent) -> Unit = {},
 ) : AutoCloseable {
     private val server = HttpServer.create(InetSocketAddress(port), 0)
     private val executor = Executors.newCachedThreadPool()
@@ -54,6 +55,7 @@ class LocalLibraryServer(
 
     fun publish(library: PublishedLibrary) {
         this.library = library
+        recordEvent("library", "PUBLISH", "/api/library", 200, "items=${library.catalog.items.size}")
     }
 
     fun networkUrls(): List<String> =
@@ -85,10 +87,12 @@ class LocalLibraryServer(
 
     private fun handleCatalog(exchange: HttpExchange) {
         if (exchange.requestMethod != "GET") {
+            exchange.recordRequest("catalog", 405, "method=${exchange.requestMethod}")
             exchange.sendStatus(405)
             return
         }
         if (!exchange.isAuthorized()) {
+            exchange.recordRequest("catalog", 401, "unauthorized")
             exchange.sendStatus(401)
             return
         }
@@ -97,15 +101,18 @@ class LocalLibraryServer(
         exchange.responseHeaders["Content-Type"] = listOf("application/json; charset=utf-8")
         exchange.responseHeaders["Cache-Control"] = listOf("no-store")
         exchange.sendResponseHeaders(200, body.size.toLong())
+        exchange.recordRequest("catalog", 200, "bytes=${body.size}; items=${library.catalog.items.size}")
         exchange.responseBody.use { it.write(body) }
     }
 
     private fun handleMedia(exchange: HttpExchange) {
         if (exchange.requestMethod !in setOf("GET", "HEAD")) {
+            exchange.recordRequest("media", 405, "method=${exchange.requestMethod}")
             exchange.sendStatus(405)
             return
         }
         if (!exchange.isAuthorized()) {
+            exchange.recordRequest("media", 401, "unauthorized")
             exchange.sendStatus(401)
             return
         }
@@ -113,15 +120,18 @@ class LocalLibraryServer(
         val id = exchange.requestURI.path.removePrefix("/media/")
         val path = library.filesById[id]
         if (path == null || !Files.isRegularFile(path)) {
+            exchange.recordRequest("media", 404, "id=$id")
             exchange.sendStatus(404)
             return
         }
 
         val fileSize = Files.size(path)
+        val rangeHeader = exchange.requestHeaders.getFirst("Range")
         val range = exchange.requestHeaders.getFirst("Range")
             ?.let { parseRange(it, fileSize) }
         if (exchange.requestHeaders.containsKey("Range") && range == null) {
             exchange.responseHeaders["Content-Range"] = listOf("bytes */$fileSize")
+            exchange.recordRequest("media", 416, "id=$id; range=$rangeHeader; size=$fileSize")
             exchange.sendStatus(416)
             return
         }
@@ -137,6 +147,11 @@ class LocalLibraryServer(
         }
 
         exchange.sendResponseHeaders(if (range == null) 200 else 206, contentLength)
+        exchange.recordRequest(
+            "media",
+            if (range == null) 200 else 206,
+            "id=$id; range=${rangeHeader ?: "none"}; bytes=$contentLength; size=$fileSize; file=${path.fileName}",
+        )
         if (exchange.requestMethod == "HEAD" || contentLength == 0L) {
             exchange.close()
             return
@@ -159,10 +174,12 @@ class LocalLibraryServer(
 
     private fun handleSubtitle(exchange: HttpExchange) {
         if (exchange.requestMethod !in setOf("GET", "HEAD")) {
+            exchange.recordRequest("subtitle", 405, "method=${exchange.requestMethod}")
             exchange.sendStatus(405)
             return
         }
         if (!exchange.isAuthorized()) {
+            exchange.recordRequest("subtitle", 401, "unauthorized")
             exchange.sendStatus(401)
             return
         }
@@ -170,6 +187,7 @@ class LocalLibraryServer(
         val id = exchange.requestURI.path.removePrefix("/subtitles/")
         val path = library.subtitleFilesById[id]
         if (path == null || !Files.isRegularFile(path)) {
+            exchange.recordRequest("subtitle", 404, "id=$id")
             exchange.sendStatus(404)
             return
         }
@@ -180,10 +198,12 @@ class LocalLibraryServer(
         if (exchange.requestMethod == "HEAD") {
             exchange.responseHeaders["Content-Length"] = listOf(contentLength.toString())
             exchange.sendResponseHeaders(200, -1)
+            exchange.recordRequest("subtitle", 200, "id=$id; method=HEAD; bytes=$contentLength")
             exchange.close()
             return
         }
         exchange.sendResponseHeaders(200, contentLength)
+        exchange.recordRequest("subtitle", 200, "id=$id; bytes=$contentLength; file=${path.fileName}")
         Files.newInputStream(path).use { input ->
             exchange.responseBody.use(input::copyTo)
         }
@@ -191,10 +211,12 @@ class LocalLibraryServer(
 
     private fun handleProgress(exchange: HttpExchange) {
         if (exchange.requestMethod !in setOf("GET", "PUT")) {
+            exchange.recordRequest("progress", 405, "method=${exchange.requestMethod}")
             exchange.sendStatus(405)
             return
         }
         if (!exchange.isAuthorized()) {
+            exchange.recordRequest("progress", 401, "unauthorized")
             exchange.sendStatus(401)
             return
         }
@@ -205,6 +227,7 @@ class LocalLibraryServer(
             ?.let { URLDecoder.decode(it, Charsets.UTF_8) }
             ?.takeIf { id -> library.catalog.items.any { it.id == id } }
         if (mediaId == null) {
+            exchange.recordRequest("progress", 404, "unknown media")
             exchange.sendStatus(404)
             return
         }
@@ -212,9 +235,11 @@ class LocalLibraryServer(
         if (exchange.requestMethod == "GET") {
             val progress = progressStore.loadProgress(mediaId)
             if (progress == null) {
+                exchange.recordRequest("progress", 404, "id=$mediaId; no saved progress")
                 exchange.sendStatus(404)
                 return
             }
+            exchange.recordRequest("progress", 200, "id=$mediaId; position=${progress.positionMs}")
             exchange.sendJson(Json.encodeToString(progress))
             return
         }
@@ -225,10 +250,12 @@ class LocalLibraryServer(
             )
         }.getOrNull()
         if (progress == null || progress.mediaId != mediaId) {
+            exchange.recordRequest("progress", 400, "id=$mediaId; invalid body")
             exchange.sendStatus(400)
             return
         }
         progressStore.saveProgress(progress)
+        exchange.recordRequest("progress", 204, "id=$mediaId; position=${progress.positionMs}")
         exchange.sendStatus(204)
     }
 
@@ -237,18 +264,26 @@ class LocalLibraryServer(
         hook: AuthenticatedPostHook,
     ) {
         if (exchange.requestMethod != "POST") {
+            exchange.recordRequest("hook", 405, "method=${exchange.requestMethod}")
             exchange.sendStatus(405)
             return
         }
         val suppliedToken = exchange.requestHeaders.getFirst(WEBHOOK_TOKEN_HEADER)
         if (!hook.isAuthorized(suppliedToken)) {
+            exchange.recordRequest("hook", 401, "path=${hook.path}")
             exchange.sendStatus(401)
             return
         }
 
         runCatching(hook::accept)
-            .onSuccess { exchange.sendStatus(202) }
-            .onFailure { exchange.sendStatus(500) }
+            .onSuccess {
+                exchange.recordRequest("hook", 202, "path=${hook.path}")
+                exchange.sendStatus(202)
+            }
+            .onFailure { error ->
+                exchange.recordRequest("hook", 500, "path=${hook.path}; error=${error.message}")
+                exchange.sendStatus(500)
+            }
     }
 
     private fun parseRange(header: String, fileSize: Long): LongRange? {
@@ -317,6 +352,35 @@ class LocalLibraryServer(
         responseBody.use { it.write(body) }
     }
 
+    private fun HttpExchange.recordRequest(
+        category: String,
+        status: Int,
+        detail: String,
+    ) {
+        recordEvent(category, requestMethod, requestURI.path, status, detail)
+    }
+
+    private fun recordEvent(
+        category: String,
+        method: String,
+        path: String,
+        status: Int,
+        detail: String,
+    ) {
+        runCatching {
+            eventSink(
+                LocalLibraryServerEvent(
+                    occurredAtEpochMs = System.currentTimeMillis(),
+                    category = category,
+                    method = method,
+                    path = path,
+                    status = status,
+                    detail = detail,
+                ),
+            )
+        }
+    }
+
     companion object {
         const val DEFAULT_PORT = 8686
         const val WEBHOOK_TOKEN_HEADER = "X-Danmaku-Webhook-Token"
@@ -328,3 +392,12 @@ class LocalLibraryServer(
                 .padStart(6, '0')
     }
 }
+
+data class LocalLibraryServerEvent(
+    val occurredAtEpochMs: Long,
+    val category: String,
+    val method: String,
+    val path: String,
+    val status: Int,
+    val detail: String,
+)
