@@ -145,6 +145,8 @@ This turns the technical slice into a usable local media-center application.
   catalog items.
 - [x] Add Windows one-click local library play/resume actions while retaining
   explicit prepare actions for diagnostics.
+- [x] Add Windows paired-catalog one-click stream playback while retaining
+  explicit prepare actions for diagnostics.
 - [x] Add optional persisted Windows local-library auto-next playback.
 - [ ] Persist player, library, and UI settings in SQLDelight.
 

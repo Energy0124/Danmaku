@@ -1934,6 +1934,45 @@ private fun RemoteLibraryBrowser(
         }
     }
 
+    fun prepareRemotePlayback(
+        item: LibraryMediaItem,
+        loadAfterPrepare: Boolean,
+    ) {
+        val requestedServerUrl = serverUrl
+        val requestedPairingToken = pairingToken
+        appendDiagnostic(
+            "remote-client",
+            "Preparing remote playback: ${item.id} from $requestedServerUrl",
+        )
+        scope.launch {
+            isPreparingPlayback = true
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    playbackPreparer.prepare(
+                        baseUrl = requestedServerUrl,
+                        pairingToken = requestedPairingToken,
+                        item = item,
+                    )
+                }
+            }.onSuccess {
+                selectedPlaybackPreparation = it
+                libraryError = null
+                appendDiagnostic(
+                    "remote-client",
+                    "Prepared remote playback: ${item.id}; stream=${it.source.url}; resume=${it.resumePositionMs}; subtitles=${it.subtitles.size}",
+                )
+                if (loadAfterPrepare) {
+                    appendDiagnostic("remote-client", "Loading prepared remote playback: ${item.id}")
+                    onLoadPreparedPlayback(it)
+                }
+            }.onFailure {
+                libraryError = it.message
+                appendDiagnostic("remote-client", "Prepare remote playback failed: ${it.message}")
+            }
+            isPreparingPlayback = false
+        }
+    }
+
     Text("Windows paired library client")
     Text("Defaults to this app's embedded same-PC server. Enter another PC URL to browse remotely.")
     OutlinedTextField(
@@ -1968,40 +2007,16 @@ private fun RemoteLibraryBrowser(
         items(catalog?.items.orEmpty(), key = { it.id }) { item ->
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
-                    onClick = {
-                        val requestedServerUrl = serverUrl
-                        val requestedPairingToken = pairingToken
-                        appendDiagnostic(
-                            "remote-client",
-                            "Preparing remote playback: ${item.id} from $requestedServerUrl",
-                        )
-                        scope.launch {
-                            isPreparingPlayback = true
-                            runCatching {
-                                withContext(Dispatchers.IO) {
-                                    playbackPreparer.prepare(
-                                        baseUrl = requestedServerUrl,
-                                        pairingToken = requestedPairingToken,
-                                        item = item,
-                                    )
-                                }
-                            }.onSuccess {
-                                selectedPlaybackPreparation = it
-                                libraryError = null
-                                appendDiagnostic(
-                                    "remote-client",
-                                    "Prepared remote playback: ${item.id}; stream=${it.source.url}; resume=${it.resumePositionMs}; subtitles=${it.subtitles.size}",
-                                )
-                            }.onFailure {
-                                libraryError = it.message
-                                appendDiagnostic("remote-client", "Prepare remote playback failed: ${it.message}")
-                            }
-                            isPreparingPlayback = false
-                        }
-                    },
+                    onClick = { prepareRemotePlayback(item, loadAfterPrepare = false) },
                     enabled = !isPreparingPlayback,
                 ) {
-                    Text(if (isPreparingPlayback) "Preparing..." else "Prepare playback")
+                    Text(if (isPreparingPlayback) "Preparing..." else "Prepare")
+                }
+                Button(
+                    onClick = { prepareRemotePlayback(item, loadAfterPrepare = true) },
+                    enabled = !isPreparingPlayback,
+                ) {
+                    Text(if (isPreparingPlayback) "Loading..." else "Play stream")
                 }
                 Text("${item.seriesTitle} - ${item.episodeTitle}")
             }

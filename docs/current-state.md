@@ -83,6 +83,8 @@ Updated on 2026-06-05.
 - Windows local library rows, continue-watching rows, and recently-watched rows
   support one-click play/resume while keeping explicit prepare actions for
   diagnostics.
+- Windows paired-library rows can prepare LAN streams for diagnostics or
+  one-click load prepared streams into the local mpv controller.
 - Windows local-library playback has an optional persisted auto-next setting
   that prepares and loads the next local catalog item when playback reaches EOF.
 - Direct Windows media-file picker that loads arbitrary local video files into

@@ -63,6 +63,8 @@ Implemented today:
   items
 - Windows one-click local library play/resume while retaining explicit prepare
   actions for diagnostics
+- Windows paired-library rows can prepare streams for diagnostics or one-click
+  load them into the local mpv controller
 - Optional Windows local-library auto-next playback persisted in app settings
 - Android background playback service with resume lookup and periodic progress
   upload
