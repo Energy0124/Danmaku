@@ -82,6 +82,7 @@ indexed sidecar subtitles to Media3.
 - [x] Add Windows one-click local library play/resume actions while retaining
   explicit prepare actions for diagnostics.
 - [x] Add optional persisted Windows local-library auto-next playback.
+- [x] Add Windows fullscreen and aspect-ratio playback controls.
 
 ## Android And TV
 

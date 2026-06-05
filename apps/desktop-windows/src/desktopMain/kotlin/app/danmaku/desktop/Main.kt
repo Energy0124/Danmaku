@@ -221,6 +221,8 @@ private fun DesktopShell() {
     val legacySelectedLibraryRoot = remember { selectionStore.load() }
     var registeredRoots by remember { mutableStateOf(rootRegistry.loadRoots()) }
     var playbackSnapshot by remember { mutableStateOf(PlaybackSnapshot()) }
+    var isFullscreen by remember(playbackController) { mutableStateOf(playbackController.fullscreen) }
+    var videoAspectMode by remember(playbackController) { mutableStateOf(playbackController.videoAspectMode) }
     var indexedLibrary by remember {
         mutableStateOf(
             if (registeredRoots.isNotEmpty()) {
@@ -694,6 +696,20 @@ private fun DesktopShell() {
                             playbackController.dispatch(PlaybackCommand.SelectSubtitleTrack(trackId))
                             playbackSnapshot = playbackController.snapshot()
                         },
+                        isFullscreen = isFullscreen,
+                        videoAspectMode = videoAspectMode,
+                        onSetFullscreen = { enabled ->
+                            appendDiagnostic("playback", "Dispatch fullscreen ${if (enabled) "on" else "off"}")
+                            playbackController.setFullscreen(enabled)
+                            isFullscreen = playbackController.fullscreen
+                            playbackSnapshot = playbackController.snapshot()
+                        },
+                        onSetVideoAspectMode = { mode ->
+                            appendDiagnostic("playback", "Dispatch video aspect ${mode.label}")
+                            playbackController.setVideoAspectMode(mode)
+                            videoAspectMode = playbackController.videoAspectMode
+                            playbackSnapshot = playbackController.snapshot()
+                        },
                         canOpenMedia = mpvVideoWindowId != null,
                         modifier = if (selectedTab == DesktopShellTab.PLAYBACK) {
                             Modifier.fillMaxSize()
@@ -958,6 +974,10 @@ private fun PlaybackTab(
     onSetVolume: (Int) -> Unit,
     onSelectAudioTrack: (String) -> Unit,
     onSelectSubtitleTrack: (String?) -> Unit,
+    isFullscreen: Boolean,
+    videoAspectMode: DesktopVideoAspectMode,
+    onSetFullscreen: (Boolean) -> Unit,
+    onSetVideoAspectMode: (DesktopVideoAspectMode) -> Unit,
     canOpenMedia: Boolean,
     modifier: Modifier = Modifier,
 ) {
@@ -1005,6 +1025,14 @@ private fun PlaybackTab(
                 onSetVolume = onSetVolume,
             )
             Spacer(modifier = Modifier.height(12.dp))
+            VideoDisplayControls(
+                playbackSnapshot = playbackSnapshot,
+                isFullscreen = isFullscreen,
+                videoAspectMode = videoAspectMode,
+                onSetFullscreen = onSetFullscreen,
+                onSetVideoAspectMode = onSetVideoAspectMode,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
             TrackControls(
                 playbackSnapshot = playbackSnapshot,
                 onSelectAudioTrack = onSelectAudioTrack,
@@ -1043,6 +1071,44 @@ private fun PlaybackTab(
             }
         }
         DiagnosticsPanel(diagnosticLog)
+    }
+}
+
+@Composable
+private fun VideoDisplayControls(
+    playbackSnapshot: PlaybackSnapshot,
+    isFullscreen: Boolean,
+    videoAspectMode: DesktopVideoAspectMode,
+    onSetFullscreen: (Boolean) -> Unit,
+    onSetVideoAspectMode: (DesktopVideoAspectMode) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("Video", color = DanmakuColors.TextMuted)
+            Button(
+                onClick = { onSetFullscreen(!isFullscreen) },
+                enabled = playbackSnapshot.source != null,
+            ) {
+                Text(if (isFullscreen) "Exit fullscreen" else "Fullscreen")
+            }
+        }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("Aspect", color = DanmakuColors.TextMuted)
+            DesktopVideoAspectMode.entries.forEach { mode ->
+                Button(
+                    onClick = { onSetVideoAspectMode(mode) },
+                    enabled = playbackSnapshot.source != null && videoAspectMode != mode,
+                ) {
+                    Text(if (videoAspectMode == mode) "${mode.label} active" else mode.label)
+                }
+            }
+        }
     }
 }
 

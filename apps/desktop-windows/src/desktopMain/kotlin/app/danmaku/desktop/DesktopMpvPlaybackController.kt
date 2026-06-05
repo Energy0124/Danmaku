@@ -24,6 +24,10 @@ class DesktopMpvPlaybackController(
     private val propertyReader: DesktopMpvPropertyReader? = null,
 ) : PlaybackController {
     private var snapshot = PlaybackSnapshot()
+    var fullscreen: Boolean = false
+        private set
+    var videoAspectMode: DesktopVideoAspectMode = DesktopVideoAspectMode.DEFAULT
+        private set
 
     override fun load(source: PlaybackSource) {
         execute(
@@ -88,6 +92,26 @@ class DesktopMpvPlaybackController(
                         errorMessage = null,
                     )
                 }
+            },
+        )
+    }
+
+    fun setFullscreen(enabled: Boolean) {
+        execute(
+            command = DesktopMpvCommandPlanner.setFullscreen(enabled),
+            nextSnapshot = {
+                fullscreen = enabled
+                snapshot.copy(errorMessage = null)
+            },
+        )
+    }
+
+    fun setVideoAspectMode(mode: DesktopVideoAspectMode) {
+        execute(
+            command = DesktopMpvCommandPlanner.setVideoAspectMode(mode),
+            nextSnapshot = {
+                videoAspectMode = mode
+                snapshot.copy(errorMessage = null)
             },
         )
     }

@@ -64,10 +64,12 @@ Updated on 2026-06-05.
   attaches a generated ASS subtitle track so synthetic danmaku is rendered by
   mpv directly over the video. Full parsed-track synchronization and final
   renderer selection are still pending.
-- Desktop shell play, pause, seek, progress-scrub, playback-rate, and volume
-  controls routed through the shared playback command contract. The Windows
-  controller polls libmpv properties for live position, duration, pause state,
-  EOF state, speed, volume, and runtime audio/subtitle track metadata.
+- Desktop shell play, pause, seek, progress-scrub, playback-rate, volume,
+  fullscreen, and aspect-ratio controls. Shared controls route through the
+  playback command contract, while desktop-only display controls route through
+  the Windows mpv boundary. The Windows controller polls libmpv properties for
+  live position, duration, pause state, EOF state, speed, volume, and runtime
+  audio/subtitle track metadata.
 - Windows playback attaches indexed local sidecar subtitles and paired-LAN
   tokenized sidecar subtitle streams with `sub-add`, then exposes libmpv
   audio/subtitle selection controls in the Playback tab.

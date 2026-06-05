@@ -136,7 +136,9 @@ This turns the technical slice into a usable local media-center application.
 - [x] Attach indexed LAN sidecar subtitle tracks to Android and Android TV
   Media3 playback items.
 - [x] Add Android and Android TV runtime audio/subtitle track selection controls.
-- [ ] Add remaining playback controls for fullscreen and aspect ratio.
+- [x] Add Windows fullscreen and aspect-ratio playback controls.
+- [ ] Validate fullscreen and aspect-ratio behavior with real Windows resize,
+  4K, and hardware-decoding scenarios.
 - [x] Add Android TV player controls with visible focus states and remote-friendly
   seek behavior.
 - [x] Add Windows prepared-playback previous/next episode navigation for local

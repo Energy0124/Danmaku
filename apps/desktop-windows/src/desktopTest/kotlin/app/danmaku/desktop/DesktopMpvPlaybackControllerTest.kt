@@ -187,6 +187,27 @@ class DesktopMpvPlaybackControllerTest {
     }
 
     @Test
+    fun dispatchesDesktopVideoDisplayControls() {
+        val executor = RecordingDesktopMpvCommandExecutor()
+        val controller = DesktopMpvPlaybackController(executor)
+
+        controller.setFullscreen(true)
+        controller.setVideoAspectMode(DesktopVideoAspectMode.WIDE_16_9)
+        controller.setFullscreen(false)
+
+        assertEquals(
+            listOf(
+                DesktopMpvCommand(listOf("set", "fullscreen", "yes")),
+                DesktopMpvCommand(listOf("set", "video-aspect-override", "16:9")),
+                DesktopMpvCommand(listOf("set", "fullscreen", "no")),
+            ),
+            executor.commands,
+        )
+        assertEquals(false, controller.fullscreen)
+        assertEquals(DesktopVideoAspectMode.WIDE_16_9, controller.videoAspectMode)
+    }
+
+    @Test
     fun reportsExecutorFailuresAsPlaybackErrors() {
         val executor = RecordingDesktopMpvCommandExecutor(
             failure = IllegalStateException("libmpv command failed"),

@@ -55,7 +55,8 @@ Implemented today:
 - Shared library search, title/path sorting, and subtitle-only filtering in the
   Windows, Android mobile, and Android TV catalog screens
 - Windows playback with indexed sidecar subtitle attachment plus runtime
-  volume and audio/subtitle track discovery and selection controls
+  volume, fullscreen/aspect-ratio, and audio/subtitle track discovery and
+  selection controls
 - Windows continue-watching and recently-watched lists for local library
   episodes backed by saved playback progress
 - Windows prepared-playback episode navigation for previous/next local catalog
@@ -75,8 +76,7 @@ Implemented today:
 
 Not implemented yet:
 
-- Windows fullscreen/aspect-ratio controls and broad resize/4K/hardware-decoding
-  validation
+- Broad Windows resize/fullscreen/4K/hardware-decoding validation
 - Authorized download engine
 - Provider plugins, MyAnimeList integration, and danmaku provider integrations
 
@@ -262,8 +262,8 @@ Near-term priorities:
 - Use the approved pinned Windows libmpv bundle for development and releases.
 - Synchronize the danmaku overlay to the real playback clock.
 - Exercise PC-to-mobile and PC-to-TV streaming on physical hardware.
-- Add Windows fullscreen/aspect-ratio controls and validate resize, 4K media,
-  and hardware decoding.
+- Validate Windows fullscreen/aspect-ratio behavior with resize, 4K media, and
+  hardware decoding.
 - Re-audit the libmpv bundle before changing its producer artifact or hashes.
 
 Later priorities include authorized download management, ani-rss monitoring,

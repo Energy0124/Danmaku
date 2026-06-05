@@ -98,6 +98,26 @@ class DesktopMpvCommandPlannerTest {
     }
 
     @Test
+    fun plansFullscreenAndAspectCommands() {
+        assertEquals(
+            DesktopMpvCommand(listOf("set", "fullscreen", "yes")),
+            DesktopMpvCommandPlanner.setFullscreen(true),
+        )
+        assertEquals(
+            DesktopMpvCommand(listOf("set", "fullscreen", "no")),
+            DesktopMpvCommandPlanner.setFullscreen(false),
+        )
+        assertEquals(
+            DesktopMpvCommand(listOf("set", "video-aspect-override", "no")),
+            DesktopMpvCommandPlanner.setVideoAspectMode(DesktopVideoAspectMode.DEFAULT),
+        )
+        assertEquals(
+            DesktopMpvCommand(listOf("set", "video-aspect-override", "16:9")),
+            DesktopMpvCommandPlanner.setVideoAspectMode(DesktopVideoAspectMode.WIDE_16_9),
+        )
+    }
+
+    @Test
     fun rejectsCommandsWithNullBytesBeforeCrossingTheNativeBoundary() {
         assertFailsWith<IllegalArgumentException> {
             DesktopMpvCommand(listOf("loadfile", "bad\u0000path", "replace"))

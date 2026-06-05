@@ -18,6 +18,16 @@ data class DesktopMpvCommand(
     }
 }
 
+enum class DesktopVideoAspectMode(
+    val label: String,
+    internal val mpvValue: String,
+) {
+    DEFAULT("Default", "no"),
+    WIDE_16_9("16:9", "16:9"),
+    STANDARD_4_3("4:3", "4:3"),
+    SQUARE_1_1("1:1", "1:1"),
+}
+
 object DesktopMpvCommandPlanner {
     fun load(source: PlaybackSource): DesktopMpvCommand =
         DesktopMpvCommand(
@@ -63,6 +73,12 @@ object DesktopMpvCommandPlanner {
                 listOf("set", "sid", command.trackId?.toMpvTrackId() ?: "no"),
             )
         }
+
+    fun setFullscreen(enabled: Boolean): DesktopMpvCommand =
+        DesktopMpvCommand(listOf("set", "fullscreen", enabled.toMpvBoolean()))
+
+    fun setVideoAspectMode(mode: DesktopVideoAspectMode): DesktopMpvCommand =
+        DesktopMpvCommand(listOf("set", "video-aspect-override", mode.mpvValue))
 }
 
 private fun Long.toMpvSeconds(): String =
@@ -79,3 +95,6 @@ private fun String.trimTrailingZeroFraction(): String =
 
 private fun String.toMpvTrackId(): String =
     substringAfterLast(":", this)
+
+private fun Boolean.toMpvBoolean(): String =
+    if (this) "yes" else "no"
