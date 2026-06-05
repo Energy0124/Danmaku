@@ -4,6 +4,54 @@ param()
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+function Read-JPackageConfig {
+    param(
+        [Parameter(Mandatory)]
+        [string]$ConfigPath,
+        [Parameter(Mandatory)]
+        [string]$AppPath
+    )
+
+    $mainClass = $null
+    $classPathEntries = @()
+    $javaOptions = @()
+
+    foreach ($line in Get-Content -LiteralPath $ConfigPath) {
+        $trimmed = $line.Trim()
+        if ($trimmed.Length -eq 0 -or $trimmed.StartsWith("#")) {
+            continue
+        }
+
+        if ($trimmed.StartsWith("app.mainclass=")) {
+            $mainClass = $trimmed.Substring("app.mainclass=".Length)
+            continue
+        }
+
+        if ($trimmed.StartsWith("app.classpath=")) {
+            $classPathEntries += $trimmed.Substring("app.classpath=".Length).Replace('$APPDIR', $AppPath)
+            continue
+        }
+
+        if ($trimmed.StartsWith("java-options=")) {
+            $javaOptions += $trimmed.Substring("java-options=".Length).Replace('$APPDIR', $AppPath)
+            continue
+        }
+    }
+
+    if ([string]::IsNullOrWhiteSpace($mainClass)) {
+        throw "JPackage config is missing app.mainclass: $ConfigPath"
+    }
+    if ($classPathEntries.Count -eq 0) {
+        throw "JPackage config is missing app.classpath entries: $ConfigPath"
+    }
+
+    return [PSCustomObject]@{
+        MainClass = $mainClass
+        ClassPath = ($classPathEntries -join [System.IO.Path]::PathSeparator)
+        JavaOptions = $javaOptions
+    }
+}
+
 $javaCommand = Get-Command java.exe, javaw.exe -ErrorAction SilentlyContinue |
     Select-Object -First 1
 if ($null -eq $javaCommand) {
@@ -15,8 +63,12 @@ if (-not (Test-Path -LiteralPath $appPath -PathType Container)) {
     throw "Danmaku application directory does not exist: $appPath"
 }
 
-$mainClass = "app.danmaku.desktop.MainKt"
-$classPath = Join-Path $appPath "*"
+$appConfigPath = Join-Path $appPath "desktop-windows.cfg"
+if (-not (Test-Path -LiteralPath $appConfigPath -PathType Leaf)) {
+    throw "Danmaku jpackage config does not exist: $appConfigPath"
+}
+
+$appConfig = Read-JPackageConfig -ConfigPath $appConfigPath -AppPath $appPath
 $mpvBridgePath = Join-Path $appPath "player_windows_mpv.dll"
 if (Test-Path -LiteralPath $mpvBridgePath -PathType Leaf) {
     $env:DANMAKU_MPV_BRIDGE_PATH = $mpvBridgePath
@@ -27,8 +79,9 @@ if (Test-Path -LiteralPath $libmpvPath -PathType Leaf) {
 }
 
 & $javaCommand.Source `
+    @($appConfig.JavaOptions) `
     "-Djava.library.path=$appPath" `
-    -cp $classPath `
-    $mainClass
+    -cp $appConfig.ClassPath `
+    $appConfig.MainClass
 
 exit $LASTEXITCODE
