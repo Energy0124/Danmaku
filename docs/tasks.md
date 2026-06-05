@@ -69,6 +69,8 @@ indexed sidecar subtitles to Media3.
   throttled local/paired progress persistence.
 - [x] Attach indexed local and paired-LAN sidecar subtitles to Windows playback.
 - [x] Add Windows runtime audio/subtitle track discovery and selection controls.
+- [x] Add shared volume command/state plus Windows, Android mobile, and Android
+  TV volume controls.
 
 ## Android And TV
 

@@ -63,6 +63,10 @@ class DesktopMpvCommandPlannerTest {
             DesktopMpvCommand(listOf("set", "speed", "1.25")),
             DesktopMpvCommandPlanner.dispatch(PlaybackCommand.SetPlaybackRate(1.25f)),
         )
+        assertEquals(
+            DesktopMpvCommand(listOf("set", "volume", "75")),
+            DesktopMpvCommandPlanner.dispatch(PlaybackCommand.SetVolume(75)),
+        )
     }
 
     @Test

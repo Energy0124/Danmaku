@@ -139,6 +139,7 @@ private fun MobilePlayerScreen() {
                 onOpen = { openDocument.launch(arrayOf("video/*")) },
                 onPlay = { controller?.dispatch(PlaybackCommand.Play) },
                 onPause = { controller?.dispatch(PlaybackCommand.Pause) },
+                onSetVolume = { controller?.dispatch(PlaybackCommand.SetVolume(it)) },
             )
             TrackControls(
                 snapshot = snapshot,
@@ -238,16 +239,34 @@ private fun PlayerControls(
     onOpen: () -> Unit,
     onPlay: () -> Unit,
     onPause: () -> Unit,
+    onSetVolume: (Int) -> Unit,
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Button(onClick = onOpen) {
-            Text("Open video")
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = onOpen) {
+                Text("Open video")
+            }
+            Button(onClick = onPlay, enabled = snapshot.source != null) {
+                Text("Play")
+            }
+            Button(onClick = onPause, enabled = snapshot.source != null) {
+                Text("Pause")
+            }
         }
-        Button(onClick = onPlay, enabled = snapshot.source != null) {
-            Text("Play")
-        }
-        Button(onClick = onPause, enabled = snapshot.source != null) {
-            Text("Pause")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Volume ${snapshot.volumePercent}%")
+            Button(
+                onClick = { onSetVolume((snapshot.volumePercent - 10).coerceAtLeast(0)) },
+                enabled = snapshot.source != null && snapshot.volumePercent > 0,
+            ) {
+                Text("-")
+            }
+            Button(
+                onClick = { onSetVolume((snapshot.volumePercent + 10).coerceAtMost(100)) },
+                enabled = snapshot.source != null && snapshot.volumePercent < 100,
+            ) {
+                Text("+")
+            }
         }
     }
 }

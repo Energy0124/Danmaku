@@ -21,6 +21,16 @@ class PlaybackCommandTest {
     }
 
     @Test
+    fun rejectsOutOfRangeVolumes() {
+        assertFailsWith<IllegalArgumentException> {
+            PlaybackCommand.SetVolume(-1)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            PlaybackCommand.SetVolume(101)
+        }
+    }
+
+    @Test
     fun rejectsBlankTrackSelections() {
         assertFailsWith<IllegalArgumentException> {
             PlaybackCommand.SelectAudioTrack(" ")

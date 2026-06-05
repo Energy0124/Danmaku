@@ -160,6 +160,26 @@ private fun TvPlayerScreen() {
                 }
                 Button(
                     onClick = {
+                        controller?.dispatch(
+                            PlaybackCommand.SetVolume((snapshot.volumePercent - 10).coerceAtLeast(0)),
+                        )
+                    },
+                    enabled = snapshot.source != null && snapshot.volumePercent > 0,
+                ) {
+                    Text("Vol -")
+                }
+                Button(
+                    onClick = {
+                        controller?.dispatch(
+                            PlaybackCommand.SetVolume((snapshot.volumePercent + 10).coerceAtMost(100)),
+                        )
+                    },
+                    enabled = snapshot.source != null && snapshot.volumePercent < 100,
+                ) {
+                    Text("Vol + ${snapshot.volumePercent}%")
+                }
+                Button(
+                    onClick = {
                         scope.launch {
                             runCatching {
                                 withContext(Dispatchers.IO) {

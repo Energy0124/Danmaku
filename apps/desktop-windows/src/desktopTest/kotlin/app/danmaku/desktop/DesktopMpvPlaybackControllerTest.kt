@@ -19,6 +19,7 @@ class DesktopMpvPlaybackControllerTest {
         controller.dispatch(PlaybackCommand.Play)
         controller.dispatch(PlaybackCommand.SeekTo(12_345))
         controller.dispatch(PlaybackCommand.SetPlaybackRate(1.25f))
+        controller.dispatch(PlaybackCommand.SetVolume(70))
         controller.dispatch(PlaybackCommand.Pause)
 
         assertEquals(
@@ -33,6 +34,7 @@ class DesktopMpvPlaybackControllerTest {
                 DesktopMpvCommand(listOf("set", "pause", "no")),
                 DesktopMpvCommand(listOf("seek", "12.345", "absolute")),
                 DesktopMpvCommand(listOf("set", "speed", "1.25")),
+                DesktopMpvCommand(listOf("set", "volume", "70")),
                 DesktopMpvCommand(listOf("set", "pause", "yes")),
             ),
             executor.commands,
@@ -44,6 +46,7 @@ class DesktopMpvPlaybackControllerTest {
             controller.snapshot().position,
         )
         assertEquals(1.25f, controller.snapshot().playbackRate)
+        assertEquals(70, controller.snapshot().volumePercent)
     }
 
     @Test
@@ -80,6 +83,7 @@ class DesktopMpvPlaybackControllerTest {
             "duration" to "120.0",
             "pause" to "no",
             "speed" to "1.25",
+            "volume" to "42",
             "eof-reached" to "no",
         )
         val controller = DesktopMpvPlaybackController(
@@ -94,6 +98,7 @@ class DesktopMpvPlaybackControllerTest {
         assertEquals(PlaybackStatus.PLAYING, snapshot.status)
         assertEquals(PlaybackPosition(positionMs = 45_500, durationMs = 120_000), snapshot.position)
         assertEquals(1.25f, snapshot.playbackRate)
+        assertEquals(42, snapshot.volumePercent)
     }
 
     @Test

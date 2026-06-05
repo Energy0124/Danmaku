@@ -49,6 +49,13 @@ object DesktopMpvCommandPlanner {
                     command.rate.toStableMpvFloat(),
                 ),
             )
+            is PlaybackCommand.SetVolume -> DesktopMpvCommand(
+                listOf(
+                    "set",
+                    "volume",
+                    command.volumePercent.toString(),
+                ),
+            )
             is PlaybackCommand.SelectAudioTrack -> DesktopMpvCommand(
                 listOf("set", "aid", command.trackId.toMpvTrackId()),
             )

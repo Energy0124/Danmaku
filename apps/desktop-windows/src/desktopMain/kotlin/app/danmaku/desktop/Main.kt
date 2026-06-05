@@ -585,6 +585,11 @@ private fun DesktopShell() {
                             playbackController.dispatch(PlaybackCommand.SetPlaybackRate(rate))
                             playbackSnapshot = playbackController.snapshot()
                         },
+                        onSetVolume = { volumePercent ->
+                            appendDiagnostic("playback", "Dispatch volume $volumePercent%")
+                            playbackController.dispatch(PlaybackCommand.SetVolume(volumePercent))
+                            playbackSnapshot = playbackController.snapshot()
+                        },
                         onSelectAudioTrack = { trackId ->
                             appendDiagnostic("playback", "Dispatch audio track $trackId")
                             playbackController.dispatch(PlaybackCommand.SelectAudioTrack(trackId))
@@ -874,6 +879,7 @@ private fun PlaybackTab(
     onSeekForwardLarge: () -> Unit,
     onSeekTo: (Long) -> Unit,
     onSetPlaybackRate: (Float) -> Unit,
+    onSetVolume: (Int) -> Unit,
     onSelectAudioTrack: (String) -> Unit,
     onSelectSubtitleTrack: (String?) -> Unit,
     canOpenMedia: Boolean,
@@ -920,6 +926,7 @@ private fun PlaybackTab(
                 playbackSnapshot = playbackSnapshot,
                 onSeekTo = onSeekTo,
                 onSetPlaybackRate = onSetPlaybackRate,
+                onSetVolume = onSetVolume,
             )
             Spacer(modifier = Modifier.height(12.dp))
             TrackControls(
@@ -1039,6 +1046,7 @@ private fun PlaybackProgressControls(
     playbackSnapshot: PlaybackSnapshot,
     onSeekTo: (Long) -> Unit,
     onSetPlaybackRate: (Float) -> Unit,
+    onSetVolume: (Int) -> Unit,
 ) {
     val durationMs = playbackSnapshot.position.durationMs?.takeIf { it > 0 }
     val currentPositionMs = durationMs
@@ -1103,6 +1111,25 @@ private fun PlaybackProgressControls(
                     Text(if (rate == 1f) "1x" else "${rate}x")
                 }
             }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("Volume", color = DanmakuColors.TextMuted, modifier = Modifier.width(72.dp))
+            Slider(
+                value = playbackSnapshot.volumePercent.toFloat(),
+                onValueChange = { onSetVolume(it.toInt().coerceIn(0, 100)) },
+                valueRange = 0f..100f,
+                enabled = playbackSnapshot.source != null,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                "${playbackSnapshot.volumePercent}%",
+                color = DanmakuColors.TextMuted,
+                modifier = Modifier.width(56.dp),
+            )
         }
     }
 }

@@ -66,6 +66,7 @@ class Media3PlaybackController(
             PlaybackCommand.Pause -> player.pause()
             is PlaybackCommand.SeekTo -> player.seekTo(command.positionMs)
             is PlaybackCommand.SetPlaybackRate -> player.setPlaybackSpeed(command.rate)
+            is PlaybackCommand.SetVolume -> player.volume = command.volumePercent / 100f
             is PlaybackCommand.SelectAudioTrack ->
                 selectTrack(PlaybackTrackKind.AUDIO, command.trackId)
             is PlaybackCommand.SelectSubtitleTrack ->
@@ -100,6 +101,7 @@ class Media3PlaybackController(
                 durationMs = player.duration.takeUnless { it == C.TIME_UNSET }?.coerceAtLeast(0),
             ),
             playbackRate = player.playbackParameters.speed,
+            volumePercent = (player.volume * 100f).toInt().coerceIn(0, 100),
             tracks = currentTrackReferences().map(Media3TrackReference::track),
             errorMessage = playerError?.message,
         )

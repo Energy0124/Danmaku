@@ -49,11 +49,13 @@ data class PlaybackSnapshot(
     val source: PlaybackSource? = null,
     val position: PlaybackPosition = PlaybackPosition(positionMs = 0, durationMs = null),
     val playbackRate: Float = 1f,
+    val volumePercent: Int = 100,
     val tracks: List<PlaybackTrack> = emptyList(),
     val errorMessage: String? = null,
 ) {
     init {
         require(playbackRate > 0) { "playbackRate must be positive" }
+        require(volumePercent in 0..100) { "volumePercent must be between 0 and 100" }
         require(tracks.map(PlaybackTrack::id).distinct().size == tracks.size) {
             "track IDs must be unique"
         }

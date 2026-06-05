@@ -19,6 +19,16 @@ class PlaybackSnapshotTest {
     }
 
     @Test
+    fun rejectsOutOfRangeSnapshotVolumes() {
+        assertFailsWith<IllegalArgumentException> {
+            PlaybackSnapshot(volumePercent = -1)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            PlaybackSnapshot(volumePercent = 101)
+        }
+    }
+
+    @Test
     fun rejectsDuplicateTrackIds() {
         assertFailsWith<IllegalArgumentException> {
             PlaybackSnapshot(

@@ -64,10 +64,10 @@ Updated on 2026-06-05.
   attaches a generated ASS subtitle track so synthetic danmaku is rendered by
   mpv directly over the video. Full parsed-track synchronization and final
   renderer selection are still pending.
-- Desktop shell play, pause, seek, progress-scrub, and playback-rate controls
-  routed through the shared playback command contract. The Windows controller
-  polls libmpv properties for live position, duration, pause state, EOF state,
-  speed, and runtime audio/subtitle track metadata.
+- Desktop shell play, pause, seek, progress-scrub, playback-rate, and volume
+  controls routed through the shared playback command contract. The Windows
+  controller polls libmpv properties for live position, duration, pause state,
+  EOF state, speed, volume, and runtime audio/subtitle track metadata.
 - Windows playback attaches indexed local sidecar subtitles and paired-LAN
   tokenized sidecar subtitle streams with `sub-add`, then exposes libmpv
   audio/subtitle selection controls in the Playback tab.
@@ -141,10 +141,10 @@ Updated on 2026-06-05.
 - Android mobile and dedicated Android TV Compose application modules.
 - Shared Android Media3 ExoPlayer adapter, foreground playback service, and
   service-backed MediaController connection used by mobile and TV.
-- Shared playback snapshots expose runtime audio/subtitle track metadata and
-  selection state. Android mobile, Android TV, and Windows render track
-  controls; Media3 applies audio/subtitle overrides and libmpv uses `aid`/`sid`
-  selection commands.
+- Shared playback snapshots expose volume, runtime audio/subtitle track metadata,
+  and selection state. Android mobile, Android TV, and Windows render volume and
+  track controls; Media3 applies audio/subtitle overrides and libmpv uses
+  `aid`/`sid` selection commands.
 - Shared LAN playback preparation carries tokenized indexed sidecar subtitle
   sources, and Android mobile and TV attach them to Media3 playback items with
   stable track IDs, labels, and MIME types. ASS tracks are normalized to

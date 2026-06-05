@@ -34,6 +34,7 @@ class DesktopMpvPlaybackController(
                     source = source,
                     position = PlaybackPosition(positionMs = 0, durationMs = null),
                     playbackRate = snapshot.playbackRate,
+                    volumePercent = snapshot.volumePercent,
                 )
             },
         )
@@ -60,6 +61,10 @@ class DesktopMpvPlaybackController(
                     )
                     is PlaybackCommand.SetPlaybackRate -> snapshot.copy(
                         playbackRate = command.rate,
+                        errorMessage = null,
+                    )
+                    is PlaybackCommand.SetVolume -> snapshot.copy(
+                        volumePercent = command.volumePercent,
                         errorMessage = null,
                     )
                     is PlaybackCommand.SelectAudioTrack -> snapshot.copy(
@@ -101,6 +106,12 @@ class DesktopMpvPlaybackController(
             val eofReached = reader.readBooleanProperty("eof-reached") ?: false
             val rate = reader.readProperty("speed")?.toFloatOrNull()?.takeIf { it > 0 }
                 ?: snapshot.playbackRate
+            val volumePercent = reader.readProperty("volume")
+                ?.toDoubleOrNull()
+                ?.takeIf { it.isFinite() }
+                ?.toInt()
+                ?.coerceIn(0, 100)
+                ?: snapshot.volumePercent
             val tracks = reader.readPlaybackTracks()
             val status = when {
                 eofReached -> PlaybackStatus.ENDED
@@ -117,6 +128,7 @@ class DesktopMpvPlaybackController(
                     durationMs = durationMs,
                 ),
                 playbackRate = rate,
+                volumePercent = volumePercent,
                 tracks = tracks.ifEmpty { snapshot.tracks },
                 errorMessage = null,
             )

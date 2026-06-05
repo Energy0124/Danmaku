@@ -71,6 +71,12 @@ sealed interface PlaybackCommand {
         }
     }
 
+    data class SetVolume(val volumePercent: Int) : PlaybackCommand {
+        init {
+            require(volumePercent in 0..100) { "volumePercent must be between 0 and 100" }
+        }
+    }
+
     data class SelectAudioTrack(val trackId: String) : PlaybackCommand {
         init {
             require(trackId.isNotBlank()) { "trackId must not be blank" }

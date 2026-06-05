@@ -51,9 +51,9 @@ Implemented today:
 - UDP discovery for finding the Windows library server from Android clients
 - Android mobile and Android TV apps that browse the Windows catalog and stream
   selected episodes through Media3 with indexed sidecar subtitle attachment and
-  runtime audio/subtitle track controls
+  volume and runtime audio/subtitle track controls
 - Windows playback with indexed sidecar subtitle attachment plus runtime
-  audio/subtitle track discovery and selection controls
+  volume and audio/subtitle track discovery and selection controls
 - Android background playback service with resume lookup and periodic progress
   upload
 - Shared Kotlin playback, library-client, and danmaku scheduling contracts
@@ -183,10 +183,10 @@ In the Windows shell:
 The Windows shell can prepare local or LAN playback requests, execute their
 commands through the packaged Rust/JNA/libmpv chain, and host mpv in an initial
 native child-window playback surface with play, pause, seek, progress-bar
-scrubbing, and playback-rate controls. Library playback saves watch progress
-from live mpv position snapshots, while direct file playback remains a quick
-validation path that does not create library progress records. Full parsed
-danmaku synchronization is still pending.
+scrubbing, playback-rate, volume, and track controls. Library playback saves
+watch progress from live mpv position snapshots, while direct file playback
+remains a quick validation path that does not create library progress records.
+Full parsed danmaku synchronization is still pending.
 
 For a packaged local-file smoke test without driving the full UI, pass a real
 media file to the Windows runtime probe:
