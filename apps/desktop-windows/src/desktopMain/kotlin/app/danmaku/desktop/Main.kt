@@ -55,6 +55,7 @@ import app.danmaku.domain.LibrarySubtitleFilter
 import app.danmaku.domain.PlaybackCommand
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.domain.PlaybackSnapshot
+import app.danmaku.domain.PlaybackStatus
 import app.danmaku.domain.PlaybackTrack
 import app.danmaku.domain.PlaybackTrackKind
 import app.danmaku.domain.filteredItems
@@ -371,6 +372,10 @@ private fun DesktopShell() {
     var activeProgressMediaId by remember { mutableStateOf<String?>(null) }
     var activeProgressTarget by remember { mutableStateOf<LanPlaybackTarget?>(null) }
     var lastSavedPlaybackProgress by remember { mutableStateOf<PlaybackProgress?>(null) }
+    var lastAutoNextMediaId by remember { mutableStateOf<String?>(null) }
+    var autoNextLocalPlayback by remember {
+        mutableStateOf(catalogStore.loadSetting(LOCAL_AUTO_NEXT_SETTING_KEY)?.value == "true")
+    }
 
     fun shouldPersistPlaybackProgress(
         progress: PlaybackProgress,
@@ -429,6 +434,7 @@ private fun DesktopShell() {
         activeProgressMediaId = request.progressMediaId
         activeProgressTarget = request.progressTarget
         lastSavedPlaybackProgress = null
+        lastAutoNextMediaId = null
         return playbackSession.load(request).also {
             playbackSnapshot = it
         }
@@ -441,6 +447,58 @@ private fun DesktopShell() {
             "Queued playback until native video host attaches: ${request.label}; source=${request.source.toString().redactToken()}",
         )
         selectedTab = DesktopShellTab.PLAYBACK
+    }
+
+    fun prepareLocalPlayback(
+        item: LibraryMediaItem,
+        loadAfterPrepare: Boolean = false,
+    ) {
+        val library = indexedLibrary ?: return
+        scope.launch {
+            appendDiagnostic("playback", "Preparing local library playback: ${item.id}")
+            isPreparingLocalPlayback = true
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    localPlaybackPreparer.prepare(library, item)
+                }
+            }.onSuccess {
+                selectedLocalPlaybackPreparation = it
+                libraryError = null
+                appendDiagnostic(
+                    "playback",
+                    "Prepared local playback: ${item.id}; source=${it.source.path}; resume=${it.resumePositionMs}",
+                )
+                if (loadAfterPrepare) {
+                    appendDiagnostic("playback", "Auto-loading prepared local playback: ${item.id}")
+                    queuePlaybackUntilHostReady(it.toPlaybackRequest())
+                }
+            }.onFailure {
+                libraryError = it.message
+                appendDiagnostic("playback", "Prepare local playback failed: ${it.message}")
+            }
+            isPreparingLocalPlayback = false
+        }
+    }
+
+    fun setAutoNextLocalPlayback(enabled: Boolean) {
+        autoNextLocalPlayback = enabled
+        scope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    catalogStore.saveSetting(
+                        DesktopAppSetting(
+                            key = LOCAL_AUTO_NEXT_SETTING_KEY,
+                            value = enabled.toString(),
+                            updatedAtEpochMs = System.currentTimeMillis(),
+                        ),
+                    )
+                }
+            }.onSuccess {
+                appendDiagnostic("settings", "Local auto-next ${if (enabled) "enabled" else "disabled"}")
+            }.onFailure {
+                appendDiagnostic("settings", "Failed to save local auto-next setting: ${it.message}")
+            }
+        }
     }
 
     LaunchedEffect(Unit) {
@@ -479,6 +537,23 @@ private fun DesktopShell() {
                 playbackSnapshot = nextSnapshot
             }
             persistActivePlaybackProgress(nextSnapshot)
+            val mediaId = activeProgressMediaId
+            if (
+                autoNextLocalPlayback &&
+                nextSnapshot.status == PlaybackStatus.ENDED &&
+                mediaId != null &&
+                activeProgressTarget == null &&
+                lastAutoNextMediaId != mediaId
+            ) {
+                val nextItem = indexedLibrary?.catalog?.nextItem(mediaId)
+                lastAutoNextMediaId = mediaId
+                if (nextItem == null) {
+                    appendDiagnostic("playback", "Auto-next reached end of local catalog at $mediaId")
+                } else {
+                    appendDiagnostic("playback", "Auto-next preparing ${nextItem.id} after $mediaId")
+                    prepareLocalPlayback(nextItem, loadAfterPrepare = true)
+                }
+            }
         }
     }
 
@@ -648,6 +723,7 @@ private fun DesktopShell() {
                             isIndexing = isIndexing,
                             isPreparingLocalPlayback = isPreparingLocalPlayback,
                             selectedLocalPlaybackPreparation = selectedLocalPlaybackPreparation,
+                            autoNextLocalPlayback = autoNextLocalPlayback,
                             libraryError = libraryError,
                             lastScanStats = lastScanStats,
                             onAddLibraryFolder = {
@@ -656,31 +732,8 @@ private fun DesktopShell() {
                                 )?.let(::registerAndScanUserRoot)
                             },
                             onRescanRegisteredRoots = ::rescanRegisteredRoots,
-                            onPrepareLocalPlayback = { item ->
-                                val library = indexedLibrary
-                                if (library != null) {
-                                    scope.launch {
-                                        appendDiagnostic("playback", "Preparing local library playback: ${item.id}")
-                                        isPreparingLocalPlayback = true
-                                        runCatching {
-                                            withContext(Dispatchers.IO) {
-                                                localPlaybackPreparer.prepare(library, item)
-                                            }
-                                        }.onSuccess {
-                                            selectedLocalPlaybackPreparation = it
-                                            libraryError = null
-                                            appendDiagnostic(
-                                                "playback",
-                                                "Prepared local playback: ${item.id}; source=${it.source.path}; resume=${it.resumePositionMs}",
-                                            )
-                                        }.onFailure {
-                                            libraryError = it.message
-                                            appendDiagnostic("playback", "Prepare local playback failed: ${it.message}")
-                                        }
-                                        isPreparingLocalPlayback = false
-                                    }
-                                }
-                            },
+                            onPrepareLocalPlayback = { item -> prepareLocalPlayback(item) },
+                            onSetAutoNextLocalPlayback = ::setAutoNextLocalPlayback,
                             onLoadPreparedPlayback = { preparation ->
                                 appendDiagnostic(
                                     "playback",
@@ -1162,11 +1215,13 @@ private fun MediaLibraryTab(
     isIndexing: Boolean,
     isPreparingLocalPlayback: Boolean,
     selectedLocalPlaybackPreparation: DesktopLocalPlaybackPreparation?,
+    autoNextLocalPlayback: Boolean,
     libraryError: String?,
     lastScanStats: LocalMediaLibraryScanStats?,
     onAddLibraryFolder: () -> Unit,
     onRescanRegisteredRoots: () -> Unit,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
+    onSetAutoNextLocalPlayback: (Boolean) -> Unit,
     onLoadPreparedPlayback: (DesktopLocalPlaybackPreparation) -> Unit,
     remoteBrowser: @Composable () -> Unit,
 ) {
@@ -1355,6 +1410,11 @@ private fun MediaLibraryTab(
                         enabled = nextItem != null && !isPreparingLocalPlayback,
                     ) {
                         Text("Next episode")
+                    }
+                    Button(
+                        onClick = { onSetAutoNextLocalPlayback(!autoNextLocalPlayback) },
+                    ) {
+                        Text(if (autoNextLocalPlayback) "Auto-next on" else "Auto-next off")
                     }
                 }
             }
@@ -1934,6 +1994,8 @@ private const val PLAYBACK_SNAPSHOT_POLL_INTERVAL_MS = 500L
 private const val WINDOWS_PROGRESS_SAVE_INTERVAL_MS = 5_000L
 
 private const val MAX_DIAGNOSTIC_LOG_ENTRIES = 200
+
+private const val LOCAL_AUTO_NEXT_SETTING_KEY = "playback.local_auto_next"
 
 private val DIAGNOSTIC_TIME_FORMATTER: DateTimeFormatter =
     DateTimeFormatter.ofPattern("HH:mm:ss")

@@ -60,6 +60,7 @@ Implemented today:
   episodes backed by saved playback progress
 - Windows prepared-playback episode navigation for previous/next local catalog
   items
+- Optional Windows local-library auto-next playback persisted in app settings
 - Android background playback service with resume lookup and periodic progress
   upload
 - Shared Kotlin playback, library-client, and danmaku scheduling contracts
