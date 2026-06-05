@@ -305,6 +305,18 @@ private fun DesktopShell() {
         }
     }
 
+    var selectedTab by remember { mutableStateOf(DesktopShellTab.HOME) }
+    var pendingPlaybackRequest by remember { mutableStateOf<DesktopPlaybackRequest?>(null) }
+
+    fun queuePlaybackUntilHostReady(request: DesktopPlaybackRequest) {
+        pendingPlaybackRequest = request
+        appendDiagnostic(
+            "playback",
+            "Queued playback until native video host attaches: ${request.label}; source=${request.source.toString().redactToken()}",
+        )
+        selectedTab = DesktopShellTab.PLAYBACK
+    }
+
     LaunchedEffect(Unit) {
         indexedLibrary?.toPublishedLibrary()?.let(server::publish)
         if (registeredRoots.isNotEmpty()) {
@@ -312,6 +324,16 @@ private fun DesktopShell() {
         } else {
             legacySelectedLibraryRoot?.let(::registerAndScanUserRoot)
         }
+    }
+
+    LaunchedEffect(selectedTab, mpvVideoWindowId, pendingPlaybackRequest, playbackSession) {
+        val request = pendingPlaybackRequest ?: return@LaunchedEffect
+        if (selectedTab != DesktopShellTab.PLAYBACK || mpvVideoWindowId == null) {
+            return@LaunchedEffect
+        }
+        appendDiagnostic("playback", "Native video host ready; loading queued playback: ${request.label}")
+        playbackSnapshot = playbackSession.load(request)
+        pendingPlaybackRequest = null
     }
 
     DisposableEffect(mpvRuntime) {
@@ -327,8 +349,6 @@ private fun DesktopShell() {
             catalogStore.close()
         }
     }
-
-    var selectedTab by remember { mutableStateOf(DesktopShellTab.HOME) }
 
     MaterialTheme(colors = DanmakuDarkColors) {
         Surface(
@@ -456,18 +476,19 @@ private fun DesktopShell() {
                                     "playback",
                                     "Loading prepared local playback: ${preparation.item.id}; source=${preparation.source.path}",
                                 )
-                                playbackSnapshot = playbackSession.load(preparation.toPlaybackRequest())
-                                selectedTab = DesktopShellTab.PLAYBACK
+                                queuePlaybackUntilHostReady(preparation.toPlaybackRequest())
                             },
                             remoteBrowser = {
                                 RemoteLibraryBrowser(
                                     defaultServerUrl = server.baseUrl(),
                                     defaultPairingToken = server.pairingToken,
-                                    playbackSession = playbackSession,
                                     appendDiagnostic = ::appendDiagnostic,
-                                    onPlaybackSnapshotChanged = {
-                                        playbackSnapshot = it
-                                        selectedTab = DesktopShellTab.PLAYBACK
+                                    onLoadPreparedPlayback = { preparation ->
+                                        appendDiagnostic(
+                                            "playback",
+                                            "Loading remote stream into Windows controller: ${preparation.item.id}; source=${preparation.source.url}",
+                                        )
+                                        queuePlaybackUntilHostReady(preparation.toDesktopPlaybackRequest())
                                     },
                                 )
                             },
@@ -1093,9 +1114,8 @@ private fun EpisodeRow(
 private fun RemoteLibraryBrowser(
     defaultServerUrl: String,
     defaultPairingToken: String,
-    playbackSession: DesktopPlaybackSession,
     appendDiagnostic: (String, String) -> Unit,
-    onPlaybackSnapshotChanged: (PlaybackSnapshot) -> Unit,
+    onLoadPreparedPlayback: (LanPlaybackPreparation) -> Unit,
 ) {
     val libraryClient = remember { JvmLanLibraryClient() }
     val playbackPreparer = remember(libraryClient) { LanPlaybackPreparer(libraryClient) }
@@ -1212,13 +1232,7 @@ private fun RemoteLibraryBrowser(
         Text("Resume: ${preparation.resumePositionMs?.let { "$it ms" } ?: "start from beginning"}")
         Button(
             onClick = {
-                appendDiagnostic(
-                    "playback",
-                    "Loading remote stream into Windows controller: ${preparation.item.id}; source=${preparation.source.url}",
-                )
-                onPlaybackSnapshotChanged(
-                    playbackSession.load(preparation.toDesktopPlaybackRequest()),
-                )
+                onLoadPreparedPlayback(preparation)
             },
         ) {
             Text("Load into Windows controller")
