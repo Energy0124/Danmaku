@@ -50,6 +50,8 @@ Already implemented:
   optional 弹弹play开放平台 authentication, and fetched-comment normalization.
 - Windows dandanplay provider settings with DPAPI-protected AppSecret storage
   and redacted Profile-tab status.
+- Windows local-library playback dandanplay auto-match/fetch path that renders
+  fetched comments into a cached ASS overlay track.
 - Windows libmpv dynamic-loader probe.
 - Dedicated Android TV application module with initial D-pad focus coverage.
 
@@ -166,8 +168,11 @@ Danmaku is a first-class product feature, not a visual add-on.
   matching and fetched-comment normalization.
 - [x] Add dandanplay-compatible API server settings and secure credential
   storage.
+- [x] Attach dandanplay-fetched tracks to Windows local-library playback as a
+  cached ASS overlay.
 - [ ] Add manual danmaku-file mounting for an episode.
-- [ ] Add dandanplay per-episode match caching and playback attachment.
+- [ ] Add dandanplay per-episode match metadata, raw comment caching, manual
+  rematch, and cache-expiry controls.
 - [ ] Add timeline offset controls and remember per-episode offsets.
 - [ ] Add show/hide, opacity, font-size, speed, density, and display-area settings.
 - [ ] Add keyword, regular-expression, and user-defined filtering.

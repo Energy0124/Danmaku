@@ -11,6 +11,7 @@ import java.nio.file.Path
 data class DesktopPlaybackSubtitle(
     val source: String,
     val label: String,
+    val isDanmakuOverlay: Boolean = false,
 ) {
     init {
         require(source.isNotBlank()) { "subtitle source must not be blank" }

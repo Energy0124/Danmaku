@@ -109,6 +109,12 @@ Updated on 2026-06-05.
   optional AppId/AppSecret credentials. AppSecret values are protected through
   the same Windows DPAPI-backed secret-protector path used by ani-rss, and the
   UI/diagnostics show only redacted provider status.
+- Windows local-library playback can use the configured dandanplay-compatible
+  provider to fingerprint the local media file, match it, fetch comments, render
+  the fetched comments into a cached ASS overlay, and attach that overlay to
+  mpv in place of the synthetic demo track. Fetching is skipped until the user
+  either configures official credentials or points the app at a non-default
+  compatible API server.
 - Compose Multiplatform 1.11.0 Windows desktop shell with synthetic danmaku
   scheduling backed by the shared scheduler and rendered over mpv as ASS.
 - Recursive Windows anime-folder indexer and trusted-LAN HTTP server exposing a
@@ -256,8 +262,8 @@ With an Android emulator or device online, run:
 2. Validate the Windows child-window playback spike with local files, resize,
    fullscreen, hardware decoding, 4K media, and the mpv-rendered synthetic ASS
    overlay.
-3. Wire parsed local and dandanplay-fetched danmaku tracks into playback, cache
-   them per episode, and synchronize them to the real playback clock.
+3. Persist dandanplay match choices and fetched raw comments per episode, then
+   add manual rematch and cache-expiry controls.
 4. Re-audit the libmpv bundle before changing its producer artifact or hashes.
 
 ## Runtime Smoke Check

@@ -79,6 +79,8 @@ Implemented today:
   `DanmakuEvent` rows
 - Profile-tab dandanplay provider settings with DPAPI-protected AppSecret
   storage and redacted diagnostics
+- Windows local-library playback can fetch matched dandanplay comments from the
+  configured provider and attach them as a cached ASS danmaku overlay
 - Desktop preparation for local-file and paired-LAN playback requests, including
   resume seeks and native mpv command execution
 - Rust libmpv loader/probe plus a small C ABI and Kotlin/JNA binding for the
@@ -90,8 +92,8 @@ Not implemented yet:
 
 - Broad Windows resize/fullscreen/4K/hardware-decoding validation
 - Authorized download engine
-- Full provider plugins, MyAnimeList integration, and dandanplay playback
-  attachment/cache
+- Full provider plugins, MyAnimeList integration, and persistent raw danmaku
+  match/comment cache controls
 
 ## Architecture
 

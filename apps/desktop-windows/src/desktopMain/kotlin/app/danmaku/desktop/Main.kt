@@ -102,6 +102,12 @@ private data class DesktopPlaybackProgressItem(
     val progress: PlaybackProgress,
 )
 
+private data class PreparedLocalPlaybackResult(
+    val preparation: DesktopLocalPlaybackPreparation,
+    val dandanplayResolution: DesktopDandanplayDanmakuResolution?,
+    val dandanplayError: Throwable?,
+)
+
 @Composable
 private fun DesktopShell() {
     val selectionStore = remember { LocalLibrarySelectionStore.default() }
@@ -127,6 +133,11 @@ private fun DesktopShell() {
     }
     val localPlaybackPreparer = remember(catalogStore) {
         DesktopLocalPlaybackPreparer(catalogStore)
+    }
+    val dandanplayDanmakuResolver = remember(dandanplayCredentialStore) {
+        DesktopDandanplayDanmakuResolver(
+            loadConnection = dandanplayCredentialStore::loadConnection,
+        )
     }
     val lanProgressSync = remember {
         LanPlaybackProgressSync(
@@ -210,16 +221,21 @@ private fun DesktopShell() {
     val playbackSession = remember(playbackController, syntheticOverlayTrack, mpvRuntime) {
         DesktopPlaybackSession(
             controller = playbackController,
-            afterLoad = {
-                runCatching {
-                    appendDiagnostic("overlay", "Attaching synthetic ASS danmaku track after loading ${it.label}")
-                    syntheticOverlayTrack.attachTo(mpvRuntime.executor)
-                }.onSuccess {
-                    overlayStatus = "Synthetic danmaku overlay: attached to mpv video"
-                    appendDiagnostic("overlay", "Synthetic ASS danmaku track attached")
-                }.onFailure { error ->
-                    overlayStatus = "Synthetic danmaku overlay error: ${error.message}"
-                    appendDiagnostic("overlay", "Synthetic ASS danmaku attach failed: ${error.message}")
+            afterLoad = { request ->
+                if (request.subtitles.any(DesktopPlaybackSubtitle::isDanmakuOverlay)) {
+                    overlayStatus = "Fetched danmaku overlay: attached to mpv video"
+                    appendDiagnostic("overlay", "Skipping synthetic overlay because fetched danmaku is attached")
+                } else {
+                    runCatching {
+                        appendDiagnostic("overlay", "Attaching synthetic ASS danmaku track after loading ${request.label}")
+                        syntheticOverlayTrack.attachTo(mpvRuntime.executor)
+                    }.onSuccess {
+                        overlayStatus = "Synthetic danmaku overlay: attached to mpv video"
+                        appendDiagnostic("overlay", "Synthetic ASS danmaku track attached")
+                    }.onFailure { error ->
+                        overlayStatus = "Synthetic danmaku overlay error: ${error.message}"
+                        appendDiagnostic("overlay", "Synthetic ASS danmaku attach failed: ${error.message}")
+                    }
                 }
             },
             attachSubtitle = { subtitle ->
@@ -490,18 +506,62 @@ private fun DesktopShell() {
             isPreparingLocalPlayback = true
             runCatching {
                 withContext(Dispatchers.IO) {
-                    localPlaybackPreparer.prepare(library, item)
+                    val preparation = localPlaybackPreparer.prepare(library, item)
+                    if (!dandanplaySettings.isFetchEnabled) {
+                        PreparedLocalPlaybackResult(
+                            preparation = preparation,
+                            dandanplayResolution = null,
+                            dandanplayError = null,
+                        )
+                    } else {
+                        val mediaPath = library.filesById[item.id]
+                            ?: error("Indexed media file is missing for ${item.id}")
+                        val dandanplayResult = runCatching {
+                            dandanplayDanmakuResolver.resolve(item.id, mediaPath)
+                        }
+                        val dandanplaySubtitle = dandanplayResult
+                            .getOrNull()
+                            ?.subtitle
+                        PreparedLocalPlaybackResult(
+                            preparation = if (dandanplaySubtitle == null) {
+                                preparation
+                            } else {
+                                preparation.copy(subtitles = preparation.subtitles + dandanplaySubtitle)
+                            },
+                            dandanplayResolution = dandanplayResult.getOrNull(),
+                            dandanplayError = dandanplayResult.exceptionOrNull(),
+                        )
+                    }
                 }
-            }.onSuccess {
-                selectedLocalPlaybackPreparation = it
+            }.onSuccess { result ->
+                selectedLocalPlaybackPreparation = result.preparation
                 libraryError = null
                 appendDiagnostic(
                     "playback",
-                    "Prepared local playback: ${item.id}; source=${it.source.path}; resume=${it.resumePositionMs}",
+                    "Prepared local playback: ${item.id}; source=${result.preparation.source.path}; resume=${result.preparation.resumePositionMs}",
                 )
+                when {
+                    !dandanplaySettings.isFetchEnabled ->
+                        appendDiagnostic("danmaku", "dandanplay fetching is not configured; using local/synthetic overlay")
+                    result.dandanplayError != null ->
+                        appendDiagnostic("danmaku", "dandanplay fetch failed for ${item.id}: ${result.dandanplayError.message}")
+                    result.dandanplayResolution?.subtitle != null ->
+                        appendDiagnostic(
+                            "danmaku",
+                            "Attached dandanplay match ${result.dandanplayResolution.match?.displayTitle ?: "unknown"} " +
+                                "with ${result.dandanplayResolution.eventCount} comments",
+                        )
+                    result.dandanplayResolution?.match != null ->
+                        appendDiagnostic(
+                            "danmaku",
+                            "dandanplay matched ${result.dandanplayResolution.match.displayTitle} but returned no comments",
+                        )
+                    else ->
+                        appendDiagnostic("danmaku", "dandanplay found no match for ${item.id}")
+                }
                 if (loadAfterPrepare) {
                     appendDiagnostic("playback", "Auto-loading prepared local playback: ${item.id}")
-                    queuePlaybackUntilHostReady(it.toPlaybackRequest())
+                    queuePlaybackUntilHostReady(result.preparation.toPlaybackRequest())
                 }
             }.onFailure {
                 libraryError = it.message

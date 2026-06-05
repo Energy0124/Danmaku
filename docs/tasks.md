@@ -72,8 +72,10 @@ indexed sidecar subtitles to Media3.
   normalization into shared danmaku events.
 - [x] Add Windows settings for dandanplay-compatible API base URL and optional
   AppId/AppSecret credentials with secure storage and redacted diagnostics.
-- [ ] Attach matched dandanplay-fetched tracks to Windows playback and cache the
-  chosen `episodeId` plus fetched comments per local catalog item.
+- [x] Attach matched dandanplay-fetched tracks to Windows local-library playback
+  by rendering fetched comments into a cached ASS overlay file.
+- [ ] Persist chosen dandanplay `episodeId` values and fetched raw comments per
+  local catalog item so rematches are avoidable and cache expiry can be explicit.
 - [x] Add seek and playback-rate test cases.
 - [x] Add Windows progress-bar scrubbing, live mpv position polling, and
   throttled local/paired progress persistence.

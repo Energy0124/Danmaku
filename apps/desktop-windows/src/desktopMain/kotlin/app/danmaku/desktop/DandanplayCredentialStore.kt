@@ -122,12 +122,19 @@ data class DandanplayProviderSettings(
     val hasCredentials: Boolean
         get() = appId != null && hasAppSecret
 
+    val isFetchEnabled: Boolean
+        get() = hasCredentials || baseUrl != DandanplayConnection.DEFAULT_BASE_URL
+
     val statusText: String
-        get() = if (hasCredentials) {
-            "configured for AppId ${appId?.redactMiddle()} using ${authenticationMode.name.lowercase()} auth"
-        } else {
-            "configured without credentials"
-        }
+        get() =
+            when {
+                hasCredentials ->
+                    "configured for AppId ${appId?.redactMiddle()} using ${authenticationMode.name.lowercase()} auth"
+                isFetchEnabled ->
+                    "configured for compatible API server without credentials"
+                else ->
+                    "not configured for automatic fetching yet"
+            }
 }
 
 private fun String.redactMiddle(): String =

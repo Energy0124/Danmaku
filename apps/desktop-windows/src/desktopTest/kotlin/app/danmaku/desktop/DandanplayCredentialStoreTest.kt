@@ -67,6 +67,7 @@ class DandanplayCredentialStoreTest {
             assertEquals(DandanplayConnection.DEFAULT_BASE_URL, resetSettings.baseUrl)
             assertNull(resetSettings.appId)
             assertFalse(resetSettings.hasCredentials)
+            assertFalse(resetSettings.isFetchEnabled)
         }
 
         temp.toFile().deleteRecursively()
@@ -92,6 +93,7 @@ class DandanplayCredentialStoreTest {
 
             assertEquals("http://127.0.0.1:9000", settings.baseUrl)
             assertFalse(settings.hasCredentials)
+            assertTrue(settings.isFetchEnabled)
             assertEquals("http://127.0.0.1:9000/", credentialStore.loadConnection().baseUri.toString())
             assertNull(credentialStore.loadConnection().appId)
             assertNull(credentialStore.loadConnection().appSecret)
