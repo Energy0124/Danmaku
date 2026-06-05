@@ -43,10 +43,10 @@ class DandanplayConnection(
     override fun toString(): String =
         "DandanplayConnection(baseUri=$baseUri, appId=${appId ?: "<none>"}, appSecret=<redacted>, authenticationMode=$authenticationMode)"
 
-    private companion object {
+    companion object {
         const val DEFAULT_BASE_URL = "https://api.dandanplay.net"
 
-        fun validatedBaseUri(baseUrl: String): URI {
+        private fun validatedBaseUri(baseUrl: String): URI {
             val uri = URI(baseUrl.trim())
             require(uri.scheme.equals("http", ignoreCase = true) || uri.scheme.equals("https", ignoreCase = true)) {
                 "dandanplay base URL must use http or https"

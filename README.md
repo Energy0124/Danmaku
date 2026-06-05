@@ -77,6 +77,8 @@ Implemented today:
   first-16MB MD5 media matching, optional signed or credential-based
   弹弹play开放平台 authentication, and comment normalization into shared
   `DanmakuEvent` rows
+- Profile-tab dandanplay provider settings with DPAPI-protected AppSecret
+  storage and redacted diagnostics
 - Desktop preparation for local-file and paired-LAN playback requests, including
   resume seeks and native mpv command execution
 - Rust libmpv loader/probe plus a small C ABI and Kotlin/JNA binding for the
@@ -88,8 +90,8 @@ Not implemented yet:
 
 - Broad Windows resize/fullscreen/4K/hardware-decoding validation
 - Authorized download engine
-- UI-integrated provider plugins, MyAnimeList integration, and persisted
-  danmaku provider settings/cache
+- Full provider plugins, MyAnimeList integration, and dandanplay playback
+  attachment/cache
 
 ## Architecture
 

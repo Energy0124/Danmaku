@@ -104,8 +104,11 @@ Updated on 2026-06-05.
   the first-16MB MD5 media fingerprint, matching files through `/api/v2/match`,
   fetching `/api/v2/comment/{episodeId}` comments, using optional signed or
   credential-based 弹弹play开放平台 headers, and normalizing comments into shared
-  `DanmakuEvent` rows. Playback UI wiring, per-episode cache storage, and user
-  settings are still pending.
+  `DanmakuEvent` rows.
+- Windows Profile-tab dandanplay provider settings for API base URL plus
+  optional AppId/AppSecret credentials. AppSecret values are protected through
+  the same Windows DPAPI-backed secret-protector path used by ani-rss, and the
+  UI/diagnostics show only redacted provider status.
 - Compose Multiplatform 1.11.0 Windows desktop shell with synthetic danmaku
   scheduling backed by the shared scheduler and rendered over mpv as ASS.
 - Recursive Windows anime-folder indexer and trusted-LAN HTTP server exposing a

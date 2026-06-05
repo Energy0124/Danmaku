@@ -119,6 +119,12 @@ private fun DesktopShell() {
     val aniRssCredentialStore = remember(catalogStore) {
         AniRssCredentialStore(catalogStore)
     }
+    val dandanplayCredentialStore = remember(catalogStore) {
+        DandanplayCredentialStore(catalogStore)
+    }
+    var dandanplaySettings by remember(dandanplayCredentialStore) {
+        mutableStateOf(dandanplayCredentialStore.loadSettings())
+    }
     val localPlaybackPreparer = remember(catalogStore) {
         DesktopLocalPlaybackPreparer(catalogStore)
     }
@@ -545,6 +551,47 @@ private fun DesktopShell() {
         }
     }
 
+    fun saveDandanplaySettings(
+        baseUrl: String,
+        appId: String?,
+        appSecret: String?,
+        authenticationMode: DandanplayAuthenticationMode,
+    ) {
+        scope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    dandanplayCredentialStore.saveSettings(
+                        baseUrl = baseUrl,
+                        appId = appId,
+                        appSecret = appSecret,
+                        authenticationMode = authenticationMode,
+                    )
+                }
+            }.onSuccess { updatedSettings ->
+                dandanplaySettings = updatedSettings
+                appendDiagnostic("settings", "Saved dandanplay provider settings for ${updatedSettings.baseUrl}")
+            }.onFailure {
+                appendDiagnostic("settings", "Failed to save dandanplay provider settings: ${it.message}")
+            }
+        }
+    }
+
+    fun clearDandanplaySettings() {
+        scope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    dandanplayCredentialStore.deleteSettings()
+                    dandanplayCredentialStore.loadSettings()
+                }
+            }.onSuccess { updatedSettings ->
+                dandanplaySettings = updatedSettings
+                appendDiagnostic("settings", "Cleared dandanplay provider settings")
+            }.onFailure {
+                appendDiagnostic("settings", "Failed to clear dandanplay provider settings: ${it.message}")
+            }
+        }
+    }
+
     LaunchedEffect(Unit) {
         indexedLibrary?.toPublishedLibrary()?.let(server::publish)
         if (registeredRoots.isNotEmpty()) {
@@ -850,6 +897,9 @@ private fun DesktopShell() {
                             appLogPath = diagnosticFileLog.appLogPath,
                             mpvLogPath = diagnosticFileLog.mpvLogPath,
                             diagnosticLog = diagnosticLog,
+                            dandanplaySettings = dandanplaySettings,
+                            onSaveDandanplaySettings = ::saveDandanplaySettings,
+                            onClearDandanplaySettings = ::clearDandanplaySettings,
                         )
                     }
                 }
@@ -1597,6 +1647,9 @@ private fun ProfileTab(
     appLogPath: Path,
     mpvLogPath: Path,
     diagnosticLog: List<DesktopDiagnosticLogEntry>,
+    dandanplaySettings: DandanplayProviderSettings,
+    onSaveDandanplaySettings: (String, String?, String?, DandanplayAuthenticationMode) -> Unit,
+    onClearDandanplaySettings: () -> Unit,
 ) {
     TabScaffold {
         SectionCard("Local Server") {
@@ -1615,7 +1668,100 @@ private fun ProfileTab(
             MetadataRow("App log", appLogPath.toString())
             MetadataRow("mpv log", mpvLogPath.toString())
         }
+        DandanplayProviderCard(
+            settings = dandanplaySettings,
+            onSave = onSaveDandanplaySettings,
+            onClear = onClearDandanplaySettings,
+        )
         DiagnosticsPanel(diagnosticLog)
+    }
+}
+
+@Composable
+private fun DandanplayProviderCard(
+    settings: DandanplayProviderSettings,
+    onSave: (String, String?, String?, DandanplayAuthenticationMode) -> Unit,
+    onClear: () -> Unit,
+) {
+    var baseUrl by remember(settings) { mutableStateOf(settings.baseUrl) }
+    var appId by remember(settings) { mutableStateOf(settings.appId.orEmpty()) }
+    var appSecret by remember(settings) { mutableStateOf("") }
+    var authenticationMode by remember(settings) { mutableStateOf(settings.authenticationMode) }
+
+    SectionCard("Danmaku Providers") {
+        Text(
+            "dandanplay-compatible API settings for future auto-match and fetched danmaku tracks.",
+            color = DanmakuColors.TextMuted,
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        MetadataRow("dandanplay", settings.statusText)
+        Spacer(modifier = Modifier.height(8.dp))
+        OutlinedTextField(
+            value = baseUrl,
+            onValueChange = { baseUrl = it },
+            label = { Text("API base URL") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+        )
+        OutlinedTextField(
+            value = appId,
+            onValueChange = { appId = it },
+            label = { Text("AppId (optional)") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+        )
+        OutlinedTextField(
+            value = appSecret,
+            onValueChange = { appSecret = it },
+            label = {
+                Text(
+                    if (settings.hasAppSecret) {
+                        "AppSecret (leave blank to keep saved secret)"
+                    } else {
+                        "AppSecret (optional)"
+                    },
+                )
+            },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = { authenticationMode = DandanplayAuthenticationMode.SIGNED },
+                enabled = authenticationMode != DandanplayAuthenticationMode.SIGNED,
+            ) {
+                Text("Signed auth")
+            }
+            Button(
+                onClick = { authenticationMode = DandanplayAuthenticationMode.CREDENTIAL },
+                enabled = authenticationMode != DandanplayAuthenticationMode.CREDENTIAL,
+            ) {
+                Text("Credential auth")
+            }
+            Text(
+                "Current: ${authenticationMode.name.lowercase()}",
+                color = DanmakuColors.TextMuted,
+                modifier = Modifier.align(Alignment.CenterVertically),
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = {
+                    onSave(
+                        baseUrl,
+                        appId,
+                        appSecret,
+                        authenticationMode,
+                    )
+                    appSecret = ""
+                },
+            ) {
+                Text("Save dandanplay settings")
+            }
+            Button(onClick = onClear) {
+                Text("Clear")
+            }
+        }
     }
 }
 
