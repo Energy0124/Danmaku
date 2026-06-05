@@ -51,7 +51,7 @@ Implemented today:
 - UDP discovery for finding the Windows library server from Android clients
 - Android mobile and Android TV apps that browse the Windows catalog and stream
   selected episodes through Media3 with indexed sidecar subtitle attachment and
-  volume and runtime audio/subtitle track controls
+  progress, seek, volume, and runtime audio/subtitle track controls
 - Shared library search, title/path sorting, and subtitle-only filtering in the
   Windows, Android mobile, and Android TV catalog screens
 - Windows playback with indexed sidecar subtitle attachment plus runtime

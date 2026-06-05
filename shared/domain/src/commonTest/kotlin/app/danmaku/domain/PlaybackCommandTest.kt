@@ -78,6 +78,33 @@ class PlaybackCommandTest {
     }
 
     @Test
+    fun coercesSeekTargetsToKnownDuration() {
+        val position = PlaybackPosition(positionMs = 45_000, durationMs = 120_000)
+
+        assertEquals(0, position.coerceSeekTarget(-1))
+        assertEquals(60_000, position.coerceSeekTarget(60_000))
+        assertEquals(120_000, position.coerceSeekTarget(130_000))
+    }
+
+    @Test
+    fun seeksByDeltaWithinKnownDuration() {
+        val position = PlaybackPosition(positionMs = 45_000, durationMs = 120_000)
+
+        assertEquals(35_000, position.seekTargetBy(-10_000))
+        assertEquals(0, position.seekTargetBy(-60_000))
+        assertEquals(75_000, position.seekTargetBy(30_000))
+        assertEquals(120_000, position.seekTargetBy(200_000))
+    }
+
+    @Test
+    fun seeksByDeltaWithUnknownDuration() {
+        val position = PlaybackPosition(positionMs = 45_000, durationMs = null)
+
+        assertEquals(0, position.seekTargetBy(-60_000))
+        assertEquals(75_000, position.seekTargetBy(30_000))
+    }
+
+    @Test
     fun restartsNearBeginningAndNearEndPlayback() {
         assertNull(
             PlaybackProgress(

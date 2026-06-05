@@ -48,6 +48,7 @@ import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.PlaybackTrack
 import app.danmaku.domain.PlaybackTrackKind
 import app.danmaku.domain.filteredItems
+import app.danmaku.domain.seekTargetBy
 import app.danmaku.library.android.LanLibraryDiscoveryClient
 import app.danmaku.library.android.LanLibraryClient
 import app.danmaku.library.LanPlaybackPreparer
@@ -139,6 +140,10 @@ private fun TvPlayerScreen() {
                     .height(300.dp),
             )
             Text("Player state: ${snapshot.status}")
+            TvSeekControls(
+                snapshot = snapshot,
+                onSeekTo = { controller?.dispatch(PlaybackCommand.SeekTo(it)) },
+            )
             playbackError?.let { Text("Playback connection error: $it") }
             TrackControls(
                 snapshot = snapshot,
@@ -281,6 +286,40 @@ private fun TvPlayerScreen() {
 }
 
 @Composable
+private fun TvSeekControls(
+    snapshot: PlaybackSnapshot,
+    onSeekTo: (Long) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            "Position ${snapshot.position.positionMs.formatPlaybackTime()} / " +
+                (snapshot.position.durationMs?.formatPlaybackTime() ?: "--:--"),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            TvSeekButton("-30s", snapshot, onSeekTo, -30_000)
+            TvSeekButton("-10s", snapshot, onSeekTo, -10_000)
+            TvSeekButton("+10s", snapshot, onSeekTo, 10_000)
+            TvSeekButton("+30s", snapshot, onSeekTo, 30_000)
+        }
+    }
+}
+
+@Composable
+private fun TvSeekButton(
+    label: String,
+    snapshot: PlaybackSnapshot,
+    onSeekTo: (Long) -> Unit,
+    deltaMs: Long,
+) {
+    Button(
+        onClick = { onSeekTo(snapshot.position.seekTargetBy(deltaMs)) },
+        enabled = snapshot.source != null,
+    ) {
+        Text(label)
+    }
+}
+
+@Composable
 private fun TrackControls(
     snapshot: PlaybackSnapshot,
     onSelectAudio: (String) -> Unit,
@@ -340,6 +379,18 @@ private fun TrackButtons(
 
 private fun PlaybackTrack.buttonLabel(): String =
     if (selected) "$label (selected)" else label
+
+private fun Long.formatPlaybackTime(): String {
+    val totalSeconds = this.coerceAtLeast(0) / 1_000
+    val hours = totalSeconds / 3_600
+    val minutes = (totalSeconds % 3_600) / 60
+    val seconds = totalSeconds % 60
+    return if (hours > 0) {
+        "$hours:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}"
+    } else {
+        "$minutes:${seconds.toString().padStart(2, '0')}"
+    }
+}
 
 @Composable
 private fun LibraryItems(

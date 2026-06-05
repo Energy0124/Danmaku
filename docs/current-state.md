@@ -148,6 +148,9 @@ Updated on 2026-06-05.
   and selection state. Android mobile, Android TV, and Windows render volume and
   track controls; Media3 applies audio/subtitle overrides and libmpv uses
   `aid`/`sid` selection commands.
+- Android mobile exposes playback position text, a duration-backed progress
+  slider, and quick seek buttons. Android TV exposes playback position text and
+  remote-friendly quick seek buttons using the shared seek-target clamp helper.
 - Shared LAN playback preparation carries tokenized indexed sidecar subtitle
   sources, and Android mobile and TV attach them to Media3 playback items with
   stable track IDs, labels, and MIME types. ASS tracks are normalized to

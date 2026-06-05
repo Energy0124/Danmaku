@@ -133,7 +133,7 @@ This turns the technical slice into a usable local media-center application.
   Media3 playback items.
 - [x] Add Android and Android TV runtime audio/subtitle track selection controls.
 - [ ] Add remaining playback controls for fullscreen and aspect ratio.
-- [ ] Add Android TV player controls with visible focus states and remote-friendly
+- [x] Add Android TV player controls with visible focus states and remote-friendly
   seek behavior.
 - [ ] Persist player, library, and UI settings in SQLDelight.
 

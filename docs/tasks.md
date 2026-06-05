@@ -92,6 +92,8 @@ indexed sidecar subtitles to Media3.
   controls.
 - [x] Add Android mobile and Android TV catalog search, title/path sorting, and
   subtitle-only filtering backed by the shared domain query helper.
+- [x] Add Android mobile progress scrubbing and Android TV remote-friendly seek
+  controls backed by shared seek-target clamping.
 - [ ] Verify playback and overlays on a physical Android TV device.
 
 ## Streaming Verification

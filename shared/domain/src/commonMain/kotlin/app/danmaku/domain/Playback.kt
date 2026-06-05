@@ -14,6 +14,22 @@ data class PlaybackPosition(
     }
 }
 
+fun PlaybackPosition.coerceSeekTarget(positionMs: Long): Long {
+    val nonNegativePositionMs = positionMs.coerceAtLeast(0)
+    return durationMs
+        ?.let { nonNegativePositionMs.coerceAtMost(it) }
+        ?: nonNegativePositionMs
+}
+
+fun PlaybackPosition.seekTargetBy(deltaMs: Long): Long {
+    val targetPositionMs = when {
+        deltaMs > 0 && positionMs > Long.MAX_VALUE - deltaMs -> Long.MAX_VALUE
+        deltaMs < 0 && positionMs < Long.MIN_VALUE - deltaMs -> Long.MIN_VALUE
+        else -> positionMs + deltaMs
+    }
+    return coerceSeekTarget(targetPositionMs)
+}
+
 @Serializable
 data class PlaybackProgress(
     val mediaId: String,

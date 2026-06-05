@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -44,7 +45,9 @@ import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.PlaybackSource
 import app.danmaku.domain.PlaybackTrack
 import app.danmaku.domain.PlaybackTrackKind
+import app.danmaku.domain.coerceSeekTarget
 import app.danmaku.domain.filteredItems
+import app.danmaku.domain.seekTargetBy
 import app.danmaku.library.android.LanLibraryDiscoveryClient
 import app.danmaku.library.android.LanLibraryClient
 import app.danmaku.library.LanPlaybackPreparer
@@ -143,6 +146,7 @@ private fun MobilePlayerScreen() {
                 onOpen = { openDocument.launch(arrayOf("video/*")) },
                 onPlay = { controller?.dispatch(PlaybackCommand.Play) },
                 onPause = { controller?.dispatch(PlaybackCommand.Pause) },
+                onSeekTo = { controller?.dispatch(PlaybackCommand.SeekTo(it)) },
                 onSetVolume = { controller?.dispatch(PlaybackCommand.SetVolume(it)) },
             )
             TrackControls(
@@ -243,6 +247,7 @@ private fun PlayerControls(
     onOpen: () -> Unit,
     onPlay: () -> Unit,
     onPause: () -> Unit,
+    onSeekTo: (Long) -> Unit,
     onSetVolume: (Int) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -257,6 +262,7 @@ private fun PlayerControls(
                 Text("Pause")
             }
         }
+        PlaybackSeekControls(snapshot = snapshot, onSeekTo = onSeekTo)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Volume ${snapshot.volumePercent}%")
             Button(
@@ -272,6 +278,68 @@ private fun PlayerControls(
                 Text("+")
             }
         }
+    }
+}
+
+@Composable
+private fun PlaybackSeekControls(
+    snapshot: PlaybackSnapshot,
+    onSeekTo: (Long) -> Unit,
+) {
+    val durationMs = snapshot.position.durationMs?.takeIf { it > 0 }
+    val currentPositionMs = snapshot.position.coerceSeekTarget(snapshot.position.positionMs)
+    var sliderPositionMs by remember(snapshot.source, durationMs) {
+        mutableStateOf(currentPositionMs.toFloat())
+    }
+    var isDragging by remember(snapshot.source, durationMs) { mutableStateOf(false) }
+
+    LaunchedEffect(currentPositionMs, durationMs, isDragging) {
+        if (!isDragging) {
+            sliderPositionMs = currentPositionMs.toFloat()
+        }
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("${currentPositionMs.formatPlaybackTime()} / ${durationMs?.formatPlaybackTime() ?: "--:--"}")
+        Slider(
+            value = durationMs
+                ?.let { sliderPositionMs.coerceIn(0f, it.toFloat()) }
+                ?: 0f,
+            onValueChange = {
+                isDragging = true
+                sliderPositionMs = it
+            },
+            onValueChangeFinished = {
+                durationMs?.let {
+                    onSeekTo(snapshot.position.coerceSeekTarget(sliderPositionMs.toLong()))
+                }
+                isDragging = false
+            },
+            valueRange = 0f..(durationMs ?: 1L).toFloat(),
+            enabled = snapshot.source != null && durationMs != null,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SeekButton("-30s", snapshot, onSeekTo, -30_000)
+            SeekButton("-10s", snapshot, onSeekTo, -10_000)
+            SeekButton("+10s", snapshot, onSeekTo, 10_000)
+            SeekButton("+30s", snapshot, onSeekTo, 30_000)
+        }
+    }
+}
+
+@Composable
+private fun SeekButton(
+    label: String,
+    snapshot: PlaybackSnapshot,
+    onSeekTo: (Long) -> Unit,
+    deltaMs: Long,
+) {
+    Button(
+        onClick = { onSeekTo(snapshot.position.seekTargetBy(deltaMs)) },
+        enabled = snapshot.source != null,
+    ) {
+        Text(label)
     }
 }
 
@@ -335,6 +403,18 @@ private fun TrackButtons(
 
 private fun PlaybackTrack.buttonLabel(): String =
     if (selected) "$label (selected)" else label
+
+private fun Long.formatPlaybackTime(): String {
+    val totalSeconds = this.coerceAtLeast(0) / 1_000
+    val hours = totalSeconds / 3_600
+    val minutes = (totalSeconds % 3_600) / 60
+    val seconds = totalSeconds % 60
+    return if (hours > 0) {
+        "$hours:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}"
+    } else {
+        "$minutes:${seconds.toString().padStart(2, '0')}"
+    }
+}
 
 @Composable
 private fun LibraryItems(
