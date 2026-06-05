@@ -19,12 +19,14 @@ data class DesktopPlaybackRequest(
 
 class DesktopPlaybackSession(
     private val controller: PlaybackController,
+    private val afterLoad: (DesktopPlaybackRequest) -> Unit = {},
 ) {
     fun load(request: DesktopPlaybackRequest): PlaybackSnapshot {
         controller.load(request.source)
         request.resumePositionMs?.let {
             controller.dispatch(PlaybackCommand.SeekTo(it))
         }
+        afterLoad(request)
         return controller.snapshot()
     }
 }

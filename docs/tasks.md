@@ -61,7 +61,7 @@ indexed sidecar subtitles to Media3.
 - [x] Add a packaged Windows local-media `loadfile` smoke probe.
 - [ ] Validate the Windows child-window playback spike with local files, resize,
   fullscreen, hardware decoding, and 4K media.
-- [x] Add a synthetic danmaku overlay demo.
+- [x] Render a synthetic danmaku overlay on top of Windows mpv playback.
 - [x] Add bounded visible-window queries and generated-track scheduler tests.
 - [x] Measure overlay behavior with a large generated timeline.
 - [x] Add seek and playback-rate test cases.

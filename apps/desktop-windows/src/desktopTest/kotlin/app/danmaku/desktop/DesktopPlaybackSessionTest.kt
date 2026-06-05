@@ -14,13 +14,14 @@ class DesktopPlaybackSessionTest {
     fun loadsLocalPlaybackRequestsAndSeeksToResumePosition() {
         val executor = RecordingDesktopMpvCommandExecutor()
         val controller = DesktopMpvPlaybackController(executor)
+        val loadedRequests = mutableListOf<DesktopPlaybackRequest>()
         val request = DesktopPlaybackRequest(
             label = "Example Show - Episode 01",
             source = PlaybackSource.LocalFile("S:\\Anime\\Example Show\\Episode 01.mkv"),
             resumePositionMs = 12_345,
         )
 
-        val snapshot = DesktopPlaybackSession(controller).load(request)
+        val snapshot = DesktopPlaybackSession(controller, loadedRequests::add).load(request)
 
         assertEquals(
             listOf(
@@ -38,6 +39,7 @@ class DesktopPlaybackSessionTest {
         assertEquals(PlaybackStatus.LOADING, snapshot.status)
         assertEquals(request.source, snapshot.source)
         assertEquals(12_345, snapshot.position.positionMs)
+        assertEquals(listOf(request), loadedRequests)
     }
 
     @Test

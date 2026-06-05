@@ -60,9 +60,10 @@ Updated on 2026-06-04.
   fallback mode when they are unavailable, and closes the native handle on
   shutdown.
 - Initial Windows video-host spike using a SwingPanel-backed native child
-  window and libmpv's pre-initialize `wid` option. This proves the host boundary
-  but still needs visual playback validation and an overlay-compatible final
-  rendering path.
+  window and libmpv's pre-initialize `wid` option. The desktop shell now
+  attaches a generated ASS subtitle track so synthetic danmaku is rendered by
+  mpv directly over the video. Full parsed-track synchronization and final
+  renderer selection are still pending.
 - Desktop shell play, pause, and ten-second seek controls routed through the
   shared playback command contract.
 - Direct Windows media-file picker that loads arbitrary local video files into
@@ -73,8 +74,8 @@ Updated on 2026-06-04.
   visible-window lookup, backward-seek query coverage, and a 10,000-comment
   generated-track test. The scheduler also exposes sampled visibility metrics
   for measuring peak and average overlay density on large tracks.
-- Compose Multiplatform 1.11.0 Windows desktop shell with a synthetic animated
-  overlay demo backed by the shared scheduler.
+- Compose Multiplatform 1.11.0 Windows desktop shell with synthetic danmaku
+  scheduling backed by the shared scheduler and rendered over mpv as ASS.
 - Recursive Windows anime-folder indexer and trusted-LAN HTTP server exposing a
   paired normalized JSON catalog plus paired seekable byte-range media
   responses.
@@ -211,9 +212,10 @@ With an Android emulator or device online, run:
 
 1. Exercise cross-device resume behavior on Android and TV hardware.
 2. Validate the Windows child-window playback spike with local files, resize,
-   fullscreen, hardware decoding, and 4K media.
-3. Choose and implement the final overlay-compatible Windows video rendering
-   path.
+   fullscreen, hardware decoding, 4K media, and the mpv-rendered synthetic ASS
+   overlay.
+3. Replace the synthetic overlay with parsed danmaku tracks synchronized to the
+   real playback clock.
 4. Re-audit the libmpv bundle before changing its producer artifact or hashes.
 
 ## Runtime Smoke Check
