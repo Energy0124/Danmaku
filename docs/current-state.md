@@ -1,6 +1,6 @@
 # Current State
 
-Updated on 2026-06-04.
+Updated on 2026-06-05.
 
 ## Implemented
 
@@ -64,8 +64,13 @@ Updated on 2026-06-04.
   attaches a generated ASS subtitle track so synthetic danmaku is rendered by
   mpv directly over the video. Full parsed-track synchronization and final
   renderer selection are still pending.
-- Desktop shell play, pause, and ten-second seek controls routed through the
-  shared playback command contract.
+- Desktop shell play, pause, seek, progress-scrub, and playback-rate controls
+  routed through the shared playback command contract. The Windows controller
+  polls libmpv properties for live position, duration, pause state, EOF state,
+  and speed.
+- Windows playback saves local library progress into the desktop catalog and
+  uploads paired-LAN progress to the paired server on a throttled five-second
+  cadence, with forced saves after pause and seek.
 - Direct Windows media-file picker that loads arbitrary local video files into
   the native mpv host without requiring a library scan first.
 - Packaged Windows runtime probe can optionally load a supplied local media

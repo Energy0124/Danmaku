@@ -68,9 +68,8 @@ class DesktopPlaybackSessionTest {
             resumePositionMs = null,
         )
 
-        val snapshot = DesktopPlaybackSession(controller).load(
-            preparation.toDesktopPlaybackRequest(),
-        )
+        val request = preparation.toDesktopPlaybackRequest()
+        val snapshot = DesktopPlaybackSession(controller).load(request)
 
         assertEquals(
             listOf(
@@ -86,6 +85,8 @@ class DesktopPlaybackSessionTest {
         )
         assertEquals(PlaybackStatus.LOADING, snapshot.status)
         assertEquals(preparation.source, snapshot.source)
+        assertEquals(item.id, request.progressMediaId)
+        assertEquals(preparation.target, request.progressTarget)
     }
 
     @Test
@@ -106,6 +107,7 @@ class DesktopPlaybackSessionTest {
                 label = "Example Show - Episode 01",
                 source = source,
                 resumePositionMs = 12_345,
+                progressMediaId = "episode-id",
             ),
             DesktopLocalPlaybackPreparation(
                 item = item,

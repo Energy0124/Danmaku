@@ -50,9 +50,13 @@ import androidx.compose.ui.window.application
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.PlaybackCommand
+import app.danmaku.domain.PlaybackProgress
 import app.danmaku.domain.PlaybackSnapshot
+import app.danmaku.domain.toPlaybackProgress
 import app.danmaku.library.LanPlaybackPreparation
 import app.danmaku.library.LanPlaybackPreparer
+import app.danmaku.library.LanPlaybackProgressSync
+import app.danmaku.library.LanPlaybackTarget
 import app.danmaku.library.jvm.JvmLanLibraryClient
 import app.danmaku.server.LocalLibraryDiscoveryAnnouncer
 import app.danmaku.server.LocalLibraryServerEvent
@@ -96,6 +100,12 @@ private fun DesktopShell() {
     }
     val localPlaybackPreparer = remember(catalogStore) {
         DesktopLocalPlaybackPreparer(catalogStore)
+    }
+    val lanProgressSync = remember {
+        LanPlaybackProgressSync(
+            libraryClient = JvmLanLibraryClient(),
+            currentTimeMillis = System::currentTimeMillis,
+        )
     }
     val scope = rememberCoroutineScope()
     val mpvCommandLog = remember { mutableStateListOf<DesktopMpvCommand>() }
@@ -328,6 +338,66 @@ private fun DesktopShell() {
 
     var selectedTab by remember { mutableStateOf(DesktopShellTab.HOME) }
     var pendingPlaybackRequest by remember { mutableStateOf<DesktopPlaybackRequest?>(null) }
+    var activeProgressMediaId by remember { mutableStateOf<String?>(null) }
+    var activeProgressTarget by remember { mutableStateOf<LanPlaybackTarget?>(null) }
+    var lastSavedPlaybackProgress by remember { mutableStateOf<PlaybackProgress?>(null) }
+
+    fun shouldPersistPlaybackProgress(
+        progress: PlaybackProgress,
+        force: Boolean,
+    ): Boolean {
+        if (progress.positionMs <= 0) {
+            return false
+        }
+        val lastSaved = lastSavedPlaybackProgress
+        return force ||
+            lastSaved == null ||
+            lastSaved.mediaId != progress.mediaId ||
+            progress.positionMs - lastSaved.positionMs >= WINDOWS_PROGRESS_SAVE_INTERVAL_MS ||
+            lastSaved.positionMs - progress.positionMs >= WINDOWS_PROGRESS_SAVE_INTERVAL_MS ||
+            progress.durationMs != lastSaved.durationMs
+    }
+
+    fun persistActivePlaybackProgress(
+        snapshot: PlaybackSnapshot,
+        force: Boolean = false,
+    ) {
+        val mediaId = activeProgressMediaId ?: return
+        val progress = snapshot.toPlaybackProgress(mediaId, System.currentTimeMillis()) ?: return
+        if (!shouldPersistPlaybackProgress(progress, force)) {
+            return
+        }
+        lastSavedPlaybackProgress = progress
+        val target = activeProgressTarget
+        scope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    if (target == null) {
+                        catalogStore.saveProgress(progress)
+                    } else {
+                        lanProgressSync.saveProgress(target, snapshot)
+                    }
+                }
+            }.onSuccess {
+                val destination = if (target == null) "local catalog" else "paired LAN server"
+                appendDiagnostic(
+                    "progress",
+                    "Saved $destination progress for $mediaId at ${progress.positionMs}ms/${progress.durationMs ?: "unknown"}",
+                )
+            }.onFailure { error ->
+                appendDiagnostic("progress", "Save progress failed for $mediaId: ${error.message}")
+            }
+        }
+    }
+
+    fun loadPlaybackRequest(request: DesktopPlaybackRequest): PlaybackSnapshot {
+        activeProgressMediaId = request.progressMediaId
+        activeProgressTarget = request.progressTarget
+        lastSavedPlaybackProgress = null
+        return playbackSession.load(request).also {
+            playbackSnapshot = it
+        }
+    }
 
     fun queuePlaybackUntilHostReady(request: DesktopPlaybackRequest) {
         pendingPlaybackRequest = request
@@ -362,7 +432,7 @@ private fun DesktopShell() {
             return@LaunchedEffect
         }
         appendDiagnostic("playback", "Loading queued playback after host settle: ${request.label}")
-        playbackSnapshot = playbackSession.load(request)
+        loadPlaybackRequest(request)
         pendingPlaybackRequest = null
     }
 
@@ -373,6 +443,7 @@ private fun DesktopShell() {
             if (nextSnapshot != playbackSnapshot) {
                 playbackSnapshot = nextSnapshot
             }
+            persistActivePlaybackProgress(nextSnapshot)
         }
     }
 
@@ -433,9 +504,7 @@ private fun DesktopShell() {
                                 title = "Choose media file for Windows playback",
                             )?.let { mediaFile ->
                                 appendDiagnostic("playback", "Loading direct media file: $mediaFile")
-                                playbackSnapshot = playbackSession.load(
-                                    mediaFile.toDirectLocalPlaybackRequest(),
-                                )
+                                loadPlaybackRequest(mediaFile.toDirectLocalPlaybackRequest())
                             }
                         },
                         onPlay = {
@@ -447,6 +516,7 @@ private fun DesktopShell() {
                             appendDiagnostic("playback", "Dispatch Pause")
                             playbackController.dispatch(PlaybackCommand.Pause)
                             playbackSnapshot = playbackController.snapshot()
+                            persistActivePlaybackProgress(playbackSnapshot, force = true)
                         },
                         onSeekBackward = {
                             appendDiagnostic("playback", "Dispatch Seek -10s")
@@ -456,6 +526,7 @@ private fun DesktopShell() {
                                 ),
                             )
                             playbackSnapshot = playbackController.snapshot()
+                            persistActivePlaybackProgress(playbackSnapshot, force = true)
                         },
                         onSeekBackwardLarge = {
                             appendDiagnostic("playback", "Dispatch Seek -30s")
@@ -465,6 +536,7 @@ private fun DesktopShell() {
                                 ),
                             )
                             playbackSnapshot = playbackController.snapshot()
+                            persistActivePlaybackProgress(playbackSnapshot, force = true)
                         },
                         onSeekForward = {
                             appendDiagnostic("playback", "Dispatch Seek +10s")
@@ -474,6 +546,7 @@ private fun DesktopShell() {
                                 ),
                             )
                             playbackSnapshot = playbackController.snapshot()
+                            persistActivePlaybackProgress(playbackSnapshot, force = true)
                         },
                         onSeekForwardLarge = {
                             appendDiagnostic("playback", "Dispatch Seek +30s")
@@ -483,11 +556,13 @@ private fun DesktopShell() {
                                 ),
                             )
                             playbackSnapshot = playbackController.snapshot()
+                            persistActivePlaybackProgress(playbackSnapshot, force = true)
                         },
                         onSeekTo = { positionMs ->
                             appendDiagnostic("playback", "Dispatch Seek ${positionMs}ms")
                             playbackController.dispatch(PlaybackCommand.SeekTo(positionMs))
                             playbackSnapshot = playbackController.snapshot()
+                            persistActivePlaybackProgress(playbackSnapshot, force = true)
                         },
                         onSetPlaybackRate = { rate ->
                             appendDiagnostic("playback", "Dispatch playback rate ${rate}x")
@@ -1489,6 +1564,8 @@ private fun Long.formatPlaybackTime(): String {
 private const val PLAYBACK_HOST_SETTLE_DELAY_MS = 300L
 
 private const val PLAYBACK_SNAPSHOT_POLL_INTERVAL_MS = 500L
+
+private const val WINDOWS_PROGRESS_SAVE_INTERVAL_MS = 5_000L
 
 private const val MAX_DIAGNOSTIC_LOG_ENTRIES = 200
 

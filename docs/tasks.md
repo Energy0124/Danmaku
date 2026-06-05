@@ -65,6 +65,8 @@ indexed sidecar subtitles to Media3.
 - [x] Add bounded visible-window queries and generated-track scheduler tests.
 - [x] Measure overlay behavior with a large generated timeline.
 - [x] Add seek and playback-rate test cases.
+- [x] Add Windows progress-bar scrubbing, live mpv position polling, and
+  throttled local/paired progress persistence.
 
 ## Android And TV
 
@@ -127,9 +129,9 @@ indexed sidecar subtitles to Media3.
 - [x] Add Windows host direct local-file playback preparation with resume lookup.
 - [x] Connect prepared local and paired-LAN playback requests to the desktop
   playback controller.
-- [ ] Add Windows player support for browsing and streaming from a paired LAN
+- [x] Add Windows player support for browsing and streaming from a paired LAN
   server, including the same-PC integration path.
-- [ ] Preserve direct local-file playback on the server host for efficiency.
+- [x] Preserve direct local-file playback on the server host for efficiency.
 - [ ] Add an optional headless server executable only after API, settings,
   lifecycle, diagnostics, startup, and firewall behavior are stable.
 

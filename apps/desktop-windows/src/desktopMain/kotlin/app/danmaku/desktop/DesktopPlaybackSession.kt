@@ -5,15 +5,21 @@ import app.danmaku.domain.PlaybackController
 import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.PlaybackSource
 import app.danmaku.library.LanPlaybackPreparation
+import app.danmaku.library.LanPlaybackTarget
 import java.nio.file.Path
 
 data class DesktopPlaybackRequest(
     val label: String,
     val source: PlaybackSource,
     val resumePositionMs: Long?,
+    val progressMediaId: String? = null,
+    val progressTarget: LanPlaybackTarget? = null,
 ) {
     init {
         require(label.isNotBlank()) { "label must not be blank" }
+        require(progressMediaId == null || progressMediaId.isNotBlank()) {
+            "progressMediaId must not be blank"
+        }
     }
 }
 
@@ -36,6 +42,7 @@ fun DesktopLocalPlaybackPreparation.toPlaybackRequest(): DesktopPlaybackRequest 
         label = "${item.seriesTitle} - ${item.episodeTitle}",
         source = source,
         resumePositionMs = resumePositionMs,
+        progressMediaId = item.id,
     )
 
 fun Path.toDirectLocalPlaybackRequest(): DesktopPlaybackRequest {
@@ -52,4 +59,6 @@ fun LanPlaybackPreparation.toDesktopPlaybackRequest(): DesktopPlaybackRequest =
         label = "${item.seriesTitle} - ${item.episodeTitle}",
         source = source,
         resumePositionMs = resumePositionMs,
+        progressMediaId = target.mediaId,
+        progressTarget = target,
     )

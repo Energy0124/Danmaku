@@ -180,10 +180,11 @@ In the Windows shell:
 
 The Windows shell can prepare local or LAN playback requests, execute their
 commands through the packaged Rust/JNA/libmpv chain, and host mpv in an initial
-native child-window playback surface with play, pause, and seek controls.
-It also has a direct media-file picker for quick Windows playback validation.
-Visual playback validation and the final overlay-compatible rendering path are
-still pending.
+native child-window playback surface with play, pause, seek, progress-bar
+scrubbing, and playback-rate controls. Library playback saves watch progress
+from live mpv position snapshots, while direct file playback remains a quick
+validation path that does not create library progress records. Full parsed
+danmaku synchronization is still pending.
 
 For a packaged local-file smoke test without driving the full UI, pass a real
 media file to the Windows runtime probe:
