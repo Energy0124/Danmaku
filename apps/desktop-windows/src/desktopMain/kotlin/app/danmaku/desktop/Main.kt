@@ -58,6 +58,8 @@ import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.PlaybackTrack
 import app.danmaku.domain.PlaybackTrackKind
 import app.danmaku.domain.filteredItems
+import app.danmaku.domain.nextItem
+import app.danmaku.domain.previousItem
 import app.danmaku.domain.resumePositionMs
 import app.danmaku.domain.toPlaybackProgress
 import app.danmaku.library.LanPlaybackPreparation
@@ -1326,14 +1328,34 @@ private fun MediaLibraryTab(
         }
         selectedLocalPlaybackPreparation?.let { preparation ->
             SectionCard("Prepared Playback") {
+                val previousItem = indexedLibrary?.catalog?.previousItem(preparation.item.id)
+                val nextItem = indexedLibrary?.catalog?.nextItem(preparation.item.id)
                 MetadataRow(
                     "Episode",
                     "${preparation.item.seriesTitle} - ${preparation.item.episodeTitle}",
                 )
                 MetadataRow("Source", preparation.source.path)
                 MetadataRow("Resume", preparation.resumePositionMs?.let { "$it ms" } ?: "start from beginning")
-                Button(onClick = { onLoadPreparedPlayback(preparation) }) {
-                    Text("Load into player")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { onLoadPreparedPlayback(preparation) }) {
+                        Text("Load into player")
+                    }
+                    Button(
+                        onClick = {
+                            previousItem?.let(onPrepareLocalPlayback)
+                        },
+                        enabled = previousItem != null && !isPreparingLocalPlayback,
+                    ) {
+                        Text("Previous episode")
+                    }
+                    Button(
+                        onClick = {
+                            nextItem?.let(onPrepareLocalPlayback)
+                        },
+                        enabled = nextItem != null && !isPreparingLocalPlayback,
+                    ) {
+                        Text("Next episode")
+                    }
                 }
             }
         }

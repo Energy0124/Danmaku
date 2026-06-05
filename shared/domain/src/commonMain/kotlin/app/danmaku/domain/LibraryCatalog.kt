@@ -9,6 +9,22 @@ data class LibraryCatalog(
     val items: List<LibraryMediaItem>,
 )
 
+fun LibraryCatalog.previousItem(currentItemId: String): LibraryMediaItem? {
+    require(currentItemId.isNotBlank()) { "currentItemId must not be blank" }
+    val currentIndex = items.indexOfFirst { it.id == currentItemId }
+    return items.getOrNull(currentIndex - 1)
+}
+
+fun LibraryCatalog.nextItem(currentItemId: String): LibraryMediaItem? {
+    require(currentItemId.isNotBlank()) { "currentItemId must not be blank" }
+    val currentIndex = items.indexOfFirst { it.id == currentItemId }
+    return if (currentIndex == -1) {
+        null
+    } else {
+        items.getOrNull(currentIndex + 1)
+    }
+}
+
 @Serializable
 data class LanLibraryServerAnnouncement(
     val protocol: String = PROTOCOL,

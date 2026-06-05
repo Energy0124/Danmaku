@@ -139,6 +139,8 @@ This turns the technical slice into a usable local media-center application.
 - [ ] Add remaining playback controls for fullscreen and aspect ratio.
 - [x] Add Android TV player controls with visible focus states and remote-friendly
   seek behavior.
+- [x] Add Windows prepared-playback previous/next episode navigation for local
+  catalog items.
 - [ ] Persist player, library, and UI settings in SQLDelight.
 
 ### P1: Danmaku Core

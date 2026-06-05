@@ -77,6 +77,8 @@ indexed sidecar subtitles to Media3.
   progress.
 - [x] Add a Windows recently-watched list backed by persisted local playback
   progress.
+- [x] Add Windows prepared-playback previous/next episode navigation for local
+  catalog items.
 
 ## Android And TV
 

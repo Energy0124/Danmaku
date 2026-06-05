@@ -58,6 +58,8 @@ Implemented today:
   volume and audio/subtitle track discovery and selection controls
 - Windows continue-watching and recently-watched lists for local library
   episodes backed by saved playback progress
+- Windows prepared-playback episode navigation for previous/next local catalog
+  items
 - Android background playback service with resume lookup and periodic progress
   upload
 - Shared Kotlin playback, library-client, and danmaku scheduling contracts

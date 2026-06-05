@@ -76,6 +76,8 @@ Updated on 2026-06-05.
   cadence, with forced saves after pause and seek.
 - Windows media library shows continue-watching and recently-watched lists for
   local episodes backed by the persisted playback-progress table.
+- Shared catalog helpers expose previous/next item lookup in catalog order, and
+  the Windows prepared-playback card can prepare the neighboring local episode.
 - Direct Windows media-file picker that loads arbitrary local video files into
   the native mpv host without requiring a library scan first.
 - Packaged Windows runtime probe can optionally load a supplied local media
