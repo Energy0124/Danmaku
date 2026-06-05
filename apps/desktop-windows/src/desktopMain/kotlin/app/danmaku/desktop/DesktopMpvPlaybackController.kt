@@ -22,11 +22,13 @@ interface CloseableDesktopMpvCommandExecutor : DesktopMpvCommandExecutor, AutoCl
 class DesktopMpvPlaybackController(
     private val commandExecutor: DesktopMpvCommandExecutor,
     private val propertyReader: DesktopMpvPropertyReader? = null,
+    initialSnapshot: PlaybackSnapshot = PlaybackSnapshot(),
+    initialVideoAspectMode: DesktopVideoAspectMode = DesktopVideoAspectMode.DEFAULT,
 ) : PlaybackController {
-    private var snapshot = PlaybackSnapshot()
+    private var snapshot = initialSnapshot
     var fullscreen: Boolean = false
         private set
-    var videoAspectMode: DesktopVideoAspectMode = DesktopVideoAspectMode.DEFAULT
+    var videoAspectMode: DesktopVideoAspectMode = initialVideoAspectMode
         private set
 
     override fun load(source: PlaybackSource) {

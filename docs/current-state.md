@@ -70,6 +70,8 @@ Updated on 2026-06-05.
   the Windows mpv boundary. The Windows controller polls libmpv properties for
   live position, duration, pause state, EOF state, speed, volume, and runtime
   audio/subtitle track metadata.
+- Windows playback persists volume, playback-rate, and aspect-ratio defaults in
+  SQLDelight settings and applies them when the native mpv runtime starts.
 - Windows playback attaches indexed local sidecar subtitles and paired-LAN
   tokenized sidecar subtitle streams with `sub-add`, then exposes libmpv
   audio/subtitle selection controls in the Playback tab.

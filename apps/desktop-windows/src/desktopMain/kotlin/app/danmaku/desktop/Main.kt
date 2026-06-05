@@ -106,6 +106,12 @@ private data class DesktopPlaybackProgressItem(
 private fun DesktopShell() {
     val selectionStore = remember { LocalLibrarySelectionStore.default() }
     val catalogStore = remember { DesktopLibraryCatalogStore.default() }
+    val playbackPreferencesStore = remember(catalogStore) {
+        DesktopPlaybackPreferencesStore(catalogStore)
+    }
+    var playbackPreferences by remember(playbackPreferencesStore) {
+        mutableStateOf(playbackPreferencesStore.load())
+    }
     val rootRegistry = remember(catalogStore) { DesktopLibraryRootRegistry(catalogStore) }
     val rootScanner = remember(catalogStore, rootRegistry) {
         DesktopLibraryRootScanner(catalogStore, rootRegistry)
@@ -174,6 +180,11 @@ private fun DesktopShell() {
         DesktopMpvPlaybackController(
             commandExecutor = mpvRuntime.executor,
             propertyReader = mpvRuntime.propertyReader,
+            initialSnapshot = PlaybackSnapshot(
+                playbackRate = playbackPreferences.playbackRate,
+                volumePercent = playbackPreferences.volumePercent,
+            ),
+            initialVideoAspectMode = playbackPreferences.videoAspectMode,
         )
     }
     LaunchedEffect(mpvRuntime, mpvVideoWindowId) {
@@ -220,7 +231,7 @@ private fun DesktopShell() {
     }
     val legacySelectedLibraryRoot = remember { selectionStore.load() }
     var registeredRoots by remember { mutableStateOf(rootRegistry.loadRoots()) }
-    var playbackSnapshot by remember { mutableStateOf(PlaybackSnapshot()) }
+    var playbackSnapshot by remember(playbackController) { mutableStateOf(playbackController.snapshot()) }
     var isFullscreen by remember(playbackController) { mutableStateOf(playbackController.fullscreen) }
     var videoAspectMode by remember(playbackController) { mutableStateOf(playbackController.videoAspectMode) }
     var indexedLibrary by remember {
@@ -268,6 +279,18 @@ private fun DesktopShell() {
         }
     }
     val networkUrls = remember(server) { server.networkUrls() }
+
+    LaunchedEffect(playbackController) {
+        playbackController.dispatch(PlaybackCommand.SetPlaybackRate(playbackPreferences.playbackRate))
+        playbackController.dispatch(PlaybackCommand.SetVolume(playbackPreferences.volumePercent))
+        playbackController.setVideoAspectMode(playbackPreferences.videoAspectMode)
+        playbackSnapshot = playbackController.snapshot()
+        appendDiagnostic(
+            "settings",
+            "Applied playback defaults: rate=${playbackPreferences.playbackRate}x, " +
+                "volume=${playbackPreferences.volumePercent}%, aspect=${playbackPreferences.videoAspectMode.label}",
+        )
+    }
 
     fun applyPublishedLibrary(library: IndexedLocalLibrary) {
         appendDiagnostic("library", "Publishing library: ${library.catalog.items.size} items")
@@ -503,6 +526,25 @@ private fun DesktopShell() {
         }
     }
 
+    fun savePlaybackPreference(
+        label: String,
+        save: DesktopPlaybackPreferencesStore.() -> Unit,
+    ) {
+        scope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    playbackPreferencesStore.save()
+                    playbackPreferencesStore.load()
+                }
+            }.onSuccess { updatedPreferences ->
+                playbackPreferences = updatedPreferences
+                appendDiagnostic("settings", "Saved $label playback preference")
+            }.onFailure {
+                appendDiagnostic("settings", "Failed to save $label playback preference: ${it.message}")
+            }
+        }
+    }
+
     LaunchedEffect(Unit) {
         indexedLibrary?.toPublishedLibrary()?.let(server::publish)
         if (registeredRoots.isNotEmpty()) {
@@ -680,11 +722,17 @@ private fun DesktopShell() {
                             appendDiagnostic("playback", "Dispatch playback rate ${rate}x")
                             playbackController.dispatch(PlaybackCommand.SetPlaybackRate(rate))
                             playbackSnapshot = playbackController.snapshot()
+                            savePlaybackPreference("rate") {
+                                savePlaybackRate(rate)
+                            }
                         },
                         onSetVolume = { volumePercent ->
                             appendDiagnostic("playback", "Dispatch volume $volumePercent%")
                             playbackController.dispatch(PlaybackCommand.SetVolume(volumePercent))
                             playbackSnapshot = playbackController.snapshot()
+                            savePlaybackPreference("volume") {
+                                saveVolumePercent(volumePercent)
+                            }
                         },
                         onSelectAudioTrack = { trackId ->
                             appendDiagnostic("playback", "Dispatch audio track $trackId")
@@ -709,6 +757,9 @@ private fun DesktopShell() {
                             playbackController.setVideoAspectMode(mode)
                             videoAspectMode = playbackController.videoAspectMode
                             playbackSnapshot = playbackController.snapshot()
+                            savePlaybackPreference("aspect") {
+                                saveVideoAspectMode(mode)
+                            }
                         },
                         canOpenMedia = mpvVideoWindowId != null,
                         modifier = if (selectedTab == DesktopShellTab.PLAYBACK) {

@@ -57,6 +57,8 @@ Implemented today:
 - Windows playback with indexed sidecar subtitle attachment plus runtime
   volume, fullscreen/aspect-ratio, and audio/subtitle track discovery and
   selection controls
+- Persisted Windows playback defaults for volume, playback rate, and aspect
+  mode
 - Windows continue-watching and recently-watched lists for local library
   episodes backed by saved playback progress
 - Windows prepared-playback episode navigation for previous/next local catalog

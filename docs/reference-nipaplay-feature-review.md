@@ -148,7 +148,9 @@ This turns the technical slice into a usable local media-center application.
 - [x] Add Windows paired-catalog one-click stream playback while retaining
   explicit prepare actions for diagnostics.
 - [x] Add optional persisted Windows local-library auto-next playback.
-- [ ] Persist player, library, and UI settings in SQLDelight.
+- [x] Persist Windows playback defaults for volume, playback rate, and aspect
+  mode.
+- [ ] Persist broader library and UI settings in SQLDelight.
 
 ### P1: Danmaku Core
 

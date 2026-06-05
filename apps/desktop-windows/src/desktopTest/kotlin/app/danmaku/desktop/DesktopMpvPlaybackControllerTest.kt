@@ -2,6 +2,7 @@ package app.danmaku.desktop
 
 import app.danmaku.domain.PlaybackCommand
 import app.danmaku.domain.PlaybackPosition
+import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.PlaybackSource
 import app.danmaku.domain.PlaybackStatus
 import app.danmaku.domain.PlaybackTrackKind
@@ -73,6 +74,22 @@ class DesktopMpvPlaybackControllerTest {
         )
         assertEquals(PlaybackStatus.LOADING, controller.snapshot().status)
         assertEquals(source, controller.snapshot().source)
+    }
+
+    @Test
+    fun initializesWithPlaybackPreferences() {
+        val controller = DesktopMpvPlaybackController(
+            commandExecutor = RecordingDesktopMpvCommandExecutor(),
+            initialSnapshot = PlaybackSnapshot(
+                playbackRate = 1.5f,
+                volumePercent = 35,
+            ),
+            initialVideoAspectMode = DesktopVideoAspectMode.STANDARD_4_3,
+        )
+
+        assertEquals(1.5f, controller.snapshot().playbackRate)
+        assertEquals(35, controller.snapshot().volumePercent)
+        assertEquals(DesktopVideoAspectMode.STANDARD_4_3, controller.videoAspectMode)
     }
 
     @Test

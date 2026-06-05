@@ -85,6 +85,8 @@ indexed sidecar subtitles to Media3.
 - [x] Add Windows fullscreen and aspect-ratio playback controls.
 - [x] Add Windows paired-catalog one-click stream playback while retaining
   explicit prepare actions for diagnostics.
+- [x] Persist Windows playback defaults for volume, playback rate, and aspect
+  mode.
 
 ## Android And TV
 
