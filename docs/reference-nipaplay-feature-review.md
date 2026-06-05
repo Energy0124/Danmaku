@@ -120,8 +120,10 @@ This turns the technical slice into a usable local media-center application.
 - [ ] Support multiple indexed folders, removable drives, and missing-folder state.
 - [x] Add library search, title/path sort, and subtitle-only filtering across
   Windows, Android mobile, and Android TV.
-- [ ] Add richer library filters, recently watched, continue watching, and scan
-  status views.
+- [x] Add a Windows continue-watching list backed by persisted local playback
+  progress.
+- [ ] Add richer library filters, recently watched, cross-device continue
+  watching, and scan status views.
 - [ ] Add episode detail and series detail screens.
 - [ ] Add previous episode, next episode, and configurable auto-next behavior.
 - [ ] Add favorites and playlists after normalized episode identity is stable.

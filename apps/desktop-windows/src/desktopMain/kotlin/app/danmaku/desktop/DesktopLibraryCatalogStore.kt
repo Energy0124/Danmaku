@@ -235,6 +235,12 @@ class DesktopLibraryCatalogStore(
             .executeAsOneOrNull()
 
     @Synchronized
+    fun loadPlaybackProgress(): List<PlaybackProgress> =
+        database.libraryCatalogQueries
+            .selectAllPlaybackProgress(::PlaybackProgress)
+            .executeAsList()
+
+    @Synchronized
     override fun saveProgress(progress: PlaybackProgress) {
         database.libraryCatalogQueries.upsertPlaybackProgress(
             progress.mediaId,

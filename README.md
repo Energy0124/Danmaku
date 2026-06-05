@@ -56,6 +56,7 @@ Implemented today:
   Windows, Android mobile, and Android TV catalog screens
 - Windows playback with indexed sidecar subtitle attachment plus runtime
   volume and audio/subtitle track discovery and selection controls
+- Windows continue-watching list for in-progress local library episodes
 - Android background playback service with resume lookup and periodic progress
   upload
 - Shared Kotlin playback, library-client, and danmaku scheduling contracts

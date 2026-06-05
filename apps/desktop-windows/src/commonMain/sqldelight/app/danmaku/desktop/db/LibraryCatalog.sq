@@ -120,6 +120,11 @@ SELECT media_id, position_ms, duration_ms, updated_at_epoch_ms
 FROM playback_progress
 WHERE media_id = ?;
 
+selectAllPlaybackProgress:
+SELECT media_id, position_ms, duration_ms, updated_at_epoch_ms
+FROM playback_progress
+ORDER BY updated_at_epoch_ms DESC, media_id;
+
 upsertPlaybackProgress:
 INSERT OR REPLACE INTO playback_progress(
   media_id,

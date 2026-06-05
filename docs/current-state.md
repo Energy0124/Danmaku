@@ -74,6 +74,8 @@ Updated on 2026-06-05.
 - Windows playback saves local library progress into the desktop catalog and
   uploads paired-LAN progress to the paired server on a throttled five-second
   cadence, with forced saves after pause and seek.
+- Windows media library shows a continue-watching list for in-progress local
+  episodes backed by the persisted playback-progress table.
 - Direct Windows media-file picker that loads arbitrary local video files into
   the native mpv host without requiring a library scan first.
 - Packaged Windows runtime probe can optionally load a supplied local media

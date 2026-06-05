@@ -73,11 +73,38 @@ class DesktopLibraryCatalogStoreTest {
         DesktopLibraryCatalogStore(temp.resolve("catalog.db")).use { store ->
             store.saveProgress(progress)
             assertEquals(progress, store.loadProgress(progress.mediaId))
+            assertEquals(listOf(progress), store.loadPlaybackProgress())
             assertNull(store.loadProgress("missing-id"))
         }
 
         DesktopLibraryCatalogStore(temp.resolve("catalog.db")).use { store ->
             assertEquals(progress, store.loadProgress(progress.mediaId))
+        }
+
+        temp.toFile().deleteRecursively()
+    }
+
+    @Test
+    fun loadsPlaybackProgressNewestFirst() {
+        val temp = createTempDirectory("danmaku-library-progress-list")
+        val older = PlaybackProgress(
+            mediaId = "older",
+            positionMs = 12_345,
+            durationMs = 98_765,
+            updatedAtEpochMs = 123,
+        )
+        val newer = PlaybackProgress(
+            mediaId = "newer",
+            positionMs = 23_456,
+            durationMs = 98_765,
+            updatedAtEpochMs = 456,
+        )
+
+        DesktopLibraryCatalogStore(temp.resolve("catalog.db")).use { store ->
+            store.saveProgress(older)
+            store.saveProgress(newer)
+
+            assertEquals(listOf(newer, older), store.loadPlaybackProgress())
         }
 
         temp.toFile().deleteRecursively()

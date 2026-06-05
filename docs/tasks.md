@@ -73,6 +73,8 @@ indexed sidecar subtitles to Media3.
   TV volume controls.
 - [x] Add shared library search, title/path sorting, and subtitle-only filtering
   across Windows, Android mobile, and Android TV catalog screens.
+- [x] Add a Windows continue-watching list backed by persisted local playback
+  progress.
 
 ## Android And TV
 
