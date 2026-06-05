@@ -35,12 +35,16 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.media3.ui.PlayerView
 import app.danmaku.domain.LibraryCatalog
+import app.danmaku.domain.LibraryCatalogQuery
+import app.danmaku.domain.LibraryCatalogSort
 import app.danmaku.domain.LibraryMediaItem
+import app.danmaku.domain.LibrarySubtitleFilter
 import app.danmaku.domain.PlaybackCommand
 import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.PlaybackSource
 import app.danmaku.domain.PlaybackTrack
 import app.danmaku.domain.PlaybackTrackKind
+import app.danmaku.domain.filteredItems
 import app.danmaku.library.android.LanLibraryDiscoveryClient
 import app.danmaku.library.android.LanLibraryClient
 import app.danmaku.library.LanPlaybackPreparer
@@ -337,13 +341,68 @@ private fun LibraryItems(
     catalog: LibraryCatalog?,
     onPlay: (LibraryMediaItem) -> Unit,
 ) {
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        items(catalog?.items.orEmpty(), key = LibraryMediaItem::id) { item ->
-            Button(
-                onClick = { onPlay(item) },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("${item.seriesTitle} - ${item.episodeTitle}")
+    var searchText by remember { mutableStateOf("") }
+    var sort by remember { mutableStateOf(LibraryCatalogSort.TITLE) }
+    var subtitleFilter by remember { mutableStateOf(LibrarySubtitleFilter.ANY) }
+    val totalItems = catalog?.items.orEmpty()
+    val filteredItems = catalog
+        ?.filteredItems(
+            LibraryCatalogQuery(
+                searchText = searchText,
+                sort = sort,
+                subtitleFilter = subtitleFilter,
+            ),
+        )
+        .orEmpty()
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedTextField(
+            value = searchText,
+            onValueChange = { searchText = it },
+            label = { Text("Search library") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            item {
+                Button(
+                    onClick = { sort = LibraryCatalogSort.TITLE },
+                    enabled = sort != LibraryCatalogSort.TITLE,
+                ) {
+                    Text("Title")
+                }
+            }
+            item {
+                Button(
+                    onClick = { sort = LibraryCatalogSort.PATH },
+                    enabled = sort != LibraryCatalogSort.PATH,
+                ) {
+                    Text("Path")
+                }
+            }
+            item {
+                Button(
+                    onClick = {
+                        subtitleFilter = if (subtitleFilter == LibrarySubtitleFilter.ANY) {
+                            LibrarySubtitleFilter.WITH_SUBTITLES
+                        } else {
+                            LibrarySubtitleFilter.ANY
+                        }
+                    },
+                ) {
+                    Text(if (subtitleFilter == LibrarySubtitleFilter.ANY) "With subtitles" else "All")
+                }
+            }
+        }
+        Text("Showing ${filteredItems.size} / ${totalItems.size} episodes")
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            items(filteredItems, key = LibraryMediaItem::id) { item ->
+                Button(
+                    onClick = { onPlay(item) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("${item.seriesTitle} - ${item.episodeTitle}")
+                }
             }
         }
     }

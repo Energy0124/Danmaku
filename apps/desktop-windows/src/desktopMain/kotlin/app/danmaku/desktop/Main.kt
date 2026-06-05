@@ -48,12 +48,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import app.danmaku.domain.LibraryCatalog
+import app.danmaku.domain.LibraryCatalogQuery
+import app.danmaku.domain.LibraryCatalogSort
 import app.danmaku.domain.LibraryMediaItem
+import app.danmaku.domain.LibrarySubtitleFilter
 import app.danmaku.domain.PlaybackCommand
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.PlaybackTrack
 import app.danmaku.domain.PlaybackTrackKind
+import app.danmaku.domain.filteredItems
 import app.danmaku.domain.toPlaybackProgress
 import app.danmaku.library.LanPlaybackPreparation
 import app.danmaku.library.LanPlaybackPreparer
@@ -1192,9 +1196,59 @@ private fun MediaLibraryTab(
                 title = "Episodes",
                 modifier = Modifier.weight(1.3f),
             ) {
-                val items = indexedLibrary?.catalog?.items.orEmpty()
-                if (items.isEmpty()) {
+                var searchText by remember { mutableStateOf("") }
+                var sort by remember { mutableStateOf(LibraryCatalogSort.TITLE) }
+                var subtitleFilter by remember { mutableStateOf(LibrarySubtitleFilter.ANY) }
+                val catalog = indexedLibrary?.catalog
+                val totalItems = catalog?.items.orEmpty()
+                val items = catalog
+                    ?.filteredItems(
+                        LibraryCatalogQuery(
+                            searchText = searchText,
+                            sort = sort,
+                            subtitleFilter = subtitleFilter,
+                        ),
+                    )
+                    .orEmpty()
+                OutlinedTextField(
+                    value = searchText,
+                    onValueChange = { searchText = it },
+                    label = { Text("Search episodes") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = { sort = LibraryCatalogSort.TITLE },
+                        enabled = sort != LibraryCatalogSort.TITLE,
+                    ) {
+                        Text("Sort title")
+                    }
+                    Button(
+                        onClick = { sort = LibraryCatalogSort.PATH },
+                        enabled = sort != LibraryCatalogSort.PATH,
+                    ) {
+                        Text("Sort path")
+                    }
+                    Button(
+                        onClick = {
+                            subtitleFilter = if (subtitleFilter == LibrarySubtitleFilter.ANY) {
+                                LibrarySubtitleFilter.WITH_SUBTITLES
+                            } else {
+                                LibrarySubtitleFilter.ANY
+                            }
+                        },
+                    ) {
+                        Text(if (subtitleFilter == LibrarySubtitleFilter.ANY) "Require subtitles" else "All episodes")
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                MetadataRow("Showing", "${items.size} / ${totalItems.size} episodes")
+                if (totalItems.isEmpty()) {
                     EmptyState("No indexed episodes yet.")
+                } else if (items.isEmpty()) {
+                    EmptyState("No episodes match the current filters.")
                 } else {
                     LazyColumn(modifier = Modifier.height(280.dp)) {
                         items(items, key = { it.id }) { item ->

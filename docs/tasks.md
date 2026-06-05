@@ -71,6 +71,8 @@ indexed sidecar subtitles to Media3.
 - [x] Add Windows runtime audio/subtitle track discovery and selection controls.
 - [x] Add shared volume command/state plus Windows, Android mobile, and Android
   TV volume controls.
+- [x] Add shared library search, title/path sorting, and subtitle-only filtering
+  across Windows, Android mobile, and Android TV catalog screens.
 
 ## Android And TV
 
@@ -88,6 +90,8 @@ indexed sidecar subtitles to Media3.
 - [x] Attach indexed LAN sidecar subtitle tracks to Media3 playback items.
 - [x] Add shared runtime audio/subtitle track state and Android/TV selection
   controls.
+- [x] Add Android mobile and Android TV catalog search, title/path sorting, and
+  subtitle-only filtering backed by the shared domain query helper.
 - [ ] Verify playback and overlays on a physical Android TV device.
 
 ## Streaming Verification

@@ -109,6 +109,9 @@ Updated on 2026-06-05.
 - Desktop catalog storage can persist indexed media per registered root and
   publish a merged catalog with root-prefixed relative paths and namespaced
   media IDs.
+- Shared catalog query helpers filter indexed episodes by multi-term search,
+  title/path sort order, and subtitle availability. Windows desktop, Android
+  mobile, and Android TV expose those filters in their library screens.
 - Desktop root scanner can import ani-rss output folders, reuse unchanged media
   rows during incremental rescans, mark unavailable roots missing, and produce
   a merged library for LAN publication.
