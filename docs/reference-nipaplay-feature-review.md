@@ -141,6 +141,8 @@ This turns the technical slice into a usable local media-center application.
   seek behavior.
 - [x] Add Windows prepared-playback previous/next episode navigation for local
   catalog items.
+- [x] Add Windows one-click local library play/resume actions while retaining
+  explicit prepare actions for diagnostics.
 - [x] Add optional persisted Windows local-library auto-next playback.
 - [ ] Persist player, library, and UI settings in SQLDelight.
 

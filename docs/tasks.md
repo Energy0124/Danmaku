@@ -79,6 +79,8 @@ indexed sidecar subtitles to Media3.
   progress.
 - [x] Add Windows prepared-playback previous/next episode navigation for local
   catalog items.
+- [x] Add Windows one-click local library play/resume actions while retaining
+  explicit prepare actions for diagnostics.
 - [x] Add optional persisted Windows local-library auto-next playback.
 
 ## Android And TV

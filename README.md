@@ -60,6 +60,8 @@ Implemented today:
   episodes backed by saved playback progress
 - Windows prepared-playback episode navigation for previous/next local catalog
   items
+- Windows one-click local library play/resume while retaining explicit prepare
+  actions for diagnostics
 - Optional Windows local-library auto-next playback persisted in app settings
 - Android background playback service with resume lookup and periodic progress
   upload

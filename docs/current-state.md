@@ -78,6 +78,9 @@ Updated on 2026-06-05.
   local episodes backed by the persisted playback-progress table.
 - Shared catalog helpers expose previous/next item lookup in catalog order, and
   the Windows prepared-playback card can prepare the neighboring local episode.
+- Windows local library rows, continue-watching rows, and recently-watched rows
+  support one-click play/resume while keeping explicit prepare actions for
+  diagnostics.
 - Windows local-library playback has an optional persisted auto-next setting
   that prepares and loads the next local catalog item when playback reaches EOF.
 - Direct Windows media-file picker that loads arbitrary local video files into

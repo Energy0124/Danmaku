@@ -733,6 +733,9 @@ private fun DesktopShell() {
                             },
                             onRescanRegisteredRoots = ::rescanRegisteredRoots,
                             onPrepareLocalPlayback = { item -> prepareLocalPlayback(item) },
+                            onPlayLocalPlayback = { item ->
+                                prepareLocalPlayback(item, loadAfterPrepare = true)
+                            },
                             onSetAutoNextLocalPlayback = ::setAutoNextLocalPlayback,
                             onLoadPreparedPlayback = { preparation ->
                                 appendDiagnostic(
@@ -1221,6 +1224,7 @@ private fun MediaLibraryTab(
     onAddLibraryFolder: () -> Unit,
     onRescanRegisteredRoots: () -> Unit,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
+    onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
     onSetAutoNextLocalPlayback: (Boolean) -> Unit,
     onLoadPreparedPlayback: (DesktopLocalPlaybackPreparation) -> Unit,
     remoteBrowser: @Composable () -> Unit,
@@ -1268,7 +1272,7 @@ private fun MediaLibraryTab(
                             ContinueWatchingRow(
                                 item = item,
                                 isPreparing = isPreparingLocalPlayback,
-                                onPrepareLocalPlayback = onPrepareLocalPlayback,
+                                onPlayLocalPlayback = onPlayLocalPlayback,
                             )
                         }
                     }
@@ -1287,6 +1291,7 @@ private fun MediaLibraryTab(
                                 item = item,
                                 isPreparing = isPreparingLocalPlayback,
                                 onPrepareLocalPlayback = onPrepareLocalPlayback,
+                                onPlayLocalPlayback = onPlayLocalPlayback,
                             )
                         }
                     }
@@ -1375,6 +1380,7 @@ private fun MediaLibraryTab(
                                 item = item,
                                 isPreparing = isPreparingLocalPlayback,
                                 onPrepareLocalPlayback = onPrepareLocalPlayback,
+                                onPlayLocalPlayback = onPlayLocalPlayback,
                             )
                         }
                     }
@@ -1712,7 +1718,7 @@ private fun MediaRootRow(root: DesktopLibraryRoot) {
 private fun ContinueWatchingRow(
     item: DesktopPlaybackProgressItem,
     isPreparing: Boolean,
-    onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
+    onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -1733,10 +1739,10 @@ private fun ContinueWatchingRow(
             )
         }
         Button(
-            onClick = { onPrepareLocalPlayback(item.mediaItem) },
+            onClick = { onPlayLocalPlayback(item.mediaItem) },
             enabled = !isPreparing,
         ) {
-            Text(if (isPreparing) "Preparing..." else "Resume")
+            Text(if (isPreparing) "Loading..." else "Resume")
         }
     }
 }
@@ -1746,6 +1752,7 @@ private fun RecentlyWatchedRow(
     item: DesktopPlaybackProgressItem,
     isPreparing: Boolean,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
+    onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -1766,11 +1773,19 @@ private fun RecentlyWatchedRow(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        Button(
-            onClick = { onPrepareLocalPlayback(item.mediaItem) },
-            enabled = !isPreparing,
-        ) {
-            Text(if (isPreparing) "Preparing..." else "Prepare")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = { onPrepareLocalPlayback(item.mediaItem) },
+                enabled = !isPreparing,
+            ) {
+                Text(if (isPreparing) "Preparing..." else "Prepare")
+            }
+            Button(
+                onClick = { onPlayLocalPlayback(item.mediaItem) },
+                enabled = !isPreparing,
+            ) {
+                Text(if (isPreparing) "Loading..." else "Play")
+            }
         }
     }
 }
@@ -1780,6 +1795,7 @@ private fun EpisodeRow(
     item: LibraryMediaItem,
     isPreparing: Boolean,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
+    onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -1792,11 +1808,19 @@ private fun EpisodeRow(
             Text(item.seriesTitle, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(item.episodeTitle, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        Button(
-            onClick = { onPrepareLocalPlayback(item) },
-            enabled = !isPreparing,
-        ) {
-            Text(if (isPreparing) "Preparing..." else "Prepare")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = { onPrepareLocalPlayback(item) },
+                enabled = !isPreparing,
+            ) {
+                Text(if (isPreparing) "Preparing..." else "Prepare")
+            }
+            Button(
+                onClick = { onPlayLocalPlayback(item) },
+                enabled = !isPreparing,
+            ) {
+                Text(if (isPreparing) "Loading..." else "Play")
+            }
         }
     }
 }
