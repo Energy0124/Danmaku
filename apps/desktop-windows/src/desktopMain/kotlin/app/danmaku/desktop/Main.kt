@@ -57,6 +57,7 @@ import app.danmaku.server.LocalLibraryDiscoveryAnnouncer
 import app.danmaku.server.LocalLibraryServerEvent
 import app.danmaku.server.PublishedLibrary
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.Instant
@@ -98,32 +99,46 @@ private fun DesktopShell() {
     val scope = rememberCoroutineScope()
     val mpvCommandLog = remember { mutableStateListOf<DesktopMpvCommand>() }
     val diagnosticLog = remember { mutableStateListOf<DesktopDiagnosticLogEntry>() }
+    val diagnosticFileLog = remember { DesktopDiagnosticFileLog.createDefault() }
     fun appendDiagnostic(category: String, message: String) {
-        diagnosticLog += DesktopDiagnosticLogEntry(
+        val entry = DesktopDiagnosticLogEntry(
             occurredAtEpochMs = System.currentTimeMillis(),
             category = category,
             message = message.redactToken(),
         )
+        diagnosticLog += entry
+        diagnosticFileLog.append(entry.occurredAtEpochMs, entry.category, entry.message)
         while (diagnosticLog.size > MAX_DIAGNOSTIC_LOG_ENTRIES) {
             diagnosticLog.removeAt(0)
         }
     }
     fun appendServerEvent(event: LocalLibraryServerEvent) {
-        diagnosticLog += DesktopDiagnosticLogEntry(
+        val entry = DesktopDiagnosticLogEntry(
             occurredAtEpochMs = event.occurredAtEpochMs,
             category = "server:${event.category}",
             message = "${event.method} ${event.path} -> ${event.status} ${event.detail}".redactToken(),
         )
+        diagnosticLog += entry
+        diagnosticFileLog.append(entry.occurredAtEpochMs, entry.category, entry.message)
         while (diagnosticLog.size > MAX_DIAGNOSTIC_LOG_ENTRIES) {
             diagnosticLog.removeAt(0)
         }
     }
     var mpvVideoWindowId by remember { mutableStateOf<Long?>(null) }
-    val mpvRuntime = remember(mpvVideoWindowId) {
-        DesktopMpvCommandExecutorRuntimeFactory().create(
-            nativeOptions = mpvVideoWindowId
+    val mpvNativeOptions = remember(mpvVideoWindowId, diagnosticFileLog.mpvLogPath) {
+        buildMap {
+            put("config", "no")
+            put("terminal", "no")
+            put("msg-level", "all=v")
+            put("log-file", diagnosticFileLog.mpvLogPath.toAbsolutePath().normalize().toString())
+            mpvVideoWindowId
                 ?.let(DesktopMpvWindowsOptions::forWindowId)
-                .orEmpty(),
+                ?.let(::putAll)
+        }
+    }
+    val mpvRuntime = remember(mpvNativeOptions) {
+        DesktopMpvCommandExecutorRuntimeFactory().create(
+            nativeOptions = mpvNativeOptions,
         ) { command ->
             mpvCommandLog += command
             appendDiagnostic("mpv", "command ${command.args.joinToString(separator = " ")}")
@@ -141,6 +156,8 @@ private fun DesktopShell() {
                 "Created mpv runtime for native window $mpvVideoWindowId"
             },
         )
+        appendDiagnostic("diagnostics", "App log: ${diagnosticFileLog.appLogPath}")
+        appendDiagnostic("diagnostics", "mpv log: ${diagnosticFileLog.mpvLogPath}")
     }
     val syntheticOverlayTrack = remember { DesktopSyntheticDanmakuAssTrack.createDefault() }
     var overlayStatus by remember { mutableStateOf("Synthetic danmaku overlay: waiting for media load") }
@@ -331,7 +348,16 @@ private fun DesktopShell() {
         if (selectedTab != DesktopShellTab.PLAYBACK || mpvVideoWindowId == null) {
             return@LaunchedEffect
         }
-        appendDiagnostic("playback", "Native video host ready; loading queued playback: ${request.label}")
+        appendDiagnostic(
+            "playback",
+            "Native video host ready; waiting ${PLAYBACK_HOST_SETTLE_DELAY_MS}ms before queued load: ${request.label}",
+        )
+        delay(PLAYBACK_HOST_SETTLE_DELAY_MS)
+        if (pendingPlaybackRequest != request || selectedTab != DesktopShellTab.PLAYBACK || mpvVideoWindowId == null) {
+            appendDiagnostic("playback", "Queued playback changed before load; skipping stale request: ${request.label}")
+            return@LaunchedEffect
+        }
+        appendDiagnostic("playback", "Loading queued playback after host settle: ${request.label}")
         playbackSnapshot = playbackSession.load(request)
         pendingPlaybackRequest = null
     }
@@ -347,6 +373,12 @@ private fun DesktopShell() {
             discoveryAnnouncer.close()
             serverRuntime.close()
             catalogStore.close()
+        }
+    }
+
+    DisposableEffect(diagnosticFileLog) {
+        onDispose {
+            diagnosticFileLog.close()
         }
     }
 
@@ -390,6 +422,8 @@ private fun DesktopShell() {
                             overlayStatus = overlayStatus,
                             mpvCommandLog = mpvCommandLog,
                             diagnosticLog = diagnosticLog,
+                            appLogPath = diagnosticFileLog.appLogPath,
+                            mpvLogPath = diagnosticFileLog.mpvLogPath,
                             onWindowIdChanged = { mpvVideoWindowId = it },
                             onOpenMediaFile = {
                                 appendDiagnostic("playback", "Opening direct media file picker")
@@ -514,6 +548,8 @@ private fun DesktopShell() {
                             serverBaseUrl = server.baseUrl(),
                             networkUrls = networkUrls,
                             pairingToken = server.pairingToken,
+                            appLogPath = diagnosticFileLog.appLogPath,
+                            mpvLogPath = diagnosticFileLog.mpvLogPath,
                             diagnosticLog = diagnosticLog,
                         )
                     }
@@ -675,6 +711,8 @@ private fun PlaybackTab(
     overlayStatus: String,
     mpvCommandLog: List<DesktopMpvCommand>,
     diagnosticLog: List<DesktopDiagnosticLogEntry>,
+    appLogPath: Path,
+    mpvLogPath: Path,
     onWindowIdChanged: (Long?) -> Unit,
     onOpenMediaFile: () -> Unit,
     onPlay: () -> Unit,
@@ -723,6 +761,8 @@ private fun PlaybackTab(
         SectionCard("Runtime") {
             MetadataRow("mpv executor", mpvRuntimeStatus)
             MetadataRow("Video host", videoHostStatus)
+            MetadataRow("App log", appLogPath.toString())
+            MetadataRow("mpv log", mpvLogPath.toString())
             if (mpvCommandLog.isEmpty()) {
                 Text("No mpv commands yet.", color = DanmakuColors.TextMuted)
             } else {
@@ -881,6 +921,8 @@ private fun ProfileTab(
     serverBaseUrl: String,
     networkUrls: List<String>,
     pairingToken: String,
+    appLogPath: Path,
+    mpvLogPath: Path,
     diagnosticLog: List<DesktopDiagnosticLogEntry>,
 ) {
     TabScaffold {
@@ -897,6 +939,8 @@ private fun ProfileTab(
             MetadataRow("mpv executor", mpvRuntimeStatus)
             MetadataRow("Video host", videoHostStatus)
             MetadataRow("Renderer", "mpv child window with generated ASS danmaku overlay")
+            MetadataRow("App log", appLogPath.toString())
+            MetadataRow("mpv log", mpvLogPath.toString())
         }
         DiagnosticsPanel(diagnosticLog)
     }
@@ -1283,6 +1327,8 @@ private fun Long.toDiagnosticTime(): String =
     DIAGNOSTIC_TIME_FORMATTER.format(
         Instant.ofEpochMilli(this).atZone(ZoneId.systemDefault()),
     )
+
+private const val PLAYBACK_HOST_SETTLE_DELAY_MS = 300L
 
 private const val MAX_DIAGNOSTIC_LOG_ENTRIES = 200
 
