@@ -189,6 +189,8 @@ unblocked slices inside these tracks as the vertical slice hardens.
   rails backed by the LAN progress list.
 - [x] Add Android mobile and Android TV episode detail panels backed by shared
   series, season, watch-state, and neighbor-episode derivation.
+- [x] Add Android mobile and Android TV progress-rail detail actions while
+  preserving one-tap play and resume actions.
 - [x] Add an Android TV remote-friendly library header, shared-grouped series
   rail, selected-series detail strip, and richer episode rows.
 - [x] Add Android mobile progress scrubbing and Android TV remote-friendly seek

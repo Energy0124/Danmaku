@@ -555,6 +555,7 @@ internal fun LibraryPage(
                 item(key = "library-next-up") {
                     NextUpPanel(
                         items = nextUpItems,
+                        onShowDetails = { selectedEpisodeId = it.id },
                         onPlay = onPlay,
                     )
                 }
@@ -567,6 +568,7 @@ internal fun LibraryPage(
                         tag = "library-continue-watching",
                         itemTagPrefix = "continue-watching",
                         items = continueWatchingItems,
+                        onShowDetails = { selectedEpisodeId = it.id },
                         onPlay = onPlay,
                     )
                 }
@@ -579,6 +581,7 @@ internal fun LibraryPage(
                         tag = "library-recently-watched",
                         itemTagPrefix = "recently-watched",
                         items = recentlyWatchedItems,
+                        onShowDetails = { selectedEpisodeId = it.id },
                         onPlay = onPlay,
                     )
                 }
@@ -708,6 +711,7 @@ private fun EpisodeDetailPanel(
 @Composable
 private fun NextUpPanel(
     items: List<LibraryNextUpItem>,
+    onShowDetails: (LibraryMediaItem) -> Unit,
     onPlay: (LibraryMediaItem) -> Unit,
 ) {
     Surface(
@@ -741,6 +745,7 @@ private fun NextUpPanel(
                 items(items, key = { it.mediaItem.id }) { item ->
                     NextUpChip(
                         item = item,
+                        onShowDetails = { onShowDetails(item.mediaItem) },
                         onPlay = { onPlay(item.mediaItem) },
                     )
                 }
@@ -752,14 +757,13 @@ private fun NextUpPanel(
 @Composable
 private fun NextUpChip(
     item: LibraryNextUpItem,
+    onShowDetails: () -> Unit,
     onPlay: () -> Unit,
 ) {
     Surface(
         modifier = Modifier
             .width(260.dp)
-            .clip(RoundedCornerShape(18.dp))
-            .clickable(onClick = onPlay)
-            .testTag("next-up:${item.mediaItem.id}"),
+            .clip(RoundedCornerShape(18.dp)),
         shape = RoundedCornerShape(18.dp),
         color = PanelColor,
         border = BorderStroke(1.dp, Color(0xFF2B3239)),
@@ -787,6 +791,23 @@ private fun NextUpChip(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedButton(
+                    onClick = onShowDetails,
+                    modifier = Modifier.testTag("next-up-details:${item.mediaItem.id}"),
+                ) {
+                    Text("Details")
+                }
+                Button(
+                    onClick = onPlay,
+                    modifier = Modifier.testTag("next-up:${item.mediaItem.id}"),
+                ) {
+                    Text(item.nextUpActionLabel())
+                }
+            }
         }
     }
 }
@@ -798,6 +819,7 @@ private fun ProgressRail(
     tag: String,
     itemTagPrefix: String,
     items: List<LibraryPlaybackProgressItem>,
+    onShowDetails: (LibraryMediaItem) -> Unit,
     onPlay: (LibraryMediaItem) -> Unit,
 ) {
     Surface(
@@ -831,7 +853,9 @@ private fun ProgressRail(
                 items(items, key = { it.mediaItem.id }) { item ->
                     ProgressChip(
                         item = item,
-                        tag = "$itemTagPrefix:${item.mediaItem.id}",
+                        playTag = "$itemTagPrefix:${item.mediaItem.id}",
+                        detailTag = "$itemTagPrefix-details:${item.mediaItem.id}",
+                        onShowDetails = { onShowDetails(item.mediaItem) },
                         onPlay = { onPlay(item.mediaItem) },
                     )
                 }
@@ -843,15 +867,15 @@ private fun ProgressRail(
 @Composable
 private fun ProgressChip(
     item: LibraryPlaybackProgressItem,
-    tag: String,
+    playTag: String,
+    detailTag: String,
+    onShowDetails: () -> Unit,
     onPlay: () -> Unit,
 ) {
     Surface(
         modifier = Modifier
             .width(260.dp)
-            .clip(RoundedCornerShape(18.dp))
-            .clickable(onClick = onPlay)
-            .testTag(tag),
+            .clip(RoundedCornerShape(18.dp)),
         shape = RoundedCornerShape(18.dp),
         color = PanelColor,
         border = BorderStroke(1.dp, Color(0xFF2B3239)),
@@ -879,6 +903,23 @@ private fun ProgressChip(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedButton(
+                    onClick = onShowDetails,
+                    modifier = Modifier.testTag(detailTag),
+                ) {
+                    Text("Details")
+                }
+                Button(
+                    onClick = onPlay,
+                    modifier = Modifier.testTag(playTag),
+                ) {
+                    Text("Play")
+                }
+            }
         }
     }
 }
@@ -1920,6 +1961,13 @@ private fun LibraryNextUpItem.nextUpLabel(): String =
         LibraryNextUpReason.RESUME -> "Resume at ${progress?.positionMs?.formatPlaybackTime() ?: "saved position"}"
         LibraryNextUpReason.NEXT_EPISODE -> "Next episode"
         LibraryNextUpReason.START -> "Start watching"
+    }
+
+private fun LibraryNextUpItem.nextUpActionLabel(): String =
+    when (reason) {
+        LibraryNextUpReason.RESUME -> "Resume"
+        LibraryNextUpReason.NEXT_EPISODE,
+        LibraryNextUpReason.START -> "Play"
     }
 
 private fun LibraryWatchStatus?.statusLabel(): String =

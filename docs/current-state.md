@@ -212,17 +212,17 @@ Updated on 2026-06-06.
   existing search field. Selecting a series now opens a compact series detail
   panel backed by the shared series/season grouping model. Catalog refresh also
   loads paired progress and exposes shared-derived Next Up, Continue Watching,
-  and Recently Watched rails for resume, next-episode, first-start, and recent
-  activity actions.
+  and Recently Watched rails for detail, resume, next-episode, first-start, and
+  recent activity actions.
 - Android mobile has compile-checked Compose instrumentation coverage for the
   Library page empty, connected-catalog, selected-series detail, Next Up,
   Continue Watching, Recently Watched, episode detail, watch-state labels,
   mini-player, and episode-selection states.
 - Android TV library browsing includes a remote-friendly header, shared-grouped
   progress-backed Next Up, Continue Watching, and Recently Watched rails,
-  series rail, selected-series detail strip with season episode actions,
-  fixed-height episode list, and metadata-rich episode buttons for connected-PC
-  catalogs.
+  detail actions on those progress rails, series rail, selected-series detail
+  strip with season episode actions, fixed-height episode list, and
+  metadata-rich episode buttons for connected-PC catalogs.
 - Desktop root scanner can import ani-rss output folders, reuse unchanged media
   rows during incremental rescans, mark unavailable roots missing, and produce
   a merged library for LAN publication.

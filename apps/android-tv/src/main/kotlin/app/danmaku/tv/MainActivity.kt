@@ -521,7 +521,11 @@ internal fun LibraryItems(
             }
         }
         if (nextUpItems.isNotEmpty()) {
-            TvNextUpRail(items = nextUpItems, onPlay = onPlay)
+            TvNextUpRail(
+                items = nextUpItems,
+                onShowDetails = { selectedEpisodeId = it.id },
+                onPlay = onPlay,
+            )
         }
         if (continueWatchingItems.isNotEmpty()) {
             TvProgressRail(
@@ -529,6 +533,7 @@ internal fun LibraryItems(
                 tag = "library-continue-watching",
                 itemTagPrefix = "continue-watching",
                 items = continueWatchingItems,
+                onShowDetails = { selectedEpisodeId = it.id },
                 onPlay = onPlay,
             )
         }
@@ -538,6 +543,7 @@ internal fun LibraryItems(
                 tag = "library-recently-watched",
                 itemTagPrefix = "recently-watched",
                 items = recentlyWatchedItems,
+                onShowDetails = { selectedEpisodeId = it.id },
                 onPlay = onPlay,
             )
         }
@@ -668,6 +674,7 @@ private fun TvProgressRail(
     tag: String,
     itemTagPrefix: String,
     items: List<LibraryPlaybackProgressItem>,
+    onShowDetails: (LibraryMediaItem) -> Unit,
     onPlay: (LibraryMediaItem) -> Unit,
 ) {
     Column(
@@ -692,28 +699,38 @@ private fun TvProgressRail(
         }
         LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             items(items, key = { it.mediaItem.id }) { item ->
-                Button(
-                    onClick = { onPlay(item.mediaItem) },
+                Column(
                     modifier = Modifier
                         .width(320.dp)
-                        .testTag("$itemTagPrefix:${item.mediaItem.id}"),
+                        .background(Color.Black.copy(alpha = 0.18f))
+                        .padding(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        Text(
-                            item.mediaItem.seriesTitle,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                            item.mediaItem.episodeTitle,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(item.progress.progressLabel(), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        item.mediaItem.seriesTitle,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        item.mediaItem.episodeTitle,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(item.progress.progressLabel(), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = { onShowDetails(item.mediaItem) },
+                            modifier = Modifier.testTag("$itemTagPrefix-details:${item.mediaItem.id}"),
+                        ) {
+                            Text("Details")
+                        }
+                        Button(
+                            onClick = { onPlay(item.mediaItem) },
+                            modifier = Modifier.testTag("$itemTagPrefix:${item.mediaItem.id}"),
+                        ) {
+                            Text("Play")
+                        }
                     }
                 }
             }
@@ -724,6 +741,7 @@ private fun TvProgressRail(
 @Composable
 private fun TvNextUpRail(
     items: List<LibraryNextUpItem>,
+    onShowDetails: (LibraryMediaItem) -> Unit,
     onPlay: (LibraryMediaItem) -> Unit,
 ) {
     Column(
@@ -748,34 +766,51 @@ private fun TvNextUpRail(
         }
         LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             items(items, key = { it.mediaItem.id }) { item ->
-                Button(
-                    onClick = { onPlay(item.mediaItem) },
+                Column(
                     modifier = Modifier
                         .width(320.dp)
-                        .testTag("next-up:${item.mediaItem.id}"),
+                        .background(Color.Black.copy(alpha = 0.18f))
+                        .padding(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        Text(
-                            item.mediaItem.seriesTitle,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                            item.mediaItem.episodeTitle,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(item.nextUpLabel(), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        item.mediaItem.seriesTitle,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        item.mediaItem.episodeTitle,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(item.nextUpLabel(), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = { onShowDetails(item.mediaItem) },
+                            modifier = Modifier.testTag("next-up-details:${item.mediaItem.id}"),
+                        ) {
+                            Text("Details")
+                        }
+                        Button(
+                            onClick = { onPlay(item.mediaItem) },
+                            modifier = Modifier.testTag("next-up:${item.mediaItem.id}"),
+                        ) {
+                            Text(item.nextUpActionLabel())
+                        }
                     }
                 }
             }
         }
     }
 }
+
+private fun LibraryNextUpItem.nextUpActionLabel(): String =
+    when (reason) {
+        LibraryNextUpReason.RESUME -> "Resume"
+        LibraryNextUpReason.NEXT_EPISODE,
+        LibraryNextUpReason.START -> "Play"
+    }
 
 private fun LibraryNextUpItem.nextUpLabel(): String =
     when (reason) {

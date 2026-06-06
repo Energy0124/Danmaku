@@ -186,6 +186,8 @@ class MobileLibraryPageTest {
         composeRule.onNodeWithTag("library-next-up").assertExists()
         composeRule.onNodeWithText("Next Up").assertExists()
         composeRule.onNodeWithText("Next episode").assertExists()
+        composeRule.onNodeWithTag("next-up-details:example-2").performClick()
+        composeRule.onNodeWithTag("episode-detail:example-2").assertExists()
         composeRule.onNodeWithTag("next-up:example-2").performClick()
 
         composeRule.runOnIdle {
@@ -280,6 +282,8 @@ class MobileLibraryPageTest {
 
         composeRule.onNodeWithTag("library-continue-watching").assertExists()
         composeRule.onNodeWithTag("library-recently-watched").assertExists()
+        composeRule.onNodeWithTag("recently-watched-details:other-1").performClick()
+        composeRule.onNodeWithTag("episode-detail:other-1").assertExists()
         composeRule.onNodeWithTag("continue-watching:example-1").performClick()
 
         composeRule.runOnIdle {
