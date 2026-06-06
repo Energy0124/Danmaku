@@ -146,8 +146,8 @@ unblocked slices inside these tracks as the vertical slice hardens.
   expose those progress rails on Android mobile and Android TV.
 - [x] Add shared series watch-summary derivation and expose watched, watching,
   and new counts in Windows, Android mobile, and Android TV series surfaces.
-- [x] Add shared episode-detail derivation and expose Android mobile and Android
-  TV episode detail panels with previous/next navigation.
+- [x] Add shared episode-detail derivation and expose Windows desktop, Android
+  mobile, and Android TV episode detail panels with previous/next navigation.
 - [x] Add optional persisted Windows local-library auto-next playback.
 - [x] Add Windows fullscreen and aspect-ratio playback controls.
 - [x] Add Windows paired-catalog one-click stream playback while retaining

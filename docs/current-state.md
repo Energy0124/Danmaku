@@ -200,11 +200,13 @@ Updated on 2026-06-06.
   watching, and new counts for each grouped series. Windows desktop, Android
   mobile, and Android TV render those counts in series rails and detail panels.
 - Shared episode-detail helpers resolve an episode's series, season, watch
-  state, and previous/next catalog neighbors. Android mobile and Android TV
-  expose compact episode detail panels with play plus previous/next navigation.
+  state, and previous/next catalog neighbors. Windows desktop, Android mobile,
+  and Android TV expose compact episode detail panels with play plus
+  previous/next navigation.
 - Windows desktop library browsing now uses the shared series/season grouping
-  model for a selectable series column plus a compact series detail panel with
-  season episode previews and direct prepare/play actions.
+  model for a selectable series column, compact series detail panel with season
+  episode previews, and shared episode detail panel with prepare/play plus
+  previous/next actions.
 - Android mobile library browsing includes a compact series rail that summarizes
   the largest connected-PC titles and narrows the episode list through the
   existing search field. Selecting a series now opens a compact series detail

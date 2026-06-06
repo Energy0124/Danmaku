@@ -86,6 +86,7 @@ import androidx.compose.ui.window.rememberWindowState
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryCatalogQuery
 import app.danmaku.domain.LibraryCatalogSort
+import app.danmaku.domain.LibraryEpisodeDetail
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibraryNextUpItem
 import app.danmaku.domain.LibraryNextUpReason
@@ -102,6 +103,7 @@ import app.danmaku.domain.PlaybackStatus
 import app.danmaku.domain.PlaybackTrack
 import app.danmaku.domain.PlaybackTrackKind
 import app.danmaku.domain.continueWatchingItems
+import app.danmaku.domain.episodeDetail
 import app.danmaku.domain.filteredItems
 import app.danmaku.domain.groupedSeries
 import app.danmaku.domain.nextItem
@@ -1885,10 +1887,25 @@ private fun MediaLibraryTab(
             indexedLibrary?.catalog?.seriesWatchSummaryById(playbackProgresses).orEmpty()
         }
         var selectedSeriesId by remember(indexedLibrary?.catalog) { mutableStateOf<String?>(null) }
+        var selectedEpisodeId by remember(indexedLibrary?.catalog) { mutableStateOf<String?>(null) }
         val series = remember(indexedLibrary?.catalog) {
             indexedLibrary?.catalog?.groupedSeries().orEmpty()
         }
         val selectedSeries = series.firstOrNull { it.id == selectedSeriesId } ?: series.firstOrNull()
+        val selectedEpisodeDetail = remember(
+            indexedLibrary?.catalog,
+            playbackProgresses,
+            selectedEpisodeId,
+            selectedLocalPlaybackPreparation?.item?.id,
+        ) {
+            val catalog = indexedLibrary?.catalog
+            selectedEpisodeId
+                ?.let { id -> catalog?.episodeDetail(id, playbackProgresses) }
+                ?: selectedLocalPlaybackPreparation
+                    ?.item
+                    ?.id
+                    ?.let { id -> catalog?.episodeDetail(id, playbackProgresses) }
+        }
         SectionCard("Local Media Library") {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(onClick = onAddLibraryFolder, enabled = !isIndexing) {
@@ -2072,6 +2089,7 @@ private fun MediaLibraryTab(
                                 item = item,
                                 watchStatus = watchStatusById[item.id],
                                 isPreparing = isPreparingLocalPlayback,
+                                onShowDetails = { selectedEpisodeId = it.id },
                                 onPrepareLocalPlayback = onPrepareLocalPlayback,
                                 onPlayLocalPlayback = onPlayLocalPlayback,
                             )
@@ -2086,8 +2104,18 @@ private fun MediaLibraryTab(
                 watchSummary = seriesWatchSummaryById[librarySeries.id],
                 watchStatusById = watchStatusById,
                 isPreparing = isPreparingLocalPlayback,
+                onShowDetails = { selectedEpisodeId = it.id },
                 onPrepareLocalPlayback = onPrepareLocalPlayback,
                 onPlayLocalPlayback = onPlayLocalPlayback,
+            )
+        }
+        selectedEpisodeDetail?.let { detail ->
+            DesktopEpisodeDetailPanel(
+                detail = detail,
+                isPreparing = isPreparingLocalPlayback,
+                onPrepareLocalPlayback = onPrepareLocalPlayback,
+                onPlayLocalPlayback = onPlayLocalPlayback,
+                onSelectEpisode = { selectedEpisodeId = it.id },
             )
         }
         selectedLocalPlaybackPreparation?.let { preparation ->
@@ -2564,6 +2592,7 @@ private fun DesktopSeriesDetailPanel(
     watchSummary: LibrarySeriesWatchSummary?,
     watchStatusById: Map<String, LibraryWatchStatus>,
     isPreparing: Boolean,
+    onShowDetails: (LibraryMediaItem) -> Unit,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
 ) {
@@ -2601,6 +2630,7 @@ private fun DesktopSeriesDetailPanel(
                             item = item,
                             watchStatus = watchStatusById[item.id],
                             isPreparing = isPreparing,
+                            onShowDetails = onShowDetails,
                             onPrepareLocalPlayback = onPrepareLocalPlayback,
                             onPlayLocalPlayback = onPlayLocalPlayback,
                         )
@@ -2612,6 +2642,64 @@ private fun DesktopSeriesDetailPanel(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DesktopEpisodeDetailPanel(
+    detail: LibraryEpisodeDetail,
+    isPreparing: Boolean,
+    onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
+    onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
+    onSelectEpisode: (LibraryMediaItem) -> Unit,
+) {
+    SectionCard("Episode Detail") {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                MetadataRow(
+                    "Episode",
+                    "${detail.mediaItem.seriesTitle} - ${detail.mediaItem.episodeTitle}",
+                )
+                MetadataRow("Series", detail.series.title)
+                MetadataRow("Season", detail.season.label)
+                MetadataRow("Watch state", detail.watchStatus.statusLabel())
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                MetadataRow("Subtitles", "${detail.mediaItem.subtitles.size} tracks")
+                MetadataRow("Library size", detail.mediaItem.sizeBytes.formatLibrarySize())
+                MetadataRow("Media type", detail.mediaItem.mediaType)
+                MetadataRow("Path", detail.mediaItem.relativePath)
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = { onPrepareLocalPlayback(detail.mediaItem) },
+                enabled = !isPreparing,
+            ) {
+                Text(if (isPreparing) "Preparing..." else "Prepare")
+            }
+            Button(
+                onClick = { onPlayLocalPlayback(detail.mediaItem) },
+                enabled = !isPreparing,
+            ) {
+                Text(if (isPreparing) "Loading..." else "Play")
+            }
+            Button(
+                onClick = { detail.previousItem?.let(onSelectEpisode) },
+                enabled = detail.previousItem != null,
+            ) {
+                Text("Previous episode")
+            }
+            Button(
+                onClick = { detail.nextItem?.let(onSelectEpisode) },
+                enabled = detail.nextItem != null,
+            ) {
+                Text("Next episode")
             }
         }
     }
@@ -2746,6 +2834,7 @@ private fun EpisodeRow(
     item: LibraryMediaItem,
     watchStatus: LibraryWatchStatus?,
     isPreparing: Boolean,
+    onShowDetails: (LibraryMediaItem) -> Unit,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
 ) {
@@ -2767,6 +2856,9 @@ private fun EpisodeRow(
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = { onShowDetails(item) }) {
+                Text("Details")
+            }
             Button(
                 onClick = { onPrepareLocalPlayback(item) },
                 enabled = !isPreparing,
