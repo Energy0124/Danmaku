@@ -130,6 +130,25 @@ class LanPlaybackProgressSyncTest {
     }
 
     @Test
+    fun fetchesCatalogWideProgressFromTheClient() {
+        val progress = PlaybackProgress(
+            mediaId = "episode-id",
+            positionMs = 12_345,
+            durationMs = 98_765,
+            updatedAtEpochMs = 789,
+        )
+        val client = RecordingLanLibraryClient(progresses = listOf(progress))
+
+        assertEquals(
+            listOf(progress),
+            LanPlaybackProgressSync(client, currentTimeMillis = { 0 }).fetchAllProgress(
+                baseUrl = "http://192.168.1.20:8686",
+                pairingToken = "123456",
+            ),
+        )
+    }
+
+    @Test
     fun convertsSnapshotsIntoPairedProgressUpdates() {
         val client = RecordingLanLibraryClient()
         val target = LanPlaybackTarget(
@@ -162,6 +181,7 @@ class LanPlaybackProgressSyncTest {
         private val streamUrl: String = "http://example/media",
         private val subtitleUrl: String = "http://example/subtitle",
         private val progress: PlaybackProgress? = null,
+        private val progresses: List<PlaybackProgress> = progress?.let(::listOf).orEmpty(),
     ) : LanLibraryClient {
         var savedProgress: PlaybackProgress? = null
 
@@ -185,6 +205,12 @@ class LanPlaybackProgressSyncTest {
             mediaId: String,
             pairingToken: String,
         ): PlaybackProgress? = progress
+
+        override fun fetchAllProgress(
+            baseUrl: String,
+            pairingToken: String,
+        ): List<PlaybackProgress> =
+            progresses
 
         override fun saveProgress(
             baseUrl: String,

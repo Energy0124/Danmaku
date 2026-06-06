@@ -74,6 +74,23 @@ class LanLibraryClient(
         }
     }
 
+    override fun fetchAllProgress(
+        baseUrl: String,
+        pairingToken: String,
+    ): List<PlaybackProgress> {
+        val connection = open(progressListUrl(baseUrl, pairingToken))
+        return try {
+            check(connection.responseCode == HttpURLConnection.HTTP_OK) {
+                "Library server returned HTTP ${connection.responseCode}"
+            }
+            json.decodeFromString(
+                connection.inputStream.bufferedReader().use { it.readText() },
+            )
+        } finally {
+            connection.disconnect()
+        }
+    }
+
     override fun saveProgress(
         baseUrl: String,
         pairingToken: String,
@@ -102,6 +119,12 @@ class LanLibraryClient(
         pairingToken: String,
     ): String =
         "${baseUrl.trimEnd('/')}/api/progress/${mediaId.encoded()}?token=${pairingToken.encoded()}"
+
+    private fun progressListUrl(
+        baseUrl: String,
+        pairingToken: String,
+    ): String =
+        "${baseUrl.trimEnd('/')}/api/progress?token=${pairingToken.encoded()}"
 
     private fun open(url: String): HttpURLConnection =
         (URI(url).toURL().openConnection() as HttpURLConnection).apply {

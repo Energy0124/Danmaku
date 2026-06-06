@@ -33,6 +33,11 @@ interface LanLibraryClient {
         pairingToken: String,
     ): PlaybackProgress?
 
+    fun fetchAllProgress(
+        baseUrl: String,
+        pairingToken: String,
+    ): List<PlaybackProgress>
+
     fun saveProgress(
         baseUrl: String,
         pairingToken: String,
@@ -119,6 +124,12 @@ class LanPlaybackProgressSync(
         libraryClient
             .fetchProgress(target.baseUrl, target.mediaId, target.pairingToken)
             ?.resumePositionMs()
+
+    fun fetchAllProgress(
+        baseUrl: String,
+        pairingToken: String,
+    ): List<PlaybackProgress> =
+        libraryClient.fetchAllProgress(baseUrl, pairingToken)
 
     fun saveProgress(
         target: LanPlaybackTarget,

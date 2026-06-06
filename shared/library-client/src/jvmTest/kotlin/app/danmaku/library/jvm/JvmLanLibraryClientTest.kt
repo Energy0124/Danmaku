@@ -83,6 +83,7 @@ class JvmLanLibraryClientTest {
                     "${server.baseUrl()}/subtitles/subtitle-id?token=token+with+spaces",
                     client.subtitleUrl(server.baseUrl(), item.subtitles.single(), server.pairingToken),
                 )
+                assertEquals(emptyList(), client.fetchAllProgress(server.baseUrl(), server.pairingToken))
                 assertNull(client.fetchProgress(server.baseUrl(), item.id, server.pairingToken))
 
                 client.saveProgress(server.baseUrl(), server.pairingToken, progress)
@@ -90,6 +91,10 @@ class JvmLanLibraryClientTest {
                 assertEquals(
                     progress,
                     client.fetchProgress(server.baseUrl(), item.id, server.pairingToken),
+                )
+                assertEquals(
+                    listOf(progress),
+                    client.fetchAllProgress(server.baseUrl(), server.pairingToken),
                 )
             }
         } finally {

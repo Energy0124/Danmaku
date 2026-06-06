@@ -224,6 +224,7 @@ class LocalLibraryServerTest {
     fun storesSequentialProgressUpdates() {
         withServer(byteArrayOf(0, 1, 2, 3, 4, 5)) { server, item ->
             val progressUrl = "${server.baseUrl()}/api/progress/${item.id}?token=123456"
+            val progressListUrl = "${server.baseUrl()}/api/progress?token=123456"
             val paused = PlaybackProgress(
                 mediaId = item.id,
                 positionMs = 12_345,
@@ -239,7 +240,14 @@ class LocalLibraryServerTest {
                 updatedAtEpochMs = 300,
             )
 
+            assertEquals(401, connection("${server.baseUrl()}/api/progress").responseCode)
             assertEquals(404, connection(progressUrl).responseCode)
+            assertEquals(
+                emptyList(),
+                Json.decodeFromString<List<PlaybackProgress>>(
+                    connection(progressListUrl).inputStream.bufferedReader().use { it.readText() },
+                ),
+            )
 
             listOf(paused, seeked, completed).forEach { progress ->
                 assertEquals(
@@ -257,6 +265,12 @@ class LocalLibraryServerTest {
                     ),
                 )
             }
+            assertEquals(
+                listOf(completed),
+                Json.decodeFromString<List<PlaybackProgress>>(
+                    connection(progressListUrl).inputStream.bufferedReader().use { it.readText() },
+                ),
+            )
 
             assertEquals(
                 400,

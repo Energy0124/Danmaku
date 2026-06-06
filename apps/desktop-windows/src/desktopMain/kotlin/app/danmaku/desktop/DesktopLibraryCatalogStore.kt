@@ -240,10 +240,13 @@ class DesktopLibraryCatalogStore(
             .executeAsOneOrNull()
 
     @Synchronized
-    fun loadPlaybackProgress(): List<PlaybackProgress> =
+    override fun loadAllProgress(): List<PlaybackProgress> =
         database.libraryCatalogQueries
             .selectAllPlaybackProgress(::PlaybackProgress)
             .executeAsList()
+
+    fun loadPlaybackProgress(): List<PlaybackProgress> =
+        loadAllProgress()
 
     @Synchronized
     override fun saveProgress(progress: PlaybackProgress) {

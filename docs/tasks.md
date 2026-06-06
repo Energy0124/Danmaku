@@ -218,6 +218,8 @@ unblocked slices inside these tracks as the vertical slice hardens.
   dependencies.
 - [x] Define a shared LAN library-client contract for catalog browsing, stream URL
   generation, progress upload, and resume lookup.
+- [x] Add a token-protected catalog-wide LAN progress endpoint and shared,
+  JVM, and Android client methods for cross-device next-up surfaces.
 - [x] Add a JVM HTTP transport adapter and loopback client-to-server fixture for
   the planned Windows remote-playback path.
 - [x] Reuse the shared LAN client contract from Windows, Android, and Android TV

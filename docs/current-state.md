@@ -174,6 +174,10 @@ Updated on 2026-06-06.
   startup and unchanged-file reuse during background rescans.
 - Durable per-episode playback progress in the desktop SQLite database with a
   paired LAN `GET`/`PUT /api/progress/{id}` contract and Android client methods.
+- Paired LAN servers also expose a token-protected `GET /api/progress` endpoint
+  returning all published-media progress rows, with shared/JVM/Android client
+  methods. This is the cross-device foundation for mobile and TV next-up,
+  continue-watching, and recently-watched surfaces.
 - Desktop SQLDelight storage primitives for app settings and download queue
   items, with compatibility creation for existing catalog databases.
 - Desktop SQLDelight storage primitives for multiple Windows library roots,

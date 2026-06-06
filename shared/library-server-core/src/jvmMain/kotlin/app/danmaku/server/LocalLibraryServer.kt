@@ -1,5 +1,6 @@
 package app.danmaku.server
 
+import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.PlaybackProgress
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
@@ -39,6 +40,7 @@ class LocalLibraryServer(
         }
         server.executor = executor
         server.createContext("/api/library", ::handleCatalog)
+        server.createContext("/api/progress", ::handleProgressList)
         server.createContext("/api/progress/", ::handleProgress)
         server.createContext("/media/", ::handleMedia)
         server.createContext("/subtitles/", ::handleSubtitle)
@@ -257,6 +259,31 @@ class LocalLibraryServer(
         progressStore.saveProgress(progress)
         exchange.recordRequest("progress", 204, "id=$mediaId; position=${progress.positionMs}")
         exchange.sendStatus(204)
+    }
+
+    private fun handleProgressList(exchange: HttpExchange) {
+        if (exchange.requestURI.path != "/api/progress") {
+            exchange.recordRequest("progress-list", 404, "path=${exchange.requestURI.path}")
+            exchange.sendStatus(404)
+            return
+        }
+        if (exchange.requestMethod != "GET") {
+            exchange.recordRequest("progress-list", 405, "method=${exchange.requestMethod}")
+            exchange.sendStatus(405)
+            return
+        }
+        if (!exchange.isAuthorized()) {
+            exchange.recordRequest("progress-list", 401, "unauthorized")
+            exchange.sendStatus(401)
+            return
+        }
+
+        val publishedIds = library.catalog.items.mapTo(mutableSetOf(), LibraryMediaItem::id)
+        val progress = progressStore
+            .loadAllProgress()
+            .filter { it.mediaId in publishedIds }
+        exchange.recordRequest("progress-list", 200, "items=${progress.size}")
+        exchange.sendJson(Json.encodeToString(progress))
     }
 
     private fun handleAuthenticatedPostHook(

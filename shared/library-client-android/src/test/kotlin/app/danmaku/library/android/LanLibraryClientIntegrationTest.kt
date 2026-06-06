@@ -79,6 +79,7 @@ class LanLibraryClientIntegrationTest {
                         .openStream()
                         .use { it.readBytes() },
                 )
+                assertEquals(emptyList<PlaybackProgress>(), client.fetchAllProgress(server.baseUrl(), server.pairingToken))
                 assertNull(client.fetchProgress(server.baseUrl(), item.id, server.pairingToken))
 
                 client.saveProgress(server.baseUrl(), server.pairingToken, progress)
@@ -86,6 +87,10 @@ class LanLibraryClientIntegrationTest {
                 assertEquals(
                     progress,
                     client.fetchProgress(server.baseUrl(), item.id, server.pairingToken),
+                )
+                assertEquals(
+                    listOf(progress),
+                    client.fetchAllProgress(server.baseUrl(), server.pairingToken),
                 )
             }
         } finally {

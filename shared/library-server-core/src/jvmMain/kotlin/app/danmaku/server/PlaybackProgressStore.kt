@@ -6,6 +6,8 @@ import java.util.concurrent.ConcurrentHashMap
 interface PlaybackProgressStore {
     fun loadProgress(mediaId: String): PlaybackProgress?
 
+    fun loadAllProgress(): List<PlaybackProgress>
+
     fun saveProgress(progress: PlaybackProgress)
 }
 
@@ -14,6 +16,9 @@ class InMemoryPlaybackProgressStore : PlaybackProgressStore {
 
     override fun loadProgress(mediaId: String): PlaybackProgress? =
         progressByMediaId[mediaId]
+
+    override fun loadAllProgress(): List<PlaybackProgress> =
+        progressByMediaId.values.sortedByDescending(PlaybackProgress::updatedAtEpochMs)
 
     override fun saveProgress(progress: PlaybackProgress) {
         progressByMediaId[progress.mediaId] = progress
