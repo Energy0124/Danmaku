@@ -20,3 +20,17 @@ data class LanLibraryServerStatus(
         const val CURRENT_API_VERSION = 1
     }
 }
+
+fun LanLibraryServerStatus.compatibilityErrorMessage(
+    supportedApiVersion: Int = LanLibraryServerStatus.CURRENT_API_VERSION,
+): String? {
+    require(supportedApiVersion > 0) { "supportedApiVersion must be positive" }
+    return when {
+        apiVersion > supportedApiVersion ->
+            "This Windows library server requires a newer Danmaku app. " +
+                "Server API $apiVersion is newer than supported API $supportedApiVersion."
+        !mediaStreaming ->
+            "This Windows library server does not expose media streaming."
+        else -> null
+    }
+}

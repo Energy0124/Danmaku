@@ -97,6 +97,7 @@ import app.danmaku.domain.PlaybackStatus
 import app.danmaku.domain.PlaybackTrack
 import app.danmaku.domain.PlaybackTrackKind
 import app.danmaku.domain.coerceSeekTarget
+import app.danmaku.domain.compatibilityErrorMessage
 import app.danmaku.domain.continueWatchingItems
 import app.danmaku.domain.episodeDetail
 import app.danmaku.domain.filteredItems
@@ -269,6 +270,10 @@ private fun MobilePlayerScreen() {
         scope.launch {
             runCatching {
                 withContext(Dispatchers.IO) {
+                    libraryClient
+                        .fetchServerStatus(requestedServerUrl)
+                        .compatibilityErrorMessage()
+                        ?.let(::error)
                     val fetchedCatalog = libraryClient.fetchCatalog(requestedServerUrl, requestedPairingToken)
                     val fetchedProgress = runCatching {
                         progressSync.fetchAllProgress(requestedServerUrl, requestedPairingToken)

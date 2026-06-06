@@ -13,4 +13,24 @@ class LanLibraryServerStatusTest {
             LanLibraryServerStatus(apiVersion = 0)
         }
     }
+
+    @Test
+    fun reportsCompatibilityErrorsForUnsupportedServers() {
+        kotlin.test.assertEquals(
+            null,
+            LanLibraryServerStatus().compatibilityErrorMessage(),
+        )
+        kotlin.test.assertEquals(
+            "This Windows library server requires a newer Danmaku app. " +
+                "Server API 2 is newer than supported API 1.",
+            LanLibraryServerStatus(apiVersion = 2).compatibilityErrorMessage(),
+        )
+        kotlin.test.assertEquals(
+            "This Windows library server does not expose media streaming.",
+            LanLibraryServerStatus(mediaStreaming = false).compatibilityErrorMessage(),
+        )
+        assertFailsWith<IllegalArgumentException> {
+            LanLibraryServerStatus().compatibilityErrorMessage(supportedApiVersion = 0)
+        }
+    }
 }

@@ -63,6 +63,7 @@ import app.danmaku.domain.PlaybackCommand
 import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.PlaybackTrack
 import app.danmaku.domain.PlaybackTrackKind
+import app.danmaku.domain.compatibilityErrorMessage
 import app.danmaku.domain.continueWatchingItems
 import app.danmaku.domain.episodeDetail
 import app.danmaku.domain.filteredItems
@@ -129,6 +130,35 @@ private fun TvPlayerScreen() {
     var catalog by remember { mutableStateOf<LibraryCatalog?>(null) }
     var playbackProgresses by remember { mutableStateOf<List<PlaybackProgress>>(emptyList()) }
     var libraryError by remember { mutableStateOf<String?>(null) }
+    fun refreshLibrary() {
+        scope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    libraryClient
+                        .fetchServerStatus(serverUrl)
+                        .compatibilityErrorMessage()
+                        ?.let(::error)
+                    val fetchedCatalog = libraryClient.fetchCatalog(serverUrl, pairingToken)
+                    val fetchedProgresses = runCatching {
+                        progressSync.fetchAllProgress(serverUrl, pairingToken)
+                    }.getOrElse { emptyList() }
+                    fetchedCatalog to fetchedProgresses
+                }
+            }.onSuccess {
+                catalog = it.first
+                playbackProgresses = it.second
+                connectionStore.saveCurrentConnection(
+                    baseUrl = serverUrl,
+                    pairingToken = pairingToken,
+                    displayName = it.first.rootName,
+                )
+                savedConnections = connectionStore.loadProfiles()
+                libraryError = null
+            }.onFailure {
+                libraryError = it.message
+            }
+        }
+    }
 
     DisposableEffect(playbackConnection) {
         playbackConnection.connect(
@@ -223,31 +253,7 @@ private fun TvPlayerScreen() {
                     Text("Vol + ${snapshot.volumePercent}%")
                 }
                 Button(
-                    onClick = {
-                        scope.launch {
-                            runCatching {
-                                withContext(Dispatchers.IO) {
-                                    val fetchedCatalog = libraryClient.fetchCatalog(serverUrl, pairingToken)
-                                    val fetchedProgresses = runCatching {
-                                        progressSync.fetchAllProgress(serverUrl, pairingToken)
-                                    }.getOrElse { emptyList() }
-                                    fetchedCatalog to fetchedProgresses
-                                }
-                            }.onSuccess {
-                                catalog = it.first
-                                playbackProgresses = it.second
-                                connectionStore.saveCurrentConnection(
-                                    baseUrl = serverUrl,
-                                    pairingToken = pairingToken,
-                                    displayName = it.first.rootName,
-                                )
-                                savedConnections = connectionStore.loadProfiles()
-                                libraryError = null
-                            }.onFailure {
-                                libraryError = it.message
-                            }
-                        }
-                    },
+                    onClick = ::refreshLibrary,
                     modifier = Modifier
                         .focusRequester(refreshPcFocusRequester)
                         .focusProperties {

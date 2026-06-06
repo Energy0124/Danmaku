@@ -104,6 +104,7 @@ import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.PlaybackStatus
 import app.danmaku.domain.PlaybackTrack
 import app.danmaku.domain.PlaybackTrackKind
+import app.danmaku.domain.compatibilityErrorMessage
 import app.danmaku.domain.continueWatchingItems
 import app.danmaku.domain.episodeDetail
 import app.danmaku.domain.filteredItems
@@ -3262,6 +3263,10 @@ private fun RemoteLibraryBrowser(
             selectedPlaybackPreparation = null
             runCatching {
                 withContext(Dispatchers.IO) {
+                    libraryClient
+                        .fetchServerStatus(requestedServerUrl)
+                        .compatibilityErrorMessage()
+                        ?.let(::error)
                     libraryClient.fetchCatalog(requestedServerUrl, requestedPairingToken)
                 }
             }.onSuccess {

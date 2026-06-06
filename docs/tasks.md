@@ -186,6 +186,8 @@ unblocked slices inside these tracks as the vertical slice hardens.
 - [x] Add an unauthenticated LAN server compatibility/status probe and shared
   JVM/Android client methods as a foundation for pairing compatibility errors
   and trusted-device management.
+- [x] Wire Windows paired browsing plus Android mobile and Android TV connection
+  flows to preflight LAN server compatibility before paired catalog requests.
 - [x] Add TV D-pad and focus-navigation instrumentation tests.
 - [x] Add LAN playback progress upload and resume seeking.
 - [x] Move LAN playback progress uploads into the background playback service.
