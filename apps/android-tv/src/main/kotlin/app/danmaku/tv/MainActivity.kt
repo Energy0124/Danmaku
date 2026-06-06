@@ -727,19 +727,76 @@ internal fun LibraryItems(
                 onSelectEpisode = { selectedEpisodeId = it.id },
             )
         }
-        LazyColumn(
-            modifier = Modifier.height(320.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            items(filteredItems, key = LibraryMediaItem::id) { item ->
-                TvEpisodeButton(
-                    item = item,
-                    watchStatus = watchStatusById[item.id],
-                    isFavorite = item.id in favoriteMediaIds,
-                    onSetFavorite = { onSetFavorite(item, it) },
-                    onShowDetails = { selectedEpisodeId = item.id },
-                    onPlay = { onPlay(item) },
+        when {
+            catalog == null || totalItems.isEmpty() -> {
+                TvLibraryEmptyPanel(
+                    title = "No PC library connected",
+                    body = "Discover or pair with a Windows library server to browse episodes on TV.",
                 )
+            }
+            filteredItems.isEmpty() -> {
+                TvLibraryEmptyPanel(
+                    title = "No matching episodes",
+                    body = "Reset search, favorites, and subtitle filters to return to the full library.",
+                    actionLabel = "Reset filters",
+                    onAction = {
+                        searchText = ""
+                        sort = LibraryCatalogSort.TITLE
+                        subtitleFilter = LibrarySubtitleFilter.ANY
+                        favoriteFilter = LibraryFavoriteFilter.ANY
+                        selectedSeriesId = null
+                        selectedEpisodeId = null
+                    },
+                )
+            }
+            else -> {
+                LazyColumn(
+                    modifier = Modifier.height(320.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    items(filteredItems, key = LibraryMediaItem::id) { item ->
+                        TvEpisodeButton(
+                            item = item,
+                            watchStatus = watchStatusById[item.id],
+                            isFavorite = item.id in favoriteMediaIds,
+                            onSetFavorite = { onSetFavorite(item, it) },
+                            onShowDetails = { selectedEpisodeId = item.id },
+                            onPlay = { onPlay(item) },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TvLibraryEmptyPanel(
+    title: String,
+    body: String,
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.DarkGray)
+            .padding(16.dp)
+            .testTag("library-empty-state"),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(
+            title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Text(body)
+        if (actionLabel != null && onAction != null) {
+            Button(
+                onClick = onAction,
+                modifier = Modifier.testTag("library-reset-filters"),
+            ) {
+                Text(actionLabel)
             }
         }
     }

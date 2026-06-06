@@ -706,7 +706,14 @@ internal fun LibraryPage(
             }
         } else if (filteredItems.isEmpty()) {
             item(key = "library-no-results") {
-                EmptyResultsState()
+                EmptyResultsState(
+                    onResetFilters = {
+                        onSearchTextChange("")
+                        onSortChange(LibraryCatalogSort.TITLE)
+                        onSubtitleFilterChange(LibrarySubtitleFilter.ANY)
+                        onFavoriteFilterChange(LibraryFavoriteFilter.ANY)
+                    },
+                )
             }
         } else {
             items(filteredItems, key = LibraryMediaItem::id) { item ->
@@ -2135,10 +2142,12 @@ private fun EmptyLibraryState(
 }
 
 @Composable
-private fun EmptyResultsState() {
+private fun EmptyResultsState(onResetFilters: () -> Unit) {
     EmptyPanel(
         title = "No matching episodes",
-        body = "Try a different search, sort order, or subtitle filter.",
+        body = "Try a different search, sort order, subtitle filter, or favorites filter.",
+        actionLabel = "Reset filters",
+        onAction = onResetFilters,
     )
 }
 
@@ -2146,6 +2155,8 @@ private fun EmptyResultsState() {
 private fun EmptyPanel(
     title: String,
     body: String,
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null,
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -2159,6 +2170,11 @@ private fun EmptyPanel(
         ) {
             Text(title, fontWeight = FontWeight.SemiBold)
             Text(body, color = SubtleText)
+            if (actionLabel != null && onAction != null) {
+                OutlinedButton(onClick = onAction) {
+                    Text(actionLabel)
+                }
+            }
         }
     }
 }

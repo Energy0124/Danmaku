@@ -241,16 +241,19 @@ Updated on 2026-06-06.
 - Android mobile and Android TV persist favorite media IDs with a shared Android
   preference store, expose Favorite/Unfavorite actions in episode rows and
   detail panels, and can filter connected-PC episode lists to favorites only.
+- Android mobile and Android TV show actionable no-results states when library
+  search, favorite, or subtitle filters hide every episode, with reset actions
+  that return users to the full connected-PC episode list.
 - Android mobile has compile-checked Compose instrumentation coverage for the
   Library page empty, connected-catalog, selected-series detail, Next Up,
   Continue Watching, Recently Watched, episode detail, watch-state labels,
-  mini-player, and episode-selection states, plus Watch page empty, connected,
-  and active-playback player-first states.
+  no-results filter reset, mini-player, and episode-selection states, plus
+  Watch page empty, connected, and active-playback player-first states.
 - Android TV library browsing includes a remote-friendly header, shared-grouped
   progress-backed Next Up, Continue Watching, and Recently Watched rails,
   detail actions on those progress rails, series rail, selected-series detail
-  strip with season episode actions, fixed-height episode list, and
-  metadata-rich episode buttons for connected-PC catalogs.
+  strip with season episode actions, empty/no-results messaging, fixed-height
+  episode list, and metadata-rich episode buttons for connected-PC catalogs.
 - Android TV shares the Android saved PC-library connection store and exposes
   remote-friendly saved-PC cards with use and forget actions.
 - Desktop root scanner can import ani-rss output folders, reuse unchanged media

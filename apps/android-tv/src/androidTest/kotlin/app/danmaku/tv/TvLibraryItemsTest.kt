@@ -96,6 +96,29 @@ class TvLibraryItemsTest {
     }
 
     @Test
+    fun emptyResultsStateCanResetLibraryFilters() {
+        composeRule.setContent {
+            MaterialTheme {
+                LibraryItems(
+                    catalog = seededCatalog(),
+                    playbackProgresses = emptyList(),
+                    favoriteMediaIds = emptySet(),
+                    onPlay = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("library-favorites-filter").performClick()
+
+        composeRule.onNodeWithText("No matching episodes").assertExists()
+        composeRule.onNodeWithTag("library-reset-filters").performClick()
+
+        composeRule.onNodeWithText("3 / 3 episodes").assertExists()
+        composeRule.onNodeWithTag("episode:example-1").assertExists()
+        composeRule.onNodeWithTag("episode:other-1").assertExists()
+    }
+
+    @Test
     fun episodeDetailShowsContextAndNavigatesNeighborEpisodes() {
         composeRule.setContent {
             MaterialTheme {

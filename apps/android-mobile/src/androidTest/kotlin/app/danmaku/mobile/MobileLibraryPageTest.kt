@@ -180,6 +180,58 @@ class MobileLibraryPageTest {
     }
 
     @Test
+    fun emptyResultsStateCanResetLibraryFilters() {
+        composeRule.setContent {
+            MaterialTheme {
+                val catalog = seededCatalog()
+                var favoriteFilter by remember { mutableStateOf(LibraryFavoriteFilter.FAVORITES_ONLY) }
+                var searchText by remember { mutableStateOf("missing") }
+                var sort by remember { mutableStateOf(LibraryCatalogSort.PATH) }
+                var subtitleFilter by remember { mutableStateOf(LibrarySubtitleFilter.WITH_SUBTITLES) }
+                val filteredItems = catalog.filteredItems(
+                    LibraryCatalogQuery(
+                        searchText = searchText,
+                        sort = sort,
+                        subtitleFilter = subtitleFilter,
+                        favoriteFilter = favoriteFilter,
+                        favoriteMediaIds = emptySet(),
+                    ),
+                )
+
+                LibraryPage(
+                    contentPadding = PaddingValues(0.dp),
+                    catalog = catalog,
+                    playbackProgresses = emptyList(),
+                    filteredItems = filteredItems,
+                    totalCount = catalog.items.size,
+                    snapshot = PlaybackSnapshot(),
+                    nowPlaying = null,
+                    searchText = searchText,
+                    onSearchTextChange = { searchText = it },
+                    sort = sort,
+                    onSortChange = { sort = it },
+                    subtitleFilter = subtitleFilter,
+                    onSubtitleFilterChange = { subtitleFilter = it },
+                    favoriteMediaIds = emptySet(),
+                    favoriteFilter = favoriteFilter,
+                    onFavoriteFilterChange = { favoriteFilter = it },
+                    onPlay = {},
+                    onPlayPause = {},
+                    onOpenPlayer = {},
+                    onConnect = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("No matching episodes").assertExists()
+        composeRule.onNodeWithText("Reset filters").performClick()
+
+        composeRule.onNodeWithText("3 of 3 episodes").assertExists()
+        composeRule.onNodeWithTag("episode:example-1").assertExists()
+        composeRule.onNodeWithTag("episode:other-1").assertExists()
+    }
+
+    @Test
     fun episodeDetailShowsContextAndNavigatesNeighborEpisodes() {
         composeRule.setContent {
             MaterialTheme {
