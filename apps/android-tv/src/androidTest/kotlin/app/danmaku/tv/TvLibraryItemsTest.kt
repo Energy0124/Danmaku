@@ -50,6 +50,7 @@ class TvLibraryItemsTest {
         composeRule.onNodeWithText("2 / 3 episodes").assertExists()
         composeRule.onNodeWithTag("series-detail:Example Show").assertExists()
         composeRule.onNodeWithText("3 subtitle tracks").assertExists()
+        composeRule.onNodeWithText("0 watched, 0 watching, 2 new").assertExists()
         composeRule.onNodeWithTag("series-season:Season unknown").assertExists()
         composeRule.onNodeWithTag("episode:example-1").assertExists()
         composeRule.onNodeWithTag("episode:example-2").assertExists()

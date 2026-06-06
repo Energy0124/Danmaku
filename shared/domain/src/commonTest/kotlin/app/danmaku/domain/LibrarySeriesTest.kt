@@ -93,6 +93,46 @@ class LibrarySeriesTest {
         assertEquals(300, series.totalSizeBytes)
     }
 
+    @Test
+    fun summarizesSeriesWatchProgress() {
+        val catalog = catalogOf(
+            item(id = "one", seriesTitle = "Example Show", episodeTitle = "Episode 01"),
+            item(id = "two", seriesTitle = "Example Show", episodeTitle = "Episode 02"),
+            item(id = "three", seriesTitle = "Example Show", episodeTitle = "Episode 03"),
+        )
+
+        val summary = catalog.seriesWatchSummaryById(
+            progresses = listOf(
+                progress("one", positionMs = 1_190_000, durationMs = 1_200_000, updatedAtEpochMs = 10),
+                progress("two", positionMs = 90_000, durationMs = 1_200_000, updatedAtEpochMs = 20),
+            ),
+        ).getValue("example-show")
+
+        assertEquals(3, summary.totalCount)
+        assertEquals(1, summary.watchedCount)
+        assertEquals(1, summary.inProgressCount)
+        assertEquals(1, summary.newCount)
+    }
+
+    @Test
+    fun summarizesSeriesWatchProgressFromLatestProgressRows() {
+        val catalog = catalogOf(
+            item(id = "one", seriesTitle = "Example Show", episodeTitle = "Episode 01"),
+        )
+
+        val summary = catalog.seriesWatchSummaryById(
+            progresses = listOf(
+                progress("one", positionMs = 1_190_000, durationMs = 1_200_000, updatedAtEpochMs = 10),
+                progress("one", positionMs = 90_000, durationMs = 1_200_000, updatedAtEpochMs = 20),
+            ),
+        ).getValue("example-show")
+
+        assertEquals(1, summary.totalCount)
+        assertEquals(0, summary.watchedCount)
+        assertEquals(1, summary.inProgressCount)
+        assertEquals(0, summary.newCount)
+    }
+
     private fun catalogOf(vararg items: LibraryMediaItem): LibraryCatalog =
         LibraryCatalog(
             rootName = "Anime",
@@ -125,5 +165,18 @@ class LibrarySeriesTest {
                     streamPath = "/subtitles/$id-$index",
                 )
             },
+        )
+
+    private fun progress(
+        mediaId: String,
+        positionMs: Long,
+        durationMs: Long?,
+        updatedAtEpochMs: Long,
+    ): PlaybackProgress =
+        PlaybackProgress(
+            mediaId = mediaId,
+            positionMs = positionMs,
+            durationMs = durationMs,
+            updatedAtEpochMs = updatedAtEpochMs,
         )
 }

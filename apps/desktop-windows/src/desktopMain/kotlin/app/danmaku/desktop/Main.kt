@@ -91,6 +91,7 @@ import app.danmaku.domain.LibraryNextUpItem
 import app.danmaku.domain.LibraryNextUpReason
 import app.danmaku.domain.LibraryPlaybackProgressItem
 import app.danmaku.domain.LibrarySeries
+import app.danmaku.domain.LibrarySeriesWatchSummary
 import app.danmaku.domain.LibrarySubtitleFilter
 import app.danmaku.domain.LibraryWatchState
 import app.danmaku.domain.LibraryWatchStatus
@@ -108,6 +109,7 @@ import app.danmaku.domain.nextUpItems
 import app.danmaku.domain.previousItem
 import app.danmaku.domain.recentlyWatchedItems
 import app.danmaku.domain.toPlaybackProgress
+import app.danmaku.domain.seriesWatchSummaryById
 import app.danmaku.domain.watchStatusByMediaId
 import app.danmaku.library.LanPlaybackPreparation
 import app.danmaku.library.LanPlaybackPreparer
@@ -1879,6 +1881,9 @@ private fun MediaLibraryTab(
         val watchStatusById = remember(indexedLibrary, playbackProgresses) {
             indexedLibrary?.catalog?.watchStatusByMediaId(playbackProgresses).orEmpty()
         }
+        val seriesWatchSummaryById = remember(indexedLibrary, playbackProgresses) {
+            indexedLibrary?.catalog?.seriesWatchSummaryById(playbackProgresses).orEmpty()
+        }
         var selectedSeriesId by remember(indexedLibrary?.catalog) { mutableStateOf<String?>(null) }
         val series = remember(indexedLibrary?.catalog) {
             indexedLibrary?.catalog?.groupedSeries().orEmpty()
@@ -1995,6 +2000,7 @@ private fun MediaLibraryTab(
                         items(series, key = { it.id }) { librarySeries ->
                             DesktopSeriesRow(
                                 series = librarySeries,
+                                watchSummary = seriesWatchSummaryById[librarySeries.id],
                                 isSelected = librarySeries.id == selectedSeries?.id,
                                 onSelect = { selectedSeriesId = librarySeries.id },
                             )
@@ -2077,6 +2083,7 @@ private fun MediaLibraryTab(
         selectedSeries?.let { librarySeries ->
             DesktopSeriesDetailPanel(
                 series = librarySeries,
+                watchSummary = seriesWatchSummaryById[librarySeries.id],
                 watchStatusById = watchStatusById,
                 isPreparing = isPreparingLocalPlayback,
                 onPrepareLocalPlayback = onPrepareLocalPlayback,
@@ -2516,6 +2523,7 @@ private fun MediaRootRow(root: DesktopLibraryRoot) {
 @Composable
 private fun DesktopSeriesRow(
     series: LibrarySeries,
+    watchSummary: LibrarySeriesWatchSummary?,
     isSelected: Boolean,
     onSelect: () -> Unit,
 ) {
@@ -2536,6 +2544,12 @@ private fun DesktopSeriesRow(
             overflow = TextOverflow.Ellipsis,
         )
         Text(
+            watchSummary.progressLabel(),
+            color = DanmakuColors.TextMuted,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
             "${series.subtitleTrackCount} subtitle tracks, ${series.totalSizeBytes.formatLibrarySize()}",
             color = DanmakuColors.TextMuted,
             maxLines = 1,
@@ -2547,6 +2561,7 @@ private fun DesktopSeriesRow(
 @Composable
 private fun DesktopSeriesDetailPanel(
     series: LibrarySeries,
+    watchSummary: LibrarySeriesWatchSummary?,
     watchStatusById: Map<String, LibraryWatchStatus>,
     isPreparing: Boolean,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
@@ -2561,6 +2576,7 @@ private fun DesktopSeriesDetailPanel(
                 MetadataRow("Series", series.title)
                 MetadataRow("Episodes", series.episodeCount.toString())
                 MetadataRow("Seasons", series.seasons.size.toString())
+                MetadataRow("Progress", watchSummary.progressLabel())
             }
             Column(modifier = Modifier.weight(1f)) {
                 MetadataRow("Subtitles", "${series.subtitleTrackCount} tracks")
@@ -2600,6 +2616,13 @@ private fun DesktopSeriesDetailPanel(
         }
     }
 }
+
+private fun LibrarySeriesWatchSummary?.progressLabel(): String =
+    if (this == null) {
+        "0 watched, 0 watching, 0 new"
+    } else {
+        "$watchedCount watched, $inProgressCount watching, $newCount new"
+    }
 
 @Composable
 private fun NextUpRow(

@@ -144,6 +144,8 @@ unblocked slices inside these tracks as the vertical slice hardens.
   watched labels across Windows, Android mobile, and Android TV library rows.
 - [x] Extract shared continue-watching and recently-watched derivation, then
   expose those progress rails on Android mobile and Android TV.
+- [x] Add shared series watch-summary derivation and expose watched, watching,
+  and new counts in Windows, Android mobile, and Android TV series surfaces.
 - [x] Add optional persisted Windows local-library auto-next playback.
 - [x] Add Windows fullscreen and aspect-ratio playback controls.
 - [x] Add Windows paired-catalog one-click stream playback while retaining

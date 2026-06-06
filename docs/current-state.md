@@ -196,6 +196,9 @@ Updated on 2026-06-06.
 - Shared catalog grouping helpers expose deterministic series and season buckets
   with episode counts, subtitle-track totals, size totals, and episode ordering
   for future detail, next-up, favorite, and playlist screens.
+- Shared series watch-summary helpers roll episode watch states up into watched,
+  watching, and new counts for each grouped series. Windows desktop, Android
+  mobile, and Android TV render those counts in series rails and detail panels.
 - Windows desktop library browsing now uses the shared series/season grouping
   model for a selectable series column plus a compact series detail panel with
   season episode previews and direct prepare/play actions.

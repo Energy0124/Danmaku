@@ -82,6 +82,7 @@ import app.danmaku.domain.LibraryNextUpItem
 import app.danmaku.domain.LibraryNextUpReason
 import app.danmaku.domain.LibraryPlaybackProgressItem
 import app.danmaku.domain.LibrarySeries
+import app.danmaku.domain.LibrarySeriesWatchSummary
 import app.danmaku.domain.LibrarySubtitleFilter
 import app.danmaku.domain.LibraryWatchState
 import app.danmaku.domain.LibraryWatchStatus
@@ -99,6 +100,7 @@ import app.danmaku.domain.groupedSeries
 import app.danmaku.domain.nextUpItems
 import app.danmaku.domain.recentlyWatchedItems
 import app.danmaku.domain.seekTargetBy
+import app.danmaku.domain.seriesWatchSummaryById
 import app.danmaku.domain.watchStatusByMediaId
 import app.danmaku.library.LanPlaybackPreparer
 import app.danmaku.library.LanPlaybackProgressSync
@@ -498,6 +500,7 @@ internal fun LibraryPage(
         val continueWatchingItems = catalog?.continueWatchingItems(playbackProgresses, limit = 5).orEmpty()
         val recentlyWatchedItems = catalog?.recentlyWatchedItems(playbackProgresses, limit = 5).orEmpty()
         val watchStatusById = catalog?.watchStatusByMediaId(playbackProgresses).orEmpty()
+        val seriesWatchSummaryById = catalog?.seriesWatchSummaryById(playbackProgresses).orEmpty()
         val selectedSeries = searchText
             .takeIf(String::isNotBlank)
             ?.let { selectedTitle ->
@@ -574,6 +577,7 @@ internal fun LibraryPage(
             item(key = "library-series-rail") {
                 SeriesRail(
                     series = series.take(12),
+                    watchSummaryById = seriesWatchSummaryById,
                     searchText = searchText,
                     onSelectSeries = onSearchTextChange,
                     onClearSearch = { onSearchTextChange("") },
@@ -581,7 +585,10 @@ internal fun LibraryPage(
             }
             selectedSeries?.let { series ->
                 item(key = "library-series-detail-${series.id}") {
-                    SeriesDetailPanel(series)
+                    SeriesDetailPanel(
+                        series = series,
+                        watchSummary = seriesWatchSummaryById[series.id],
+                    )
                 }
             }
         }
@@ -787,6 +794,7 @@ private fun ProgressChip(
 @Composable
 private fun SeriesRail(
     series: List<LibrarySeries>,
+    watchSummaryById: Map<String, LibrarySeriesWatchSummary>,
     searchText: String,
     onSelectSeries: (String) -> Unit,
     onClearSearch: () -> Unit,
@@ -845,7 +853,7 @@ private fun SeriesRail(
                         },
                         label = {
                             Text(
-                                summary.displayLabel(),
+                                summary.displayLabel(watchSummaryById[summary.id]),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
@@ -859,7 +867,10 @@ private fun SeriesRail(
 }
 
 @Composable
-private fun SeriesDetailPanel(series: LibrarySeries) {
+private fun SeriesDetailPanel(
+    series: LibrarySeries,
+    watchSummary: LibrarySeriesWatchSummary?,
+) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -891,6 +902,7 @@ private fun SeriesDetailPanel(series: LibrarySeries) {
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 AssistChip(onClick = {}, label = { Text("${series.subtitleTrackCount} subtitles") })
+                AssistChip(onClick = {}, label = { Text(watchSummary.progressLabel()) })
                 AssistChip(onClick = {}, label = { Text(series.totalSizeBytes.formatSize()) })
                 AssistChip(onClick = {}, label = { Text(series.latestIndexedItem.episodeTitle) })
             }
@@ -1787,14 +1799,22 @@ private fun Long.formatSize(): String {
     }
 }
 
-private fun LibrarySeries.displayLabel(): String {
+private fun LibrarySeries.displayLabel(watchSummary: LibrarySeriesWatchSummary?): String {
     val episodeLabel = if (episodeCount == 1) "1 ep" else "$episodeCount eps"
+    val progressLabel = watchSummary.progressLabel()
     return if (subtitleTrackCount > 0) {
-        "$title · $episodeLabel · $subtitleTrackCount sub"
+        "$title · $episodeLabel · $progressLabel · $subtitleTrackCount sub"
     } else {
-        "$title · $episodeLabel"
+        "$title · $episodeLabel · $progressLabel"
     }
 }
+
+private fun LibrarySeriesWatchSummary?.progressLabel(): String =
+    if (this == null) {
+        "0 watched"
+    } else {
+        "${watchedCount} watched · ${inProgressCount} watching · ${newCount} new"
+    }
 
 private fun LibraryNextUpItem.nextUpLabel(): String =
     when (reason) {

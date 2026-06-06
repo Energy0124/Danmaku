@@ -106,6 +106,7 @@ class MobileLibraryPageTest {
         composeRule.onNodeWithText("2 of 3 episodes").assertExists()
         composeRule.onNodeWithTag("series-detail:Example Show").assertExists()
         composeRule.onNodeWithText("2 episodes across 1 seasons").assertExists()
+        composeRule.onNodeWithText("0 watched · 0 watching · 2 new").assertExists()
         composeRule.onNodeWithText("3 subtitles").assertExists()
         composeRule.onNodeWithTag("episode:example-1").assertExists()
         composeRule.onNodeWithTag("episode:example-2").assertExists()

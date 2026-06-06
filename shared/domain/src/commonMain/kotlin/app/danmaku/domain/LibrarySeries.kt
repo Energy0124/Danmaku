@@ -36,6 +36,25 @@ data class LibrarySeason(
     }
 }
 
+data class LibrarySeriesWatchSummary(
+    val seriesId: String,
+    val totalCount: Int,
+    val watchedCount: Int,
+    val inProgressCount: Int,
+    val newCount: Int,
+) {
+    init {
+        require(seriesId.isNotBlank()) { "seriesId must not be blank" }
+        require(totalCount >= 0) { "totalCount must not be negative" }
+        require(watchedCount >= 0) { "watchedCount must not be negative" }
+        require(inProgressCount >= 0) { "inProgressCount must not be negative" }
+        require(newCount >= 0) { "newCount must not be negative" }
+        require(watchedCount + inProgressCount + newCount == totalCount) {
+            "watch-state counts must add up to totalCount"
+        }
+    }
+}
+
 fun LibraryCatalog.groupedSeries(): List<LibrarySeries> =
     items
         .groupBy { it.seriesTitle.trim() }
@@ -63,6 +82,30 @@ fun LibraryCatalog.groupedSeries(): List<LibrarySeries> =
             compareByDescending<LibrarySeries> { it.episodeCount }
                 .thenBy { it.title.lowercase() },
         )
+
+fun LibraryCatalog.seriesWatchSummaryById(
+    progresses: List<PlaybackProgress>,
+    minimumStartedPositionMs: Long = 10_000,
+    watchedRemainingMs: Long = 30_000,
+): Map<String, LibrarySeriesWatchSummary> {
+    val watchStatusById = watchStatusByMediaId(
+        progresses = progresses,
+        minimumStartedPositionMs = minimumStartedPositionMs,
+        watchedRemainingMs = watchedRemainingMs,
+    )
+    return groupedSeries().associate { series ->
+        val states = series.seasons
+            .flatMap(LibrarySeason::items)
+            .map { item -> watchStatusById.getValue(item.id).state }
+        series.id to LibrarySeriesWatchSummary(
+            seriesId = series.id,
+            totalCount = states.size,
+            watchedCount = states.count { it == LibraryWatchState.WATCHED },
+            inProgressCount = states.count { it == LibraryWatchState.IN_PROGRESS },
+            newCount = states.count { it == LibraryWatchState.NEW },
+        )
+    }
+}
 
 private data class LibrarySeasonIdentity(
     val id: String,

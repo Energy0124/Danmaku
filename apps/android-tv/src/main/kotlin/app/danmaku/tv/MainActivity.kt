@@ -52,6 +52,7 @@ import app.danmaku.domain.LibraryNextUpItem
 import app.danmaku.domain.LibraryNextUpReason
 import app.danmaku.domain.LibraryPlaybackProgressItem
 import app.danmaku.domain.LibrarySeries
+import app.danmaku.domain.LibrarySeriesWatchSummary
 import app.danmaku.domain.LibrarySubtitleFilter
 import app.danmaku.domain.LibraryWatchState
 import app.danmaku.domain.LibraryWatchStatus
@@ -66,6 +67,7 @@ import app.danmaku.domain.groupedSeries
 import app.danmaku.domain.nextUpItems
 import app.danmaku.domain.recentlyWatchedItems
 import app.danmaku.domain.seekTargetBy
+import app.danmaku.domain.seriesWatchSummaryById
 import app.danmaku.domain.watchStatusByMediaId
 import app.danmaku.library.android.LanLibraryDiscoveryClient
 import app.danmaku.library.android.LanLibraryClient
@@ -442,6 +444,7 @@ internal fun LibraryItems(
     val continueWatchingItems = catalog?.continueWatchingItems(playbackProgresses, limit = 6).orEmpty()
     val recentlyWatchedItems = catalog?.recentlyWatchedItems(playbackProgresses, limit = 6).orEmpty()
     val watchStatusById = catalog?.watchStatusByMediaId(playbackProgresses).orEmpty()
+    val seriesWatchSummaryById = catalog?.seriesWatchSummaryById(playbackProgresses).orEmpty()
     val selectedSeries = series.firstOrNull { it.id == selectedSeriesId }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -564,6 +567,7 @@ internal fun LibraryItems(
                                 overflow = TextOverflow.Ellipsis,
                             )
                             Text(summary.episodeLabel())
+                            Text(seriesWatchSummaryById[summary.id].shortProgressLabel())
                         }
                     }
                 }
@@ -572,6 +576,7 @@ internal fun LibraryItems(
         selectedSeries?.let { summary ->
             TvSeriesDetail(
                 series = summary,
+                watchSummary = seriesWatchSummaryById[summary.id],
                 onPlay = onPlay,
             )
         }
@@ -716,6 +721,7 @@ private fun LibraryNextUpItem.nextUpLabel(): String =
 @Composable
 private fun TvSeriesDetail(
     series: LibrarySeries,
+    watchSummary: LibrarySeriesWatchSummary?,
     onPlay: (LibraryMediaItem) -> Unit,
 ) {
     Column(
@@ -739,6 +745,7 @@ private fun TvSeriesDetail(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text("${series.episodeLabel()} across ${series.seasons.size} seasons")
+                Text(watchSummary.progressLabel())
             }
             Text("${series.subtitleTrackCount} subtitle tracks")
         }
@@ -813,6 +820,20 @@ private fun TvEpisodeButton(
 
 private fun LibrarySeries.episodeLabel(): String =
     if (episodeCount == 1) "1 episode" else "$episodeCount episodes"
+
+private fun LibrarySeriesWatchSummary?.shortProgressLabel(): String =
+    if (this == null) {
+        "0 watched"
+    } else {
+        "$watchedCount watched, $inProgressCount watching"
+    }
+
+private fun LibrarySeriesWatchSummary?.progressLabel(): String =
+    if (this == null) {
+        "0 watched, 0 watching"
+    } else {
+        "$watchedCount watched, $inProgressCount watching, $newCount new"
+    }
 
 private fun LibraryWatchStatus?.statusLabel(): String =
     when (this?.state) {
