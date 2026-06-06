@@ -8,10 +8,12 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -24,12 +26,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
@@ -410,8 +415,27 @@ private fun LibraryItems(
             ),
         )
         .orEmpty()
+    val series = totalItems.toSeriesSummaries()
 
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    "PC Library",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    catalog?.rootName ?: "Connect to a Windows library server",
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Text("${filteredItems.size} / ${totalItems.size} episodes")
+        }
         BasicTextField(
             value = searchText,
             onValueChange = { searchText = it },
@@ -427,7 +451,7 @@ private fun LibraryItems(
                 innerTextField()
             },
         )
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             item {
                 Button(
                     onClick = { sort = LibraryCatalogSort.TITLE },
@@ -458,16 +482,99 @@ private fun LibraryItems(
                 }
             }
         }
-        Text("Showing ${filteredItems.size} / ${totalItems.size} episodes")
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(filteredItems, key = LibraryMediaItem::id) { item ->
-                Button(
-                    onClick = { onPlay(item) },
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text("${item.seriesTitle} - ${item.episodeTitle}")
+        if (series.isNotEmpty()) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                item(key = "all-series") {
+                    Button(
+                        onClick = { searchText = "" },
+                        enabled = searchText.isNotBlank(),
+                    ) {
+                        Text("All series")
+                    }
                 }
+                items(series, key = LibrarySeriesSummary::title) { summary ->
+                    Button(
+                        onClick = {
+                            searchText = if (searchText.trim().equals(summary.title, ignoreCase = true)) {
+                                ""
+                            } else {
+                                summary.title
+                            }
+                        },
+                    ) {
+                        Column {
+                            Text(
+                                summary.title,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(summary.episodeLabel())
+                        }
+                    }
+                }
+            }
+        }
+        LazyColumn(
+            modifier = Modifier.height(320.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            items(filteredItems, key = LibraryMediaItem::id) { item ->
+                TvEpisodeButton(item = item, onPlay = { onPlay(item) })
             }
         }
     }
 }
+
+@Composable
+private fun TvEpisodeButton(
+    item: LibraryMediaItem,
+    onPlay: () -> Unit,
+) {
+    Button(
+        onClick = onPlay,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    item.seriesTitle,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    item.episodeTitle,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Spacer(modifier = Modifier.width(20.dp))
+            Text("${item.subtitles.size} subs")
+        }
+    }
+}
+
+private data class LibrarySeriesSummary(
+    val title: String,
+    val episodeCount: Int,
+)
+
+private fun List<LibraryMediaItem>.toSeriesSummaries(limit: Int = 10): List<LibrarySeriesSummary> =
+    groupBy(LibraryMediaItem::seriesTitle)
+        .map { (title, episodes) ->
+            LibrarySeriesSummary(
+                title = title,
+                episodeCount = episodes.size,
+            )
+        }
+        .sortedWith(
+            compareByDescending<LibrarySeriesSummary> { it.episodeCount }
+                .thenBy { it.title.lowercase() },
+        )
+        .take(limit)
+
+private fun LibrarySeriesSummary.episodeLabel(): String =
+    if (episodeCount == 1) "1 episode" else "$episodeCount episodes"

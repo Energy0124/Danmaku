@@ -96,8 +96,25 @@ validation.
 ## Phase 5: Expansion
 
 - Promote macOS from experimental desktop support after embedded video
-  composition and libmpv packaging are audited.
-- Reuse the desktop app for Linux.
+  composition, platform-appropriate native playback, and packaging are audited.
+- Reuse the desktop app for Linux after the same desktop playback boundary is
+  portable beyond Windows.
 - Add iOS and iPadOS using shared KMP logic and AVPlayer.
 - Build a streaming-first React and TypeScript web client.
 - Add optional sync, accounts, live rooms, and moderation.
+
+## First-Release Completeness Targets
+
+- Windows desktop should feel like the primary library host and player: polished
+  local library browsing, LAN serving, progress tracking, danmaku controls,
+  provider settings, diagnostics, and release smoke tests.
+- Android mobile and tablet should feel like a complete client: saved PC
+  connections, adaptive library browsing, player-first controls, progress sync,
+  subtitle/audio selection, and offline-download support when authorized source
+  downloads land.
+- Android TV should remain a dedicated remote-first app: focus-safe library
+  browsing, large readable player controls, PC discovery, progress sync,
+  subtitle/audio selection, and physical-device verification.
+- macOS should be added only after the desktop media boundary is ready for a
+  macOS-native playback and packaging strategy, rather than copying the Windows
+  libmpv/JNA assumptions blindly.

@@ -13,6 +13,35 @@ indexed sidecars plus generated or dandanplay-fetched ASS danmaku tracks through
 mpv. Android mobile and TV clients can browse the LAN catalog and pass selected
 streams plus indexed sidecar subtitles to Media3.
 
+## Feature-Complete Product Tracks
+
+These tracks define the current target for a NipaPlay-like first public release
+without relaxing the platform priorities. Keep implementing the earliest
+unblocked slices inside these tracks as the vertical slice hardens.
+
+- [ ] Promote the library model from flat media files to normalized series,
+  seasons, episodes, artwork, metadata source, watched state, favorites, and
+  playlist membership.
+- [ ] Add series detail, episode detail, continue-watching, recently-watched,
+  and next-up surfaces on Windows, Android mobile, and Android TV.
+- [ ] Add first-class danmaku controls across playback screens: local file
+  mounting, offset, opacity, font size, speed, density, display area,
+  show/hide, keyword filters, and regex filters.
+- [ ] Add trusted-device management for LAN pairing: device list, revoke,
+  rotate token, temporary pairings, QR pairing, API compatibility errors, and
+  token-redacted diagnostics.
+- [ ] Add authorized remote-source plugin contracts, then implement WebDAV,
+  SMB, Jellyfin, and Emby as normalized source adapters with progress sync.
+- [ ] Add offline-download queue behavior for authorized sources on Windows,
+  Android mobile, and Android TV: pause, resume, retry, delete, disk quota,
+  low-space handling, and restart recovery.
+- [ ] Add macOS desktop support after the desktop media boundary is portable:
+  packaging, native playback implementation choice, filesystem permissions,
+  code-signing/notarization notes, and smoke verification.
+- [ ] Add polished platform UX passes: Windows desktop tray/file associations,
+  Android phone/tablet adaptive layouts, Android TV remote-first library and
+  player screens, support bundles, update checks, and localization plumbing.
+
 ## Active
 
 - [x] Record the initial architecture and platform priorities.
@@ -136,6 +165,8 @@ streams plus indexed sidecar subtitles to Media3.
   subtitle-only filtering backed by the shared domain query helper.
 - [x] Add an Android mobile series rail for faster browsing within large
   connected-PC catalogs.
+- [x] Add an Android TV remote-friendly library header, series rail, and richer
+  episode rows.
 - [x] Add Android mobile progress scrubbing and Android TV remote-friendly seek
   controls backed by shared seek-target clamping.
 - [ ] Add Android phone/tablet screenshot or instrumentation coverage for the
