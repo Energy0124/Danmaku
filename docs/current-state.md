@@ -182,6 +182,9 @@ Updated on 2026-06-06.
 - Shared catalog query helpers filter indexed episodes by multi-term search,
   title/path sort order, and subtitle availability. Windows desktop, Android
   mobile, and Android TV expose those filters in their library screens.
+- Shared catalog grouping helpers expose deterministic series and season buckets
+  with episode counts, subtitle-track totals, size totals, and episode ordering
+  for future detail, next-up, favorite, and playlist screens.
 - Android mobile library browsing includes a compact series rail that summarizes
   the largest connected-PC titles and narrows the episode list through the
   existing search field.

@@ -22,6 +22,8 @@ unblocked slices inside these tracks as the vertical slice hardens.
 - [ ] Promote the library model from flat media files to normalized series,
   seasons, episodes, artwork, metadata source, watched state, favorites, and
   playlist membership.
+- [x] Add shared deterministic series and season grouping helpers as the first
+  normalized library-model foundation.
 - [ ] Add series detail, episode detail, continue-watching, recently-watched,
   and next-up surfaces on Windows, Android mobile, and Android TV.
 - [ ] Add first-class danmaku controls across playback screens: local file

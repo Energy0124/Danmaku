@@ -48,12 +48,14 @@ import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryCatalogQuery
 import app.danmaku.domain.LibraryCatalogSort
 import app.danmaku.domain.LibraryMediaItem
+import app.danmaku.domain.LibrarySeries
 import app.danmaku.domain.LibrarySubtitleFilter
 import app.danmaku.domain.PlaybackCommand
 import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.PlaybackTrack
 import app.danmaku.domain.PlaybackTrackKind
 import app.danmaku.domain.filteredItems
+import app.danmaku.domain.groupedSeries
 import app.danmaku.domain.seekTargetBy
 import app.danmaku.library.android.LanLibraryDiscoveryClient
 import app.danmaku.library.android.LanLibraryClient
@@ -416,7 +418,7 @@ internal fun LibraryItems(
             ),
         )
         .orEmpty()
-    val series = totalItems.toSeriesSummaries()
+    val series = catalog?.groupedSeries().orEmpty().take(10)
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(
@@ -494,7 +496,7 @@ internal fun LibraryItems(
                         Text("All series")
                     }
                 }
-                items(series, key = LibrarySeriesSummary::title) { summary ->
+                items(series, key = { it.id }) { summary ->
                     Button(
                         onClick = {
                             searchText = if (searchText.trim().equals(summary.title, ignoreCase = true)) {
@@ -562,24 +564,5 @@ private fun TvEpisodeButton(
     }
 }
 
-private data class LibrarySeriesSummary(
-    val title: String,
-    val episodeCount: Int,
-)
-
-private fun List<LibraryMediaItem>.toSeriesSummaries(limit: Int = 10): List<LibrarySeriesSummary> =
-    groupBy(LibraryMediaItem::seriesTitle)
-        .map { (title, episodes) ->
-            LibrarySeriesSummary(
-                title = title,
-                episodeCount = episodes.size,
-            )
-        }
-        .sortedWith(
-            compareByDescending<LibrarySeriesSummary> { it.episodeCount }
-                .thenBy { it.title.lowercase() },
-        )
-        .take(limit)
-
-private fun LibrarySeriesSummary.episodeLabel(): String =
+private fun LibrarySeries.episodeLabel(): String =
     if (episodeCount == 1) "1 episode" else "$episodeCount episodes"
