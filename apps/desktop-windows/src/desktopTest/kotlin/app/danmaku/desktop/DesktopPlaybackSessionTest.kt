@@ -10,6 +10,7 @@ import app.danmaku.library.LanSubtitlePreparation
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 
 class DesktopPlaybackSessionTest {
     @Test
@@ -190,6 +191,17 @@ class DesktopPlaybackSessionTest {
             Path.of("S:/Anime/Example Show/../Example Show/Episode 01.mkv")
                 .toDirectLocalPlaybackRequest(),
         )
+    }
+
+    @Test
+    fun rejectsNegativeResumePositionsBeforePlanningMpvCommands() {
+        assertFailsWith<IllegalArgumentException> {
+            DesktopPlaybackRequest(
+                label = "Example Show - Episode 01",
+                source = PlaybackSource.LocalFile("S:\\Anime\\Example Show\\Episode 01.mkv"),
+                resumePositionMs = -1,
+            )
+        }
     }
 
     private class RecordingDesktopMpvCommandExecutor : DesktopMpvCommandExecutor {

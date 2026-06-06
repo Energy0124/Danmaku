@@ -29,6 +29,9 @@ data class DesktopPlaybackRequest(
 ) {
     init {
         require(label.isNotBlank()) { "label must not be blank" }
+        require(resumePositionMs == null || resumePositionMs >= 0) {
+            "resumePositionMs must not be negative"
+        }
         require(progressMediaId == null || progressMediaId.isNotBlank()) {
             "progressMediaId must not be blank"
         }
