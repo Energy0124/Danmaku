@@ -30,6 +30,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.VolumeDown
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
@@ -769,25 +772,53 @@ private fun NowPlayingPanel(
                         contentColor = PlayerBlack,
                     ),
                 ) {
+                    Icon(
+                        imageVector = if (snapshot.status == PlaybackStatus.PLAYING) {
+                            Icons.Filled.Pause
+                        } else {
+                            Icons.Filled.PlayArrow
+                        },
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         if (snapshot.status == PlaybackStatus.PLAYING) "Pause" else "Play",
                         fontWeight = FontWeight.SemiBold,
                     )
                 }
                 OutlinedButton(onClick = onOpen) {
+                    Icon(
+                        imageVector = Icons.Filled.FolderOpen,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text("Open video")
                 }
                 OutlinedButton(
                     onClick = { onSetVolume((snapshot.volumePercent - 10).coerceAtLeast(0)) },
                     enabled = snapshot.source != null && snapshot.volumePercent > 0,
                 ) {
-                    Text("Vol -")
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.VolumeDown,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("-10")
                 }
                 OutlinedButton(
                     onClick = { onSetVolume((snapshot.volumePercent + 10).coerceAtMost(100)) },
                     enabled = snapshot.source != null && snapshot.volumePercent < 100,
                 ) {
-                    Text("Vol +")
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.VolumeUp,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("+10")
                 }
             }
 
@@ -1145,11 +1176,11 @@ private fun EpisodeRow(
                     .background(if (selected) AccentBlue else Color(0xFF2B3239)),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(
-                    "Play",
-                    color = if (selected) PlayerBlack else Color(0xFFE5E7EB),
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.SemiBold,
+                Icon(
+                    imageVector = Icons.Filled.PlayArrow,
+                    contentDescription = "Play ${item.episodeTitle}",
+                    tint = if (selected) PlayerBlack else Color(0xFFE5E7EB),
+                    modifier = Modifier.size(26.dp),
                 )
             }
             Spacer(modifier = Modifier.width(12.dp))
