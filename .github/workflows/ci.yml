@@ -97,3 +97,36 @@ jobs:
 
       - name: Test Rust workspace
         run: cargo test --workspace
+
+  macos-desktop:
+    name: macOS desktop build and tests
+    runs-on: macos-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v5
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Test Rust workspace on macOS
+        run: cargo test --workspace
+
+      - name: Build and test macOS desktop target
+        run: bash ./gradlew --no-daemon :apps:desktop-windows:desktopTest :apps:desktop-windows:createDistributable
+
+      - name: Upload macOS Desktop App
+        uses: actions/upload-artifact@v7
+        with:
+          name: danmaku-macos-desktop
+          path: apps/desktop-windows/build/compose/binaries/main/app/desktop-windows.app/
+          if-no-files-found: error

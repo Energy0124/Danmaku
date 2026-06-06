@@ -46,6 +46,11 @@ val windowsMpvBridgeDll = rootProject.layout.projectDirectory.file("target/relea
 val windowsLibmpvDll = rootProject.layout.projectDirectory.file("runtime/windows/libmpv/libmpv-2.dll")
 val windowsDistributableAppDir = layout.buildDirectory.dir("compose/binaries/main/app/desktop-windows/app")
 val windowsLibmpvDllPath = windowsLibmpvDll.asFile.absolutePath
+val macosMpvBridgeDylib = rootProject.layout.projectDirectory.file("target/release/libplayer_windows_mpv.dylib")
+val macosDistributableAppDir = layout.buildDirectory.dir("compose/binaries/main/app/desktop-windows.app/Contents/app")
+val hostOs = System.getProperty("os.name").lowercase()
+val isWindowsHost = "windows" in hostOs
+val isMacosHost = "mac" in hostOs || "darwin" in hostOs
 
 val buildWindowsMpvBridge by tasks.registering(Exec::class) {
     description = "Builds the Windows libmpv JNA bridge DLL used by the desktop player."
@@ -83,9 +88,32 @@ val bundleWindowsMpvRuntime by tasks.registering(Copy::class) {
     into(windowsDistributableAppDir)
 }
 
+val buildMacosMpvBridge by tasks.registering(Exec::class) {
+    description = "Builds the macOS libmpv JNA bridge dylib used by the desktop player."
+    group = "build"
+    workingDir = rootProject.layout.projectDirectory.asFile
+    commandLine("cargo", "build", "--release", "-p", "player-windows-mpv", "--lib")
+    inputs.files(
+        rootProject.layout.projectDirectory.file("Cargo.toml"),
+        rootProject.layout.projectDirectory.dir("native/player-windows-mpv"),
+    )
+    outputs.file(macosMpvBridgeDylib)
+}
+
+val bundleMacosMpvRuntime by tasks.registering(Copy::class) {
+    description = "Copies the macOS mpv bridge into the Compose distributable."
+    group = "distribution"
+    dependsOn(buildMacosMpvBridge)
+    from(macosMpvBridgeDylib)
+    into(macosDistributableAppDir)
+}
+
 afterEvaluate {
     tasks.named("createDistributable") {
-        finalizedBy(bundleWindowsMpvRuntime)
+        when {
+            isWindowsHost -> finalizedBy(bundleWindowsMpvRuntime)
+            isMacosHost -> finalizedBy(bundleMacosMpvRuntime)
+        }
     }
 }
 

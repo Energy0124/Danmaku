@@ -6,7 +6,19 @@ use std::{
 };
 
 pub const LIBMPV_PATH_ENV: &str = "DANMAKU_LIBMPV_PATH";
+#[cfg(target_os = "macos")]
+pub const LIBMPV_DLL_NAME: &str = "libmpv.2.dylib";
+#[cfg(all(unix, not(target_os = "macos")))]
+pub const LIBMPV_DLL_NAME: &str = "libmpv.so.2";
+#[cfg(windows)]
 pub const LIBMPV_DLL_NAME: &str = "libmpv-2.dll";
+
+#[cfg(target_os = "macos")]
+const LIBMPV_LIBRARY_NAMES: &[&str] = &["libmpv.2.dylib", "libmpv.dylib"];
+#[cfg(all(unix, not(target_os = "macos")))]
+const LIBMPV_LIBRARY_NAMES: &[&str] = &["libmpv.so.2", "libmpv.so.1", "libmpv.so"];
+#[cfg(windows)]
+const LIBMPV_LIBRARY_NAMES: &[&str] = &["libmpv-2.dll"];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LibraryLocationError {
@@ -17,7 +29,7 @@ impl fmt::Display for LibraryLocationError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             formatter,
-            "{LIBMPV_DLL_NAME} was not found; searched {}",
+            "libmpv was not found; searched {}",
             self.searched_paths
                 .iter()
                 .map(|path| path.display().to_string())
@@ -35,15 +47,21 @@ pub fn candidate_paths(executable_dir: &Path, configured_path: Option<&OsStr>) -
     if let Some(configured_path) = configured_path.filter(|path| !path.is_empty()) {
         let configured_path = PathBuf::from(configured_path);
         if configured_path.is_dir() {
-            candidates.push(configured_path.join(LIBMPV_DLL_NAME));
+            candidates.extend(
+                LIBMPV_LIBRARY_NAMES
+                    .iter()
+                    .map(|name| configured_path.join(name)),
+            );
         } else {
             candidates.push(configured_path);
         }
     }
 
-    let executable_candidate = executable_dir.join(LIBMPV_DLL_NAME);
-    if !candidates.contains(&executable_candidate) {
-        candidates.push(executable_candidate);
+    for library_name in LIBMPV_LIBRARY_NAMES {
+        let executable_candidate = executable_dir.join(library_name);
+        if !candidates.contains(&executable_candidate) {
+            candidates.push(executable_candidate);
+        }
     }
 
     candidates
@@ -71,7 +89,7 @@ pub fn find_library_for_current_process() -> Result<PathBuf, LibraryLocationErro
 
 #[cfg(test)]
 mod tests {
-    use super::{LIBMPV_DLL_NAME, candidate_paths, find_library};
+    use super::{LIBMPV_DLL_NAME, LIBMPV_LIBRARY_NAMES, candidate_paths, find_library};
     use std::{ffi::OsStr, fs, path::Path};
 
     #[test]
@@ -83,10 +101,13 @@ mod tests {
 
         assert_eq!(
             candidates,
-            vec![
-                Path::new("C:/media/libmpv-custom.dll").to_path_buf(),
-                Path::new("C:/app").join(LIBMPV_DLL_NAME),
-            ]
+            std::iter::once(Path::new("C:/media/libmpv-custom.dll").to_path_buf())
+                .chain(
+                    LIBMPV_LIBRARY_NAMES
+                        .iter()
+                        .map(|name| Path::new("C:/app").join(name))
+                )
+                .collect::<Vec<_>>()
         );
     }
 
@@ -101,6 +122,9 @@ mod tests {
         let candidates = candidate_paths(Path::new("C:/app"), Some(temp_dir.as_os_str()));
 
         assert_eq!(candidates[0], temp_dir.join(LIBMPV_DLL_NAME));
+        for library_name in LIBMPV_LIBRARY_NAMES {
+            assert!(candidates.contains(&temp_dir.join(library_name)));
+        }
         fs::remove_dir(&temp_dir).expect("remove test directory");
     }
 

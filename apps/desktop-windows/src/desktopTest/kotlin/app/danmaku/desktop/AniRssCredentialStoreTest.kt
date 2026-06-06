@@ -50,6 +50,9 @@ class AniRssCredentialStoreTest {
 
     @Test
     fun roundTripsSecretsWithWindowsDpapi() {
+        if (DesktopHostPlatform.current() != DesktopHostPlatform.WINDOWS) {
+            return
+        }
         val protector = WindowsDpapiSecretProtector()
         val plaintext = "danmaku-dpapi-round-trip".toByteArray()
 
@@ -60,6 +63,22 @@ class AniRssCredentialStoreTest {
             plaintext.toList(),
             protector.unprotect(protected).toList(),
         )
+    }
+
+    @Test
+    fun roundTripsSecretsWithLocalAesGcmProtector() {
+        val temp = createTempDirectory("danmaku-local-secret-protector")
+        val protector = LocalAesGcmSecretProtector(temp.resolve("secret.key"))
+        val plaintext = "danmaku-local-secret-round-trip".toByteArray()
+
+        val protected = protector.protect(plaintext)
+
+        assertFalse(protected.contentEquals(plaintext))
+        assertEquals(
+            plaintext.toList(),
+            protector.unprotect(protected).toList(),
+        )
+        temp.toFile().deleteRecursively()
     }
 
     private object ReversingSecretProtector : DesktopSecretProtector {

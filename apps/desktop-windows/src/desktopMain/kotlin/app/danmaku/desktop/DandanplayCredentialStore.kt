@@ -4,7 +4,7 @@ import java.util.Base64
 
 class DandanplayCredentialStore(
     private val store: DesktopLibraryCatalogStore,
-    private val secretProtector: DesktopSecretProtector = WindowsDpapiSecretProtector(),
+    private val secretProtector: DesktopSecretProtector = DesktopSecretProtector.default(),
     private val nowEpochMs: () -> Long = System::currentTimeMillis,
 ) {
     fun loadSettings(): DandanplayProviderSettings {

@@ -24,6 +24,7 @@ class DesktopMpvCommandExecutorRuntimeTest {
         val commands = mutableListOf<DesktopMpvCommand>()
 
         val runtime = DesktopMpvCommandExecutorRuntimeFactory(
+            platform = DesktopHostPlatform.WINDOWS,
             environment = emptyMap(),
             librarySearchPaths = listOf(temp),
             loadNativeExecutor = { bridge, libmpv, options ->
@@ -60,6 +61,7 @@ class DesktopMpvCommandExecutorRuntimeTest {
         var loadedOptions = emptyMap<String, String>()
 
         val runtime = DesktopMpvCommandExecutorRuntimeFactory(
+            platform = DesktopHostPlatform.WINDOWS,
             environment = mapOf(
                 DesktopMpvCommandExecutorRuntimeFactory.BRIDGE_PATH_ENV to temp.toString(),
                 DesktopMpvCommandExecutorRuntimeFactory.LIBMPV_PATH_ENV to temp.toString(),
@@ -84,6 +86,7 @@ class DesktopMpvCommandExecutorRuntimeTest {
         val commands = mutableListOf<DesktopMpvCommand>()
         var loaderCalled = false
         val runtime = DesktopMpvCommandExecutorRuntimeFactory(
+            platform = DesktopHostPlatform.WINDOWS,
             environment = emptyMap(),
             librarySearchPaths = emptyList(),
             loadNativeExecutor = { _, _, _ ->
@@ -100,6 +103,29 @@ class DesktopMpvCommandExecutorRuntimeTest {
         assertContains(runtime.statusMessage, "Command-log-only mode")
         assertEquals(listOf(command), commands)
         assertFalse(loaderCalled)
+    }
+
+    @Test
+    fun resolvesMacosNativeLibraryNames() {
+        val temp = createTempDirectory("danmaku-mpv-runtime-macos")
+        val bridgePath = Files.createFile(temp.resolve("libplayer_windows_mpv.dylib"))
+        val libmpvPath = Files.createFile(temp.resolve("libmpv.2.dylib"))
+        var loadedPaths = emptyList<java.nio.file.Path>()
+
+        val runtime = DesktopMpvCommandExecutorRuntimeFactory(
+            platform = DesktopHostPlatform.MACOS,
+            environment = emptyMap(),
+            librarySearchPaths = listOf(temp),
+            loadNativeExecutor = { bridge, libmpv, _ ->
+                loadedPaths = listOf(bridge, libmpv)
+                RecordingCloseableExecutor()
+            },
+        ).create(commandObserver = {})
+
+        assertEquals(DesktopMpvCommandExecutorMode.NATIVE, runtime.mode)
+        assertEquals(listOf(bridgePath, libmpvPath), loadedPaths)
+        runtime.close()
+        temp.toFile().deleteRecursively()
     }
 
     private class RecordingCloseableExecutor : CloseableDesktopMpvCommandExecutor {
