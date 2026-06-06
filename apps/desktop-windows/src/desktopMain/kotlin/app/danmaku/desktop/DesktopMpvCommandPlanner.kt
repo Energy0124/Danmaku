@@ -29,8 +29,17 @@ enum class DesktopVideoAspectMode(
 }
 
 object DesktopMpvCommandPlanner {
-    fun load(source: PlaybackSource): DesktopMpvCommand =
-        DesktopMpvCommand(
+    fun load(
+        source: PlaybackSource,
+        startPositionMs: Long? = null,
+    ): DesktopMpvCommand {
+        require(startPositionMs == null || startPositionMs >= 0) {
+            "startPositionMs must not be negative"
+        }
+        val startOption = startPositionMs
+            ?.takeIf { it > 0 }
+            ?.let { "start=${it.toMpvSeconds()}" }
+        return DesktopMpvCommand(
             listOf(
                 "loadfile",
                 when (source) {
@@ -38,8 +47,9 @@ object DesktopMpvCommandPlanner {
                     is PlaybackSource.RemoteStream -> source.url
                 },
                 "replace",
-            ),
+            ) + listOfNotNull(startOption),
         )
+    }
 
     fun dispatch(command: PlaybackCommand): DesktopMpvCommand =
         when (command) {

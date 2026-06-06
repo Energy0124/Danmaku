@@ -32,13 +32,23 @@ class DesktopMpvPlaybackController(
         private set
 
     override fun load(source: PlaybackSource) {
+        load(source, startPositionMs = null)
+    }
+
+    fun load(
+        source: PlaybackSource,
+        startPositionMs: Long?,
+    ) {
+        require(startPositionMs == null || startPositionMs >= 0) {
+            "startPositionMs must not be negative"
+        }
         execute(
-            command = DesktopMpvCommandPlanner.load(source),
+            command = DesktopMpvCommandPlanner.load(source, startPositionMs),
             nextSnapshot = {
                 PlaybackSnapshot(
                     status = PlaybackStatus.LOADING,
                     source = source,
-                    position = PlaybackPosition(positionMs = 0, durationMs = null),
+                    position = PlaybackPosition(positionMs = startPositionMs ?: 0, durationMs = null),
                     playbackRate = snapshot.playbackRate,
                     volumePercent = snapshot.volumePercent,
                 )

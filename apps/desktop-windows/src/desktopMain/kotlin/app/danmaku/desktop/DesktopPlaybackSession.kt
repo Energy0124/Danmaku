@@ -41,13 +41,21 @@ class DesktopPlaybackSession(
     private val attachSubtitle: (DesktopPlaybackSubtitle) -> Unit = {},
 ) {
     fun load(request: DesktopPlaybackRequest): PlaybackSnapshot {
-        controller.load(request.source)
+        controller.loadRequestSource(request)
         request.subtitles.forEach(attachSubtitle)
-        request.resumePositionMs?.let {
-            controller.dispatch(PlaybackCommand.SeekTo(it))
-        }
         afterLoad(request)
         return controller.snapshot()
+    }
+}
+
+private fun PlaybackController.loadRequestSource(request: DesktopPlaybackRequest) {
+    if (this is DesktopMpvPlaybackController) {
+        load(request.source, request.resumePositionMs)
+        return
+    }
+    load(request.source)
+    request.resumePositionMs?.let {
+        dispatch(PlaybackCommand.SeekTo(it))
     }
 }
 

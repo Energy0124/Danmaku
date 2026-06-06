@@ -77,6 +77,32 @@ class DesktopMpvPlaybackControllerTest {
     }
 
     @Test
+    fun loadsSourcesAtStartPositionForResumePlayback() {
+        val executor = RecordingDesktopMpvCommandExecutor()
+        val controller = DesktopMpvPlaybackController(executor)
+        val source = PlaybackSource.LocalFile("S:\\Anime\\Example Show\\Episode 01.mkv")
+
+        controller.load(source, startPositionMs = 12_345)
+
+        assertEquals(
+            listOf(
+                DesktopMpvCommand(
+                    listOf(
+                        "loadfile",
+                        "S:\\Anime\\Example Show\\Episode 01.mkv",
+                        "replace",
+                        "start=12.345",
+                    ),
+                ),
+            ),
+            executor.commands,
+        )
+        assertEquals(PlaybackStatus.LOADING, controller.snapshot().status)
+        assertEquals(source, controller.snapshot().source)
+        assertEquals(PlaybackPosition(positionMs = 12_345, durationMs = null), controller.snapshot().position)
+    }
+
+    @Test
     fun initializesWithPlaybackPreferences() {
         val controller = DesktopMpvPlaybackController(
             commandExecutor = RecordingDesktopMpvCommandExecutor(),

@@ -24,6 +24,24 @@ class DesktopMpvCommandPlannerTest {
     }
 
     @Test
+    fun plansLocalFileLoadsWithStartPosition() {
+        assertEquals(
+            DesktopMpvCommand(
+                listOf(
+                    "loadfile",
+                    "S:\\Anime\\Example Show\\Episode 01.mkv",
+                    "replace",
+                    "start=12.345",
+                ),
+            ),
+            DesktopMpvCommandPlanner.load(
+                source = PlaybackSource.LocalFile("S:\\Anime\\Example Show\\Episode 01.mkv"),
+                startPositionMs = 12_345,
+            ),
+        )
+    }
+
+    @Test
     fun plansRemoteStreamLoads() {
         assertEquals(
             DesktopMpvCommand(

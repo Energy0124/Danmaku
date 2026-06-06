@@ -43,9 +43,9 @@ class DesktopPlaybackSessionTest {
                         "loadfile",
                         "S:\\Anime\\Example Show\\Episode 01.mkv",
                         "replace",
+                        "start=12.345",
                     ),
                 ),
-                DesktopMpvCommand(listOf("seek", "12.345", "absolute")),
             ),
             executor.commands,
         )
