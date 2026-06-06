@@ -1,7 +1,7 @@
 # Windows libmpv Bundle Audit
 
-Danmaku does not commit native media DLLs. Release preparation may download only
-an approved, pinned, and verified bundle before copying it into the Windows
+Danmaku does not commit native media DLLs. Local packaging may use only an
+approved, pinned, and verified bundle before copying it into the Windows
 application directory.
 
 Danmaku's own source code is MIT licensed. libmpv, FFmpeg, and their bundled
@@ -47,6 +47,12 @@ producer, verifies the archive SHA-256, extracts only `libmpv-2.dll`, verifies
 the DLL SHA-256, and places it in the portable package's `app` directory. The
 launcher exposes that path through `DANMAKU_LIBMPV_PATH`. Danmaku's code remains
 MIT licensed while the bundled DLL remains LGPLv3-or-later licensed.
+
+The normal Compose `createDistributable` task also builds
+`player_windows_mpv.dll` and copies the installed approved `libmpv-2.dll` into
+the app directory by default, so local smoke tests exercise the same native file
+layout as the portable release. Install the pinned dependency first if the local
+`runtime/windows/libmpv/libmpv-2.dll` file is missing.
 
 The Windows archive is runtime-free and requires user-installed Java 17 or
 newer. This avoids redistributing an OpenJDK runtime inside the release
@@ -142,11 +148,19 @@ checked against the manifest before approving the extracted bundle.
 
 ## Package A Verified Bundle
 
-Create the Compose distributable, then copy only manifest-listed files beside
-its executable:
+For the approved zhongfly dependency, install it locally and create the Compose
+distributable:
 
 ```powershell
+.\tools\windows\install-libmpv-dependency.ps1 -AcceptLicense
 .\gradlew.bat --no-daemon :apps:desktop-windows:createDistributable
+.\tools\windows\verify-windows-mpv-runtime.ps1
+```
+
+For a future candidate bundle, use the generic verifier to copy only
+manifest-listed files beside the executable:
+
+```powershell
 .\tools\windows\verify-libmpv-bundle.ps1 `
   -SourceArchivePath C:\path\to\reviewed-libmpv-archive.7z `
   -ProbeExecutable .\target\debug\mpv-probe.exe `

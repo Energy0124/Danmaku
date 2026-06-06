@@ -8,9 +8,9 @@ overlays.
 
 Danmaku's own source code is licensed under the [MIT License](LICENSE).
 Third-party dependencies retain their own licenses; see
-[Third-Party Notices](THIRD_PARTY_NOTICES.md). Release builds validate their
-transitive dependency graphs and package the applicable license text plus a
-versioned dependency inventory.
+[Third-Party Notices](THIRD_PARTY_NOTICES.md). Release artifacts package the
+applicable license text, notices, and versioned dependency information for the
+distributed components.
 
 The Windows desktop archive is runtime-free and requires a user-installed Java
 17 or newer runtime. This keeps the published archive from redistributing an
@@ -57,6 +57,9 @@ Implemented today:
 - Windows playback with indexed sidecar subtitle attachment plus runtime
   volume, fullscreen/aspect-ratio, and audio/subtitle track discovery and
   selection controls
+- Player-first Windows playback screen with a stable embedded native mpv video
+  host, compact icon controls, minimal fullscreen chrome, and an agent-friendly
+  GUI playback smoke-test launch path
 - Persisted Windows playback defaults for volume, playback rate, and aspect
   mode
 - Windows continue-watching and recently-watched lists for local library
@@ -91,6 +94,8 @@ Implemented today:
   resume seeks and native mpv command execution
 - Rust libmpv loader/probe plus a small C ABI and Kotlin/JNA binding for the
   Windows native command executor
+- Default Windows Compose distributable packaging for the Rust mpv bridge DLL
+  and the approved local `libmpv-2.dll`
 - Tested LAN server/client behavior, byte ranges, progress updates, reconnects,
   timeouts, slow streams, and Android/TV instrumentation paths
 
@@ -211,18 +216,26 @@ In the Windows shell:
 5. Enter the pairing code and refresh the PC library.
 
 The Windows shell can prepare local or LAN playback requests, execute their
-commands through the packaged Rust/JNA/libmpv chain, and host mpv in an initial
-native child-window playback surface with play, pause, seek, progress-bar
-scrubbing, playback-rate, volume, and track controls. Library playback saves
-watch progress from live mpv position snapshots, while direct file playback
-remains a quick validation path that does not create library progress records.
-Full parsed danmaku synchronization is still pending.
+commands through the packaged Rust/JNA/libmpv chain, and host mpv in a stable
+native child-window playback surface. The Playback tab is video-first: compact
+top chrome, icon controls, progress scrubbing, play/pause, seek, playback-rate,
+volume, fullscreen, aspect-ratio, and track controls stay close to the video and
+can be minimized in fullscreen. Library playback saves watch progress from live
+mpv position snapshots, while direct file playback remains a quick validation
+path that does not create library progress records. Indexed sidecars and
+dandanplay-fetched comments can be attached as mpv subtitle/ASS overlay tracks.
 
 For a packaged local-file smoke test without driving the full UI, pass a real
 media file to the Windows runtime probe:
 
 ```powershell
 .\tools\windows\verify-windows-mpv-runtime.ps1 -MediaPath C:\media\sample.mkv
+```
+
+For a fast GUI smoke test of the actual packaged player surface, use:
+
+```powershell
+.\tools\windows\smoke-windows-playback.ps1 -MediaPath C:\media\sample.mkv -Seconds 6
 ```
 
 ## Probe A Windows libmpv Bundle
@@ -259,7 +272,9 @@ For the pinned-bundle manifest, checksum verification, probe, and release
 packaging workflow, see
 [Windows libmpv Bundle Audit](docs/windows-libmpv-bundle.md). The release
 artifact includes the required GPL/LGPL texts, source and provenance notice,
-and the exact approved DLL hash.
+and the exact approved DLL hash. `:apps:desktop-windows:createDistributable`
+also builds the Rust bridge and copies the installed approved `libmpv-2.dll`
+beside the app by default.
 
 ## Security And Source Policy
 
@@ -281,7 +296,10 @@ Project rules:
 Near-term priorities:
 
 - Use the approved pinned Windows libmpv bundle for development and releases.
-- Synchronize the danmaku overlay to the real playback clock.
+- Keep the quick packaged Windows playback smoke loop passing while changing the
+  player UI or native host.
+- Add manual danmaku mounting, offset controls, and filtering over the real
+  playback clock.
 - Exercise PC-to-mobile and PC-to-TV streaming on physical hardware.
 - Validate Windows fullscreen/aspect-ratio behavior with resize, 4K media, and
   hardware decoding.

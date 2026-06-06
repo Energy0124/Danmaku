@@ -67,7 +67,6 @@ try {
             -FilePath $gradle `
             -Arguments @(
                 "--no-daemon",
-                ":apps:desktop-windows:licensee",
                 ":apps:desktop-windows:createDistributable"
             )
 

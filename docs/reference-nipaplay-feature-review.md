@@ -35,11 +35,14 @@ Already implemented:
 - Windows host direct local-file playback preparation with resume lookup.
 - Rust C ABI for the Windows libmpv context and command boundary.
 - Desktop mpv command planning for local-file and LAN-stream playback sources.
-- Desktop playback-controller wrapper for the planned Windows mpv command
-  boundary.
+- Desktop playback-controller wrapper for the Windows mpv command boundary.
 - Desktop session wiring that loads prepared local-file or paired-LAN requests
   into the playback controller with resume seeking.
 - JNA-backed desktop command executor binding to the Rust libmpv C ABI.
+- Stable Windows native mpv child-window host with a player-first Playback tab,
+  compact icon controls, fullscreen support, and packaged GUI smoke testing.
+- Default Windows Compose distributable packaging for the Rust mpv bridge and
+  approved local `libmpv-2.dll`.
 - Windows LAN discovery for Android and Android TV clients.
 - Android and Android TV Media3 playback through a background service.
 - Durable cross-device episode progress with resume seeking.
@@ -91,11 +94,12 @@ The NipaPlay repository exposes or documents these relevant product areas:
 These remain the highest priority because they validate the platform foundation.
 
 - [x] Approve and package a pinned, hash-verified Windows `libmpv-2.dll` bundle.
-- [ ] Run `mpv-probe` against the approved DLL in CI and a packaged Windows
+- [x] Run `mpv-probe` against the approved DLL in CI and a packaged Windows
   build.
-- [ ] Render libmpv video in the Windows Compose shell.
-- [ ] Play indexed local Windows episodes through the shared playback contract.
-- [ ] Synchronize the Compose danmaku overlay to the real playback clock.
+- [x] Render libmpv video in the Windows Compose shell.
+- [x] Play indexed local Windows episodes through the shared playback contract.
+- [x] Attach sidecars and dandanplay-fetched danmaku as mpv subtitle/ASS tracks
+  synchronized to the real playback clock.
 - [ ] Test Windows resize, fullscreen, seeking, pause/resume, rate changes,
   hardware decoding, 10-bit media, and 4K media.
 - [x] Run Android TV D-pad instrumentation tests on a workspace-local API 34
@@ -137,7 +141,10 @@ This turns the technical slice into a usable local media-center application.
 - [ ] Add richer library filters, cross-device watch history, cross-device
   continue watching, and scan status views.
 - [ ] Add episode detail and series detail screens.
-- [ ] Add previous episode, next episode, and configurable auto-next behavior.
+- [ ] Add previous episode, next episode, and configurable auto-next behavior
+  beyond the Windows local-library path.
+- [x] Add previous episode, next episode, and configurable auto-next behavior on
+  Windows local-library playback.
 - [ ] Add favorites and playlists after normalized episode identity is stable.
 - [x] Add embedded audio-track and subtitle-track selection to the playback contract.
 - [x] Load indexed local and paired-LAN `ASS`, `SSA`, `SRT`, and `VTT` sidecar

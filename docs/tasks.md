@@ -5,12 +5,13 @@ the platform surface.
 
 ## Current Focus
 
-Native render integration and Windows release packaging can use the approved
-pinned zhongfly LGPL libmpv bundle. The shared scrolling danmaku lane scheduler
-and synthetic Compose overlay demo are implemented. The Windows app also
-indexes local anime folders and streams indexed files over the LAN. Android
-mobile and TV clients can browse the catalog and pass selected streams plus
-indexed sidecar subtitles to Media3.
+Windows playback now has a packaged Rust/JNA/libmpv command path, stable native
+child-window host, player-first Playback tab, packaged mpv DLLs in the default
+Compose distributable, and a fast GUI smoke script for real local files. The
+shared scrolling danmaku lane scheduler is implemented, and Windows can attach
+indexed sidecars plus generated or dandanplay-fetched ASS danmaku tracks through
+mpv. Android mobile and TV clients can browse the LAN catalog and pass selected
+streams plus indexed sidecar subtitles to Media3.
 
 ## Active
 
@@ -47,6 +48,11 @@ indexed sidecar subtitles to Media3.
 - [x] Wire the JNA mpv command executor into the desktop shell using the pinned
   approved native dependency.
 - [x] Build a Windows libmpv playback spike using a native child-window host.
+- [x] Stabilize the Windows native mpv host across `loadfile` playback.
+- [x] Package the Rust mpv bridge and approved local `libmpv-2.dll` in the
+  default Windows Compose distributable.
+- [x] Replace the diagnostic-heavy Windows Playback tab with a player-first
+  video surface and compact icon controls.
 - [x] Add a shared scrolling danmaku lane scheduler with collision-aware tests.
 - [x] Add recursive Windows anime-folder indexing.
 - [x] Add a paired trusted-LAN catalog server with HTTP byte-range streaming.
@@ -59,8 +65,11 @@ indexed sidecar subtitles to Media3.
 - [x] Build a Compose Desktop shell.
 - [x] Add local-file playback on Windows.
 - [x] Add a packaged Windows local-media `loadfile` smoke probe.
-- [ ] Validate the Windows child-window playback spike with local files, resize,
-  fullscreen, hardware decoding, and 4K media.
+- [x] Add a packaged Windows GUI playback smoke script for quick real-video
+  verification.
+- [x] Smoke-test packaged Windows GUI playback with a real local media file.
+- [ ] Validate the Windows child-window player with resize, fullscreen
+  transitions, hardware decoding, 10-bit files, and 4K media.
 - [x] Render a synthetic danmaku overlay on top of Windows mpv playback.
 - [x] Add bounded visible-window queries and generated-track scheduler tests.
 - [x] Measure overlay behavior with a large generated timeline.
@@ -102,6 +111,8 @@ indexed sidecar subtitles to Media3.
   explicit prepare actions for diagnostics.
 - [x] Persist Windows playback defaults for volume, playback rate, and aspect
   mode.
+- [ ] Add Windows player keyboard shortcuts and continue tightening fullscreen
+  chrome around the stable native video host.
 
 ## Android And TV
 

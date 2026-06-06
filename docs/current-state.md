@@ -1,6 +1,6 @@
 # Current State
 
-Updated on 2026-06-05.
+Updated on 2026-06-06.
 
 ## Implemented
 
@@ -16,6 +16,9 @@ Updated on 2026-06-05.
   and copying only verified files into a desktop distributable. CI self-tests
   the generic verifier and directly packages only the approved pinned zhongfly
   bundle.
+- `:apps:desktop-windows:createDistributable` now builds the release Rust mpv
+  bridge and copies both `player_windows_mpv.dll` and the installed approved
+  `libmpv-2.dll` into the Compose distributable app directory by default.
 - Root MIT license, third-party notice, and approved Windows libmpv release
   packaging. Release preparation downloads the pinned zhongfly LGPL artifact,
   verifies both archive and DLL SHA-256 hashes, and directly bundles only
@@ -56,17 +59,18 @@ Updated on 2026-06-05.
   packaged Rust bridge and libmpv DLL are present, reports command-log-only
   fallback mode when they are unavailable, and closes the native handle on
   shutdown.
-- Initial Windows video-host spike using a SwingPanel-backed native child
-  window and libmpv's pre-initialize `wid` option. The desktop shell now
-  attaches a generated ASS subtitle track so synthetic danmaku is rendered by
-  mpv directly over the video. Full parsed-track synchronization and final
-  renderer selection are still pending.
-- Desktop shell play, pause, seek, progress-scrub, playback-rate, volume,
-  fullscreen, and aspect-ratio controls. Shared controls route through the
-  playback command contract, while desktop-only display controls route through
-  the Windows mpv boundary. The Windows controller polls libmpv properties for
-  live position, duration, pause state, EOF state, speed, volume, and runtime
-  audio/subtitle track metadata.
+- Windows video host using a SwingPanel-backed native child window and libmpv's
+  pre-initialize `wid` option. The host is kept stable across `loadfile` so mpv
+  does not attach to a transient one-pixel placeholder. The desktop shell can
+  attach generated ASS subtitle tracks and cached dandanplay ASS tracks so
+  danmaku is rendered by mpv directly over the video.
+- Player-first Windows Playback tab with compact top chrome, icon controls,
+  bottom progress/control chrome, fullscreen support, and a minimized
+  fullscreen surface. Shared play, pause, seek, progress-scrub, playback-rate,
+  and volume controls route through the playback command contract, while
+  desktop-only display controls route through the Windows mpv boundary. The
+  Windows controller polls libmpv properties for live position, duration, pause
+  state, EOF state, speed, volume, and runtime audio/subtitle track metadata.
 - Windows playback persists volume, playback-rate, and aspect-ratio defaults in
   SQLDelight settings and applies them when the native mpv runtime starts.
 - Windows playback attaches indexed local sidecar subtitles and paired-LAN
@@ -90,6 +94,11 @@ Updated on 2026-06-05.
   the native mpv host without requiring a library scan first.
 - Packaged Windows runtime probe can optionally load a supplied local media
   file through the same native mpv command path used by the desktop shell.
+- Packaged Windows GUI smoke script can launch the Compose app directly into
+  Playback with `--smoke-playback-media-env`, wait for `PLAYING`, verify that
+  position advances, and auto-exit. Passing the media path through an
+  environment variable keeps non-ASCII Windows paths intact through the
+  packaged launcher.
 - Shared scrolling danmaku lane scheduler with collision-aware tests, bounded
   visible-window lookup, backward-seek query coverage, and a 10,000-comment
   generated-track test. The scheduler also exposes sampled visibility metrics
@@ -206,8 +215,8 @@ Updated on 2026-06-05.
   connect/read timeouts with stable production defaults.
 - Shared LAN playback preparation converts a paired catalog item into a
   tokenized `RemoteStream` plus resume position; the Windows shell uses it for
-  same-PC or remote paired-server playback handoff while embedded native libmpv
-  rendering is still pending.
+  same-PC or remote paired-server playback handoff through the native libmpv
+  controller.
 - Windows local playback preparation resolves indexed host files directly to
   `LocalFile` sources with resume lookup, preserving an efficient same-PC path.
 - Android TV launch focus on `Discover PC` plus API 34 emulator-verified Compose
@@ -254,6 +263,15 @@ cargo test --workspace
 .\gradlew.bat --no-daemon :apps:desktop-windows:desktopTest
 .\gradlew.bat --no-daemon :shared:player-android-media3:assembleDebugAndroidTest
 .\gradlew.bat --no-daemon :apps:android-mobile:assembleDebug :apps:android-tv:assembleDebug
+.\gradlew.bat --no-daemon :apps:desktop-windows:createDistributable
+.\tools\windows\verify-windows-mpv-runtime.ps1
+```
+
+For Windows playback/UI changes, also smoke-test a real sample through the
+packaged GUI:
+
+```powershell
+.\tools\windows\smoke-windows-playback.ps1 -MediaPath C:\media\sample.mkv -Seconds 6
 ```
 
 With an Android emulator or device online, run:
@@ -266,18 +284,20 @@ With an Android emulator or device online, run:
 ## Next Work
 
 1. Exercise cross-device resume behavior on Android and TV hardware.
-2. Validate the Windows child-window playback spike with local files, resize,
-   fullscreen, hardware decoding, 4K media, and the mpv-rendered synthetic ASS
-   overlay.
-3. Add manual local danmaku-file mounting and per-episode offset controls.
-4. Re-audit the libmpv bundle before changing its producer artifact or hashes.
+2. Stress-test the Windows player with resize, fullscreen transitions, hardware
+   decoding, 10-bit files, and 4K media after the packaged GUI smoke passes.
+3. Add manual local danmaku-file mounting, per-episode offset controls, and
+   user-facing danmaku filters.
+4. Add keyboard shortcuts and continue trimming fullscreen/player chrome without
+   destabilizing the native mpv host.
+5. Re-audit the libmpv bundle before changing its producer artifact or hashes.
 
 ## Runtime Smoke Check
 
-The packaged Windows executable was launched after adding pairing to the LAN
-server. Its Compose window opened successfully, displayed the generated
-pairing code, rejected an unpaired `GET http://127.0.0.1:8686/api/library`
-request with HTTP `401`, and returned the expected empty initial catalog when
-the displayed code was supplied. The packaged runtime was launched again after
-adding SQLDelight storage; its paired endpoint started successfully from the
-trimmed runtime image.
+The packaged Windows distributable was rebuilt after native packaging and player
+host changes. `verify-windows-mpv-runtime.ps1` confirmed that the packaged app
+directory contains `player_windows_mpv.dll` and `libmpv-2.dll` and that the
+native executor starts successfully. `smoke-windows-playback.ps1` launched the
+packaged Compose player against a real local sample, reached `PLAYING`, observed
+an advancing playback position, and exited automatically. App logs are written
+under `%LOCALAPPDATA%\Danmaku\logs`.

@@ -147,8 +147,9 @@ a six-digit pairing code for the current server process. This first-stage HTTP
 server is for trusted local networks; use a stronger authenticated and
 encrypted transport before supporting untrusted networks. The intermediate
 Compose app image explicitly includes the `jdk.httpserver` and `java.sql`
-runtime modules. The uploaded portable Windows release is runtime-free and
-uses user-installed Java 17 or newer.
+runtime modules. The uploaded portable Windows release is runtime-free, uses
+user-installed Java 17 or newer, and includes the packaged mpv bridge plus the
+separately licensed approved libmpv DLL beside the app.
 
 The Windows host also registers authenticated provider-completion hooks on the
 same server. The initial `POST /api/hooks/ani-rss/download-end` endpoint
@@ -228,7 +229,8 @@ adapters implement its catalog, stream-URL, progress upload, and resume lookup
 contract. Android and Android TV use the existing `HttpURLConnection` adapter;
 the JVM source set contains the corresponding Windows HTTP adapter and loopback
 integration fixture. The desktop shell browses paired catalogs and prepares LAN
-stream URLs through that adapter. Native playback handoff remains planned.
+stream URLs through that adapter, then hands local or paired sources to the
+native mpv controller.
 
 The Windows adapter loads libmpv dynamically. Developer builds locate
 `libmpv-2.dll` from `DANMAKU_LIBMPV_PATH` or beside the packaged executable.
@@ -236,13 +238,16 @@ The desktop JNA runtime locates Danmaku's Rust bridge from
 `DANMAKU_MPV_BRIDGE_PATH` or the JVM native-library search path.
 The bridge accepts coarse mpv options before initialization so the Windows host
 can provide `wid` without crossing the native boundary per frame.
-The initial playback spike parents mpv under a SwingPanel-backed native child
-window. It is a validation host, not the final danmaku compositor; the final
-renderer must preserve reliable Compose overlay composition.
+The current Windows player parents mpv under a stable SwingPanel-backed native
+child window. Because heavyweight AWT composition sits above Compose, Windows
+renders indexed subtitles and danmaku as mpv subtitle/ASS tracks rather than
+depending on a Compose overlay over the video surface.
 Danmaku's Windows release directly redistributes an approved, pinned,
 hash-verified LGPL libmpv DLL as a separately licensed dependency. Release
 packaging includes the applicable license texts, source and provenance notice,
-and exact manifest. See ADR 0002.
+and exact manifest. The Compose distributable builds the Rust bridge and copies
+the installed approved libmpv DLL into the app directory by default. See ADR
+0002.
 
 ## Danmaku Pipeline
 
@@ -253,12 +258,16 @@ flowchart LR
     Index --> Query["Query playback window"]
     Query --> Filter["Apply user filters"]
     Filter --> Layout["Allocate lanes"]
-    Layout --> Canvas["Compose Canvas overlay"]
+    Layout --> Render["Renderer: mpv ASS on Windows; Compose/GPU later"]
 ```
 
 Rust initially owns a compact time index for normalized events. Kotlin should
 request batches for a playback window. Rendering and animation remain in
-Compose so the native boundary is not crossed per frame or per comment.
+platform UI/player layers so the native boundary is not crossed per frame or
+per comment. Windows currently uses mpv ASS subtitle rendering for real video
+because it composes reliably with the native child-window host; a future
+Compose or GPU renderer must first prove that it preserves stable video
+composition.
 
 The shared Kotlin lane scheduler accepts renderer-measured comment widths and
 deterministically assigns scrolling comments to the first collision-free lane.

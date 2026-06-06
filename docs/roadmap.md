@@ -2,21 +2,24 @@
 
 ## Current Position
 
-Phase 0 is complete. Phase 1 is active: the Compose Desktop shell, shared
-playback contract, and Windows libmpv dynamic-loader probe are implemented.
-The shared danmaku lane scheduler and synthetic overlay demo are also in
-place. The Windows shell now indexes anime folders and streams indexed files
-over HTTP byte ranges to compiling Android mobile and Android TV Media3
-clients. The clients discover Windows servers over LAN UDP announcements and
-require the pairing code displayed by the Windows app. The desktop catalog is
-persisted in SQLDelight SQLite storage and incrementally refreshed. Android and
-TV playback now run in a shared MediaSession foreground service. A pinned,
-hash-verified LGPL libmpv bundle is approved for Windows release packaging and
-native rendering validation. The desktop shell now activates its packaged
-Rust/JNA/libmpv command executor and can pass pre-initialize mpv options for an
-initial SwingPanel-backed native child-window video host. Visual playback
-validation and the final overlay-compatible renderer remain active Phase 1
-work.
+Phase 0 is complete. Phase 1 is active and has a working Windows vertical
+slice: the Compose Desktop shell, shared playback contract, packaged
+Rust/JNA/libmpv command executor, stable SwingPanel-backed native video host,
+player-first Playback tab, and packaged GUI smoke launch are implemented. The
+shared danmaku lane scheduler is in place, and Windows can attach indexed
+sidecars plus generated or dandanplay-fetched ASS danmaku tracks through mpv.
+Broad resize, fullscreen, hardware-decoding, 10-bit, and 4K validation remains
+active Phase 1 work.
+
+The Windows shell indexes anime folders and streams indexed files over HTTP
+byte ranges to Android mobile and Android TV Media3 clients. The clients
+discover Windows servers over LAN UDP announcements and require the pairing
+code displayed by the Windows app. The desktop catalog is persisted in
+SQLDelight SQLite storage and incrementally refreshed. Android and TV playback
+run in a shared MediaSession foreground service. A pinned, hash-verified LGPL
+libmpv bundle is approved for Windows packaging, and the Compose distributable
+copies the Rust bridge and installed approved libmpv DLL into the app directory
+by default.
 The desktop database and paired LAN server also persist per-episode playback
 progress. Android and TV player screens use that transport for five-second
 uploads from the background playback service and resume seeking.
@@ -47,8 +50,11 @@ validation.
 - Create a Compose Desktop shell.
 - Integrate libmpv behind a playback contract.
 - Play local files and remote HLS streams.
-- Draw a Compose danmaku overlay synchronized to playback.
-- Validate resize, fullscreen, seeking, hardware decoding, and 4K playback.
+- Render sidecars and danmaku over playback through mpv subtitle/ASS tracks.
+- Keep the player-first Windows UI minimal over video, especially in
+  fullscreen.
+- Validate resize, fullscreen, seeking, hardware decoding, 10-bit, and 4K
+  playback.
 
 ## Phase 2: Android And Android TV Playback
 

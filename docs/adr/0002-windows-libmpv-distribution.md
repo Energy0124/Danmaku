@@ -32,6 +32,10 @@ licensed LGPLv3-or-later dependency. Release preparation downloads the producer
 archive, verifies the archive and DLL hashes, and copies only `libmpv-2.dll`
 into the application directory.
 
+The default Windows Compose distributable also builds Danmaku's Rust mpv bridge
+and copies the locally installed approved `libmpv-2.dll` beside the application
+so packaged smoke tests use the release-like native layout.
+
 The release also includes GPL/LGPL license texts, the exact manifest, and a
 source and provenance notice. Approval relies on the producer's explicit LGPL
 artifact designation, mpv's `gpl: false` configure result, FFmpeg's
@@ -51,5 +55,6 @@ human license and supply-chain review.
 - Local development can use an explicit DLL path.
 - Release packaging has an explicit legal and supply-chain verification gate.
 - Danmaku remains MIT licensed while the bundled DLL remains LGPL licensed.
-- The render integration remains a separate spike after library loading is
-  proven.
+- The native render integration is implemented through a stable Windows child
+  window and mpv-rendered subtitle/ASS overlays; broad hardware and fullscreen
+  validation remains a release gate.
