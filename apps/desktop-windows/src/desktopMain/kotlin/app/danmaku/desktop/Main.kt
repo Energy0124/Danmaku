@@ -98,21 +98,27 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.nio.file.Files
+import java.nio.file.Path
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.nio.file.Path
 import javax.swing.JFileChooser
 import javax.swing.filechooser.FileNameExtensionFilter
 
-fun main() = application {
+fun main(args: Array<String>) = application {
+    val launchOptions = remember(args) { DesktopLaunchOptions.parse(args) }
     val windowState = rememberWindowState()
     Window(
         onCloseRequest = ::exitApplication,
         state = windowState,
         title = "Danmaku",
     ) {
-        DesktopShell(windowState)
+        DesktopShell(
+            windowState = windowState,
+            launchOptions = launchOptions,
+            onRequestExit = ::exitApplication,
+        )
     }
 }
 
@@ -134,7 +140,11 @@ private data class PreparedLocalPlaybackResult(
 )
 
 @Composable
-private fun DesktopShell(windowState: WindowState) {
+private fun DesktopShell(
+    windowState: WindowState,
+    launchOptions: DesktopLaunchOptions = DesktopLaunchOptions(),
+    onRequestExit: () -> Unit = {},
+) {
     val selectionStore = remember { LocalLibrarySelectionStore.default() }
     val catalogStore = remember { DesktopLibraryCatalogStore.default() }
     val playbackPreferencesStore = remember(catalogStore) {
@@ -460,6 +470,8 @@ private fun DesktopShell(windowState: WindowState) {
     var activeProgressTarget by remember { mutableStateOf<LanPlaybackTarget?>(null) }
     var lastSavedPlaybackProgress by remember { mutableStateOf<PlaybackProgress?>(null) }
     var lastAutoNextMediaId by remember { mutableStateOf<String?>(null) }
+    var smokePlaybackQueued by remember { mutableStateOf(false) }
+    var smokePlaybackExitStarted by remember { mutableStateOf(false) }
     var autoNextLocalPlayback by remember {
         mutableStateOf(catalogStore.loadSetting(LOCAL_AUTO_NEXT_SETTING_KEY)?.value == "true")
     }
@@ -535,6 +547,24 @@ private fun DesktopShell(windowState: WindowState) {
             "Queued playback until native video host attaches: ${request.label}; source=${request.source.toString().redactToken()}",
         )
         selectedTab = DesktopShellTab.PLAYBACK
+    }
+
+    fun queueSmokePlayback(options: DesktopSmokePlaybackOptions) {
+        val mediaPath = options.mediaPath.toAbsolutePath().normalize()
+        if (!Files.isRegularFile(mediaPath)) {
+            appendDiagnostic("smoke", "Smoke playback media does not exist: $mediaPath")
+            return
+        }
+        appendDiagnostic(
+            "smoke",
+            "Queueing smoke playback: media=$mediaPath; duration=${options.playbackDuration.inWholeSeconds}s; " +
+                "autoExit=${options.autoExit}",
+        )
+        queuePlaybackUntilHostReady(
+            mediaPath.toDirectLocalPlaybackRequest().copy(
+                label = "Smoke playback - ${mediaPath.fileName ?: mediaPath}",
+            ),
+        )
     }
 
     fun prepareLocalPlayback(
@@ -760,6 +790,15 @@ private fun DesktopShell(windowState: WindowState) {
         }
     }
 
+    LaunchedEffect(launchOptions.smokePlayback) {
+        val smokePlayback = launchOptions.smokePlayback ?: return@LaunchedEffect
+        if (smokePlaybackQueued) {
+            return@LaunchedEffect
+        }
+        smokePlaybackQueued = true
+        queueSmokePlayback(smokePlayback)
+    }
+
     LaunchedEffect(selectedTab, mpvVideoWindowId, pendingPlaybackRequest, playbackSession) {
         val request = pendingPlaybackRequest ?: return@LaunchedEffect
         if (selectedTab != DesktopShellTab.PLAYBACK || mpvVideoWindowId == null) {
@@ -805,6 +844,26 @@ private fun DesktopShell(windowState: WindowState) {
                 }
             }
         }
+    }
+
+    LaunchedEffect(launchOptions.smokePlayback, playbackSnapshot.status) {
+        val smokePlayback = launchOptions.smokePlayback ?: return@LaunchedEffect
+        if (!smokePlayback.autoExit || smokePlaybackExitStarted || playbackSnapshot.status != PlaybackStatus.PLAYING) {
+            return@LaunchedEffect
+        }
+        smokePlaybackExitStarted = true
+        appendDiagnostic(
+            "smoke",
+            "Smoke playback reached PLAYING; waiting ${smokePlayback.playbackDuration.inWholeSeconds}s before exit",
+        )
+        delay(smokePlayback.playbackDuration)
+        val finalSnapshot = playbackController.snapshot()
+        appendDiagnostic(
+            "smoke",
+            "Smoke playback complete: status=${finalSnapshot.status}; " +
+                "position=${finalSnapshot.position.positionMs}ms; duration=${finalSnapshot.position.durationMs ?: "unknown"}",
+        )
+        onRequestExit()
     }
 
     DisposableEffect(mpvRuntime) {

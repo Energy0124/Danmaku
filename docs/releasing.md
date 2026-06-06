@@ -43,6 +43,13 @@ sample path to the runtime probe:
 .\tools\windows\verify-windows-mpv-runtime.ps1 -MediaPath C:\media\sample.mkv
 ```
 
+To smoke-test the real packaged Compose player surface, launch the app directly
+into Playback and exit after a few seconds of PLAYING:
+
+```powershell
+.\tools\windows\smoke-windows-playback.ps1 -MediaPath C:\media\sample.mkv -Seconds 6
+```
+
 CI builds, tests, prepares the Windows release, and verifies the packaged mpv
 runtime before uploading artifacts.
 
