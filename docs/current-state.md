@@ -185,6 +185,9 @@ Updated on 2026-06-06.
 - Shared catalog grouping helpers expose deterministic series and season buckets
   with episode counts, subtitle-track totals, size totals, and episode ordering
   for future detail, next-up, favorite, and playlist screens.
+- Windows desktop library browsing now uses the shared series/season grouping
+  model for a selectable series column plus a compact series detail panel with
+  season episode previews and direct prepare/play actions.
 - Android mobile library browsing includes a compact series rail that summarizes
   the largest connected-PC titles and narrows the episode list through the
   existing search field. Selecting a series now opens a compact series detail

@@ -87,6 +87,7 @@ import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryCatalogQuery
 import app.danmaku.domain.LibraryCatalogSort
 import app.danmaku.domain.LibraryMediaItem
+import app.danmaku.domain.LibrarySeries
 import app.danmaku.domain.LibrarySubtitleFilter
 import app.danmaku.domain.PlaybackCommand
 import app.danmaku.domain.PlaybackProgress
@@ -95,6 +96,7 @@ import app.danmaku.domain.PlaybackStatus
 import app.danmaku.domain.PlaybackTrack
 import app.danmaku.domain.PlaybackTrackKind
 import app.danmaku.domain.filteredItems
+import app.danmaku.domain.groupedSeries
 import app.danmaku.domain.nextItem
 import app.danmaku.domain.previousItem
 import app.danmaku.domain.resumePositionMs
@@ -116,6 +118,7 @@ import java.nio.file.Path
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 import javax.swing.JFileChooser
 import javax.swing.filechooser.FileNameExtensionFilter
 
@@ -1867,6 +1870,11 @@ private fun MediaLibraryTab(
         val recentlyWatchedItems = remember(indexedLibrary, playbackProgresses) {
             indexedLibrary?.catalog?.recentlyWatchedItems(playbackProgresses).orEmpty()
         }
+        var selectedSeriesId by remember(indexedLibrary?.catalog) { mutableStateOf<String?>(null) }
+        val series = remember(indexedLibrary?.catalog) {
+            indexedLibrary?.catalog?.groupedSeries().orEmpty()
+        }
+        val selectedSeries = series.firstOrNull { it.id == selectedSeriesId } ?: series.firstOrNull()
         SectionCard("Local Media Library") {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(onClick = onAddLibraryFolder, enabled = !isIndexing) {
@@ -1935,7 +1943,7 @@ private fun MediaLibraryTab(
         ) {
             SectionCard(
                 title = "Registered Folders",
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(0.9f),
             ) {
                 if (registeredRoots.isEmpty()) {
                     EmptyState("No library folders added yet.")
@@ -1948,8 +1956,27 @@ private fun MediaLibraryTab(
                 }
             }
             SectionCard(
+                title = "Series",
+                modifier = Modifier.weight(1.1f),
+            ) {
+                MetadataRow("Grouped", "${series.size} series")
+                if (series.isEmpty()) {
+                    EmptyState("No indexed series yet.")
+                } else {
+                    LazyColumn(modifier = Modifier.height(280.dp)) {
+                        items(series, key = { it.id }) { librarySeries ->
+                            DesktopSeriesRow(
+                                series = librarySeries,
+                                isSelected = librarySeries.id == selectedSeries?.id,
+                                onSelect = { selectedSeriesId = librarySeries.id },
+                            )
+                        }
+                    }
+                }
+            }
+            SectionCard(
                 title = "Episodes",
-                modifier = Modifier.weight(1.3f),
+                modifier = Modifier.weight(1.4f),
             ) {
                 var searchText by remember { mutableStateOf("") }
                 var sort by remember { mutableStateOf(LibraryCatalogSort.TITLE) }
@@ -2017,6 +2044,14 @@ private fun MediaLibraryTab(
                     }
                 }
             }
+        }
+        selectedSeries?.let { librarySeries ->
+            DesktopSeriesDetailPanel(
+                series = librarySeries,
+                isPreparing = isPreparingLocalPlayback,
+                onPrepareLocalPlayback = onPrepareLocalPlayback,
+                onPlayLocalPlayback = onPlayLocalPlayback,
+            )
         }
         selectedLocalPlaybackPreparation?.let { preparation ->
             SectionCard("Prepared Playback") {
@@ -2478,6 +2513,92 @@ private fun MediaRootRow(root: DesktopLibraryRoot) {
 }
 
 @Composable
+private fun DesktopSeriesRow(
+    series: LibrarySeries,
+    isSelected: Boolean,
+    onSelect: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (isSelected) DanmakuColors.SurfaceRaised else Color.Transparent)
+            .clickable(onClick = onSelect)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Text(series.title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(
+            "${series.episodeCount} episodes, ${series.seasons.size} seasons",
+            color = DanmakuColors.TextMuted,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            "${series.subtitleTrackCount} subtitle tracks, ${series.totalSizeBytes.formatLibrarySize()}",
+            color = DanmakuColors.TextMuted,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+private fun DesktopSeriesDetailPanel(
+    series: LibrarySeries,
+    isPreparing: Boolean,
+    onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
+    onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
+) {
+    SectionCard("Series Detail") {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                MetadataRow("Series", series.title)
+                MetadataRow("Episodes", series.episodeCount.toString())
+                MetadataRow("Seasons", series.seasons.size.toString())
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                MetadataRow("Subtitles", "${series.subtitleTrackCount} tracks")
+                MetadataRow("Library size", series.totalSizeBytes.formatLibrarySize())
+                MetadataRow("Latest item", series.latestIndexedItem.episodeTitle)
+            }
+        }
+        LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
+            items(series.seasons, key = { it.id }) { season ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 6.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        "${season.label} (${season.items.size} episodes)",
+                        fontWeight = FontWeight.Bold,
+                    )
+                    season.items.take(4).forEach { item ->
+                        EpisodeRow(
+                            item = item,
+                            isPreparing = isPreparing,
+                            onPrepareLocalPlayback = onPrepareLocalPlayback,
+                            onPlayLocalPlayback = onPlayLocalPlayback,
+                        )
+                    }
+                    if (season.items.size > 4) {
+                        Text(
+                            "${season.items.size - 4} more episodes in this season",
+                            color = DanmakuColors.TextMuted,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun ContinueWatchingRow(
     item: DesktopPlaybackProgressItem,
     isPreparing: Boolean,
@@ -2786,6 +2907,16 @@ private fun Long.formatPlaybackTime(): String {
         "$hours:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}"
     } else {
         "$minutes:${seconds.toString().padStart(2, '0')}"
+    }
+}
+
+private fun Long.formatLibrarySize(): String {
+    val bytes = coerceAtLeast(0).toDouble()
+    val gib = bytes / (1024.0 * 1024.0 * 1024.0)
+    return if (gib >= 1.0) {
+        String.format(Locale.US, "%.1f GiB", gib)
+    } else {
+        String.format(Locale.US, "%.1f MiB", bytes / (1024.0 * 1024.0))
     }
 }
 

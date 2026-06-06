@@ -128,6 +128,8 @@ unblocked slices inside these tracks as the vertical slice hardens.
   TV volume controls.
 - [x] Add shared library search, title/path sorting, and subtitle-only filtering
   across Windows, Android mobile, and Android TV catalog screens.
+- [x] Back the Windows desktop library browser with shared series grouping and
+  add a compact series detail panel.
 - [x] Add a Windows continue-watching list backed by persisted local playback
   progress.
 - [x] Add a Windows recently-watched list backed by persisted local playback
