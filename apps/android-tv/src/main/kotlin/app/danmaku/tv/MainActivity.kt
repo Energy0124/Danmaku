@@ -33,6 +33,7 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -398,7 +399,7 @@ private fun Long.formatPlaybackTime(): String {
 }
 
 @Composable
-private fun LibraryItems(
+internal fun LibraryItems(
     catalog: LibraryCatalog?,
     onPlay: (LibraryMediaItem) -> Unit,
 ) {
@@ -488,6 +489,7 @@ private fun LibraryItems(
                     Button(
                         onClick = { searchText = "" },
                         enabled = searchText.isNotBlank(),
+                        modifier = Modifier.testTag("series:all"),
                     ) {
                         Text("All series")
                     }
@@ -501,6 +503,7 @@ private fun LibraryItems(
                                 summary.title
                             }
                         },
+                        modifier = Modifier.testTag("series:${summary.title}"),
                     ) {
                         Column {
                             Text(
@@ -532,7 +535,9 @@ private fun TvEpisodeButton(
 ) {
     Button(
         onClick = onPlay,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("episode:${item.id}"),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
