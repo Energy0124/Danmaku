@@ -18,24 +18,32 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -53,6 +61,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -94,6 +103,15 @@ private val SubtleText = Color(0xFFB7C0C9)
 private val AccentBlue = Color(0xFF7DD3FC)
 private val AccentAmber = Color(0xFFFBBF24)
 private val DangerRed = Color(0xFFFCA5A5)
+
+private enum class MobileTab(
+    val label: String,
+    val icon: ImageVector,
+) {
+    Watch("Watch", Icons.Filled.PlayArrow),
+    Library("Library", Icons.Filled.VideoLibrary),
+    Connect("Connect", Icons.Filled.Settings),
+}
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -144,6 +162,7 @@ private fun MobilePlayerScreen() {
     var librarySort by remember { mutableStateOf(LibraryCatalogSort.TITLE) }
     var librarySubtitleFilter by remember { mutableStateOf(LibrarySubtitleFilter.ANY) }
     var nowPlaying by remember { mutableStateOf<LibraryMediaItem?>(null) }
+    var selectedTab by remember { mutableStateOf(MobileTab.Watch) }
     val totalItems = catalog?.items.orEmpty()
     val filteredItems = catalog
         ?.filteredItems(
@@ -189,126 +208,308 @@ private fun MobilePlayerScreen() {
         }
     }
 
-    Surface(
+    val discoverPc: () -> Unit = {
+        scope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    discoveryClient.discover().firstOrNull()
+                        ?: error("No Windows library server discovered")
+                }
+            }.onSuccess {
+                serverUrl = it.baseUrl
+                libraryError = null
+            }.onFailure {
+                libraryError = it.message
+            }
+        }
+    }
+    val refreshLibrary: () -> Unit = {
+        scope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    libraryClient.fetchCatalog(serverUrl, pairingToken)
+                }
+            }.onSuccess {
+                catalog = it
+                libraryError = null
+            }.onFailure {
+                libraryError = it.message
+            }
+        }
+    }
+    val playEpisode: (LibraryMediaItem) -> Unit = { item ->
+        val activeController = controller
+        if (activeController == null) {
+            playbackError = "Player service is not connected yet."
+        } else {
+            val target = LanPlaybackTarget(serverUrl, pairingToken, item.id)
+            nowPlaying = item
+            selectedTab = MobileTab.Watch
+            scope.launch {
+                val resumePosition = runCatching {
+                    withContext(Dispatchers.IO) {
+                        progressSync.fetchResumePositionMs(target)
+                    }
+                }.onFailure {
+                    libraryError = "Resume lookup failed: ${it.message}"
+                }.getOrNull()
+                val preparation = playbackPreparer.prepare(
+                    baseUrl = target.baseUrl,
+                    pairingToken = target.pairingToken,
+                    item = item,
+                    resumePositionMs = resumePosition,
+                )
+                activeController.load(preparation)
+                preparation.resumePositionMs?.let {
+                    activeController.dispatch(PlaybackCommand.SeekTo(it))
+                }
+                activeController.dispatch(PlaybackCommand.Play)
+            }
+        }
+    }
+
+    Scaffold(
         modifier = Modifier.fillMaxSize(),
-        color = AppBackground,
+        containerColor = AppBackground,
+        bottomBar = {
+            MobileBottomBar(
+                selectedTab = selectedTab,
+                onTabSelected = { selectedTab = it },
+            )
+        },
+    ) { innerPadding ->
+        when (selectedTab) {
+            MobileTab.Watch -> WatchPage(
+                contentPadding = innerPadding,
+                controller = controller,
+                snapshot = snapshot,
+                nowPlaying = nowPlaying,
+                playbackError = playbackError,
+                onOpen = { openDocument.launch(arrayOf("video/*")) },
+                onPlayPause = {
+                    if (snapshot.status == PlaybackStatus.PLAYING) {
+                        controller?.dispatch(PlaybackCommand.Pause)
+                    } else {
+                        controller?.dispatch(PlaybackCommand.Play)
+                    }
+                },
+                onSeekTo = { controller?.dispatch(PlaybackCommand.SeekTo(it)) },
+                onSetVolume = { controller?.dispatch(PlaybackCommand.SetVolume(it)) },
+                onSelectAudio = { controller?.dispatch(PlaybackCommand.SelectAudioTrack(it)) },
+                onSelectSubtitle = { controller?.dispatch(PlaybackCommand.SelectSubtitleTrack(it)) },
+                onBrowseLibrary = { selectedTab = MobileTab.Library },
+            )
+            MobileTab.Library -> LibraryPage(
+                contentPadding = innerPadding,
+                catalog = catalog,
+                filteredItems = filteredItems,
+                totalCount = totalItems.size,
+                nowPlaying = nowPlaying,
+                searchText = librarySearchText,
+                onSearchTextChange = { librarySearchText = it },
+                sort = librarySort,
+                onSortChange = { librarySort = it },
+                subtitleFilter = librarySubtitleFilter,
+                onSubtitleFilterChange = { librarySubtitleFilter = it },
+                onPlay = playEpisode,
+                onConnect = { selectedTab = MobileTab.Connect },
+            )
+            MobileTab.Connect -> ConnectPage(
+                contentPadding = innerPadding,
+                catalog = catalog,
+                serverUrl = serverUrl,
+                pairingToken = pairingToken,
+                libraryError = libraryError,
+                onServerUrlChange = { serverUrl = it },
+                onPairingTokenChange = { pairingToken = it },
+                onDiscover = discoverPc,
+                onRefresh = refreshLibrary,
+            )
+        }
+    }
+}
+
+@Composable
+private fun MobileBottomBar(
+    selectedTab: MobileTab,
+    onTabSelected: (MobileTab) -> Unit,
+) {
+    NavigationBar(
+        containerColor = Color(0xFF15191D),
+        tonalElevation = 0.dp,
     ) {
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(AppBackground)
-                .safeDrawingPadding(),
-            contentPadding = PaddingValues(start = 16.dp, top = 14.dp, end = 16.dp, bottom = 28.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            item(key = "player") {
-                PlayerHome(
-                    controller = controller,
-                    snapshot = snapshot,
-                    nowPlaying = nowPlaying,
-                    playbackError = playbackError,
-                    onOpen = { openDocument.launch(arrayOf("video/*")) },
-                    onPlayPause = {
-                        if (snapshot.status == PlaybackStatus.PLAYING) {
-                            controller?.dispatch(PlaybackCommand.Pause)
-                        } else {
-                            controller?.dispatch(PlaybackCommand.Play)
-                        }
-                    },
-                    onSeekTo = { controller?.dispatch(PlaybackCommand.SeekTo(it)) },
-                    onSetVolume = { controller?.dispatch(PlaybackCommand.SetVolume(it)) },
-                    onSelectAudio = { controller?.dispatch(PlaybackCommand.SelectAudioTrack(it)) },
-                    onSelectSubtitle = { controller?.dispatch(PlaybackCommand.SelectSubtitleTrack(it)) },
-                )
-            }
-            item(key = "library-header") {
-                LibraryHeader(
-                    catalog = catalog,
-                    filteredCount = filteredItems.size,
-                    totalCount = totalItems.size,
-                    serverUrl = serverUrl,
-                    pairingToken = pairingToken,
-                    libraryError = libraryError,
-                    onServerUrlChange = { serverUrl = it },
-                    onPairingTokenChange = { pairingToken = it },
-                    onDiscover = {
-                        scope.launch {
-                            runCatching {
-                                withContext(Dispatchers.IO) {
-                                    discoveryClient.discover().firstOrNull()
-                                        ?: error("No Windows library server discovered")
-                                }
-                            }.onSuccess {
-                                serverUrl = it.baseUrl
-                                libraryError = null
-                            }.onFailure {
-                                libraryError = it.message
-                            }
-                        }
-                    },
-                    onRefresh = {
-                        scope.launch {
-                            runCatching {
-                                withContext(Dispatchers.IO) {
-                                    libraryClient.fetchCatalog(serverUrl, pairingToken)
-                                }
-                            }.onSuccess {
-                                catalog = it
-                                libraryError = null
-                            }.onFailure {
-                                libraryError = it.message
-                            }
-                        }
-                    },
-                    searchText = librarySearchText,
-                    onSearchTextChange = { librarySearchText = it },
-                    sort = librarySort,
-                    onSortChange = { librarySort = it },
-                    subtitleFilter = librarySubtitleFilter,
-                    onSubtitleFilterChange = { librarySubtitleFilter = it },
-                )
-            }
-            if (catalog == null) {
-                item(key = "library-empty") {
-                    EmptyLibraryState()
-                }
-            } else if (filteredItems.isEmpty()) {
-                item(key = "library-no-results") {
-                    EmptyResultsState()
-                }
-            } else {
-                items(filteredItems, key = LibraryMediaItem::id) { item ->
-                    EpisodeRow(
-                        item = item,
-                        selected = nowPlaying?.id == item.id,
-                        onPlay = {
-                            val activeController = controller ?: return@EpisodeRow
-                            val target = LanPlaybackTarget(serverUrl, pairingToken, item.id)
-                            nowPlaying = item
-                            scope.launch {
-                                val resumePosition = runCatching {
-                                    withContext(Dispatchers.IO) {
-                                        progressSync.fetchResumePositionMs(target)
-                                    }
-                                }.onFailure {
-                                    libraryError = "Resume lookup failed: ${it.message}"
-                                }.getOrNull()
-                                val preparation = playbackPreparer.prepare(
-                                    baseUrl = target.baseUrl,
-                                    pairingToken = target.pairingToken,
-                                    item = item,
-                                    resumePositionMs = resumePosition,
-                                )
-                                activeController.load(preparation)
-                                preparation.resumePositionMs?.let {
-                                    activeController.dispatch(PlaybackCommand.SeekTo(it))
-                                }
-                                activeController.dispatch(PlaybackCommand.Play)
-                            }
-                        },
+        MobileTab.entries.forEach { tab ->
+            NavigationBarItem(
+                selected = selectedTab == tab,
+                onClick = { onTabSelected(tab) },
+                icon = {
+                    Icon(
+                        imageVector = tab.icon,
+                        contentDescription = tab.label,
                     )
+                },
+                label = { Text(tab.label) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun PageColumn(
+    contentPadding: PaddingValues,
+    content: LazyListScope.() -> Unit,
+) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(AppBackground)
+            .padding(contentPadding)
+            .safeDrawingPadding(),
+        contentPadding = PaddingValues(start = 16.dp, top = 14.dp, end = 16.dp, bottom = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        content = content,
+    )
+}
+
+@Composable
+private fun WatchPage(
+    contentPadding: PaddingValues,
+    controller: Media3PlaybackController?,
+    snapshot: PlaybackSnapshot,
+    nowPlaying: LibraryMediaItem?,
+    playbackError: String?,
+    onOpen: () -> Unit,
+    onPlayPause: () -> Unit,
+    onSeekTo: (Long) -> Unit,
+    onSetVolume: (Int) -> Unit,
+    onSelectAudio: (String) -> Unit,
+    onSelectSubtitle: (String?) -> Unit,
+    onBrowseLibrary: () -> Unit,
+) {
+    PageColumn(contentPadding) {
+        item(key = "player") {
+            PlayerHome(
+                controller = controller,
+                snapshot = snapshot,
+                nowPlaying = nowPlaying,
+                playbackError = playbackError,
+                onOpen = onOpen,
+                onPlayPause = onPlayPause,
+                onSeekTo = onSeekTo,
+                onSetVolume = onSetVolume,
+                onSelectAudio = onSelectAudio,
+                onSelectSubtitle = onSelectSubtitle,
+            )
+        }
+        item(key = "watch-actions") {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp),
+                color = PanelColor,
+                border = BorderStroke(1.dp, Color(0xFF2B3239)),
+            ) {
+                Row(
+                    modifier = Modifier.padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Library playback", fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "Pick episodes from your PC catalog without leaving the player.",
+                            color = SubtleText,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    OutlinedButton(onClick = onBrowseLibrary) {
+                        Text("Browse")
+                    }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun LibraryPage(
+    contentPadding: PaddingValues,
+    catalog: LibraryCatalog?,
+    filteredItems: List<LibraryMediaItem>,
+    totalCount: Int,
+    nowPlaying: LibraryMediaItem?,
+    searchText: String,
+    onSearchTextChange: (String) -> Unit,
+    sort: LibraryCatalogSort,
+    onSortChange: (LibraryCatalogSort) -> Unit,
+    subtitleFilter: LibrarySubtitleFilter,
+    onSubtitleFilterChange: (LibrarySubtitleFilter) -> Unit,
+    onPlay: (LibraryMediaItem) -> Unit,
+    onConnect: () -> Unit,
+) {
+    PageColumn(contentPadding) {
+        item(key = "library-header") {
+            LibraryHeader(
+                catalog = catalog,
+                filteredCount = filteredItems.size,
+                totalCount = totalCount,
+                searchText = searchText,
+                onSearchTextChange = onSearchTextChange,
+                sort = sort,
+                onSortChange = onSortChange,
+                subtitleFilter = subtitleFilter,
+                onSubtitleFilterChange = onSubtitleFilterChange,
+                onConnect = onConnect,
+            )
+        }
+        if (catalog == null) {
+            item(key = "library-empty") {
+                EmptyLibraryState(onConnect = onConnect)
+            }
+        } else if (filteredItems.isEmpty()) {
+            item(key = "library-no-results") {
+                EmptyResultsState()
+            }
+        } else {
+            items(filteredItems, key = LibraryMediaItem::id) { item ->
+                EpisodeRow(
+                    item = item,
+                    selected = nowPlaying?.id == item.id,
+                    onPlay = { onPlay(item) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConnectPage(
+    contentPadding: PaddingValues,
+    catalog: LibraryCatalog?,
+    serverUrl: String,
+    pairingToken: String,
+    libraryError: String?,
+    onServerUrlChange: (String) -> Unit,
+    onPairingTokenChange: (String) -> Unit,
+    onDiscover: () -> Unit,
+    onRefresh: () -> Unit,
+) {
+    PageColumn(contentPadding) {
+        item(key = "connect") {
+            ConnectionPanel(
+                catalog = catalog,
+                serverUrl = serverUrl,
+                pairingToken = pairingToken,
+                libraryError = libraryError,
+                onServerUrlChange = onServerUrlChange,
+                onPairingTokenChange = onPairingTokenChange,
+                onDiscover = onDiscover,
+                onRefresh = onRefresh,
+            )
+        }
+        item(key = "connect-help") {
+            EmptyPanel(
+                title = "Pair once, watch anywhere",
+                body = "Open the Windows app on the same network, use Discover PC, then enter the pairing code shown on desktop.",
+            )
         }
     }
 }
@@ -494,19 +695,13 @@ private fun LibraryHeader(
     catalog: LibraryCatalog?,
     filteredCount: Int,
     totalCount: Int,
-    serverUrl: String,
-    pairingToken: String,
-    libraryError: String?,
-    onServerUrlChange: (String) -> Unit,
-    onPairingTokenChange: (String) -> Unit,
-    onDiscover: () -> Unit,
-    onRefresh: () -> Unit,
     searchText: String,
     onSearchTextChange: (String) -> Unit,
     sort: LibraryCatalogSort,
     onSortChange: (LibraryCatalogSort) -> Unit,
     subtitleFilter: LibrarySubtitleFilter,
     onSubtitleFilterChange: (LibrarySubtitleFilter) -> Unit,
+    onConnect: () -> Unit,
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -524,12 +719,12 @@ private fun LibraryHeader(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        "PC Library",
+                        "Library",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold,
                     )
                     Text(
-                        catalog?.rootName ?: serverUrl.serverDisplayName(),
+                        catalog?.rootName ?: "Connect a Windows library to browse episodes",
                         color = SubtleText,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -578,31 +773,79 @@ private fun LibraryHeader(
                 )
             }
 
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(
-                    value = serverUrl,
-                    onValueChange = onServerUrlChange,
-                    label = { Text("Server URL") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                OutlinedTextField(
-                    value = pairingToken,
-                    onValueChange = onPairingTokenChange,
-                    label = { Text("Pairing code") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    Button(onClick = onDiscover) {
-                        Text("Discover PC")
-                    }
-                    OutlinedButton(onClick = onRefresh) {
-                        Text("Refresh")
-                    }
+            if (catalog == null) {
+                OutlinedButton(onClick = onConnect) {
+                    Text("Connect library")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConnectionPanel(
+    catalog: LibraryCatalog?,
+    serverUrl: String,
+    pairingToken: String,
+    libraryError: String?,
+    onServerUrlChange: (String) -> Unit,
+    onPairingTokenChange: (String) -> Unit,
+    onDiscover: () -> Unit,
+    onRefresh: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = PanelAltColor,
+        border = BorderStroke(1.dp, Color(0xFF343D45)),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "Connect",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        catalog?.rootName ?: serverUrl.serverDisplayName(),
+                        color = SubtleText,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                StatusPill(if (catalog == null) "Offline" else "Ready")
+            }
+
+            OutlinedTextField(
+                value = serverUrl,
+                onValueChange = onServerUrlChange,
+                label = { Text("Server URL") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = pairingToken,
+                onValueChange = onPairingTokenChange,
+                label = { Text("Pairing code") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Button(onClick = onDiscover) {
+                    Text("Discover PC")
+                }
+                OutlinedButton(onClick = onRefresh) {
+                    Text("Refresh library")
                 }
             }
 
@@ -821,11 +1064,29 @@ private fun EpisodeRow(
 }
 
 @Composable
-private fun EmptyLibraryState() {
-    EmptyPanel(
-        title = "Connect to your Windows library",
-        body = "Use discovery when the desktop app is open, then refresh the catalog.",
-    )
+private fun EmptyLibraryState(
+    onConnect: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = Color(0xFF15191D),
+        border = BorderStroke(1.dp, Color(0xFF2B3239)),
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text("Connect to your Windows library", fontWeight = FontWeight.SemiBold)
+            Text(
+                "Use discovery when the desktop app is open, then refresh the catalog.",
+                color = SubtleText,
+            )
+            OutlinedButton(onClick = onConnect) {
+                Text("Open Connect")
+            }
+        }
+    }
 }
 
 @Composable
