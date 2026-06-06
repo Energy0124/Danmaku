@@ -92,6 +92,9 @@ Updated on 2026-06-06.
   that prepares and loads the next local catalog item when playback reaches EOF.
 - Direct Windows media-file picker that loads arbitrary local video files into
   the native mpv host without requiring a library scan first.
+- Windows player keyboard shortcuts for play/pause, 10-second and 30-second
+  seek, volume steps, playback-rate cycling, audio/subtitle cycling, aspect
+  mode cycling, and fullscreen toggling.
 - Packaged Windows runtime probe can optionally load a supplied local media
   file through the same native mpv command path used by the desktop shell.
 - Packaged Windows GUI smoke script can launch the Compose app directly into
@@ -288,8 +291,8 @@ With an Android emulator or device online, run:
    decoding, 10-bit files, and 4K media after the packaged GUI smoke passes.
 3. Add manual local danmaku-file mounting, per-episode offset controls, and
    user-facing danmaku filters.
-4. Add keyboard shortcuts and continue trimming fullscreen/player chrome without
-   destabilizing the native mpv host.
+4. Continue trimming fullscreen/player chrome without destabilizing the native
+   mpv host.
 5. Re-audit the libmpv bundle before changing its producer artifact or hashes.
 
 ## Runtime Smoke Check

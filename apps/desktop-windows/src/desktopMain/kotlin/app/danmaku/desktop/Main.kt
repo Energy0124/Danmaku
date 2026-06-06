@@ -2,6 +2,7 @@ package app.danmaku.desktop
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -58,8 +59,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEvent
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isAltPressed
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isMetaPressed
+import androidx.compose.ui.input.key.isShiftPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.text.font.FontWeight
@@ -1312,6 +1325,37 @@ private fun PlaybackTab(
     var controlsVisible by remember { mutableStateOf(true) }
     val hasMedia = playbackSnapshot.source != null
     val shouldAutoHide = hasMedia && playbackSnapshot.status == PlaybackStatus.PLAYING
+    val focusRequester = remember { FocusRequester() }
+    fun handleShortcut(shortcut: DesktopPlayerShortcut): Boolean {
+        if (!hasMedia) return false
+        controlsVisible = true
+        when (shortcut) {
+            DesktopPlayerShortcut.TOGGLE_PLAY_PAUSE -> {
+                if (playbackSnapshot.status == PlaybackStatus.PLAYING) {
+                    onPause()
+                } else {
+                    onPlay()
+                }
+            }
+            DesktopPlayerShortcut.SEEK_BACKWARD -> onSeekBackward()
+            DesktopPlayerShortcut.SEEK_BACKWARD_LARGE -> onSeekBackwardLarge()
+            DesktopPlayerShortcut.SEEK_FORWARD -> onSeekForward()
+            DesktopPlayerShortcut.SEEK_FORWARD_LARGE -> onSeekForwardLarge()
+            DesktopPlayerShortcut.VOLUME_UP -> onSetVolume((playbackSnapshot.volumePercent + 5).coerceIn(0, 100))
+            DesktopPlayerShortcut.VOLUME_DOWN -> onSetVolume((playbackSnapshot.volumePercent - 5).coerceIn(0, 100))
+            DesktopPlayerShortcut.CYCLE_PLAYBACK_RATE -> onSetPlaybackRate(playbackSnapshot.playbackRate.nextPlaybackRate())
+            DesktopPlayerShortcut.CYCLE_AUDIO_TRACK -> {
+                playbackSnapshot.nextTrackId(PlaybackTrackKind.AUDIO)?.let(onSelectAudioTrack) ?: return false
+            }
+            DesktopPlayerShortcut.CYCLE_SUBTITLE_TRACK -> {
+                if (playbackSnapshot.tracks.none { it.kind == PlaybackTrackKind.SUBTITLE }) return false
+                onSelectSubtitleTrack(playbackSnapshot.nextSubtitleTrackId())
+            }
+            DesktopPlayerShortcut.CYCLE_ASPECT_MODE -> onSetVideoAspectMode(videoAspectMode.nextAspectMode())
+            DesktopPlayerShortcut.TOGGLE_FULLSCREEN -> onSetFullscreen(!isFullscreen)
+        }
+        return true
+    }
 
     LaunchedEffect(controlsVisible, shouldAutoHide) {
         if (controlsVisible && shouldAutoHide) {
@@ -1319,11 +1363,22 @@ private fun PlaybackTab(
             controlsVisible = false
         }
     }
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
 
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(Color.Black)
+            .onPreviewKeyEvent { event ->
+                event.toDesktopPlayerShortcutInput()
+                    ?.let(::resolveDesktopPlayerShortcut)
+                    ?.let(::handleShortcut)
+                    ?: false
+            }
+            .focusRequester(focusRequester)
+            .focusable()
             .onPointerEvent(PointerEventType.Move) {
                 controlsVisible = true
             }
@@ -1388,6 +1443,32 @@ private fun PlaybackTab(
             )
         }
     }
+}
+
+private fun KeyEvent.toDesktopPlayerShortcutInput(): DesktopPlayerShortcutInput? {
+    if (type != KeyEventType.KeyUp) return null
+
+    val shortcutKey = when (key) {
+        Key.Spacebar -> DesktopPlayerShortcutKey.SPACE
+        Key.K -> DesktopPlayerShortcutKey.K
+        Key.DirectionLeft -> DesktopPlayerShortcutKey.LEFT
+        Key.DirectionRight -> DesktopPlayerShortcutKey.RIGHT
+        Key.DirectionUp -> DesktopPlayerShortcutKey.UP
+        Key.DirectionDown -> DesktopPlayerShortcutKey.DOWN
+        Key.R -> DesktopPlayerShortcutKey.R
+        Key.A -> DesktopPlayerShortcutKey.A
+        Key.S -> DesktopPlayerShortcutKey.S
+        Key.V -> DesktopPlayerShortcutKey.V
+        Key.F -> DesktopPlayerShortcutKey.F
+        else -> return null
+    }
+
+    return DesktopPlayerShortcutInput(
+        key = shortcutKey,
+        shiftPressed = isShiftPressed,
+        ctrlOrMetaPressed = isCtrlPressed || isMetaPressed,
+        altPressed = isAltPressed,
+    )
 }
 
 @Composable
