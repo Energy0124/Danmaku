@@ -1,6 +1,7 @@
 package app.danmaku.desktop
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -39,9 +41,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -424,6 +429,7 @@ private fun DesktopShell(windowState: WindowState) {
 
     var selectedTab by remember { mutableStateOf(DesktopShellTab.HOME) }
     var pendingPlaybackRequest by remember { mutableStateOf<DesktopPlaybackRequest?>(null) }
+    var activePlaybackLabel by remember { mutableStateOf<String?>(null) }
     var activeProgressMediaId by remember { mutableStateOf<String?>(null) }
     var activeProgressTarget by remember { mutableStateOf<LanPlaybackTarget?>(null) }
     var lastSavedPlaybackProgress by remember { mutableStateOf<PlaybackProgress?>(null) }
@@ -486,6 +492,7 @@ private fun DesktopShell(windowState: WindowState) {
     }
 
     fun loadPlaybackRequest(request: DesktopPlaybackRequest): PlaybackSnapshot {
+        activePlaybackLabel = request.label
         activeProgressMediaId = request.progressMediaId
         activeProgressTarget = request.progressTarget
         lastSavedPlaybackProgress = null
@@ -800,18 +807,27 @@ private fun DesktopShell(windowState: WindowState) {
             color = DanmakuColors.Background,
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                ShellHeader(
-                    selectedTab = selectedTab,
-                    onTabSelected = { selectedTab = it },
-                    playerStatus = playbackSnapshot.status.name,
-                    episodeCount = indexedLibrary?.catalog?.items?.size ?: 0,
-                )
+                if (!isFullscreen) {
+                    ShellHeader(
+                        selectedTab = selectedTab,
+                        onTabSelected = { selectedTab = it },
+                        playerStatus = playbackSnapshot.status.name,
+                        episodeCount = indexedLibrary?.catalog?.items?.size ?: 0,
+                    )
+                }
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(24.dp),
+                        .padding(
+                            if (isFullscreen || selectedTab == DesktopShellTab.PLAYBACK) {
+                                0.dp
+                            } else {
+                                24.dp
+                            },
+                        ),
                 ) {
                     PlaybackTab(
+                        playbackLabel = activePlaybackLabel,
                         playbackSnapshot = playbackSnapshot,
                         mpvRuntimeStatus = mpvRuntime.statusMessage,
                         videoHostStatus = if (mpvVideoWindowId == null) {
@@ -820,10 +836,6 @@ private fun DesktopShell(windowState: WindowState) {
                             "attached"
                         },
                         overlayStatus = overlayStatus,
-                        mpvCommandLog = mpvCommandLog,
-                        diagnosticLog = diagnosticLog,
-                        appLogPath = diagnosticFileLog.appLogPath,
-                        mpvLogPath = diagnosticFileLog.mpvLogPath,
                         onWindowIdChanged = { mpvVideoWindowId = it },
                         onOpenMediaFile = {
                             appendDiagnostic("playback", "Opening direct media file picker")
@@ -1185,15 +1197,13 @@ private fun HomeTab(
 }
 
 @Composable
+@OptIn(ExperimentalComposeUiApi::class)
 private fun PlaybackTab(
+    playbackLabel: String?,
     playbackSnapshot: PlaybackSnapshot,
     mpvRuntimeStatus: String,
     videoHostStatus: String,
     overlayStatus: String,
-    mpvCommandLog: List<DesktopMpvCommand>,
-    diagnosticLog: List<DesktopDiagnosticLogEntry>,
-    appLogPath: Path,
-    mpvLogPath: Path,
     onWindowIdChanged: (Long?) -> Unit,
     onOpenMediaFile: () -> Unit,
     onPlay: () -> Unit,
@@ -1214,215 +1224,172 @@ private fun PlaybackTab(
     canOpenMedia: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    TabScaffold(modifier = modifier) {
-        SectionCard("Video Playback") {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Button(onClick = onOpenMediaFile, enabled = canOpenMedia) {
-                    Text("Open media file")
-                }
-                Button(onClick = onPlay, enabled = playbackSnapshot.source != null) {
-                    Text("Play")
-                }
-                Button(onClick = onPause, enabled = playbackSnapshot.source != null) {
-                    Text("Pause")
-                }
-                Button(onClick = onSeekBackwardLarge, enabled = playbackSnapshot.source != null) {
-                    Text("-30s")
-                }
-                Button(onClick = onSeekBackward, enabled = playbackSnapshot.source != null) {
-                    Text("-10s")
-                }
-                Button(onClick = onSeekForward, enabled = playbackSnapshot.source != null) {
-                    Text("+10s")
-                }
-                Button(onClick = onSeekForwardLarge, enabled = playbackSnapshot.source != null) {
-                    Text("+30s")
-                }
+    var controlsVisible by remember { mutableStateOf(true) }
+    val hasMedia = playbackSnapshot.source != null
+    val shouldAutoHide = hasMedia && playbackSnapshot.status == PlaybackStatus.PLAYING
+
+    LaunchedEffect(controlsVisible, shouldAutoHide) {
+        if (controlsVisible && shouldAutoHide) {
+            delay(PLAYER_CONTROLS_AUTO_HIDE_MS)
+            controlsVisible = false
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color.Black)
+            .onPointerEvent(PointerEventType.Move) {
+                controlsVisible = true
             }
-            Spacer(modifier = Modifier.height(12.dp))
-            DesktopMpvVideoHost(
-                onWindowIdChanged = onWindowIdChanged,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(460.dp)
-                    .clip(RoundedCornerShape(12.dp)),
+            .onPointerEvent(PointerEventType.Enter) {
+                controlsVisible = true
+            },
+    ) {
+        DesktopMpvVideoHost(
+            onWindowIdChanged = onWindowIdChanged,
+            modifier = Modifier.fillMaxSize(),
+        )
+        if (!hasMedia) {
+            PlayerEmptyOverlay(
+                canOpenMedia = canOpenMedia,
+                mpvRuntimeStatus = mpvRuntimeStatus,
+                videoHostStatus = videoHostStatus,
+                onOpenMediaFile = onOpenMediaFile,
             )
-            Spacer(modifier = Modifier.height(12.dp))
-            PlaybackProgressControls(
-                playbackSnapshot = playbackSnapshot,
-                onSeekTo = onSeekTo,
-                onSetPlaybackRate = onSetPlaybackRate,
-                onSetVolume = onSetVolume,
+        }
+        if (controlsVisible || !shouldAutoHide) {
+            PlayerTopOverlay(
+                title = playbackLabel ?: playbackSnapshot.source?.toString()?.redactToken() ?: "No media loaded",
+                status = playbackSnapshot.status.name,
+                overlayStatus = overlayStatus,
+                isFullscreen = isFullscreen,
+                modifier = Modifier.align(Alignment.TopCenter),
             )
-            Spacer(modifier = Modifier.height(12.dp))
-            VideoDisplayControls(
+            PlayerBottomOverlay(
                 playbackSnapshot = playbackSnapshot,
                 isFullscreen = isFullscreen,
                 videoAspectMode = videoAspectMode,
-                onSetFullscreen = onSetFullscreen,
-                onSetVideoAspectMode = onSetVideoAspectMode,
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            TrackControls(
-                playbackSnapshot = playbackSnapshot,
+                onOpenMediaFile = onOpenMediaFile,
+                onPlay = onPlay,
+                onPause = onPause,
+                onSeekBackward = onSeekBackward,
+                onSeekBackwardLarge = onSeekBackwardLarge,
+                onSeekForward = onSeekForward,
+                onSeekForwardLarge = onSeekForwardLarge,
+                onSeekTo = onSeekTo,
+                onSetPlaybackRate = onSetPlaybackRate,
+                onSetVolume = onSetVolume,
                 onSelectAudioTrack = onSelectAudioTrack,
                 onSelectSubtitleTrack = onSelectSubtitleTrack,
+                onSetFullscreen = onSetFullscreen,
+                onSetVideoAspectMode = onSetVideoAspectMode,
+                canOpenMedia = canOpenMedia,
+                modifier = Modifier.align(Alignment.BottomCenter),
             )
-            Spacer(modifier = Modifier.height(12.dp))
-            MetadataRow("State", playbackSnapshot.status.name)
-            MetadataRow("Source", playbackSnapshot.source?.toString()?.redactToken() ?: "No media loaded")
-            MetadataRow(
-                "Position",
-                "${playbackSnapshot.position.positionMs.formatPlaybackTime()} / " +
-                    (playbackSnapshot.position.durationMs?.formatPlaybackTime() ?: "unknown"),
+        }
+        playbackSnapshot.errorMessage?.let { error ->
+            Text(
+                text = error,
+                color = DanmakuColors.Warning,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .background(Color.Black.copy(alpha = 0.7f), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
             )
-            MetadataRow("Rate", "${playbackSnapshot.playbackRate}x")
-            MetadataRow("Overlay", overlayStatus)
-            playbackSnapshot.errorMessage?.let { MetadataRow("Error", it, valueColor = DanmakuColors.Warning) }
         }
-        SectionCard("Runtime") {
-            MetadataRow("mpv executor", mpvRuntimeStatus)
-            MetadataRow("Video host", videoHostStatus)
-            MetadataRow("App log", appLogPath.toString())
-            MetadataRow("mpv log", mpvLogPath.toString())
-            if (mpvCommandLog.isEmpty()) {
-                Text("No mpv commands yet.", color = DanmakuColors.TextMuted)
-            } else {
-                LazyColumn(modifier = Modifier.height(120.dp)) {
-                    items(mpvCommandLog.takeLast(20)) { command ->
-                        Text(
-                            text = command.args.joinToString(separator = " "),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            color = DanmakuColors.TextMuted,
-                        )
-                    }
-                }
-            }
-        }
-        DiagnosticsPanel(diagnosticLog)
     }
 }
 
 @Composable
-private fun VideoDisplayControls(
+private fun PlayerEmptyOverlay(
+    canOpenMedia: Boolean,
+    mpvRuntimeStatus: String,
+    videoHostStatus: String,
+    onOpenMediaFile: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text("No media loaded", color = Color.White, style = MaterialTheme.typography.h5)
+        Spacer(modifier = Modifier.height(10.dp))
+        Text(
+            text = "$mpvRuntimeStatus Video host: $videoHostStatus",
+            color = DanmakuColors.TextMuted,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Button(onClick = onOpenMediaFile, enabled = canOpenMedia) {
+            Text("Open media file")
+        }
+    }
+}
+
+@Composable
+private fun PlayerTopOverlay(
+    title: String,
+    status: String,
+    overlayStatus: String,
+    isFullscreen: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(Color.Black.copy(alpha = 0.45f))
+            .padding(horizontal = 18.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (!isFullscreen) {
+                Text(
+                    text = overlayStatus,
+                    color = DanmakuColors.TextMuted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        Text(status, color = DanmakuColors.TextMuted, maxLines = 1)
+    }
+}
+
+@Composable
+private fun PlayerBottomOverlay(
     playbackSnapshot: PlaybackSnapshot,
     isFullscreen: Boolean,
     videoAspectMode: DesktopVideoAspectMode,
-    onSetFullscreen: (Boolean) -> Unit,
-    onSetVideoAspectMode: (DesktopVideoAspectMode) -> Unit,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text("Video", color = DanmakuColors.TextMuted)
-            Button(
-                onClick = { onSetFullscreen(!isFullscreen) },
-                enabled = playbackSnapshot.source != null,
-            ) {
-                Text(if (isFullscreen) "Exit fullscreen" else "Fullscreen")
-            }
-        }
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text("Aspect", color = DanmakuColors.TextMuted)
-            DesktopVideoAspectMode.entries.forEach { mode ->
-                Button(
-                    onClick = { onSetVideoAspectMode(mode) },
-                    enabled = playbackSnapshot.source != null && videoAspectMode != mode,
-                ) {
-                    Text(if (videoAspectMode == mode) "${mode.label} active" else mode.label)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun TrackControls(
-    playbackSnapshot: PlaybackSnapshot,
-    onSelectAudioTrack: (String) -> Unit,
-    onSelectSubtitleTrack: (String?) -> Unit,
-) {
-    val audioTracks = playbackSnapshot.tracks.filter { it.kind == PlaybackTrackKind.AUDIO }
-    val subtitleTracks = playbackSnapshot.tracks.filter { it.kind == PlaybackTrackKind.SUBTITLE }
-    if (audioTracks.isEmpty() && subtitleTracks.isEmpty()) {
-        Text("No runtime audio or subtitle tracks discovered yet.", color = DanmakuColors.TextMuted)
-        return
-    }
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (audioTracks.isNotEmpty()) {
-            Text("Audio Tracks", fontWeight = FontWeight.Bold)
-            TrackButtonRow(audioTracks, onSelectAudioTrack)
-        }
-        if (subtitleTracks.isNotEmpty()) {
-            Text("Subtitle Tracks", fontWeight = FontWeight.Bold)
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Button(
-                    onClick = { onSelectSubtitleTrack(null) },
-                    enabled = subtitleTracks.any(PlaybackTrack::selected),
-                ) {
-                    Text("Off")
-                }
-                subtitleTracks.forEach { track ->
-                    Button(
-                        onClick = { onSelectSubtitleTrack(track.id) },
-                        enabled = track.supported && !track.selected,
-                    ) {
-                        Text(track.buttonLabel())
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun TrackButtonRow(
-    tracks: List<PlaybackTrack>,
-    onSelectTrack: (String) -> Unit,
-) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        tracks.forEach { track ->
-            Button(
-                onClick = { onSelectTrack(track.id) },
-                enabled = track.supported && !track.selected,
-            ) {
-                Text(track.buttonLabel())
-            }
-        }
-    }
-}
-
-private fun PlaybackTrack.buttonLabel(): String =
-    buildString {
-        append(label)
-        language?.let { append(" [$it]") }
-        if (selected) {
-            append(" (selected)")
-        }
-    }
-
-@Composable
-private fun PlaybackProgressControls(
-    playbackSnapshot: PlaybackSnapshot,
+    onOpenMediaFile: () -> Unit,
+    onPlay: () -> Unit,
+    onPause: () -> Unit,
+    onSeekBackward: () -> Unit,
+    onSeekBackwardLarge: () -> Unit,
+    onSeekForward: () -> Unit,
+    onSeekForwardLarge: () -> Unit,
     onSeekTo: (Long) -> Unit,
     onSetPlaybackRate: (Float) -> Unit,
     onSetVolume: (Int) -> Unit,
+    onSelectAudioTrack: (String) -> Unit,
+    onSelectSubtitleTrack: (String?) -> Unit,
+    onSetFullscreen: (Boolean) -> Unit,
+    onSetVideoAspectMode: (DesktopVideoAspectMode) -> Unit,
+    canOpenMedia: Boolean,
+    modifier: Modifier = Modifier,
 ) {
+    val hasMedia = playbackSnapshot.source != null
     val durationMs = playbackSnapshot.position.durationMs?.takeIf { it > 0 }
     val currentPositionMs = durationMs
         ?.let { playbackSnapshot.position.positionMs.coerceIn(0, it) }
@@ -1438,16 +1405,23 @@ private fun PlaybackProgressControls(
         }
     }
 
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(Color.Black.copy(alpha = 0.58f))
+            .padding(horizontal = 18.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
                 text = currentPositionMs.formatPlaybackTime(),
-                color = DanmakuColors.TextMuted,
-                modifier = Modifier.width(72.dp),
+                color = Color.White,
+                modifier = Modifier.width(64.dp),
+                maxLines = 1,
             )
             Slider(
                 value = durationMs
@@ -1469,45 +1443,156 @@ private fun PlaybackProgressControls(
             )
             Text(
                 text = durationMs?.formatPlaybackTime() ?: "--:--",
-                color = DanmakuColors.TextMuted,
-                modifier = Modifier.width(72.dp),
+                color = Color.White,
+                modifier = Modifier.width(64.dp),
+                maxLines = 1,
             )
         }
         Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Speed", color = DanmakuColors.TextMuted)
-            listOf(0.5f, 1f, 1.25f, 1.5f, 2f).forEach { rate ->
-                Button(
-                    onClick = { onSetPlaybackRate(rate) },
-                    enabled = playbackSnapshot.source != null,
-                ) {
-                    Text(if (rate == 1f) "1x" else "${rate}x")
-                }
-            }
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text("Volume", color = DanmakuColors.TextMuted, modifier = Modifier.width(72.dp))
+            PlayerOverlayButton("Open", enabled = canOpenMedia, onClick = onOpenMediaFile)
+            PlayerOverlayButton("-30s", enabled = hasMedia, onClick = onSeekBackwardLarge)
+            PlayerOverlayButton("-10s", enabled = hasMedia, onClick = onSeekBackward)
+            PlayerOverlayButton(
+                text = if (playbackSnapshot.status == PlaybackStatus.PLAYING) "Pause" else "Play",
+                enabled = hasMedia,
+                onClick = if (playbackSnapshot.status == PlaybackStatus.PLAYING) onPause else onPlay,
+            )
+            PlayerOverlayButton("+10s", enabled = hasMedia, onClick = onSeekForward)
+            PlayerOverlayButton("+30s", enabled = hasMedia, onClick = onSeekForwardLarge)
+            Text(
+                text = "${playbackSnapshot.volumePercent}%",
+                color = DanmakuColors.TextMuted,
+                modifier = Modifier.width(44.dp),
+                maxLines = 1,
+            )
             Slider(
                 value = playbackSnapshot.volumePercent.toFloat(),
                 onValueChange = { onSetVolume(it.toInt().coerceIn(0, 100)) },
                 valueRange = 0f..100f,
-                enabled = playbackSnapshot.source != null,
-                modifier = Modifier.weight(1f),
+                enabled = hasMedia,
+                modifier = Modifier.width(120.dp),
             )
-            Text(
-                "${playbackSnapshot.volumePercent}%",
-                color = DanmakuColors.TextMuted,
-                modifier = Modifier.width(56.dp),
+            PlayerOverlayButton(
+                text = "${playbackSnapshot.playbackRate}x",
+                enabled = hasMedia,
+                onClick = { onSetPlaybackRate(playbackSnapshot.playbackRate.nextPlaybackRate()) },
+            )
+            PlayerOverlayButton(
+                text = playbackSnapshot.selectedTrackButtonText(PlaybackTrackKind.AUDIO, "Audio"),
+                enabled = hasMedia && playbackSnapshot.tracks.any { it.kind == PlaybackTrackKind.AUDIO },
+                modifier = Modifier.width(116.dp),
+                onClick = {
+                    playbackSnapshot.nextTrackId(PlaybackTrackKind.AUDIO)?.let(onSelectAudioTrack)
+                },
+            )
+            PlayerOverlayButton(
+                text = playbackSnapshot.selectedTrackButtonText(PlaybackTrackKind.SUBTITLE, "Sub"),
+                enabled = hasMedia && playbackSnapshot.tracks.any { it.kind == PlaybackTrackKind.SUBTITLE },
+                modifier = Modifier.width(116.dp),
+                onClick = {
+                    onSelectSubtitleTrack(playbackSnapshot.nextSubtitleTrackId())
+                },
+            )
+            PlayerOverlayButton(
+                text = videoAspectMode.label,
+                enabled = hasMedia,
+                onClick = { onSetVideoAspectMode(videoAspectMode.nextAspectMode()) },
+            )
+            PlayerOverlayButton(
+                text = if (isFullscreen) "Exit full" else "Full",
+                enabled = hasMedia,
+                onClick = { onSetFullscreen(!isFullscreen) },
             )
         }
     }
 }
+
+@Composable
+private fun PlayerOverlayButton(
+    text: String,
+    enabled: Boolean = true,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Text(
+        text = text,
+        color = if (enabled) Color.White else DanmakuColors.TextMuted,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier
+            .height(34.dp)
+            .background(
+                color = if (enabled) {
+                    Color.White.copy(alpha = 0.14f)
+                } else {
+                    Color.White.copy(alpha = 0.06f)
+                },
+                shape = RoundedCornerShape(6.dp),
+            )
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+    )
+}
+
+private fun Float.nextPlaybackRate(): Float {
+    val currentIndex = PLAYBACK_RATE_STEPS.indexOfFirst { rate ->
+        val delta = rate - this
+        delta > -0.01f && delta < 0.01f
+    }
+    return if (currentIndex == -1) {
+        PLAYBACK_RATE_STEPS.first()
+    } else {
+        PLAYBACK_RATE_STEPS[(currentIndex + 1) % PLAYBACK_RATE_STEPS.size]
+    }
+}
+
+private fun PlaybackSnapshot.selectedTrackButtonText(
+    kind: PlaybackTrackKind,
+    fallback: String,
+): String {
+    val selectedTrack = tracks.firstOrNull { it.kind == kind && it.selected }
+    return if (selectedTrack == null) {
+        "$fallback: off"
+    } else {
+        "$fallback: ${selectedTrack.label}"
+    }
+}
+
+private fun PlaybackSnapshot.nextTrackId(kind: PlaybackTrackKind): String? {
+    val tracksOfKind = tracks.filter { it.kind == kind }
+    if (tracksOfKind.isEmpty()) {
+        return null
+    }
+    val selectedIndex = tracksOfKind.indexOfFirst(PlaybackTrack::selected)
+    return tracksOfKind[(selectedIndex + 1).floorMod(tracksOfKind.size)].id
+}
+
+private fun PlaybackSnapshot.nextSubtitleTrackId(): String? {
+    val subtitleTracks = tracks.filter { it.kind == PlaybackTrackKind.SUBTITLE }
+    if (subtitleTracks.isEmpty()) {
+        return null
+    }
+    val selectedIndex = subtitleTracks.indexOfFirst(PlaybackTrack::selected)
+    return when {
+        selectedIndex == -1 -> subtitleTracks.first().id
+        selectedIndex == subtitleTracks.lastIndex -> null
+        else -> subtitleTracks[selectedIndex + 1].id
+    }
+}
+
+private fun DesktopVideoAspectMode.nextAspectMode(): DesktopVideoAspectMode {
+    val entries = DesktopVideoAspectMode.entries
+    return entries[(entries.indexOf(this) + 1).floorMod(entries.size)]
+}
+
+private fun Int.floorMod(size: Int): Int =
+    ((this % size) + size) % size
 
 @Composable
 private fun MediaLibraryTab(
@@ -2469,6 +2554,10 @@ private const val WINDOWS_PROGRESS_SAVE_INTERVAL_MS = 5_000L
 private const val MAX_DIAGNOSTIC_LOG_ENTRIES = 200
 
 private const val LOCAL_AUTO_NEXT_SETTING_KEY = "playback.local_auto_next"
+
+private const val PLAYER_CONTROLS_AUTO_HIDE_MS = 3_000L
+
+private val PLAYBACK_RATE_STEPS = listOf(0.5f, 1f, 1.25f, 1.5f, 2f)
 
 private val DIAGNOSTIC_TIME_FORMATTER: DateTimeFormatter =
     DateTimeFormatter.ofPattern("HH:mm:ss")
