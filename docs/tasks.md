@@ -167,6 +167,8 @@ unblocked slices inside these tracks as the vertical slice hardens.
   subtitle-only filtering backed by the shared domain query helper.
 - [x] Add an Android mobile series rail for faster browsing within large
   connected-PC catalogs.
+- [x] Back the Android mobile series rail with shared series grouping and add a
+  compact series detail panel.
 - [x] Add an Android TV remote-friendly library header, series rail, and richer
   episode rows.
 - [x] Add Android mobile progress scrubbing and Android TV remote-friendly seek
