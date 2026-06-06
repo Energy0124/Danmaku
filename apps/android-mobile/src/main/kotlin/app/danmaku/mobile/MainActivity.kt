@@ -30,6 +30,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.VideoLibrary
@@ -304,6 +305,7 @@ private fun MobilePlayerScreen() {
                 catalog = catalog,
                 filteredItems = filteredItems,
                 totalCount = totalItems.size,
+                snapshot = snapshot,
                 nowPlaying = nowPlaying,
                 searchText = librarySearchText,
                 onSearchTextChange = { librarySearchText = it },
@@ -312,11 +314,21 @@ private fun MobilePlayerScreen() {
                 subtitleFilter = librarySubtitleFilter,
                 onSubtitleFilterChange = { librarySubtitleFilter = it },
                 onPlay = playEpisode,
+                onPlayPause = {
+                    if (snapshot.status == PlaybackStatus.PLAYING) {
+                        controller?.dispatch(PlaybackCommand.Pause)
+                    } else {
+                        controller?.dispatch(PlaybackCommand.Play)
+                    }
+                },
+                onOpenPlayer = { selectedTab = MobileTab.Watch },
                 onConnect = { selectedTab = MobileTab.Connect },
             )
             MobileTab.Connect -> ConnectPage(
                 contentPadding = innerPadding,
                 catalog = catalog,
+                snapshot = snapshot,
+                nowPlaying = nowPlaying,
                 serverUrl = serverUrl,
                 pairingToken = pairingToken,
                 libraryError = libraryError,
@@ -324,6 +336,14 @@ private fun MobilePlayerScreen() {
                 onPairingTokenChange = { pairingToken = it },
                 onDiscover = discoverPc,
                 onRefresh = refreshLibrary,
+                onPlayPause = {
+                    if (snapshot.status == PlaybackStatus.PLAYING) {
+                        controller?.dispatch(PlaybackCommand.Pause)
+                    } else {
+                        controller?.dispatch(PlaybackCommand.Play)
+                    }
+                },
+                onOpenPlayer = { selectedTab = MobileTab.Watch },
             )
         }
     }
@@ -435,6 +455,7 @@ private fun LibraryPage(
     catalog: LibraryCatalog?,
     filteredItems: List<LibraryMediaItem>,
     totalCount: Int,
+    snapshot: PlaybackSnapshot,
     nowPlaying: LibraryMediaItem?,
     searchText: String,
     onSearchTextChange: (String) -> Unit,
@@ -443,9 +464,21 @@ private fun LibraryPage(
     subtitleFilter: LibrarySubtitleFilter,
     onSubtitleFilterChange: (LibrarySubtitleFilter) -> Unit,
     onPlay: (LibraryMediaItem) -> Unit,
+    onPlayPause: () -> Unit,
+    onOpenPlayer: () -> Unit,
     onConnect: () -> Unit,
 ) {
     PageColumn(contentPadding) {
+        if (snapshot.source != null) {
+            item(key = "mini-player") {
+                MiniPlayerBar(
+                    snapshot = snapshot,
+                    nowPlaying = nowPlaying,
+                    onPlayPause = onPlayPause,
+                    onOpenPlayer = onOpenPlayer,
+                )
+            }
+        }
         item(key = "library-header") {
             LibraryHeader(
                 catalog = catalog,
@@ -484,6 +517,8 @@ private fun LibraryPage(
 private fun ConnectPage(
     contentPadding: PaddingValues,
     catalog: LibraryCatalog?,
+    snapshot: PlaybackSnapshot,
+    nowPlaying: LibraryMediaItem?,
     serverUrl: String,
     pairingToken: String,
     libraryError: String?,
@@ -491,8 +526,20 @@ private fun ConnectPage(
     onPairingTokenChange: (String) -> Unit,
     onDiscover: () -> Unit,
     onRefresh: () -> Unit,
+    onPlayPause: () -> Unit,
+    onOpenPlayer: () -> Unit,
 ) {
     PageColumn(contentPadding) {
+        if (snapshot.source != null) {
+            item(key = "mini-player") {
+                MiniPlayerBar(
+                    snapshot = snapshot,
+                    nowPlaying = nowPlaying,
+                    onPlayPause = onPlayPause,
+                    onOpenPlayer = onOpenPlayer,
+                )
+            }
+        }
         item(key = "connect") {
             ConnectionPanel(
                 catalog = catalog,
@@ -510,6 +557,77 @@ private fun ConnectPage(
                 title = "Pair once, watch anywhere",
                 body = "Open the Windows app on the same network, use Discover PC, then enter the pairing code shown on desktop.",
             )
+        }
+    }
+}
+
+@Composable
+private fun MiniPlayerBar(
+    snapshot: PlaybackSnapshot,
+    nowPlaying: LibraryMediaItem?,
+    onPlayPause: () -> Unit,
+    onOpenPlayer: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .clickable(onClick = onOpenPlayer),
+        shape = RoundedCornerShape(18.dp),
+        color = Color(0xFF17212A),
+        border = BorderStroke(1.dp, Color(0xFF304454)),
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(AccentBlue),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = if (snapshot.status == PlaybackStatus.PLAYING) {
+                        Icons.Filled.Pause
+                    } else {
+                        Icons.Filled.PlayArrow
+                    },
+                    contentDescription = null,
+                    tint = PlayerBlack,
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Text(
+                    nowPlaying?.seriesTitle ?: snapshot.sourceLabel(nowPlaying),
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    nowPlaying?.episodeTitle
+                        ?: "${snapshot.position.positionMs.formatPlaybackTime()} · ${snapshot.status.displayLabel()}",
+                    color = SubtleText,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            TextButton(onClick = onPlayPause) {
+                Icon(
+                    imageVector = if (snapshot.status == PlaybackStatus.PLAYING) {
+                        Icons.Filled.Pause
+                    } else {
+                        Icons.Filled.PlayArrow
+                    },
+                    contentDescription = if (snapshot.status == PlaybackStatus.PLAYING) "Pause" else "Play",
+                )
+            }
         }
     }
 }
