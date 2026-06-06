@@ -104,9 +104,11 @@ import app.danmaku.domain.recentlyWatchedItems
 import app.danmaku.domain.seekTargetBy
 import app.danmaku.domain.seriesWatchSummaryById
 import app.danmaku.domain.watchStatusByMediaId
+import app.danmaku.library.LanLibraryConnectionProfile
 import app.danmaku.library.LanPlaybackPreparer
 import app.danmaku.library.LanPlaybackProgressSync
 import app.danmaku.library.LanPlaybackTarget
+import app.danmaku.library.android.AndroidLanLibraryConnectionStore
 import app.danmaku.library.android.LanLibraryClient
 import app.danmaku.library.android.LanLibraryDiscoveryClient
 import app.danmaku.player.android.Media3PlaybackController
@@ -170,6 +172,9 @@ private fun MobilePlayerScreen() {
         LanPlaybackProgressSync(libraryClient, System::currentTimeMillis)
     }
     val playbackPreparer = remember(libraryClient) { LanPlaybackPreparer(libraryClient) }
+    val connectionStore = remember(context) {
+        AndroidLanLibraryConnectionStore(context.applicationContext)
+    }
     val discoveryClient = remember { LanLibraryDiscoveryClient() }
     val scope = rememberCoroutineScope()
     var controller by remember { mutableStateOf<Media3PlaybackController?>(null) }
@@ -177,6 +182,7 @@ private fun MobilePlayerScreen() {
     var playbackError by remember { mutableStateOf<String?>(null) }
     var serverUrl by remember { mutableStateOf("http://10.0.2.2:8686") }
     var pairingToken by remember { mutableStateOf("") }
+    var savedConnections by remember { mutableStateOf(connectionStore.loadProfiles()) }
     var catalog by remember { mutableStateOf<LibraryCatalog?>(null) }
     var playbackProgresses by remember { mutableStateOf<List<PlaybackProgress>>(emptyList()) }
     var libraryError by remember { mutableStateOf<String?>(null) }
@@ -258,6 +264,12 @@ private fun MobilePlayerScreen() {
             }.onSuccess {
                 catalog = it.first
                 playbackProgresses = it.second
+                connectionStore.saveCurrentConnection(
+                    baseUrl = serverUrl,
+                    pairingToken = pairingToken,
+                    displayName = it.first.rootName,
+                )
+                savedConnections = connectionStore.loadProfiles()
                 libraryError = null
             }.onFailure {
                 libraryError = it.message
@@ -358,9 +370,32 @@ private fun MobilePlayerScreen() {
                 nowPlaying = nowPlaying,
                 serverUrl = serverUrl,
                 pairingToken = pairingToken,
+                savedConnections = savedConnections,
                 libraryError = libraryError,
                 onServerUrlChange = { serverUrl = it },
                 onPairingTokenChange = { pairingToken = it },
+                onSelectConnection = {
+                    serverUrl = it.baseUrl
+                    pairingToken = it.pairingToken
+                },
+                onForgetConnection = {
+                    connectionStore.forgetProfile(it.id)
+                    savedConnections = connectionStore.loadProfiles()
+                },
+                onSaveConnection = {
+                    runCatching {
+                        connectionStore.saveCurrentConnection(
+                            baseUrl = serverUrl,
+                            pairingToken = pairingToken,
+                            displayName = catalog?.rootName,
+                        )
+                    }.onSuccess {
+                        savedConnections = connectionStore.loadProfiles()
+                        libraryError = null
+                    }.onFailure {
+                        libraryError = it.message
+                    }
+                },
                 onDiscover = discoverPc,
                 onRefresh = refreshLibrary,
                 onPlayPause = {
@@ -1070,9 +1105,13 @@ private fun ConnectPage(
     nowPlaying: LibraryMediaItem?,
     serverUrl: String,
     pairingToken: String,
+    savedConnections: List<LanLibraryConnectionProfile>,
     libraryError: String?,
     onServerUrlChange: (String) -> Unit,
     onPairingTokenChange: (String) -> Unit,
+    onSelectConnection: (LanLibraryConnectionProfile) -> Unit,
+    onForgetConnection: (LanLibraryConnectionProfile) -> Unit,
+    onSaveConnection: () -> Unit,
     onDiscover: () -> Unit,
     onRefresh: () -> Unit,
     onPlayPause: () -> Unit,
@@ -1105,9 +1144,13 @@ private fun ConnectPage(
                 catalog = catalog,
                 serverUrl = serverUrl,
                 pairingToken = pairingToken,
+                savedConnections = savedConnections,
                 libraryError = libraryError,
                 onServerUrlChange = onServerUrlChange,
                 onPairingTokenChange = onPairingTokenChange,
+                onSelectConnection = onSelectConnection,
+                onForgetConnection = onForgetConnection,
+                onSaveConnection = onSaveConnection,
                 onDiscover = onDiscover,
                 onRefresh = onRefresh,
             )
@@ -1538,9 +1581,13 @@ private fun ConnectionPanel(
     catalog: LibraryCatalog?,
     serverUrl: String,
     pairingToken: String,
+    savedConnections: List<LanLibraryConnectionProfile>,
     libraryError: String?,
     onServerUrlChange: (String) -> Unit,
     onPairingTokenChange: (String) -> Unit,
+    onSelectConnection: (LanLibraryConnectionProfile) -> Unit,
+    onForgetConnection: (LanLibraryConnectionProfile) -> Unit,
+    onSaveConnection: () -> Unit,
     onDiscover: () -> Unit,
     onRefresh: () -> Unit,
 ) {
@@ -1574,6 +1621,24 @@ private fun ConnectionPanel(
                 StatusPill(if (catalog == null) "Offline" else "Ready")
             }
 
+            if (savedConnections.isNotEmpty()) {
+                Text(
+                    "Saved PCs",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    savedConnections.forEach { connection ->
+                        SavedConnectionRow(
+                            connection = connection,
+                            isSelected = connection.normalizedBaseUrl == serverUrl.trim().trimEnd('/'),
+                            onSelect = { onSelectConnection(connection) },
+                            onForget = { onForgetConnection(connection) },
+                        )
+                    }
+                }
+            }
+
             OutlinedTextField(
                 value = serverUrl,
                 onValueChange = onServerUrlChange,
@@ -1598,10 +1663,61 @@ private fun ConnectionPanel(
                 OutlinedButton(onClick = onRefresh) {
                     Text("Refresh library")
                 }
+                OutlinedButton(onClick = onSaveConnection) {
+                    Text("Save current")
+                }
             }
 
             libraryError?.let {
                 ErrorText("Library error: $it")
+            }
+        }
+    }
+}
+
+@Composable
+private fun SavedConnectionRow(
+    connection: LanLibraryConnectionProfile,
+    isSelected: Boolean,
+    onSelect: () -> Unit,
+    onForget: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        color = if (isSelected) Color(0xFF273747) else PanelColor,
+        border = BorderStroke(1.dp, if (isSelected) AccentBlue else Color(0xFF343D45)),
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    connection.displayName,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    connection.normalizedBaseUrl,
+                    color = SubtleText,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            OutlinedButton(
+                onClick = onSelect,
+                modifier = Modifier.testTag("saved-connection:${connection.id}"),
+            ) {
+                Text(if (isSelected) "Selected" else "Use")
+            }
+            TextButton(
+                onClick = onForget,
+                modifier = Modifier.testTag("saved-connection-forget:${connection.id}"),
+            ) {
+                Text("Forget")
             }
         }
     }

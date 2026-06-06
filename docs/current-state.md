@@ -214,6 +214,9 @@ Updated on 2026-06-06.
   loads paired progress and exposes shared-derived Next Up, Continue Watching,
   and Recently Watched rails for detail, resume, next-episode, first-start, and
   recent activity actions.
+- Android mobile persists recently used PC-library connection profiles after a
+  successful refresh and exposes a saved-PC picker on the Connect screen while
+  retaining manual URL and pairing-code entry.
 - Android mobile has compile-checked Compose instrumentation coverage for the
   Library page empty, connected-catalog, selected-series detail, Next Up,
   Continue Watching, Recently Watched, episode detail, watch-state labels,
@@ -223,6 +226,8 @@ Updated on 2026-06-06.
   detail actions on those progress rails, series rail, selected-series detail
   strip with season episode actions, fixed-height episode list, and
   metadata-rich episode buttons for connected-PC catalogs.
+- Android TV shares the Android saved PC-library connection store and exposes
+  remote-friendly saved-PC cards with use and forget actions.
 - Desktop root scanner can import ani-rss output folders, reuse unchanged media
   rows during incremental rescans, mark unavailable roots missing, and produce
   a merged library for LAN publication.

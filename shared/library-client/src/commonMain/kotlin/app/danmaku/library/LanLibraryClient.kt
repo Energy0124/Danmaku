@@ -56,6 +56,49 @@ data class LanPlaybackTarget(
     }
 }
 
+data class LanLibraryConnectionProfile(
+    val id: String,
+    val displayName: String,
+    val baseUrl: String,
+    val pairingToken: String,
+    val lastConnectedAtEpochMs: Long? = null,
+) {
+    init {
+        require(id.isNotBlank()) { "id must not be blank" }
+        require(displayName.isNotBlank()) { "displayName must not be blank" }
+        require(baseUrl.isNotBlank()) { "baseUrl must not be blank" }
+        lastConnectedAtEpochMs?.let {
+            require(it >= 0) { "lastConnectedAtEpochMs must not be negative" }
+        }
+    }
+
+    val normalizedBaseUrl: String =
+        baseUrl.trim().trimEnd('/')
+}
+
+fun lanLibraryConnectionProfile(
+    baseUrl: String,
+    pairingToken: String,
+    displayName: String? = null,
+    lastConnectedAtEpochMs: Long? = null,
+): LanLibraryConnectionProfile {
+    val normalizedBaseUrl = baseUrl.trim().trimEnd('/')
+    require(normalizedBaseUrl.isNotBlank()) { "baseUrl must not be blank" }
+    val normalizedName = displayName
+        ?.trim()
+        ?.takeIf { it.isNotBlank() }
+        ?: normalizedBaseUrl.removePrefix("http://")
+            .removePrefix("https://")
+            .ifBlank { "Windows PC" }
+    return LanLibraryConnectionProfile(
+        id = normalizedBaseUrl,
+        displayName = normalizedName,
+        baseUrl = normalizedBaseUrl,
+        pairingToken = pairingToken,
+        lastConnectedAtEpochMs = lastConnectedAtEpochMs,
+    )
+}
+
 data class LanPlaybackPreparation(
     val item: LibraryMediaItem,
     val target: LanPlaybackTarget,

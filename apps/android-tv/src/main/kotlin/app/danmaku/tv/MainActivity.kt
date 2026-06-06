@@ -71,11 +71,13 @@ import app.danmaku.domain.recentlyWatchedItems
 import app.danmaku.domain.seekTargetBy
 import app.danmaku.domain.seriesWatchSummaryById
 import app.danmaku.domain.watchStatusByMediaId
-import app.danmaku.library.android.LanLibraryDiscoveryClient
-import app.danmaku.library.android.LanLibraryClient
+import app.danmaku.library.LanLibraryConnectionProfile
 import app.danmaku.library.LanPlaybackPreparer
 import app.danmaku.library.LanPlaybackProgressSync
 import app.danmaku.library.LanPlaybackTarget
+import app.danmaku.library.android.AndroidLanLibraryConnectionStore
+import app.danmaku.library.android.LanLibraryClient
+import app.danmaku.library.android.LanLibraryDiscoveryClient
 import app.danmaku.player.android.Media3PlaybackController
 import app.danmaku.player.android.Media3PlaybackServiceConnection
 import kotlinx.coroutines.Dispatchers
@@ -105,6 +107,9 @@ private fun TvPlayerScreen() {
         LanPlaybackProgressSync(libraryClient, System::currentTimeMillis)
     }
     val playbackPreparer = remember(libraryClient) { LanPlaybackPreparer(libraryClient) }
+    val connectionStore = remember(context) {
+        AndroidLanLibraryConnectionStore(context.applicationContext)
+    }
     val discoveryClient = remember { LanLibraryDiscoveryClient() }
     val refreshPcFocusRequester = remember { FocusRequester() }
     val discoverPcFocusRequester = remember { FocusRequester() }
@@ -114,6 +119,7 @@ private fun TvPlayerScreen() {
     var playbackError by remember { mutableStateOf<String?>(null) }
     var serverUrl by remember { mutableStateOf("http://10.0.2.2:8686") }
     var pairingToken by remember { mutableStateOf("") }
+    var savedConnections by remember { mutableStateOf(connectionStore.loadProfiles()) }
     var catalog by remember { mutableStateOf<LibraryCatalog?>(null) }
     var playbackProgresses by remember { mutableStateOf<List<PlaybackProgress>>(emptyList()) }
     var libraryError by remember { mutableStateOf<String?>(null) }
@@ -224,6 +230,12 @@ private fun TvPlayerScreen() {
                             }.onSuccess {
                                 catalog = it.first
                                 playbackProgresses = it.second
+                                connectionStore.saveCurrentConnection(
+                                    baseUrl = serverUrl,
+                                    pairingToken = pairingToken,
+                                    displayName = it.first.rootName,
+                                )
+                                savedConnections = connectionStore.loadProfiles()
                                 libraryError = null
                             }.onFailure {
                                 libraryError = it.message
@@ -262,6 +274,24 @@ private fun TvPlayerScreen() {
                 ) {
                     Text("Discover PC")
                 }
+                Button(
+                    onClick = {
+                        runCatching {
+                            connectionStore.saveCurrentConnection(
+                                baseUrl = serverUrl,
+                                pairingToken = pairingToken,
+                                displayName = catalog?.rootName,
+                            )
+                        }.onSuccess {
+                            savedConnections = connectionStore.loadProfiles()
+                            libraryError = null
+                        }.onFailure {
+                            libraryError = it.message
+                        }
+                    },
+                ) {
+                    Text("Save PC")
+                }
             }
             BasicTextField(
                 value = serverUrl,
@@ -281,6 +311,25 @@ private fun TvPlayerScreen() {
                     .padding(8.dp)
                     .focusable(),
             )
+            if (savedConnections.isNotEmpty()) {
+                Text("Saved PCs", style = MaterialTheme.typography.titleMedium)
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    items(savedConnections, key = { it.id }) { connection ->
+                        TvSavedConnectionCard(
+                            connection = connection,
+                            isSelected = connection.normalizedBaseUrl == serverUrl.trim().trimEnd('/'),
+                            onSelect = {
+                                serverUrl = connection.baseUrl
+                                pairingToken = connection.pairingToken
+                            },
+                            onForget = {
+                                connectionStore.forgetProfile(connection.id)
+                                savedConnections = connectionStore.loadProfiles()
+                            },
+                        )
+                    }
+                }
+            }
             libraryError?.let { Text("Library error: $it") }
             LibraryItems(
                 catalog = catalog,
@@ -418,6 +467,44 @@ private fun Long.formatPlaybackTime(): String {
         "$hours:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}"
     } else {
         "$minutes:${seconds.toString().padStart(2, '0')}"
+    }
+}
+
+@Composable
+private fun TvSavedConnectionCard(
+    connection: LanLibraryConnectionProfile,
+    isSelected: Boolean,
+    onSelect: () -> Unit,
+    onForget: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .width(320.dp)
+            .background(if (isSelected) Color(0xFF273747) else Color.DarkGray)
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            connection.displayName,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(connection.normalizedBaseUrl, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = onSelect,
+                modifier = Modifier.testTag("saved-connection:${connection.id}"),
+            ) {
+                Text(if (isSelected) "Selected" else "Use")
+            }
+            Button(
+                onClick = onForget,
+                modifier = Modifier.testTag("saved-connection-forget:${connection.id}"),
+            ) {
+                Text("Forget")
+            }
+        }
     }
 }
 
