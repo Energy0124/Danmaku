@@ -77,6 +77,7 @@ import androidx.media3.ui.PlayerView
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryCatalogQuery
 import app.danmaku.domain.LibraryCatalogSort
+import app.danmaku.domain.LibraryEpisodeDetail
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibraryNextUpItem
 import app.danmaku.domain.LibraryNextUpReason
@@ -95,6 +96,7 @@ import app.danmaku.domain.PlaybackTrack
 import app.danmaku.domain.PlaybackTrackKind
 import app.danmaku.domain.coerceSeekTarget
 import app.danmaku.domain.continueWatchingItems
+import app.danmaku.domain.episodeDetail
 import app.danmaku.domain.filteredItems
 import app.danmaku.domain.groupedSeries
 import app.danmaku.domain.nextUpItems
@@ -494,6 +496,7 @@ internal fun LibraryPage(
     onOpenPlayer: () -> Unit,
     onConnect: () -> Unit,
 ) {
+    var selectedEpisodeId by remember(catalog) { mutableStateOf<String?>(null) }
     PageColumn(contentPadding) {
         val series = catalog?.groupedSeries().orEmpty()
         val nextUpItems = catalog?.nextUpItems(playbackProgresses, limit = 5).orEmpty()
@@ -506,6 +509,12 @@ internal fun LibraryPage(
             ?.let { selectedTitle ->
                 series.firstOrNull { it.title.equals(selectedTitle.trim(), ignoreCase = true) }
             }
+        val selectedDetailId = selectedEpisodeId
+            ?.takeIf { id -> filteredItems.any { it.id == id } }
+            ?: nowPlaying?.id?.takeIf { id -> filteredItems.any { it.id == id } }
+            ?: filteredItems.firstOrNull()?.id
+        val selectedEpisodeDetail = selectedDetailId
+            ?.let { id -> catalog?.episodeDetail(id, playbackProgresses) }
         item(key = "library-page-header") {
             PageHeader(
                 icon = Icons.Filled.VideoLibrary,
@@ -592,6 +601,15 @@ internal fun LibraryPage(
                 }
             }
         }
+        selectedEpisodeDetail?.let { detail ->
+            item(key = "episode-detail-${detail.mediaItem.id}") {
+                EpisodeDetailPanel(
+                    detail = detail,
+                    onPlay = onPlay,
+                    onSelectEpisode = { selectedEpisodeId = it.id },
+                )
+            }
+        }
         if (catalog == null) {
             item(key = "library-empty") {
                 EmptyLibraryState(onConnect = onConnect)
@@ -606,8 +624,82 @@ internal fun LibraryPage(
                     item = item,
                     selected = nowPlaying?.id == item.id,
                     watchStatus = watchStatusById[item.id],
+                    onShowDetails = { selectedEpisodeId = item.id },
                     onPlay = { onPlay(item) },
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun EpisodeDetailPanel(
+    detail: LibraryEpisodeDetail,
+    onPlay: (LibraryMediaItem) -> Unit,
+    onSelectEpisode: (LibraryMediaItem) -> Unit,
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("episode-detail:${detail.mediaItem.id}"),
+        shape = RoundedCornerShape(20.dp),
+        color = Color(0xFF15191D),
+        border = BorderStroke(1.dp, Color(0xFF2B3239)),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    detail.mediaItem.episodeTitle,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    "${detail.series.title} · ${detail.season.label} · ${detail.watchStatus.statusLabel()}",
+                    color = SubtleText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                AssistChip(onClick = {}, label = { Text(detail.mediaItem.formatSize()) })
+                AssistChip(onClick = {}, label = { Text("${detail.mediaItem.subtitles.size} subtitles") })
+                AssistChip(onClick = {}, label = { Text(detail.mediaItem.mediaType) })
+            }
+            Text(
+                detail.mediaItem.relativePath,
+                color = SubtleText,
+                style = MaterialTheme.typography.bodySmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Button(onClick = { onPlay(detail.mediaItem) }) {
+                    Text("Play")
+                }
+                OutlinedButton(
+                    onClick = { detail.previousItem?.let(onSelectEpisode) },
+                    enabled = detail.previousItem != null,
+                ) {
+                    Text("Previous")
+                }
+                OutlinedButton(
+                    onClick = { detail.nextItem?.let(onSelectEpisode) },
+                    enabled = detail.nextItem != null,
+                ) {
+                    Text("Next")
+                }
             }
         }
     }
@@ -1621,6 +1713,7 @@ private fun EpisodeRow(
     item: LibraryMediaItem,
     selected: Boolean,
     watchStatus: LibraryWatchStatus?,
+    onShowDetails: () -> Unit,
     onPlay: () -> Unit,
 ) {
     Surface(
@@ -1678,6 +1771,12 @@ private fun EpisodeRow(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+            }
+            TextButton(
+                onClick = onShowDetails,
+                modifier = Modifier.testTag("episode-details:${item.id}"),
+            ) {
+                Text("Details")
             }
         }
     }

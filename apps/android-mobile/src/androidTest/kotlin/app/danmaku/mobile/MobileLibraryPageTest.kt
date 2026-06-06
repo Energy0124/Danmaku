@@ -108,9 +108,44 @@ class MobileLibraryPageTest {
         composeRule.onNodeWithText("2 episodes across 1 seasons").assertExists()
         composeRule.onNodeWithText("0 watched · 0 watching · 2 new").assertExists()
         composeRule.onNodeWithText("3 subtitles").assertExists()
+        composeRule.onNodeWithTag("episode-detail:example-1").assertExists()
         composeRule.onNodeWithTag("episode:example-1").assertExists()
         composeRule.onNodeWithTag("episode:example-2").assertExists()
         composeRule.onNodeWithTag("episode:other-1").assertDoesNotExist()
+    }
+
+    @Test
+    fun episodeDetailShowsContextAndNavigatesNeighborEpisodes() {
+        composeRule.setContent {
+            MaterialTheme {
+                val catalog = seededCatalog()
+                LibraryPage(
+                    contentPadding = PaddingValues(0.dp),
+                    catalog = catalog,
+                    playbackProgresses = emptyList(),
+                    filteredItems = catalog.items,
+                    totalCount = catalog.items.size,
+                    snapshot = PlaybackSnapshot(),
+                    nowPlaying = null,
+                    searchText = "",
+                    onSearchTextChange = {},
+                    sort = LibraryCatalogSort.TITLE,
+                    onSortChange = {},
+                    subtitleFilter = LibrarySubtitleFilter.ANY,
+                    onSubtitleFilterChange = {},
+                    onPlay = {},
+                    onPlayPause = {},
+                    onOpenPlayer = {},
+                    onConnect = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("episode-details:example-2").performClick()
+        composeRule.onNodeWithTag("episode-detail:example-2").assertExists()
+        composeRule.onNodeWithText("Example Show · Season unknown · New").assertExists()
+        composeRule.onNodeWithText("Next").performClick()
+        composeRule.onNodeWithTag("episode-detail:other-1").assertExists()
     }
 
     @Test

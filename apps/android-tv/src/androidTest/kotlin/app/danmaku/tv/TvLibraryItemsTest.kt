@@ -51,6 +51,7 @@ class TvLibraryItemsTest {
         composeRule.onNodeWithTag("series-detail:Example Show").assertExists()
         composeRule.onNodeWithText("3 subtitle tracks").assertExists()
         composeRule.onNodeWithText("0 watched, 0 watching, 2 new").assertExists()
+        composeRule.onNodeWithTag("episode-detail:example-1").assertExists()
         composeRule.onNodeWithTag("series-season:Season unknown").assertExists()
         composeRule.onNodeWithTag("episode:example-1").assertExists()
         composeRule.onNodeWithTag("episode:example-2").assertExists()
@@ -61,6 +62,21 @@ class TvLibraryItemsTest {
         composeRule.onNodeWithText("3 / 3 episodes").assertExists()
         composeRule.onNodeWithTag("series-detail:Example Show").assertDoesNotExist()
         composeRule.onNodeWithTag("episode:other-1").assertExists()
+    }
+
+    @Test
+    fun episodeDetailShowsContextAndNavigatesNeighborEpisodes() {
+        composeRule.setContent {
+            MaterialTheme {
+                LibraryItems(catalog = seededCatalog(), playbackProgresses = emptyList(), onPlay = {})
+            }
+        }
+
+        composeRule.onNodeWithTag("episode-details:example-2").performClick()
+        composeRule.onNodeWithTag("episode-detail:example-2").assertExists()
+        composeRule.onNodeWithText("Example Show / Season unknown / New").assertExists()
+        composeRule.onNodeWithText("Next").performClick()
+        composeRule.onNodeWithTag("episode-detail:other-1").assertExists()
     }
 
     @Test

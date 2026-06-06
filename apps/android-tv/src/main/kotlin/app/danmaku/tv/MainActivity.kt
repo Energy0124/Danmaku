@@ -47,6 +47,7 @@ import androidx.tv.material3.Text
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryCatalogQuery
 import app.danmaku.domain.LibraryCatalogSort
+import app.danmaku.domain.LibraryEpisodeDetail
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibraryNextUpItem
 import app.danmaku.domain.LibraryNextUpReason
@@ -62,6 +63,7 @@ import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.PlaybackTrack
 import app.danmaku.domain.PlaybackTrackKind
 import app.danmaku.domain.continueWatchingItems
+import app.danmaku.domain.episodeDetail
 import app.danmaku.domain.filteredItems
 import app.danmaku.domain.groupedSeries
 import app.danmaku.domain.nextUpItems
@@ -429,6 +431,7 @@ internal fun LibraryItems(
     var sort by remember { mutableStateOf(LibraryCatalogSort.TITLE) }
     var subtitleFilter by remember { mutableStateOf(LibrarySubtitleFilter.ANY) }
     var selectedSeriesId by remember(catalog) { mutableStateOf<String?>(null) }
+    var selectedEpisodeId by remember(catalog) { mutableStateOf<String?>(null) }
     val totalItems = catalog?.items.orEmpty()
     val filteredItems = catalog
         ?.filteredItems(
@@ -446,6 +449,11 @@ internal fun LibraryItems(
     val watchStatusById = catalog?.watchStatusByMediaId(playbackProgresses).orEmpty()
     val seriesWatchSummaryById = catalog?.seriesWatchSummaryById(playbackProgresses).orEmpty()
     val selectedSeries = series.firstOrNull { it.id == selectedSeriesId }
+    val selectedDetailId = selectedEpisodeId
+        ?.takeIf { id -> filteredItems.any { it.id == id } }
+        ?: filteredItems.firstOrNull()?.id
+    val selectedEpisodeDetail = selectedDetailId
+        ?.let { id -> catalog?.episodeDetail(id, playbackProgresses) }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(
@@ -580,6 +588,13 @@ internal fun LibraryItems(
                 onPlay = onPlay,
             )
         }
+        selectedEpisodeDetail?.let { detail ->
+            TvEpisodeDetail(
+                detail = detail,
+                onPlay = onPlay,
+                onSelectEpisode = { selectedEpisodeId = it.id },
+            )
+        }
         LazyColumn(
             modifier = Modifier.height(320.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -588,8 +603,60 @@ internal fun LibraryItems(
                 TvEpisodeButton(
                     item = item,
                     watchStatus = watchStatusById[item.id],
+                    onShowDetails = { selectedEpisodeId = item.id },
                     onPlay = { onPlay(item) },
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TvEpisodeDetail(
+    detail: LibraryEpisodeDetail,
+    onPlay: (LibraryMediaItem) -> Unit,
+    onSelectEpisode: (LibraryMediaItem) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.DarkGray)
+            .padding(14.dp)
+            .testTag("episode-detail:${detail.mediaItem.id}"),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    detail.mediaItem.episodeTitle,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text("${detail.series.title} / ${detail.season.label} / ${detail.watchStatus.statusLabel()}")
+                Text(detail.mediaItem.relativePath, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Text("${detail.mediaItem.subtitles.size} subtitles")
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Button(onClick = { onPlay(detail.mediaItem) }) {
+                Text("Play")
+            }
+            Button(
+                onClick = { detail.previousItem?.let(onSelectEpisode) },
+                enabled = detail.previousItem != null,
+            ) {
+                Text("Previous")
+            }
+            Button(
+                onClick = { detail.nextItem?.let(onSelectEpisode) },
+                enabled = detail.nextItem != null,
+            ) {
+                Text("Next")
             }
         }
     }
@@ -781,39 +848,52 @@ private fun TvSeriesDetail(
 private fun TvEpisodeButton(
     item: LibraryMediaItem,
     watchStatus: LibraryWatchStatus?,
+    onShowDetails: () -> Unit,
     onPlay: () -> Unit,
 ) {
-    Button(
-        onClick = onPlay,
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag("episode:${item.id}"),
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
+        Button(
+            onClick = onPlay,
+            modifier = Modifier
+                .weight(1f)
+                .testTag("episode:${item.id}"),
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    item.seriesTitle,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    item.episodeTitle,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    watchStatus.statusLabel(),
-                    color = Color.LightGray,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        item.seriesTitle,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        item.episodeTitle,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        watchStatus.statusLabel(),
+                        color = Color.LightGray,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Spacer(modifier = Modifier.width(20.dp))
+                Text("${item.subtitles.size} subs")
             }
-            Spacer(modifier = Modifier.width(20.dp))
-            Text("${item.subtitles.size} subs")
+        }
+        Button(
+            onClick = onShowDetails,
+            modifier = Modifier.testTag("episode-details:${item.id}"),
+        ) {
+            Text("Details")
         }
     }
 }

@@ -199,6 +199,9 @@ Updated on 2026-06-06.
 - Shared series watch-summary helpers roll episode watch states up into watched,
   watching, and new counts for each grouped series. Windows desktop, Android
   mobile, and Android TV render those counts in series rails and detail panels.
+- Shared episode-detail helpers resolve an episode's series, season, watch
+  state, and previous/next catalog neighbors. Android mobile and Android TV
+  expose compact episode detail panels with play plus previous/next navigation.
 - Windows desktop library browsing now uses the shared series/season grouping
   model for a selectable series column plus a compact series detail panel with
   season episode previews and direct prepare/play actions.
@@ -211,8 +214,8 @@ Updated on 2026-06-06.
   activity actions.
 - Android mobile has compile-checked Compose instrumentation coverage for the
   Library page empty, connected-catalog, selected-series detail, Next Up,
-  Continue Watching, Recently Watched, watch-state labels, mini-player, and
-  episode-selection states.
+  Continue Watching, Recently Watched, episode detail, watch-state labels,
+  mini-player, and episode-selection states.
 - Android TV library browsing includes a remote-friendly header, shared-grouped
   progress-backed Next Up, Continue Watching, and Recently Watched rails,
   series rail, selected-series detail strip with season episode actions,
