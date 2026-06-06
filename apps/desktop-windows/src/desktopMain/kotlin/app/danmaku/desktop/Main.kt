@@ -83,6 +83,7 @@ import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowState
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import app.danmaku.domain.DanmakuDisplaySettings
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryCatalogQuery
 import app.danmaku.domain.LibraryCatalogSort
@@ -177,6 +178,9 @@ private fun DesktopShell(
     var playbackPreferences by remember(playbackPreferencesStore) {
         mutableStateOf(playbackPreferencesStore.load())
     }
+    var danmakuSettings by remember(playbackPreferencesStore) {
+        mutableStateOf(playbackPreferences.danmakuSettings)
+    }
     val rootRegistry = remember(catalogStore) { DesktopLibraryRootRegistry(catalogStore) }
     val rootScanner = remember(catalogStore, rootRegistry) {
         DesktopLibraryRootScanner(catalogStore, rootRegistry)
@@ -197,6 +201,7 @@ private fun DesktopShell(
         DesktopDandanplayDanmakuResolver(
             loadConnection = dandanplayCredentialStore::loadConnection,
             cacheMaxAgeDays = { dandanplayCredentialStore.loadSettings().cacheMaxAgeDays },
+            danmakuSettings = { danmakuSettings },
             cacheStore = catalogStore,
         )
     }
@@ -304,7 +309,9 @@ private fun DesktopShell(
         appendDiagnostic("diagnostics", "App log: ${diagnosticFileLog.appLogPath}")
         appendDiagnostic("diagnostics", "mpv log: ${diagnosticFileLog.mpvLogPath}")
     }
-    val syntheticOverlayTrack = remember { DesktopSyntheticDanmakuAssTrack.createDefault() }
+    val syntheticOverlayTrack = remember(danmakuSettings) {
+        DesktopSyntheticDanmakuAssTrack.createDefault(danmakuSettings)
+    }
     var overlayStatus by remember { mutableStateOf("Synthetic danmaku overlay: waiting for media load") }
     val playbackSession = remember(playbackController, syntheticOverlayTrack, mpvRuntime) {
         DesktopPlaybackSession(
@@ -318,7 +325,11 @@ private fun DesktopShell(
                         appendDiagnostic("overlay", "Attaching synthetic ASS danmaku track after loading ${request.label}")
                         syntheticOverlayTrack.attachTo(mpvRuntime.executor)
                     }.onSuccess {
-                        overlayStatus = "Synthetic danmaku overlay: attached to mpv video"
+                        overlayStatus = if (danmakuSettings.visible) {
+                            "Synthetic danmaku overlay: attached to mpv video"
+                        } else {
+                            "Danmaku hidden by display settings"
+                        }
                         appendDiagnostic("overlay", "Synthetic ASS danmaku track attached")
                     }.onFailure { error ->
                         overlayStatus = "Synthetic danmaku overlay error: ${error.message}"
@@ -824,6 +835,23 @@ private fun DesktopShell(
             }
         }
     }
+    fun saveDanmakuSettings(settings: DanmakuDisplaySettings) {
+        runCatching {
+            playbackPreferencesStore.saveDanmakuSettings(settings)
+            playbackPreferencesStore.load()
+        }.onSuccess { updatedPreferences ->
+            playbackPreferences = updatedPreferences
+            danmakuSettings = updatedPreferences.danmakuSettings
+            overlayStatus = if (updatedPreferences.danmakuSettings.visible) {
+                "Danmaku settings saved; reload media or refresh cache to apply"
+            } else {
+                "Danmaku hidden by display settings"
+            }
+            appendDiagnostic("settings", "Saved danmaku display settings")
+        }.onFailure {
+            appendDiagnostic("settings", "Failed to save danmaku display settings: ${it.message}")
+        }
+    }
 
     LaunchedEffect(Unit) {
         indexedLibrary?.toPublishedLibrary()?.let(server::publish)
@@ -1165,6 +1193,8 @@ private fun DesktopShell(
                             appLogPath = diagnosticFileLog.appLogPath,
                             mpvLogPath = diagnosticFileLog.mpvLogPath,
                             diagnosticLog = diagnosticLog,
+                            danmakuSettings = danmakuSettings,
+                            onSaveDanmakuSettings = ::saveDanmakuSettings,
                             dandanplaySettings = dandanplaySettings,
                             onSaveDandanplaySettings = ::saveDandanplaySettings,
                             onClearDandanplaySettings = ::clearDandanplaySettings,
@@ -2234,6 +2264,8 @@ private fun ProfileTab(
     appLogPath: Path,
     mpvLogPath: Path,
     diagnosticLog: List<DesktopDiagnosticLogEntry>,
+    danmakuSettings: DanmakuDisplaySettings,
+    onSaveDanmakuSettings: (DanmakuDisplaySettings) -> Unit,
     dandanplaySettings: DandanplayProviderSettings,
     onSaveDandanplaySettings: (String, String?, String?, DandanplayAuthenticationMode, Int) -> Unit,
     onClearDandanplaySettings: () -> Unit,
@@ -2256,6 +2288,10 @@ private fun ProfileTab(
             MetadataRow("App log", appLogPath.toString())
             MetadataRow("mpv log", mpvLogPath.toString())
         }
+        DanmakuDisplaySettingsCard(
+            settings = danmakuSettings,
+            onSave = onSaveDanmakuSettings,
+        )
         DandanplayProviderCard(
             settings = dandanplaySettings,
             onSave = onSaveDandanplaySettings,
@@ -2265,6 +2301,146 @@ private fun ProfileTab(
         DiagnosticsPanel(diagnosticLog)
     }
 }
+
+@Composable
+private fun DanmakuDisplaySettingsCard(
+    settings: DanmakuDisplaySettings,
+    onSave: (DanmakuDisplaySettings) -> Unit,
+) {
+    var visible by remember(settings) { mutableStateOf(settings.visible) }
+    var opacityText by remember(settings) { mutableStateOf(settings.opacityPercent.toString()) }
+    var fontScaleText by remember(settings) { mutableStateOf(settings.fontScalePercent.toString()) }
+    var speedText by remember(settings) { mutableStateOf(settings.speedPercent.toString()) }
+    var densityText by remember(settings) { mutableStateOf(settings.densityPercent.toString()) }
+    var displayAreaText by remember(settings) { mutableStateOf(settings.displayAreaPercent.toString()) }
+    var keywordFiltersText by remember(settings) { mutableStateOf(settings.keywordFilters.joinToString("\n")) }
+    var regexFiltersText by remember(settings) { mutableStateOf(settings.regexFilters.joinToString("\n")) }
+
+    SectionCard("Danmaku Display") {
+        Text(
+            "Controls generated ASS danmaku overlays for synthetic and fetched comment tracks. Reload media or refresh cached danmaku to apply renderer changes.",
+            color = DanmakuColors.TextMuted,
+        )
+        MetadataRow("Visibility", if (settings.visible) "Shown" else "Hidden")
+        MetadataRow("Opacity", "${settings.opacityPercent}%")
+        MetadataRow("Font scale", "${settings.fontScalePercent}%")
+        MetadataRow("Speed", "${settings.speedPercent}%")
+        MetadataRow("Density", "${settings.densityPercent}%")
+        MetadataRow("Display area", "${settings.displayAreaPercent}%")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = { visible = true },
+                enabled = !visible,
+            ) {
+                Text("Show danmaku")
+            }
+            Button(
+                onClick = { visible = false },
+                enabled = visible,
+            ) {
+                Text("Hide danmaku")
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(
+                value = opacityText,
+                onValueChange = { opacityText = it },
+                label = { Text("Opacity %") },
+                singleLine = true,
+                modifier = Modifier.weight(1f),
+            )
+            OutlinedTextField(
+                value = fontScaleText,
+                onValueChange = { fontScaleText = it },
+                label = { Text("Font scale %") },
+                singleLine = true,
+                modifier = Modifier.weight(1f),
+            )
+            OutlinedTextField(
+                value = speedText,
+                onValueChange = { speedText = it },
+                label = { Text("Speed %") },
+                singleLine = true,
+                modifier = Modifier.weight(1f),
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(
+                value = densityText,
+                onValueChange = { densityText = it },
+                label = { Text("Density %") },
+                singleLine = true,
+                modifier = Modifier.weight(1f),
+            )
+            OutlinedTextField(
+                value = displayAreaText,
+                onValueChange = { displayAreaText = it },
+                label = { Text("Display area %") },
+                singleLine = true,
+                modifier = Modifier.weight(1f),
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(
+                value = keywordFiltersText,
+                onValueChange = { keywordFiltersText = it },
+                label = { Text("Keyword filters, one per line") },
+                modifier = Modifier.weight(1f),
+            )
+            OutlinedTextField(
+                value = regexFiltersText,
+                onValueChange = { regexFiltersText = it },
+                label = { Text("Regex filters, one per line") },
+                modifier = Modifier.weight(1f),
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = {
+                    onSave(
+                        DanmakuDisplaySettings(
+                            visible = visible,
+                            opacityPercent = opacityText.toIntOrNull()?.coerceIn(0, 100)
+                                ?: settings.opacityPercent,
+                            fontScalePercent = fontScaleText.toIntOrNull()?.coerceIn(50, 200)
+                                ?: settings.fontScalePercent,
+                            speedPercent = speedText.toIntOrNull()?.coerceIn(25, 300)
+                                ?: settings.speedPercent,
+                            densityPercent = densityText.toIntOrNull()?.coerceIn(10, 200)
+                                ?: settings.densityPercent,
+                            displayAreaPercent = displayAreaText.toIntOrNull()?.coerceIn(10, 100)
+                                ?: settings.displayAreaPercent,
+                            keywordFilters = keywordFiltersText.toFilterEntries(),
+                            regexFilters = regexFiltersText.toFilterEntries(),
+                        ),
+                    )
+                },
+            ) {
+                Text("Save danmaku display")
+            }
+            Button(
+                onClick = {
+                    visible = true
+                    opacityText = "100"
+                    fontScaleText = "100"
+                    speedText = "100"
+                    densityText = "100"
+                    displayAreaText = "100"
+                    keywordFiltersText = ""
+                    regexFiltersText = ""
+                },
+            ) {
+                Text("Reset draft")
+            }
+        }
+    }
+}
+
+private fun String.toFilterEntries(): List<String> =
+    lineSequence()
+        .map(String::trim)
+        .filter(String::isNotBlank)
+        .toList()
 
 @Composable
 private fun DandanplayProviderCard(

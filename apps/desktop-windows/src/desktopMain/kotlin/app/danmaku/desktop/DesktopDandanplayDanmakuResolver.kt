@@ -1,6 +1,7 @@
 package app.danmaku.desktop
 
 import app.danmaku.domain.DanmakuEvent
+import app.danmaku.domain.DanmakuDisplaySettings
 import app.danmaku.domain.DanmakuMode
 import app.danmaku.domain.DanmakuSize
 import app.danmaku.domain.LocalDanmakuParser
@@ -18,6 +19,7 @@ import kotlin.io.path.absolutePathString
 class DesktopDandanplayDanmakuResolver(
     private val loadConnection: () -> DandanplayConnection,
     private val cacheMaxAgeDays: () -> Int = { DEFAULT_CACHE_MAX_AGE_DAYS },
+    private val danmakuSettings: () -> DanmakuDisplaySettings = { DanmakuDisplaySettings() },
     private val cacheStore: DandanplayCommentCacheStore? = null,
     private val fetchTrack: (DandanplayConnection, DandanplayMediaFingerprint) -> DandanplayCommentTrack? = { connection, fingerprint ->
         DandanplayDanmakuClient(connection).fetchBestMatchComments(fingerprint)
@@ -105,7 +107,7 @@ class DesktopDandanplayDanmakuResolver(
         val cachePath = cacheDirectory.resolve(cacheFileName(mediaId, fingerprint.normalizedFileHash))
         Files.writeString(
             cachePath,
-            SyntheticDanmakuAssRenderer.render(track.events),
+            SyntheticDanmakuAssRenderer.render(track.events, danmakuSettings()),
             StandardCharsets.UTF_8,
         )
         val resolution = DesktopDandanplayDanmakuResolution(

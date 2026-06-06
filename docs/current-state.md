@@ -128,6 +128,8 @@ Updated on 2026-06-06.
 - Shared local danmaku parser for common Bilibili-style XML `<d p="...">`
   comments and normalized JSON arrays/envelopes, producing provider-independent
   scrolling, top, and bottom `DanmakuEvent` modes.
+- Shared danmaku display settings model for show/hide, opacity, font scale,
+  speed, density, display area, keyword filters, and regex filters.
 - Windows dandanplay-compatible danmaku API client foundation for calculating
   the first-16MB MD5 media fingerprint, matching files through `/api/v2/match`,
   fetching `/api/v2/comment/{episodeId}` comments, using optional signed or
@@ -143,6 +145,9 @@ Updated on 2026-06-06.
   mpv in place of the synthetic demo track. Fetching is skipped until the user
   either configures official credentials or points the app at a non-default
   compatible API server.
+- Windows generated ASS overlays consume the shared danmaku display settings
+  for synthetic and refreshed dandanplay tracks, including visibility,
+  filtering, opacity, font scale, speed, density, and display-area limits.
 - The desktop SQLite catalog now persists dandanplay match metadata, local media
   fingerprints, raw normalized comment JSON, rendered ASS cache paths, and fetch
   timestamps per local media item. The resolver reuses cached comments when the
@@ -154,6 +159,9 @@ Updated on 2026-06-06.
 - dandanplay provider settings include a configurable cache max age in days.
   Cached matches older than that age are treated as stale, and the Profile tab
   exposes a cleanup action for expired dandanplay cache rows.
+- The Windows Profile tab exposes persisted danmaku display controls. Renderer
+  changes apply after media reload or cached danmaku refresh because ASS overlay
+  files are generated artifacts.
 - Compose Multiplatform 1.11.0 Windows desktop shell with synthetic danmaku
   scheduling backed by the shared scheduler and rendered over mpv as ASS.
 - Experimental macOS Compose Desktop support using the same desktop shell,

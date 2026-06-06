@@ -119,6 +119,9 @@ unblocked slices inside these tracks as the vertical slice hardens.
 - [x] Add Windows prepared-playback controls to force-refresh or clear the
   cached dandanplay match/comments for an episode.
 - [x] Add explicit dandanplay cache-expiry policy and cleanup controls.
+- [x] Add shared danmaku display settings for visibility, opacity, font scale,
+  speed, density, display area, keyword filters, and regex filters, and wire
+  Windows ASS overlay rendering to those persisted controls.
 - [x] Add seek and playback-rate test cases.
 - [x] Add Windows progress-bar scrubbing, live mpv position polling, and
   throttled local/paired progress persistence.

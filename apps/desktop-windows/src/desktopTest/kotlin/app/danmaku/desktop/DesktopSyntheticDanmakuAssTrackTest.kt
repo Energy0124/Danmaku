@@ -1,6 +1,7 @@
 package app.danmaku.desktop
 
 import app.danmaku.domain.DanmakuEvent
+import app.danmaku.domain.DanmakuDisplaySettings
 import java.nio.file.Files
 import kotlin.io.path.readText
 import kotlin.test.Test
@@ -22,6 +23,37 @@ class DesktopSyntheticDanmakuAssTrackTest {
         assertContains(ass, "Dialogue: 0,0:00:01.23,0:00:08.23,Danmaku")
         assertContains(ass, "{\\move(1280,24,-")
         assertContains(ass, "hello \\{world\\}")
+    }
+
+    @Test
+    fun appliesDanmakuDisplaySettingsToRenderedAss() {
+        val ass = SyntheticDanmakuAssRenderer.render(
+            events = listOf(
+                DanmakuEvent(id = "one", timestampMs = 1_000, text = "safe comment"),
+                DanmakuEvent(id = "two", timestampMs = 2_000, text = "spoiler comment"),
+            ),
+            settings = DanmakuDisplaySettings(
+                opacityPercent = 80,
+                fontScalePercent = 125,
+                speedPercent = 200,
+                keywordFilters = listOf("spoiler"),
+            ),
+        )
+
+        assertContains(ass, "Style: Danmaku,Arial,45,&H33FFFFFF")
+        assertContains(ass, "Dialogue: 0,0:00:01.00,0:00:04.50,Danmaku")
+        assertContains(ass, "safe comment")
+        assertTrue("spoiler comment" !in ass)
+    }
+
+    @Test
+    fun hiddenDanmakuSettingsRenderNoDialogueRows() {
+        val ass = SyntheticDanmakuAssRenderer.render(
+            events = listOf(DanmakuEvent(id = "one", timestampMs = 1_000, text = "hidden")),
+            settings = DanmakuDisplaySettings(visible = false),
+        )
+
+        assertTrue("Dialogue:" !in ass)
     }
 
     @Test

@@ -1,6 +1,7 @@
 package app.danmaku.desktop
 
 import app.danmaku.domain.DanmakuEvent
+import app.danmaku.domain.DanmakuDisplaySettings
 import app.danmaku.domain.DanmakuStyle
 import app.danmaku.domain.MeasuredDanmakuEvent
 import app.danmaku.domain.ScrollingDanmakuLaneScheduler
@@ -18,16 +19,17 @@ class DesktopSyntheticDanmakuAssTrack private constructor(
     }
 
     companion object {
-        fun createDefault(): DesktopSyntheticDanmakuAssTrack =
-            create(events = SYNTHETIC_DANMAKU_EVENTS)
+        fun createDefault(settings: DanmakuDisplaySettings = DanmakuDisplaySettings()): DesktopSyntheticDanmakuAssTrack =
+            create(events = SYNTHETIC_DANMAKU_EVENTS, settings = settings)
 
         internal fun create(
             events: List<DanmakuEvent>,
+            settings: DanmakuDisplaySettings = DanmakuDisplaySettings(),
             outputPath: Path = Files.createTempFile("danmaku-synthetic-overlay-", ".ass"),
         ): DesktopSyntheticDanmakuAssTrack {
             Files.writeString(
                 outputPath,
-                SyntheticDanmakuAssRenderer.render(events),
+                SyntheticDanmakuAssRenderer.render(events, settings),
                 StandardCharsets.UTF_8,
             )
             outputPath.toFile().deleteOnExit()
@@ -43,9 +45,16 @@ internal object SyntheticDanmakuAssRenderer {
     private const val LANE_COUNT = 8
     private const val LANE_HEIGHT = 58
     private const val HORIZONTAL_GAP_PX = 36f
+    private const val BASE_FONT_SIZE = 36
 
-    fun render(events: List<DanmakuEvent>): String {
-        val measuredEvents = events.map { event ->
+    fun render(
+        events: List<DanmakuEvent>,
+        settings: DanmakuDisplaySettings = DanmakuDisplaySettings(),
+    ): String {
+        val filteredEvents = settings.filter(events)
+        val travelDurationMs = settings.scaledTravelDurationMs(TRAVEL_DURATION_MS)
+        val laneCount = settings.scaledLaneCount(LANE_COUNT)
+        val measuredEvents = filteredEvents.map { event ->
             MeasuredDanmakuEvent(
                 event = event,
                 widthPx = estimateTextWidthPx(event.text),
@@ -55,11 +64,13 @@ internal object SyntheticDanmakuAssRenderer {
             events = measuredEvents,
             config = ScrollingDanmakuLayoutConfig(
                 viewportWidthPx = PLAY_RES_X.toFloat(),
-                laneCount = LANE_COUNT,
-                travelDurationMs = TRAVEL_DURATION_MS,
+                laneCount = laneCount,
+                travelDurationMs = travelDurationMs,
                 horizontalGapPx = HORIZONTAL_GAP_PX,
             ),
         )
+        val fontSize = settings.scaledFontSize(BASE_FONT_SIZE)
+        val assAlpha = settings.assAlphaHex()
 
         return buildString {
             appendLine("[Script Info]")
@@ -76,7 +87,7 @@ internal object SyntheticDanmakuAssRenderer {
                     "Alignment, MarginL, MarginR, MarginV, Encoding",
             )
             appendLine(
-                "Style: Danmaku,Arial,36,&H00FFFFFF,&H00FFFFFF,&H80000000,&H40000000," +
+                "Style: Danmaku,Arial,$fontSize,&H${assAlpha}FFFFFF,&H${assAlpha}FFFFFF,&H80000000,&H40000000," +
                     "-1,0,0,0,100,100,0,0,1,2,1,7,0,0,0,1",
             )
             appendLine()
@@ -84,7 +95,7 @@ internal object SyntheticDanmakuAssRenderer {
             appendLine("Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text")
             schedule.placements.forEach { placement ->
                 val startMs = placement.measuredEvent.event.timestampMs
-                val endMs = startMs + TRAVEL_DURATION_MS
+                val endMs = startMs + travelDurationMs
                 val y = 24 + placement.laneIndex * LANE_HEIGHT
                 val width = placement.measuredEvent.widthPx.toInt()
                 val text = placement.measuredEvent.event.text.escapeAssText()

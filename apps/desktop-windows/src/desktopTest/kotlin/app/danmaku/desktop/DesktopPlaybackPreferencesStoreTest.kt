@@ -1,5 +1,6 @@
 package app.danmaku.desktop
 
+import app.danmaku.domain.DanmakuDisplaySettings
 import kotlin.io.path.createTempDirectory
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -29,6 +30,18 @@ class DesktopPlaybackPreferencesStoreTest {
             store.savePlaybackRate(1.25f)
             store.saveVolumePercent(42)
             store.saveVideoAspectMode(DesktopVideoAspectMode.WIDE_16_9)
+            store.saveDanmakuSettings(
+                DanmakuDisplaySettings(
+                    visible = false,
+                    opacityPercent = 72,
+                    fontScalePercent = 125,
+                    speedPercent = 150,
+                    densityPercent = 80,
+                    displayAreaPercent = 60,
+                    keywordFilters = listOf("spoiler", "raw"),
+                    regexFilters = listOf("episode\\s+\\d+"),
+                ),
+            )
         }
 
         DesktopLibraryCatalogStore(databasePath).use { catalogStore ->
@@ -39,6 +52,16 @@ class DesktopPlaybackPreferencesStoreTest {
                     playbackRate = 1.25f,
                     volumePercent = 42,
                     videoAspectMode = DesktopVideoAspectMode.WIDE_16_9,
+                    danmakuSettings = DanmakuDisplaySettings(
+                        visible = false,
+                        opacityPercent = 72,
+                        fontScalePercent = 125,
+                        speedPercent = 150,
+                        densityPercent = 80,
+                        displayAreaPercent = 60,
+                        keywordFilters = listOf("spoiler", "raw"),
+                        regexFilters = listOf("episode\\s+\\d+"),
+                    ),
                 ),
                 store.load(),
             )
@@ -55,6 +78,8 @@ class DesktopPlaybackPreferencesStoreTest {
             catalogStore.saveSetting(DesktopAppSetting("playback.default_rate", "0", 1))
             catalogStore.saveSetting(DesktopAppSetting("playback.volume_percent", "900", 1))
             catalogStore.saveSetting(DesktopAppSetting("playback.video_aspect_mode", "CINEMA", 1))
+            catalogStore.saveSetting(DesktopAppSetting("danmaku.opacity_percent", "-1", 1))
+            catalogStore.saveSetting(DesktopAppSetting("danmaku.font_scale_percent", "10", 1))
 
             assertEquals(DesktopPlaybackPreferences(), DesktopPlaybackPreferencesStore(catalogStore).load())
         }
