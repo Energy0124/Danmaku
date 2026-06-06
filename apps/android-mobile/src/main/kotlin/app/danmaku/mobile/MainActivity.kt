@@ -80,6 +80,7 @@ import app.danmaku.domain.LibraryCatalogSort
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibraryNextUpItem
 import app.danmaku.domain.LibraryNextUpReason
+import app.danmaku.domain.LibraryPlaybackProgressItem
 import app.danmaku.domain.LibrarySeries
 import app.danmaku.domain.LibrarySubtitleFilter
 import app.danmaku.domain.LibraryWatchState
@@ -92,9 +93,11 @@ import app.danmaku.domain.PlaybackStatus
 import app.danmaku.domain.PlaybackTrack
 import app.danmaku.domain.PlaybackTrackKind
 import app.danmaku.domain.coerceSeekTarget
+import app.danmaku.domain.continueWatchingItems
 import app.danmaku.domain.filteredItems
 import app.danmaku.domain.groupedSeries
 import app.danmaku.domain.nextUpItems
+import app.danmaku.domain.recentlyWatchedItems
 import app.danmaku.domain.seekTargetBy
 import app.danmaku.domain.watchStatusByMediaId
 import app.danmaku.library.LanPlaybackPreparer
@@ -492,6 +495,8 @@ internal fun LibraryPage(
     PageColumn(contentPadding) {
         val series = catalog?.groupedSeries().orEmpty()
         val nextUpItems = catalog?.nextUpItems(playbackProgresses, limit = 5).orEmpty()
+        val continueWatchingItems = catalog?.continueWatchingItems(playbackProgresses, limit = 5).orEmpty()
+        val recentlyWatchedItems = catalog?.recentlyWatchedItems(playbackProgresses, limit = 5).orEmpty()
         val watchStatusById = catalog?.watchStatusByMediaId(playbackProgresses).orEmpty()
         val selectedSeries = searchText
             .takeIf(String::isNotBlank)
@@ -538,6 +543,30 @@ internal fun LibraryPage(
                 item(key = "library-next-up") {
                     NextUpPanel(
                         items = nextUpItems,
+                        onPlay = onPlay,
+                    )
+                }
+            }
+            if (continueWatchingItems.isNotEmpty()) {
+                item(key = "library-continue-watching") {
+                    ProgressRail(
+                        title = "Continue Watching",
+                        subtitle = "Resume episodes with enough saved progress.",
+                        tag = "library-continue-watching",
+                        itemTagPrefix = "continue-watching",
+                        items = continueWatchingItems,
+                        onPlay = onPlay,
+                    )
+                }
+            }
+            if (recentlyWatchedItems.isNotEmpty()) {
+                item(key = "library-recently-watched") {
+                    ProgressRail(
+                        title = "Recently Watched",
+                        subtitle = "Recent activity from your paired Windows library.",
+                        tag = "library-recently-watched",
+                        itemTagPrefix = "recently-watched",
+                        items = recentlyWatchedItems,
                         onPlay = onPlay,
                     )
                 }
@@ -654,6 +683,98 @@ private fun NextUpChip(
             )
             Text(
                 item.nextUpLabel(),
+                color = AccentBlue,
+                style = MaterialTheme.typography.bodySmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProgressRail(
+    title: String,
+    subtitle: String,
+    tag: String,
+    itemTagPrefix: String,
+    items: List<LibraryPlaybackProgressItem>,
+    onPlay: (LibraryMediaItem) -> Unit,
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag(tag),
+        shape = RoundedCornerShape(20.dp),
+        color = Color(0xFF15191D),
+        border = BorderStroke(1.dp, Color(0xFF2B3239)),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    subtitle,
+                    color = SubtleText,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                items(items, key = { it.mediaItem.id }) { item ->
+                    ProgressChip(
+                        item = item,
+                        tag = "$itemTagPrefix:${item.mediaItem.id}",
+                        onPlay = { onPlay(item.mediaItem) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProgressChip(
+    item: LibraryPlaybackProgressItem,
+    tag: String,
+    onPlay: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier
+            .width(260.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .clickable(onClick = onPlay)
+            .testTag(tag),
+        shape = RoundedCornerShape(18.dp),
+        color = PanelColor,
+        border = BorderStroke(1.dp, Color(0xFF2B3239)),
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(
+                item.mediaItem.seriesTitle,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                item.mediaItem.episodeTitle,
+                color = SubtleText,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                item.progress.progressLabel(),
                 color = AccentBlue,
                 style = MaterialTheme.typography.bodySmall,
                 maxLines = 1,
@@ -1697,6 +1818,9 @@ private fun LibraryWatchStatus?.statusLabel(): String =
         LibraryWatchState.NEW,
         null -> "New"
     }
+
+private fun PlaybackProgress.progressLabel(): String =
+    "${positionMs.formatPlaybackTime()} / ${durationMs?.formatPlaybackTime() ?: "--:--"}"
 
 private fun Double.formatOneDecimal(): String {
     val scaled = (this * 10).toLong()

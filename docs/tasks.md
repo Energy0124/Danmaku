@@ -142,6 +142,8 @@ unblocked slices inside these tracks as the vertical slice hardens.
   card backed by persisted playback progress.
 - [x] Add shared watched-state derivation and display new, in-progress, and
   watched labels across Windows, Android mobile, and Android TV library rows.
+- [x] Extract shared continue-watching and recently-watched derivation, then
+  expose those progress rails on Android mobile and Android TV.
 - [x] Add optional persisted Windows local-library auto-next playback.
 - [x] Add Windows fullscreen and aspect-ratio playback controls.
 - [x] Add Windows paired-catalog one-click stream playback while retaining
@@ -179,6 +181,8 @@ unblocked slices inside these tracks as the vertical slice hardens.
   shared next-up derivation.
 - [x] Add an Android TV Next Up rail backed by the LAN progress list and shared
   next-up derivation.
+- [x] Add Android mobile and Android TV Continue Watching and Recently Watched
+  rails backed by the LAN progress list.
 - [x] Add an Android TV remote-friendly library header, shared-grouped series
   rail, selected-series detail strip, and richer episode rows.
 - [x] Add Android mobile progress scrubbing and Android TV remote-friendly seek

@@ -50,6 +50,7 @@ import app.danmaku.domain.LibraryCatalogSort
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibraryNextUpItem
 import app.danmaku.domain.LibraryNextUpReason
+import app.danmaku.domain.LibraryPlaybackProgressItem
 import app.danmaku.domain.LibrarySeries
 import app.danmaku.domain.LibrarySubtitleFilter
 import app.danmaku.domain.LibraryWatchState
@@ -59,9 +60,11 @@ import app.danmaku.domain.PlaybackCommand
 import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.PlaybackTrack
 import app.danmaku.domain.PlaybackTrackKind
+import app.danmaku.domain.continueWatchingItems
 import app.danmaku.domain.filteredItems
 import app.danmaku.domain.groupedSeries
 import app.danmaku.domain.nextUpItems
+import app.danmaku.domain.recentlyWatchedItems
 import app.danmaku.domain.seekTargetBy
 import app.danmaku.domain.watchStatusByMediaId
 import app.danmaku.library.android.LanLibraryDiscoveryClient
@@ -436,6 +439,8 @@ internal fun LibraryItems(
         .orEmpty()
     val series = catalog?.groupedSeries().orEmpty().take(10)
     val nextUpItems = catalog?.nextUpItems(playbackProgresses, limit = 6).orEmpty()
+    val continueWatchingItems = catalog?.continueWatchingItems(playbackProgresses, limit = 6).orEmpty()
+    val recentlyWatchedItems = catalog?.recentlyWatchedItems(playbackProgresses, limit = 6).orEmpty()
     val watchStatusById = catalog?.watchStatusByMediaId(playbackProgresses).orEmpty()
     val selectedSeries = series.firstOrNull { it.id == selectedSeriesId }
 
@@ -507,6 +512,24 @@ internal fun LibraryItems(
         if (nextUpItems.isNotEmpty()) {
             TvNextUpRail(items = nextUpItems, onPlay = onPlay)
         }
+        if (continueWatchingItems.isNotEmpty()) {
+            TvProgressRail(
+                title = "Continue Watching",
+                tag = "library-continue-watching",
+                itemTagPrefix = "continue-watching",
+                items = continueWatchingItems,
+                onPlay = onPlay,
+            )
+        }
+        if (recentlyWatchedItems.isNotEmpty()) {
+            TvProgressRail(
+                title = "Recently Watched",
+                tag = "library-recently-watched",
+                itemTagPrefix = "recently-watched",
+                items = recentlyWatchedItems,
+                onPlay = onPlay,
+            )
+        }
         if (series.isNotEmpty()) {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 item(key = "all-series") {
@@ -562,6 +585,65 @@ internal fun LibraryItems(
                     watchStatus = watchStatusById[item.id],
                     onPlay = { onPlay(item) },
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TvProgressRail(
+    title: String,
+    tag: String,
+    itemTagPrefix: String,
+    items: List<LibraryPlaybackProgressItem>,
+    onPlay: (LibraryMediaItem) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.DarkGray)
+            .padding(14.dp)
+            .testTag(tag),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                title,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text("${items.size} episodes")
+        }
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            items(items, key = { it.mediaItem.id }) { item ->
+                Button(
+                    onClick = { onPlay(item.mediaItem) },
+                    modifier = Modifier
+                        .width(320.dp)
+                        .testTag("$itemTagPrefix:${item.mediaItem.id}"),
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(
+                            item.mediaItem.seriesTitle,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            item.mediaItem.episodeTitle,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(item.progress.progressLabel(), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
             }
         }
     }
@@ -747,3 +829,6 @@ private fun LibraryWatchStatus?.statusLabel(): String =
         LibraryWatchState.NEW,
         null -> "New"
     }
+
+private fun PlaybackProgress.progressLabel(): String =
+    "${positionMs.formatPlaybackTime()} / ${durationMs?.formatPlaybackTime() ?: "--:--"}"

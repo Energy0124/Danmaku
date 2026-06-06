@@ -162,6 +162,41 @@ class TvLibraryItemsTest {
         composeRule.onNodeWithText("Watched").assertExists()
     }
 
+    @Test
+    fun rendersProgressRailsAndRoutesSelection() {
+        var playedItemId: String? = null
+        composeRule.setContent {
+            MaterialTheme {
+                LibraryItems(
+                    catalog = seededCatalog(),
+                    playbackProgresses = listOf(
+                        PlaybackProgress(
+                            mediaId = "example-1",
+                            positionMs = 60_000,
+                            durationMs = 1_200_000,
+                            updatedAtEpochMs = 1_700_000_000_100,
+                        ),
+                        PlaybackProgress(
+                            mediaId = "other-1",
+                            positionMs = 1_190_000,
+                            durationMs = 1_200_000,
+                            updatedAtEpochMs = 1_700_000_000_200,
+                        ),
+                    ),
+                    onPlay = { playedItemId = it.id },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("library-continue-watching").assertExists()
+        composeRule.onNodeWithTag("library-recently-watched").assertExists()
+        composeRule.onNodeWithTag("continue-watching:example-1").performClick()
+
+        composeRule.runOnIdle {
+            assertEquals("example-1", playedItemId)
+        }
+    }
+
     private fun seededCatalog(): LibraryCatalog =
         LibraryCatalog(
             rootName = "Seeded PC",

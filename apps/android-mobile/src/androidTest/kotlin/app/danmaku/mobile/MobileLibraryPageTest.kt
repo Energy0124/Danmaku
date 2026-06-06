@@ -202,6 +202,56 @@ class MobileLibraryPageTest {
     }
 
     @Test
+    fun rendersProgressRailsAndRoutesSelection() {
+        var playedItemId: String? = null
+        composeRule.setContent {
+            MaterialTheme {
+                val catalog = seededCatalog()
+                LibraryPage(
+                    contentPadding = PaddingValues(0.dp),
+                    catalog = catalog,
+                    playbackProgresses = listOf(
+                        PlaybackProgress(
+                            mediaId = "example-1",
+                            positionMs = 60_000,
+                            durationMs = 1_200_000,
+                            updatedAtEpochMs = 456,
+                        ),
+                        PlaybackProgress(
+                            mediaId = "other-1",
+                            positionMs = 1_190_000,
+                            durationMs = 1_200_000,
+                            updatedAtEpochMs = 457,
+                        ),
+                    ),
+                    filteredItems = catalog.items,
+                    totalCount = catalog.items.size,
+                    snapshot = PlaybackSnapshot(),
+                    nowPlaying = null,
+                    searchText = "",
+                    onSearchTextChange = {},
+                    sort = LibraryCatalogSort.TITLE,
+                    onSortChange = {},
+                    subtitleFilter = LibrarySubtitleFilter.ANY,
+                    onSubtitleFilterChange = {},
+                    onPlay = { playedItemId = it.id },
+                    onPlayPause = {},
+                    onOpenPlayer = {},
+                    onConnect = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("library-continue-watching").assertExists()
+        composeRule.onNodeWithTag("library-recently-watched").assertExists()
+        composeRule.onNodeWithTag("continue-watching:example-1").performClick()
+
+        composeRule.runOnIdle {
+            assertEquals("example-1", playedItemId)
+        }
+    }
+
+    @Test
     fun activePlaybackShowsMiniPlayerAndRoutesEpisodeSelection() {
         var playedItemId: String? = null
         composeRule.setContent {

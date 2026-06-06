@@ -52,11 +52,6 @@ fun LibraryMediaItem.watchStatus(
     return LibraryWatchStatus(mediaItem = this, state = state, progress = progress)
 }
 
-private fun List<PlaybackProgress>.latestByMediaId(): Map<String, PlaybackProgress> =
-    groupBy(PlaybackProgress::mediaId).mapValues { (_, progresses) ->
-        progresses.maxBy { it.updatedAtEpochMs }
-    }
-
 private fun PlaybackProgress.isWatched(watchedRemainingMs: Long): Boolean =
     durationMs?.let { duration ->
         positionMs > 0 && duration - positionMs <= watchedRemainingMs

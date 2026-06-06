@@ -89,6 +89,7 @@ import app.danmaku.domain.LibraryCatalogSort
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibraryNextUpItem
 import app.danmaku.domain.LibraryNextUpReason
+import app.danmaku.domain.LibraryPlaybackProgressItem
 import app.danmaku.domain.LibrarySeries
 import app.danmaku.domain.LibrarySubtitleFilter
 import app.danmaku.domain.LibraryWatchState
@@ -99,12 +100,13 @@ import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.PlaybackStatus
 import app.danmaku.domain.PlaybackTrack
 import app.danmaku.domain.PlaybackTrackKind
+import app.danmaku.domain.continueWatchingItems
 import app.danmaku.domain.filteredItems
 import app.danmaku.domain.groupedSeries
 import app.danmaku.domain.nextItem
 import app.danmaku.domain.nextUpItems
 import app.danmaku.domain.previousItem
-import app.danmaku.domain.resumePositionMs
+import app.danmaku.domain.recentlyWatchedItems
 import app.danmaku.domain.toPlaybackProgress
 import app.danmaku.domain.watchStatusByMediaId
 import app.danmaku.library.LanPlaybackPreparation
@@ -148,11 +150,6 @@ private data class DesktopDiagnosticLogEntry(
     val occurredAtEpochMs: Long,
     val category: String,
     val message: String,
-)
-
-private data class DesktopPlaybackProgressItem(
-    val mediaItem: LibraryMediaItem,
-    val progress: PlaybackProgress,
 )
 
 private data class PreparedLocalPlaybackResult(
@@ -2493,35 +2490,6 @@ private fun DiagnosticLogRow(entry: DesktopDiagnosticLogEntry) {
     }
 }
 
-private fun LibraryCatalog.continueWatchingItems(
-    progresses: List<PlaybackProgress>,
-): List<DesktopPlaybackProgressItem> {
-    val progressByMediaId = progresses.associateBy(PlaybackProgress::mediaId)
-    return items
-        .mapNotNull { item ->
-            val progress = progressByMediaId[item.id]
-                ?.takeIf { it.resumePositionMs() != null }
-                ?: return@mapNotNull null
-            DesktopPlaybackProgressItem(item, progress)
-        }
-        .sortedByDescending { it.progress.updatedAtEpochMs }
-}
-
-private fun LibraryCatalog.recentlyWatchedItems(
-    progresses: List<PlaybackProgress>,
-    limit: Int = 8,
-): List<DesktopPlaybackProgressItem> {
-    require(limit > 0) { "limit must be positive" }
-    val itemsById = items.associateBy(LibraryMediaItem::id)
-    return progresses
-        .mapNotNull { progress ->
-            val item = itemsById[progress.mediaId] ?: return@mapNotNull null
-            DesktopPlaybackProgressItem(item, progress)
-        }
-        .sortedByDescending { it.progress.updatedAtEpochMs }
-        .take(limit)
-}
-
 @Composable
 private fun MediaRootRow(root: DesktopLibraryRoot) {
     Column(
@@ -2676,7 +2644,7 @@ private fun NextUpRow(
 
 @Composable
 private fun ContinueWatchingRow(
-    item: DesktopPlaybackProgressItem,
+    item: LibraryPlaybackProgressItem,
     isPreparing: Boolean,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
 ) {
@@ -2709,7 +2677,7 @@ private fun ContinueWatchingRow(
 
 @Composable
 private fun RecentlyWatchedRow(
-    item: DesktopPlaybackProgressItem,
+    item: LibraryPlaybackProgressItem,
     isPreparing: Boolean,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
