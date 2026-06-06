@@ -17,6 +17,7 @@ import kotlin.io.path.absolutePathString
 
 class DesktopDandanplayDanmakuResolver(
     private val loadConnection: () -> DandanplayConnection,
+    private val cacheMaxAgeDays: () -> Int = { DEFAULT_CACHE_MAX_AGE_DAYS },
     private val cacheStore: DandanplayCommentCacheStore? = null,
     private val fetchTrack: (DandanplayConnection, DandanplayMediaFingerprint) -> DandanplayCommentTrack? = { connection, fingerprint ->
         DandanplayDanmakuClient(connection).fetchBestMatchComments(fingerprint)
@@ -36,6 +37,7 @@ class DesktopDandanplayDanmakuResolver(
                 ?.loadDandanplayCommentCache(mediaId)
                 ?.takeIf { it.fileHash.equals(fingerprint.normalizedFileHash, ignoreCase = true) }
                 ?.takeIf { it.fileSizeBytes == fingerprint.fileSizeBytes }
+                ?.takeUnless { it.isExpired(nowEpochMs(), cacheMaxAgeDays()) }
                 ?.toCommentTrack()
                 ?.let { cachedTrack ->
                     return renderResolution(
@@ -69,6 +71,13 @@ class DesktopDandanplayDanmakuResolver(
     fun clearCache(mediaId: String) {
         require(mediaId.isNotBlank()) { "mediaId must not be blank" }
         cacheStore?.deleteDandanplayCommentCache(mediaId)
+    }
+
+    fun cleanupExpiredCaches() {
+        val maxAgeDays = cacheMaxAgeDays()
+        require(maxAgeDays > 0) { "cache max age must be positive" }
+        val cutoff = nowEpochMs() - maxAgeDays * MILLIS_PER_DAY
+        cacheStore?.deleteDandanplayCommentCachesOlderThan(cutoff.coerceAtLeast(0))
     }
 
     private fun renderResolution(
@@ -118,6 +127,9 @@ class DesktopDandanplayDanmakuResolver(
     }
 
     private companion object {
+        const val DEFAULT_CACHE_MAX_AGE_DAYS = 30
+        const val MILLIS_PER_DAY = 24L * 60L * 60L * 1_000L
+
         fun defaultCacheDirectory(): Path {
             val localAppData = System.getenv("LOCALAPPDATA")
             if (!localAppData.isNullOrBlank()) {
@@ -158,6 +170,8 @@ interface DandanplayCommentCacheStore {
     fun saveDandanplayCommentCache(cache: DesktopDandanplayCommentCache)
 
     fun deleteDandanplayCommentCache(mediaId: String)
+
+    fun deleteDandanplayCommentCachesOlderThan(cutoffEpochMs: Long)
 }
 
 private fun DandanplayCommentTrack.toCache(
@@ -194,6 +208,12 @@ private fun DesktopDandanplayCommentCache.toCommentTrack(): DandanplayCommentTra
         events = LocalDanmakuParser.parseNormalizedJson(commentsJson),
     )
 }
+
+private fun DesktopDandanplayCommentCache.isExpired(
+    nowEpochMs: Long,
+    maxAgeDays: Int,
+): Boolean =
+    nowEpochMs - fetchedAtEpochMs > maxAgeDays * 24L * 60L * 60L * 1_000L
 
 private fun List<DanmakuEvent>.toNormalizedCommentsJson(): String =
     buildJsonObject {

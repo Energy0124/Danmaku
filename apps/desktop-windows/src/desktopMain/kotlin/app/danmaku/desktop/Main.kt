@@ -142,6 +142,7 @@ private fun DesktopShell() {
     val dandanplayDanmakuResolver = remember(dandanplayCredentialStore) {
         DesktopDandanplayDanmakuResolver(
             loadConnection = dandanplayCredentialStore::loadConnection,
+            cacheMaxAgeDays = { dandanplayCredentialStore.loadSettings().cacheMaxAgeDays },
             cacheStore = catalogStore,
         )
     }
@@ -675,6 +676,7 @@ private fun DesktopShell() {
         appId: String?,
         appSecret: String?,
         authenticationMode: DandanplayAuthenticationMode,
+        cacheMaxAgeDays: Int,
     ) {
         scope.launch {
             runCatching {
@@ -684,6 +686,7 @@ private fun DesktopShell() {
                         appId = appId,
                         appSecret = appSecret,
                         authenticationMode = authenticationMode,
+                        cacheMaxAgeDays = cacheMaxAgeDays,
                     )
                 }
             }.onSuccess { updatedSettings ->
@@ -707,6 +710,20 @@ private fun DesktopShell() {
                 appendDiagnostic("settings", "Cleared dandanplay provider settings")
             }.onFailure {
                 appendDiagnostic("settings", "Failed to clear dandanplay provider settings: ${it.message}")
+            }
+        }
+    }
+
+    fun cleanupExpiredDandanplayCaches() {
+        scope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    dandanplayDanmakuResolver.cleanupExpiredCaches()
+                }
+            }.onSuccess {
+                appendDiagnostic("danmaku", "Cleaned up expired dandanplay cache entries")
+            }.onFailure {
+                appendDiagnostic("danmaku", "Failed to clean expired dandanplay cache entries: ${it.message}")
             }
         }
     }
@@ -1022,6 +1039,7 @@ private fun DesktopShell() {
                             dandanplaySettings = dandanplaySettings,
                             onSaveDandanplaySettings = ::saveDandanplaySettings,
                             onClearDandanplaySettings = ::clearDandanplaySettings,
+                            onCleanupExpiredDandanplayCaches = ::cleanupExpiredDandanplayCaches,
                         )
                     }
                 }
@@ -1788,8 +1806,9 @@ private fun ProfileTab(
     mpvLogPath: Path,
     diagnosticLog: List<DesktopDiagnosticLogEntry>,
     dandanplaySettings: DandanplayProviderSettings,
-    onSaveDandanplaySettings: (String, String?, String?, DandanplayAuthenticationMode) -> Unit,
+    onSaveDandanplaySettings: (String, String?, String?, DandanplayAuthenticationMode, Int) -> Unit,
     onClearDandanplaySettings: () -> Unit,
+    onCleanupExpiredDandanplayCaches: () -> Unit,
 ) {
     TabScaffold {
         SectionCard("Local Server") {
@@ -1812,6 +1831,7 @@ private fun ProfileTab(
             settings = dandanplaySettings,
             onSave = onSaveDandanplaySettings,
             onClear = onClearDandanplaySettings,
+            onCleanupExpiredCaches = onCleanupExpiredDandanplayCaches,
         )
         DiagnosticsPanel(diagnosticLog)
     }
@@ -1820,13 +1840,15 @@ private fun ProfileTab(
 @Composable
 private fun DandanplayProviderCard(
     settings: DandanplayProviderSettings,
-    onSave: (String, String?, String?, DandanplayAuthenticationMode) -> Unit,
+    onSave: (String, String?, String?, DandanplayAuthenticationMode, Int) -> Unit,
     onClear: () -> Unit,
+    onCleanupExpiredCaches: () -> Unit,
 ) {
     var baseUrl by remember(settings) { mutableStateOf(settings.baseUrl) }
     var appId by remember(settings) { mutableStateOf(settings.appId.orEmpty()) }
     var appSecret by remember(settings) { mutableStateOf("") }
     var authenticationMode by remember(settings) { mutableStateOf(settings.authenticationMode) }
+    var cacheMaxAgeDaysText by remember(settings) { mutableStateOf(settings.cacheMaxAgeDays.toString()) }
 
     SectionCard("Danmaku Providers") {
         Text(
@@ -1835,6 +1857,7 @@ private fun DandanplayProviderCard(
         )
         Spacer(modifier = Modifier.height(10.dp))
         MetadataRow("dandanplay", settings.statusText)
+        MetadataRow("Cache expiry", "${settings.cacheMaxAgeDays} days")
         Spacer(modifier = Modifier.height(8.dp))
         OutlinedTextField(
             value = baseUrl,
@@ -1865,6 +1888,13 @@ private fun DandanplayProviderCard(
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
         )
+        OutlinedTextField(
+            value = cacheMaxAgeDaysText,
+            onValueChange = { cacheMaxAgeDaysText = it },
+            label = { Text("Cache max age days") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+        )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
                 onClick = { authenticationMode = DandanplayAuthenticationMode.SIGNED },
@@ -1892,6 +1922,7 @@ private fun DandanplayProviderCard(
                         appId,
                         appSecret,
                         authenticationMode,
+                        cacheMaxAgeDaysText.toIntOrNull()?.coerceAtLeast(1) ?: settings.cacheMaxAgeDays,
                     )
                     appSecret = ""
                 },
@@ -1900,6 +1931,9 @@ private fun DandanplayProviderCard(
             }
             Button(onClick = onClear) {
                 Text("Clear")
+            }
+            Button(onClick = onCleanupExpiredCaches) {
+                Text("Clean expired cache")
             }
         }
     }

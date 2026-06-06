@@ -55,6 +55,7 @@ Already implemented:
 - Persistent desktop dandanplay match/comment cache with fingerprint validation.
 - Prepared-playback controls for forcing a dandanplay refresh or clearing the
   cached dandanplay match/comments for an episode.
+- Configurable dandanplay cache max age and expired-cache cleanup.
 - Windows libmpv dynamic-loader probe.
 - Dedicated Android TV application module with initial D-pad focus coverage.
 
@@ -178,7 +179,7 @@ Danmaku is a first-class product feature, not a visual add-on.
 - [x] Add dandanplay force-refresh and clear-cache controls in Windows prepared
   playback.
 - [ ] Add manual danmaku-file mounting for an episode.
-- [ ] Add dandanplay cache-expiry policy and cleanup controls.
+- [x] Add dandanplay cache-expiry policy and cleanup controls.
 - [ ] Add timeline offset controls and remember per-episode offsets.
 - [ ] Add show/hide, opacity, font-size, speed, density, and display-area settings.
 - [ ] Add keyword, regular-expression, and user-defined filtering.

@@ -331,3 +331,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 deleteDandanplayCommentCache:
 DELETE FROM dandanplay_comment_cache
 WHERE media_id = ?;
+
+deleteDandanplayCommentCachesOlderThan:
+DELETE FROM dandanplay_comment_cache
+WHERE fetched_at_epoch_ms < ?;

@@ -85,6 +85,8 @@ Implemented today:
   and file fingerprint, avoiding rematches when files are unchanged
 - Prepared-playback controls to force-refresh or clear dandanplay cache for the
   selected local episode
+- Configurable dandanplay cache max age plus expired-cache cleanup from the
+  Profile tab
 - Desktop preparation for local-file and paired-LAN playback requests, including
   resume seeks and native mpv command execution
 - Rust libmpv loader/probe plus a small C ABI and Kotlin/JNA binding for the
@@ -96,8 +98,8 @@ Not implemented yet:
 
 - Broad Windows resize/fullscreen/4K/hardware-decoding validation
 - Authorized download engine
-- Full provider plugins, MyAnimeList integration, and dandanplay cache-expiry
-  cleanup controls
+- Full provider plugins, MyAnimeList integration, manual local danmaku mounting,
+  and per-episode danmaku offset controls
 
 ## Architecture
 

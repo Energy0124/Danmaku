@@ -169,6 +169,68 @@ class DesktopDandanplayDanmakuResolverTest {
         temp.toFile().deleteRecursively()
     }
 
+    @Test
+    fun refreshesExpiredCacheAndCleansExpiredRows() {
+        val temp = createTempDirectory("danmaku-dandanplay-resolver")
+        val media = temp.resolve("Episode 01.mkv")
+        media.writeBytes("hello".encodeToByteArray())
+        val cacheStore = InMemoryDandanplayCommentCacheStore()
+        cacheStore.saveDandanplayCommentCache(
+            DesktopDandanplayCommentCache(
+                mediaId = "media-id",
+                fileHash = "5d41402abc4b2a76b9719d911017c592",
+                fileName = "Episode 01.mkv",
+                fileSizeBytes = 5,
+                episodeId = 123,
+                animeId = null,
+                animeTitle = "Cached",
+                episodeTitle = null,
+                shiftSeconds = null,
+                commentsJson = """{"events":[{"timestampMs":1,"text":"expired"}]}""",
+                renderedAssPath = null,
+                fetchedAtEpochMs = 1,
+            ),
+        )
+        var fetchCount = 0
+        val resolver = DesktopDandanplayDanmakuResolver(
+            loadConnection = { DandanplayConnection("http://127.0.0.1:9000") },
+            cacheMaxAgeDays = { 1 },
+            cacheStore = cacheStore,
+            fetchTrack = { _, _ ->
+                fetchCount += 1
+                DandanplayCommentTrack(
+                    match = DandanplayMatch(
+                        episodeId = 456,
+                        animeId = null,
+                        animeTitle = "Fresh",
+                        episodeTitle = null,
+                        shiftSeconds = null,
+                    ),
+                    events = listOf(DanmakuEvent(id = "fresh", timestampMs = 1_000, text = "fresh")),
+                )
+            },
+            cacheDirectory = temp.resolve("cache"),
+            nowEpochMs = { 2 * 24L * 60L * 60L * 1_000L },
+        )
+
+        val resolution = resolver.resolve("media-id", media)
+
+        assertEquals(1, fetchCount)
+        assertEquals(DesktopDandanplayResolutionSource.NETWORK, resolution.source)
+        assertContains(assertNotNull(resolution.cachePath).readText(), "fresh")
+
+        cacheStore.saveDandanplayCommentCache(
+            cacheStore.loadDandanplayCommentCache("media-id")!!.copy(
+                fetchedAtEpochMs = 1,
+            ),
+        )
+        resolver.cleanupExpiredCaches()
+
+        assertNull(cacheStore.loadDandanplayCommentCache("media-id"))
+
+        temp.toFile().deleteRecursively()
+    }
+
     private class InMemoryDandanplayCommentCacheStore : DandanplayCommentCacheStore {
         private val values = mutableMapOf<String, DesktopDandanplayCommentCache>()
 
@@ -181,6 +243,10 @@ class DesktopDandanplayDanmakuResolverTest {
 
         override fun deleteDandanplayCommentCache(mediaId: String) {
             values.remove(mediaId)
+        }
+
+        override fun deleteDandanplayCommentCachesOlderThan(cutoffEpochMs: Long) {
+            values.entries.removeIf { it.value.fetchedAtEpochMs < cutoffEpochMs }
         }
     }
 }

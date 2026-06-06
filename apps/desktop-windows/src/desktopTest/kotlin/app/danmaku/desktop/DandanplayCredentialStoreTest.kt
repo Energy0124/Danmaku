@@ -26,12 +26,14 @@ class DandanplayCredentialStoreTest {
                 appId = "app-id-value",
                 appSecret = appSecret,
                 authenticationMode = DandanplayAuthenticationMode.CREDENTIAL,
+                cacheMaxAgeDays = 14,
             )
 
             assertEquals("http://127.0.0.1:8732", settings.baseUrl)
             assertEquals("app-id-value", settings.appId)
             assertTrue(settings.hasCredentials)
             assertEquals(DandanplayAuthenticationMode.CREDENTIAL, settings.authenticationMode)
+            assertEquals(14, settings.cacheMaxAgeDays)
             assertFalse(settings.statusText.contains(appSecret))
 
             val connection = credentialStore.loadConnection()
@@ -48,8 +50,10 @@ class DandanplayCredentialStoreTest {
                 appId = "app-id-value",
                 appSecret = "",
                 authenticationMode = DandanplayAuthenticationMode.SIGNED,
+                cacheMaxAgeDays = 7,
             )
             assertEquals("http://127.0.0.1:8733", updatedSettings.baseUrl)
+            assertEquals(7, updatedSettings.cacheMaxAgeDays)
             assertEquals(appSecret, credentialStore.loadConnection().appSecret)
             assertEquals(DandanplayAuthenticationMode.SIGNED, credentialStore.loadConnection().authenticationMode)
         }
@@ -68,6 +72,7 @@ class DandanplayCredentialStoreTest {
             assertNull(resetSettings.appId)
             assertFalse(resetSettings.hasCredentials)
             assertFalse(resetSettings.isFetchEnabled)
+            assertEquals(30, resetSettings.cacheMaxAgeDays)
         }
 
         temp.toFile().deleteRecursively()

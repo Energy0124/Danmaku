@@ -18,6 +18,11 @@ class DandanplayCredentialStore(
                 ?.value
                 ?.let(::authenticationModeOrDefault)
                 ?: DandanplayAuthenticationMode.SIGNED,
+            cacheMaxAgeDays = store.loadSetting(CACHE_MAX_AGE_DAYS_SETTING_KEY)
+                ?.value
+                ?.toIntOrNull()
+                ?.takeIf { it >= MIN_CACHE_MAX_AGE_DAYS }
+                ?: DEFAULT_CACHE_MAX_AGE_DAYS,
         )
     }
 
@@ -41,7 +46,11 @@ class DandanplayCredentialStore(
         appId: String?,
         appSecret: String?,
         authenticationMode: DandanplayAuthenticationMode,
+        cacheMaxAgeDays: Int = loadSettings().cacheMaxAgeDays,
     ): DandanplayProviderSettings {
+        require(cacheMaxAgeDays >= MIN_CACHE_MAX_AGE_DAYS) {
+            "dandanplay cache max age must be at least $MIN_CACHE_MAX_AGE_DAYS day"
+        }
         val existingSettings = loadSettings()
         val existingSecret = loadSecret(APP_SECRET_SETTING_KEY)
         val trimmedAppId = appId?.trim()?.takeIf(String::isNotEmpty)
@@ -63,6 +72,7 @@ class DandanplayCredentialStore(
             store.deleteSetting(APP_SECRET_SETTING_KEY)
             store.deleteSetting(AUTHENTICATION_MODE_SETTING_KEY)
         }
+        saveSetting(CACHE_MAX_AGE_DAYS_SETTING_KEY, cacheMaxAgeDays.toString())
         return loadSettings()
     }
 
@@ -71,6 +81,7 @@ class DandanplayCredentialStore(
         store.deleteSetting(APP_ID_SETTING_KEY)
         store.deleteSetting(APP_SECRET_SETTING_KEY)
         store.deleteSetting(AUTHENTICATION_MODE_SETTING_KEY)
+        store.deleteSetting(CACHE_MAX_AGE_DAYS_SETTING_KEY)
     }
 
     private fun loadSecret(key: String): String? =
@@ -106,6 +117,9 @@ class DandanplayCredentialStore(
         const val APP_ID_SETTING_KEY = "dandanplay.app_id"
         const val APP_SECRET_SETTING_KEY = "dandanplay.app_secret.dpapi"
         const val AUTHENTICATION_MODE_SETTING_KEY = "dandanplay.authentication_mode"
+        const val CACHE_MAX_AGE_DAYS_SETTING_KEY = "dandanplay.cache_max_age_days"
+        const val DEFAULT_CACHE_MAX_AGE_DAYS = 30
+        const val MIN_CACHE_MAX_AGE_DAYS = 1
 
         fun authenticationModeOrDefault(value: String): DandanplayAuthenticationMode =
             runCatching { DandanplayAuthenticationMode.valueOf(value) }
@@ -118,7 +132,12 @@ data class DandanplayProviderSettings(
     val appId: String?,
     val hasAppSecret: Boolean,
     val authenticationMode: DandanplayAuthenticationMode,
+    val cacheMaxAgeDays: Int,
 ) {
+    init {
+        require(cacheMaxAgeDays >= 1) { "cacheMaxAgeDays must be positive" }
+    }
+
     val hasCredentials: Boolean
         get() = appId != null && hasAppSecret
 

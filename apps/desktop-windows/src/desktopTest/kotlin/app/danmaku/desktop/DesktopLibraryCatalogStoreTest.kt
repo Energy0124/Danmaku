@@ -340,12 +340,26 @@ class DesktopLibraryCatalogStoreTest {
         DesktopLibraryCatalogStore(databasePath).use { store ->
             store.saveDandanplayCommentCache(cache)
             assertEquals(cache, store.loadDandanplayCommentCache(cache.mediaId))
+            store.saveDandanplayCommentCache(
+                cache.copy(
+                    mediaId = "newer-episode-id",
+                    fetchedAtEpochMs = 9999,
+                ),
+            )
+            store.deleteDandanplayCommentCachesOlderThan(2000)
+            assertNull(store.loadDandanplayCommentCache(cache.mediaId))
+            assertEquals(
+                cache.copy(
+                    mediaId = "newer-episode-id",
+                    fetchedAtEpochMs = 9999,
+                ),
+                store.loadDandanplayCommentCache("newer-episode-id"),
+            )
         }
 
         DesktopLibraryCatalogStore(databasePath).use { store ->
-            assertEquals(cache, store.loadDandanplayCommentCache(cache.mediaId))
-            store.deleteDandanplayCommentCache(cache.mediaId)
-            assertNull(store.loadDandanplayCommentCache(cache.mediaId))
+            store.deleteDandanplayCommentCache("newer-episode-id")
+            assertNull(store.loadDandanplayCommentCache("newer-episode-id"))
         }
 
         temp.toFile().deleteRecursively()

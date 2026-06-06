@@ -373,6 +373,12 @@ class DesktopLibraryCatalogStore(
         database.libraryCatalogQueries.deleteDandanplayCommentCache(mediaId)
     }
 
+    @Synchronized
+    override fun deleteDandanplayCommentCachesOlderThan(cutoffEpochMs: Long) {
+        require(cutoffEpochMs >= 0) { "cutoffEpochMs must not be negative" }
+        database.libraryCatalogQueries.deleteDandanplayCommentCachesOlderThan(cutoffEpochMs)
+    }
+
     override fun close() {
         driver.close()
     }

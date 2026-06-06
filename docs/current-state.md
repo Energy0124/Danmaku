@@ -123,6 +123,9 @@ Updated on 2026-06-05.
 - The Windows prepared-playback card exposes dandanplay cache status plus
   controls to force-refresh provider comments or clear the cached match/comments
   for the prepared episode.
+- dandanplay provider settings include a configurable cache max age in days.
+  Cached matches older than that age are treated as stale, and the Profile tab
+  exposes a cleanup action for expired dandanplay cache rows.
 - Compose Multiplatform 1.11.0 Windows desktop shell with synthetic danmaku
   scheduling backed by the shared scheduler and rendered over mpv as ASS.
 - Recursive Windows anime-folder indexer and trusted-LAN HTTP server exposing a
@@ -270,7 +273,7 @@ With an Android emulator or device online, run:
 2. Validate the Windows child-window playback spike with local files, resize,
    fullscreen, hardware decoding, 4K media, and the mpv-rendered synthetic ASS
    overlay.
-3. Add dandanplay cache-expiry policy and cleanup controls.
+3. Add manual local danmaku-file mounting and per-episode offset controls.
 4. Re-audit the libmpv bundle before changing its producer artifact or hashes.
 
 ## Runtime Smoke Check
