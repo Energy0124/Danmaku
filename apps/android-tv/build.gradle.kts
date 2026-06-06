@@ -38,6 +38,15 @@ val copyLegalAssets = tasks.register<CopyLegalAssetsTask>("copyLegalAssets") {
     outputDirectory.set(layout.buildDirectory.dir("generated/legalAssets"))
 }
 
+val ciKeystorePath = providers.environmentVariable("DANMAKU_ANDROID_KEYSTORE_PATH").orNull
+val ciKeystorePassword = providers.environmentVariable("DANMAKU_ANDROID_KEYSTORE_PASSWORD").orNull
+val ciKeyAlias = providers.environmentVariable("DANMAKU_ANDROID_KEY_ALIAS").orNull
+val ciKeyPassword = providers.environmentVariable("DANMAKU_ANDROID_KEY_PASSWORD").orNull
+val hasCiSigning = !ciKeystorePath.isNullOrBlank() &&
+    !ciKeystorePassword.isNullOrBlank() &&
+    !ciKeyAlias.isNullOrBlank() &&
+    !ciKeyPassword.isNullOrBlank()
+
 android {
     namespace = "app.danmaku.tv"
     compileSdk = 36
@@ -53,6 +62,23 @@ android {
 
     buildFeatures {
         compose = true
+    }
+
+    if (hasCiSigning) {
+        signingConfigs {
+            create("ciDebug") {
+                storeFile = file(ciKeystorePath!!)
+                storePassword = ciKeystorePassword!!
+                keyAlias = ciKeyAlias!!
+                keyPassword = ciKeyPassword!!
+            }
+        }
+
+        buildTypes {
+            getByName("debug") {
+                signingConfig = signingConfigs.getByName("ciDebug")
+            }
+        }
     }
 }
 

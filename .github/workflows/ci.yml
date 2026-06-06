@@ -49,8 +49,27 @@ jobs:
         shell: pwsh
         run: .\tools\windows\install-libmpv-dependency.ps1 -AcceptLicense
 
+      - name: Decode Android CI signing key
+        shell: pwsh
+        env:
+          DANMAKU_ANDROID_KEYSTORE_BASE64: ${{ secrets.DANMAKU_ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:DANMAKU_ANDROID_KEYSTORE_BASE64)) {
+            Write-Host "Android CI signing key is not configured; using the runner debug key."
+            exit 0
+          }
+          [System.IO.File]::WriteAllBytes(
+            "$env:RUNNER_TEMP\danmaku-android-ci.keystore",
+            [Convert]::FromBase64String($env:DANMAKU_ANDROID_KEYSTORE_BASE64)
+          )
+
       - name: Build and test JVM/Android targets
         shell: pwsh
+        env:
+          DANMAKU_ANDROID_KEYSTORE_PATH: ${{ runner.temp }}\danmaku-android-ci.keystore
+          DANMAKU_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.DANMAKU_ANDROID_KEYSTORE_PASSWORD }}
+          DANMAKU_ANDROID_KEY_ALIAS: ${{ secrets.DANMAKU_ANDROID_KEY_ALIAS }}
+          DANMAKU_ANDROID_KEY_PASSWORD: ${{ secrets.DANMAKU_ANDROID_KEY_PASSWORD }}
         run: .\gradlew.bat --no-daemon :shared:domain:jvmTest :shared:library-client:jvmTest :shared:library-server-core:jvmTest :apps:desktop-windows:desktopTest :shared:library-client-android:testDebugUnitTest :shared:player-android-media3:assembleDebugAndroidTest :apps:android-mobile:assembleDebug :apps:android-tv:assembleDebug :apps:desktop-windows:createDistributable
 
       - name: Build Windows mpv bridge
