@@ -18,6 +18,7 @@ kotlin {
             implementation(project(":shared:library-server-core"))
             implementation(compose.desktop.currentOs)
             implementation("org.jetbrains.compose.material:material:1.11.0")
+            implementation(compose.materialIconsExtended)
             implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
             implementation("app.cash.sqldelight:sqlite-driver:2.3.2")
             implementation("net.java.dev.jna:jna:5.17.0")

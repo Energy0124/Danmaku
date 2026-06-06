@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -16,13 +17,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Button
 import androidx.compose.material.Card
 import androidx.compose.material.Divider
+import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.OutlinedTextField
 import androidx.compose.material.Slider
@@ -31,6 +32,19 @@ import androidx.compose.material.Tab
 import androidx.compose.material.TabRow
 import androidx.compose.material.Text
 import androidx.compose.material.darkColors
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.LibraryBooks
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.FastForward
+import androidx.compose.material.icons.filled.FastRewind
+import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.Forward10
+import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.FullscreenExit
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Replay10
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -45,6 +59,7 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.text.font.FontWeight
@@ -807,7 +822,7 @@ private fun DesktopShell(windowState: WindowState) {
             color = DanmakuColors.Background,
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                if (!isFullscreen) {
+                if (!isFullscreen && selectedTab != DesktopShellTab.PLAYBACK) {
                     ShellHeader(
                         selectedTab = selectedTab,
                         onTabSelected = { selectedTab = it },
@@ -948,6 +963,8 @@ private fun DesktopShell(windowState: WindowState) {
                                 saveVideoAspectMode(mode)
                             }
                         },
+                        onShowHome = { selectedTab = DesktopShellTab.HOME },
+                        onShowLibrary = { selectedTab = DesktopShellTab.MEDIA_LIBRARY },
                         canOpenMedia = mpvVideoWindowId != null,
                         modifier = if (selectedTab == DesktopShellTab.PLAYBACK) {
                             Modifier.fillMaxSize()
@@ -1221,6 +1238,8 @@ private fun PlaybackTab(
     videoAspectMode: DesktopVideoAspectMode,
     onSetFullscreen: (Boolean) -> Unit,
     onSetVideoAspectMode: (DesktopVideoAspectMode) -> Unit,
+    onShowHome: () -> Unit,
+    onShowLibrary: () -> Unit,
     canOpenMedia: Boolean,
     modifier: Modifier = Modifier,
 ) {
@@ -1235,7 +1254,7 @@ private fun PlaybackTab(
         }
     }
 
-    Box(
+    Column(
         modifier = modifier
             .fillMaxSize()
             .background(Color.Black)
@@ -1246,26 +1265,48 @@ private fun PlaybackTab(
                 controlsVisible = true
             },
     ) {
-        DesktopMpvVideoHost(
-            onWindowIdChanged = onWindowIdChanged,
-            modifier = Modifier.fillMaxSize(),
-        )
-        if (!hasMedia) {
-            PlayerEmptyOverlay(
-                canOpenMedia = canOpenMedia,
-                mpvRuntimeStatus = mpvRuntimeStatus,
-                videoHostStatus = videoHostStatus,
-                onOpenMediaFile = onOpenMediaFile,
-            )
-        }
         if (controlsVisible || !shouldAutoHide) {
             PlayerTopOverlay(
                 title = playbackLabel ?: playbackSnapshot.source?.toString()?.redactToken() ?: "No media loaded",
                 status = playbackSnapshot.status.name,
                 overlayStatus = overlayStatus,
                 isFullscreen = isFullscreen,
-                modifier = Modifier.align(Alignment.TopCenter),
+                onShowHome = onShowHome,
+                onShowLibrary = onShowLibrary,
             )
+        }
+        Box(modifier = Modifier.weight(1f)) {
+            if (hasMedia) {
+                DesktopMpvVideoHost(
+                    onWindowIdChanged = onWindowIdChanged,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else {
+                DesktopMpvVideoHost(
+                    onWindowIdChanged = onWindowIdChanged,
+                    modifier = Modifier
+                        .width(1.dp)
+                        .height(1.dp),
+                )
+                PlayerEmptyOverlay(
+                    canOpenMedia = canOpenMedia,
+                    mpvRuntimeStatus = mpvRuntimeStatus,
+                    videoHostStatus = videoHostStatus,
+                    onOpenMediaFile = onOpenMediaFile,
+                )
+            }
+            playbackSnapshot.errorMessage?.let { error ->
+                Text(
+                    text = error,
+                    color = DanmakuColors.Warning,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .background(Color.Black.copy(alpha = 0.7f), RoundedCornerShape(8.dp))
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                )
+            }
+        }
+        if (controlsVisible || !shouldAutoHide) {
             PlayerBottomOverlay(
                 playbackSnapshot = playbackSnapshot,
                 isFullscreen = isFullscreen,
@@ -1285,17 +1326,6 @@ private fun PlaybackTab(
                 onSetFullscreen = onSetFullscreen,
                 onSetVideoAspectMode = onSetVideoAspectMode,
                 canOpenMedia = canOpenMedia,
-                modifier = Modifier.align(Alignment.BottomCenter),
-            )
-        }
-        playbackSnapshot.errorMessage?.let { error ->
-            Text(
-                text = error,
-                color = DanmakuColors.Warning,
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .background(Color.Black.copy(alpha = 0.7f), RoundedCornerShape(8.dp))
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
             )
         }
     }
@@ -1336,6 +1366,8 @@ private fun PlayerTopOverlay(
     status: String,
     overlayStatus: String,
     isFullscreen: Boolean,
+    onShowHome: () -> Unit,
+    onShowLibrary: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -1346,6 +1378,8 @@ private fun PlayerTopOverlay(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
+        PlayerIconButton(Icons.Filled.Home, "Home", onClick = onShowHome)
+        PlayerIconButton(Icons.AutoMirrored.Filled.LibraryBooks, "Library", onClick = onShowLibrary)
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
@@ -1448,68 +1482,119 @@ private fun PlayerBottomOverlay(
                 maxLines = 1,
             )
         }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            PlayerOverlayButton("Open", enabled = canOpenMedia, onClick = onOpenMediaFile)
-            PlayerOverlayButton("-30s", enabled = hasMedia, onClick = onSeekBackwardLarge)
-            PlayerOverlayButton("-10s", enabled = hasMedia, onClick = onSeekBackward)
-            PlayerOverlayButton(
-                text = if (playbackSnapshot.status == PlaybackStatus.PLAYING) "Pause" else "Play",
-                enabled = hasMedia,
-                onClick = if (playbackSnapshot.status == PlaybackStatus.PLAYING) onPause else onPlay,
-            )
-            PlayerOverlayButton("+10s", enabled = hasMedia, onClick = onSeekForward)
-            PlayerOverlayButton("+30s", enabled = hasMedia, onClick = onSeekForwardLarge)
-            Text(
-                text = "${playbackSnapshot.volumePercent}%",
-                color = DanmakuColors.TextMuted,
-                modifier = Modifier.width(44.dp),
-                maxLines = 1,
-            )
-            Slider(
-                value = playbackSnapshot.volumePercent.toFloat(),
-                onValueChange = { onSetVolume(it.toInt().coerceIn(0, 100)) },
-                valueRange = 0f..100f,
-                enabled = hasMedia,
-                modifier = Modifier.width(120.dp),
-            )
-            PlayerOverlayButton(
-                text = "${playbackSnapshot.playbackRate}x",
-                enabled = hasMedia,
-                onClick = { onSetPlaybackRate(playbackSnapshot.playbackRate.nextPlaybackRate()) },
-            )
-            PlayerOverlayButton(
-                text = playbackSnapshot.selectedTrackButtonText(PlaybackTrackKind.AUDIO, "Audio"),
-                enabled = hasMedia && playbackSnapshot.tracks.any { it.kind == PlaybackTrackKind.AUDIO },
-                modifier = Modifier.width(116.dp),
-                onClick = {
-                    playbackSnapshot.nextTrackId(PlaybackTrackKind.AUDIO)?.let(onSelectAudioTrack)
-                },
-            )
-            PlayerOverlayButton(
-                text = playbackSnapshot.selectedTrackButtonText(PlaybackTrackKind.SUBTITLE, "Sub"),
-                enabled = hasMedia && playbackSnapshot.tracks.any { it.kind == PlaybackTrackKind.SUBTITLE },
-                modifier = Modifier.width(116.dp),
-                onClick = {
-                    onSelectSubtitleTrack(playbackSnapshot.nextSubtitleTrackId())
-                },
-            )
-            PlayerOverlayButton(
-                text = videoAspectMode.label,
-                enabled = hasMedia,
-                onClick = { onSetVideoAspectMode(videoAspectMode.nextAspectMode()) },
-            )
-            PlayerOverlayButton(
-                text = if (isFullscreen) "Exit full" else "Full",
-                enabled = hasMedia,
-                onClick = { onSetFullscreen(!isFullscreen) },
-            )
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            val isCompact = maxWidth < 860.dp
+            val isNarrow = maxWidth < 700.dp
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                PlayerIconButton(Icons.Filled.FolderOpen, "Open media file", enabled = canOpenMedia, onClick = onOpenMediaFile)
+                if (!isNarrow) {
+                    PlayerIconButton(Icons.Filled.FastRewind, "Back 30 seconds", enabled = hasMedia, onClick = onSeekBackwardLarge)
+                }
+                PlayerIconButton(Icons.Filled.Replay10, "Back 10 seconds", enabled = hasMedia, onClick = onSeekBackward)
+                PlayerIconButton(
+                    imageVector = if (playbackSnapshot.status == PlaybackStatus.PLAYING) {
+                        Icons.Filled.Pause
+                    } else {
+                        Icons.Filled.PlayArrow
+                    },
+                    contentDescription = if (playbackSnapshot.status == PlaybackStatus.PLAYING) "Pause" else "Play",
+                    enabled = hasMedia,
+                    onClick = if (playbackSnapshot.status == PlaybackStatus.PLAYING) onPause else onPlay,
+                )
+                PlayerIconButton(Icons.Filled.Forward10, "Forward 10 seconds", enabled = hasMedia, onClick = onSeekForward)
+                if (!isNarrow) {
+                    PlayerIconButton(Icons.Filled.FastForward, "Forward 30 seconds", enabled = hasMedia, onClick = onSeekForwardLarge)
+                }
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.VolumeUp,
+                    contentDescription = "Volume",
+                    tint = DanmakuColors.TextMuted,
+                )
+                Text(
+                    text = "${playbackSnapshot.volumePercent}%",
+                    color = DanmakuColors.TextMuted,
+                    modifier = Modifier.width(44.dp),
+                    maxLines = 1,
+                )
+                Slider(
+                    value = playbackSnapshot.volumePercent.toFloat(),
+                    onValueChange = { onSetVolume(it.toInt().coerceIn(0, 100)) },
+                    valueRange = 0f..100f,
+                    enabled = hasMedia,
+                    modifier = Modifier.width(if (isCompact) 72.dp else 120.dp),
+                )
+                PlayerOverlayButton(
+                    text = "${playbackSnapshot.playbackRate}x",
+                    enabled = hasMedia,
+                    onClick = { onSetPlaybackRate(playbackSnapshot.playbackRate.nextPlaybackRate()) },
+                )
+                if (!isCompact) {
+                    PlayerOverlayButton(
+                        text = playbackSnapshot.selectedTrackButtonText(PlaybackTrackKind.AUDIO, "Audio"),
+                        enabled = hasMedia && playbackSnapshot.tracks.any { it.kind == PlaybackTrackKind.AUDIO },
+                        modifier = Modifier.width(108.dp),
+                        onClick = {
+                            playbackSnapshot.nextTrackId(PlaybackTrackKind.AUDIO)?.let(onSelectAudioTrack)
+                        },
+                    )
+                    PlayerOverlayButton(
+                        text = playbackSnapshot.selectedTrackButtonText(PlaybackTrackKind.SUBTITLE, "Sub"),
+                        enabled = hasMedia && playbackSnapshot.tracks.any { it.kind == PlaybackTrackKind.SUBTITLE },
+                        modifier = Modifier.width(108.dp),
+                        onClick = {
+                            onSelectSubtitleTrack(playbackSnapshot.nextSubtitleTrackId())
+                        },
+                    )
+                    PlayerOverlayButton(
+                        text = videoAspectMode.label,
+                        enabled = hasMedia,
+                        onClick = { onSetVideoAspectMode(videoAspectMode.nextAspectMode()) },
+                    )
+                }
+                Spacer(modifier = Modifier.weight(1f))
+                PlayerIconButton(
+                    imageVector = if (isFullscreen) Icons.Filled.FullscreenExit else Icons.Filled.Fullscreen,
+                    contentDescription = if (isFullscreen) "Exit fullscreen" else "Enter fullscreen",
+                    enabled = hasMedia,
+                    onClick = { onSetFullscreen(!isFullscreen) },
+                )
+            }
         }
+    }
+}
+
+@Composable
+private fun PlayerIconButton(
+    imageVector: ImageVector,
+    contentDescription: String,
+    enabled: Boolean = true,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = modifier
+            .width(36.dp)
+            .height(34.dp)
+            .background(
+                color = if (enabled) {
+                    Color.White.copy(alpha = 0.14f)
+                } else {
+                    Color.White.copy(alpha = 0.06f)
+                },
+                shape = RoundedCornerShape(6.dp),
+            )
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = imageVector,
+            contentDescription = contentDescription,
+            tint = if (enabled) Color.White else DanmakuColors.TextMuted,
+        )
     }
 }
 
