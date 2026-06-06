@@ -108,11 +108,6 @@ private data class PreparedLocalPlaybackResult(
     val dandanplayError: Throwable?,
 )
 
-private data class DandanplayCacheUiStatus(
-    val mediaId: String,
-    val message: String,
-)
-
 @Composable
 private fun DesktopShell() {
     val selectionStore = remember { LocalLibrarySelectionStore.default() }
@@ -280,7 +275,7 @@ private fun DesktopShell() {
     var isIndexing by remember { mutableStateOf(false) }
     var isPreparingLocalPlayback by remember { mutableStateOf(false) }
     var lastScanStats by remember { mutableStateOf<LocalMediaLibraryScanStats?>(null) }
-    var dandanplayCacheStatus by remember { mutableStateOf<DandanplayCacheUiStatus?>(null) }
+    var dandanplayCacheStatus by remember { mutableStateOf<DandanplayPlaybackUiStatus?>(null) }
     val serverRuntime = remember(catalogStore, rootScanner, scope) {
         DesktopLibraryServerRuntime.start(
             catalogStore = catalogStore,
@@ -573,17 +568,7 @@ private fun DesktopShell() {
                         appendDiagnostic("danmaku", "dandanplay found no match for ${item.id}")
                 }
                 result.dandanplayResolution?.let { resolution ->
-                    dandanplayCacheStatus = DandanplayCacheUiStatus(
-                        mediaId = item.id,
-                        message = when {
-                            resolution.subtitle != null ->
-                                "dandanplay ${resolution.source.name.lowercase()}: ${resolution.eventCount} comments"
-                            resolution.match != null ->
-                                "dandanplay ${resolution.source.name.lowercase()}: matched, no comments"
-                            else ->
-                                "dandanplay network: no match"
-                        },
-                    )
+                    dandanplayCacheStatus = dandanplayStatusFromResolution(item.id, resolution)
                 }
                 if (loadAfterPrepare) {
                     appendDiagnostic("playback", "Auto-loading prepared local playback: ${item.id}")
@@ -599,9 +584,9 @@ private fun DesktopShell() {
 
     fun refreshPreparedDandanplay(preparation: DesktopLocalPlaybackPreparation) {
         if (!dandanplaySettings.isFetchEnabled) {
-            dandanplayCacheStatus = DandanplayCacheUiStatus(
+            dandanplayCacheStatus = dandanplayStatusMessage(
                 mediaId = preparation.item.id,
-                message = "dandanplay fetching is not configured",
+                summary = "dandanplay fetching is not configured",
             )
             appendDiagnostic("danmaku", "Cannot refresh dandanplay cache; provider fetching is not configured")
             return
@@ -620,9 +605,9 @@ private fun DesktopShell() {
                 selectedLocalPlaybackPreparation = preparation.copy(
                     subtitles = preparation.subtitles.filterNot(DesktopPlaybackSubtitle::isDanmakuOverlay),
                 )
-                dandanplayCacheStatus = DandanplayCacheUiStatus(
+                dandanplayCacheStatus = dandanplayStatusMessage(
                     mediaId = preparation.item.id,
-                    message = "dandanplay cache cleared",
+                    summary = "dandanplay cache cleared",
                 )
                 appendDiagnostic("danmaku", "Cleared dandanplay cache for ${preparation.item.id}")
             }.onFailure {
@@ -1525,7 +1510,7 @@ private fun MediaLibraryTab(
     isIndexing: Boolean,
     isPreparingLocalPlayback: Boolean,
     selectedLocalPlaybackPreparation: DesktopLocalPlaybackPreparation?,
-    dandanplayCacheStatus: DandanplayCacheUiStatus?,
+    dandanplayCacheStatus: DandanplayPlaybackUiStatus?,
     autoNextLocalPlayback: Boolean,
     libraryError: String?,
     lastScanStats: LocalMediaLibraryScanStats?,
@@ -1709,7 +1694,12 @@ private fun MediaLibraryTab(
                 MetadataRow("Resume", preparation.resumePositionMs?.let { "$it ms" } ?: "start from beginning")
                 dandanplayCacheStatus
                     ?.takeIf { it.mediaId == preparation.item.id }
-                    ?.let { MetadataRow("Danmaku cache", it.message) }
+                    ?.let { status ->
+                        MetadataRow("Danmaku status", status.summary)
+                        status.details.forEach { detail ->
+                            MetadataRow(detail.label, detail.value)
+                        }
+                    }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = { onLoadPreparedPlayback(preparation) }) {
                         Text("Load into player")
