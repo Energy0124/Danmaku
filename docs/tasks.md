@@ -124,6 +124,8 @@ unblocked slices inside these tracks as the vertical slice hardens.
   Windows ASS overlay rendering to those persisted controls.
 - [x] Add persisted Windows danmaku offset controls and apply the offset while
   rendering synthetic and fetched ASS overlay timestamps.
+- [x] Add Windows prepared-playback controls to attach a local danmaku XML or
+  JSON file as a generated ASS overlay while preserving normal subtitle tracks.
 - [x] Add seek and playback-rate test cases.
 - [x] Add Windows progress-bar scrubbing, live mpv position polling, and
   throttled local/paired progress persistence.

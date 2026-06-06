@@ -71,6 +71,14 @@ fun DesktopLocalPlaybackPreparation.toPlaybackRequest(): DesktopPlaybackRequest 
         progressMediaId = item.id,
     )
 
+fun DesktopLocalPlaybackPreparation.withManualDanmakuOverlay(
+    overlay: DesktopManualDanmakuOverlay,
+): DesktopLocalPlaybackPreparation =
+    copy(
+        subtitles = subtitles
+            .filterNot(DesktopPlaybackSubtitle::isDanmakuOverlay) + overlay.subtitle,
+    )
+
 fun Path.toDirectLocalPlaybackRequest(): DesktopPlaybackRequest {
     val normalizedPath = toAbsolutePath().normalize()
     return DesktopPlaybackRequest(

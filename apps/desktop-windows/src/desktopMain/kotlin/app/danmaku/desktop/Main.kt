@@ -767,6 +767,33 @@ private fun DesktopShell(
         }
     }
 
+    fun attachManualDanmaku(preparation: DesktopLocalPlaybackPreparation) {
+        val danmakuPath = selectDanmakuFile("Choose local danmaku XML or JSON file") ?: return
+        scope.launch {
+            appendDiagnostic("danmaku", "Rendering manual danmaku overlay: $danmakuPath")
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    DesktopManualDanmakuOverlayRenderer.render(
+                        inputPath = danmakuPath,
+                        settings = danmakuSettings,
+                    )
+                }
+            }.onSuccess { overlay ->
+                selectedLocalPlaybackPreparation = preparation.withManualDanmakuOverlay(overlay)
+                dandanplayCacheStatus = dandanplayStatusMessage(
+                    mediaId = preparation.item.id,
+                    summary = "manual danmaku: attached ${overlay.eventCount} comments",
+                )
+                appendDiagnostic(
+                    "danmaku",
+                    "Attached manual danmaku ${overlay.inputPath.fileName} with ${overlay.eventCount} comments",
+                )
+            }.onFailure {
+                appendDiagnostic("danmaku", "Manual danmaku attach failed: ${it.message}")
+            }
+        }
+    }
+
     fun setAutoNextLocalPlayback(enabled: Boolean) {
         autoNextLocalPlayback = enabled
         scope.launch {
@@ -1181,6 +1208,7 @@ private fun DesktopShell(
                             onSetAutoNextLocalPlayback = ::setAutoNextLocalPlayback,
                             onRefreshDandanplay = ::refreshPreparedDandanplay,
                             onClearDandanplayCache = ::clearPreparedDandanplayCache,
+                            onAttachManualDanmaku = ::attachManualDanmaku,
                             onLoadPreparedPlayback = { preparation ->
                                 appendDiagnostic(
                                     "playback",
@@ -1929,6 +1957,7 @@ private fun MediaLibraryTab(
     onSetAutoNextLocalPlayback: (Boolean) -> Unit,
     onRefreshDandanplay: (DesktopLocalPlaybackPreparation) -> Unit,
     onClearDandanplayCache: (DesktopLocalPlaybackPreparation) -> Unit,
+    onAttachManualDanmaku: (DesktopLocalPlaybackPreparation) -> Unit,
     onLoadPreparedPlayback: (DesktopLocalPlaybackPreparation) -> Unit,
     remoteBrowser: @Composable () -> Unit,
 ) {
@@ -2214,6 +2243,19 @@ private fun MediaLibraryTab(
                 )
                 MetadataRow("Source", preparation.source.path)
                 MetadataRow("Resume", preparation.resumePositionMs?.let { "$it ms" } ?: "start from beginning")
+                MetadataRow(
+                    "Attached tracks",
+                    preparation.subtitles
+                        .takeIf { it.isNotEmpty() }
+                        ?.joinToString { subtitle ->
+                            if (subtitle.isDanmakuOverlay) {
+                                "${subtitle.label} (danmaku)"
+                            } else {
+                                subtitle.label
+                            }
+                        }
+                        ?: "none",
+                )
                 dandanplayCacheStatus
                     ?.takeIf { it.mediaId == preparation.item.id }
                     ?.let { status ->
@@ -2237,6 +2279,12 @@ private fun MediaLibraryTab(
                         enabled = !isPreparingLocalPlayback,
                     ) {
                         Text("Clear danmaku cache")
+                    }
+                    Button(
+                        onClick = { onAttachManualDanmaku(preparation) },
+                        enabled = !isPreparingLocalPlayback,
+                    ) {
+                        Text("Attach local danmaku")
                     }
                     Button(
                         onClick = {
@@ -3344,6 +3392,21 @@ private fun selectMediaFile(title: String) =
             "webm",
             "ts",
             "m2ts",
+        )
+        takeIf { showOpenDialog(null) == JFileChooser.APPROVE_OPTION }
+            ?.selectedFile
+            ?.toPath()
+    }
+
+private fun selectDanmakuFile(title: String) =
+    JFileChooser().run {
+        fileSelectionMode = JFileChooser.FILES_ONLY
+        dialogTitle = title
+        fileFilter = FileNameExtensionFilter(
+            "Danmaku files",
+            "xml",
+            "json",
+            "danmaku",
         )
         takeIf { showOpenDialog(null) == JFileChooser.APPROVE_OPTION }
             ?.selectedFile

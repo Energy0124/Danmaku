@@ -181,6 +181,55 @@ class DesktopPlaybackSessionTest {
     }
 
     @Test
+    fun manualDanmakuOverlayReplacesExistingDanmakuOverlayAndKeepsNormalSubtitles() {
+        val item = LibraryMediaItem(
+            id = "episode-id",
+            seriesTitle = "Example Show",
+            episodeTitle = "Episode 01",
+            relativePath = "Example Show/Episode 01.mkv",
+            sizeBytes = 123,
+            mediaType = "video/mp4",
+            streamPath = "/media/episode-id",
+        )
+        val preparation = DesktopLocalPlaybackPreparation(
+            item = item,
+            source = PlaybackSource.LocalFile("S:\\Anime\\Example Show\\Episode 01.mkv"),
+            resumePositionMs = null,
+            subtitles = listOf(
+                DesktopPlaybackSubtitle(
+                    source = "S:\\Anime\\Example Show\\Episode 01.en.ass",
+                    label = "English",
+                ),
+                DesktopPlaybackSubtitle(
+                    source = "S:\\Cache\\dandanplay.ass",
+                    label = "dandanplay: Example Show - Episode 01",
+                    isDanmakuOverlay = true,
+                ),
+            ),
+        )
+        val manualOverlay = DesktopManualDanmakuOverlay(
+            inputPath = Path.of("S:\\Anime\\Example Show\\Episode 01.xml"),
+            eventCount = 2,
+            subtitle = DesktopPlaybackSubtitle(
+                source = "S:\\Cache\\manual.ass",
+                label = "Manual danmaku: Episode 01.xml",
+                isDanmakuOverlay = true,
+            ),
+        )
+
+        assertEquals(
+            listOf(
+                DesktopPlaybackSubtitle(
+                    source = "S:\\Anime\\Example Show\\Episode 01.en.ass",
+                    label = "English",
+                ),
+                manualOverlay.subtitle,
+            ),
+            preparation.withManualDanmakuOverlay(manualOverlay).subtitles,
+        )
+    }
+
+    @Test
     fun mapsArbitraryLocalFilesToPlaybackRequests() {
         val mediaPath = Path.of("Anime", "Example Show", "..", "Example Show", "Episode 01.mkv")
         val normalizedPath = mediaPath.toAbsolutePath().normalize()

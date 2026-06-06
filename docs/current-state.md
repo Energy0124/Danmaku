@@ -150,6 +150,11 @@ Updated on 2026-06-06.
   for synthetic and refreshed dandanplay tracks, including visibility,
   filtering, opacity, font scale, speed, density, display-area limits, and
   millisecond timestamp offset.
+- Windows prepared local-library playback can attach a user-selected local
+  danmaku XML, JSON, or `.danmaku` file. The file is parsed through the shared
+  local danmaku parser, rendered into a generated ASS overlay with the current
+  display settings, and replaces any existing fetched danmaku overlay for that
+  prepared playback while preserving normal subtitle tracks.
 - The desktop SQLite catalog now persists dandanplay match metadata, local media
   fingerprints, raw normalized comment JSON, rendered ASS cache paths, and fetch
   timestamps per local media item. The resolver reuses cached comments when the
