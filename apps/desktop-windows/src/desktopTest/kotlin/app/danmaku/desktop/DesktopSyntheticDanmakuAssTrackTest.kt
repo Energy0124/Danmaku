@@ -36,14 +36,25 @@ class DesktopSyntheticDanmakuAssTrackTest {
                 opacityPercent = 80,
                 fontScalePercent = 125,
                 speedPercent = 200,
+                offsetMs = 2_500,
                 keywordFilters = listOf("spoiler"),
             ),
         )
 
         assertContains(ass, "Style: Danmaku,Arial,45,&H33FFFFFF")
-        assertContains(ass, "Dialogue: 0,0:00:01.00,0:00:04.50,Danmaku")
+        assertContains(ass, "Dialogue: 0,0:00:03.50,0:00:07.00,Danmaku")
         assertContains(ass, "safe comment")
         assertTrue("spoiler comment" !in ass)
+    }
+
+    @Test
+    fun clampsNegativeOffsetAtZeroForAssTimestamps() {
+        val ass = SyntheticDanmakuAssRenderer.render(
+            events = listOf(DanmakuEvent(id = "one", timestampMs = 1_000, text = "early comment")),
+            settings = DanmakuDisplaySettings(offsetMs = -2_000),
+        )
+
+        assertContains(ass, "Dialogue: 0,0:00:00.00,0:00:07.00,Danmaku")
     }
 
     @Test

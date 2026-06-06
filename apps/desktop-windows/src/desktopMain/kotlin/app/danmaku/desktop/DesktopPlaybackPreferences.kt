@@ -58,6 +58,7 @@ class DesktopPlaybackPreferencesStore(
         saveSetting(DANMAKU_SPEED_SETTING_KEY, settings.speedPercent.toString())
         saveSetting(DANMAKU_DENSITY_SETTING_KEY, settings.densityPercent.toString())
         saveSetting(DANMAKU_DISPLAY_AREA_SETTING_KEY, settings.displayAreaPercent.toString())
+        saveSetting(DANMAKU_OFFSET_SETTING_KEY, settings.offsetMs.toString())
         saveSetting(DANMAKU_KEYWORD_FILTERS_SETTING_KEY, settings.keywordFilters.joinToString("\n"))
         saveSetting(DANMAKU_REGEX_FILTERS_SETTING_KEY, settings.regexFilters.joinToString("\n"))
     }
@@ -89,6 +90,10 @@ class DesktopPlaybackPreferencesStore(
                     ?.value
                     ?.toIntOrNull()
                     ?: 100,
+                offsetMs = catalogStore.loadSetting(DANMAKU_OFFSET_SETTING_KEY)
+                    ?.value
+                    ?.toLongOrNull()
+                    ?: 0,
                 keywordFilters = catalogStore.loadSetting(DANMAKU_KEYWORD_FILTERS_SETTING_KEY)
                     ?.value
                     .toFilterList(),
@@ -134,5 +139,6 @@ private const val DANMAKU_FONT_SCALE_SETTING_KEY = "danmaku.font_scale_percent"
 private const val DANMAKU_SPEED_SETTING_KEY = "danmaku.speed_percent"
 private const val DANMAKU_DENSITY_SETTING_KEY = "danmaku.density_percent"
 private const val DANMAKU_DISPLAY_AREA_SETTING_KEY = "danmaku.display_area_percent"
+private const val DANMAKU_OFFSET_SETTING_KEY = "danmaku.offset_ms"
 private const val DANMAKU_KEYWORD_FILTERS_SETTING_KEY = "danmaku.keyword_filters"
 private const val DANMAKU_REGEX_FILTERS_SETTING_KEY = "danmaku.regex_filters"

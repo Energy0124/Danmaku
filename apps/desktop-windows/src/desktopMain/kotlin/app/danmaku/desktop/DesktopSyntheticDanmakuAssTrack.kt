@@ -94,7 +94,7 @@ internal object SyntheticDanmakuAssRenderer {
             appendLine("[Events]")
             appendLine("Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text")
             schedule.placements.forEach { placement ->
-                val startMs = placement.measuredEvent.event.timestampMs
+                val startMs = settings.shiftedTimestampMs(placement.measuredEvent.event.timestampMs)
                 val endMs = startMs + travelDurationMs
                 val y = 24 + placement.laneIndex * LANE_HEIGHT
                 val width = placement.measuredEvent.widthPx.toInt()

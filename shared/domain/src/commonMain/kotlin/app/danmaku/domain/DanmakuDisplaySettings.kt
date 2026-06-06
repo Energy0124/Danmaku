@@ -10,6 +10,7 @@ data class DanmakuDisplaySettings(
     val speedPercent: Int = 100,
     val densityPercent: Int = 100,
     val displayAreaPercent: Int = 100,
+    val offsetMs: Long = 0,
     val keywordFilters: List<String> = emptyList(),
     val regexFilters: List<String> = emptyList(),
 ) {
@@ -19,6 +20,9 @@ data class DanmakuDisplaySettings(
         require(speedPercent in 25..300) { "speedPercent must be between 25 and 300" }
         require(densityPercent in 10..200) { "densityPercent must be between 10 and 200" }
         require(displayAreaPercent in 10..100) { "displayAreaPercent must be between 10 and 100" }
+        require(offsetMs in -MAX_OFFSET_MS..MAX_OFFSET_MS) {
+            "offsetMs must be between -$MAX_OFFSET_MS and $MAX_OFFSET_MS"
+        }
         require(keywordFilters.all { it.isNotBlank() }) { "keywordFilters must not contain blank values" }
         require(regexFilters.all { it.isNotBlank() }) { "regexFilters must not contain blank values" }
     }
@@ -51,5 +55,12 @@ data class DanmakuDisplaySettings(
     fun assAlphaHex(): String {
         val alpha = ((100 - opacityPercent) * 255 / 100f).roundToInt().coerceIn(0, 255)
         return alpha.toString(radix = 16).uppercase().padStart(2, '0')
+    }
+
+    fun shiftedTimestampMs(timestampMs: Long): Long =
+        (timestampMs + offsetMs).coerceAtLeast(0)
+
+    private companion object {
+        const val MAX_OFFSET_MS = 60L * 60L * 1_000L
     }
 }

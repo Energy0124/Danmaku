@@ -2366,6 +2366,7 @@ private fun DanmakuDisplaySettingsCard(
     var speedText by remember(settings) { mutableStateOf(settings.speedPercent.toString()) }
     var densityText by remember(settings) { mutableStateOf(settings.densityPercent.toString()) }
     var displayAreaText by remember(settings) { mutableStateOf(settings.displayAreaPercent.toString()) }
+    var offsetText by remember(settings) { mutableStateOf(settings.offsetMs.toString()) }
     var keywordFiltersText by remember(settings) { mutableStateOf(settings.keywordFilters.joinToString("\n")) }
     var regexFiltersText by remember(settings) { mutableStateOf(settings.regexFilters.joinToString("\n")) }
 
@@ -2380,6 +2381,7 @@ private fun DanmakuDisplaySettingsCard(
         MetadataRow("Speed", "${settings.speedPercent}%")
         MetadataRow("Density", "${settings.densityPercent}%")
         MetadataRow("Display area", "${settings.displayAreaPercent}%")
+        MetadataRow("Offset", "${settings.offsetMs} ms")
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
                 onClick = { visible = true },
@@ -2432,6 +2434,13 @@ private fun DanmakuDisplaySettingsCard(
                 singleLine = true,
                 modifier = Modifier.weight(1f),
             )
+            OutlinedTextField(
+                value = offsetText,
+                onValueChange = { offsetText = it },
+                label = { Text("Offset ms") },
+                singleLine = true,
+                modifier = Modifier.weight(1f),
+            )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
@@ -2463,6 +2472,8 @@ private fun DanmakuDisplaySettingsCard(
                                 ?: settings.densityPercent,
                             displayAreaPercent = displayAreaText.toIntOrNull()?.coerceIn(10, 100)
                                 ?: settings.displayAreaPercent,
+                            offsetMs = offsetText.toLongOrNull()?.coerceIn(-3_600_000L, 3_600_000L)
+                                ?: settings.offsetMs,
                             keywordFilters = keywordFiltersText.toFilterEntries(),
                             regexFilters = regexFiltersText.toFilterEntries(),
                         ),
@@ -2479,6 +2490,7 @@ private fun DanmakuDisplaySettingsCard(
                     speedText = "100"
                     densityText = "100"
                     displayAreaText = "100"
+                    offsetText = "0"
                     keywordFiltersText = ""
                     regexFiltersText = ""
                 },

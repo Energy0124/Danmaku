@@ -122,6 +122,8 @@ unblocked slices inside these tracks as the vertical slice hardens.
 - [x] Add shared danmaku display settings for visibility, opacity, font scale,
   speed, density, display area, keyword filters, and regex filters, and wire
   Windows ASS overlay rendering to those persisted controls.
+- [x] Add persisted Windows danmaku offset controls and apply the offset while
+  rendering synthetic and fetched ASS overlay timestamps.
 - [x] Add seek and playback-rate test cases.
 - [x] Add Windows progress-bar scrubbing, live mpv position polling, and
   throttled local/paired progress persistence.

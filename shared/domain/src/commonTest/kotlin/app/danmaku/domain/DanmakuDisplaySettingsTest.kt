@@ -46,12 +46,15 @@ class DanmakuDisplaySettingsTest {
             speedPercent = 200,
             densityPercent = 150,
             displayAreaPercent = 50,
+            offsetMs = 1_500,
         )
 
         assertEquals("33", settings.assAlphaHex())
         assertEquals(45, settings.scaledFontSize(36))
         assertEquals(3_500, settings.scaledTravelDurationMs(7_000))
         assertEquals(6, settings.scaledLaneCount(8))
+        assertEquals(2_500, settings.shiftedTimestampMs(1_000))
+        assertEquals(0, settings.copy(offsetMs = -2_000).shiftedTimestampMs(1_000))
     }
 
     @Test
@@ -64,6 +67,9 @@ class DanmakuDisplaySettingsTest {
         }
         assertFailsWith<IllegalArgumentException> {
             DanmakuDisplaySettings(keywordFilters = listOf(" "))
+        }
+        assertFailsWith<IllegalArgumentException> {
+            DanmakuDisplaySettings(offsetMs = 3_600_001)
         }
     }
 
