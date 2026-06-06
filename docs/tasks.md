@@ -134,6 +134,11 @@ streams plus indexed sidecar subtitles to Media3.
   subtitle-only filtering backed by the shared domain query helper.
 - [x] Add Android mobile progress scrubbing and Android TV remote-friendly seek
   controls backed by shared seek-target clamping.
+- [ ] Add Android phone/tablet screenshot or instrumentation coverage for the
+  player-first mobile layout, including empty, connected, and active-playback
+  states.
+- [ ] Replace the Android mobile inline server fields with a saved PC-library
+  connection picker or settings sheet once pairing persistence is available.
 - [ ] Verify playback and overlays on a physical Android TV device.
 
 ## Streaming Verification

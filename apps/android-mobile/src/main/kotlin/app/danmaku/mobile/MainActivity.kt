@@ -5,25 +5,42 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -32,8 +49,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
@@ -46,16 +68,17 @@ import app.danmaku.domain.LibrarySubtitleFilter
 import app.danmaku.domain.PlaybackCommand
 import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.PlaybackSource
+import app.danmaku.domain.PlaybackStatus
 import app.danmaku.domain.PlaybackTrack
 import app.danmaku.domain.PlaybackTrackKind
 import app.danmaku.domain.coerceSeekTarget
 import app.danmaku.domain.filteredItems
 import app.danmaku.domain.seekTargetBy
-import app.danmaku.library.android.LanLibraryDiscoveryClient
-import app.danmaku.library.android.LanLibraryClient
 import app.danmaku.library.LanPlaybackPreparer
 import app.danmaku.library.LanPlaybackProgressSync
 import app.danmaku.library.LanPlaybackTarget
+import app.danmaku.library.android.LanLibraryClient
+import app.danmaku.library.android.LanLibraryDiscoveryClient
 import app.danmaku.player.android.Media3PlaybackController
 import app.danmaku.player.android.Media3PlaybackServiceConnection
 import kotlinx.coroutines.Dispatchers
@@ -63,11 +86,34 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+private val AppBackground = Color(0xFF101214)
+private val PlayerBlack = Color(0xFF050607)
+private val PanelColor = Color(0xFF191D21)
+private val PanelAltColor = Color(0xFF20262B)
+private val SubtleText = Color(0xFFB7C0C9)
+private val AccentBlue = Color(0xFF7DD3FC)
+private val AccentAmber = Color(0xFFFBBF24)
+private val DangerRed = Color(0xFFFCA5A5)
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            MaterialTheme {
+            MaterialTheme(
+                colorScheme = darkColorScheme(
+                    primary = AccentBlue,
+                    secondary = AccentAmber,
+                    background = AppBackground,
+                    surface = PanelColor,
+                    surfaceVariant = PanelAltColor,
+                    onPrimary = PlayerBlack,
+                    onSecondary = PlayerBlack,
+                    onBackground = Color(0xFFF7F7F8),
+                    onSurface = Color(0xFFF7F7F8),
+                    onSurfaceVariant = SubtleText,
+                    outline = Color(0xFF3A4149),
+                ),
+            ) {
                 MobilePlayerScreen()
             }
         }
@@ -97,6 +143,7 @@ private fun MobilePlayerScreen() {
     var librarySearchText by remember { mutableStateOf("") }
     var librarySort by remember { mutableStateOf(LibraryCatalogSort.TITLE) }
     var librarySubtitleFilter by remember { mutableStateOf(LibrarySubtitleFilter.ANY) }
+    var nowPlaying by remember { mutableStateOf<LibraryMediaItem?>(null) }
     val totalItems = catalog?.items.orEmpty()
     val filteredItems = catalog
         ?.filteredItems(
@@ -110,6 +157,7 @@ private fun MobilePlayerScreen() {
     val openDocument = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri ?: return@rememberLauncherForActivityResult
         controller?.let {
+            nowPlaying = null
             it.load(PlaybackSource.LocalFile(uri.toString()))
             snapshot = it.snapshot()
         }
@@ -141,255 +189,425 @@ private fun MobilePlayerScreen() {
         }
     }
 
-    Surface(modifier = Modifier.fillMaxSize()) {
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = AppBackground,
+    ) {
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .background(AppBackground)
+                .safeDrawingPadding(),
+            contentPadding = PaddingValues(start = 16.dp, top = 14.dp, end = 16.dp, bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            item(key = "header") {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("Danmaku", style = MaterialTheme.typography.headlineMedium)
-                    Text("Android library streaming")
-                }
-            }
-            item(key = "playback") {
-                SectionCard(title = "Playback") {
-                    AndroidView(
-                        factory = { PlayerView(it) },
-                        update = { it.player = controller?.player },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(220.dp),
-                    )
-                    Text("Player state: ${snapshot.status}")
-                    playbackError?.let { Text("Playback connection error: $it") }
-                }
-            }
-            item(key = "controls") {
-                SectionCard(title = "Controls") {
-                    PlayerControls(
-                        snapshot = snapshot,
-                        onOpen = { openDocument.launch(arrayOf("video/*")) },
-                        onPlay = { controller?.dispatch(PlaybackCommand.Play) },
-                        onPause = { controller?.dispatch(PlaybackCommand.Pause) },
-                        onSeekTo = { controller?.dispatch(PlaybackCommand.SeekTo(it)) },
-                        onSetVolume = { controller?.dispatch(PlaybackCommand.SetVolume(it)) },
-                    )
-                    TrackControls(
-                        snapshot = snapshot,
-                        onSelectAudio = {
-                            controller?.dispatch(PlaybackCommand.SelectAudioTrack(it))
-                        },
-                        onSelectSubtitle = {
-                            controller?.dispatch(PlaybackCommand.SelectSubtitleTrack(it))
-                        },
-                    )
-                }
-            }
-            item(key = "pc-library") {
-                SectionCard(title = "PC Library") {
-                    OutlinedTextField(
-                        value = serverUrl,
-                        onValueChange = { serverUrl = it },
-                        label = { Text("Windows server URL") },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    OutlinedTextField(
-                        value = pairingToken,
-                        onValueChange = { pairingToken = it },
-                        label = { Text("Pairing code") },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Button(
-                            onClick = {
-                                scope.launch {
-                                    runCatching {
-                                        withContext(Dispatchers.IO) {
-                                            discoveryClient.discover().firstOrNull()
-                                                ?: error("No Windows library server discovered")
-                                        }
-                                    }.onSuccess {
-                                        serverUrl = it.baseUrl
-                                        libraryError = null
-                                    }.onFailure {
-                                        libraryError = it.message
-                                    }
-                                }
-                            },
-                        ) {
-                            Text("Discover PC")
-                        }
-                        Button(
-                            onClick = {
-                                scope.launch {
-                                    runCatching {
-                                        withContext(Dispatchers.IO) {
-                                            libraryClient.fetchCatalog(serverUrl, pairingToken)
-                                        }
-                                    }.onSuccess {
-                                        catalog = it
-                                        libraryError = null
-                                    }.onFailure {
-                                        libraryError = it.message
-                                    }
-                                }
-                            },
-                        ) {
-                            Text("Refresh library")
-                        }
-                    }
-                    libraryError?.let { Text("Library error: $it") }
-                }
-            }
-            item(key = "library-filters") {
-                SectionCard(title = "Episodes") {
-                    OutlinedTextField(
-                        value = librarySearchText,
-                        onValueChange = { librarySearchText = it },
-                        label = { Text("Search library") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        item {
-                            Button(
-                                onClick = { librarySort = LibraryCatalogSort.TITLE },
-                                enabled = librarySort != LibraryCatalogSort.TITLE,
-                            ) {
-                                Text("Title")
-                            }
-                        }
-                        item {
-                            Button(
-                                onClick = { librarySort = LibraryCatalogSort.PATH },
-                                enabled = librarySort != LibraryCatalogSort.PATH,
-                            ) {
-                                Text("Path")
-                            }
-                        }
-                        item {
-                            Button(
-                                onClick = {
-                                    librarySubtitleFilter = if (librarySubtitleFilter == LibrarySubtitleFilter.ANY) {
-                                        LibrarySubtitleFilter.WITH_SUBTITLES
-                                    } else {
-                                        LibrarySubtitleFilter.ANY
-                                    }
-                                },
-                            ) {
-                                Text(
-                                    if (librarySubtitleFilter == LibrarySubtitleFilter.ANY) {
-                                        "With subtitles"
-                                    } else {
-                                        "All episodes"
-                                    },
-                                )
-                            }
-                        }
-                    }
-                    Text("Showing ${filteredItems.size} / ${totalItems.size} episodes")
-                    if (catalog == null) {
-                        Text("Discover or refresh a Windows library server to browse episodes.")
-                    } else if (filteredItems.isEmpty()) {
-                        Text("No episodes match the current filters.")
-                    }
-                }
-            }
-            items(filteredItems, key = LibraryMediaItem::id) { item ->
-                LibraryEpisodeButton(
-                    item = item,
-                    onPlay = {
-                        val activeController = controller ?: return@LibraryEpisodeButton
-                        val target = LanPlaybackTarget(serverUrl, pairingToken, item.id)
-                        scope.launch {
-                            val resumePosition = runCatching {
-                                withContext(Dispatchers.IO) {
-                                    progressSync.fetchResumePositionMs(target)
-                                }
-                            }.onFailure {
-                                libraryError = "Resume lookup failed: ${it.message}"
-                            }.getOrNull()
-                            val preparation = playbackPreparer.prepare(
-                                baseUrl = target.baseUrl,
-                                pairingToken = target.pairingToken,
-                                item = item,
-                                resumePositionMs = resumePosition,
-                            )
-                            activeController.load(preparation)
-                            preparation.resumePositionMs?.let {
-                                activeController.dispatch(PlaybackCommand.SeekTo(it))
-                            }
-                            activeController.dispatch(PlaybackCommand.Play)
+            item(key = "player") {
+                PlayerHome(
+                    controller = controller,
+                    snapshot = snapshot,
+                    nowPlaying = nowPlaying,
+                    playbackError = playbackError,
+                    onOpen = { openDocument.launch(arrayOf("video/*")) },
+                    onPlayPause = {
+                        if (snapshot.status == PlaybackStatus.PLAYING) {
+                            controller?.dispatch(PlaybackCommand.Pause)
+                        } else {
+                            controller?.dispatch(PlaybackCommand.Play)
                         }
                     },
+                    onSeekTo = { controller?.dispatch(PlaybackCommand.SeekTo(it)) },
+                    onSetVolume = { controller?.dispatch(PlaybackCommand.SetVolume(it)) },
+                    onSelectAudio = { controller?.dispatch(PlaybackCommand.SelectAudioTrack(it)) },
+                    onSelectSubtitle = { controller?.dispatch(PlaybackCommand.SelectSubtitleTrack(it)) },
                 )
             }
+            item(key = "library-header") {
+                LibraryHeader(
+                    catalog = catalog,
+                    filteredCount = filteredItems.size,
+                    totalCount = totalItems.size,
+                    serverUrl = serverUrl,
+                    pairingToken = pairingToken,
+                    libraryError = libraryError,
+                    onServerUrlChange = { serverUrl = it },
+                    onPairingTokenChange = { pairingToken = it },
+                    onDiscover = {
+                        scope.launch {
+                            runCatching {
+                                withContext(Dispatchers.IO) {
+                                    discoveryClient.discover().firstOrNull()
+                                        ?: error("No Windows library server discovered")
+                                }
+                            }.onSuccess {
+                                serverUrl = it.baseUrl
+                                libraryError = null
+                            }.onFailure {
+                                libraryError = it.message
+                            }
+                        }
+                    },
+                    onRefresh = {
+                        scope.launch {
+                            runCatching {
+                                withContext(Dispatchers.IO) {
+                                    libraryClient.fetchCatalog(serverUrl, pairingToken)
+                                }
+                            }.onSuccess {
+                                catalog = it
+                                libraryError = null
+                            }.onFailure {
+                                libraryError = it.message
+                            }
+                        }
+                    },
+                    searchText = librarySearchText,
+                    onSearchTextChange = { librarySearchText = it },
+                    sort = librarySort,
+                    onSortChange = { librarySort = it },
+                    subtitleFilter = librarySubtitleFilter,
+                    onSubtitleFilterChange = { librarySubtitleFilter = it },
+                )
+            }
+            if (catalog == null) {
+                item(key = "library-empty") {
+                    EmptyLibraryState()
+                }
+            } else if (filteredItems.isEmpty()) {
+                item(key = "library-no-results") {
+                    EmptyResultsState()
+                }
+            } else {
+                items(filteredItems, key = LibraryMediaItem::id) { item ->
+                    EpisodeRow(
+                        item = item,
+                        selected = nowPlaying?.id == item.id,
+                        onPlay = {
+                            val activeController = controller ?: return@EpisodeRow
+                            val target = LanPlaybackTarget(serverUrl, pairingToken, item.id)
+                            nowPlaying = item
+                            scope.launch {
+                                val resumePosition = runCatching {
+                                    withContext(Dispatchers.IO) {
+                                        progressSync.fetchResumePositionMs(target)
+                                    }
+                                }.onFailure {
+                                    libraryError = "Resume lookup failed: ${it.message}"
+                                }.getOrNull()
+                                val preparation = playbackPreparer.prepare(
+                                    baseUrl = target.baseUrl,
+                                    pairingToken = target.pairingToken,
+                                    item = item,
+                                    resumePositionMs = resumePosition,
+                                )
+                                activeController.load(preparation)
+                                preparation.resumePositionMs?.let {
+                                    activeController.dispatch(PlaybackCommand.SeekTo(it))
+                                }
+                                activeController.dispatch(PlaybackCommand.Play)
+                            }
+                        },
+                    )
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun SectionCard(
-    title: String,
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
-            content()
-        }
-    }
-}
-
-@Composable
-private fun PlayerControls(
+private fun PlayerHome(
+    controller: Media3PlaybackController?,
     snapshot: PlaybackSnapshot,
+    nowPlaying: LibraryMediaItem?,
+    playbackError: String?,
     onOpen: () -> Unit,
-    onPlay: () -> Unit,
-    onPause: () -> Unit,
+    onPlayPause: () -> Unit,
     onSeekTo: (Long) -> Unit,
     onSetVolume: (Int) -> Unit,
+    onSelectAudio: (String) -> Unit,
+    onSelectSubtitle: (String?) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Button(onClick = onOpen) {
-                Text("Open video")
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    "Danmaku",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    snapshot.sourceLabel(nowPlaying),
+                    color = SubtleText,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
-            Button(onClick = onPlay, enabled = snapshot.source != null) {
-                Text("Play")
-            }
-            Button(onClick = onPause, enabled = snapshot.source != null) {
-                Text("Pause")
+            StatusPill(snapshot.status.displayLabel())
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(22.dp))
+                .background(PlayerBlack)
+                .aspectRatio(16f / 9f),
+            contentAlignment = Alignment.Center,
+        ) {
+            AndroidView(
+                factory = {
+                    PlayerView(it).apply {
+                        useController = false
+                    }
+                },
+                update = { it.player = controller?.player },
+                modifier = Modifier.fillMaxSize(),
+            )
+            if (snapshot.source == null) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.padding(24.dp),
+                ) {
+                    Text(
+                        "Ready to play",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        "Open a video or choose an episode from your PC library.",
+                        color = SubtleText,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
             }
         }
-        PlaybackSeekControls(snapshot = snapshot, onSeekTo = onSeekTo)
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+
+        NowPlayingPanel(
+            snapshot = snapshot,
+            nowPlaying = nowPlaying,
+            playbackError = playbackError,
+            onOpen = onOpen,
+            onPlayPause = onPlayPause,
+            onSeekTo = onSeekTo,
+            onSetVolume = onSetVolume,
+            onSelectAudio = onSelectAudio,
+            onSelectSubtitle = onSelectSubtitle,
+        )
+    }
+}
+
+@Composable
+private fun NowPlayingPanel(
+    snapshot: PlaybackSnapshot,
+    nowPlaying: LibraryMediaItem?,
+    playbackError: String?,
+    onOpen: () -> Unit,
+    onPlayPause: () -> Unit,
+    onSeekTo: (Long) -> Unit,
+    onSetVolume: (Int) -> Unit,
+    onSelectAudio: (String) -> Unit,
+    onSelectSubtitle: (String?) -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = PanelColor,
+        border = BorderStroke(1.dp, Color(0xFF2B3239)),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Text("Volume ${snapshot.volumePercent}%")
-            Button(
-                onClick = { onSetVolume((snapshot.volumePercent - 10).coerceAtLeast(0)) },
-                enabled = snapshot.source != null && snapshot.volumePercent > 0,
-            ) {
-                Text("-")
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    nowPlaying?.seriesTitle ?: "No episode selected",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    nowPlaying?.episodeTitle ?: "Local files and LAN streams appear here while playing.",
+                    color = SubtleText,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
-            Button(
-                onClick = { onSetVolume((snapshot.volumePercent + 10).coerceAtMost(100)) },
-                enabled = snapshot.source != null && snapshot.volumePercent < 100,
+
+            PlaybackSeekControls(snapshot = snapshot, onSeekTo = onSeekTo)
+
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Text("+")
+                Button(
+                    onClick = onPlayPause,
+                    enabled = snapshot.source != null,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AccentBlue,
+                        contentColor = PlayerBlack,
+                    ),
+                ) {
+                    Text(
+                        if (snapshot.status == PlaybackStatus.PLAYING) "Pause" else "Play",
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+                OutlinedButton(onClick = onOpen) {
+                    Text("Open video")
+                }
+                OutlinedButton(
+                    onClick = { onSetVolume((snapshot.volumePercent - 10).coerceAtLeast(0)) },
+                    enabled = snapshot.source != null && snapshot.volumePercent > 0,
+                ) {
+                    Text("Vol -")
+                }
+                OutlinedButton(
+                    onClick = { onSetVolume((snapshot.volumePercent + 10).coerceAtMost(100)) },
+                    enabled = snapshot.source != null && snapshot.volumePercent < 100,
+                ) {
+                    Text("Vol +")
+                }
+            }
+
+            Text(
+                "Volume ${snapshot.volumePercent}%",
+                color = SubtleText,
+                style = MaterialTheme.typography.bodySmall,
+            )
+            TrackControls(
+                snapshot = snapshot,
+                onSelectAudio = onSelectAudio,
+                onSelectSubtitle = onSelectSubtitle,
+            )
+            playbackError?.let {
+                ErrorText("Playback connection error: $it")
+            }
+        }
+    }
+}
+
+@Composable
+private fun LibraryHeader(
+    catalog: LibraryCatalog?,
+    filteredCount: Int,
+    totalCount: Int,
+    serverUrl: String,
+    pairingToken: String,
+    libraryError: String?,
+    onServerUrlChange: (String) -> Unit,
+    onPairingTokenChange: (String) -> Unit,
+    onDiscover: () -> Unit,
+    onRefresh: () -> Unit,
+    searchText: String,
+    onSearchTextChange: (String) -> Unit,
+    sort: LibraryCatalogSort,
+    onSortChange: (LibraryCatalogSort) -> Unit,
+    subtitleFilter: LibrarySubtitleFilter,
+    onSubtitleFilterChange: (LibrarySubtitleFilter) -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = PanelAltColor,
+        border = BorderStroke(1.dp, Color(0xFF343D45)),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "PC Library",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        catalog?.rootName ?: serverUrl.serverDisplayName(),
+                        color = SubtleText,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                AssistChip(
+                    onClick = {},
+                    label = { Text("$filteredCount/$totalCount") },
+                )
+            }
+
+            OutlinedTextField(
+                value = searchText,
+                onValueChange = onSearchTextChange,
+                label = { Text("Search episodes") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                FilterChip(
+                    selected = sort == LibraryCatalogSort.TITLE,
+                    onClick = { onSortChange(LibraryCatalogSort.TITLE) },
+                    label = { Text("Title") },
+                )
+                FilterChip(
+                    selected = sort == LibraryCatalogSort.PATH,
+                    onClick = { onSortChange(LibraryCatalogSort.PATH) },
+                    label = { Text("Path") },
+                )
+                FilterChip(
+                    selected = subtitleFilter == LibrarySubtitleFilter.WITH_SUBTITLES,
+                    onClick = {
+                        onSubtitleFilterChange(
+                            if (subtitleFilter == LibrarySubtitleFilter.ANY) {
+                                LibrarySubtitleFilter.WITH_SUBTITLES
+                            } else {
+                                LibrarySubtitleFilter.ANY
+                            },
+                        )
+                    },
+                    label = { Text("Subtitles") },
+                )
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = serverUrl,
+                    onValueChange = onServerUrlChange,
+                    label = { Text("Server URL") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = pairingToken,
+                    onValueChange = onPairingTokenChange,
+                    label = { Text("Pairing code") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Button(onClick = onDiscover) {
+                        Text("Discover PC")
+                    }
+                    OutlinedButton(onClick = onRefresh) {
+                        Text("Refresh")
+                    }
+                }
+            }
+
+            libraryError?.let {
+                ErrorText("Library error: $it")
             }
         }
     }
@@ -413,8 +631,7 @@ private fun PlaybackSeekControls(
         }
     }
 
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text("${currentPositionMs.formatPlaybackTime()} / ${durationMs?.formatPlaybackTime() ?: "--:--"}")
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Slider(
             value = durationMs
                 ?.let { sliderPositionMs.coerceIn(0f, it.toFloat()) }
@@ -433,6 +650,22 @@ private fun PlaybackSeekControls(
             enabled = snapshot.source != null && durationMs != null,
             modifier = Modifier.fillMaxWidth(),
         )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                currentPositionMs.formatPlaybackTime(),
+                color = SubtleText,
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            Text(
+                durationMs?.formatPlaybackTime() ?: "--:--",
+                color = SubtleText,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -452,7 +685,7 @@ private fun SeekButton(
     onSeekTo: (Long) -> Unit,
     deltaMs: Long,
 ) {
-    Button(
+    TextButton(
         onClick = { onSeekTo(snapshot.position.seekTargetBy(deltaMs)) },
         enabled = snapshot.source != null,
     ) {
@@ -468,30 +701,34 @@ private fun TrackControls(
 ) {
     val audioTracks = snapshot.tracks.filter { it.kind == PlaybackTrackKind.AUDIO }
     val subtitleTracks = snapshot.tracks.filter { it.kind == PlaybackTrackKind.SUBTITLE }
-    if (audioTracks.isNotEmpty()) {
-        Text("Audio tracks")
-        TrackButtons(audioTracks, onSelectAudio)
-    }
-    if (subtitleTracks.isNotEmpty()) {
-        Text("Subtitle tracks")
-        LazyRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            item(key = "subtitle-off") {
-                Button(
-                    onClick = { onSelectSubtitle(null) },
-                    enabled = subtitleTracks.any(PlaybackTrack::selected),
-                ) {
-                    Text("Off")
-                }
+    if (audioTracks.isNotEmpty() || subtitleTracks.isNotEmpty()) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (audioTracks.isNotEmpty()) {
+                Text("Audio", color = SubtleText, style = MaterialTheme.typography.labelMedium)
+                TrackButtons(audioTracks, onSelectAudio)
             }
-            items(subtitleTracks, key = PlaybackTrack::id) { track ->
-                Button(
-                    onClick = { onSelectSubtitle(track.id) },
-                    enabled = track.supported && !track.selected,
+            if (subtitleTracks.isNotEmpty()) {
+                Text("Subtitles", color = SubtleText, style = MaterialTheme.typography.labelMedium)
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text(track.buttonLabel())
+                    item(key = "subtitle-off") {
+                        FilterChip(
+                            selected = subtitleTracks.none(PlaybackTrack::selected),
+                            onClick = { onSelectSubtitle(null) },
+                            enabled = subtitleTracks.any(PlaybackTrack::selected),
+                            label = { Text("Off") },
+                        )
+                    }
+                    items(subtitleTracks, key = PlaybackTrack::id) { track ->
+                        FilterChip(
+                            selected = track.selected,
+                            onClick = { onSelectSubtitle(track.id) },
+                            enabled = track.supported && !track.selected,
+                            label = { Text(track.buttonLabel()) },
+                        )
+                    }
                 }
             }
         }
@@ -508,18 +745,179 @@ private fun TrackButtons(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         items(tracks, key = PlaybackTrack::id) { track ->
-            Button(
+            FilterChip(
+                selected = track.selected,
                 onClick = { onSelect(track.id) },
                 enabled = track.supported && !track.selected,
+                label = { Text(track.buttonLabel()) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun EpisodeRow(
+    item: LibraryMediaItem,
+    selected: Boolean,
+    onPlay: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .clickable(onClick = onPlay),
+        shape = RoundedCornerShape(18.dp),
+        color = if (selected) Color(0xFF263847) else PanelColor,
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (selected) AccentBlue else Color(0xFF2B3239),
+        ),
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(46.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(if (selected) AccentBlue else Color(0xFF2B3239)),
+                contentAlignment = Alignment.Center,
             ) {
-                Text(track.buttonLabel())
+                Text(
+                    "Play",
+                    color = if (selected) PlayerBlack else Color(0xFFE5E7EB),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(3.dp),
+            ) {
+                Text(
+                    item.seriesTitle,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    item.episodeTitle,
+                    color = SubtleText,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    "${item.formatSize()} · ${item.subtitles.size} subtitle tracks",
+                    color = Color(0xFF8F9AA5),
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
         }
     }
 }
 
+@Composable
+private fun EmptyLibraryState() {
+    EmptyPanel(
+        title = "Connect to your Windows library",
+        body = "Use discovery when the desktop app is open, then refresh the catalog.",
+    )
+}
+
+@Composable
+private fun EmptyResultsState() {
+    EmptyPanel(
+        title = "No matching episodes",
+        body = "Try a different search, sort order, or subtitle filter.",
+    )
+}
+
+@Composable
+private fun EmptyPanel(
+    title: String,
+    body: String,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = Color(0xFF15191D),
+        border = BorderStroke(1.dp, Color(0xFF2B3239)),
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(title, fontWeight = FontWeight.SemiBold)
+            Text(body, color = SubtleText)
+        }
+    }
+}
+
+@Composable
+private fun StatusPill(label: String) {
+    Surface(
+        shape = CircleShape,
+        color = Color(0xFF1E2930),
+        border = BorderStroke(1.dp, Color(0xFF35424D)),
+    ) {
+        Text(
+            label,
+            modifier = Modifier
+                .widthIn(min = 72.dp)
+                .padding(horizontal = 12.dp, vertical = 7.dp),
+            color = AccentAmber,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
+    }
+}
+
+@Composable
+private fun ErrorText(message: String) {
+    Text(
+        message,
+        color = DangerRed,
+        style = MaterialTheme.typography.bodySmall,
+    )
+}
+
+private fun PlaybackSnapshot.sourceLabel(nowPlaying: LibraryMediaItem?): String =
+    when {
+        nowPlaying != null -> "${nowPlaying.seriesTitle} · ${nowPlaying.episodeTitle}"
+        source is PlaybackSource.LocalFile -> "Local video"
+        source is PlaybackSource.RemoteStream -> "LAN stream"
+        else -> "Select a video to start watching"
+    }
+
+private fun PlaybackStatus.displayLabel(): String =
+    name.lowercase().replaceFirstChar { it.uppercaseChar() }
+
 private fun PlaybackTrack.buttonLabel(): String =
     if (selected) "$label (selected)" else label
+
+private fun String.serverDisplayName(): String =
+    removePrefix("http://")
+        .removePrefix("https://")
+        .ifBlank { "No server selected" }
+
+private fun LibraryMediaItem.formatSize(): String {
+    val mib = sizeBytes.toDouble() / (1024.0 * 1024.0)
+    val gib = mib / 1024.0
+    return if (gib >= 1.0) {
+        "${gib.formatOneDecimal()} GB"
+    } else {
+        "${mib.formatOneDecimal()} MB"
+    }
+}
+
+private fun Double.formatOneDecimal(): String {
+    val scaled = (this * 10).toLong()
+    return "${scaled / 10}.${scaled % 10}"
+}
 
 private fun Long.formatPlaybackTime(): String {
     val totalSeconds = this.coerceAtLeast(0) / 1_000
@@ -530,24 +928,5 @@ private fun Long.formatPlaybackTime(): String {
         "$hours:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}"
     } else {
         "$minutes:${seconds.toString().padStart(2, '0')}"
-    }
-}
-
-@Composable
-private fun LibraryEpisodeButton(
-    item: LibraryMediaItem,
-    onPlay: () -> Unit,
-) {
-    Button(
-        onClick = onPlay,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
-        ) {
-            Text(item.seriesTitle)
-            Text(item.episodeTitle, style = MaterialTheme.typography.bodySmall)
-        }
     }
 }
