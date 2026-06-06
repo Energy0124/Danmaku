@@ -154,6 +154,8 @@ unblocked slices inside these tracks as the vertical slice hardens.
 - [x] Add optional persisted Windows local-library auto-next playback.
 - [x] Add persisted Windows local-library favorites with episode-row/detail
   toggles and a favorites-only episode filter.
+- [x] Add Android mobile and Android TV local favorite episode toggles and
+  favorites-only library filters backed by Android preference storage.
 - [x] Add Windows fullscreen and aspect-ratio playback controls.
 - [x] Add Windows paired-catalog one-click stream playback while retaining
   explicit prepare actions for diagnostics.

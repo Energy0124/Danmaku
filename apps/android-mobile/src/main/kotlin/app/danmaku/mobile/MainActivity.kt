@@ -33,6 +33,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeDown
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
@@ -78,6 +79,7 @@ import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryCatalogQuery
 import app.danmaku.domain.LibraryCatalogSort
 import app.danmaku.domain.LibraryEpisodeDetail
+import app.danmaku.domain.LibraryFavoriteFilter
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibraryNextUpItem
 import app.danmaku.domain.LibraryNextUpReason
@@ -108,6 +110,7 @@ import app.danmaku.library.LanLibraryConnectionProfile
 import app.danmaku.library.LanPlaybackPreparer
 import app.danmaku.library.LanPlaybackProgressSync
 import app.danmaku.library.LanPlaybackTarget
+import app.danmaku.library.android.AndroidLibraryFavoriteStore
 import app.danmaku.library.android.AndroidLanLibraryConnectionStore
 import app.danmaku.library.android.LanLibraryClient
 import app.danmaku.library.android.LanLibraryDiscoveryClient
@@ -175,6 +178,9 @@ private fun MobilePlayerScreen() {
     val connectionStore = remember(context) {
         AndroidLanLibraryConnectionStore(context.applicationContext)
     }
+    val favoriteStore = remember(context) {
+        AndroidLibraryFavoriteStore(context.applicationContext)
+    }
     val discoveryClient = remember { LanLibraryDiscoveryClient() }
     val scope = rememberCoroutineScope()
     var controller by remember { mutableStateOf<Media3PlaybackController?>(null) }
@@ -189,6 +195,8 @@ private fun MobilePlayerScreen() {
     var librarySearchText by remember { mutableStateOf("") }
     var librarySort by remember { mutableStateOf(LibraryCatalogSort.TITLE) }
     var librarySubtitleFilter by remember { mutableStateOf(LibrarySubtitleFilter.ANY) }
+    var libraryFavoriteFilter by remember { mutableStateOf(LibraryFavoriteFilter.ANY) }
+    var favoriteMediaIds by remember { mutableStateOf(favoriteStore.loadFavoriteMediaIds()) }
     var nowPlaying by remember { mutableStateOf<LibraryMediaItem?>(null) }
     var selectedTab by remember { mutableStateOf(MobileTab.Watch) }
     val totalItems = catalog?.items.orEmpty()
@@ -198,6 +206,8 @@ private fun MobilePlayerScreen() {
                 searchText = librarySearchText,
                 sort = librarySort,
                 subtitleFilter = librarySubtitleFilter,
+                favoriteFilter = libraryFavoriteFilter,
+                favoriteMediaIds = favoriteMediaIds,
             ),
         )
         .orEmpty()
@@ -286,6 +296,16 @@ private fun MobilePlayerScreen() {
     val refreshLibrary: () -> Unit = {
         connectToLibrary(serverUrl, pairingToken)
     }
+    val setFavorite: (LibraryMediaItem, Boolean) -> Unit = { item, isFavorite ->
+        runCatching {
+            favoriteStore.setFavoriteMediaId(item.id, isFavorite)
+        }.onSuccess {
+            favoriteMediaIds = it
+            libraryError = null
+        }.onFailure {
+            libraryError = it.message
+        }
+    }
     val playEpisode: (LibraryMediaItem) -> Unit = { item ->
         val activeController = controller
         if (activeController == null) {
@@ -362,6 +382,10 @@ private fun MobilePlayerScreen() {
                 onSortChange = { librarySort = it },
                 subtitleFilter = librarySubtitleFilter,
                 onSubtitleFilterChange = { librarySubtitleFilter = it },
+                favoriteMediaIds = favoriteMediaIds,
+                favoriteFilter = libraryFavoriteFilter,
+                onFavoriteFilterChange = { libraryFavoriteFilter = it },
+                onSetFavorite = setFavorite,
                 onPlay = playEpisode,
                 onPlayPause = {
                     if (snapshot.status == PlaybackStatus.PLAYING) {
@@ -543,6 +567,10 @@ internal fun LibraryPage(
     onSortChange: (LibraryCatalogSort) -> Unit,
     subtitleFilter: LibrarySubtitleFilter,
     onSubtitleFilterChange: (LibrarySubtitleFilter) -> Unit,
+    favoriteMediaIds: Set<String> = emptySet(),
+    favoriteFilter: LibraryFavoriteFilter = LibraryFavoriteFilter.ANY,
+    onFavoriteFilterChange: (LibraryFavoriteFilter) -> Unit = {},
+    onSetFavorite: (LibraryMediaItem, Boolean) -> Unit = { _, _ -> },
     onPlay: (LibraryMediaItem) -> Unit,
     onPlayPause: () -> Unit,
     onOpenPlayer: () -> Unit,
@@ -599,6 +627,9 @@ internal fun LibraryPage(
                 onSortChange = onSortChange,
                 subtitleFilter = subtitleFilter,
                 onSubtitleFilterChange = onSubtitleFilterChange,
+                favoriteMediaIds = favoriteMediaIds,
+                favoriteFilter = favoriteFilter,
+                onFavoriteFilterChange = onFavoriteFilterChange,
                 onConnect = onConnect,
             )
         }
@@ -660,6 +691,8 @@ internal fun LibraryPage(
             item(key = "episode-detail-${detail.mediaItem.id}") {
                 EpisodeDetailPanel(
                     detail = detail,
+                    isFavorite = detail.mediaItem.id in favoriteMediaIds,
+                    onSetFavorite = { onSetFavorite(detail.mediaItem, it) },
                     onPlay = onPlay,
                     onSelectEpisode = { selectedEpisodeId = it.id },
                 )
@@ -679,6 +712,8 @@ internal fun LibraryPage(
                     item = item,
                     selected = nowPlaying?.id == item.id,
                     watchStatus = watchStatusById[item.id],
+                    isFavorite = item.id in favoriteMediaIds,
+                    onSetFavorite = { onSetFavorite(item, it) },
                     onShowDetails = { selectedEpisodeId = item.id },
                     onPlay = { onPlay(item) },
                 )
@@ -690,6 +725,8 @@ internal fun LibraryPage(
 @Composable
 private fun EpisodeDetailPanel(
     detail: LibraryEpisodeDetail,
+    isFavorite: Boolean,
+    onSetFavorite: (Boolean) -> Unit,
     onPlay: (LibraryMediaItem) -> Unit,
     onSelectEpisode: (LibraryMediaItem) -> Unit,
 ) {
@@ -742,6 +779,12 @@ private fun EpisodeDetailPanel(
             ) {
                 Button(onClick = { onPlay(detail.mediaItem) }) {
                     Text("Play")
+                }
+                OutlinedButton(
+                    onClick = { onSetFavorite(!isFavorite) },
+                    modifier = Modifier.testTag("episode-detail-favorite:${detail.mediaItem.id}"),
+                ) {
+                    Text(if (isFavorite) "Unfavorite" else "Favorite")
                 }
                 OutlinedButton(
                     onClick = { detail.previousItem?.let(onSelectEpisode) },
@@ -1514,6 +1557,9 @@ private fun LibraryHeader(
     onSortChange: (LibraryCatalogSort) -> Unit,
     subtitleFilter: LibrarySubtitleFilter,
     onSubtitleFilterChange: (LibrarySubtitleFilter) -> Unit,
+    favoriteMediaIds: Set<String>,
+    favoriteFilter: LibraryFavoriteFilter,
+    onFavoriteFilterChange: (LibraryFavoriteFilter) -> Unit,
     onConnect: () -> Unit,
 ) {
     Surface(
@@ -1548,6 +1594,11 @@ private fun LibraryHeader(
                     label = { Text("$filteredCount/$totalCount") },
                 )
             }
+            Text(
+                "${favoriteMediaIds.size} favorites",
+                color = SubtleText,
+                style = MaterialTheme.typography.bodySmall,
+            )
 
             OutlinedTextField(
                 value = searchText,
@@ -1561,6 +1612,27 @@ private fun LibraryHeader(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                FilterChip(
+                    selected = favoriteFilter == LibraryFavoriteFilter.FAVORITES_ONLY,
+                    onClick = {
+                        onFavoriteFilterChange(
+                            if (favoriteFilter == LibraryFavoriteFilter.ANY) {
+                                LibraryFavoriteFilter.FAVORITES_ONLY
+                            } else {
+                                LibraryFavoriteFilter.ANY
+                            },
+                        )
+                    },
+                    modifier = Modifier.testTag("library-favorites-filter"),
+                    label = { Text("Favorites") },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Filled.Star,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    },
+                )
                 FilterChip(
                     selected = sort == LibraryCatalogSort.TITLE,
                     onClick = { onSortChange(LibraryCatalogSort.TITLE) },
@@ -1935,9 +2007,20 @@ private fun EpisodeRow(
     item: LibraryMediaItem,
     selected: Boolean,
     watchStatus: LibraryWatchStatus?,
+    isFavorite: Boolean,
+    onSetFavorite: (Boolean) -> Unit,
     onShowDetails: () -> Unit,
     onPlay: () -> Unit,
 ) {
+    val metadata = buildList {
+        add(watchStatus.statusLabel())
+        add(item.formatSize())
+        add("${item.subtitles.size} subtitle tracks")
+        if (isFavorite) {
+            add("Favorite")
+        }
+    }.joinToString(" · ")
+
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -1987,12 +2070,18 @@ private fun EpisodeRow(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    "${watchStatus.statusLabel()} · ${item.formatSize()} · ${item.subtitles.size} subtitle tracks",
+                    metadata,
                     color = Color(0xFF8F9AA5),
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+            }
+            TextButton(
+                onClick = { onSetFavorite(!isFavorite) },
+                modifier = Modifier.testTag("episode-favorite:${item.id}"),
+            ) {
+                Text(if (isFavorite) "Unfavorite" else "Favorite")
             }
             TextButton(
                 onClick = onShowDetails,

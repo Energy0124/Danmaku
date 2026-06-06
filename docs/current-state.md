@@ -229,6 +229,9 @@ Updated on 2026-06-06.
   successful refresh and exposes a saved-PC picker on the Connect screen.
   Remembered PCs can connect directly, be edited back into the manual URL/code
   fields, or be forgotten; manual setup remains available on demand.
+- Android mobile and Android TV persist favorite media IDs with a shared Android
+  preference store, expose Favorite/Unfavorite actions in episode rows and
+  detail panels, and can filter connected-PC episode lists to favorites only.
 - Android mobile has compile-checked Compose instrumentation coverage for the
   Library page empty, connected-catalog, selected-series detail, Next Up,
   Continue Watching, Recently Watched, episode detail, watch-state labels,

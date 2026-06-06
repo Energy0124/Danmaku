@@ -65,6 +65,37 @@ class TvLibraryItemsTest {
     }
 
     @Test
+    fun favoritesFilterNarrowsEpisodesAndRoutesFavoriteToggle() {
+        var toggledFavorite: Pair<String, Boolean>? = null
+        composeRule.setContent {
+            MaterialTheme {
+                LibraryItems(
+                    catalog = seededCatalog(),
+                    playbackProgresses = emptyList(),
+                    favoriteMediaIds = setOf("example-2"),
+                    onSetFavorite = { item, isFavorite ->
+                        toggledFavorite = item.id to isFavorite
+                    },
+                    onPlay = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("1 favorites").assertExists()
+        composeRule.onNodeWithTag("library-favorites-filter").performClick()
+
+        composeRule.onNodeWithText("1 / 3 episodes").assertExists()
+        composeRule.onNodeWithTag("episode:example-2").assertExists()
+        composeRule.onNodeWithTag("episode:example-1").assertDoesNotExist()
+
+        composeRule.onNodeWithTag("episode-favorite:example-2").performClick()
+
+        composeRule.runOnIdle {
+            assertEquals("example-2" to false, toggledFavorite)
+        }
+    }
+
+    @Test
     fun episodeDetailShowsContextAndNavigatesNeighborEpisodes() {
         composeRule.setContent {
             MaterialTheme {

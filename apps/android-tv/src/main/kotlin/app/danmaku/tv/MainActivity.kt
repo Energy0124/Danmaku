@@ -48,6 +48,7 @@ import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryCatalogQuery
 import app.danmaku.domain.LibraryCatalogSort
 import app.danmaku.domain.LibraryEpisodeDetail
+import app.danmaku.domain.LibraryFavoriteFilter
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibraryNextUpItem
 import app.danmaku.domain.LibraryNextUpReason
@@ -75,6 +76,7 @@ import app.danmaku.library.LanLibraryConnectionProfile
 import app.danmaku.library.LanPlaybackPreparer
 import app.danmaku.library.LanPlaybackProgressSync
 import app.danmaku.library.LanPlaybackTarget
+import app.danmaku.library.android.AndroidLibraryFavoriteStore
 import app.danmaku.library.android.AndroidLanLibraryConnectionStore
 import app.danmaku.library.android.LanLibraryClient
 import app.danmaku.library.android.LanLibraryDiscoveryClient
@@ -110,6 +112,9 @@ private fun TvPlayerScreen() {
     val connectionStore = remember(context) {
         AndroidLanLibraryConnectionStore(context.applicationContext)
     }
+    val favoriteStore = remember(context) {
+        AndroidLibraryFavoriteStore(context.applicationContext)
+    }
     val discoveryClient = remember { LanLibraryDiscoveryClient() }
     val refreshPcFocusRequester = remember { FocusRequester() }
     val discoverPcFocusRequester = remember { FocusRequester() }
@@ -120,6 +125,7 @@ private fun TvPlayerScreen() {
     var serverUrl by remember { mutableStateOf("http://10.0.2.2:8686") }
     var pairingToken by remember { mutableStateOf("") }
     var savedConnections by remember { mutableStateOf(connectionStore.loadProfiles()) }
+    var favoriteMediaIds by remember { mutableStateOf(favoriteStore.loadFavoriteMediaIds()) }
     var catalog by remember { mutableStateOf<LibraryCatalog?>(null) }
     var playbackProgresses by remember { mutableStateOf<List<PlaybackProgress>>(emptyList()) }
     var libraryError by remember { mutableStateOf<String?>(null) }
@@ -334,6 +340,17 @@ private fun TvPlayerScreen() {
             LibraryItems(
                 catalog = catalog,
                 playbackProgresses = playbackProgresses,
+                favoriteMediaIds = favoriteMediaIds,
+                onSetFavorite = { item, isFavorite ->
+                    runCatching {
+                        favoriteStore.setFavoriteMediaId(item.id, isFavorite)
+                    }.onSuccess {
+                        favoriteMediaIds = it
+                        libraryError = null
+                    }.onFailure {
+                        libraryError = it.message
+                    }
+                },
                 onPlay = { item ->
                     val activeController = controller ?: return@LibraryItems
                     val target = LanPlaybackTarget(serverUrl, pairingToken, item.id)
@@ -512,11 +529,14 @@ private fun TvSavedConnectionCard(
 internal fun LibraryItems(
     catalog: LibraryCatalog?,
     playbackProgresses: List<PlaybackProgress> = emptyList(),
+    favoriteMediaIds: Set<String> = emptySet(),
+    onSetFavorite: (LibraryMediaItem, Boolean) -> Unit = { _, _ -> },
     onPlay: (LibraryMediaItem) -> Unit,
 ) {
     var searchText by remember { mutableStateOf("") }
     var sort by remember { mutableStateOf(LibraryCatalogSort.TITLE) }
     var subtitleFilter by remember { mutableStateOf(LibrarySubtitleFilter.ANY) }
+    var favoriteFilter by remember { mutableStateOf(LibraryFavoriteFilter.ANY) }
     var selectedSeriesId by remember(catalog) { mutableStateOf<String?>(null) }
     var selectedEpisodeId by remember(catalog) { mutableStateOf<String?>(null) }
     val totalItems = catalog?.items.orEmpty()
@@ -526,6 +546,8 @@ internal fun LibraryItems(
                 searchText = searchText,
                 sort = sort,
                 subtitleFilter = subtitleFilter,
+                favoriteFilter = favoriteFilter,
+                favoriteMediaIds = favoriteMediaIds,
             ),
         )
         .orEmpty()
@@ -561,6 +583,7 @@ internal fun LibraryItems(
             }
             Text("${filteredItems.size} / ${totalItems.size} episodes")
         }
+        Text("${favoriteMediaIds.size} favorites")
         BasicTextField(
             value = searchText,
             onValueChange = { searchText = it },
@@ -577,6 +600,20 @@ internal fun LibraryItems(
             },
         )
         LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            item {
+                Button(
+                    onClick = {
+                        favoriteFilter = if (favoriteFilter == LibraryFavoriteFilter.ANY) {
+                            LibraryFavoriteFilter.FAVORITES_ONLY
+                        } else {
+                            LibraryFavoriteFilter.ANY
+                        }
+                    },
+                    modifier = Modifier.testTag("library-favorites-filter"),
+                ) {
+                    Text(if (favoriteFilter == LibraryFavoriteFilter.ANY) "Favorites" else "All episodes")
+                }
+            }
             item {
                 Button(
                     onClick = { sort = LibraryCatalogSort.TITLE },
@@ -684,6 +721,8 @@ internal fun LibraryItems(
         selectedEpisodeDetail?.let { detail ->
             TvEpisodeDetail(
                 detail = detail,
+                isFavorite = detail.mediaItem.id in favoriteMediaIds,
+                onSetFavorite = { onSetFavorite(detail.mediaItem, it) },
                 onPlay = onPlay,
                 onSelectEpisode = { selectedEpisodeId = it.id },
             )
@@ -696,6 +735,8 @@ internal fun LibraryItems(
                 TvEpisodeButton(
                     item = item,
                     watchStatus = watchStatusById[item.id],
+                    isFavorite = item.id in favoriteMediaIds,
+                    onSetFavorite = { onSetFavorite(item, it) },
                     onShowDetails = { selectedEpisodeId = item.id },
                     onPlay = { onPlay(item) },
                 )
@@ -707,6 +748,8 @@ internal fun LibraryItems(
 @Composable
 private fun TvEpisodeDetail(
     detail: LibraryEpisodeDetail,
+    isFavorite: Boolean,
+    onSetFavorite: (Boolean) -> Unit,
     onPlay: (LibraryMediaItem) -> Unit,
     onSelectEpisode: (LibraryMediaItem) -> Unit,
 ) {
@@ -738,6 +781,12 @@ private fun TvEpisodeDetail(
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Button(onClick = { onPlay(detail.mediaItem) }) {
                 Text("Play")
+            }
+            Button(
+                onClick = { onSetFavorite(!isFavorite) },
+                modifier = Modifier.testTag("episode-detail-favorite:${detail.mediaItem.id}"),
+            ) {
+                Text(if (isFavorite) "Unfavorite" else "Favorite")
             }
             Button(
                 onClick = { detail.previousItem?.let(onSelectEpisode) },
@@ -970,6 +1019,8 @@ private fun TvSeriesDetail(
 private fun TvEpisodeButton(
     item: LibraryMediaItem,
     watchStatus: LibraryWatchStatus?,
+    isFavorite: Boolean,
+    onSetFavorite: (Boolean) -> Unit,
     onShowDetails: () -> Unit,
     onPlay: () -> Unit,
 ) {
@@ -1001,7 +1052,11 @@ private fun TvEpisodeButton(
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
-                        watchStatus.statusLabel(),
+                        if (isFavorite) {
+                            "${watchStatus.statusLabel()} / Favorite"
+                        } else {
+                            watchStatus.statusLabel()
+                        },
                         color = Color.LightGray,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -1010,6 +1065,12 @@ private fun TvEpisodeButton(
                 Spacer(modifier = Modifier.width(20.dp))
                 Text("${item.subtitles.size} subs")
             }
+        }
+        Button(
+            onClick = { onSetFavorite(!isFavorite) },
+            modifier = Modifier.testTag("episode-favorite:${item.id}"),
+        ) {
+            Text(if (isFavorite) "Unfavorite" else "Favorite")
         }
         Button(
             onClick = onShowDetails,

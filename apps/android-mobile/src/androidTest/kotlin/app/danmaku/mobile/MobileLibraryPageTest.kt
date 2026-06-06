@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.dp
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryCatalogQuery
 import app.danmaku.domain.LibraryCatalogSort
+import app.danmaku.domain.LibraryFavoriteFilter
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySubtitleFilter
 import app.danmaku.domain.LibrarySubtitleTrack
@@ -114,6 +115,68 @@ class MobileLibraryPageTest {
         composeRule.onNodeWithTag("episode:example-1").assertExists()
         composeRule.onNodeWithTag("episode:example-2").assertExists()
         composeRule.onNodeWithTag("episode:other-1").assertDoesNotExist()
+    }
+
+    @Test
+    fun favoritesFilterNarrowsEpisodesAndRoutesFavoriteToggle() {
+        var toggledFavorite: Pair<String, Boolean>? = null
+        composeRule.setContent {
+            MaterialTheme {
+                val catalog = seededCatalog()
+                var favoriteIds by remember { mutableStateOf(setOf("example-2")) }
+                var favoriteFilter by remember { mutableStateOf(LibraryFavoriteFilter.ANY) }
+                val filteredItems = catalog.filteredItems(
+                    LibraryCatalogQuery(
+                        favoriteFilter = favoriteFilter,
+                        favoriteMediaIds = favoriteIds,
+                    ),
+                )
+
+                LibraryPage(
+                    contentPadding = PaddingValues(0.dp),
+                    catalog = catalog,
+                    playbackProgresses = emptyList(),
+                    filteredItems = filteredItems,
+                    totalCount = catalog.items.size,
+                    snapshot = PlaybackSnapshot(),
+                    nowPlaying = null,
+                    searchText = "",
+                    onSearchTextChange = {},
+                    sort = LibraryCatalogSort.TITLE,
+                    onSortChange = {},
+                    subtitleFilter = LibrarySubtitleFilter.ANY,
+                    onSubtitleFilterChange = {},
+                    favoriteMediaIds = favoriteIds,
+                    favoriteFilter = favoriteFilter,
+                    onFavoriteFilterChange = { favoriteFilter = it },
+                    onSetFavorite = { item, isFavorite ->
+                        toggledFavorite = item.id to isFavorite
+                        favoriteIds = if (isFavorite) {
+                            favoriteIds + item.id
+                        } else {
+                            favoriteIds - item.id
+                        }
+                    },
+                    onPlay = {},
+                    onPlayPause = {},
+                    onOpenPlayer = {},
+                    onConnect = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("1 favorites").assertExists()
+        composeRule.onNodeWithTag("library-favorites-filter").performClick()
+
+        composeRule.onNodeWithText("1 of 3 episodes").assertExists()
+        composeRule.onNodeWithTag("episode:example-2").assertExists()
+        composeRule.onNodeWithTag("episode:example-1").assertDoesNotExist()
+
+        composeRule.onNodeWithTag("episode-favorite:example-2").performClick()
+
+        composeRule.runOnIdle {
+            assertEquals("example-2" to false, toggledFavorite)
+        }
     }
 
     @Test
