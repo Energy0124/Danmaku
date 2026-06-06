@@ -97,7 +97,6 @@ import app.danmaku.domain.PlaybackStatus
 import app.danmaku.domain.PlaybackTrack
 import app.danmaku.domain.PlaybackTrackKind
 import app.danmaku.domain.coerceSeekTarget
-import app.danmaku.domain.compatibilityErrorMessage
 import app.danmaku.domain.continueWatchingItems
 import app.danmaku.domain.episodeDetail
 import app.danmaku.domain.filteredItems
@@ -107,6 +106,7 @@ import app.danmaku.domain.recentlyWatchedItems
 import app.danmaku.domain.seekTargetBy
 import app.danmaku.domain.seriesWatchSummaryById
 import app.danmaku.domain.watchStatusByMediaId
+import app.danmaku.library.LanLibraryConnectionSession
 import app.danmaku.library.LanLibraryConnectionProfile
 import app.danmaku.library.LanPlaybackPreparer
 import app.danmaku.library.LanPlaybackProgressSync
@@ -172,6 +172,7 @@ private fun MobilePlayerScreen() {
         Media3PlaybackServiceConnection(context.applicationContext)
     }
     val libraryClient = remember { LanLibraryClient() }
+    val libraryConnectionSession = remember(libraryClient) { LanLibraryConnectionSession(libraryClient) }
     val progressSync = remember(libraryClient) {
         LanPlaybackProgressSync(libraryClient, System::currentTimeMillis)
     }
@@ -270,25 +271,20 @@ private fun MobilePlayerScreen() {
         scope.launch {
             runCatching {
                 withContext(Dispatchers.IO) {
-                    libraryClient
-                        .fetchServerStatus(requestedServerUrl)
-                        .compatibilityErrorMessage()
-                        ?.let(::error)
-                    val fetchedCatalog = libraryClient.fetchCatalog(requestedServerUrl, requestedPairingToken)
-                    val fetchedProgress = runCatching {
-                        progressSync.fetchAllProgress(requestedServerUrl, requestedPairingToken)
-                    }.getOrDefault(emptyList())
-                    fetchedCatalog to fetchedProgress
+                    libraryConnectionSession.fetchCatalogWithProgress(
+                        baseUrl = requestedServerUrl,
+                        pairingToken = requestedPairingToken,
+                    )
                 }
             }.onSuccess {
                 serverUrl = requestedServerUrl.trim().trimEnd('/')
                 pairingToken = requestedPairingToken
-                catalog = it.first
-                playbackProgresses = it.second
+                catalog = it.catalog
+                playbackProgresses = it.playbackProgresses
                 connectionStore.saveCurrentConnection(
                     baseUrl = requestedServerUrl,
                     pairingToken = requestedPairingToken,
-                    displayName = it.first.rootName.ifBlank { fallbackDisplayName },
+                    displayName = it.catalog.rootName.ifBlank { fallbackDisplayName },
                 )
                 savedConnections = connectionStore.loadProfiles()
                 libraryError = null

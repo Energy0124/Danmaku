@@ -188,6 +188,8 @@ unblocked slices inside these tracks as the vertical slice hardens.
   and trusted-device management.
 - [x] Wire Windows paired browsing plus Android mobile and Android TV connection
   flows to preflight LAN server compatibility before paired catalog requests.
+- [x] Centralize LAN server compatibility preflight and catalog/progress fetch
+  coordination in the shared library-client connection session.
 - [x] Add TV D-pad and focus-navigation instrumentation tests.
 - [x] Add LAN playback progress upload and resume seeking.
 - [x] Move LAN playback progress uploads into the background playback service.
@@ -263,6 +265,8 @@ unblocked slices inside these tracks as the vertical slice hardens.
   JVM, and Android client methods for cross-device next-up surfaces.
 - [x] Add a shared LAN server status contract plus server, JVM client, and
   Android client support for pre-pairing compatibility checks.
+- [x] Add shared library-client session coverage for compatible catalog fetches,
+  catalog-wide progress loading, and incompatible-server short-circuiting.
 - [x] Add a JVM HTTP transport adapter and loopback client-to-server fixture for
   the planned Windows remote-playback path.
 - [x] Reuse the shared LAN client contract from Windows, Android, and Android TV

@@ -7,6 +7,7 @@ import app.danmaku.domain.LibrarySubtitleTrack
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.PlaybackSource
+import app.danmaku.domain.compatibilityErrorMessage
 import app.danmaku.domain.resumePositionMs
 import app.danmaku.domain.toPlaybackProgress
 
@@ -186,5 +187,45 @@ class LanPlaybackProgressSync(
             ?.let {
                 libraryClient.saveProgress(target.baseUrl, target.pairingToken, it)
             }
+    }
+}
+
+data class LanLibraryConnectionSnapshot(
+    val status: LanLibraryServerStatus,
+    val catalog: LibraryCatalog,
+    val playbackProgresses: List<PlaybackProgress> = emptyList(),
+)
+
+class LanLibraryConnectionSession(
+    private val libraryClient: LanLibraryClient,
+) {
+    fun fetchCatalog(
+        baseUrl: String,
+        pairingToken: String,
+    ): LibraryCatalog {
+        validateServer(baseUrl)
+        return libraryClient.fetchCatalog(baseUrl, pairingToken)
+    }
+
+    fun fetchCatalogWithProgress(
+        baseUrl: String,
+        pairingToken: String,
+    ): LanLibraryConnectionSnapshot {
+        val status = validateServer(baseUrl)
+        val catalog = libraryClient.fetchCatalog(baseUrl, pairingToken)
+        val progress = runCatching {
+            libraryClient.fetchAllProgress(baseUrl, pairingToken)
+        }.getOrDefault(emptyList())
+        return LanLibraryConnectionSnapshot(
+            status = status,
+            catalog = catalog,
+            playbackProgresses = progress,
+        )
+    }
+
+    fun validateServer(baseUrl: String): LanLibraryServerStatus {
+        val status = libraryClient.fetchServerStatus(baseUrl)
+        status.compatibilityErrorMessage()?.let(::error)
+        return status
     }
 }

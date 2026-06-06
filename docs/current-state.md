@@ -192,8 +192,9 @@ Updated on 2026-06-06.
   compatibility probe with API version, pairing requirement, streaming,
   progress-sync, and trusted-device-management capability flags. Windows
   paired-library browsing plus Android mobile and Android TV connection flows
-  read it before attempting a paired catalog request and surface compatibility
-  failures before using the pairing code.
+  use the shared `LanLibraryConnectionSession` to read it before attempting a
+  paired catalog request and surface compatibility failures before using the
+  pairing code.
 - File-backed Windows library-folder selection, startup index restoration, and
   one-click rescanning.
 - SQLDelight 2.3.2 SQLite catalog persistence with immediate cached serving on

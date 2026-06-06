@@ -104,7 +104,6 @@ import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.PlaybackStatus
 import app.danmaku.domain.PlaybackTrack
 import app.danmaku.domain.PlaybackTrackKind
-import app.danmaku.domain.compatibilityErrorMessage
 import app.danmaku.domain.continueWatchingItems
 import app.danmaku.domain.episodeDetail
 import app.danmaku.domain.filteredItems
@@ -116,6 +115,7 @@ import app.danmaku.domain.recentlyWatchedItems
 import app.danmaku.domain.toPlaybackProgress
 import app.danmaku.domain.seriesWatchSummaryById
 import app.danmaku.domain.watchStatusByMediaId
+import app.danmaku.library.LanLibraryConnectionSession
 import app.danmaku.library.LanPlaybackPreparation
 import app.danmaku.library.LanPlaybackPreparer
 import app.danmaku.library.LanPlaybackProgressSync
@@ -3242,6 +3242,7 @@ private fun RemoteLibraryBrowser(
     onLoadPreparedPlayback: (LanPlaybackPreparation) -> Unit,
 ) {
     val libraryClient = remember { JvmLanLibraryClient() }
+    val libraryConnectionSession = remember(libraryClient) { LanLibraryConnectionSession(libraryClient) }
     val playbackPreparer = remember(libraryClient) { LanPlaybackPreparer(libraryClient) }
     val scope = rememberCoroutineScope()
     var serverUrl by remember(defaultServerUrl) { mutableStateOf(defaultServerUrl) }
@@ -3263,11 +3264,7 @@ private fun RemoteLibraryBrowser(
             selectedPlaybackPreparation = null
             runCatching {
                 withContext(Dispatchers.IO) {
-                    libraryClient
-                        .fetchServerStatus(requestedServerUrl)
-                        .compatibilityErrorMessage()
-                        ?.let(::error)
-                    libraryClient.fetchCatalog(requestedServerUrl, requestedPairingToken)
+                    libraryConnectionSession.fetchCatalog(requestedServerUrl, requestedPairingToken)
                 }
             }.onSuccess {
                 catalog = it
