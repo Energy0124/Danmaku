@@ -2,6 +2,7 @@ package app.danmaku.desktop
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -58,8 +59,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.text.font.FontWeight
@@ -1329,8 +1333,13 @@ private fun PlaybackTab(
     modifier: Modifier = Modifier,
 ) {
     var controlsVisible by remember { mutableStateOf(true) }
+    val focusRequester = remember { FocusRequester() }
     val hasMedia = playbackSnapshot.source != null
     val shouldAutoHide = hasMedia && playbackSnapshot.status == PlaybackStatus.PLAYING
+
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
 
     LaunchedEffect(controlsVisible, shouldAutoHide) {
         if (controlsVisible && shouldAutoHide) {
@@ -1343,6 +1352,66 @@ private fun PlaybackTab(
         modifier = modifier
             .fillMaxSize()
             .background(Color.Black)
+            .focusRequester(focusRequester)
+            .focusable()
+            .onPreviewKeyEvent { event ->
+                val shortcut = event.toDesktopPlaybackShortcut() ?: return@onPreviewKeyEvent false
+                val handled = when (shortcut) {
+                    DesktopPlaybackShortcut.TOGGLE_PLAY_PAUSE -> {
+                        if (!hasMedia) {
+                            false
+                        } else {
+                            if (playbackSnapshot.status == PlaybackStatus.PLAYING) {
+                                onPause()
+                            } else {
+                                onPlay()
+                            }
+                            true
+                        }
+                    }
+                    DesktopPlaybackShortcut.SEEK_BACKWARD -> hasMedia.alsoHandled(onSeekBackward)
+                    DesktopPlaybackShortcut.SEEK_BACKWARD_LARGE -> hasMedia.alsoHandled(onSeekBackwardLarge)
+                    DesktopPlaybackShortcut.SEEK_FORWARD -> hasMedia.alsoHandled(onSeekForward)
+                    DesktopPlaybackShortcut.SEEK_FORWARD_LARGE -> hasMedia.alsoHandled(onSeekForwardLarge)
+                    DesktopPlaybackShortcut.VOLUME_UP -> {
+                        if (hasMedia) {
+                            onSetVolume((playbackSnapshot.volumePercent + PLAYER_KEYBOARD_VOLUME_STEP).coerceIn(0, 100))
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                    DesktopPlaybackShortcut.VOLUME_DOWN -> {
+                        if (hasMedia) {
+                            onSetVolume((playbackSnapshot.volumePercent - PLAYER_KEYBOARD_VOLUME_STEP).coerceIn(0, 100))
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                    DesktopPlaybackShortcut.TOGGLE_FULLSCREEN -> {
+                        if (hasMedia) {
+                            onSetFullscreen(!isFullscreen)
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                    DesktopPlaybackShortcut.EXIT_FULLSCREEN -> {
+                        if (isFullscreen) {
+                            onSetFullscreen(false)
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                    DesktopPlaybackShortcut.OPEN_MEDIA -> canOpenMedia.alsoHandled(onOpenMediaFile)
+                }
+                if (handled) {
+                    controlsVisible = true
+                }
+                handled
+            }
             .onPointerEvent(PointerEventType.Move) {
                 controlsVisible = true
             }
@@ -1701,6 +1770,13 @@ private fun PlayerOverlayButton(
             .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 8.dp),
     )
+}
+
+private fun Boolean.alsoHandled(action: () -> Unit): Boolean {
+    if (this) {
+        action()
+    }
+    return this
 }
 
 private fun Float.nextPlaybackRate(): Float {
@@ -2719,6 +2795,8 @@ private const val MAX_DIAGNOSTIC_LOG_ENTRIES = 200
 private const val LOCAL_AUTO_NEXT_SETTING_KEY = "playback.local_auto_next"
 
 private const val PLAYER_CONTROLS_AUTO_HIDE_MS = 3_000L
+
+private const val PLAYER_KEYBOARD_VOLUME_STEP = 5
 
 private val PLAYBACK_RATE_STEPS = listOf(0.5f, 1f, 1.25f, 1.5f, 2f)
 

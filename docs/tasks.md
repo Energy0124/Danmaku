@@ -111,7 +111,7 @@ streams plus indexed sidecar subtitles to Media3.
   explicit prepare actions for diagnostics.
 - [x] Persist Windows playback defaults for volume, playback rate, and aspect
   mode.
-- [ ] Add Windows player keyboard shortcuts and continue tightening fullscreen
+- [x] Add Windows player keyboard shortcuts and continue tightening fullscreen
   chrome around the stable native video host.
 
 ## Android And TV

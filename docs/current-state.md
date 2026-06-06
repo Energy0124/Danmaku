@@ -79,6 +79,10 @@ Updated on 2026-06-06.
   desktop-only display controls route through the Windows mpv boundary. The
   Windows controller polls libmpv properties for live position, duration, pause
   state, EOF state, speed, volume, and runtime audio/subtitle track metadata.
+- Desktop playback supports focused keyboard shortcuts for play/pause,
+  small/large seeks, volume changes, fullscreen toggle/exit, and opening a
+  direct media file, all routed through the same player callbacks as the
+  on-screen controls.
 - Windows playback persists volume, playback-rate, and aspect-ratio defaults in
   SQLDelight settings and applies them when the native mpv runtime starts.
 - Windows playback attaches indexed local sidecar subtitles and paired-LAN
