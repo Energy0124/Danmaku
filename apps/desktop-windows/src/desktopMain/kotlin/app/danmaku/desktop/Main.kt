@@ -1942,6 +1942,7 @@ private fun MediaLibraryTab(
                             NextUpRow(
                                 item = item,
                                 isPreparing = isPreparingLocalPlayback,
+                                onShowDetails = { selectedEpisodeId = it.id },
                                 onPrepareLocalPlayback = onPrepareLocalPlayback,
                                 onPlayLocalPlayback = onPlayLocalPlayback,
                             )
@@ -1961,6 +1962,7 @@ private fun MediaLibraryTab(
                             ContinueWatchingRow(
                                 item = item,
                                 isPreparing = isPreparingLocalPlayback,
+                                onShowDetails = { selectedEpisodeId = it.id },
                                 onPlayLocalPlayback = onPlayLocalPlayback,
                             )
                         }
@@ -1979,6 +1981,7 @@ private fun MediaLibraryTab(
                             RecentlyWatchedRow(
                                 item = item,
                                 isPreparing = isPreparingLocalPlayback,
+                                onShowDetails = { selectedEpisodeId = it.id },
                                 onPrepareLocalPlayback = onPrepareLocalPlayback,
                                 onPlayLocalPlayback = onPlayLocalPlayback,
                             )
@@ -2716,6 +2719,7 @@ private fun LibrarySeriesWatchSummary?.progressLabel(): String =
 private fun NextUpRow(
     item: LibraryNextUpItem,
     isPreparing: Boolean,
+    onShowDetails: (LibraryMediaItem) -> Unit,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
 ) {
@@ -2737,6 +2741,9 @@ private fun NextUpRow(
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = { onShowDetails(item.mediaItem) }) {
+                Text("Details")
+            }
             Button(
                 onClick = { onPrepareLocalPlayback(item.mediaItem) },
                 enabled = !isPreparing,
@@ -2757,6 +2764,7 @@ private fun NextUpRow(
 private fun ContinueWatchingRow(
     item: LibraryPlaybackProgressItem,
     isPreparing: Boolean,
+    onShowDetails: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
 ) {
     Row(
@@ -2777,11 +2785,16 @@ private fun ContinueWatchingRow(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        Button(
-            onClick = { onPlayLocalPlayback(item.mediaItem) },
-            enabled = !isPreparing,
-        ) {
-            Text(if (isPreparing) "Loading..." else "Resume")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = { onShowDetails(item.mediaItem) }) {
+                Text("Details")
+            }
+            Button(
+                onClick = { onPlayLocalPlayback(item.mediaItem) },
+                enabled = !isPreparing,
+            ) {
+                Text(if (isPreparing) "Loading..." else "Resume")
+            }
         }
     }
 }
@@ -2790,6 +2803,7 @@ private fun ContinueWatchingRow(
 private fun RecentlyWatchedRow(
     item: LibraryPlaybackProgressItem,
     isPreparing: Boolean,
+    onShowDetails: (LibraryMediaItem) -> Unit,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
 ) {
@@ -2813,6 +2827,9 @@ private fun RecentlyWatchedRow(
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = { onShowDetails(item.mediaItem) }) {
+                Text("Details")
+            }
             Button(
                 onClick = { onPrepareLocalPlayback(item.mediaItem) },
                 enabled = !isPreparing,

@@ -206,7 +206,7 @@ Updated on 2026-06-06.
 - Windows desktop library browsing now uses the shared series/season grouping
   model for a selectable series column, compact series detail panel with season
   episode previews, and shared episode detail panel with prepare/play plus
-  previous/next actions.
+  previous/next actions from progress rails and episode lists.
 - Android mobile library browsing includes a compact series rail that summarizes
   the largest connected-PC titles and narrows the episode list through the
   existing search field. Selecting a series now opens a compact series detail
