@@ -2,8 +2,7 @@ use crate::{Mpv, MpvLibrary};
 use std::{
     ffi::{CStr, c_char},
     path::Path,
-    ptr,
-    slice,
+    ptr, slice,
 };
 
 #[repr(C)]
@@ -142,7 +141,11 @@ pub unsafe extern "C" fn danmaku_mpv_get_property_string(
         return DanmakuMpvStatus::BufferTooSmall;
     }
     unsafe {
-        ptr::copy_nonoverlapping(value_bytes.as_ptr(), out_value.cast::<u8>(), value_bytes.len());
+        ptr::copy_nonoverlapping(
+            value_bytes.as_ptr(),
+            out_value.cast::<u8>(),
+            value_bytes.len(),
+        );
         *out_value.add(value_bytes.len()) = 0;
     }
     DanmakuMpvStatus::Ok
@@ -255,7 +258,12 @@ mod tests {
         let mut out = [0i8; 16];
 
         assert_eq!(DanmakuMpvStatus::NullPointer, unsafe {
-            danmaku_mpv_get_property_string(null_handle(), name.as_ptr(), out.as_mut_ptr(), out.len())
+            danmaku_mpv_get_property_string(
+                null_handle(),
+                name.as_ptr(),
+                out.as_mut_ptr(),
+                out.len(),
+            )
         },);
         unsafe {
             danmaku_mpv_destroy(null_handle());

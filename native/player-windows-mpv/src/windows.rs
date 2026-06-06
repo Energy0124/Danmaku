@@ -171,8 +171,8 @@ impl Mpv {
     }
 
     pub fn property_string(&self, name: &str) -> Result<Option<String>, MpvError> {
-        let name = CString::new(name)
-            .map_err(|_| MpvError::InvalidPropertyName(name.to_owned()))?;
+        let name =
+            CString::new(name).map_err(|_| MpvError::InvalidPropertyName(name.to_owned()))?;
         let value = unsafe { (self.api.get_property_string)(self.handle.as_ptr(), name.as_ptr()) };
         let Some(value) = NonNull::new(value.cast::<c_void>()) else {
             return Ok(None);
