@@ -78,9 +78,12 @@ import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryCatalogQuery
 import app.danmaku.domain.LibraryCatalogSort
 import app.danmaku.domain.LibraryMediaItem
+import app.danmaku.domain.LibraryNextUpItem
+import app.danmaku.domain.LibraryNextUpReason
 import app.danmaku.domain.LibrarySeries
 import app.danmaku.domain.LibrarySubtitleFilter
 import app.danmaku.domain.PlaybackCommand
+import app.danmaku.domain.PlaybackProgress
 import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.PlaybackSource
 import app.danmaku.domain.PlaybackStatus
@@ -89,6 +92,7 @@ import app.danmaku.domain.PlaybackTrackKind
 import app.danmaku.domain.coerceSeekTarget
 import app.danmaku.domain.filteredItems
 import app.danmaku.domain.groupedSeries
+import app.danmaku.domain.nextUpItems
 import app.danmaku.domain.seekTargetBy
 import app.danmaku.library.LanPlaybackPreparer
 import app.danmaku.library.LanPlaybackProgressSync
@@ -164,6 +168,7 @@ private fun MobilePlayerScreen() {
     var serverUrl by remember { mutableStateOf("http://10.0.2.2:8686") }
     var pairingToken by remember { mutableStateOf("") }
     var catalog by remember { mutableStateOf<LibraryCatalog?>(null) }
+    var playbackProgresses by remember { mutableStateOf<List<PlaybackProgress>>(emptyList()) }
     var libraryError by remember { mutableStateOf<String?>(null) }
     var librarySearchText by remember { mutableStateOf("") }
     var librarySort by remember { mutableStateOf(LibraryCatalogSort.TITLE) }
@@ -234,10 +239,15 @@ private fun MobilePlayerScreen() {
         scope.launch {
             runCatching {
                 withContext(Dispatchers.IO) {
-                    libraryClient.fetchCatalog(serverUrl, pairingToken)
+                    val fetchedCatalog = libraryClient.fetchCatalog(serverUrl, pairingToken)
+                    val fetchedProgress = runCatching {
+                        progressSync.fetchAllProgress(serverUrl, pairingToken)
+                    }.getOrDefault(emptyList())
+                    fetchedCatalog to fetchedProgress
                 }
             }.onSuccess {
-                catalog = it
+                catalog = it.first
+                playbackProgresses = it.second
                 libraryError = null
             }.onFailure {
                 libraryError = it.message
@@ -309,6 +319,7 @@ private fun MobilePlayerScreen() {
             MobileTab.Library -> LibraryPage(
                 contentPadding = innerPadding,
                 catalog = catalog,
+                playbackProgresses = playbackProgresses,
                 filteredItems = filteredItems,
                 totalCount = totalItems.size,
                 snapshot = snapshot,
@@ -459,6 +470,7 @@ private fun WatchPage(
 internal fun LibraryPage(
     contentPadding: PaddingValues,
     catalog: LibraryCatalog?,
+    playbackProgresses: List<PlaybackProgress>,
     filteredItems: List<LibraryMediaItem>,
     totalCount: Int,
     snapshot: PlaybackSnapshot,
@@ -476,6 +488,7 @@ internal fun LibraryPage(
 ) {
     PageColumn(contentPadding) {
         val series = catalog?.groupedSeries().orEmpty()
+        val nextUpItems = catalog?.nextUpItems(playbackProgresses, limit = 5).orEmpty()
         val selectedSeries = searchText
             .takeIf(String::isNotBlank)
             ?.let { selectedTitle ->
@@ -517,6 +530,14 @@ internal fun LibraryPage(
             )
         }
         catalog?.takeIf { it.items.isNotEmpty() }?.let {
+            if (nextUpItems.isNotEmpty()) {
+                item(key = "library-next-up") {
+                    NextUpPanel(
+                        items = nextUpItems,
+                        onPlay = onPlay,
+                    )
+                }
+            }
             item(key = "library-series-rail") {
                 SeriesRail(
                     series = series.take(12),
@@ -547,6 +568,92 @@ internal fun LibraryPage(
                     onPlay = { onPlay(item) },
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun NextUpPanel(
+    items: List<LibraryNextUpItem>,
+    onPlay: (LibraryMediaItem) -> Unit,
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("library-next-up"),
+        shape = RoundedCornerShape(20.dp),
+        color = Color(0xFF17212A),
+        border = BorderStroke(1.dp, Color(0xFF304454)),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    "Next Up",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    "Resume or continue from your Windows library progress.",
+                    color = SubtleText,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                items(items, key = { it.mediaItem.id }) { item ->
+                    NextUpChip(
+                        item = item,
+                        onPlay = { onPlay(item.mediaItem) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NextUpChip(
+    item: LibraryNextUpItem,
+    onPlay: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier
+            .width(260.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .clickable(onClick = onPlay)
+            .testTag("next-up:${item.mediaItem.id}"),
+        shape = RoundedCornerShape(18.dp),
+        color = PanelColor,
+        border = BorderStroke(1.dp, Color(0xFF2B3239)),
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(
+                item.mediaItem.seriesTitle,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                item.mediaItem.episodeTitle,
+                color = SubtleText,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                item.nextUpLabel(),
+                color = AccentBlue,
+                style = MaterialTheme.typography.bodySmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
@@ -1561,6 +1668,13 @@ private fun LibrarySeries.displayLabel(): String {
         "$title · $episodeLabel"
     }
 }
+
+private fun LibraryNextUpItem.nextUpLabel(): String =
+    when (reason) {
+        LibraryNextUpReason.RESUME -> "Resume at ${progress?.positionMs?.formatPlaybackTime() ?: "saved position"}"
+        LibraryNextUpReason.NEXT_EPISODE -> "Next episode"
+        LibraryNextUpReason.START -> "Start watching"
+    }
 
 private fun Double.formatOneDecimal(): String {
     val scaled = (this * 10).toLong()

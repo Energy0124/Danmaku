@@ -17,6 +17,7 @@ import app.danmaku.domain.LibraryCatalogSort
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySubtitleFilter
 import app.danmaku.domain.LibrarySubtitleTrack
+import app.danmaku.domain.PlaybackProgress
 import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.PlaybackSource
 import app.danmaku.domain.PlaybackStatus
@@ -36,6 +37,7 @@ class MobileLibraryPageTest {
                 LibraryPage(
                     contentPadding = PaddingValues(0.dp),
                     catalog = null,
+                    playbackProgresses = emptyList(),
                     filteredItems = emptyList(),
                     totalCount = 0,
                     snapshot = PlaybackSnapshot(),
@@ -78,6 +80,7 @@ class MobileLibraryPageTest {
                 LibraryPage(
                     contentPadding = PaddingValues(0.dp),
                     catalog = catalog,
+                    playbackProgresses = emptyList(),
                     filteredItems = filteredItems,
                     totalCount = catalog.items.size,
                     snapshot = PlaybackSnapshot(),
@@ -110,6 +113,51 @@ class MobileLibraryPageTest {
     }
 
     @Test
+    fun rendersNextUpFromPlaybackProgressAndRoutesSelection() {
+        var playedItemId: String? = null
+        composeRule.setContent {
+            MaterialTheme {
+                val catalog = seededCatalog()
+                LibraryPage(
+                    contentPadding = PaddingValues(0.dp),
+                    catalog = catalog,
+                    playbackProgresses = listOf(
+                        PlaybackProgress(
+                            mediaId = "example-1",
+                            positionMs = 1_190_000,
+                            durationMs = 1_200_000,
+                            updatedAtEpochMs = 456,
+                        ),
+                    ),
+                    filteredItems = catalog.items,
+                    totalCount = catalog.items.size,
+                    snapshot = PlaybackSnapshot(),
+                    nowPlaying = null,
+                    searchText = "",
+                    onSearchTextChange = {},
+                    sort = LibraryCatalogSort.TITLE,
+                    onSortChange = {},
+                    subtitleFilter = LibrarySubtitleFilter.ANY,
+                    onSubtitleFilterChange = {},
+                    onPlay = { playedItemId = it.id },
+                    onPlayPause = {},
+                    onOpenPlayer = {},
+                    onConnect = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("library-next-up").assertExists()
+        composeRule.onNodeWithText("Next Up").assertExists()
+        composeRule.onNodeWithText("Next episode").assertExists()
+        composeRule.onNodeWithTag("next-up:example-2").performClick()
+
+        composeRule.runOnIdle {
+            assertEquals("example-2", playedItemId)
+        }
+    }
+
+    @Test
     fun activePlaybackShowsMiniPlayerAndRoutesEpisodeSelection() {
         var playedItemId: String? = null
         composeRule.setContent {
@@ -118,6 +166,7 @@ class MobileLibraryPageTest {
                 LibraryPage(
                     contentPadding = PaddingValues(0.dp),
                     catalog = catalog,
+                    playbackProgresses = emptyList(),
                     filteredItems = catalog.items,
                     totalCount = catalog.items.size,
                     snapshot = PlaybackSnapshot(

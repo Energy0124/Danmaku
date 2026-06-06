@@ -199,10 +199,12 @@ Updated on 2026-06-06.
 - Android mobile library browsing includes a compact series rail that summarizes
   the largest connected-PC titles and narrows the episode list through the
   existing search field. Selecting a series now opens a compact series detail
-  panel backed by the shared series/season grouping model.
+  panel backed by the shared series/season grouping model. Catalog refresh also
+  loads paired progress and exposes a shared-derived Next Up rail for resume,
+  next-episode, and first-start actions.
 - Android mobile has compile-checked Compose instrumentation coverage for the
-  Library page empty, connected-catalog, selected-series detail, mini-player,
-  and episode-selection states.
+  Library page empty, connected-catalog, selected-series detail, Next Up,
+  mini-player, and episode-selection states.
 - Android TV library browsing includes a remote-friendly header, shared-grouped
   series rail, selected-series detail strip with season episode actions,
   fixed-height episode list, and metadata-rich episode buttons for connected-PC
