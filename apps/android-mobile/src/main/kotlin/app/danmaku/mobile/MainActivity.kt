@@ -495,7 +495,7 @@ private fun PageColumn(
 }
 
 @Composable
-private fun WatchPage(
+internal fun WatchPage(
     contentPadding: PaddingValues,
     controller: Media3PlaybackController?,
     snapshot: PlaybackSnapshot,
@@ -526,7 +526,9 @@ private fun WatchPage(
         }
         item(key = "watch-actions") {
             Surface(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("watch-library-actions"),
                 shape = RoundedCornerShape(18.dp),
                 color = PanelColor,
                 border = BorderStroke(1.dp, Color(0xFF2B3239)),
@@ -1355,7 +1357,10 @@ private fun PlayerHome(
     onSelectAudio: (String) -> Unit,
     onSelectSubtitle: (String?) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    Column(
+        modifier = Modifier.testTag("watch-player-home"),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -1379,6 +1384,7 @@ private fun PlayerHome(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .testTag("watch-video-surface")
                 .clip(RoundedCornerShape(22.dp))
                 .background(PlayerBlack)
                 .aspectRatio(16f / 9f),
@@ -1440,7 +1446,9 @@ private fun NowPlayingPanel(
     onSelectSubtitle: (String?) -> Unit,
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("now-playing-panel"),
         shape = RoundedCornerShape(20.dp),
         color = PanelColor,
         border = BorderStroke(1.dp, Color(0xFF2B3239)),
@@ -1474,6 +1482,7 @@ private fun NowPlayingPanel(
                 Button(
                     onClick = onPlayPause,
                     enabled = snapshot.source != null,
+                    modifier = Modifier.testTag("watch-play-pause"),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = AccentBlue,
                         contentColor = PlayerBlack,
@@ -1494,7 +1503,10 @@ private fun NowPlayingPanel(
                         fontWeight = FontWeight.SemiBold,
                     )
                 }
-                OutlinedButton(onClick = onOpen) {
+                OutlinedButton(
+                    onClick = onOpen,
+                    modifier = Modifier.testTag("watch-open-video"),
+                ) {
                     Icon(
                         imageVector = Icons.Filled.FolderOpen,
                         contentDescription = null,
@@ -1506,6 +1518,7 @@ private fun NowPlayingPanel(
                 OutlinedButton(
                     onClick = { onSetVolume((snapshot.volumePercent - 10).coerceAtLeast(0)) },
                     enabled = snapshot.source != null && snapshot.volumePercent > 0,
+                    modifier = Modifier.testTag("watch-volume-down"),
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.VolumeDown,
@@ -1518,6 +1531,7 @@ private fun NowPlayingPanel(
                 OutlinedButton(
                     onClick = { onSetVolume((snapshot.volumePercent + 10).coerceAtMost(100)) },
                     enabled = snapshot.source != null && snapshot.volumePercent < 100,
+                    modifier = Modifier.testTag("watch-volume-up"),
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.VolumeUp,
@@ -1935,6 +1949,7 @@ private fun SeekButton(
     TextButton(
         onClick = { onSeekTo(snapshot.position.seekTargetBy(deltaMs)) },
         enabled = snapshot.source != null,
+        modifier = Modifier.testTag("watch-seek:$label"),
     ) {
         Text(label)
     }

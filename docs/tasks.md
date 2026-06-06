@@ -209,7 +209,7 @@ unblocked slices inside these tracks as the vertical slice hardens.
 - [x] Add compile-checked Android mobile Library page Compose instrumentation
   coverage for empty, connected-catalog, selected-series, mini-player, and
   episode-selection states.
-- [ ] Add Android phone/tablet screenshot or instrumentation coverage for the
+- [x] Add Android phone/tablet screenshot or instrumentation coverage for the
   player-first mobile layout, including empty, connected, and active-playback
   states.
 - [x] Replace the Android mobile inline server fields with a saved PC-library

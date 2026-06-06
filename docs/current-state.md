@@ -237,7 +237,8 @@ Updated on 2026-06-06.
 - Android mobile has compile-checked Compose instrumentation coverage for the
   Library page empty, connected-catalog, selected-series detail, Next Up,
   Continue Watching, Recently Watched, episode detail, watch-state labels,
-  mini-player, and episode-selection states.
+  mini-player, and episode-selection states, plus Watch page empty, connected,
+  and active-playback player-first states.
 - Android TV library browsing includes a remote-friendly header, shared-grouped
   progress-backed Next Up, Continue Watching, and Recently Watched rails,
   detail actions on those progress rails, series rail, selected-series detail
