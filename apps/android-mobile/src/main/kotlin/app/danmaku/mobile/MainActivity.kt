@@ -7,7 +7,9 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -16,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
@@ -91,6 +94,19 @@ private fun MobilePlayerScreen() {
     var pairingToken by remember { mutableStateOf("") }
     var catalog by remember { mutableStateOf<LibraryCatalog?>(null) }
     var libraryError by remember { mutableStateOf<String?>(null) }
+    var librarySearchText by remember { mutableStateOf("") }
+    var librarySort by remember { mutableStateOf(LibraryCatalogSort.TITLE) }
+    var librarySubtitleFilter by remember { mutableStateOf(LibrarySubtitleFilter.ANY) }
+    val totalItems = catalog?.items.orEmpty()
+    val filteredItems = catalog
+        ?.filteredItems(
+            LibraryCatalogQuery(
+                searchText = librarySearchText,
+                sort = librarySort,
+                subtitleFilter = librarySubtitleFilter,
+            ),
+        )
+        .orEmpty()
     val openDocument = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri ?: return@rememberLauncherForActivityResult
         controller?.let {
@@ -126,117 +142,209 @@ private fun MobilePlayerScreen() {
     }
 
     Surface(modifier = Modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier.padding(20.dp),
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("Danmaku", style = MaterialTheme.typography.headlineMedium)
-            Text("Android library streaming")
-            AndroidView(
-                factory = { PlayerView(it) },
-                update = { it.player = controller?.player },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(220.dp),
-            )
-            Text("Player state: ${snapshot.status}")
-            playbackError?.let { Text("Playback connection error: $it") }
-            PlayerControls(
-                snapshot = snapshot,
-                onOpen = { openDocument.launch(arrayOf("video/*")) },
-                onPlay = { controller?.dispatch(PlaybackCommand.Play) },
-                onPause = { controller?.dispatch(PlaybackCommand.Pause) },
-                onSeekTo = { controller?.dispatch(PlaybackCommand.SeekTo(it)) },
-                onSetVolume = { controller?.dispatch(PlaybackCommand.SetVolume(it)) },
-            )
-            TrackControls(
-                snapshot = snapshot,
-                onSelectAudio = {
-                    controller?.dispatch(PlaybackCommand.SelectAudioTrack(it))
-                },
-                onSelectSubtitle = {
-                    controller?.dispatch(PlaybackCommand.SelectSubtitleTrack(it))
-                },
-            )
-            OutlinedTextField(
-                value = serverUrl,
-                onValueChange = { serverUrl = it },
-                label = { Text("Windows server URL") },
-                modifier = Modifier.fillMaxWidth(),
-            )
-            OutlinedTextField(
-                value = pairingToken,
-                onValueChange = { pairingToken = it },
-                label = { Text("Pairing code") },
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    onClick = {
-                        scope.launch {
-                            runCatching {
-                                withContext(Dispatchers.IO) {
-                                    discoveryClient.discover().firstOrNull()
-                                        ?: error("No Windows library server discovered")
-                                }
-                            }.onSuccess {
-                                serverUrl = it.baseUrl
-                                libraryError = null
-                            }.onFailure {
-                                libraryError = it.message
-                            }
-                        }
-                    },
-                ) {
-                    Text("Discover PC")
-                }
-                Button(
-                    onClick = {
-                        scope.launch {
-                            runCatching {
-                                withContext(Dispatchers.IO) {
-                                    libraryClient.fetchCatalog(serverUrl, pairingToken)
-                                }
-                            }.onSuccess {
-                                catalog = it
-                                libraryError = null
-                            }.onFailure {
-                                libraryError = it.message
-                            }
-                        }
-                    },
-                ) {
-                    Text("Refresh PC library")
+            item(key = "header") {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Danmaku", style = MaterialTheme.typography.headlineMedium)
+                    Text("Android library streaming")
                 }
             }
-            libraryError?.let { Text("Library error: $it") }
-            LibraryItems(
-                catalog = catalog,
-                onPlay = { item ->
-                    val activeController = controller ?: return@LibraryItems
-                    val target = LanPlaybackTarget(serverUrl, pairingToken, item.id)
-                    scope.launch {
-                        val resumePosition = runCatching {
-                            withContext(Dispatchers.IO) {
-                                progressSync.fetchResumePositionMs(target)
-                            }
-                        }.onFailure {
-                            libraryError = "Resume lookup failed: ${it.message}"
-                        }.getOrNull()
-                        val preparation = playbackPreparer.prepare(
-                            baseUrl = target.baseUrl,
-                            pairingToken = target.pairingToken,
-                            item = item,
-                            resumePositionMs = resumePosition,
-                        )
-                        activeController.load(preparation)
-                        preparation.resumePositionMs?.let {
-                            activeController.dispatch(PlaybackCommand.SeekTo(it))
+            item(key = "playback") {
+                SectionCard(title = "Playback") {
+                    AndroidView(
+                        factory = { PlayerView(it) },
+                        update = { it.player = controller?.player },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(220.dp),
+                    )
+                    Text("Player state: ${snapshot.status}")
+                    playbackError?.let { Text("Playback connection error: $it") }
+                }
+            }
+            item(key = "controls") {
+                SectionCard(title = "Controls") {
+                    PlayerControls(
+                        snapshot = snapshot,
+                        onOpen = { openDocument.launch(arrayOf("video/*")) },
+                        onPlay = { controller?.dispatch(PlaybackCommand.Play) },
+                        onPause = { controller?.dispatch(PlaybackCommand.Pause) },
+                        onSeekTo = { controller?.dispatch(PlaybackCommand.SeekTo(it)) },
+                        onSetVolume = { controller?.dispatch(PlaybackCommand.SetVolume(it)) },
+                    )
+                    TrackControls(
+                        snapshot = snapshot,
+                        onSelectAudio = {
+                            controller?.dispatch(PlaybackCommand.SelectAudioTrack(it))
+                        },
+                        onSelectSubtitle = {
+                            controller?.dispatch(PlaybackCommand.SelectSubtitleTrack(it))
+                        },
+                    )
+                }
+            }
+            item(key = "pc-library") {
+                SectionCard(title = "PC Library") {
+                    OutlinedTextField(
+                        value = serverUrl,
+                        onValueChange = { serverUrl = it },
+                        label = { Text("Windows server URL") },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    OutlinedTextField(
+                        value = pairingToken,
+                        onValueChange = { pairingToken = it },
+                        label = { Text("Pairing code") },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Button(
+                            onClick = {
+                                scope.launch {
+                                    runCatching {
+                                        withContext(Dispatchers.IO) {
+                                            discoveryClient.discover().firstOrNull()
+                                                ?: error("No Windows library server discovered")
+                                        }
+                                    }.onSuccess {
+                                        serverUrl = it.baseUrl
+                                        libraryError = null
+                                    }.onFailure {
+                                        libraryError = it.message
+                                    }
+                                }
+                            },
+                        ) {
+                            Text("Discover PC")
                         }
-                        activeController.dispatch(PlaybackCommand.Play)
+                        Button(
+                            onClick = {
+                                scope.launch {
+                                    runCatching {
+                                        withContext(Dispatchers.IO) {
+                                            libraryClient.fetchCatalog(serverUrl, pairingToken)
+                                        }
+                                    }.onSuccess {
+                                        catalog = it
+                                        libraryError = null
+                                    }.onFailure {
+                                        libraryError = it.message
+                                    }
+                                }
+                            },
+                        ) {
+                            Text("Refresh library")
+                        }
                     }
-                },
-            )
+                    libraryError?.let { Text("Library error: $it") }
+                }
+            }
+            item(key = "library-filters") {
+                SectionCard(title = "Episodes") {
+                    OutlinedTextField(
+                        value = librarySearchText,
+                        onValueChange = { librarySearchText = it },
+                        label = { Text("Search library") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        item {
+                            Button(
+                                onClick = { librarySort = LibraryCatalogSort.TITLE },
+                                enabled = librarySort != LibraryCatalogSort.TITLE,
+                            ) {
+                                Text("Title")
+                            }
+                        }
+                        item {
+                            Button(
+                                onClick = { librarySort = LibraryCatalogSort.PATH },
+                                enabled = librarySort != LibraryCatalogSort.PATH,
+                            ) {
+                                Text("Path")
+                            }
+                        }
+                        item {
+                            Button(
+                                onClick = {
+                                    librarySubtitleFilter = if (librarySubtitleFilter == LibrarySubtitleFilter.ANY) {
+                                        LibrarySubtitleFilter.WITH_SUBTITLES
+                                    } else {
+                                        LibrarySubtitleFilter.ANY
+                                    }
+                                },
+                            ) {
+                                Text(
+                                    if (librarySubtitleFilter == LibrarySubtitleFilter.ANY) {
+                                        "With subtitles"
+                                    } else {
+                                        "All episodes"
+                                    },
+                                )
+                            }
+                        }
+                    }
+                    Text("Showing ${filteredItems.size} / ${totalItems.size} episodes")
+                    if (catalog == null) {
+                        Text("Discover or refresh a Windows library server to browse episodes.")
+                    } else if (filteredItems.isEmpty()) {
+                        Text("No episodes match the current filters.")
+                    }
+                }
+            }
+            items(filteredItems, key = LibraryMediaItem::id) { item ->
+                LibraryEpisodeButton(
+                    item = item,
+                    onPlay = {
+                        val activeController = controller ?: return@LibraryEpisodeButton
+                        val target = LanPlaybackTarget(serverUrl, pairingToken, item.id)
+                        scope.launch {
+                            val resumePosition = runCatching {
+                                withContext(Dispatchers.IO) {
+                                    progressSync.fetchResumePositionMs(target)
+                                }
+                            }.onFailure {
+                                libraryError = "Resume lookup failed: ${it.message}"
+                            }.getOrNull()
+                            val preparation = playbackPreparer.prepare(
+                                baseUrl = target.baseUrl,
+                                pairingToken = target.pairingToken,
+                                item = item,
+                                resumePositionMs = resumePosition,
+                            )
+                            activeController.load(preparation)
+                            preparation.resumePositionMs?.let {
+                                activeController.dispatch(PlaybackCommand.SeekTo(it))
+                            }
+                            activeController.dispatch(PlaybackCommand.Play)
+                        }
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SectionCard(
+    title: String,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(title, style = MaterialTheme.typography.titleMedium)
+            content()
         }
     }
 }
@@ -251,7 +359,10 @@ private fun PlayerControls(
     onSetVolume: (Int) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             Button(onClick = onOpen) {
                 Text("Open video")
             }
@@ -263,7 +374,10 @@ private fun PlayerControls(
             }
         }
         PlaybackSeekControls(snapshot = snapshot, onSeekTo = onSeekTo)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             Text("Volume ${snapshot.volumePercent}%")
             Button(
                 onClick = { onSetVolume((snapshot.volumePercent - 10).coerceAtLeast(0)) },
@@ -319,7 +433,10 @@ private fun PlaybackSeekControls(
             enabled = snapshot.source != null && durationMs != null,
             modifier = Modifier.fillMaxWidth(),
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             SeekButton("-30s", snapshot, onSeekTo, -30_000)
             SeekButton("-10s", snapshot, onSeekTo, -10_000)
             SeekButton("+10s", snapshot, onSeekTo, 10_000)
@@ -417,73 +534,20 @@ private fun Long.formatPlaybackTime(): String {
 }
 
 @Composable
-private fun LibraryItems(
-    catalog: LibraryCatalog?,
-    onPlay: (LibraryMediaItem) -> Unit,
+private fun LibraryEpisodeButton(
+    item: LibraryMediaItem,
+    onPlay: () -> Unit,
 ) {
-    var searchText by remember { mutableStateOf("") }
-    var sort by remember { mutableStateOf(LibraryCatalogSort.TITLE) }
-    var subtitleFilter by remember { mutableStateOf(LibrarySubtitleFilter.ANY) }
-    val totalItems = catalog?.items.orEmpty()
-    val filteredItems = catalog
-        ?.filteredItems(
-            LibraryCatalogQuery(
-                searchText = searchText,
-                sort = sort,
-                subtitleFilter = subtitleFilter,
-            ),
-        )
-        .orEmpty()
-
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(
-            value = searchText,
-            onValueChange = { searchText = it },
-            label = { Text("Search library") },
-            singleLine = true,
+    Button(
+        onClick = onPlay,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(
             modifier = Modifier.fillMaxWidth(),
-        )
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            item {
-                Button(
-                    onClick = { sort = LibraryCatalogSort.TITLE },
-                    enabled = sort != LibraryCatalogSort.TITLE,
-                ) {
-                    Text("Title")
-                }
-            }
-            item {
-                Button(
-                    onClick = { sort = LibraryCatalogSort.PATH },
-                    enabled = sort != LibraryCatalogSort.PATH,
-                ) {
-                    Text("Path")
-                }
-            }
-            item {
-                Button(
-                    onClick = {
-                        subtitleFilter = if (subtitleFilter == LibrarySubtitleFilter.ANY) {
-                            LibrarySubtitleFilter.WITH_SUBTITLES
-                        } else {
-                            LibrarySubtitleFilter.ANY
-                        }
-                    },
-                ) {
-                    Text(if (subtitleFilter == LibrarySubtitleFilter.ANY) "With subtitles" else "All")
-                }
-            }
-        }
-        Text("Showing ${filteredItems.size} / ${totalItems.size} episodes")
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            items(filteredItems, key = LibraryMediaItem::id) { item ->
-                Button(
-                    onClick = { onPlay(item) },
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text("${item.seriesTitle} - ${item.episodeTitle}")
-                }
-            }
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(item.seriesTitle)
+            Text(item.episodeTitle, style = MaterialTheme.typography.bodySmall)
         }
     }
 }
