@@ -108,6 +108,11 @@ private data class PreparedLocalPlaybackResult(
     val dandanplayError: Throwable?,
 )
 
+private data class DandanplayCacheUiStatus(
+    val mediaId: String,
+    val message: String,
+)
+
 @Composable
 private fun DesktopShell() {
     val selectionStore = remember { LocalLibrarySelectionStore.default() }
@@ -274,6 +279,7 @@ private fun DesktopShell() {
     var isIndexing by remember { mutableStateOf(false) }
     var isPreparingLocalPlayback by remember { mutableStateOf(false) }
     var lastScanStats by remember { mutableStateOf<LocalMediaLibraryScanStats?>(null) }
+    var dandanplayCacheStatus by remember { mutableStateOf<DandanplayCacheUiStatus?>(null) }
     val serverRuntime = remember(catalogStore, rootScanner, scope) {
         DesktopLibraryServerRuntime.start(
             catalogStore = catalogStore,
@@ -500,6 +506,7 @@ private fun DesktopShell() {
     fun prepareLocalPlayback(
         item: LibraryMediaItem,
         loadAfterPrepare: Boolean = false,
+        refreshDandanplay: Boolean = false,
     ) {
         val library = indexedLibrary ?: return
         scope.launch {
@@ -518,7 +525,11 @@ private fun DesktopShell() {
                         val mediaPath = library.filesById[item.id]
                             ?: error("Indexed media file is missing for ${item.id}")
                         val dandanplayResult = runCatching {
-                            dandanplayDanmakuResolver.resolve(item.id, mediaPath)
+                            dandanplayDanmakuResolver.resolve(
+                                mediaId = item.id,
+                                mediaPath = mediaPath,
+                                forceRefresh = refreshDandanplay,
+                            )
                         }
                         val dandanplaySubtitle = dandanplayResult
                             .getOrNull()
@@ -560,6 +571,19 @@ private fun DesktopShell() {
                     else ->
                         appendDiagnostic("danmaku", "dandanplay found no match for ${item.id}")
                 }
+                result.dandanplayResolution?.let { resolution ->
+                    dandanplayCacheStatus = DandanplayCacheUiStatus(
+                        mediaId = item.id,
+                        message = when {
+                            resolution.subtitle != null ->
+                                "dandanplay ${resolution.source.name.lowercase()}: ${resolution.eventCount} comments"
+                            resolution.match != null ->
+                                "dandanplay ${resolution.source.name.lowercase()}: matched, no comments"
+                            else ->
+                                "dandanplay network: no match"
+                        },
+                    )
+                }
                 if (loadAfterPrepare) {
                     appendDiagnostic("playback", "Auto-loading prepared local playback: ${item.id}")
                     queuePlaybackUntilHostReady(result.preparation.toPlaybackRequest())
@@ -569,6 +593,40 @@ private fun DesktopShell() {
                 appendDiagnostic("playback", "Prepare local playback failed: ${it.message}")
             }
             isPreparingLocalPlayback = false
+        }
+    }
+
+    fun refreshPreparedDandanplay(preparation: DesktopLocalPlaybackPreparation) {
+        if (!dandanplaySettings.isFetchEnabled) {
+            dandanplayCacheStatus = DandanplayCacheUiStatus(
+                mediaId = preparation.item.id,
+                message = "dandanplay fetching is not configured",
+            )
+            appendDiagnostic("danmaku", "Cannot refresh dandanplay cache; provider fetching is not configured")
+            return
+        }
+        appendDiagnostic("danmaku", "Refreshing dandanplay cache for ${preparation.item.id}")
+        prepareLocalPlayback(preparation.item, refreshDandanplay = true)
+    }
+
+    fun clearPreparedDandanplayCache(preparation: DesktopLocalPlaybackPreparation) {
+        scope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    dandanplayDanmakuResolver.clearCache(preparation.item.id)
+                }
+            }.onSuccess {
+                selectedLocalPlaybackPreparation = preparation.copy(
+                    subtitles = preparation.subtitles.filterNot(DesktopPlaybackSubtitle::isDanmakuOverlay),
+                )
+                dandanplayCacheStatus = DandanplayCacheUiStatus(
+                    mediaId = preparation.item.id,
+                    message = "dandanplay cache cleared",
+                )
+                appendDiagnostic("danmaku", "Cleared dandanplay cache for ${preparation.item.id}")
+            }.onFailure {
+                appendDiagnostic("danmaku", "Failed to clear dandanplay cache for ${preparation.item.id}: ${it.message}")
+            }
         }
     }
 
@@ -898,6 +956,7 @@ private fun DesktopShell() {
                             isIndexing = isIndexing,
                             isPreparingLocalPlayback = isPreparingLocalPlayback,
                             selectedLocalPlaybackPreparation = selectedLocalPlaybackPreparation,
+                            dandanplayCacheStatus = dandanplayCacheStatus,
                             autoNextLocalPlayback = autoNextLocalPlayback,
                             libraryError = libraryError,
                             lastScanStats = lastScanStats,
@@ -912,6 +971,8 @@ private fun DesktopShell() {
                                 prepareLocalPlayback(item, loadAfterPrepare = true)
                             },
                             onSetAutoNextLocalPlayback = ::setAutoNextLocalPlayback,
+                            onRefreshDandanplay = ::refreshPreparedDandanplay,
+                            onClearDandanplayCache = ::clearPreparedDandanplayCache,
                             onLoadPreparedPlayback = { preparation ->
                                 appendDiagnostic(
                                     "playback",
@@ -1446,6 +1507,7 @@ private fun MediaLibraryTab(
     isIndexing: Boolean,
     isPreparingLocalPlayback: Boolean,
     selectedLocalPlaybackPreparation: DesktopLocalPlaybackPreparation?,
+    dandanplayCacheStatus: DandanplayCacheUiStatus?,
     autoNextLocalPlayback: Boolean,
     libraryError: String?,
     lastScanStats: LocalMediaLibraryScanStats?,
@@ -1454,6 +1516,8 @@ private fun MediaLibraryTab(
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
     onSetAutoNextLocalPlayback: (Boolean) -> Unit,
+    onRefreshDandanplay: (DesktopLocalPlaybackPreparation) -> Unit,
+    onClearDandanplayCache: (DesktopLocalPlaybackPreparation) -> Unit,
     onLoadPreparedPlayback: (DesktopLocalPlaybackPreparation) -> Unit,
     remoteBrowser: @Composable () -> Unit,
 ) {
@@ -1625,9 +1689,24 @@ private fun MediaLibraryTab(
                 )
                 MetadataRow("Source", preparation.source.path)
                 MetadataRow("Resume", preparation.resumePositionMs?.let { "$it ms" } ?: "start from beginning")
+                dandanplayCacheStatus
+                    ?.takeIf { it.mediaId == preparation.item.id }
+                    ?.let { MetadataRow("Danmaku cache", it.message) }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = { onLoadPreparedPlayback(preparation) }) {
                         Text("Load into player")
+                    }
+                    Button(
+                        onClick = { onRefreshDandanplay(preparation) },
+                        enabled = !isPreparingLocalPlayback,
+                    ) {
+                        Text(if (isPreparingLocalPlayback) "Refreshing..." else "Refresh danmaku")
+                    }
+                    Button(
+                        onClick = { onClearDandanplayCache(preparation) },
+                        enabled = !isPreparingLocalPlayback,
+                    ) {
+                        Text("Clear danmaku cache")
                     }
                     Button(
                         onClick = {

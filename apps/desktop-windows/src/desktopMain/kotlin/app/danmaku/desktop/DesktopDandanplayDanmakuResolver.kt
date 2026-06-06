@@ -27,23 +27,26 @@ class DesktopDandanplayDanmakuResolver(
     fun resolve(
         mediaId: String,
         mediaPath: Path,
+        forceRefresh: Boolean = false,
     ): DesktopDandanplayDanmakuResolution {
         require(mediaId.isNotBlank()) { "mediaId must not be blank" }
         val fingerprint = DandanplayMediaFingerprint.fromPath(mediaPath)
-        cacheStore
-            ?.loadDandanplayCommentCache(mediaId)
-            ?.takeIf { it.fileHash.equals(fingerprint.normalizedFileHash, ignoreCase = true) }
-            ?.takeIf { it.fileSizeBytes == fingerprint.fileSizeBytes }
-            ?.toCommentTrack()
-            ?.let { cachedTrack ->
-                return renderResolution(
-                    mediaId = mediaId,
-                    fingerprint = fingerprint,
-                    track = cachedTrack,
-                    source = DesktopDandanplayResolutionSource.CACHE,
-                    shouldPersist = false,
-                )
-            }
+        if (!forceRefresh) {
+            cacheStore
+                ?.loadDandanplayCommentCache(mediaId)
+                ?.takeIf { it.fileHash.equals(fingerprint.normalizedFileHash, ignoreCase = true) }
+                ?.takeIf { it.fileSizeBytes == fingerprint.fileSizeBytes }
+                ?.toCommentTrack()
+                ?.let { cachedTrack ->
+                    return renderResolution(
+                        mediaId = mediaId,
+                        fingerprint = fingerprint,
+                        track = cachedTrack,
+                        source = DesktopDandanplayResolutionSource.CACHE,
+                        shouldPersist = false,
+                    )
+                }
+        }
 
         val track = fetchTrack(loadConnection(), fingerprint)
             ?: return DesktopDandanplayDanmakuResolution(
@@ -61,6 +64,11 @@ class DesktopDandanplayDanmakuResolver(
             source = DesktopDandanplayResolutionSource.NETWORK,
             shouldPersist = true,
         )
+    }
+
+    fun clearCache(mediaId: String) {
+        require(mediaId.isNotBlank()) { "mediaId must not be blank" }
+        cacheStore?.deleteDandanplayCommentCache(mediaId)
     }
 
     private fun renderResolution(
@@ -148,6 +156,8 @@ interface DandanplayCommentCacheStore {
     fun loadDandanplayCommentCache(mediaId: String): DesktopDandanplayCommentCache?
 
     fun saveDandanplayCommentCache(cache: DesktopDandanplayCommentCache)
+
+    fun deleteDandanplayCommentCache(mediaId: String)
 }
 
 private fun DandanplayCommentTrack.toCache(

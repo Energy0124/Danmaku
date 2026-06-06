@@ -83,6 +83,8 @@ Implemented today:
   configured provider and attach them as a cached ASS danmaku overlay
 - Persistent desktop dandanplay match/comment cache keyed by local media item
   and file fingerprint, avoiding rematches when files are unchanged
+- Prepared-playback controls to force-refresh or clear dandanplay cache for the
+  selected local episode
 - Desktop preparation for local-file and paired-LAN playback requests, including
   resume seeks and native mpv command execution
 - Rust libmpv loader/probe plus a small C ABI and Kotlin/JNA binding for the
@@ -94,8 +96,8 @@ Not implemented yet:
 
 - Broad Windows resize/fullscreen/4K/hardware-decoding validation
 - Authorized download engine
-- Full provider plugins, MyAnimeList integration, and dandanplay manual rematch
-  plus cache-expiry controls
+- Full provider plugins, MyAnimeList integration, and dandanplay cache-expiry
+  cleanup controls
 
 ## Architecture
 

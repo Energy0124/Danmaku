@@ -76,7 +76,9 @@ indexed sidecar subtitles to Media3.
   by rendering fetched comments into a cached ASS overlay file.
 - [x] Persist chosen dandanplay `episodeId` values and fetched raw comments per
   local catalog item so rematches are avoidable when file fingerprints match.
-- [ ] Add dandanplay manual rematch and cache-expiry controls.
+- [x] Add Windows prepared-playback controls to force-refresh or clear the
+  cached dandanplay match/comments for an episode.
+- [ ] Add explicit dandanplay cache-expiry policy and cleanup controls.
 - [x] Add seek and playback-rate test cases.
 - [x] Add Windows progress-bar scrubbing, live mpv position polling, and
   throttled local/paired progress persistence.

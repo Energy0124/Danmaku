@@ -369,7 +369,7 @@ class DesktopLibraryCatalogStore(
     }
 
     @Synchronized
-    fun deleteDandanplayCommentCache(mediaId: String) {
+    override fun deleteDandanplayCommentCache(mediaId: String) {
         database.libraryCatalogQueries.deleteDandanplayCommentCache(mediaId)
     }
 

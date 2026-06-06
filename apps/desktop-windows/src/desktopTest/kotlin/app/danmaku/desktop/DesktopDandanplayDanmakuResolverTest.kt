@@ -66,6 +66,16 @@ class DesktopDandanplayDanmakuResolverTest {
         assertNotNull(cachedResolution.cachePath)
         assertContains(cachedResolution.cachePath.readText(), "hello overlay")
 
+        val refreshedResolution = resolver.resolve("media-id", media, forceRefresh = true)
+
+        assertEquals(2, fetchCount)
+        assertEquals(DesktopDandanplayResolutionSource.NETWORK, refreshedResolution.source)
+
+        resolver.clearCache("media-id")
+        resolver.resolve("media-id", media)
+
+        assertEquals(3, fetchCount)
+
         temp.toFile().deleteRecursively()
     }
 
@@ -167,6 +177,10 @@ class DesktopDandanplayDanmakuResolverTest {
 
         override fun saveDandanplayCommentCache(cache: DesktopDandanplayCommentCache) {
             values[cache.mediaId] = cache
+        }
+
+        override fun deleteDandanplayCommentCache(mediaId: String) {
+            values.remove(mediaId)
         }
     }
 }
