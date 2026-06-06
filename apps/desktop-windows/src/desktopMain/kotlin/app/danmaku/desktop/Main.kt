@@ -212,12 +212,23 @@ private fun DesktopShell(windowState: WindowState) {
                 ?.let(::putAll)
         }
     }
-    val mpvRuntime = remember(mpvNativeOptions) {
-        DesktopMpvCommandExecutorRuntimeFactory().create(
-            nativeOptions = mpvNativeOptions,
-        ) { command ->
-            mpvCommandLog += command
-            appendDiagnostic("mpv", "command ${command.args.joinToString(separator = " ")}")
+    val mpvRuntime = remember(mpvVideoWindowId, mpvNativeOptions) {
+        if (mpvVideoWindowId == null) {
+            DesktopMpvCommandExecutorRuntime(
+                executor = DesktopMpvCommandExecutor { command ->
+                    mpvCommandLog += command
+                    appendDiagnostic("mpv", "command ${command.args.joinToString(separator = " ")}")
+                },
+                mode = DesktopMpvCommandExecutorMode.COMMAND_LOG_ONLY,
+                statusMessage = "Native mpv video host is not ready. Command-log-only mode is active.",
+            )
+        } else {
+            DesktopMpvCommandExecutorRuntimeFactory().create(
+                nativeOptions = mpvNativeOptions,
+            ) { command ->
+                mpvCommandLog += command
+                appendDiagnostic("mpv", "command ${command.args.joinToString(separator = " ")}")
+            }
         }
     }
     val playbackController = remember(mpvRuntime) {
@@ -841,139 +852,135 @@ private fun DesktopShell(windowState: WindowState) {
                             },
                         ),
                 ) {
-                    PlaybackTab(
-                        playbackLabel = activePlaybackLabel,
-                        playbackSnapshot = playbackSnapshot,
-                        mpvRuntimeStatus = mpvRuntime.statusMessage,
-                        videoHostStatus = if (mpvVideoWindowId == null) {
-                            "waiting for native window"
-                        } else {
-                            "attached"
-                        },
-                        overlayStatus = overlayStatus,
-                        onWindowIdChanged = { mpvVideoWindowId = it },
-                        onOpenMediaFile = {
-                            appendDiagnostic("playback", "Opening direct media file picker")
-                            selectMediaFile(
-                                title = "Choose media file for Windows playback",
-                            )?.let { mediaFile ->
-                                appendDiagnostic("playback", "Loading direct media file: $mediaFile")
-                                loadPlaybackRequest(mediaFile.toDirectLocalPlaybackRequest())
-                            }
-                        },
-                        onPlay = {
-                            appendDiagnostic("playback", "Dispatch Play")
-                            playbackController.dispatch(PlaybackCommand.Play)
-                            playbackSnapshot = playbackController.snapshot()
-                        },
-                        onPause = {
-                            appendDiagnostic("playback", "Dispatch Pause")
-                            playbackController.dispatch(PlaybackCommand.Pause)
-                            playbackSnapshot = playbackController.snapshot()
-                            persistActivePlaybackProgress(playbackSnapshot, force = true)
-                        },
-                        onSeekBackward = {
-                            appendDiagnostic("playback", "Dispatch Seek -10s")
-                            playbackController.dispatch(
-                                PlaybackCommand.SeekTo(
-                                    maxOf(0, playbackSnapshot.position.positionMs - 10_000),
-                                ),
-                            )
-                            playbackSnapshot = playbackController.snapshot()
-                            persistActivePlaybackProgress(playbackSnapshot, force = true)
-                        },
-                        onSeekBackwardLarge = {
-                            appendDiagnostic("playback", "Dispatch Seek -30s")
-                            playbackController.dispatch(
-                                PlaybackCommand.SeekTo(
-                                    maxOf(0, playbackSnapshot.position.positionMs - 30_000),
-                                ),
-                            )
-                            playbackSnapshot = playbackController.snapshot()
-                            persistActivePlaybackProgress(playbackSnapshot, force = true)
-                        },
-                        onSeekForward = {
-                            appendDiagnostic("playback", "Dispatch Seek +10s")
-                            playbackController.dispatch(
-                                PlaybackCommand.SeekTo(
-                                    playbackSnapshot.position.positionMs + 10_000,
-                                ),
-                            )
-                            playbackSnapshot = playbackController.snapshot()
-                            persistActivePlaybackProgress(playbackSnapshot, force = true)
-                        },
-                        onSeekForwardLarge = {
-                            appendDiagnostic("playback", "Dispatch Seek +30s")
-                            playbackController.dispatch(
-                                PlaybackCommand.SeekTo(
-                                    playbackSnapshot.position.positionMs + 30_000,
-                                ),
-                            )
-                            playbackSnapshot = playbackController.snapshot()
-                            persistActivePlaybackProgress(playbackSnapshot, force = true)
-                        },
-                        onSeekTo = { positionMs ->
-                            appendDiagnostic("playback", "Dispatch Seek ${positionMs}ms")
-                            playbackController.dispatch(PlaybackCommand.SeekTo(positionMs))
-                            playbackSnapshot = playbackController.snapshot()
-                            persistActivePlaybackProgress(playbackSnapshot, force = true)
-                        },
-                        onSetPlaybackRate = { rate ->
-                            appendDiagnostic("playback", "Dispatch playback rate ${rate}x")
-                            playbackController.dispatch(PlaybackCommand.SetPlaybackRate(rate))
-                            playbackSnapshot = playbackController.snapshot()
-                            savePlaybackPreference("rate") {
-                                savePlaybackRate(rate)
-                            }
-                        },
-                        onSetVolume = { volumePercent ->
-                            appendDiagnostic("playback", "Dispatch volume $volumePercent%")
-                            playbackController.dispatch(PlaybackCommand.SetVolume(volumePercent))
-                            playbackSnapshot = playbackController.snapshot()
-                            savePlaybackPreference("volume") {
-                                saveVolumePercent(volumePercent)
-                            }
-                        },
-                        onSelectAudioTrack = { trackId ->
-                            appendDiagnostic("playback", "Dispatch audio track $trackId")
-                            playbackController.dispatch(PlaybackCommand.SelectAudioTrack(trackId))
-                            playbackSnapshot = playbackController.snapshot()
-                        },
-                        onSelectSubtitleTrack = { trackId ->
-                            appendDiagnostic("playback", "Dispatch subtitle track ${trackId ?: "off"}")
-                            playbackController.dispatch(PlaybackCommand.SelectSubtitleTrack(trackId))
-                            playbackSnapshot = playbackController.snapshot()
-                        },
-                        isFullscreen = isFullscreen,
-                        videoAspectMode = videoAspectMode,
-                        onSetFullscreen = { enabled ->
-                            appendDiagnostic("playback", "Set window fullscreen ${if (enabled) "on" else "off"}")
-                            windowState.placement = if (enabled) {
-                                WindowPlacement.Fullscreen
+                    if (selectedTab == DesktopShellTab.PLAYBACK) {
+                        PlaybackTab(
+                            playbackLabel = activePlaybackLabel,
+                            playbackSnapshot = playbackSnapshot,
+                            mpvRuntimeStatus = mpvRuntime.statusMessage,
+                            videoHostStatus = if (mpvVideoWindowId == null) {
+                                "waiting for native window"
                             } else {
-                                WindowPlacement.Floating
-                            }
-                        },
-                        onSetVideoAspectMode = { mode ->
-                            appendDiagnostic("playback", "Dispatch video aspect ${mode.label}")
-                            playbackController.setVideoAspectMode(mode)
-                            videoAspectMode = playbackController.videoAspectMode
-                            playbackSnapshot = playbackController.snapshot()
-                            savePlaybackPreference("aspect") {
-                                saveVideoAspectMode(mode)
-                            }
-                        },
-                        onShowHome = { selectedTab = DesktopShellTab.HOME },
-                        onShowLibrary = { selectedTab = DesktopShellTab.MEDIA_LIBRARY },
-                        canOpenMedia = mpvVideoWindowId != null,
-                        modifier = if (selectedTab == DesktopShellTab.PLAYBACK) {
-                            Modifier.fillMaxSize()
-                        } else {
-                            Modifier
-                                .width(1.dp)
-                                .height(1.dp)
-                        },
-                    )
+                                "attached"
+                            },
+                            overlayStatus = overlayStatus,
+                            onWindowIdChanged = { mpvVideoWindowId = it },
+                            onOpenMediaFile = {
+                                appendDiagnostic("playback", "Opening direct media file picker")
+                                selectMediaFile(
+                                    title = "Choose media file for Windows playback",
+                                )?.let { mediaFile ->
+                                    appendDiagnostic("playback", "Loading direct media file: $mediaFile")
+                                    loadPlaybackRequest(mediaFile.toDirectLocalPlaybackRequest())
+                                }
+                            },
+                            onPlay = {
+                                appendDiagnostic("playback", "Dispatch Play")
+                                playbackController.dispatch(PlaybackCommand.Play)
+                                playbackSnapshot = playbackController.snapshot()
+                            },
+                            onPause = {
+                                appendDiagnostic("playback", "Dispatch Pause")
+                                playbackController.dispatch(PlaybackCommand.Pause)
+                                playbackSnapshot = playbackController.snapshot()
+                                persistActivePlaybackProgress(playbackSnapshot, force = true)
+                            },
+                            onSeekBackward = {
+                                appendDiagnostic("playback", "Dispatch Seek -10s")
+                                playbackController.dispatch(
+                                    PlaybackCommand.SeekTo(
+                                        maxOf(0, playbackSnapshot.position.positionMs - 10_000),
+                                    ),
+                                )
+                                playbackSnapshot = playbackController.snapshot()
+                                persistActivePlaybackProgress(playbackSnapshot, force = true)
+                            },
+                            onSeekBackwardLarge = {
+                                appendDiagnostic("playback", "Dispatch Seek -30s")
+                                playbackController.dispatch(
+                                    PlaybackCommand.SeekTo(
+                                        maxOf(0, playbackSnapshot.position.positionMs - 30_000),
+                                    ),
+                                )
+                                playbackSnapshot = playbackController.snapshot()
+                                persistActivePlaybackProgress(playbackSnapshot, force = true)
+                            },
+                            onSeekForward = {
+                                appendDiagnostic("playback", "Dispatch Seek +10s")
+                                playbackController.dispatch(
+                                    PlaybackCommand.SeekTo(
+                                        playbackSnapshot.position.positionMs + 10_000,
+                                    ),
+                                )
+                                playbackSnapshot = playbackController.snapshot()
+                                persistActivePlaybackProgress(playbackSnapshot, force = true)
+                            },
+                            onSeekForwardLarge = {
+                                appendDiagnostic("playback", "Dispatch Seek +30s")
+                                playbackController.dispatch(
+                                    PlaybackCommand.SeekTo(
+                                        playbackSnapshot.position.positionMs + 30_000,
+                                    ),
+                                )
+                                playbackSnapshot = playbackController.snapshot()
+                                persistActivePlaybackProgress(playbackSnapshot, force = true)
+                            },
+                            onSeekTo = { positionMs ->
+                                appendDiagnostic("playback", "Dispatch Seek ${positionMs}ms")
+                                playbackController.dispatch(PlaybackCommand.SeekTo(positionMs))
+                                playbackSnapshot = playbackController.snapshot()
+                                persistActivePlaybackProgress(playbackSnapshot, force = true)
+                            },
+                            onSetPlaybackRate = { rate ->
+                                appendDiagnostic("playback", "Dispatch playback rate ${rate}x")
+                                playbackController.dispatch(PlaybackCommand.SetPlaybackRate(rate))
+                                playbackSnapshot = playbackController.snapshot()
+                                savePlaybackPreference("rate") {
+                                    savePlaybackRate(rate)
+                                }
+                            },
+                            onSetVolume = { volumePercent ->
+                                appendDiagnostic("playback", "Dispatch volume $volumePercent%")
+                                playbackController.dispatch(PlaybackCommand.SetVolume(volumePercent))
+                                playbackSnapshot = playbackController.snapshot()
+                                savePlaybackPreference("volume") {
+                                    saveVolumePercent(volumePercent)
+                                }
+                            },
+                            onSelectAudioTrack = { trackId ->
+                                appendDiagnostic("playback", "Dispatch audio track $trackId")
+                                playbackController.dispatch(PlaybackCommand.SelectAudioTrack(trackId))
+                                playbackSnapshot = playbackController.snapshot()
+                            },
+                            onSelectSubtitleTrack = { trackId ->
+                                appendDiagnostic("playback", "Dispatch subtitle track ${trackId ?: "off"}")
+                                playbackController.dispatch(PlaybackCommand.SelectSubtitleTrack(trackId))
+                                playbackSnapshot = playbackController.snapshot()
+                            },
+                            isFullscreen = isFullscreen,
+                            videoAspectMode = videoAspectMode,
+                            onSetFullscreen = { enabled ->
+                                appendDiagnostic("playback", "Set window fullscreen ${if (enabled) "on" else "off"}")
+                                windowState.placement = if (enabled) {
+                                    WindowPlacement.Fullscreen
+                                } else {
+                                    WindowPlacement.Floating
+                                }
+                            },
+                            onSetVideoAspectMode = { mode ->
+                                appendDiagnostic("playback", "Dispatch video aspect ${mode.label}")
+                                playbackController.setVideoAspectMode(mode)
+                                videoAspectMode = playbackController.videoAspectMode
+                                playbackSnapshot = playbackController.snapshot()
+                                savePlaybackPreference("aspect") {
+                                    saveVideoAspectMode(mode)
+                                }
+                            },
+                            onShowHome = { selectedTab = DesktopShellTab.HOME },
+                            onShowLibrary = { selectedTab = DesktopShellTab.MEDIA_LIBRARY },
+                            canOpenMedia = mpvVideoWindowId != null,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
                     when (selectedTab) {
                         DesktopShellTab.HOME -> HomeTab(
                             playbackSnapshot = playbackSnapshot,
@@ -1276,18 +1283,11 @@ private fun PlaybackTab(
             )
         }
         Box(modifier = Modifier.weight(1f)) {
-            if (hasMedia) {
-                DesktopMpvVideoHost(
-                    onWindowIdChanged = onWindowIdChanged,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            } else {
-                DesktopMpvVideoHost(
-                    onWindowIdChanged = onWindowIdChanged,
-                    modifier = Modifier
-                        .width(1.dp)
-                        .height(1.dp),
-                )
+            DesktopMpvVideoHost(
+                onWindowIdChanged = onWindowIdChanged,
+                modifier = Modifier.fillMaxSize(),
+            )
+            if (!hasMedia) {
                 PlayerEmptyOverlay(
                     canOpenMedia = canOpenMedia,
                     mpvRuntimeStatus = mpvRuntimeStatus,
