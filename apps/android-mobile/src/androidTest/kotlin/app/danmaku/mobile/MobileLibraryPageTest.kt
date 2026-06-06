@@ -22,6 +22,8 @@ import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.PlaybackSource
 import app.danmaku.domain.PlaybackStatus
 import app.danmaku.domain.filteredItems
+import app.danmaku.library.LanLibraryConnectionProfile
+import app.danmaku.library.lanLibraryConnectionProfile
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -329,6 +331,58 @@ class MobileLibraryPageTest {
 
         composeRule.runOnIdle {
             assertEquals("example-2", playedItemId)
+        }
+    }
+
+    @Test
+    fun connectionPanelPrioritizesSavedPcPickerAndRevealsManualFieldsForEditing() {
+        val profile = lanLibraryConnectionProfile(
+            baseUrl = "http://living-room-pc:8686",
+            pairingToken = "123456",
+            displayName = "Living Room PC",
+        )
+        var selectedConnection: LanLibraryConnectionProfile? = null
+        var editedServerUrl = ""
+        var editedPairingToken = ""
+
+        composeRule.setContent {
+            MaterialTheme {
+                ConnectionPanel(
+                    catalog = null,
+                    serverUrl = "http://10.0.2.2:8686",
+                    pairingToken = "",
+                    savedConnections = listOf(profile),
+                    libraryError = null,
+                    onServerUrlChange = { editedServerUrl = it },
+                    onPairingTokenChange = { editedPairingToken = it },
+                    onSelectConnection = { selectedConnection = it },
+                    onEditConnection = {
+                        editedServerUrl = it.baseUrl
+                        editedPairingToken = it.pairingToken
+                    },
+                    onForgetConnection = {},
+                    onSaveConnection = {},
+                    onDiscover = {},
+                    onRefresh = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Saved PCs").assertExists()
+        composeRule.onNodeWithText("Living Room PC").assertExists()
+        composeRule.onNodeWithText("Server URL").assertDoesNotExist()
+        composeRule.onNodeWithTag("saved-connection:${profile.id}").performClick()
+
+        composeRule.runOnIdle {
+            assertEquals(profile, selectedConnection)
+        }
+
+        composeRule.onNodeWithTag("saved-connection-edit:${profile.id}").performClick()
+        composeRule.onNodeWithText("Server URL").assertExists()
+        composeRule.onNodeWithText("Pairing code").assertExists()
+        composeRule.runOnIdle {
+            assertEquals(profile.baseUrl, editedServerUrl)
+            assertEquals(profile.pairingToken, editedPairingToken)
         }
     }
 

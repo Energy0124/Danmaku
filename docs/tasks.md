@@ -206,7 +206,7 @@ unblocked slices inside these tracks as the vertical slice hardens.
 - [ ] Add Android phone/tablet screenshot or instrumentation coverage for the
   player-first mobile layout, including empty, connected, and active-playback
   states.
-- [ ] Replace the Android mobile inline server fields with a saved PC-library
+- [x] Replace the Android mobile inline server fields with a saved PC-library
   connection picker or settings sheet once pairing persistence is available.
 - [ ] Verify playback and overlays on a physical Android TV device.
 

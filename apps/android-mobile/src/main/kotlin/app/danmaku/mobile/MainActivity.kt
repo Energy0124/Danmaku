@@ -251,30 +251,40 @@ private fun MobilePlayerScreen() {
             }
         }
     }
-    val refreshLibrary: () -> Unit = {
+    fun connectToLibrary(
+        requestedServerUrl: String,
+        requestedPairingToken: String,
+        fallbackDisplayName: String? = null,
+    ) {
         scope.launch {
             runCatching {
                 withContext(Dispatchers.IO) {
-                    val fetchedCatalog = libraryClient.fetchCatalog(serverUrl, pairingToken)
+                    val fetchedCatalog = libraryClient.fetchCatalog(requestedServerUrl, requestedPairingToken)
                     val fetchedProgress = runCatching {
-                        progressSync.fetchAllProgress(serverUrl, pairingToken)
+                        progressSync.fetchAllProgress(requestedServerUrl, requestedPairingToken)
                     }.getOrDefault(emptyList())
                     fetchedCatalog to fetchedProgress
                 }
             }.onSuccess {
+                serverUrl = requestedServerUrl.trim().trimEnd('/')
+                pairingToken = requestedPairingToken
                 catalog = it.first
                 playbackProgresses = it.second
                 connectionStore.saveCurrentConnection(
-                    baseUrl = serverUrl,
-                    pairingToken = pairingToken,
-                    displayName = it.first.rootName,
+                    baseUrl = requestedServerUrl,
+                    pairingToken = requestedPairingToken,
+                    displayName = it.first.rootName.ifBlank { fallbackDisplayName },
                 )
                 savedConnections = connectionStore.loadProfiles()
                 libraryError = null
+                selectedTab = MobileTab.Library
             }.onFailure {
                 libraryError = it.message
             }
         }
+    }
+    val refreshLibrary: () -> Unit = {
+        connectToLibrary(serverUrl, pairingToken)
     }
     val playEpisode: (LibraryMediaItem) -> Unit = { item ->
         val activeController = controller
@@ -375,6 +385,13 @@ private fun MobilePlayerScreen() {
                 onServerUrlChange = { serverUrl = it },
                 onPairingTokenChange = { pairingToken = it },
                 onSelectConnection = {
+                    connectToLibrary(
+                        requestedServerUrl = it.baseUrl,
+                        requestedPairingToken = it.pairingToken,
+                        fallbackDisplayName = it.displayName,
+                    )
+                },
+                onEditConnection = {
                     serverUrl = it.baseUrl
                     pairingToken = it.pairingToken
                 },
@@ -1110,6 +1127,7 @@ private fun ConnectPage(
     onServerUrlChange: (String) -> Unit,
     onPairingTokenChange: (String) -> Unit,
     onSelectConnection: (LanLibraryConnectionProfile) -> Unit,
+    onEditConnection: (LanLibraryConnectionProfile) -> Unit,
     onForgetConnection: (LanLibraryConnectionProfile) -> Unit,
     onSaveConnection: () -> Unit,
     onDiscover: () -> Unit,
@@ -1149,6 +1167,7 @@ private fun ConnectPage(
                 onServerUrlChange = onServerUrlChange,
                 onPairingTokenChange = onPairingTokenChange,
                 onSelectConnection = onSelectConnection,
+                onEditConnection = onEditConnection,
                 onForgetConnection = onForgetConnection,
                 onSaveConnection = onSaveConnection,
                 onDiscover = onDiscover,
@@ -1577,7 +1596,7 @@ private fun LibraryHeader(
 }
 
 @Composable
-private fun ConnectionPanel(
+internal fun ConnectionPanel(
     catalog: LibraryCatalog?,
     serverUrl: String,
     pairingToken: String,
@@ -1586,11 +1605,16 @@ private fun ConnectionPanel(
     onServerUrlChange: (String) -> Unit,
     onPairingTokenChange: (String) -> Unit,
     onSelectConnection: (LanLibraryConnectionProfile) -> Unit,
+    onEditConnection: (LanLibraryConnectionProfile) -> Unit,
     onForgetConnection: (LanLibraryConnectionProfile) -> Unit,
     onSaveConnection: () -> Unit,
     onDiscover: () -> Unit,
     onRefresh: () -> Unit,
 ) {
+    var showManualFields by remember(savedConnections.isEmpty()) {
+        mutableStateOf(savedConnections.isEmpty())
+    }
+
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -1622,37 +1646,51 @@ private fun ConnectionPanel(
             }
 
             if (savedConnections.isNotEmpty()) {
-                Text(
-                    "Saved PCs",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        "Saved PCs",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        "Connect to a remembered Windows library or edit the manual pairing details.",
+                        color = SubtleText,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     savedConnections.forEach { connection ->
                         SavedConnectionRow(
                             connection = connection,
                             isSelected = connection.normalizedBaseUrl == serverUrl.trim().trimEnd('/'),
                             onSelect = { onSelectConnection(connection) },
+                            onEdit = {
+                                onEditConnection(connection)
+                                showManualFields = true
+                            },
                             onForget = { onForgetConnection(connection) },
                         )
                     }
                 }
             }
 
-            OutlinedTextField(
-                value = serverUrl,
-                onValueChange = onServerUrlChange,
-                label = { Text("Server URL") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            OutlinedTextField(
-                value = pairingToken,
-                onValueChange = onPairingTokenChange,
-                label = { Text("Pairing code") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            if (showManualFields) {
+                OutlinedTextField(
+                    value = serverUrl,
+                    onValueChange = onServerUrlChange,
+                    label = { Text("Server URL") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = pairingToken,
+                    onValueChange = onPairingTokenChange,
+                    label = { Text("Pairing code") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -1660,11 +1698,17 @@ private fun ConnectionPanel(
                 Button(onClick = onDiscover) {
                     Text("Discover PC")
                 }
-                OutlinedButton(onClick = onRefresh) {
-                    Text("Refresh library")
-                }
-                OutlinedButton(onClick = onSaveConnection) {
-                    Text("Save current")
+                if (showManualFields) {
+                    OutlinedButton(onClick = onRefresh) {
+                        Text("Connect current")
+                    }
+                    OutlinedButton(onClick = onSaveConnection) {
+                        Text("Save current")
+                    }
+                } else {
+                    OutlinedButton(onClick = { showManualFields = true }) {
+                        Text("Manual setup")
+                    }
                 }
             }
 
@@ -1680,6 +1724,7 @@ private fun SavedConnectionRow(
     connection: LanLibraryConnectionProfile,
     isSelected: Boolean,
     onSelect: () -> Unit,
+    onEdit: () -> Unit,
     onForget: () -> Unit,
 ) {
     Surface(
@@ -1688,36 +1733,56 @@ private fun SavedConnectionRow(
         color = if (isSelected) Color(0xFF273747) else PanelColor,
         border = BorderStroke(1.dp, if (isSelected) AccentBlue else Color(0xFF343D45)),
     ) {
-        Row(
+        Column(
             modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    connection.displayName,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    connection.normalizedBaseUrl,
-                    color = SubtleText,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            OutlinedButton(
-                onClick = onSelect,
-                modifier = Modifier.testTag("saved-connection:${connection.id}"),
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Text(if (isSelected) "Selected" else "Use")
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        connection.displayName,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        connection.normalizedBaseUrl,
+                        color = SubtleText,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                if (isSelected) {
+                    StatusPill("Selected")
+                }
             }
-            TextButton(
-                onClick = onForget,
-                modifier = Modifier.testTag("saved-connection-forget:${connection.id}"),
+
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Text("Forget")
+                Button(
+                    onClick = onSelect,
+                    modifier = Modifier.testTag("saved-connection:${connection.id}"),
+                ) {
+                    Text(if (isSelected) "Reconnect" else "Connect")
+                }
+                OutlinedButton(
+                    onClick = onEdit,
+                    modifier = Modifier.testTag("saved-connection-edit:${connection.id}"),
+                ) {
+                    Text("Edit")
+                }
+                TextButton(
+                    onClick = onForget,
+                    modifier = Modifier.testTag("saved-connection-forget:${connection.id}"),
+                ) {
+                    Text("Forget")
+                }
             }
         }
     }

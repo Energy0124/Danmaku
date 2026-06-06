@@ -223,8 +223,9 @@ Updated on 2026-06-06.
   and Recently Watched rails for detail, resume, next-episode, first-start, and
   recent activity actions.
 - Android mobile persists recently used PC-library connection profiles after a
-  successful refresh and exposes a saved-PC picker on the Connect screen while
-  retaining manual URL and pairing-code entry.
+  successful refresh and exposes a saved-PC picker on the Connect screen.
+  Remembered PCs can connect directly, be edited back into the manual URL/code
+  fields, or be forgotten; manual setup remains available on demand.
 - Android mobile has compile-checked Compose instrumentation coverage for the
   Library page empty, connected-catalog, selected-series detail, Next Up,
   Continue Watching, Recently Watched, episode detail, watch-state labels,
