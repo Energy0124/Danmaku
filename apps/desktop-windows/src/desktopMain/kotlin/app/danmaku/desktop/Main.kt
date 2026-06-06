@@ -87,6 +87,8 @@ import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryCatalogQuery
 import app.danmaku.domain.LibraryCatalogSort
 import app.danmaku.domain.LibraryMediaItem
+import app.danmaku.domain.LibraryNextUpItem
+import app.danmaku.domain.LibraryNextUpReason
 import app.danmaku.domain.LibrarySeries
 import app.danmaku.domain.LibrarySubtitleFilter
 import app.danmaku.domain.PlaybackCommand
@@ -98,6 +100,7 @@ import app.danmaku.domain.PlaybackTrackKind
 import app.danmaku.domain.filteredItems
 import app.danmaku.domain.groupedSeries
 import app.danmaku.domain.nextItem
+import app.danmaku.domain.nextUpItems
 import app.danmaku.domain.previousItem
 import app.danmaku.domain.resumePositionMs
 import app.danmaku.domain.toPlaybackProgress
@@ -1864,6 +1867,9 @@ private fun MediaLibraryTab(
     remoteBrowser: @Composable () -> Unit,
 ) {
     TabScaffold {
+        val nextUpItems = remember(indexedLibrary, playbackProgresses) {
+            indexedLibrary?.catalog?.nextUpItems(playbackProgresses).orEmpty()
+        }
         val continueWatchingItems = remember(indexedLibrary, playbackProgresses) {
             indexedLibrary?.catalog?.continueWatchingItems(playbackProgresses).orEmpty()
         }
@@ -1899,6 +1905,25 @@ private fun MediaLibraryTab(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            SectionCard(
+                title = "Next Up",
+                modifier = Modifier.weight(1f),
+            ) {
+                if (nextUpItems.isEmpty()) {
+                    EmptyState("Index local episodes to build a next-up queue.")
+                } else {
+                    LazyColumn(modifier = Modifier.heightIn(max = 220.dp)) {
+                        items(nextUpItems, key = { it.mediaItem.id }) { item ->
+                            NextUpRow(
+                                item = item,
+                                isPreparing = isPreparingLocalPlayback,
+                                onPrepareLocalPlayback = onPrepareLocalPlayback,
+                                onPlayLocalPlayback = onPlayLocalPlayback,
+                            )
+                        }
+                    }
+                }
+            }
             SectionCard(
                 title = "Continue Watching",
                 modifier = Modifier.weight(1f),
@@ -2599,6 +2624,47 @@ private fun DesktopSeriesDetailPanel(
 }
 
 @Composable
+private fun NextUpRow(
+    item: LibraryNextUpItem,
+    isPreparing: Boolean,
+    onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
+    onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(item.mediaItem.seriesTitle, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(item.mediaItem.episodeTitle, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                item.nextUpLabel(),
+                color = DanmakuColors.TextMuted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = { onPrepareLocalPlayback(item.mediaItem) },
+                enabled = !isPreparing,
+            ) {
+                Text(if (isPreparing) "Preparing..." else "Prepare")
+            }
+            Button(
+                onClick = { onPlayLocalPlayback(item.mediaItem) },
+                enabled = !isPreparing,
+            ) {
+                Text(if (isPreparing) "Loading..." else item.nextUpActionLabel())
+            }
+        }
+    }
+}
+
+@Composable
 private fun ContinueWatchingRow(
     item: DesktopPlaybackProgressItem,
     isPreparing: Boolean,
@@ -2919,6 +2985,20 @@ private fun Long.formatLibrarySize(): String {
         String.format(Locale.US, "%.1f MiB", bytes / (1024.0 * 1024.0))
     }
 }
+
+private fun LibraryNextUpItem.nextUpLabel(): String =
+    when (reason) {
+        LibraryNextUpReason.RESUME -> "Resume at ${progress?.positionMs?.formatPlaybackTime() ?: "saved position"}"
+        LibraryNextUpReason.NEXT_EPISODE -> "Next after ${sourceProgress?.positionMs?.formatPlaybackTime() ?: "last watched"}"
+        LibraryNextUpReason.START -> "Start watching this library"
+    }
+
+private fun LibraryNextUpItem.nextUpActionLabel(): String =
+    when (reason) {
+        LibraryNextUpReason.RESUME -> "Resume"
+        LibraryNextUpReason.NEXT_EPISODE,
+        LibraryNextUpReason.START -> "Play"
+    }
 
 private const val PLAYBACK_HOST_SETTLE_DELAY_MS = 300L
 

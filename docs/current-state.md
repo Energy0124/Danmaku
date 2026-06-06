@@ -93,6 +93,10 @@ Updated on 2026-06-06.
   cadence, with forced saves after pause and seek.
 - Windows media library shows continue-watching and recently-watched lists for
   local episodes backed by the persisted playback-progress table.
+- Shared next-up helpers derive resumable episodes, the next catalog item after
+  near-finished playback, and a first-start fallback from catalog order plus
+  playback progress. The Windows media library exposes that as a local Next Up
+  card with prepare/play actions.
 - Shared catalog helpers expose previous/next item lookup in catalog order, and
   the Windows prepared-playback card can prepare the neighboring local episode.
 - Windows local library rows, continue-watching rows, and recently-watched rows
