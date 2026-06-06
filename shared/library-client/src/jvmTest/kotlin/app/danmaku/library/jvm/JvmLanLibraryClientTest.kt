@@ -1,6 +1,7 @@
 package app.danmaku.library.jvm
 
 import app.danmaku.domain.LibraryCatalog
+import app.danmaku.domain.LanLibraryServerStatus
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySubtitleTrack
 import app.danmaku.domain.PlaybackProgress
@@ -71,6 +72,7 @@ class JvmLanLibraryClientTest {
                 server.start()
                 val client = JvmLanLibraryClient()
 
+                assertEquals(LanLibraryServerStatus(), client.fetchServerStatus(server.baseUrl()))
                 assertEquals(catalog, client.fetchCatalog(server.baseUrl(), server.pairingToken))
                 assertContentEquals(
                     mediaBytes,

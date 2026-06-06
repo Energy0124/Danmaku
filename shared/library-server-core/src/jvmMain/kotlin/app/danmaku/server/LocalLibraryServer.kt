@@ -1,6 +1,7 @@
 package app.danmaku.server
 
 import app.danmaku.domain.LibraryMediaItem
+import app.danmaku.domain.LanLibraryServerStatus
 import app.danmaku.domain.PlaybackProgress
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
@@ -39,6 +40,7 @@ class LocalLibraryServer(
             "authenticated hook paths must be unique"
         }
         server.executor = executor
+        server.createContext("/api/server/status", ::handleServerStatus)
         server.createContext("/api/library", ::handleCatalog)
         server.createContext("/api/progress", ::handleProgressList)
         server.createContext("/api/progress/", ::handleProgress)
@@ -58,6 +60,22 @@ class LocalLibraryServer(
     fun publish(library: PublishedLibrary) {
         this.library = library
         recordEvent("library", "PUBLISH", "/api/library", 200, "items=${library.catalog.items.size}")
+    }
+
+    private fun handleServerStatus(exchange: HttpExchange) {
+        if (exchange.requestMethod != "GET") {
+            exchange.recordRequest("server-status", 405, "method=${exchange.requestMethod}")
+            exchange.sendStatus(405)
+            return
+        }
+
+        val status = LanLibraryServerStatus()
+        exchange.recordRequest(
+            "server-status",
+            200,
+            "api=${status.apiVersion}; pairingRequired=${status.pairingRequired}",
+        )
+        exchange.sendJson(Json.encodeToString(status))
     }
 
     fun networkUrls(): List<String> =

@@ -1,6 +1,7 @@
 package app.danmaku.library
 
 import app.danmaku.domain.LibraryCatalog
+import app.danmaku.domain.LanLibraryServerStatus
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySubtitleTrack
 import app.danmaku.domain.PlaybackPosition
@@ -184,6 +185,9 @@ class LanPlaybackProgressSyncTest {
         private val progresses: List<PlaybackProgress> = progress?.let(::listOf).orEmpty(),
     ) : LanLibraryClient {
         var savedProgress: PlaybackProgress? = null
+
+        override fun fetchServerStatus(baseUrl: String): LanLibraryServerStatus =
+            LanLibraryServerStatus()
 
         override fun fetchCatalog(baseUrl: String, pairingToken: String): LibraryCatalog =
             error("not used")

@@ -1,6 +1,7 @@
 package app.danmaku.library.android
 
 import app.danmaku.domain.LibraryCatalog
+import app.danmaku.domain.LanLibraryServerStatus
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySubtitleTrack
 import app.danmaku.domain.PlaybackProgress
@@ -64,6 +65,7 @@ class LanLibraryClientIntegrationTest {
                 server.start()
                 val client = LanLibraryClient()
 
+                assertEquals(LanLibraryServerStatus(), client.fetchServerStatus(server.baseUrl()))
                 assertEquals(catalog, client.fetchCatalog(server.baseUrl(), server.pairingToken))
                 assertArrayEquals(
                     mediaBytes,

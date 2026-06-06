@@ -1,6 +1,7 @@
 package app.danmaku.server
 
 import app.danmaku.domain.LibraryCatalog
+import app.danmaku.domain.LanLibraryServerStatus
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySubtitleTrack
 import app.danmaku.domain.PlaybackProgress
@@ -21,6 +22,24 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class LocalLibraryServerTest {
+    @Test
+    fun exposesUnauthenticatedServerStatusForCompatibilityChecks() {
+        LocalLibraryServer(port = 0, pairingToken = "123456").use { server ->
+            server.start()
+
+            val response = connection("${server.baseUrl()}/api/server/status")
+
+            assertEquals(200, response.responseCode)
+            assertEquals("application/json; charset=utf-8", response.getHeaderField("Content-Type"))
+            assertEquals(
+                LanLibraryServerStatus(),
+                Json.decodeFromString<LanLibraryServerStatus>(
+                    response.inputStream.bufferedReader().use { it.readText() },
+                ),
+            )
+        }
+    }
+
     @Test
     fun streamsOnlyPublishedSubtitleTracks() {
         val subtitleFile = createTempFile("danmaku-subtitle", ".srt")

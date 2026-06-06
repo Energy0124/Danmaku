@@ -188,6 +188,10 @@ Updated on 2026-06-06.
   paired HTTP server, progress-store contract, verified media-ID publication
   boundary, and UDP discovery announcer. The Windows desktop shell starts it in
   embedded mode.
+- Paired LAN servers expose an unauthenticated `GET /api/server/status`
+  compatibility probe with API version, pairing requirement, streaming,
+  progress-sync, and trusted-device-management capability flags. Shared JVM and
+  Android clients can read it before attempting a paired catalog request.
 - File-backed Windows library-folder selection, startup index restoration, and
   one-click rescanning.
 - SQLDelight 2.3.2 SQLite catalog persistence with immediate cached serving on
@@ -305,11 +309,12 @@ Updated on 2026-06-06.
 - Android catalog client used by mobile and TV to browse the Windows index and
   stream selected episodes.
 - Shared Kotlin `shared/library-client` contract for catalog browsing,
-  stream-URL generation, progress upload, and resume lookup. Its JVM source set
-  includes the HTTP adapter used by the Windows shell for same-PC or remote
-  paired-server browsing and stream selection. Android HTTP and UDP discovery
-  remain platform adapters. JVM and Android LAN clients use configurable HTTP
-  connect/read timeouts with stable production defaults.
+  server compatibility probing, stream-URL generation, progress upload, and
+  resume lookup. Its JVM source set includes the HTTP adapter used by the
+  Windows shell for same-PC or remote paired-server browsing and stream
+  selection. Android HTTP and UDP discovery remain platform adapters. JVM and
+  Android LAN clients use configurable HTTP connect/read timeouts with stable
+  production defaults.
 - Shared LAN playback preparation converts a paired catalog item into a
   tokenized `RemoteStream` plus resume position; the Windows shell uses it for
   same-PC or remote paired-server playback handoff through the native libmpv

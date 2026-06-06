@@ -1,6 +1,7 @@
 package app.danmaku.library.jvm
 
 import app.danmaku.domain.LibraryCatalog
+import app.danmaku.domain.LanLibraryServerStatus
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySubtitleTrack
 import app.danmaku.domain.PlaybackProgress
@@ -21,6 +22,20 @@ class JvmLanLibraryClient(
     init {
         require(connectTimeoutMillis > 0) { "connectTimeoutMillis must be positive" }
         require(readTimeoutMillis > 0) { "readTimeoutMillis must be positive" }
+    }
+
+    override fun fetchServerStatus(baseUrl: String): LanLibraryServerStatus {
+        val connection = open("${baseUrl.trimEnd('/')}/api/server/status")
+        return try {
+            check(connection.responseCode == HttpURLConnection.HTTP_OK) {
+                "Library server returned HTTP ${connection.responseCode}"
+            }
+            json.decodeFromString(
+                connection.inputStream.bufferedReader().use { it.readText() },
+            )
+        } finally {
+            connection.disconnect()
+        }
     }
 
     override fun fetchCatalog(

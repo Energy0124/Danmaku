@@ -1,6 +1,7 @@
 package app.danmaku.library
 
 import app.danmaku.domain.LibraryCatalog
+import app.danmaku.domain.LanLibraryServerStatus
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySubtitleTrack
 import app.danmaku.domain.PlaybackProgress
@@ -10,6 +11,8 @@ import app.danmaku.domain.resumePositionMs
 import app.danmaku.domain.toPlaybackProgress
 
 interface LanLibraryClient {
+    fun fetchServerStatus(baseUrl: String): LanLibraryServerStatus
+
     fun fetchCatalog(
         baseUrl: String,
         pairingToken: String,

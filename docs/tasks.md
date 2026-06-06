@@ -183,6 +183,9 @@ unblocked slices inside these tracks as the vertical slice hardens.
 - [x] Add trusted-LAN pairing codes.
 - [x] Add background MediaSession service integration.
 - [x] Add LAN server discovery.
+- [x] Add an unauthenticated LAN server compatibility/status probe and shared
+  JVM/Android client methods as a foundation for pairing compatibility errors
+  and trusted-device management.
 - [x] Add TV D-pad and focus-navigation instrumentation tests.
 - [x] Add LAN playback progress upload and resume seeking.
 - [x] Move LAN playback progress uploads into the background playback service.
@@ -256,6 +259,8 @@ unblocked slices inside these tracks as the vertical slice hardens.
   generation, progress upload, and resume lookup.
 - [x] Add a token-protected catalog-wide LAN progress endpoint and shared,
   JVM, and Android client methods for cross-device next-up surfaces.
+- [x] Add a shared LAN server status contract plus server, JVM client, and
+  Android client support for pre-pairing compatibility checks.
 - [x] Add a JVM HTTP transport adapter and loopback client-to-server fixture for
   the planned Windows remote-playback path.
 - [x] Reuse the shared LAN client contract from Windows, Android, and Android TV
