@@ -1,4 +1,3 @@
-#[cfg(windows)]
 fn main() {
     if let Err(error) = run() {
         eprintln!("libmpv probe failed: {error}");
@@ -6,7 +5,6 @@ fn main() {
     }
 }
 
-#[cfg(windows)]
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     use player_windows_mpv::{MpvLibrary, find_library_for_current_process};
 
@@ -20,10 +18,4 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     println!("mpv context initialized successfully");
 
     Ok(())
-}
-
-#[cfg(not(windows))]
-fn main() {
-    eprintln!("the libmpv probe is only supported on Windows");
-    std::process::exit(1);
 }

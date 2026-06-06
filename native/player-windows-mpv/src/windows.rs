@@ -1,11 +1,15 @@
 use std::{
     ffi::{CStr, CString, c_char, c_void},
     fmt, mem,
-    os::windows::ffi::OsStrExt,
     path::{Path, PathBuf},
     ptr::NonNull,
     sync::Arc,
 };
+
+#[cfg(unix)]
+use std::os::unix::ffi::OsStrExt;
+#[cfg(windows)]
+use std::os::windows::ffi::OsStrExt;
 
 type MpvClientApiVersion = unsafe extern "C" fn() -> u64;
 type MpvCreate = unsafe extern "C" fn() -> *mut MpvHandle;
@@ -273,6 +277,7 @@ struct Module {
 }
 
 impl Module {
+    #[cfg(windows)]
     fn load(path: &Path) -> Result<Self, LibraryLoadError> {
         let wide_path: Vec<_> = path
             .as_os_str()
@@ -289,10 +294,27 @@ impl Module {
         })
     }
 
+    #[cfg(unix)]
+    fn load(path: &Path) -> Result<Self, LibraryLoadError> {
+        let path_name = CString::new(path.as_os_str().as_bytes())
+            .map_err(|_| LibraryLoadError::LoadFailed(path.to_path_buf()))?;
+        let handle = unsafe { dlopen(path_name.as_ptr(), RTLD_NOW) };
+        let handle =
+            NonNull::new(handle).ok_or_else(|| LibraryLoadError::LoadFailed(path.to_path_buf()))?;
+
+        Ok(Self {
+            handle,
+            path: path.to_path_buf(),
+        })
+    }
+
     fn symbol(&self, symbol: &str) -> Result<*mut c_void, LibraryLoadError> {
         let symbol_name = CString::new(symbol)
             .map_err(|_| LibraryLoadError::InvalidSymbolName(symbol.to_owned()))?;
+        #[cfg(windows)]
         let address = unsafe { GetProcAddress(self.handle.as_ptr(), symbol_name.as_ptr()) };
+        #[cfg(unix)]
+        let address = unsafe { dlsym(self.handle.as_ptr(), symbol_name.as_ptr()) };
 
         if address.is_null() {
             Err(LibraryLoadError::MissingSymbol {
@@ -307,17 +329,37 @@ impl Module {
 
 impl Drop for Module {
     fn drop(&mut self) {
+        #[cfg(windows)]
         unsafe {
             FreeLibrary(self.handle.as_ptr());
+        }
+        #[cfg(unix)]
+        unsafe {
+            dlclose(self.handle.as_ptr());
         }
     }
 }
 
+#[cfg(windows)]
 #[link(name = "kernel32")]
 unsafe extern "system" {
     fn LoadLibraryW(file_name: *const u16) -> *mut c_void;
     fn GetProcAddress(module: *mut c_void, procedure_name: *const c_char) -> *mut c_void;
     fn FreeLibrary(module: *mut c_void) -> i32;
+}
+
+#[cfg(unix)]
+const RTLD_NOW: i32 = 2;
+
+#[cfg(all(unix, not(target_os = "macos")))]
+#[link(name = "dl")]
+unsafe extern "C" {}
+
+#[cfg(unix)]
+unsafe extern "C" {
+    fn dlopen(file_name: *const c_char, flags: i32) -> *mut c_void;
+    fn dlsym(handle: *mut c_void, symbol: *const c_char) -> *mut c_void;
+    fn dlclose(handle: *mut c_void) -> i32;
 }
 
 #[cfg(test)]

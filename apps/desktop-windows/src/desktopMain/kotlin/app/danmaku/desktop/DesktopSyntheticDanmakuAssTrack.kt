@@ -145,7 +145,7 @@ private val SYNTHETIC_DANMAKU_EVENTS = listOf(
     syntheticDanmakuEvent(id = "two", timestampMs = 650, text = "Now rendered on top of mpv"),
     syntheticDanmakuEvent(id = "three", timestampMs = 1_100, text = "Collision-aware lanes"),
     syntheticDanmakuEvent(id = "four", timestampMs = 1_750, text = "Seek-safe deterministic layout"),
-    syntheticDanmakuEvent(id = "five", timestampMs = 2_900, text = "Windows ASS overlay path"),
+    syntheticDanmakuEvent(id = "five", timestampMs = 2_900, text = "Desktop ASS overlay path"),
     syntheticDanmakuEvent(id = "six", timestampMs = 4_200, text = "Real danmaku parser comes next"),
     syntheticDanmakuEvent(id = "seven", timestampMs = 6_400, text = "Looping synthetic track"),
     syntheticDanmakuEvent(id = "eight", timestampMs = 7_200, text = "Danmaku"),

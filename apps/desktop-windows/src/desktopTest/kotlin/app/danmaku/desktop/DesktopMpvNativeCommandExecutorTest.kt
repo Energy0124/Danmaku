@@ -13,9 +13,10 @@ class DesktopMpvNativeCommandExecutorTest {
     @Test
     fun createsNativeHandleForwardsCommandsAndDestroysIt() {
         val nativeLibrary = RecordingDesktopMpvNativeLibrary()
+        val libmpvPath = Path.of("S:/runtime/windows/libmpv/libmpv-2.dll")
         val executor = DesktopMpvNativeCommandExecutor.create(
             nativeLibrary = nativeLibrary,
-            libmpvPath = Path.of("S:/runtime/windows/libmpv/libmpv-2.dll"),
+            libmpvPath = libmpvPath,
             options = mapOf(
                 "wid" to "4294967295",
                 "hwdec" to "auto-safe",
@@ -33,7 +34,7 @@ class DesktopMpvNativeCommandExecutorTest {
         )
         executor.close()
 
-        assertTrue(nativeLibrary.createdLibmpvPath.endsWith("runtime\\windows\\libmpv\\libmpv-2.dll"))
+        assertEquals(libmpvPath.toAbsolutePath().normalize().toString(), nativeLibrary.createdLibmpvPath)
         assertEquals(
             mapOf(
                 "wid" to "4294967295",

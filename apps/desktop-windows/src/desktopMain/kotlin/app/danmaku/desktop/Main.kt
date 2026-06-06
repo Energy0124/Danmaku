@@ -158,6 +158,7 @@ private fun DesktopShell(
     launchOptions: DesktopLaunchOptions = DesktopLaunchOptions(),
     onRequestExit: () -> Unit = {},
 ) {
+    val hostPlatform = remember { DesktopHostPlatform.current() }
     val selectionStore = remember { LocalLibrarySelectionStore.default() }
     val catalogStore = remember { DesktopLibraryCatalogStore.default() }
     val playbackPreferencesStore = remember(catalogStore) {
@@ -224,29 +225,43 @@ private fun DesktopShell(
         }
     }
     var mpvVideoWindowId by remember { mutableStateOf<Long?>(null) }
-    val mpvNativeOptions = remember(mpvVideoWindowId, diagnosticFileLog.mpvLogPath) {
+    val requiresNativeVideoHost = hostPlatform.requiresEmbeddedMpvVideoHost
+    val nativeVideoHostReady = !requiresNativeVideoHost || mpvVideoWindowId != null
+    val videoHostStatus = if (requiresNativeVideoHost) {
+        if (mpvVideoWindowId == null) {
+            "waiting for native window"
+        } else {
+            "attached"
+        }
+    } else {
+        "${hostPlatform.displayName} mpv-managed output"
+    }
+    val mpvNativeOptions = remember(hostPlatform, mpvVideoWindowId, diagnosticFileLog.mpvLogPath) {
         buildMap {
             put("config", "no")
             put("terminal", "no")
             put("msg-level", "all=v")
             put("log-file", diagnosticFileLog.mpvLogPath.toAbsolutePath().normalize().toString())
-            mpvVideoWindowId
-                ?.let(DesktopMpvWindowsOptions::forWindowId)
-                ?.let(::putAll)
+            if (hostPlatform == DesktopHostPlatform.WINDOWS) {
+                mpvVideoWindowId
+                    ?.let(DesktopMpvWindowsOptions::forWindowId)
+                    ?.let(::putAll)
+            }
         }
     }
-    val mpvRuntime = remember(mpvVideoWindowId, mpvNativeOptions) {
-        if (mpvVideoWindowId == null) {
+    val mpvRuntime = remember(hostPlatform, nativeVideoHostReady, mpvNativeOptions) {
+        if (!nativeVideoHostReady) {
             DesktopMpvCommandExecutorRuntime(
                 executor = DesktopMpvCommandExecutor { command ->
                     mpvCommandLog += command
                     appendDiagnostic("mpv", "command ${command.args.joinToString(separator = " ")}")
                 },
                 mode = DesktopMpvCommandExecutorMode.COMMAND_LOG_ONLY,
-                statusMessage = "Native mpv video host is not ready. Command-log-only mode is active.",
+                statusMessage = "Native mpv video host is not ready on ${hostPlatform.displayName}. " +
+                    "Command-log-only mode is active.",
             )
         } else {
-            DesktopMpvCommandExecutorRuntimeFactory().create(
+            DesktopMpvCommandExecutorRuntimeFactory(platform = hostPlatform).create(
                 nativeOptions = mpvNativeOptions,
             ) { command ->
                 mpvCommandLog += command
@@ -268,10 +283,12 @@ private fun DesktopShell(
     LaunchedEffect(mpvRuntime, mpvVideoWindowId) {
         appendDiagnostic(
             "mpv",
-            if (mpvVideoWindowId == null) {
-                "Created mpv runtime without video window"
+            if (requiresNativeVideoHost && mpvVideoWindowId == null) {
+                "Created mpv runtime without video window on ${hostPlatform.displayName}"
+            } else if (requiresNativeVideoHost) {
+                "Created mpv runtime for native window $mpvVideoWindowId on ${hostPlatform.displayName}"
             } else {
-                "Created mpv runtime for native window $mpvVideoWindowId"
+                "Created mpv runtime with ${hostPlatform.displayName} mpv-managed output"
             },
         )
         appendDiagnostic("diagnostics", "App log: ${diagnosticFileLog.appLogPath}")
@@ -557,7 +574,11 @@ private fun DesktopShell(
         pendingPlaybackRequest = request
         appendDiagnostic(
             "playback",
-            "Queued playback until native video host attaches: ${request.label}; source=${request.source.toString().redactToken()}",
+            if (requiresNativeVideoHost) {
+                "Queued playback until native video host attaches: ${request.label}; source=${request.source.toString().redactToken()}"
+            } else {
+                "Queued playback for ${hostPlatform.displayName} mpv output: ${request.label}; source=${request.source.toString().redactToken()}"
+            },
         )
         selectedTab = DesktopShellTab.PLAYBACK
     }
@@ -812,17 +833,23 @@ private fun DesktopShell(
         queueSmokePlayback(smokePlayback)
     }
 
-    LaunchedEffect(selectedTab, mpvVideoWindowId, pendingPlaybackRequest, playbackSession) {
+    LaunchedEffect(selectedTab, nativeVideoHostReady, pendingPlaybackRequest, playbackSession) {
         val request = pendingPlaybackRequest ?: return@LaunchedEffect
-        if (selectedTab != DesktopShellTab.PLAYBACK || mpvVideoWindowId == null) {
+        if (selectedTab != DesktopShellTab.PLAYBACK || !nativeVideoHostReady) {
             return@LaunchedEffect
         }
         appendDiagnostic(
             "playback",
-            "Native video host ready; waiting ${PLAYBACK_HOST_SETTLE_DELAY_MS}ms before queued load: ${request.label}",
+            if (requiresNativeVideoHost) {
+                "Native video host ready; waiting ${PLAYBACK_HOST_SETTLE_DELAY_MS}ms before queued load: ${request.label}"
+            } else {
+                "Native mpv runtime ready; loading queued playback: ${request.label}"
+            },
         )
-        delay(PLAYBACK_HOST_SETTLE_DELAY_MS)
-        if (pendingPlaybackRequest != request || selectedTab != DesktopShellTab.PLAYBACK || mpvVideoWindowId == null) {
+        if (requiresNativeVideoHost) {
+            delay(PLAYBACK_HOST_SETTLE_DELAY_MS)
+        }
+        if (pendingPlaybackRequest != request || selectedTab != DesktopShellTab.PLAYBACK || !nativeVideoHostReady) {
             appendDiagnostic("playback", "Queued playback changed before load; skipping stale request: ${request.label}")
             return@LaunchedEffect
         }
@@ -929,17 +956,13 @@ private fun DesktopShell(
                             playbackLabel = activePlaybackLabel,
                             playbackSnapshot = playbackSnapshot,
                             mpvRuntimeStatus = mpvRuntime.statusMessage,
-                            videoHostStatus = if (mpvVideoWindowId == null) {
-                                "waiting for native window"
-                            } else {
-                                "attached"
-                            },
+                            videoHostStatus = videoHostStatus,
                             overlayStatus = overlayStatus,
                             onWindowIdChanged = { mpvVideoWindowId = it },
                             onOpenMediaFile = {
                                 appendDiagnostic("playback", "Opening direct media file picker")
                                 selectMediaFile(
-                                    title = "Choose media file for Windows playback",
+                                    title = "Choose media file for ${hostPlatform.displayName} playback",
                                 )?.let { mediaFile ->
                                     appendDiagnostic("playback", "Loading direct media file: $mediaFile")
                                     loadPlaybackRequest(mediaFile.toDirectLocalPlaybackRequest())
@@ -1105,7 +1128,7 @@ private fun DesktopShell(
                                     onLoadPreparedPlayback = { preparation ->
                                         appendDiagnostic(
                                             "playback",
-                                            "Loading remote stream into Windows controller: ${preparation.item.id}; source=${preparation.source.url}",
+                                            "Loading remote stream into ${hostPlatform.displayName} controller: ${preparation.item.id}; source=${preparation.source.url}",
                                         )
                                         queuePlaybackUntilHostReady(preparation.toDesktopPlaybackRequest())
                                     },
@@ -1125,11 +1148,7 @@ private fun DesktopShell(
                         )
                         DesktopShellTab.PROFILE -> ProfileTab(
                             mpvRuntimeStatus = mpvRuntime.statusMessage,
-                            videoHostStatus = if (mpvVideoWindowId == null) {
-                                "waiting for native window"
-                            } else {
-                                "attached"
-                            },
+                            videoHostStatus = videoHostStatus,
                             serverBaseUrl = server.baseUrl(),
                             networkUrls = networkUrls,
                             pairingToken = server.pairingToken,
@@ -1323,9 +1342,9 @@ private fun PlaybackTab(
     modifier: Modifier = Modifier,
 ) {
     var controlsVisible by remember { mutableStateOf(true) }
+    val focusRequester = remember { FocusRequester() }
     val hasMedia = playbackSnapshot.source != null
     val shouldAutoHide = hasMedia && playbackSnapshot.status == PlaybackStatus.PLAYING
-    val focusRequester = remember { FocusRequester() }
     fun handleShortcut(shortcut: DesktopPlayerShortcut): Boolean {
         if (!hasMedia) return false
         controlsVisible = true
@@ -1357,16 +1376,16 @@ private fun PlaybackTab(
         return true
     }
 
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
+
     LaunchedEffect(controlsVisible, shouldAutoHide) {
         if (controlsVisible && shouldAutoHide) {
             delay(PLAYER_CONTROLS_AUTO_HIDE_MS)
             controlsVisible = false
         }
     }
-    LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
-    }
-
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -2127,10 +2146,10 @@ private fun ProfileTab(
                 "UDP ${app.danmaku.domain.LanLibraryServerAnnouncement.DEFAULT_DISCOVERY_PORT}",
             )
         }
-        SectionCard("Windows Runtime") {
+        SectionCard("Desktop Runtime") {
             MetadataRow("mpv executor", mpvRuntimeStatus)
             MetadataRow("Video host", videoHostStatus)
-            MetadataRow("Renderer", "mpv child window with generated ASS danmaku overlay")
+            MetadataRow("Renderer", "mpv video output with generated ASS danmaku overlay")
             MetadataRow("App log", appLogPath.toString())
             MetadataRow("mpv log", mpvLogPath.toString())
         }
@@ -2651,8 +2670,8 @@ private fun RemoteLibraryBrowser(
         }
     }
 
-    Text("Windows paired library client")
-    Text("Defaults to this app's embedded same-PC server. Enter another PC URL to browse remotely.")
+    Text("Desktop paired library client")
+    Text("Defaults to this app's embedded same-machine server. Enter another desktop URL to browse remotely.")
     OutlinedTextField(
         value = serverUrl,
         onValueChange = {
@@ -2701,7 +2720,7 @@ private fun RemoteLibraryBrowser(
         }
     }
     selectedPlaybackPreparation?.let { preparation ->
-        Text("Prepared Windows playback: ${preparation.item.seriesTitle} - ${preparation.item.episodeTitle}")
+        Text("Prepared desktop playback: ${preparation.item.seriesTitle} - ${preparation.item.episodeTitle}")
         Text("Source: ${preparation.source.url.redactToken()}")
         Text("Resume: ${preparation.resumePositionMs?.let { "$it ms" } ?: "start from beginning"}")
         Button(
@@ -2709,7 +2728,7 @@ private fun RemoteLibraryBrowser(
                 onLoadPreparedPlayback(preparation)
             },
         ) {
-            Text("Load into Windows controller")
+            Text("Load into desktop controller")
         }
     }
 }

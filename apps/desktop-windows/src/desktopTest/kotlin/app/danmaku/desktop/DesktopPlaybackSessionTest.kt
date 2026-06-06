@@ -182,14 +182,16 @@ class DesktopPlaybackSessionTest {
 
     @Test
     fun mapsArbitraryLocalFilesToPlaybackRequests() {
+        val mediaPath = Path.of("Anime", "Example Show", "..", "Example Show", "Episode 01.mkv")
+        val normalizedPath = mediaPath.toAbsolutePath().normalize()
+
         assertEquals(
             DesktopPlaybackRequest(
                 label = "Episode 01.mkv",
-                source = PlaybackSource.LocalFile("S:\\Anime\\Example Show\\Episode 01.mkv"),
+                source = PlaybackSource.LocalFile(normalizedPath.toString()),
                 resumePositionMs = null,
             ),
-            Path.of("S:/Anime/Example Show/../Example Show/Episode 01.mkv")
-                .toDirectLocalPlaybackRequest(),
+            mediaPath.toDirectLocalPlaybackRequest(),
         )
     }
 

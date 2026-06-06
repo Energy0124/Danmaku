@@ -15,12 +15,12 @@ clear path to macOS, Linux, iOS, iPadOS, and web.
 flowchart TD
     Apps["Compose apps"] --> Shared["Shared Kotlin modules"]
     Apps --> Players["Platform player adapters"]
-    Android["Android and TV clients"] --> Lan["Windows LAN library server"]
+    Android["Android and TV clients"] --> Lan["Desktop LAN library server"]
     Lan --> Files["Indexed local anime files"]
     Shared --> Native["Focused Rust core"]
     Shared --> Db["SQLDelight / SQLite"]
     Shared --> Sources["Authorized source plugins"]
-    Players --> Mpv["Windows: libmpv"]
+    Players --> Mpv["Desktop: libmpv"]
     Players --> Media3["Android and TV: Media3 ExoPlayer"]
     Shared --> Api["Optional sync API"]
 ```
@@ -32,7 +32,8 @@ flowchart TD
 | Windows | Compose Multiplatform Desktop | libmpv | Rust download engine | First class |
 | Android | Jetpack Compose | Media3 ExoPlayer | Media3 DownloadService | First class |
 | Android TV | Compose for TV | Media3 ExoPlayer | Media3 DownloadService | First class |
-| macOS and Linux | Compose Multiplatform Desktop | libmpv | Rust download engine | Later |
+| macOS | Compose Multiplatform Desktop | libmpv, mpv-managed video output initially | Rust download engine | Experimental |
+| Linux | Compose Multiplatform Desktop | libmpv | Rust download engine | Later |
 | iOS and iPadOS | Compose Multiplatform or SwiftUI | AVPlayer | AVAssetDownloadTask | Later |
 | Web | React and TypeScript | HTML video and hls.js | Limited browser storage | Later |
 
@@ -45,7 +46,7 @@ relies on Compose TV focus traversal for remote navigation.
 
 ```text
 apps/
-  desktop-windows/       Compose desktop app and Windows packaging
+  desktop-windows/       Compose desktop app and desktop packaging
   android-mobile/        Android phone and tablet app
   android-tv/            TV-specific Compose app
 
@@ -61,19 +62,19 @@ shared/
 
 native/
   rust-core/             Parsing, indexing, and later desktop download helpers
-  player-windows-mpv/    Windows libmpv adapter
+  player-windows-mpv/    Desktop libmpv adapter
 ```
 
 Create modules when their first vertical slice needs them. Empty placeholder
 modules are avoided.
 
 `shared/library-server-core` is implemented as a Compose-free JVM module. The
-Windows desktop host owns indexing and SQLite persistence, then publishes a
+desktop host owns indexing and SQLite persistence, then publishes a
 narrow catalog and verified media-ID map to the embedded server.
 `shared/library-client` owns the portable catalog, stream-URL, progress, and
-resume contract plus the JVM HTTP adapter for Windows. Android-specific HTTP
+resume contract plus the JVM HTTP adapter for desktop clients. Android-specific HTTP
 and discovery code lives in `shared/library-client-android`. The desktop shell
-uses the Windows adapter for paired-server browsing and stream selection, then
+uses the JVM adapter for paired-server browsing and stream selection, then
 hands prepared sources to the native mpv command executor.
 
 Currently implemented modules:
@@ -120,11 +121,11 @@ how to execute that manifest.
 
 ## Local Library Streaming
 
-The Windows desktop shell owns the first local-library vertical slice:
+The desktop shell owns the first local-library vertical slice:
 
 ```mermaid
 flowchart LR
-    Folder["Anime folder"] --> Indexer["Recursive Windows indexer"]
+    Folder["Anime folder"] --> Indexer["Recursive desktop indexer"]
     Indexer --> Catalog["Normalized JSON catalog"]
     Indexer --> Files["Verified media ID to path map"]
     Catalog --> Server["LAN HTTP server :8686"]
@@ -142,7 +143,7 @@ The server exposes paired `GET /api/library?token={code}`,
 single HTTP byte ranges so Media3 can seek efficiently. Subtitle responses are
 limited to indexed `ASS`, `SSA`, `SRT`, and `VTT` sidecars associated with a
 catalog item. Only indexed IDs resolve to filesystem paths or progress records;
-clients never submit arbitrary Windows paths. The shell generates and displays
+clients never submit arbitrary host paths. The shell generates and displays
 a six-digit pairing code for the current server process. This first-stage HTTP
 server is for trusted local networks; use a stronger authenticated and
 encrypted transport before supporting untrusted networks. The intermediate
@@ -151,16 +152,18 @@ runtime modules. The uploaded portable Windows release is runtime-free, uses
 user-installed Java 17 or newer, and includes the packaged mpv bridge plus the
 separately licensed approved libmpv DLL beside the app.
 
-The Windows host also registers authenticated provider-completion hooks on the
+The desktop host also registers authenticated provider-completion hooks on the
 same server. The initial `POST /api/hooks/ani-rss/download-end` endpoint
 requires a separate high-entropy `X-Danmaku-Webhook-Token` header, debounces
 repeated notifications, and rescans only roots explicitly tagged as ani-rss
 output folders. The token is never placed in the URL or discovery
-announcements. The Windows host encrypts ani-rss API keys and webhook tokens
-with DPAPI before persisting them in SQLDelight settings, binding those secrets
-to the current Windows user.
+announcements. Windows encrypts ani-rss API keys and webhook tokens with DPAPI
+before persisting them in SQLDelight settings, binding those secrets to the
+current Windows user. macOS and other non-Windows desktop hosts use a local
+AES-GCM key under the app data directory until a platform keychain adapter is
+added.
 
-The Windows app also broadcasts a small UDP discovery announcement on port
+The desktop app also broadcasts a small UDP discovery announcement on port
 `8687`. Android clients derive the HTTP host from the packet source and the
 announced port. Pairing codes are deliberately excluded from discovery
 announcements and still require explicit entry on the client.
@@ -172,7 +175,7 @@ as separate Windows executables:
 
 ```mermaid
 flowchart LR
-    Desktop["Windows desktop app"] --> Embedded["Embedded library-server-core"]
+    Desktop["Desktop app"] --> Embedded["Embedded library-server-core"]
     Headless["Optional later headless server"] --> Embedded
     Embedded --> Catalog["Indexed library and progress storage"]
     WinClient["Windows player client"] --> Client["Shared library-client contract"]
@@ -180,8 +183,8 @@ flowchart LR
     Client --> Embedded
 ```
 
-The Windows desktop app starts the embedded server by default. It also retains
-direct local-file playback for media on the same host. A Windows player may use
+The desktop app starts the embedded server by default. It also retains direct
+local-file playback for media on the same host. A desktop player may use
 the shared LAN client contract when browsing another server or when exercising
 the same-PC integration path.
 
@@ -227,13 +230,16 @@ controls, including a subtitle-off action.
 Portable LAN client behavior lives in `shared/library-client`. Platform
 adapters implement its catalog, stream-URL, progress upload, and resume lookup
 contract. Android and Android TV use the existing `HttpURLConnection` adapter;
-the JVM source set contains the corresponding Windows HTTP adapter and loopback
+the JVM source set contains the corresponding desktop HTTP adapter and loopback
 integration fixture. The desktop shell browses paired catalogs and prepares LAN
 stream URLs through that adapter, then hands local or paired sources to the
 native mpv controller.
 
-The Windows adapter loads libmpv dynamically. Developer builds locate
-`libmpv-2.dll` from `DANMAKU_LIBMPV_PATH` or beside the packaged executable.
+The desktop adapter loads libmpv dynamically. Windows developer builds locate
+`libmpv-2.dll` from `DANMAKU_LIBMPV_PATH` or beside the packaged executable;
+macOS builds locate `libmpv.2.dylib` or `libmpv.dylib` from
+`DANMAKU_LIBMPV_PATH`, the app directory, `/opt/homebrew/lib`, or
+`/usr/local/lib`.
 The desktop JNA runtime locates Danmaku's Rust bridge from
 `DANMAKU_MPV_BRIDGE_PATH` or the JVM native-library search path.
 The bridge accepts coarse mpv options before initialization so the Windows host
@@ -242,6 +248,9 @@ The current Windows player parents mpv under a stable SwingPanel-backed native
 child window. Because heavyweight AWT composition sits above Compose, Windows
 renders indexed subtitles and danmaku as mpv subtitle/ASS tracks rather than
 depending on a Compose overlay over the video surface.
+macOS currently starts the same native mpv command runtime without `wid`, so
+mpv owns its video output window until an embedded AppKit/Skia render path is
+designed and validated.
 Danmaku's Windows release directly redistributes an approved, pinned,
 hash-verified LGPL libmpv DLL as a separately licensed dependency. Release
 packaging includes the applicable license texts, source and provenance notice,
@@ -258,16 +267,16 @@ flowchart LR
     Index --> Query["Query playback window"]
     Query --> Filter["Apply user filters"]
     Filter --> Layout["Allocate lanes"]
-    Layout --> Render["Renderer: mpv ASS on Windows; Compose/GPU later"]
+    Layout --> Render["Renderer: desktop mpv ASS; Compose/GPU later"]
 ```
 
 Rust initially owns a compact time index for normalized events. Kotlin should
 request batches for a playback window. Rendering and animation remain in
 platform UI/player layers so the native boundary is not crossed per frame or
-per comment. Windows currently uses mpv ASS subtitle rendering for real video
-because it composes reliably with the native child-window host; a future
-Compose or GPU renderer must first prove that it preserves stable video
-composition.
+per comment. Desktop playback currently uses mpv ASS subtitle rendering for
+real video; Windows embeds mpv in a child-window host, while macOS lets mpv own
+the output window. A future Compose or GPU renderer must first prove that it
+preserves stable video composition.
 
 The shared Kotlin lane scheduler accepts renderer-measured comment widths and
 deterministically assigns scrolling comments to the first collision-free lane.

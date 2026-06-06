@@ -33,6 +33,13 @@ path. The desktop shell now browses a paired catalog and prepares stream URLs
 through that adapter, then hands those sources to the native mpv command
 executor.
 
+An experimental macOS desktop path now reuses the same Compose shell, catalog,
+LAN server/client, SQLDelight storage, and Rust/JNA mpv command bridge. It
+builds `libplayer_windows_mpv.dylib` and can run through `run-macos.sh` when a
+local libmpv dylib is available. macOS video is currently mpv-managed rather
+than embedded in the Compose surface, and release-grade libmpv packaging still
+needs a separate audit.
+
 The dedicated TV shell requests an explicit `Discover PC` launch focus and has
 API 34 emulator-verified Compose instrumentation coverage for its initial
 remote-navigation path. Physical TV execution remains part of hardware
@@ -88,7 +95,9 @@ validation.
 
 ## Phase 5: Expansion
 
-- Reuse the desktop app for Linux and macOS.
+- Promote macOS from experimental desktop support after embedded video
+  composition and libmpv packaging are audited.
+- Reuse the desktop app for Linux.
 - Add iOS and iPadOS using shared KMP logic and AVPlayer.
 - Build a streaming-first React and TypeScript web client.
 - Add optional sync, accounts, live rooms, and moderation.

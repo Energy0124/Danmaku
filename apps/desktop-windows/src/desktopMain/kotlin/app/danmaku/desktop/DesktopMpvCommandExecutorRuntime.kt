@@ -22,8 +22,9 @@ class DesktopMpvCommandExecutorRuntime(
 }
 
 class DesktopMpvCommandExecutorRuntimeFactory(
+    private val platform: DesktopHostPlatform = DesktopHostPlatform.current(),
     private val environment: Map<String, String> = System.getenv(),
-    private val librarySearchPaths: List<Path> = defaultLibrarySearchPaths(),
+    private val librarySearchPaths: List<Path> = defaultLibrarySearchPaths(platform),
     private val isRegularFile: (Path) -> Boolean = { Files.isRegularFile(it) },
     private val isDirectory: (Path) -> Boolean = { Files.isDirectory(it) },
     private val loadNativeExecutor: (Path, Path, Map<String, String>) -> CloseableDesktopMpvCommandExecutor =
@@ -39,7 +40,9 @@ class DesktopMpvCommandExecutorRuntimeFactory(
             }
             ?: return fallback(
                 commandObserver,
-                "Native mpv dependencies are missing. Expected $BRIDGE_DLL_NAME and $LIBMPV_DLL_NAME.",
+                "Native mpv dependencies are missing for ${platform.displayName}. " +
+                    "Expected ${platform.bridgeLibraryNames.joinToString(" or ")} and " +
+                    platform.libmpvLibraryNames.joinToString(" or ") + ".",
             )
 
         return runCatching {
@@ -64,25 +67,38 @@ class DesktopMpvCommandExecutorRuntimeFactory(
     }
 
     private fun resolveDependencies(): DesktopMpvNativeDependencyPaths? {
-        val bridgePath = resolveDependency(BRIDGE_PATH_ENV, BRIDGE_DLL_NAME) ?: return null
-        val libmpvPath = resolveDependency(LIBMPV_PATH_ENV, LIBMPV_DLL_NAME) ?: return null
+        val bridgePath = resolveDependency(BRIDGE_PATH_ENV, platform.bridgeLibraryNames) ?: return null
+        val libmpvPath = resolveDependency(LIBMPV_PATH_ENV, platform.libmpvLibraryNames) ?: return null
         return DesktopMpvNativeDependencyPaths(bridgePath, libmpvPath)
     }
 
     private fun resolveDependency(
         environmentVariable: String,
-        fileName: String,
+        fileNames: List<String>,
     ): Path? {
         environment[environmentVariable]
             ?.takeIf(String::isNotBlank)
             ?.let(::normalizedPath)
-            ?.let { path -> if (isDirectory(path)) path.resolve(fileName) else path }
+            ?.let { path ->
+                if (isDirectory(path)) {
+                    fileNames
+                        .asSequence()
+                        .map(path::resolve)
+                        .firstOrNull(isRegularFile)
+                } else {
+                    path
+                }
+            }
             ?.takeIf(isRegularFile)
             ?.let { return it }
 
         return librarySearchPaths
             .asSequence()
-            .map { it.resolve(fileName).toAbsolutePath().normalize() }
+            .flatMap { searchPath ->
+                fileNames
+                    .asSequence()
+                    .map { fileName -> searchPath.resolve(fileName).toAbsolutePath().normalize() }
+            }
             .firstOrNull(isRegularFile)
     }
 
@@ -115,7 +131,7 @@ class DesktopMpvCommandExecutorRuntimeFactory(
         const val LIBMPV_DLL_NAME = "libmpv-2.dll"
         private const val COMPOSE_RESOURCES_DIR_PROPERTY = "compose.application.resources.dir"
 
-        private fun defaultLibrarySearchPaths(): List<Path> =
+        private fun defaultLibrarySearchPaths(platform: DesktopHostPlatform): List<Path> =
             buildList {
                 addAll(
                     System.getProperty("java.library.path")
@@ -132,6 +148,7 @@ class DesktopMpvCommandExecutorRuntimeFactory(
                 appCodeSourcePath()?.let { codeSource ->
                     add(if (Files.isRegularFile(codeSource)) codeSource.parent else codeSource)
                 }
+                addAll(platform.defaultMpvLibrarySearchPaths())
             }
                 .map { it.toAbsolutePath().normalize() }
                 .distinct()
@@ -147,6 +164,19 @@ class DesktopMpvCommandExecutorRuntimeFactory(
             }.getOrNull()
     }
 }
+
+private fun DesktopHostPlatform.defaultMpvLibrarySearchPaths(): List<Path> =
+    when (this) {
+        DesktopHostPlatform.MACOS -> listOf(
+            Path.of("/opt/homebrew/lib"),
+            Path.of("/usr/local/lib"),
+        )
+        DesktopHostPlatform.LINUX -> listOf(
+            Path.of("/usr/local/lib"),
+            Path.of("/usr/lib"),
+        )
+        else -> emptyList()
+    }
 
 private data class DesktopMpvNativeDependencyPaths(
     val bridgePath: Path,

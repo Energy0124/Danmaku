@@ -27,6 +27,11 @@ The first-class targets are:
 - Android phones and tablets
 - Android TV
 
+An initial macOS desktop path is also available for local development. It
+reuses the Compose Desktop shell and libmpv command bridge, but macOS playback
+currently uses mpv-managed video output instead of the embedded Windows child
+window.
+
 The project uses Kotlin and Compose for app code, Media3 ExoPlayer on Android
 and Android TV, libmpv on Windows, SQLDelight/SQLite for durable local state,
 and focused Rust components where native code earns its boundary.
@@ -96,12 +101,18 @@ Implemented today:
   Windows native command executor
 - Default Windows Compose distributable packaging for the Rust mpv bridge DLL
   and the approved local `libmpv-2.dll`
+- Experimental macOS Compose desktop support with the same shared library
+  server, catalog, and mpv command bridge. `:apps:desktop-windows:createDistributable`
+  builds and copies `libplayer_windows_mpv.dylib` on macOS, while libmpv is
+  resolved from `DANMAKU_LIBMPV_PATH`, the app directory, or common local
+  library locations.
 - Tested LAN server/client behavior, byte ranges, progress updates, reconnects,
   timeouts, slow streams, and Android/TV instrumentation paths
 
 Not implemented yet:
 
 - Broad Windows resize/fullscreen/4K/hardware-decoding validation
+- Embedded macOS video-surface composition and release-ready libmpv packaging
 - Authorized download engine
 - Full provider plugins, MyAnimeList integration, manual local danmaku mounting,
   and per-episode danmaku offset controls
@@ -110,7 +121,7 @@ Not implemented yet:
 
 ```text
 apps/
-  desktop-windows/       Compose Multiplatform Windows shell
+  desktop-windows/       Compose Multiplatform desktop shell
   android-mobile/        Android phone/tablet app
   android-tv/            Dedicated Android TV app
 
@@ -123,16 +134,16 @@ shared/
 
 native/
   rust-core/             Focused Rust timeline/indexing work
-  player-windows-mpv/    Windows libmpv loader, probe, and C ABI
+  player-windows-mpv/    Desktop libmpv loader, probe, and C ABI
 
 docs/
   Architecture, roadmap, task backlog, and decisions
 ```
 
-The Windows desktop app currently acts as the embedded library server. Android
-and Android TV are clients for that server. A separate headless Windows server
-is planned only after API, lifecycle, diagnostics, settings, and firewall
-behavior are stable.
+The desktop app currently acts as the embedded library server. Android and
+Android TV are clients for that server. A separate headless server is planned
+only after API, lifecycle, diagnostics, settings, and firewall behavior are
+stable.
 
 For more detail, see:
 
@@ -147,7 +158,8 @@ For more detail, see:
 
 ## Requirements
 
-- Windows for the desktop target
+- Windows for the release desktop target, or macOS for the experimental desktop
+  development path
 - JDK 17 or newer
 - Android SDK for Android and Android TV builds
 - Stable Rust toolchain for native crates
@@ -193,6 +205,15 @@ To build and run the runtime-free Windows portable release:
 
 The prepared portable launcher is
 `apps\desktop-windows\build\release\windows-portable\run-danmaku.ps1`.
+
+To build and run the experimental macOS shell:
+
+```bash
+./run-macos.sh
+```
+
+Set `DANMAKU_LIBMPV_PATH` to a `libmpv.2.dylib` or a directory containing it
+when libmpv is not installed in a common local library location.
 
 With an Android emulator or device online:
 

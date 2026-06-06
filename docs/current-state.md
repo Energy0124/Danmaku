@@ -42,6 +42,10 @@ Updated on 2026-06-06.
   creating an mpv context, executing coarse command arrays, and destroying the
   handle. The ABI uses explicit status codes and is covered for null pointers
   and missing-DLL failures.
+- The same Rust/JNA mpv bridge now builds on macOS as
+  `libplayer_windows_mpv.dylib`, loads libmpv through `dlopen`, and probes
+  `libmpv.2.dylib`/`libmpv.dylib` through `DANMAKU_LIBMPV_PATH`, app-local
+  files, and common local library directories.
 - Desktop mpv command planner for loading local files or LAN streams and
   dispatching play, pause, absolute seek, and playback-rate commands.
 - Desktop `PlaybackController` wrapper that executes planned mpv commands through
@@ -59,6 +63,10 @@ Updated on 2026-06-06.
   packaged Rust bridge and libmpv DLL are present, reports command-log-only
   fallback mode when they are unavailable, and closes the native handle on
   shutdown.
+- Desktop runtime selection is platform-aware. Windows still waits for the
+  embedded child-window handle and passes `wid`; macOS starts the native mpv
+  runtime without `wid` and uses mpv-managed video output while the Compose
+  window remains the control surface.
 - Windows video host using a SwingPanel-backed native child window and libmpv's
   pre-initialize `wid` option. The host is kept stable across `loadfile` so mpv
   does not attach to a transient one-pixel placeholder. The desktop shell can
@@ -71,6 +79,10 @@ Updated on 2026-06-06.
   desktop-only display controls route through the Windows mpv boundary. The
   Windows controller polls libmpv properties for live position, duration, pause
   state, EOF state, speed, volume, and runtime audio/subtitle track metadata.
+- Desktop playback supports focused keyboard shortcuts for play/pause,
+  small/large seeks, volume changes, fullscreen toggle/exit, and opening a
+  direct media file, all routed through the same player callbacks as the
+  on-screen controls.
 - Windows playback persists volume, playback-rate, and aspect-ratio defaults in
   SQLDelight settings and applies them when the native mpv runtime starts.
 - Windows playback attaches indexed local sidecar subtitles and paired-LAN
@@ -137,6 +149,11 @@ Updated on 2026-06-06.
   exposes a cleanup action for expired dandanplay cache rows.
 - Compose Multiplatform 1.11.0 Windows desktop shell with synthetic danmaku
   scheduling backed by the shared scheduler and rendered over mpv as ASS.
+- Experimental macOS Compose Desktop support using the same desktop shell,
+  catalog, LAN server/client, SQLDelight storage, and native mpv command
+  bridge. `run-macos.sh` builds the bridge, resolves libmpv when available,
+  and starts the app. macOS release-grade libmpv redistribution and embedded
+  video composition are not complete.
 - Recursive Windows anime-folder indexer and trusted-LAN HTTP server exposing a
   paired normalized JSON catalog plus paired seekable byte-range media
   responses.
@@ -186,6 +203,9 @@ Updated on 2026-06-06.
   webhook tokens before placing them in SQLDelight settings. The webhook token
   is reused across restarts, while normalized adapter models and diagnostic
   string representations omit secrets and provider URLs.
+- Non-Windows desktop hosts use a local AES-GCM secret protector backed by a
+  per-user key file under the app data directory so the embedded server and
+  provider settings can start without Windows DPAPI.
 - Shared source and download domain contracts for authorized offline storage
   policy, source capabilities, and platform-independent download manifests.
 - Android mobile and TV progress syncing from the background playback service
@@ -273,6 +293,15 @@ cargo test --workspace
 .\tools\windows\verify-windows-mpv-runtime.ps1
 ```
 
+On macOS, the desktop bridge and packaging path can be verified with:
+
+```bash
+cargo fmt --all --check
+cargo test --workspace
+GRADLE_USER_HOME=/Users/energy/projects/Danmaku/.gradle-user-home bash ./gradlew --no-daemon :apps:desktop-windows:desktopTest
+GRADLE_USER_HOME=/Users/energy/projects/Danmaku/.gradle-user-home bash ./gradlew --no-daemon :apps:desktop-windows:createDistributable
+```
+
 For Windows playback/UI changes, also smoke-test a real sample through the
 packaged GUI:
 
@@ -297,6 +326,8 @@ With an Android emulator or device online, run:
 4. Continue trimming fullscreen/player chrome without destabilizing the native
    mpv host.
 5. Re-audit the libmpv bundle before changing its producer artifact or hashes.
+6. Design embedded macOS video composition and audit any release libmpv
+   packaging before promoting macOS beyond experimental support.
 
 ## Runtime Smoke Check
 
