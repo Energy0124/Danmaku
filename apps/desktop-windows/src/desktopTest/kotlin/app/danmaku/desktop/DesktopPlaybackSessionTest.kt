@@ -230,6 +230,39 @@ class DesktopPlaybackSessionTest {
     }
 
     @Test
+    fun withoutDanmakuOverlaysRemovesOnlyDanmakuTracks() {
+        val item = LibraryMediaItem(
+            id = "episode-id",
+            seriesTitle = "Example Show",
+            episodeTitle = "Episode 01",
+            relativePath = "Example Show/Episode 01.mkv",
+            sizeBytes = 123,
+            mediaType = "video/mp4",
+            streamPath = "/media/episode-id",
+        )
+        val normalSubtitle = DesktopPlaybackSubtitle(
+            source = "S:\\Anime\\Example Show\\Episode 01.en.ass",
+            label = "English",
+        )
+        val danmakuOverlay = DesktopPlaybackSubtitle(
+            source = "S:\\Cache\\manual.ass",
+            label = "Manual danmaku: Episode 01.xml",
+            isDanmakuOverlay = true,
+        )
+        val preparation = DesktopLocalPlaybackPreparation(
+            item = item,
+            source = PlaybackSource.LocalFile("S:\\Anime\\Example Show\\Episode 01.mkv"),
+            resumePositionMs = null,
+            subtitles = listOf(normalSubtitle, danmakuOverlay),
+        )
+
+        assertEquals(
+            listOf(normalSubtitle),
+            preparation.withoutDanmakuOverlays().subtitles,
+        )
+    }
+
+    @Test
     fun mapsArbitraryLocalFilesToPlaybackRequests() {
         val mediaPath = Path.of("Anime", "Example Show", "..", "Example Show", "Episode 01.mkv")
         val normalizedPath = mediaPath.toAbsolutePath().normalize()

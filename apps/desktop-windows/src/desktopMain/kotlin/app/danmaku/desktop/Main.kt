@@ -753,9 +753,7 @@ private fun DesktopShell(
                     dandanplayDanmakuResolver.clearCache(preparation.item.id)
                 }
             }.onSuccess {
-                selectedLocalPlaybackPreparation = preparation.copy(
-                    subtitles = preparation.subtitles.filterNot(DesktopPlaybackSubtitle::isDanmakuOverlay),
-                )
+                selectedLocalPlaybackPreparation = preparation.withoutDanmakuOverlays()
                 dandanplayCacheStatus = dandanplayStatusMessage(
                     mediaId = preparation.item.id,
                     summary = "dandanplay cache cleared",
@@ -765,6 +763,15 @@ private fun DesktopShell(
                 appendDiagnostic("danmaku", "Failed to clear dandanplay cache for ${preparation.item.id}: ${it.message}")
             }
         }
+    }
+
+    fun clearPreparedDanmakuOverlay(preparation: DesktopLocalPlaybackPreparation) {
+        selectedLocalPlaybackPreparation = preparation.withoutDanmakuOverlays()
+        dandanplayCacheStatus = dandanplayStatusMessage(
+            mediaId = preparation.item.id,
+            summary = "prepared danmaku overlay removed",
+        )
+        appendDiagnostic("danmaku", "Removed prepared danmaku overlay for ${preparation.item.id}")
     }
 
     fun attachManualDanmaku(preparation: DesktopLocalPlaybackPreparation) {
@@ -1208,6 +1215,7 @@ private fun DesktopShell(
                             onSetAutoNextLocalPlayback = ::setAutoNextLocalPlayback,
                             onRefreshDandanplay = ::refreshPreparedDandanplay,
                             onClearDandanplayCache = ::clearPreparedDandanplayCache,
+                            onClearDanmakuOverlay = ::clearPreparedDanmakuOverlay,
                             onAttachManualDanmaku = ::attachManualDanmaku,
                             onLoadPreparedPlayback = { preparation ->
                                 appendDiagnostic(
@@ -1957,6 +1965,7 @@ private fun MediaLibraryTab(
     onSetAutoNextLocalPlayback: (Boolean) -> Unit,
     onRefreshDandanplay: (DesktopLocalPlaybackPreparation) -> Unit,
     onClearDandanplayCache: (DesktopLocalPlaybackPreparation) -> Unit,
+    onClearDanmakuOverlay: (DesktopLocalPlaybackPreparation) -> Unit,
     onAttachManualDanmaku: (DesktopLocalPlaybackPreparation) -> Unit,
     onLoadPreparedPlayback: (DesktopLocalPlaybackPreparation) -> Unit,
     remoteBrowser: @Composable () -> Unit,
@@ -2237,6 +2246,7 @@ private fun MediaLibraryTab(
             SectionCard("Prepared Playback") {
                 val previousItem = indexedLibrary?.catalog?.previousItem(preparation.item.id)
                 val nextItem = indexedLibrary?.catalog?.nextItem(preparation.item.id)
+                val hasDanmakuOverlay = preparation.subtitles.any(DesktopPlaybackSubtitle::isDanmakuOverlay)
                 MetadataRow(
                     "Episode",
                     "${preparation.item.seriesTitle} - ${preparation.item.episodeTitle}",
@@ -2278,7 +2288,13 @@ private fun MediaLibraryTab(
                         onClick = { onClearDandanplayCache(preparation) },
                         enabled = !isPreparingLocalPlayback,
                     ) {
-                        Text("Clear danmaku cache")
+                        Text("Clear dandanplay cache")
+                    }
+                    Button(
+                        onClick = { onClearDanmakuOverlay(preparation) },
+                        enabled = hasDanmakuOverlay && !isPreparingLocalPlayback,
+                    ) {
+                        Text("Remove danmaku overlay")
                     }
                     Button(
                         onClick = { onAttachManualDanmaku(preparation) },

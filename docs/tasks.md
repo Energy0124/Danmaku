@@ -126,6 +126,9 @@ unblocked slices inside these tracks as the vertical slice hardens.
   rendering synthetic and fetched ASS overlay timestamps.
 - [x] Add Windows prepared-playback controls to attach a local danmaku XML or
   JSON file as a generated ASS overlay while preserving normal subtitle tracks.
+- [x] Split Windows prepared-playback danmaku overlay removal from dandanplay
+  cache clearing so manual overlays can be removed without touching provider
+  cache state.
 - [x] Add seek and playback-rate test cases.
 - [x] Add Windows progress-bar scrubbing, live mpv position polling, and
   throttled local/paired progress persistence.

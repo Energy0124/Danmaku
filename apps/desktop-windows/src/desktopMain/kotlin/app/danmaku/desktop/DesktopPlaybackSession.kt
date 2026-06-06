@@ -74,9 +74,14 @@ fun DesktopLocalPlaybackPreparation.toPlaybackRequest(): DesktopPlaybackRequest 
 fun DesktopLocalPlaybackPreparation.withManualDanmakuOverlay(
     overlay: DesktopManualDanmakuOverlay,
 ): DesktopLocalPlaybackPreparation =
+    withoutDanmakuOverlays()
+        .let { preparation ->
+            preparation.copy(subtitles = preparation.subtitles + overlay.subtitle)
+        }
+
+fun DesktopLocalPlaybackPreparation.withoutDanmakuOverlays(): DesktopLocalPlaybackPreparation =
     copy(
-        subtitles = subtitles
-            .filterNot(DesktopPlaybackSubtitle::isDanmakuOverlay) + overlay.subtitle,
+        subtitles = subtitles.filterNot(DesktopPlaybackSubtitle::isDanmakuOverlay),
     )
 
 fun Path.toDirectLocalPlaybackRequest(): DesktopPlaybackRequest {
