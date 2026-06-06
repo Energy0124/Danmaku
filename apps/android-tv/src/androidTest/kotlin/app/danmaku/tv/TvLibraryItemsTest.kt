@@ -47,6 +47,9 @@ class TvLibraryItemsTest {
         composeRule.onNodeWithTag("series:Example Show").performClick()
 
         composeRule.onNodeWithText("2 / 3 episodes").assertExists()
+        composeRule.onNodeWithTag("series-detail:Example Show").assertExists()
+        composeRule.onNodeWithText("3 subtitle tracks").assertExists()
+        composeRule.onNodeWithTag("series-season:Season unknown").assertExists()
         composeRule.onNodeWithTag("episode:example-1").assertExists()
         composeRule.onNodeWithTag("episode:example-2").assertExists()
         composeRule.onNodeWithTag("episode:other-1").assertDoesNotExist()
@@ -54,6 +57,7 @@ class TvLibraryItemsTest {
         composeRule.onNodeWithTag("series:all").performClick()
 
         composeRule.onNodeWithText("3 / 3 episodes").assertExists()
+        composeRule.onNodeWithTag("series-detail:Example Show").assertDoesNotExist()
         composeRule.onNodeWithTag("episode:other-1").assertExists()
     }
 
@@ -73,6 +77,26 @@ class TvLibraryItemsTest {
 
         composeRule.runOnIdle {
             assertEquals("example-1", playedItemId)
+        }
+    }
+
+    @Test
+    fun seriesDetailEpisodeButtonRoutesSelectedItemToPlayCallback() {
+        var playedItemId: String? = null
+        composeRule.setContent {
+            MaterialTheme {
+                LibraryItems(
+                    catalog = seededCatalog(),
+                    onPlay = { playedItemId = it.id },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("series:Example Show").performClick()
+        composeRule.onNodeWithTag("series-detail-episode:example-2").performClick()
+
+        composeRule.runOnIdle {
+            assertEquals("example-2", playedItemId)
         }
     }
 

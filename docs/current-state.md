@@ -192,7 +192,8 @@ Updated on 2026-06-06.
   the largest connected-PC titles and narrows the episode list through the
   existing search field. Selecting a series now opens a compact series detail
   panel backed by the shared series/season grouping model.
-- Android TV library browsing includes a remote-friendly header, series rail,
+- Android TV library browsing includes a remote-friendly header, shared-grouped
+  series rail, selected-series detail strip with season episode actions,
   fixed-height episode list, and metadata-rich episode buttons for connected-PC
   catalogs.
 - Desktop root scanner can import ani-rss output folders, reuse unchanged media

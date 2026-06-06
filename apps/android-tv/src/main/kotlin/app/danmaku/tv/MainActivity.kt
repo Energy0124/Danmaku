@@ -408,6 +408,7 @@ internal fun LibraryItems(
     var searchText by remember { mutableStateOf("") }
     var sort by remember { mutableStateOf(LibraryCatalogSort.TITLE) }
     var subtitleFilter by remember { mutableStateOf(LibrarySubtitleFilter.ANY) }
+    var selectedSeriesId by remember(catalog) { mutableStateOf<String?>(null) }
     val totalItems = catalog?.items.orEmpty()
     val filteredItems = catalog
         ?.filteredItems(
@@ -419,6 +420,7 @@ internal fun LibraryItems(
         )
         .orEmpty()
     val series = catalog?.groupedSeries().orEmpty().take(10)
+    val selectedSeries = series.firstOrNull { it.id == selectedSeriesId }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(
@@ -489,8 +491,11 @@ internal fun LibraryItems(
             LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 item(key = "all-series") {
                     Button(
-                        onClick = { searchText = "" },
-                        enabled = searchText.isNotBlank(),
+                        onClick = {
+                            selectedSeriesId = null
+                            searchText = ""
+                        },
+                        enabled = searchText.isNotBlank() || selectedSeriesId != null,
                         modifier = Modifier.testTag("series:all"),
                     ) {
                         Text("All series")
@@ -499,7 +504,9 @@ internal fun LibraryItems(
                 items(series, key = { it.id }) { summary ->
                     Button(
                         onClick = {
-                            searchText = if (searchText.trim().equals(summary.title, ignoreCase = true)) {
+                            val alreadySelected = selectedSeriesId == summary.id
+                            selectedSeriesId = if (alreadySelected) null else summary.id
+                            searchText = if (alreadySelected) {
                                 ""
                             } else {
                                 summary.title
@@ -519,12 +526,75 @@ internal fun LibraryItems(
                 }
             }
         }
+        selectedSeries?.let { summary ->
+            TvSeriesDetail(
+                series = summary,
+                onPlay = onPlay,
+            )
+        }
         LazyColumn(
             modifier = Modifier.height(320.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             items(filteredItems, key = LibraryMediaItem::id) { item ->
                 TvEpisodeButton(item = item, onPlay = { onPlay(item) })
+            }
+        }
+    }
+}
+
+@Composable
+private fun TvSeriesDetail(
+    series: LibrarySeries,
+    onPlay: (LibraryMediaItem) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.DarkGray)
+            .padding(14.dp)
+            .testTag("series-detail:${series.title}"),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    series.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text("${series.episodeLabel()} across ${series.seasons.size} seasons")
+            }
+            Text("${series.subtitleTrackCount} subtitle tracks")
+        }
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            items(series.seasons, key = { it.id }) { season ->
+                Column(
+                    modifier = Modifier
+                        .width(340.dp)
+                        .testTag("series-season:${season.label}"),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text("${season.label} (${season.items.size})", fontWeight = FontWeight.SemiBold)
+                    season.items.take(3).forEach { item ->
+                        Button(
+                            onClick = { onPlay(item) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("series-detail-episode:${item.id}"),
+                        ) {
+                            Text(item.episodeTitle, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                    if (season.items.size > 3) {
+                        Text("${season.items.size - 3} more episodes")
+                    }
+                }
             }
         }
     }

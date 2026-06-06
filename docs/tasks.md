@@ -171,8 +171,8 @@ unblocked slices inside these tracks as the vertical slice hardens.
   connected-PC catalogs.
 - [x] Back the Android mobile series rail with shared series grouping and add a
   compact series detail panel.
-- [x] Add an Android TV remote-friendly library header, series rail, and richer
-  episode rows.
+- [x] Add an Android TV remote-friendly library header, shared-grouped series
+  rail, selected-series detail strip, and richer episode rows.
 - [x] Add Android mobile progress scrubbing and Android TV remote-friendly seek
   controls backed by shared seek-target clamping.
 - [ ] Add Android phone/tablet screenshot or instrumentation coverage for the
