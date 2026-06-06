@@ -472,6 +472,17 @@ private fun LibraryPage(
     onConnect: () -> Unit,
 ) {
     PageColumn(contentPadding) {
+        item(key = "library-page-header") {
+            PageHeader(
+                icon = Icons.Filled.VideoLibrary,
+                title = "Library",
+                subtitle = if (catalog == null) {
+                    "Connect a Windows library to browse episodes"
+                } else {
+                    "${filteredItems.size} of $totalCount episodes"
+                },
+            )
+        }
         if (snapshot.source != null) {
             item(key = "mini-player") {
                 MiniPlayerBar(
@@ -533,6 +544,17 @@ private fun ConnectPage(
     onOpenPlayer: () -> Unit,
 ) {
     PageColumn(contentPadding) {
+        item(key = "connect-page-header") {
+            PageHeader(
+                icon = Icons.Filled.Settings,
+                title = "Connect",
+                subtitle = if (catalog == null) {
+                    "Pair this phone with the Windows library server"
+                } else {
+                    "Connected to ${catalog.rootName}"
+                },
+            )
+        }
         if (snapshot.source != null) {
             item(key = "mini-player") {
                 MiniPlayerBar(
@@ -559,6 +581,50 @@ private fun ConnectPage(
             EmptyPanel(
                 title = "Pair once, watch anywhere",
                 body = "Open the Windows app on the same network, use Discover PC, then enter the pairing code shown on desktop.",
+            )
+        }
+    }
+}
+
+@Composable
+private fun PageHeader(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(Color(0xFF1E2930)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = AccentBlue,
+                modifier = Modifier.size(26.dp),
+            )
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(
+                title,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                subtitle,
+                color = SubtleText,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
@@ -868,7 +934,7 @@ private fun LibraryHeader(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        "Library",
+                        "Episodes",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold,
                     )
@@ -958,7 +1024,7 @@ private fun ConnectionPanel(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        "Connect",
+                        "Windows PC",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold,
                     )
