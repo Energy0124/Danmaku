@@ -175,6 +175,9 @@ unblocked slices inside these tracks as the vertical slice hardens.
   rail, selected-series detail strip, and richer episode rows.
 - [x] Add Android mobile progress scrubbing and Android TV remote-friendly seek
   controls backed by shared seek-target clamping.
+- [x] Add compile-checked Android mobile Library page Compose instrumentation
+  coverage for empty, connected-catalog, selected-series, mini-player, and
+  episode-selection states.
 - [ ] Add Android phone/tablet screenshot or instrumentation coverage for the
   player-first mobile layout, including empty, connected, and active-playback
   states.

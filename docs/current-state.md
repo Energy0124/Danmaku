@@ -192,6 +192,9 @@ Updated on 2026-06-06.
   the largest connected-PC titles and narrows the episode list through the
   existing search field. Selecting a series now opens a compact series detail
   panel backed by the shared series/season grouping model.
+- Android mobile has compile-checked Compose instrumentation coverage for the
+  Library page empty, connected-catalog, selected-series detail, mini-player,
+  and episode-selection states.
 - Android TV library browsing includes a remote-friendly header, shared-grouped
   series rail, selected-series detail strip with season episode actions,
   fixed-height episode list, and metadata-rich episode buttons for connected-PC
@@ -298,6 +301,7 @@ cargo test --workspace
 .\gradlew.bat --no-daemon :shared:library-client:jvmTest
 .\gradlew.bat --no-daemon :shared:library-server-core:jvmTest
 .\gradlew.bat --no-daemon :apps:desktop-windows:desktopTest
+.\gradlew.bat --no-daemon :apps:android-mobile:assembleDebugAndroidTest
 .\gradlew.bat --no-daemon :shared:player-android-media3:assembleDebugAndroidTest
 .\gradlew.bat --no-daemon :apps:android-mobile:assembleDebug :apps:android-tv:assembleDebug
 .\gradlew.bat --no-daemon :apps:desktop-windows:createDistributable

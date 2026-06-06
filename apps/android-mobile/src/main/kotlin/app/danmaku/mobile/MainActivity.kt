@@ -67,6 +67,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -455,7 +456,7 @@ private fun WatchPage(
 }
 
 @Composable
-private fun LibraryPage(
+internal fun LibraryPage(
     contentPadding: PaddingValues,
     catalog: LibraryCatalog?,
     filteredItems: List<LibraryMediaItem>,
@@ -560,7 +561,9 @@ private fun SeriesRail(
     if (series.isEmpty()) return
 
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("library-series-rail"),
         shape = RoundedCornerShape(20.dp),
         color = Color(0xFF15191D),
         border = BorderStroke(1.dp, Color(0xFF2B3239)),
@@ -614,6 +617,7 @@ private fun SeriesRail(
                                 overflow = TextOverflow.Ellipsis,
                             )
                         },
+                        modifier = Modifier.testTag("series:${summary.title}"),
                     )
                 }
             }
@@ -624,7 +628,9 @@ private fun SeriesRail(
 @Composable
 private fun SeriesDetailPanel(series: LibrarySeries) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("series-detail:${series.title}"),
         shape = RoundedCornerShape(20.dp),
         color = PanelColor,
         border = BorderStroke(1.dp, Color(0xFF2B3239)),
@@ -792,7 +798,8 @@ private fun MiniPlayerBar(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(18.dp))
-            .clickable(onClick = onOpenPlayer),
+            .clickable(onClick = onOpenPlayer)
+            .testTag("mini-player"),
         shape = RoundedCornerShape(18.dp),
         color = Color(0xFF17212A),
         border = BorderStroke(1.dp, Color(0xFF304454)),
@@ -1374,7 +1381,8 @@ private fun EpisodeRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(18.dp))
-            .clickable(onClick = onPlay),
+            .clickable(onClick = onPlay)
+            .testTag("episode:${item.id}"),
         shape = RoundedCornerShape(18.dp),
         color = if (selected) Color(0xFF263847) else PanelColor,
         border = BorderStroke(
