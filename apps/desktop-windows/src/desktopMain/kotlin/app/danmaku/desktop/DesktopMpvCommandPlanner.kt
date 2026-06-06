@@ -39,6 +39,7 @@ object DesktopMpvCommandPlanner {
         val startOption = startPositionMs
             ?.takeIf { it > 0 }
             ?.let { "start=${it.toMpvSeconds()}" }
+        val perFileOptions = startOption?.let { listOf("-1", it) }.orEmpty()
         return DesktopMpvCommand(
             listOf(
                 "loadfile",
@@ -47,7 +48,7 @@ object DesktopMpvCommandPlanner {
                     is PlaybackSource.RemoteStream -> source.url
                 },
                 "replace",
-            ) + listOfNotNull(startOption),
+            ) + perFileOptions,
         )
     }
 

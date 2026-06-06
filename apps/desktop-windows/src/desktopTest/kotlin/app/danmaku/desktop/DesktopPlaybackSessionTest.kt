@@ -43,6 +43,7 @@ class DesktopPlaybackSessionTest {
                         "loadfile",
                         "S:\\Anime\\Example Show\\Episode 01.mkv",
                         "replace",
+                        "-1",
                         "start=12.345",
                     ),
                 ),
