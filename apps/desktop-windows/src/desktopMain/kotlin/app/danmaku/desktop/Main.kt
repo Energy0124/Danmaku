@@ -46,7 +46,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
+import androidx.compose.ui.window.WindowPlacement
+import androidx.compose.ui.window.WindowState
 import androidx.compose.ui.window.application
+import androidx.compose.ui.window.rememberWindowState
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryCatalogQuery
 import app.danmaku.domain.LibraryCatalogSort
@@ -83,11 +86,13 @@ import javax.swing.JFileChooser
 import javax.swing.filechooser.FileNameExtensionFilter
 
 fun main() = application {
+    val windowState = rememberWindowState()
     Window(
         onCloseRequest = ::exitApplication,
+        state = windowState,
         title = "Danmaku",
     ) {
-        DesktopShell()
+        DesktopShell(windowState)
     }
 }
 
@@ -109,7 +114,7 @@ private data class PreparedLocalPlaybackResult(
 )
 
 @Composable
-private fun DesktopShell() {
+private fun DesktopShell(windowState: WindowState) {
     val selectionStore = remember { LocalLibrarySelectionStore.default() }
     val catalogStore = remember { DesktopLibraryCatalogStore.default() }
     val playbackPreferencesStore = remember(catalogStore) {
@@ -256,7 +261,7 @@ private fun DesktopShell() {
     val legacySelectedLibraryRoot = remember { selectionStore.load() }
     var registeredRoots by remember { mutableStateOf(rootRegistry.loadRoots()) }
     var playbackSnapshot by remember(playbackController) { mutableStateOf(playbackController.snapshot()) }
-    var isFullscreen by remember(playbackController) { mutableStateOf(playbackController.fullscreen) }
+    val isFullscreen = windowState.placement == WindowPlacement.Fullscreen
     var videoAspectMode by remember(playbackController) { mutableStateOf(playbackController.videoAspectMode) }
     var indexedLibrary by remember {
         mutableStateOf(
@@ -915,10 +920,12 @@ private fun DesktopShell() {
                         isFullscreen = isFullscreen,
                         videoAspectMode = videoAspectMode,
                         onSetFullscreen = { enabled ->
-                            appendDiagnostic("playback", "Dispatch fullscreen ${if (enabled) "on" else "off"}")
-                            playbackController.setFullscreen(enabled)
-                            isFullscreen = playbackController.fullscreen
-                            playbackSnapshot = playbackController.snapshot()
+                            appendDiagnostic("playback", "Set window fullscreen ${if (enabled) "on" else "off"}")
+                            windowState.placement = if (enabled) {
+                                WindowPlacement.Fullscreen
+                            } else {
+                                WindowPlacement.Floating
+                            }
                         },
                         onSetVideoAspectMode = { mode ->
                             appendDiagnostic("playback", "Dispatch video aspect ${mode.label}")
