@@ -52,6 +52,8 @@ import app.danmaku.domain.LibraryNextUpItem
 import app.danmaku.domain.LibraryNextUpReason
 import app.danmaku.domain.LibrarySeries
 import app.danmaku.domain.LibrarySubtitleFilter
+import app.danmaku.domain.LibraryWatchState
+import app.danmaku.domain.LibraryWatchStatus
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.domain.PlaybackCommand
 import app.danmaku.domain.PlaybackSnapshot
@@ -61,6 +63,7 @@ import app.danmaku.domain.filteredItems
 import app.danmaku.domain.groupedSeries
 import app.danmaku.domain.nextUpItems
 import app.danmaku.domain.seekTargetBy
+import app.danmaku.domain.watchStatusByMediaId
 import app.danmaku.library.android.LanLibraryDiscoveryClient
 import app.danmaku.library.android.LanLibraryClient
 import app.danmaku.library.LanPlaybackPreparer
@@ -433,6 +436,7 @@ internal fun LibraryItems(
         .orEmpty()
     val series = catalog?.groupedSeries().orEmpty().take(10)
     val nextUpItems = catalog?.nextUpItems(playbackProgresses, limit = 6).orEmpty()
+    val watchStatusById = catalog?.watchStatusByMediaId(playbackProgresses).orEmpty()
     val selectedSeries = series.firstOrNull { it.id == selectedSeriesId }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -553,7 +557,11 @@ internal fun LibraryItems(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             items(filteredItems, key = LibraryMediaItem::id) { item ->
-                TvEpisodeButton(item = item, onPlay = { onPlay(item) })
+                TvEpisodeButton(
+                    item = item,
+                    watchStatus = watchStatusById[item.id],
+                    onPlay = { onPlay(item) },
+                )
             }
         }
     }
@@ -683,6 +691,7 @@ private fun TvSeriesDetail(
 @Composable
 private fun TvEpisodeButton(
     item: LibraryMediaItem,
+    watchStatus: LibraryWatchStatus?,
     onPlay: () -> Unit,
 ) {
     Button(
@@ -707,6 +716,12 @@ private fun TvEpisodeButton(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                Text(
+                    watchStatus.statusLabel(),
+                    color = Color.LightGray,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
             Spacer(modifier = Modifier.width(20.dp))
             Text("${item.subtitles.size} subs")
@@ -716,3 +731,19 @@ private fun TvEpisodeButton(
 
 private fun LibrarySeries.episodeLabel(): String =
     if (episodeCount == 1) "1 episode" else "$episodeCount episodes"
+
+private fun LibraryWatchStatus?.statusLabel(): String =
+    when (this?.state) {
+        LibraryWatchState.WATCHED -> "Watched"
+        LibraryWatchState.IN_PROGRESS -> {
+            val progress = progress
+            "In progress" + if (progress == null) {
+                ""
+            } else {
+                " ${progress.positionMs.formatPlaybackTime()} / " +
+                    (progress.durationMs?.formatPlaybackTime() ?: "--:--")
+            }
+        }
+        LibraryWatchState.NEW,
+        null -> "New"
+    }

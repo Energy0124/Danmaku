@@ -91,6 +91,8 @@ import app.danmaku.domain.LibraryNextUpItem
 import app.danmaku.domain.LibraryNextUpReason
 import app.danmaku.domain.LibrarySeries
 import app.danmaku.domain.LibrarySubtitleFilter
+import app.danmaku.domain.LibraryWatchState
+import app.danmaku.domain.LibraryWatchStatus
 import app.danmaku.domain.PlaybackCommand
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.domain.PlaybackSnapshot
@@ -104,6 +106,7 @@ import app.danmaku.domain.nextUpItems
 import app.danmaku.domain.previousItem
 import app.danmaku.domain.resumePositionMs
 import app.danmaku.domain.toPlaybackProgress
+import app.danmaku.domain.watchStatusByMediaId
 import app.danmaku.library.LanPlaybackPreparation
 import app.danmaku.library.LanPlaybackPreparer
 import app.danmaku.library.LanPlaybackProgressSync
@@ -1876,6 +1879,9 @@ private fun MediaLibraryTab(
         val recentlyWatchedItems = remember(indexedLibrary, playbackProgresses) {
             indexedLibrary?.catalog?.recentlyWatchedItems(playbackProgresses).orEmpty()
         }
+        val watchStatusById = remember(indexedLibrary, playbackProgresses) {
+            indexedLibrary?.catalog?.watchStatusByMediaId(playbackProgresses).orEmpty()
+        }
         var selectedSeriesId by remember(indexedLibrary?.catalog) { mutableStateOf<String?>(null) }
         val series = remember(indexedLibrary?.catalog) {
             indexedLibrary?.catalog?.groupedSeries().orEmpty()
@@ -2061,6 +2067,7 @@ private fun MediaLibraryTab(
                         items(items, key = { it.id }) { item ->
                             EpisodeRow(
                                 item = item,
+                                watchStatus = watchStatusById[item.id],
                                 isPreparing = isPreparingLocalPlayback,
                                 onPrepareLocalPlayback = onPrepareLocalPlayback,
                                 onPlayLocalPlayback = onPlayLocalPlayback,
@@ -2073,6 +2080,7 @@ private fun MediaLibraryTab(
         selectedSeries?.let { librarySeries ->
             DesktopSeriesDetailPanel(
                 series = librarySeries,
+                watchStatusById = watchStatusById,
                 isPreparing = isPreparingLocalPlayback,
                 onPrepareLocalPlayback = onPrepareLocalPlayback,
                 onPlayLocalPlayback = onPlayLocalPlayback,
@@ -2571,6 +2579,7 @@ private fun DesktopSeriesRow(
 @Composable
 private fun DesktopSeriesDetailPanel(
     series: LibrarySeries,
+    watchStatusById: Map<String, LibraryWatchStatus>,
     isPreparing: Boolean,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
@@ -2606,6 +2615,7 @@ private fun DesktopSeriesDetailPanel(
                     season.items.take(4).forEach { item ->
                         EpisodeRow(
                             item = item,
+                            watchStatus = watchStatusById[item.id],
                             isPreparing = isPreparing,
                             onPrepareLocalPlayback = onPrepareLocalPlayback,
                             onPlayLocalPlayback = onPlayLocalPlayback,
@@ -2743,6 +2753,7 @@ private fun RecentlyWatchedRow(
 @Composable
 private fun EpisodeRow(
     item: LibraryMediaItem,
+    watchStatus: LibraryWatchStatus?,
     isPreparing: Boolean,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
@@ -2757,6 +2768,12 @@ private fun EpisodeRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(item.seriesTitle, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(item.episodeTitle, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                watchStatus.statusLabel(),
+                color = DanmakuColors.TextMuted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
@@ -2774,6 +2791,22 @@ private fun EpisodeRow(
         }
     }
 }
+
+private fun LibraryWatchStatus?.statusLabel(): String =
+    when (this?.state) {
+        LibraryWatchState.WATCHED -> "Watched"
+        LibraryWatchState.IN_PROGRESS -> {
+            val progress = progress
+            "In progress" + if (progress == null) {
+                ""
+            } else {
+                " at ${progress.positionMs.formatPlaybackTime()} / " +
+                    (progress.durationMs?.formatPlaybackTime() ?: "unknown")
+            }
+        }
+        LibraryWatchState.NEW,
+        null -> "New"
+    }
 
 @Composable
 private fun RemoteLibraryBrowser(

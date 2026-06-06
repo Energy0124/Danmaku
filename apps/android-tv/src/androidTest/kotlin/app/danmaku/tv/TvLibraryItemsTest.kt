@@ -133,6 +133,35 @@ class TvLibraryItemsTest {
         }
     }
 
+    @Test
+    fun rendersEpisodeWatchStatusFromPlaybackProgress() {
+        composeRule.setContent {
+            MaterialTheme {
+                LibraryItems(
+                    catalog = seededCatalog(),
+                    playbackProgresses = listOf(
+                        PlaybackProgress(
+                            mediaId = "example-1",
+                            positionMs = 60_000,
+                            durationMs = 1_200_000,
+                            updatedAtEpochMs = 1_700_000_000_100,
+                        ),
+                        PlaybackProgress(
+                            mediaId = "other-1",
+                            positionMs = 1_190_000,
+                            durationMs = 1_200_000,
+                            updatedAtEpochMs = 1_700_000_000_200,
+                        ),
+                    ),
+                    onPlay = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("In progress 1:00 / 20:00").assertExists()
+        composeRule.onNodeWithText("Watched").assertExists()
+    }
+
     private fun seededCatalog(): LibraryCatalog =
         LibraryCatalog(
             rootName = "Seeded PC",

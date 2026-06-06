@@ -140,6 +140,8 @@ unblocked slices inside these tracks as the vertical slice hardens.
   explicit prepare actions for diagnostics.
 - [x] Add shared next-up derivation and expose a Windows local-library Next Up
   card backed by persisted playback progress.
+- [x] Add shared watched-state derivation and display new, in-progress, and
+  watched labels across Windows, Android mobile, and Android TV library rows.
 - [x] Add optional persisted Windows local-library auto-next playback.
 - [x] Add Windows fullscreen and aspect-ratio playback controls.
 - [x] Add Windows paired-catalog one-click stream playback while retaining

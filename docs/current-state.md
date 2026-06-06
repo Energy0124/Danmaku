@@ -97,6 +97,9 @@ Updated on 2026-06-06.
   near-finished playback, and a first-start fallback from catalog order plus
   playback progress. The Windows media library exposes that as a local Next Up
   card with prepare/play actions.
+- Shared watched-state helpers classify catalog episodes as new, in-progress,
+  or watched from the latest persisted playback progress. Windows desktop,
+  Android mobile, and Android TV render those labels in library episode rows.
 - Shared catalog helpers expose previous/next item lookup in catalog order, and
   the Windows prepared-playback card can prepare the neighboring local episode.
 - Windows local library rows, continue-watching rows, and recently-watched rows

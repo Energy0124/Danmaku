@@ -82,6 +82,8 @@ import app.danmaku.domain.LibraryNextUpItem
 import app.danmaku.domain.LibraryNextUpReason
 import app.danmaku.domain.LibrarySeries
 import app.danmaku.domain.LibrarySubtitleFilter
+import app.danmaku.domain.LibraryWatchState
+import app.danmaku.domain.LibraryWatchStatus
 import app.danmaku.domain.PlaybackCommand
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.domain.PlaybackSnapshot
@@ -94,6 +96,7 @@ import app.danmaku.domain.filteredItems
 import app.danmaku.domain.groupedSeries
 import app.danmaku.domain.nextUpItems
 import app.danmaku.domain.seekTargetBy
+import app.danmaku.domain.watchStatusByMediaId
 import app.danmaku.library.LanPlaybackPreparer
 import app.danmaku.library.LanPlaybackProgressSync
 import app.danmaku.library.LanPlaybackTarget
@@ -489,6 +492,7 @@ internal fun LibraryPage(
     PageColumn(contentPadding) {
         val series = catalog?.groupedSeries().orEmpty()
         val nextUpItems = catalog?.nextUpItems(playbackProgresses, limit = 5).orEmpty()
+        val watchStatusById = catalog?.watchStatusByMediaId(playbackProgresses).orEmpty()
         val selectedSeries = searchText
             .takeIf(String::isNotBlank)
             ?.let { selectedTitle ->
@@ -565,6 +569,7 @@ internal fun LibraryPage(
                 EpisodeRow(
                     item = item,
                     selected = nowPlaying?.id == item.id,
+                    watchStatus = watchStatusById[item.id],
                     onPlay = { onPlay(item) },
                 )
             }
@@ -1482,6 +1487,7 @@ private fun TrackButtons(
 private fun EpisodeRow(
     item: LibraryMediaItem,
     selected: Boolean,
+    watchStatus: LibraryWatchStatus?,
     onPlay: () -> Unit,
 ) {
     Surface(
@@ -1533,7 +1539,7 @@ private fun EpisodeRow(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    "${item.formatSize()} · ${item.subtitles.size} subtitle tracks",
+                    "${watchStatus.statusLabel()} · ${item.formatSize()} · ${item.subtitles.size} subtitle tracks",
                     color = Color(0xFF8F9AA5),
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 1,
@@ -1674,6 +1680,22 @@ private fun LibraryNextUpItem.nextUpLabel(): String =
         LibraryNextUpReason.RESUME -> "Resume at ${progress?.positionMs?.formatPlaybackTime() ?: "saved position"}"
         LibraryNextUpReason.NEXT_EPISODE -> "Next episode"
         LibraryNextUpReason.START -> "Start watching"
+    }
+
+private fun LibraryWatchStatus?.statusLabel(): String =
+    when (this?.state) {
+        LibraryWatchState.WATCHED -> "Watched"
+        LibraryWatchState.IN_PROGRESS -> {
+            val progress = progress
+            "In progress" + if (progress == null) {
+                ""
+            } else {
+                " · ${progress.positionMs.formatPlaybackTime()} / " +
+                    (progress.durationMs?.formatPlaybackTime() ?: "--:--")
+            }
+        }
+        LibraryWatchState.NEW,
+        null -> "New"
     }
 
 private fun Double.formatOneDecimal(): String {
