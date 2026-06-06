@@ -91,9 +91,42 @@ class LibraryCatalogQueryTest {
     }
 
     @Test
+    fun filtersToFavoriteItems() {
+        val catalog = LibraryCatalog(
+            rootName = "Anime",
+            indexedAtEpochMs = 123,
+            items = listOf(
+                item(id = "one", seriesTitle = "A", episodeTitle = "Episode 01"),
+                item(id = "two", seriesTitle = "B", episodeTitle = "Episode 02"),
+                item(id = "three", seriesTitle = "C", episodeTitle = "Episode 03"),
+            ),
+        )
+
+        assertEquals(
+            listOf("one", "three"),
+            catalog
+                .filteredItems(
+                    LibraryCatalogQuery(
+                        favoriteFilter = LibraryFavoriteFilter.FAVORITES_ONLY,
+                        favoriteMediaIds = setOf("three", "one"),
+                        sort = LibraryCatalogSort.PATH,
+                    ),
+                )
+                .map { it.id },
+        )
+    }
+
+    @Test
     fun rejectsNullBytesInSearchText() {
         assertFailsWith<IllegalArgumentException> {
             LibraryCatalogQuery(searchText = "bad\u0000query")
+        }
+    }
+
+    @Test
+    fun rejectsBlankFavoriteIds() {
+        assertFailsWith<IllegalArgumentException> {
+            LibraryCatalogQuery(favoriteMediaIds = setOf("episode", " "))
         }
     }
 

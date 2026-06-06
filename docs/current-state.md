@@ -215,6 +215,9 @@ Updated on 2026-06-06.
   model for a selectable series column, compact series detail panel with season
   episode previews, and shared episode detail panel with prepare/play plus
   previous/next actions from progress rails and episode lists.
+- Windows desktop persists favorite local media IDs in the desktop settings
+  table, exposes Favorite/Unfavorite actions in episode rows and episode
+  detail, and can filter the local episode list to favorites only.
 - Android mobile library browsing includes a compact series rail that summarizes
   the largest connected-PC titles and narrows the episode list through the
   existing search field. Selecting a series now opens a compact series detail

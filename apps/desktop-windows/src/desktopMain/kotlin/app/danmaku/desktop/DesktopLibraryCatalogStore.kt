@@ -285,6 +285,32 @@ class DesktopLibraryCatalogStore(
     }
 
     @Synchronized
+    fun loadFavoriteMediaIds(): Set<String> =
+        loadSetting(FAVORITE_MEDIA_IDS_SETTING_KEY)
+            ?.value
+            ?.lineSequence()
+            ?.map(String::trim)
+            ?.filter(String::isNotBlank)
+            ?.toSet()
+            ?: emptySet()
+
+    @Synchronized
+    fun saveFavoriteMediaIds(mediaIds: Set<String>) {
+        require(mediaIds.none { it.isBlank() }) { "favorite media ids must not contain blank ids" }
+        if (mediaIds.isEmpty()) {
+            deleteSetting(FAVORITE_MEDIA_IDS_SETTING_KEY)
+        } else {
+            saveSetting(
+                DesktopAppSetting(
+                    key = FAVORITE_MEDIA_IDS_SETTING_KEY,
+                    value = mediaIds.sorted().joinToString(separator = "\n"),
+                    updatedAtEpochMs = System.currentTimeMillis(),
+                ),
+            )
+        }
+    }
+
+    @Synchronized
     fun loadLibraryRoot(id: String): DesktopLibraryRoot? =
         database.libraryCatalogQueries
             .selectLibraryRoot(id, ::desktopLibraryRoot)
@@ -400,7 +426,7 @@ class DesktopLibraryCatalogStore(
         }
     }
 
-    companion object {
+companion object {
         private val CREATE_PLAYBACK_PROGRESS_TABLE_SQL = """
             CREATE TABLE IF NOT EXISTS playback_progress (
               media_id TEXT NOT NULL PRIMARY KEY,
@@ -587,6 +613,8 @@ class DesktopLibraryCatalogStore(
             )
     }
 }
+
+private const val FAVORITE_MEDIA_IDS_SETTING_KEY = "library.favorite_media_ids"
 
 private fun List<LibrarySubtitleTrack>.resolveExistingFiles(
     root: Path,

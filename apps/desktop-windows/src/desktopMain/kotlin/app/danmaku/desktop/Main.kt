@@ -88,6 +88,7 @@ import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryCatalogQuery
 import app.danmaku.domain.LibraryCatalogSort
 import app.danmaku.domain.LibraryEpisodeDetail
+import app.danmaku.domain.LibraryFavoriteFilter
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibraryNextUpItem
 import app.danmaku.domain.LibraryNextUpReason
@@ -365,6 +366,7 @@ private fun DesktopShell(
         )
     }
     var playbackProgresses by remember { mutableStateOf(catalogStore.loadPlaybackProgress()) }
+    var favoriteMediaIds by remember { mutableStateOf(catalogStore.loadFavoriteMediaIds()) }
     var selectedLocalPlaybackPreparation by remember {
         mutableStateOf<DesktopLocalPlaybackPreparation?>(null)
     }
@@ -419,9 +421,35 @@ private fun DesktopShell(
         server.publish(library.toPublishedLibrary())
         indexedLibrary = library
         playbackProgresses = catalogStore.loadPlaybackProgress()
+        favoriteMediaIds = catalogStore.loadFavoriteMediaIds()
         registeredRoots = rootRegistry.loadRoots()
         selectedLocalPlaybackPreparation = null
         libraryError = null
+    }
+
+    fun setFavorite(item: LibraryMediaItem, isFavorite: Boolean) {
+        val updatedFavorites = if (isFavorite) {
+            favoriteMediaIds + item.id
+        } else {
+            favoriteMediaIds - item.id
+        }
+        runCatching {
+            catalogStore.saveFavoriteMediaIds(updatedFavorites)
+            catalogStore.loadFavoriteMediaIds()
+        }.onSuccess { loadedFavorites ->
+            favoriteMediaIds = loadedFavorites
+            appendDiagnostic(
+                "library",
+                if (isFavorite) {
+                    "Favorited ${item.id}"
+                } else {
+                    "Removed favorite ${item.id}"
+                },
+            )
+        }.onFailure { error ->
+            libraryError = error.message
+            appendDiagnostic("library", "Failed to update favorite ${item.id}: ${error.message}")
+        }
     }
 
     fun registerAndScanUserRoot(root: Path) {
@@ -1131,6 +1159,7 @@ private fun DesktopShell(
                             registeredRoots = registeredRoots,
                             indexedLibrary = indexedLibrary,
                             playbackProgresses = playbackProgresses,
+                            favoriteMediaIds = favoriteMediaIds,
                             isIndexing = isIndexing,
                             isPreparingLocalPlayback = isPreparingLocalPlayback,
                             selectedLocalPlaybackPreparation = selectedLocalPlaybackPreparation,
@@ -1148,6 +1177,7 @@ private fun DesktopShell(
                             onPlayLocalPlayback = { item ->
                                 prepareLocalPlayback(item, loadAfterPrepare = true)
                             },
+                            onSetFavorite = ::setFavorite,
                             onSetAutoNextLocalPlayback = ::setAutoNextLocalPlayback,
                             onRefreshDandanplay = ::refreshPreparedDandanplay,
                             onClearDandanplayCache = ::clearPreparedDandanplayCache,
@@ -1883,6 +1913,7 @@ private fun MediaLibraryTab(
     registeredRoots: List<DesktopLibraryRoot>,
     indexedLibrary: IndexedLocalLibrary?,
     playbackProgresses: List<PlaybackProgress>,
+    favoriteMediaIds: Set<String>,
     isIndexing: Boolean,
     isPreparingLocalPlayback: Boolean,
     selectedLocalPlaybackPreparation: DesktopLocalPlaybackPreparation?,
@@ -1894,6 +1925,7 @@ private fun MediaLibraryTab(
     onRescanRegisteredRoots: () -> Unit,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
+    onSetFavorite: (LibraryMediaItem, Boolean) -> Unit,
     onSetAutoNextLocalPlayback: (Boolean) -> Unit,
     onRefreshDandanplay: (DesktopLocalPlaybackPreparation) -> Unit,
     onClearDandanplayCache: (DesktopLocalPlaybackPreparation) -> Unit,
@@ -2065,6 +2097,7 @@ private fun MediaLibraryTab(
                 var searchText by remember { mutableStateOf("") }
                 var sort by remember { mutableStateOf(LibraryCatalogSort.TITLE) }
                 var subtitleFilter by remember { mutableStateOf(LibrarySubtitleFilter.ANY) }
+                var favoriteFilter by remember { mutableStateOf(LibraryFavoriteFilter.ANY) }
                 val catalog = indexedLibrary?.catalog
                 val totalItems = catalog?.items.orEmpty()
                 val items = catalog
@@ -2073,6 +2106,8 @@ private fun MediaLibraryTab(
                             searchText = searchText,
                             sort = sort,
                             subtitleFilter = subtitleFilter,
+                            favoriteFilter = favoriteFilter,
+                            favoriteMediaIds = favoriteMediaIds,
                         ),
                     )
                     .orEmpty()
@@ -2108,8 +2143,20 @@ private fun MediaLibraryTab(
                     ) {
                         Text(if (subtitleFilter == LibrarySubtitleFilter.ANY) "Require subtitles" else "All episodes")
                     }
+                    Button(
+                        onClick = {
+                            favoriteFilter = if (favoriteFilter == LibraryFavoriteFilter.ANY) {
+                                LibraryFavoriteFilter.FAVORITES_ONLY
+                            } else {
+                                LibraryFavoriteFilter.ANY
+                            }
+                        },
+                    ) {
+                        Text(if (favoriteFilter == LibraryFavoriteFilter.ANY) "Favorites only" else "All episodes")
+                    }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
+                MetadataRow("Favorites", "${favoriteMediaIds.size} saved")
                 MetadataRow("Showing", "${items.size} / ${totalItems.size} episodes")
                 if (totalItems.isEmpty()) {
                     EmptyState("No indexed episodes yet.")
@@ -2121,8 +2168,10 @@ private fun MediaLibraryTab(
                             EpisodeRow(
                                 item = item,
                                 watchStatus = watchStatusById[item.id],
+                                isFavorite = item.id in favoriteMediaIds,
                                 isPreparing = isPreparingLocalPlayback,
                                 onShowDetails = { selectedEpisodeId = it.id },
+                                onSetFavorite = onSetFavorite,
                                 onPrepareLocalPlayback = onPrepareLocalPlayback,
                                 onPlayLocalPlayback = onPlayLocalPlayback,
                             )
@@ -2136,8 +2185,10 @@ private fun MediaLibraryTab(
                 series = librarySeries,
                 watchSummary = seriesWatchSummaryById[librarySeries.id],
                 watchStatusById = watchStatusById,
+                favoriteMediaIds = favoriteMediaIds,
                 isPreparing = isPreparingLocalPlayback,
                 onShowDetails = { selectedEpisodeId = it.id },
+                onSetFavorite = onSetFavorite,
                 onPrepareLocalPlayback = onPrepareLocalPlayback,
                 onPlayLocalPlayback = onPlayLocalPlayback,
             )
@@ -2145,7 +2196,9 @@ private fun MediaLibraryTab(
         selectedEpisodeDetail?.let { detail ->
             DesktopEpisodeDetailPanel(
                 detail = detail,
+                isFavorite = detail.mediaItem.id in favoriteMediaIds,
                 isPreparing = isPreparingLocalPlayback,
+                onSetFavorite = onSetFavorite,
                 onPrepareLocalPlayback = onPrepareLocalPlayback,
                 onPlayLocalPlayback = onPlayLocalPlayback,
                 onSelectEpisode = { selectedEpisodeId = it.id },
@@ -2770,8 +2823,10 @@ private fun DesktopSeriesDetailPanel(
     series: LibrarySeries,
     watchSummary: LibrarySeriesWatchSummary?,
     watchStatusById: Map<String, LibraryWatchStatus>,
+    favoriteMediaIds: Set<String>,
     isPreparing: Boolean,
     onShowDetails: (LibraryMediaItem) -> Unit,
+    onSetFavorite: (LibraryMediaItem, Boolean) -> Unit,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
 ) {
@@ -2808,8 +2863,10 @@ private fun DesktopSeriesDetailPanel(
                         EpisodeRow(
                             item = item,
                             watchStatus = watchStatusById[item.id],
+                            isFavorite = item.id in favoriteMediaIds,
                             isPreparing = isPreparing,
                             onShowDetails = onShowDetails,
+                            onSetFavorite = onSetFavorite,
                             onPrepareLocalPlayback = onPrepareLocalPlayback,
                             onPlayLocalPlayback = onPlayLocalPlayback,
                         )
@@ -2829,7 +2886,9 @@ private fun DesktopSeriesDetailPanel(
 @Composable
 private fun DesktopEpisodeDetailPanel(
     detail: LibraryEpisodeDetail,
+    isFavorite: Boolean,
     isPreparing: Boolean,
+    onSetFavorite: (LibraryMediaItem, Boolean) -> Unit,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
     onSelectEpisode: (LibraryMediaItem) -> Unit,
@@ -2847,6 +2906,7 @@ private fun DesktopEpisodeDetailPanel(
                 MetadataRow("Series", detail.series.title)
                 MetadataRow("Season", detail.season.label)
                 MetadataRow("Watch state", detail.watchStatus.statusLabel())
+                MetadataRow("Favorite", if (isFavorite) "Yes" else "No")
             }
             Column(modifier = Modifier.weight(1f)) {
                 MetadataRow("Subtitles", "${detail.mediaItem.subtitles.size} tracks")
@@ -2867,6 +2927,11 @@ private fun DesktopEpisodeDetailPanel(
                 enabled = !isPreparing,
             ) {
                 Text(if (isPreparing) "Loading..." else "Play")
+            }
+            Button(
+                onClick = { onSetFavorite(detail.mediaItem, !isFavorite) },
+            ) {
+                Text(if (isFavorite) "Unfavorite" else "Favorite")
             }
             Button(
                 onClick = { detail.previousItem?.let(onSelectEpisode) },
@@ -3026,8 +3091,10 @@ private fun RecentlyWatchedRow(
 private fun EpisodeRow(
     item: LibraryMediaItem,
     watchStatus: LibraryWatchStatus?,
+    isFavorite: Boolean,
     isPreparing: Boolean,
     onShowDetails: (LibraryMediaItem) -> Unit,
+    onSetFavorite: (LibraryMediaItem, Boolean) -> Unit,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
 ) {
@@ -3042,7 +3109,10 @@ private fun EpisodeRow(
             Text(item.seriesTitle, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(item.episodeTitle, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
-                watchStatus.statusLabel(),
+                listOfNotNull(
+                    watchStatus.statusLabel(),
+                    "Favorite".takeIf { isFavorite },
+                ).joinToString(separator = " - "),
                 color = DanmakuColors.TextMuted,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -3051,6 +3121,9 @@ private fun EpisodeRow(
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = { onShowDetails(item) }) {
                 Text("Details")
+            }
+            Button(onClick = { onSetFavorite(item, !isFavorite) }) {
+                Text(if (isFavorite) "Unfavorite" else "Favorite")
             }
             Button(
                 onClick = { onPrepareLocalPlayback(item) },

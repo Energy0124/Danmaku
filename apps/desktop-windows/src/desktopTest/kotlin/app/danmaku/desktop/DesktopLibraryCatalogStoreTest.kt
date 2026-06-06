@@ -8,6 +8,7 @@ import kotlin.io.path.writeBytes
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import java.sql.DriverManager
@@ -137,6 +138,40 @@ class DesktopLibraryCatalogStoreTest {
             assertEquals(updatedSetting, store.loadSetting(setting.key))
             store.deleteSetting(setting.key)
             assertNull(store.loadSetting(setting.key))
+        }
+
+        temp.toFile().deleteRecursively()
+    }
+
+    @Test
+    fun persistsFavoriteMediaIdsAsSettings() {
+        val temp = createTempDirectory("danmaku-library-favorites")
+        val databasePath = temp.resolve("catalog.db")
+
+        DesktopLibraryCatalogStore(databasePath).use { store ->
+            assertEquals(emptySet(), store.loadFavoriteMediaIds())
+
+            store.saveFavoriteMediaIds(setOf("episode-z", "episode-a"))
+            assertEquals(setOf("episode-z", "episode-a"), store.loadFavoriteMediaIds())
+        }
+
+        DesktopLibraryCatalogStore(databasePath).use { store ->
+            assertEquals(setOf("episode-a", "episode-z"), store.loadFavoriteMediaIds())
+            store.saveFavoriteMediaIds(emptySet())
+            assertEquals(emptySet(), store.loadFavoriteMediaIds())
+        }
+
+        temp.toFile().deleteRecursively()
+    }
+
+    @Test
+    fun rejectsBlankFavoriteMediaIds() {
+        val temp = createTempDirectory("danmaku-library-favorites-invalid")
+
+        DesktopLibraryCatalogStore(temp.resolve("catalog.db")).use { store ->
+            assertFailsWith<IllegalArgumentException> {
+                store.saveFavoriteMediaIds(setOf("episode", " "))
+            }
         }
 
         temp.toFile().deleteRecursively()

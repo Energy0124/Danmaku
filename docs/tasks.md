@@ -152,6 +152,8 @@ unblocked slices inside these tracks as the vertical slice hardens.
 - [x] Add shared episode-detail derivation and expose Windows desktop, Android
   mobile, and Android TV episode detail panels with previous/next navigation.
 - [x] Add optional persisted Windows local-library auto-next playback.
+- [x] Add persisted Windows local-library favorites with episode-row/detail
+  toggles and a favorites-only episode filter.
 - [x] Add Windows fullscreen and aspect-ratio playback controls.
 - [x] Add Windows paired-catalog one-click stream playback while retaining
   explicit prepare actions for diagnostics.
