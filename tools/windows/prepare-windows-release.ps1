@@ -80,12 +80,6 @@ foreach ($licenseFile in @("GPL-3.0.txt", "LGPL-2.1.txt", "LGPL-3.0.txt")) {
         -Force
 }
 Copy-Item `
-    -LiteralPath (
-        Join-Path $repoRoot "apps\desktop-windows\build\reports\licensee\desktop\artifacts.json"
-    ) `
-    -Destination (Join-Path $releaseFullPath "THIRD_PARTY_DEPENDENCIES.json") `
-    -Force
-Copy-Item `
     -LiteralPath (Join-Path $repoRoot "tools\windows\run-danmaku.ps1") `
     -Destination $releaseFullPath `
     -Force

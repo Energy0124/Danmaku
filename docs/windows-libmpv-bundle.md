@@ -28,7 +28,6 @@ LGPL libmpv DLL as a separately licensed dependency. It includes:
 desktop-windows/
   LICENSE
   THIRD_PARTY_NOTICES.md
-  THIRD_PARTY_DEPENDENCIES.json
   run-danmaku.ps1
   app/
     libmpv-2.dll

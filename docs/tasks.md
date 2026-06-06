@@ -39,9 +39,9 @@ indexed sidecar subtitles to Media3.
 - [x] License Danmaku under MIT and add a pinned, hash-verified libmpv
   dependency installer.
 - [x] Include MIT and third-party notices in Windows, Android mobile, and
-  Android TV build artifacts, with CI verification.
-- [x] Validate distributable Gradle dependency licenses and package the Apache
-  License 2.0 text plus generated dependency inventories.
+  Android TV build artifacts.
+- [x] Package the Apache License 2.0 text with Android mobile, Android TV, and
+  Windows artifacts.
 - [x] Approve direct redistribution of the pinned zhongfly LGPL libmpv build
   with GPL/LGPL texts, source/provenance notice, and CI hash verification.
 - [x] Wire the JNA mpv command executor into the desktop shell using the pinned

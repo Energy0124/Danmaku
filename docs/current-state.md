@@ -20,12 +20,9 @@ Updated on 2026-06-05.
   packaging. Release preparation downloads the pinned zhongfly LGPL artifact,
   verifies both archive and DLL SHA-256 hashes, and directly bundles only
   `libmpv-2.dll` with GPL/LGPL texts plus a source and provenance notice.
-- Android mobile and TV APKs include the MIT license and third-party notice as
-  packaged assets. Cash App Licensee validates the distributable Gradle
-  dependency graphs, which currently resolve to Apache License 2.0
-  dependencies, and produces versioned inventories. CI verifies those assets,
-  the Windows legal files, the approved libmpv manifest, and the bundled DLL
-  hash.
+- Android mobile and TV APKs include the MIT license, third-party notice, and
+  Apache License 2.0 text as packaged assets. CI verifies the approved libmpv
+  manifest and bundled DLL hash as part of the Windows release flow.
 - The uploaded Windows distributable is runtime-free and requires
   user-installed Java 17 or newer, avoiding redistribution of an OpenJDK
   runtime inside the release archive.
@@ -251,7 +248,6 @@ Run these commands after architecture or build changes:
 .\tools\windows\test-install-libmpv-dependency.ps1
 cargo fmt --all --check
 cargo test --workspace
-.\gradlew.bat --no-daemon :apps:desktop-windows:licensee :apps:android-mobile:licenseeDebug :apps:android-tv:licenseeDebug
 .\gradlew.bat --no-daemon :shared:domain:jvmTest
 .\gradlew.bat --no-daemon :shared:library-client:jvmTest
 .\gradlew.bat --no-daemon :shared:library-server-core:jvmTest

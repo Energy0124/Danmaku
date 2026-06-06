@@ -10,7 +10,6 @@ import javax.inject.Inject
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
-    id("app.cash.licensee")
 }
 
 abstract class CopyLegalAssetsTask : DefaultTask() {
@@ -63,11 +62,6 @@ androidComponents {
             CopyLegalAssetsTask::outputDirectory,
         )
     }
-}
-
-licensee {
-    allow("Apache-2.0")
-    bundleAndroidAsset = true
 }
 
 dependencies {
