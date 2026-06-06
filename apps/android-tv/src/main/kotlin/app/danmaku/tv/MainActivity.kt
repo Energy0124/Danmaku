@@ -48,14 +48,18 @@ import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryCatalogQuery
 import app.danmaku.domain.LibraryCatalogSort
 import app.danmaku.domain.LibraryMediaItem
+import app.danmaku.domain.LibraryNextUpItem
+import app.danmaku.domain.LibraryNextUpReason
 import app.danmaku.domain.LibrarySeries
 import app.danmaku.domain.LibrarySubtitleFilter
+import app.danmaku.domain.PlaybackProgress
 import app.danmaku.domain.PlaybackCommand
 import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.PlaybackTrack
 import app.danmaku.domain.PlaybackTrackKind
 import app.danmaku.domain.filteredItems
 import app.danmaku.domain.groupedSeries
+import app.danmaku.domain.nextUpItems
 import app.danmaku.domain.seekTargetBy
 import app.danmaku.library.android.LanLibraryDiscoveryClient
 import app.danmaku.library.android.LanLibraryClient
@@ -101,6 +105,7 @@ private fun TvPlayerScreen() {
     var serverUrl by remember { mutableStateOf("http://10.0.2.2:8686") }
     var pairingToken by remember { mutableStateOf("") }
     var catalog by remember { mutableStateOf<LibraryCatalog?>(null) }
+    var playbackProgresses by remember { mutableStateOf<List<PlaybackProgress>>(emptyList()) }
     var libraryError by remember { mutableStateOf<String?>(null) }
 
     DisposableEffect(playbackConnection) {
@@ -200,10 +205,15 @@ private fun TvPlayerScreen() {
                         scope.launch {
                             runCatching {
                                 withContext(Dispatchers.IO) {
-                                    libraryClient.fetchCatalog(serverUrl, pairingToken)
+                                    val fetchedCatalog = libraryClient.fetchCatalog(serverUrl, pairingToken)
+                                    val fetchedProgresses = runCatching {
+                                        progressSync.fetchAllProgress(serverUrl, pairingToken)
+                                    }.getOrElse { emptyList() }
+                                    fetchedCatalog to fetchedProgresses
                                 }
                             }.onSuccess {
-                                catalog = it
+                                catalog = it.first
+                                playbackProgresses = it.second
                                 libraryError = null
                             }.onFailure {
                                 libraryError = it.message
@@ -264,6 +274,7 @@ private fun TvPlayerScreen() {
             libraryError?.let { Text("Library error: $it") }
             LibraryItems(
                 catalog = catalog,
+                playbackProgresses = playbackProgresses,
                 onPlay = { item ->
                     val activeController = controller ?: return@LibraryItems
                     val target = LanPlaybackTarget(serverUrl, pairingToken, item.id)
@@ -403,6 +414,7 @@ private fun Long.formatPlaybackTime(): String {
 @Composable
 internal fun LibraryItems(
     catalog: LibraryCatalog?,
+    playbackProgresses: List<PlaybackProgress> = emptyList(),
     onPlay: (LibraryMediaItem) -> Unit,
 ) {
     var searchText by remember { mutableStateOf("") }
@@ -420,6 +432,7 @@ internal fun LibraryItems(
         )
         .orEmpty()
     val series = catalog?.groupedSeries().orEmpty().take(10)
+    val nextUpItems = catalog?.nextUpItems(playbackProgresses, limit = 6).orEmpty()
     val selectedSeries = series.firstOrNull { it.id == selectedSeriesId }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -487,6 +500,9 @@ internal fun LibraryItems(
                 }
             }
         }
+        if (nextUpItems.isNotEmpty()) {
+            TvNextUpRail(items = nextUpItems, onPlay = onPlay)
+        }
         if (series.isNotEmpty()) {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 item(key = "all-series") {
@@ -542,6 +558,70 @@ internal fun LibraryItems(
         }
     }
 }
+
+@Composable
+private fun TvNextUpRail(
+    items: List<LibraryNextUpItem>,
+    onPlay: (LibraryMediaItem) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.DarkGray)
+            .padding(14.dp)
+            .testTag("library-next-up"),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                "Next Up",
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text("${items.size} picks")
+        }
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            items(items, key = { it.mediaItem.id }) { item ->
+                Button(
+                    onClick = { onPlay(item.mediaItem) },
+                    modifier = Modifier
+                        .width(320.dp)
+                        .testTag("next-up:${item.mediaItem.id}"),
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(
+                            item.mediaItem.seriesTitle,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            item.mediaItem.episodeTitle,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(item.nextUpLabel(), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun LibraryNextUpItem.nextUpLabel(): String =
+    when (reason) {
+        LibraryNextUpReason.RESUME ->
+            "Resume at ${progress?.positionMs?.formatPlaybackTime() ?: "saved position"}"
+        LibraryNextUpReason.NEXT_EPISODE -> "Next episode"
+        LibraryNextUpReason.START -> "Start watching"
+    }
 
 @Composable
 private fun TvSeriesDetail(

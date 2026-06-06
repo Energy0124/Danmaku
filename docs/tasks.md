@@ -175,6 +175,8 @@ unblocked slices inside these tracks as the vertical slice hardens.
   compact series detail panel.
 - [x] Add an Android mobile Next Up rail backed by the LAN progress list and
   shared next-up derivation.
+- [x] Add an Android TV Next Up rail backed by the LAN progress list and shared
+  next-up derivation.
 - [x] Add an Android TV remote-friendly library header, shared-grouped series
   rail, selected-series detail strip, and richer episode rows.
 - [x] Add Android mobile progress scrubbing and Android TV remote-friendly seek

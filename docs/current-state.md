@@ -206,9 +206,9 @@ Updated on 2026-06-06.
   Library page empty, connected-catalog, selected-series detail, Next Up,
   mini-player, and episode-selection states.
 - Android TV library browsing includes a remote-friendly header, shared-grouped
-  series rail, selected-series detail strip with season episode actions,
-  fixed-height episode list, and metadata-rich episode buttons for connected-PC
-  catalogs.
+  progress-backed Next Up rail, series rail, selected-series detail strip with
+  season episode actions, fixed-height episode list, and metadata-rich episode
+  buttons for connected-PC catalogs.
 - Desktop root scanner can import ani-rss output folders, reuse unchanged media
   rows during incremental rescans, mark unavailable roots missing, and produce
   a merged library for LAN publication.

@@ -8,6 +8,7 @@ import androidx.tv.material3.MaterialTheme
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySubtitleTrack
+import app.danmaku.domain.PlaybackProgress
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -20,7 +21,7 @@ class TvLibraryItemsTest {
     fun rendersCatalogSummarySeriesRailAndEpisodeMetadata() {
         composeRule.setContent {
             MaterialTheme {
-                LibraryItems(catalog = seededCatalog(), onPlay = {})
+                LibraryItems(catalog = seededCatalog(), playbackProgresses = emptyList(), onPlay = {})
             }
         }
 
@@ -40,7 +41,7 @@ class TvLibraryItemsTest {
     fun seriesButtonNarrowsAndClearsEpisodeList() {
         composeRule.setContent {
             MaterialTheme {
-                LibraryItems(catalog = seededCatalog(), onPlay = {})
+                LibraryItems(catalog = seededCatalog(), playbackProgresses = emptyList(), onPlay = {})
             }
         }
 
@@ -68,6 +69,7 @@ class TvLibraryItemsTest {
             MaterialTheme {
                 LibraryItems(
                     catalog = seededCatalog(),
+                    playbackProgresses = emptyList(),
                     onPlay = { playedItemId = it.id },
                 )
             }
@@ -87,6 +89,7 @@ class TvLibraryItemsTest {
             MaterialTheme {
                 LibraryItems(
                     catalog = seededCatalog(),
+                    playbackProgresses = emptyList(),
                     onPlay = { playedItemId = it.id },
                 )
             }
@@ -94,6 +97,36 @@ class TvLibraryItemsTest {
 
         composeRule.onNodeWithTag("series:Example Show").performClick()
         composeRule.onNodeWithTag("series-detail-episode:example-2").performClick()
+
+        composeRule.runOnIdle {
+            assertEquals("example-2", playedItemId)
+        }
+    }
+
+    @Test
+    fun nextUpPromotesFollowingEpisodeAndRoutesSelectedItemToPlayCallback() {
+        var playedItemId: String? = null
+        composeRule.setContent {
+            MaterialTheme {
+                LibraryItems(
+                    catalog = seededCatalog(),
+                    playbackProgresses = listOf(
+                        PlaybackProgress(
+                            mediaId = "example-1",
+                            positionMs = 1_190_000,
+                            durationMs = 1_200_000,
+                            updatedAtEpochMs = 1_700_000_000_100,
+                        ),
+                    ),
+                    onPlay = { playedItemId = it.id },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("library-next-up").assertExists()
+        composeRule.onNodeWithText("Next Up").assertExists()
+        composeRule.onNodeWithText("Next episode").assertExists()
+        composeRule.onNodeWithTag("next-up:example-2").performClick()
 
         composeRule.runOnIdle {
             assertEquals("example-2", playedItemId)
