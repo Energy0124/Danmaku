@@ -113,13 +113,38 @@ class DesktopMpvCommandExecutorRuntimeFactory(
         const val LIBMPV_PATH_ENV = "DANMAKU_LIBMPV_PATH"
         const val BRIDGE_DLL_NAME = "player_windows_mpv.dll"
         const val LIBMPV_DLL_NAME = "libmpv-2.dll"
+        private const val COMPOSE_RESOURCES_DIR_PROPERTY = "compose.application.resources.dir"
 
         private fun defaultLibrarySearchPaths(): List<Path> =
-            System.getProperty("java.library.path")
-                .orEmpty()
-                .split(File.pathSeparator)
-                .filter(String::isNotBlank)
-                .map(Path::of)
+            buildList {
+                addAll(
+                    System.getProperty("java.library.path")
+                        .orEmpty()
+                        .split(File.pathSeparator)
+                        .filter(String::isNotBlank)
+                        .map(Path::of),
+                )
+                System.getProperty(COMPOSE_RESOURCES_DIR_PROPERTY)
+                    ?.takeIf(String::isNotBlank)
+                    ?.let(Path::of)
+                    ?.parent
+                    ?.let(::add)
+                appCodeSourcePath()?.let { codeSource ->
+                    add(if (Files.isRegularFile(codeSource)) codeSource.parent else codeSource)
+                }
+            }
+                .map { it.toAbsolutePath().normalize() }
+                .distinct()
+
+        private fun appCodeSourcePath(): Path? =
+            runCatching {
+                DesktopMpvCommandExecutorRuntimeFactory::class.java
+                    .protectionDomain
+                    .codeSource
+                    ?.location
+                    ?.toURI()
+                    ?.let(Path::of)
+            }.getOrNull()
     }
 }
 
