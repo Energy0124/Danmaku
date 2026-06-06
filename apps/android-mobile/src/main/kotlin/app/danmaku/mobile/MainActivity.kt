@@ -507,6 +507,16 @@ private fun LibraryPage(
                 onConnect = onConnect,
             )
         }
+        catalog?.takeIf { it.items.isNotEmpty() }?.let { activeCatalog ->
+            item(key = "library-series-rail") {
+                SeriesRail(
+                    series = activeCatalog.items.toSeriesSummaries(),
+                    searchText = searchText,
+                    onSelectSeries = onSearchTextChange,
+                    onClearSearch = { onSearchTextChange("") },
+                )
+            }
+        }
         if (catalog == null) {
             item(key = "library-empty") {
                 EmptyLibraryState(onConnect = onConnect)
@@ -522,6 +532,77 @@ private fun LibraryPage(
                     selected = nowPlaying?.id == item.id,
                     onPlay = { onPlay(item) },
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SeriesRail(
+    series: List<LibrarySeriesSummary>,
+    searchText: String,
+    onSelectSeries: (String) -> Unit,
+    onClearSearch: () -> Unit,
+) {
+    if (series.isEmpty()) return
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = Color(0xFF15191D),
+        border = BorderStroke(1.dp, Color(0xFF2B3239)),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "Series",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        "${series.size} most common titles",
+                        color = SubtleText,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                TextButton(
+                    onClick = onClearSearch,
+                    enabled = searchText.isNotBlank(),
+                ) {
+                    Text("Clear")
+                }
+            }
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(series, key = LibrarySeriesSummary::title) { summary ->
+                    val selected = searchText.trim().equals(summary.title, ignoreCase = true)
+                    FilterChip(
+                        selected = selected,
+                        onClick = {
+                            if (selected) {
+                                onClearSearch()
+                            } else {
+                                onSelectSeries(summary.title)
+                            }
+                        },
+                        label = {
+                            Text(
+                                summary.displayLabel(),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        },
+                    )
+                }
             }
         }
     }
@@ -1387,6 +1468,36 @@ private fun LibraryMediaItem.formatSize(): String {
         "${gib.formatOneDecimal()} GB"
     } else {
         "${mib.formatOneDecimal()} MB"
+    }
+}
+
+private data class LibrarySeriesSummary(
+    val title: String,
+    val episodeCount: Int,
+    val subtitleTrackCount: Int,
+)
+
+private fun List<LibraryMediaItem>.toSeriesSummaries(limit: Int = 12): List<LibrarySeriesSummary> =
+    groupBy(LibraryMediaItem::seriesTitle)
+        .map { (title, episodes) ->
+            LibrarySeriesSummary(
+                title = title,
+                episodeCount = episodes.size,
+                subtitleTrackCount = episodes.sumOf { it.subtitles.size },
+            )
+        }
+        .sortedWith(
+            compareByDescending<LibrarySeriesSummary> { it.episodeCount }
+                .thenBy { it.title.lowercase() },
+        )
+        .take(limit)
+
+private fun LibrarySeriesSummary.displayLabel(): String {
+    val episodeLabel = if (episodeCount == 1) "1 ep" else "$episodeCount eps"
+    return if (subtitleTrackCount > 0) {
+        "$title · $episodeLabel · $subtitleTrackCount sub"
+    } else {
+        "$title · $episodeLabel"
     }
 }
 

@@ -134,6 +134,8 @@ streams plus indexed sidecar subtitles to Media3.
   controls.
 - [x] Add Android mobile and Android TV catalog search, title/path sorting, and
   subtitle-only filtering backed by the shared domain query helper.
+- [x] Add an Android mobile series rail for faster browsing within large
+  connected-PC catalogs.
 - [x] Add Android mobile progress scrubbing and Android TV remote-friendly seek
   controls backed by shared seek-target clamping.
 - [ ] Add Android phone/tablet screenshot or instrumentation coverage for the
