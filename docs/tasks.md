@@ -172,6 +172,8 @@ unblocked slices inside these tracks as the vertical slice hardens.
   compact prepare/play actions.
 - [x] Load catalog-wide paired progress in the Windows paired browser and show
   shared watch-state labels on remote episode rows.
+- [x] Add Windows paired-library Next Up and Continue Watching rails backed by
+  catalog-wide paired progress.
 - [x] Persist Windows playback defaults for volume, playback rate, and aspect
   mode.
 - [x] Add Windows player keyboard shortcuts for play/pause, seek, volume,

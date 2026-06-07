@@ -110,7 +110,9 @@ Updated on 2026-06-06.
   browser supports search, title/path sorting, subtitle-only filtering, and a
   reset state when filters hide every remote episode; rows show media type,
   file size, subtitle count, relative path metadata, and shared-derived
-  new/in-progress/watched state from catalog-wide paired progress.
+  new/in-progress/watched state from catalog-wide paired progress. Paired
+  progress also drives compact remote Next Up and Continue Watching rails with
+  direct prepare/resume actions.
 - Windows local-library playback has an optional persisted auto-next setting
   that prepares and loads the next local catalog item when playback reaches EOF.
 - Direct Windows media-file picker that loads arbitrary local video files into

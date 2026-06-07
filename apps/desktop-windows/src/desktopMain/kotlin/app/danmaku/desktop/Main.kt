@@ -3297,6 +3297,12 @@ private fun RemoteLibraryBrowser(
     val watchStatusById = remember(catalog, playbackProgresses) {
         catalog?.watchStatusByMediaId(playbackProgresses).orEmpty()
     }
+    val nextUpItems = remember(catalog, playbackProgresses) {
+        catalog?.nextUpItems(playbackProgresses).orEmpty().take(4)
+    }
+    val continueWatchingItems = remember(catalog, playbackProgresses) {
+        catalog?.continueWatchingItems(playbackProgresses).orEmpty().take(4)
+    }
 
     fun refreshCatalog() {
         val requestedServerUrl = serverUrl
@@ -3394,6 +3400,53 @@ private fun RemoteLibraryBrowser(
     }
     libraryError?.let { Text("Paired library error: $it") }
     Text("Paired episodes: ${totalItems.size}")
+    MetadataRow("Paired progress", "${playbackProgresses.size} saved rows")
+    if (catalog != null) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Paired Next Up", fontWeight = FontWeight.Bold)
+                if (nextUpItems.isEmpty()) {
+                    EmptyState("No paired next-up item yet.")
+                } else {
+                    LazyColumn(modifier = Modifier.heightIn(max = 180.dp)) {
+                        items(nextUpItems, key = { it.mediaItem.id }) { item ->
+                            RemoteNextUpRow(
+                                item = item,
+                                isPreparing = isPreparingPlayback,
+                                onPrepareRemotePlayback = {
+                                    prepareRemotePlayback(item.mediaItem, loadAfterPrepare = false)
+                                },
+                                onPlayRemotePlayback = {
+                                    prepareRemotePlayback(item.mediaItem, loadAfterPrepare = true)
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Paired Continue Watching", fontWeight = FontWeight.Bold)
+                if (continueWatchingItems.isEmpty()) {
+                    EmptyState("No in-progress paired episodes yet.")
+                } else {
+                    LazyColumn(modifier = Modifier.heightIn(max = 180.dp)) {
+                        items(continueWatchingItems, key = { it.mediaItem.id }) { item ->
+                            RemoteContinueWatchingRow(
+                                item = item,
+                                isPreparing = isPreparingPlayback,
+                                onPlayRemotePlayback = {
+                                    prepareRemotePlayback(item.mediaItem, loadAfterPrepare = true)
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
     OutlinedTextField(
         value = searchText,
         onValueChange = { searchText = it },
@@ -3461,6 +3514,75 @@ private fun RemoteLibraryBrowser(
             },
         ) {
             Text("Load into desktop controller")
+        }
+    }
+}
+
+@Composable
+private fun RemoteNextUpRow(
+    item: LibraryNextUpItem,
+    isPreparing: Boolean,
+    onPrepareRemotePlayback: () -> Unit,
+    onPlayRemotePlayback: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(item.mediaItem.seriesTitle, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(item.mediaItem.episodeTitle, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(item.nextUpLabel(), color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = onPrepareRemotePlayback,
+                enabled = !isPreparing,
+            ) {
+                Text(if (isPreparing) "Preparing..." else "Prepare")
+            }
+            Button(
+                onClick = onPlayRemotePlayback,
+                enabled = !isPreparing,
+            ) {
+                Text(if (isPreparing) "Loading..." else item.nextUpActionLabel())
+            }
+        }
+    }
+}
+
+@Composable
+private fun RemoteContinueWatchingRow(
+    item: LibraryPlaybackProgressItem,
+    isPreparing: Boolean,
+    onPlayRemotePlayback: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(item.mediaItem.seriesTitle, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(item.mediaItem.episodeTitle, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                "Resume at ${item.progress.positionMs.formatPlaybackTime()} / " +
+                    (item.progress.durationMs?.formatPlaybackTime() ?: "unknown"),
+                color = DanmakuColors.TextMuted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Button(
+            onClick = onPlayRemotePlayback,
+            enabled = !isPreparing,
+        ) {
+            Text(if (isPreparing) "Loading..." else "Resume")
         }
     }
 }
