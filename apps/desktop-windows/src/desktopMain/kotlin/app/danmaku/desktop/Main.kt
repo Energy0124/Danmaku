@@ -76,6 +76,7 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
@@ -2596,7 +2597,7 @@ private fun DandanplayProviderCard(
 
     SectionCard("Danmaku Providers") {
         Text(
-            "dandanplay-compatible API settings for future auto-match and fetched danmaku tracks.",
+            "dandanplay-compatible API settings for auto-match and fetched danmaku tracks.",
             color = DanmakuColors.TextMuted,
         )
         Spacer(modifier = Modifier.height(10.dp))
@@ -2631,6 +2632,7 @@ private fun DandanplayProviderCard(
             },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
+            visualTransformation = PasswordVisualTransformation(),
         )
         OutlinedTextField(
             value = cacheMaxAgeDaysText,

@@ -145,7 +145,8 @@ Updated on 2026-06-06.
 - Windows Profile-tab dandanplay provider settings for API base URL plus
   optional AppId/AppSecret credentials. AppSecret values are protected through
   the same Windows DPAPI-backed secret-protector path used by ani-rss, and the
-  UI/diagnostics show only redacted provider status.
+  UI/diagnostics show only redacted provider status. The AppSecret input is
+  password-masked while editing.
 - Windows local-library playback can use the configured dandanplay-compatible
   provider to fingerprint the local media file, match it, fetch comments, render
   the fetched comments into a cached ASS overlay, and attach that overlay to
