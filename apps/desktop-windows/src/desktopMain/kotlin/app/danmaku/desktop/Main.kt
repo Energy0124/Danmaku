@@ -3272,6 +3272,7 @@ private fun RemoteLibraryBrowser(
     var serverUrl by remember(defaultServerUrl) { mutableStateOf(defaultServerUrl) }
     var pairingToken by remember(defaultPairingToken) { mutableStateOf(defaultPairingToken) }
     var catalog by remember { mutableStateOf<LibraryCatalog?>(null) }
+    var playbackProgresses by remember { mutableStateOf(emptyList<PlaybackProgress>()) }
     var libraryError by remember { mutableStateOf<String?>(null) }
     var selectedPlaybackPreparation by remember {
         mutableStateOf<LanPlaybackPreparation?>(null)
@@ -3293,6 +3294,9 @@ private fun RemoteLibraryBrowser(
             )
             .orEmpty()
     }
+    val watchStatusById = remember(catalog, playbackProgresses) {
+        catalog?.watchStatusByMediaId(playbackProgresses).orEmpty()
+    }
 
     fun refreshCatalog() {
         val requestedServerUrl = serverUrl
@@ -3303,12 +3307,16 @@ private fun RemoteLibraryBrowser(
             selectedPlaybackPreparation = null
             runCatching {
                 withContext(Dispatchers.IO) {
-                    libraryConnectionSession.fetchCatalog(requestedServerUrl, requestedPairingToken)
+                    libraryConnectionSession.fetchCatalogWithProgress(requestedServerUrl, requestedPairingToken)
                 }
             }.onSuccess {
-                catalog = it
+                catalog = it.catalog
+                playbackProgresses = it.playbackProgresses
                 libraryError = null
-                appendDiagnostic("remote-client", "Fetched catalog: ${it.items.size} items")
+                appendDiagnostic(
+                    "remote-client",
+                    "Fetched catalog: ${it.catalog.items.size} items, ${it.playbackProgresses.size} progress rows",
+                )
             }.onFailure {
                 libraryError = it.message
                 appendDiagnostic("remote-client", "Fetch catalog failed: ${it.message}")
@@ -3435,6 +3443,7 @@ private fun RemoteLibraryBrowser(
             items(filteredItems, key = { it.id }) { item ->
                 RemoteEpisodeRow(
                     item = item,
+                    watchStatus = watchStatusById[item.id],
                     isPreparing = isPreparingPlayback,
                     onPrepareRemotePlayback = { prepareRemotePlayback(item, loadAfterPrepare = false) },
                     onPlayRemotePlayback = { prepareRemotePlayback(item, loadAfterPrepare = true) },
@@ -3459,6 +3468,7 @@ private fun RemoteLibraryBrowser(
 @Composable
 private fun RemoteEpisodeRow(
     item: LibraryMediaItem,
+    watchStatus: LibraryWatchStatus?,
     isPreparing: Boolean,
     onPrepareRemotePlayback: () -> Unit,
     onPlayRemotePlayback: () -> Unit,
@@ -3475,6 +3485,7 @@ private fun RemoteEpisodeRow(
             Text(item.episodeTitle, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
                 listOf(
+                    watchStatus.statusLabel(),
                     item.mediaType.ifBlank { "unknown media" },
                     item.sizeBytes.formatLibrarySize(),
                     if (item.subtitles.isEmpty()) "no subtitles" else "${item.subtitles.size} subtitles",

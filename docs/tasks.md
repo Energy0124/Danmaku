@@ -170,6 +170,8 @@ unblocked slices inside these tracks as the vertical slice hardens.
   and a filter-reset empty state.
 - [x] Add structured Windows paired-catalog episode rows with media metadata and
   compact prepare/play actions.
+- [x] Load catalog-wide paired progress in the Windows paired browser and show
+  shared watch-state labels on remote episode rows.
 - [x] Persist Windows playback defaults for volume, playback rate, and aspect
   mode.
 - [x] Add Windows player keyboard shortcuts for play/pause, seek, volume,
