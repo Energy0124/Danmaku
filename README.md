@@ -171,6 +171,24 @@ For more detail, see:
 sdk.dir=C\:\\path\\to\\Android\\Sdk
 ```
 
+Local desktop development can also read ignored dandanplay credentials from
+`local.properties` when no encrypted Profile-tab provider settings have been
+saved yet:
+
+```properties
+danmaku.dandanplay.appId=your-app-id
+danmaku.dandanplay.appSecret=your-app-secret
+danmaku.dandanplay.authenticationMode=signed
+danmaku.dandanplay.cacheMaxAgeDays=30
+```
+
+The same fallback can be supplied through environment variables named
+`DANMAKU_DANDANPLAY_APP_ID`, `DANMAKU_DANDANPLAY_APP_SECRET`,
+`DANMAKU_DANDANPLAY_AUTHENTICATION_MODE`, and
+`DANMAKU_DANDANPLAY_CACHE_MAX_AGE_DAYS`. These values are for local
+development and CI-only checks; do not embed provider secrets in distributable
+client artifacts.
+
 ## Build And Test
 
 Run the main JVM/native verification:

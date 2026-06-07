@@ -1,34 +1,45 @@
 package app.danmaku.desktop
 
+import java.nio.file.Files
+import java.nio.file.Path
 import java.util.Base64
+import java.util.Properties
 
 class DandanplayCredentialStore(
     private val store: DesktopLibraryCatalogStore,
     private val secretProtector: DesktopSecretProtector = DesktopSecretProtector.default(),
     private val nowEpochMs: () -> Long = System::currentTimeMillis,
+    private val localDefaultsProvider: () -> DandanplayLocalCredentialDefaults? = {
+        DandanplayLocalCredentialDefaults.load()
+    },
 ) {
     fun loadSettings(): DandanplayProviderSettings {
         val appId = store.loadSetting(APP_ID_SETTING_KEY)?.value?.takeIf(String::isNotBlank)
+        val defaults = loadDefaultsIfUnconfigured()
         return DandanplayProviderSettings(
             baseUrl = store.loadSetting(BASE_URL_SETTING_KEY)?.value
+                ?: defaults?.baseUrl
                 ?: DandanplayConnection.DEFAULT_BASE_URL,
-            appId = appId,
-            hasAppSecret = appId != null && loadSecret(APP_SECRET_SETTING_KEY) != null,
+            appId = appId ?: defaults?.appId,
+            hasAppSecret = (appId ?: defaults?.appId) != null &&
+                (loadSecret(APP_SECRET_SETTING_KEY) ?: defaults?.appSecret) != null,
             authenticationMode = store.loadSetting(AUTHENTICATION_MODE_SETTING_KEY)
                 ?.value
                 ?.let(::authenticationModeOrDefault)
+                ?: defaults?.authenticationMode
                 ?: DandanplayAuthenticationMode.SIGNED,
             cacheMaxAgeDays = store.loadSetting(CACHE_MAX_AGE_DAYS_SETTING_KEY)
                 ?.value
                 ?.toIntOrNull()
                 ?.takeIf { it >= MIN_CACHE_MAX_AGE_DAYS }
+                ?: defaults?.cacheMaxAgeDays
                 ?: DEFAULT_CACHE_MAX_AGE_DAYS,
         )
     }
 
     fun loadConnection(): DandanplayConnection {
         val settings = loadSettings()
-        val appSecret = loadSecret(APP_SECRET_SETTING_KEY)
+        val appSecret = loadSecret(APP_SECRET_SETTING_KEY) ?: loadDefaultsIfUnconfigured()?.appSecret
         return if (settings.appId != null && appSecret != null) {
             DandanplayConnection(
                 baseUrl = settings.baseUrl,
@@ -91,6 +102,18 @@ class DandanplayCredentialStore(
             ?.let(secretProtector::unprotect)
             ?.toString(Charsets.UTF_8)
 
+    private fun loadDefaultsIfUnconfigured(): DandanplayLocalCredentialDefaults? =
+        if (
+            store.loadSetting(BASE_URL_SETTING_KEY) == null &&
+            store.loadSetting(APP_ID_SETTING_KEY) == null &&
+            store.loadSetting(APP_SECRET_SETTING_KEY) == null &&
+            store.loadSetting(AUTHENTICATION_MODE_SETTING_KEY) == null
+        ) {
+            localDefaultsProvider()
+        } else {
+            null
+        }
+
     private fun saveSecret(
         key: String,
         value: String,
@@ -124,6 +147,61 @@ class DandanplayCredentialStore(
         fun authenticationModeOrDefault(value: String): DandanplayAuthenticationMode =
             runCatching { DandanplayAuthenticationMode.valueOf(value) }
                 .getOrDefault(DandanplayAuthenticationMode.SIGNED)
+    }
+}
+
+data class DandanplayLocalCredentialDefaults(
+    val baseUrl: String = DandanplayConnection.DEFAULT_BASE_URL,
+    val appId: String? = null,
+    val appSecret: String? = null,
+    val authenticationMode: DandanplayAuthenticationMode = DandanplayAuthenticationMode.SIGNED,
+    val cacheMaxAgeDays: Int? = null,
+) {
+    companion object {
+        fun load(
+            environment: Map<String, String> = System.getenv(),
+            propertiesPath: Path = Path.of(System.getProperty("user.dir"), "local.properties"),
+        ): DandanplayLocalCredentialDefaults? {
+            val properties = Properties()
+            if (Files.isRegularFile(propertiesPath)) {
+                Files.newInputStream(propertiesPath).use(properties::load)
+            }
+
+            fun value(
+                propertyName: String,
+                environmentName: String,
+            ): String? =
+                (environment[environmentName] ?: properties.getProperty(propertyName))
+                    ?.trim()
+                    ?.takeIf(String::isNotEmpty)
+
+            val baseUrl = value("danmaku.dandanplay.baseUrl", "DANMAKU_DANDANPLAY_BASE_URL")
+                ?: DandanplayConnection.DEFAULT_BASE_URL
+            val appId = value("danmaku.dandanplay.appId", "DANMAKU_DANDANPLAY_APP_ID")
+            val appSecret = value("danmaku.dandanplay.appSecret", "DANMAKU_DANDANPLAY_APP_SECRET")
+            val authenticationMode = value(
+                "danmaku.dandanplay.authenticationMode",
+                "DANMAKU_DANDANPLAY_AUTHENTICATION_MODE",
+            )
+                ?.let { runCatching { DandanplayAuthenticationMode.valueOf(it.uppercase()) }.getOrNull() }
+                ?: DandanplayAuthenticationMode.SIGNED
+            val cacheMaxAgeDays = value(
+                "danmaku.dandanplay.cacheMaxAgeDays",
+                "DANMAKU_DANDANPLAY_CACHE_MAX_AGE_DAYS",
+            )?.toIntOrNull()?.takeIf { it >= 1 }
+
+            return if (appId == null && appSecret == null && baseUrl == DandanplayConnection.DEFAULT_BASE_URL) {
+                null
+            } else {
+                DandanplayLocalCredentialDefaults(
+                    baseUrl = baseUrl,
+                    appId = appId,
+                    appSecret = appSecret,
+                    authenticationMode = authenticationMode,
+                    cacheMaxAgeDays = cacheMaxAgeDays,
+                )
+            }
+        }
     }
 }
 

@@ -79,6 +79,71 @@ class DandanplayCredentialStoreTest {
     }
 
     @Test
+    fun loadsIgnoredLocalDefaultsWhenNoSettingsAreStored() {
+        val temp = createTempDirectory("danmaku-dandanplay-local-defaults")
+        val databasePath = temp.resolve("catalog.db")
+
+        DesktopLibraryCatalogStore(databasePath).use { catalogStore ->
+            val credentialStore = DandanplayCredentialStore(
+                store = catalogStore,
+                secretProtector = ReversingSecretProtector,
+                localDefaultsProvider = {
+                    DandanplayLocalCredentialDefaults(
+                        appId = "local-app-id",
+                        appSecret = "local-secret",
+                        authenticationMode = DandanplayAuthenticationMode.CREDENTIAL,
+                        cacheMaxAgeDays = 21,
+                    )
+                },
+            )
+
+            val settings = credentialStore.loadSettings()
+
+            assertEquals("local-app-id", settings.appId)
+            assertTrue(settings.hasCredentials)
+            assertEquals(DandanplayAuthenticationMode.CREDENTIAL, settings.authenticationMode)
+            assertEquals(21, settings.cacheMaxAgeDays)
+            assertEquals("local-secret", credentialStore.loadConnection().appSecret)
+            assertFalse(catalogStore.loadSettings().any { it.value.contains("local-secret") })
+
+            credentialStore.saveSettings(
+                baseUrl = "http://127.0.0.1:9000",
+                appId = "",
+                appSecret = "",
+                authenticationMode = DandanplayAuthenticationMode.SIGNED,
+            )
+
+            assertNull(credentialStore.loadSettings().appId)
+            assertNull(credentialStore.loadConnection().appSecret)
+        }
+
+        temp.toFile().deleteRecursively()
+    }
+
+    @Test
+    fun loadsDandanplayDefaultsFromEnvironmentAndLocalProperties() {
+        val propertiesPath = createTempDirectory("danmaku-dandanplay-properties").resolve("local.properties")
+        propertiesPath.toFile().writeText(
+            """
+            danmaku.dandanplay.appId=local-file-app-id
+            danmaku.dandanplay.appSecret=local-file-secret
+            danmaku.dandanplay.authenticationMode=credential
+            danmaku.dandanplay.cacheMaxAgeDays=9
+            """.trimIndent(),
+        )
+
+        val defaults = DandanplayLocalCredentialDefaults.load(
+            environment = mapOf("DANMAKU_DANDANPLAY_APP_ID" to "environment-app-id"),
+            propertiesPath = propertiesPath,
+        )
+
+        assertEquals("environment-app-id", defaults?.appId)
+        assertEquals("local-file-secret", defaults?.appSecret)
+        assertEquals(DandanplayAuthenticationMode.CREDENTIAL, defaults?.authenticationMode)
+        assertEquals(9, defaults?.cacheMaxAgeDays)
+    }
+
+    @Test
     fun supportsCompatibleServerSettingsWithoutCredentials() {
         val temp = createTempDirectory("danmaku-dandanplay-compatible")
         val databasePath = temp.resolve("catalog.db")

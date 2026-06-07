@@ -114,6 +114,8 @@ unblocked slices inside these tracks as the vertical slice hardens.
   AppId/AppSecret credentials with secure storage and redacted diagnostics.
 - [x] Mask the Windows dandanplay AppSecret entry in the Profile-tab provider
   settings form.
+- [x] Add ignored local-property and environment-variable dandanplay credential
+  fallbacks for local development without embedding secrets into builds.
 - [x] Attach matched dandanplay-fetched tracks to Windows local-library playback
   by rendering fetched comments into a cached ASS overlay file.
 - [x] Persist chosen dandanplay `episodeId` values and fetched raw comments per

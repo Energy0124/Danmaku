@@ -146,7 +146,10 @@ Updated on 2026-06-06.
   optional AppId/AppSecret credentials. AppSecret values are protected through
   the same Windows DPAPI-backed secret-protector path used by ani-rss, and the
   UI/diagnostics show only redacted provider status. The AppSecret input is
-  password-masked while editing.
+  password-masked while editing. Ignored `local.properties` values and matching
+  `DANMAKU_DANDANPLAY_*` environment variables can seed local development when
+  no encrypted provider settings have been saved yet, without embedding secrets
+  into distributable artifacts.
 - Windows local-library playback can use the configured dandanplay-compatible
   provider to fingerprint the local media file, match it, fetch comments, render
   the fetched comments into a cached ASS overlay, and attach that overlay to
