@@ -3433,21 +3433,12 @@ private fun RemoteLibraryBrowser(
         )
         else -> LazyColumn(modifier = Modifier.height(180.dp)) {
             items(filteredItems, key = { it.id }) { item ->
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = { prepareRemotePlayback(item, loadAfterPrepare = false) },
-                        enabled = !isPreparingPlayback,
-                    ) {
-                        Text(if (isPreparingPlayback) "Preparing..." else "Prepare")
-                    }
-                    Button(
-                        onClick = { prepareRemotePlayback(item, loadAfterPrepare = true) },
-                        enabled = !isPreparingPlayback,
-                    ) {
-                        Text(if (isPreparingPlayback) "Loading..." else "Play stream")
-                    }
-                    Text("${item.seriesTitle} - ${item.episodeTitle}")
-                }
+                RemoteEpisodeRow(
+                    item = item,
+                    isPreparing = isPreparingPlayback,
+                    onPrepareRemotePlayback = { prepareRemotePlayback(item, loadAfterPrepare = false) },
+                    onPlayRemotePlayback = { prepareRemotePlayback(item, loadAfterPrepare = true) },
+                )
             }
         }
     }
@@ -3461,6 +3452,52 @@ private fun RemoteLibraryBrowser(
             },
         ) {
             Text("Load into desktop controller")
+        }
+    }
+}
+
+@Composable
+private fun RemoteEpisodeRow(
+    item: LibraryMediaItem,
+    isPreparing: Boolean,
+    onPrepareRemotePlayback: () -> Unit,
+    onPlayRemotePlayback: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(item.seriesTitle, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(item.episodeTitle, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                listOf(
+                    item.mediaType.ifBlank { "unknown media" },
+                    item.sizeBytes.formatLibrarySize(),
+                    if (item.subtitles.isEmpty()) "no subtitles" else "${item.subtitles.size} subtitles",
+                ).joinToString(separator = " - "),
+                color = DanmakuColors.TextMuted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(item.relativePath, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = onPrepareRemotePlayback,
+                enabled = !isPreparing,
+            ) {
+                Text(if (isPreparing) "Preparing..." else "Prepare")
+            }
+            Button(
+                onClick = onPlayRemotePlayback,
+                enabled = !isPreparing,
+            ) {
+                Text(if (isPreparing) "Loading..." else "Play")
+            }
         }
     }
 }

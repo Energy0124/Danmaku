@@ -168,6 +168,8 @@ unblocked slices inside these tracks as the vertical slice hardens.
   explicit prepare actions for diagnostics.
 - [x] Add Windows paired-catalog search, title/path sorting, subtitle filtering,
   and a filter-reset empty state.
+- [x] Add structured Windows paired-catalog episode rows with media metadata and
+  compact prepare/play actions.
 - [x] Persist Windows playback defaults for volume, playback rate, and aspect
   mode.
 - [x] Add Windows player keyboard shortcuts for play/pause, seek, volume,

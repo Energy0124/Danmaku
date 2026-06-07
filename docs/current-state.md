@@ -108,7 +108,8 @@ Updated on 2026-06-06.
 - Windows paired-library rows can prepare LAN streams for diagnostics or
   one-click load prepared streams into the local mpv controller. The paired
   browser supports search, title/path sorting, subtitle-only filtering, and a
-  reset state when filters hide every remote episode.
+  reset state when filters hide every remote episode; rows show media type,
+  file size, subtitle count, and relative path metadata.
 - Windows local-library playback has an optional persisted auto-next setting
   that prepares and loads the next local catalog item when playback reaches EOF.
 - Direct Windows media-file picker that loads arbitrary local video files into
