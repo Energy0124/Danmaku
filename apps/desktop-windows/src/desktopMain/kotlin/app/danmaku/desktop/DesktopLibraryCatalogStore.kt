@@ -2,6 +2,12 @@ package app.danmaku.desktop
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import app.danmaku.desktop.db.DesktopLibraryDatabase
+import app.danmaku.domain.ExternalAnimeId
+import app.danmaku.domain.ExternalAnimeInfo
+import app.danmaku.domain.ExternalAnimeMapping
+import app.danmaku.domain.ExternalAnimeMappingSource
+import app.danmaku.domain.ExternalAnimeProvider
+import app.danmaku.domain.ExternalAnimeTitleSet
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySubtitleTrack
@@ -52,6 +58,16 @@ class DesktopLibraryCatalogStore(
         driver.execute(
             identifier = null,
             sql = CREATE_DANDANPLAY_COMMENT_CACHE_TABLE_SQL,
+            parameters = 0,
+        )
+        driver.execute(
+            identifier = null,
+            sql = CREATE_EXTERNAL_ANIME_METADATA_CACHE_TABLE_SQL,
+            parameters = 0,
+        )
+        driver.execute(
+            identifier = null,
+            sql = CREATE_EXTERNAL_ANIME_MAPPING_TABLE_SQL,
             parameters = 0,
         )
         addColumnIfMissing("local_media_item", "subtitles_json", "TEXT NOT NULL DEFAULT '[]'")
@@ -408,6 +424,61 @@ class DesktopLibraryCatalogStore(
         database.libraryCatalogQueries.deleteDandanplayCommentCachesOlderThan(cutoffEpochMs)
     }
 
+    @Synchronized
+    fun loadExternalAnimeMetadataCache(id: ExternalAnimeId): DesktopExternalAnimeMetadataCache? =
+        database.libraryCatalogQueries
+            .selectExternalAnimeMetadataCache(
+                id.provider.name,
+                id.value,
+                ::desktopExternalAnimeMetadataCache,
+            )
+            .executeAsOneOrNull()
+
+    @Synchronized
+    fun saveExternalAnimeMetadataCache(cache: DesktopExternalAnimeMetadataCache) {
+        database.libraryCatalogQueries.upsertExternalAnimeMetadataCache(
+            cache.anime.id.provider.name,
+            cache.anime.id.value,
+            Json.encodeToString(cache.anime.titles),
+            cache.anime.episodeCount?.toLong(),
+            cache.anime.startYear?.toLong(),
+            cache.anime.imageUrl,
+            cache.anime.summary,
+            cache.fetchedAtEpochMs,
+        )
+    }
+
+    @Synchronized
+    fun deleteExternalAnimeMetadataCache(id: ExternalAnimeId) {
+        database.libraryCatalogQueries.deleteExternalAnimeMetadataCache(id.provider.name, id.value)
+    }
+
+    @Synchronized
+    fun loadExternalAnimeMappings(localSeriesId: String): List<ExternalAnimeMapping> {
+        require(localSeriesId.isNotBlank()) { "localSeriesId must not be blank" }
+        return database.libraryCatalogQueries
+            .selectExternalAnimeMappings(localSeriesId, ::externalAnimeMapping)
+            .executeAsList()
+    }
+
+    @Synchronized
+    fun saveExternalAnimeMapping(mapping: ExternalAnimeMapping) {
+        database.libraryCatalogQueries.upsertExternalAnimeMapping(
+            mapping.localSeriesId,
+            mapping.animeId.provider.name,
+            mapping.animeId.value,
+            mapping.source.name,
+            mapping.confidence,
+            mapping.mappedAtEpochMs,
+        )
+    }
+
+    @Synchronized
+    fun deleteExternalAnimeMapping(localSeriesId: String, provider: ExternalAnimeProvider) {
+        require(localSeriesId.isNotBlank()) { "localSeriesId must not be blank" }
+        database.libraryCatalogQueries.deleteExternalAnimeMapping(localSeriesId, provider.name)
+    }
+
     override fun close() {
         driver.close()
     }
@@ -501,6 +572,32 @@ companion object {
               comments_json TEXT NOT NULL,
               rendered_ass_path TEXT,
               fetched_at_epoch_ms INTEGER NOT NULL
+            )
+        """.trimIndent()
+
+        private val CREATE_EXTERNAL_ANIME_METADATA_CACHE_TABLE_SQL = """
+            CREATE TABLE IF NOT EXISTS external_anime_metadata_cache (
+              provider TEXT NOT NULL,
+              anime_id INTEGER NOT NULL,
+              titles_json TEXT NOT NULL,
+              episode_count INTEGER,
+              start_year INTEGER,
+              image_url TEXT,
+              summary TEXT,
+              fetched_at_epoch_ms INTEGER NOT NULL,
+              PRIMARY KEY(provider, anime_id)
+            )
+        """.trimIndent()
+
+        private val CREATE_EXTERNAL_ANIME_MAPPING_TABLE_SQL = """
+            CREATE TABLE IF NOT EXISTS external_anime_mapping (
+              local_series_id TEXT NOT NULL,
+              provider TEXT NOT NULL,
+              anime_id INTEGER NOT NULL,
+              source TEXT NOT NULL,
+              confidence REAL NOT NULL,
+              mapped_at_epoch_ms INTEGER NOT NULL,
+              PRIMARY KEY(local_series_id, provider)
             )
         """.trimIndent()
 
@@ -610,6 +707,50 @@ companion object {
                 commentsJson = commentsJson,
                 renderedAssPath = renderedAssPath,
                 fetchedAtEpochMs = fetchedAtEpochMs,
+            )
+
+        private fun desktopExternalAnimeMetadataCache(
+            provider: String,
+            animeId: Long,
+            titlesJson: String,
+            episodeCount: Long?,
+            startYear: Long?,
+            imageUrl: String?,
+            summary: String?,
+            fetchedAtEpochMs: Long,
+        ): DesktopExternalAnimeMetadataCache =
+            DesktopExternalAnimeMetadataCache(
+                anime = ExternalAnimeInfo(
+                    id = ExternalAnimeId(
+                        provider = ExternalAnimeProvider.valueOf(provider),
+                        value = animeId,
+                    ),
+                    titles = Json.decodeFromString<ExternalAnimeTitleSet>(titlesJson),
+                    episodeCount = episodeCount?.toInt(),
+                    startYear = startYear?.toInt(),
+                    imageUrl = imageUrl,
+                    summary = summary,
+                ),
+                fetchedAtEpochMs = fetchedAtEpochMs,
+            )
+
+        private fun externalAnimeMapping(
+            localSeriesId: String,
+            provider: String,
+            animeId: Long,
+            source: String,
+            confidence: Double,
+            mappedAtEpochMs: Long,
+        ): ExternalAnimeMapping =
+            ExternalAnimeMapping(
+                localSeriesId = localSeriesId,
+                animeId = ExternalAnimeId(
+                    provider = ExternalAnimeProvider.valueOf(provider),
+                    value = animeId,
+                ),
+                source = ExternalAnimeMappingSource.valueOf(source),
+                confidence = confidence,
+                mappedAtEpochMs = mappedAtEpochMs,
             )
     }
 }
@@ -722,6 +863,15 @@ data class DesktopDandanplayCommentCache(
         require(episodeId == null || episodeId > 0) { "episodeId must be positive" }
         require(animeId == null || animeId > 0) { "animeId must be positive" }
         require(commentsJson.isNotBlank()) { "commentsJson must not be blank" }
+        require(fetchedAtEpochMs >= 0) { "fetchedAtEpochMs must not be negative" }
+    }
+}
+
+data class DesktopExternalAnimeMetadataCache(
+    val anime: ExternalAnimeInfo,
+    val fetchedAtEpochMs: Long,
+) {
+    init {
         require(fetchedAtEpochMs >= 0) { "fetchedAtEpochMs must not be negative" }
     }
 }

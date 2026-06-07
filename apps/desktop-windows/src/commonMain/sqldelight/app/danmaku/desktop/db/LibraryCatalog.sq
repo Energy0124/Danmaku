@@ -82,6 +82,28 @@ CREATE TABLE dandanplay_comment_cache (
   fetched_at_epoch_ms INTEGER NOT NULL
 );
 
+CREATE TABLE external_anime_metadata_cache (
+  provider TEXT NOT NULL,
+  anime_id INTEGER NOT NULL,
+  titles_json TEXT NOT NULL,
+  episode_count INTEGER,
+  start_year INTEGER,
+  image_url TEXT,
+  summary TEXT,
+  fetched_at_epoch_ms INTEGER NOT NULL,
+  PRIMARY KEY(provider, anime_id)
+);
+
+CREATE TABLE external_anime_mapping (
+  local_series_id TEXT NOT NULL,
+  provider TEXT NOT NULL,
+  anime_id INTEGER NOT NULL,
+  source TEXT NOT NULL,
+  confidence REAL NOT NULL,
+  mapped_at_epoch_ms INTEGER NOT NULL,
+  PRIMARY KEY(local_series_id, provider)
+);
+
 selectMetadata:
 SELECT root_path, root_name, indexed_at_epoch_ms
 FROM library_metadata
@@ -335,3 +357,60 @@ WHERE media_id = ?;
 deleteDandanplayCommentCachesOlderThan:
 DELETE FROM dandanplay_comment_cache
 WHERE fetched_at_epoch_ms < ?;
+
+selectExternalAnimeMetadataCache:
+SELECT
+  provider,
+  anime_id,
+  titles_json,
+  episode_count,
+  start_year,
+  image_url,
+  summary,
+  fetched_at_epoch_ms
+FROM external_anime_metadata_cache
+WHERE provider = ? AND anime_id = ?;
+
+upsertExternalAnimeMetadataCache:
+INSERT OR REPLACE INTO external_anime_metadata_cache(
+  provider,
+  anime_id,
+  titles_json,
+  episode_count,
+  start_year,
+  image_url,
+  summary,
+  fetched_at_epoch_ms
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteExternalAnimeMetadataCache:
+DELETE FROM external_anime_metadata_cache
+WHERE provider = ? AND anime_id = ?;
+
+selectExternalAnimeMappings:
+SELECT
+  local_series_id,
+  provider,
+  anime_id,
+  source,
+  confidence,
+  mapped_at_epoch_ms
+FROM external_anime_mapping
+WHERE local_series_id = ?
+ORDER BY provider;
+
+upsertExternalAnimeMapping:
+INSERT OR REPLACE INTO external_anime_mapping(
+  local_series_id,
+  provider,
+  anime_id,
+  source,
+  confidence,
+  mapped_at_epoch_ms
+)
+VALUES (?, ?, ?, ?, ?, ?);
+
+deleteExternalAnimeMapping:
+DELETE FROM external_anime_mapping
+WHERE local_series_id = ? AND provider = ?;

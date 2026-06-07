@@ -324,6 +324,38 @@ unblocked slices inside these tracks as the vertical slice hardens.
 - [ ] Add the Rust desktop download engine.
 - [ ] Test interrupted transfers, retries, and disk-space failures.
 
+## Anime Metadata And Community Integrations
+
+- [x] Add shared external anime identity, multilingual title, mapping,
+  tracking/rating update, and candidate-ranking domain models for MyAnimeList
+  and Bangumi.
+- [x] Add desktop persistence for external anime metadata cache rows and
+  per-provider local-series mappings.
+- [ ] Define metadata-provider contracts separately from media-source contracts.
+- [ ] Add series metadata matching and manual correction UI using persisted
+  MyAnimeList and Bangumi mappings.
+- [ ] Add MyAnimeList OAuth account authorization and secure token storage.
+- [ ] Add MyAnimeList anime search/detail API client and cache normalized
+  multilingual names, alternate names, images, summaries, episode counts, and
+  links.
+- [ ] Add MyAnimeList anime identity mapping with automatic candidate ranking
+  and manual correction.
+- [ ] Automatically sync watched episode progress to MyAnimeList after meaningful
+  playback progress and episode completion.
+- [ ] Add manual MyAnimeList anime rating submission.
+- [ ] Add MyAnimeList sync retry behavior, last-success status, and user-visible
+  errors without logging credentials.
+- [ ] Add Bangumi OAuth or personal-token account authorization and secure token
+  storage.
+- [ ] Add Bangumi subject search/detail API client and cache normalized Chinese,
+  English, Japanese, and alternate names with subject links.
+- [ ] Add Bangumi anime identity mapping with automatic candidate ranking and
+  manual correction.
+- [ ] Optionally sync watched episode progress, collection status, and ratings to
+  Bangumi, with per-provider opt-in controls.
+- [ ] Add seasonal and weekly anime calendar views.
+- [ ] Make all external sync opt-in and expose the last successful sync time.
+
 ## Later
 
 - [x] Add initial SQLDelight library storage.

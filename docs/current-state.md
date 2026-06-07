@@ -305,6 +305,14 @@ Updated on 2026-06-07.
   provider settings can start without Windows DPAPI.
 - Shared source and download domain contracts for authorized offline storage
   policy, source capabilities, and platform-independent download manifests.
+- Shared external anime integration domain models for MyAnimeList and Bangumi:
+  provider IDs, canonical web links, Chinese/English/Japanese titles,
+  alternate names, manual or automatic mappings, optional tracking/rating
+  updates, and deterministic candidate ranking for future auto-match flows.
+- Desktop SQLite storage now has compatibility-created tables for external anime
+  metadata cache rows and per-provider local-series mappings, so MAL/Bangumi
+  metadata and manual mapping corrections can persist before account sync is
+  wired into the UI.
 - Android mobile and TV progress syncing from the background playback service
   with five-second uploads, resume seeking after 10 seconds, and near-end
   episode restart behavior.

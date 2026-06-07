@@ -1,5 +1,11 @@
 package app.danmaku.desktop
 
+import app.danmaku.domain.ExternalAnimeId
+import app.danmaku.domain.ExternalAnimeInfo
+import app.danmaku.domain.ExternalAnimeMapping
+import app.danmaku.domain.ExternalAnimeMappingSource
+import app.danmaku.domain.ExternalAnimeProvider
+import app.danmaku.domain.ExternalAnimeTitleSet
 import app.danmaku.domain.PlaybackProgress
 import kotlin.io.path.createDirectories
 import kotlin.io.path.createTempDirectory
@@ -514,6 +520,93 @@ class DesktopLibraryCatalogStoreTest {
         DesktopLibraryCatalogStore(databasePath).use { store ->
             store.saveDandanplayCommentCache(cache)
             assertEquals(cache, store.loadDandanplayCommentCache(cache.mediaId))
+        }
+
+        temp.toFile().deleteRecursively()
+    }
+
+    @Test
+    fun persistsExternalAnimeMetadataAndMappings() {
+        val temp = createTempDirectory("danmaku-external-anime-storage")
+        val databasePath = temp.resolve("catalog.db")
+        val bangumiId = ExternalAnimeId(ExternalAnimeProvider.BANGUMI, 400602)
+        val malId = ExternalAnimeId(ExternalAnimeProvider.MY_ANIME_LIST, 52991)
+        val cache = DesktopExternalAnimeMetadataCache(
+            anime = ExternalAnimeInfo(
+                id = bangumiId,
+                titles = ExternalAnimeTitleSet(
+                    primary = "葬送のフリーレン",
+                    chinese = "葬送的芙莉莲",
+                    english = "Frieren: Beyond Journey's End",
+                    japanese = "葬送のフリーレン",
+                    alternateNames = listOf("Frieren"),
+                ),
+                episodeCount = 28,
+                startYear = 2023,
+                imageUrl = "https://example.test/frieren.jpg",
+                summary = "Example summary",
+            ),
+            fetchedAtEpochMs = 1234,
+        )
+        val bangumiMapping = ExternalAnimeMapping(
+            localSeriesId = "frieren",
+            animeId = bangumiId,
+            source = ExternalAnimeMappingSource.MANUAL,
+            confidence = 1.0,
+            mappedAtEpochMs = 2000,
+        )
+        val malMapping = bangumiMapping.copy(
+            animeId = malId,
+            source = ExternalAnimeMappingSource.AUTO,
+            confidence = 0.92,
+        )
+
+        DesktopLibraryCatalogStore(databasePath).use { store ->
+            store.saveExternalAnimeMetadataCache(cache)
+            assertEquals(cache, store.loadExternalAnimeMetadataCache(bangumiId))
+
+            store.saveExternalAnimeMapping(bangumiMapping)
+            store.saveExternalAnimeMapping(malMapping)
+            assertEquals(
+                listOf(bangumiMapping, malMapping),
+                store.loadExternalAnimeMappings("frieren"),
+            )
+
+            store.saveExternalAnimeMapping(malMapping.copy(confidence = 1.0))
+            assertEquals(
+                listOf(bangumiMapping, malMapping.copy(confidence = 1.0)),
+                store.loadExternalAnimeMappings("frieren"),
+            )
+
+            store.deleteExternalAnimeMapping("frieren", ExternalAnimeProvider.MY_ANIME_LIST)
+            assertEquals(listOf(bangumiMapping), store.loadExternalAnimeMappings("frieren"))
+            store.deleteExternalAnimeMetadataCache(bangumiId)
+            assertNull(store.loadExternalAnimeMetadataCache(bangumiId))
+        }
+
+        temp.toFile().deleteRecursively()
+    }
+
+    @Test
+    fun addsExternalAnimeStorageToAnExistingCatalogDatabase() {
+        val temp = createTempDirectory("danmaku-existing-external-anime-storage")
+        val databasePath = temp.resolve("catalog.db")
+        DriverManager.getConnection("jdbc:sqlite:${databasePath.toAbsolutePath()}").use {
+            it.createStatement().use { statement ->
+                statement.execute("PRAGMA user_version = 1")
+            }
+        }
+        val mapping = ExternalAnimeMapping(
+            localSeriesId = "frieren",
+            animeId = ExternalAnimeId(ExternalAnimeProvider.BANGUMI, 400602),
+            source = ExternalAnimeMappingSource.AUTO,
+            confidence = 0.9,
+            mappedAtEpochMs = 123,
+        )
+
+        DesktopLibraryCatalogStore(databasePath).use { store ->
+            store.saveExternalAnimeMapping(mapping)
+            assertEquals(listOf(mapping), store.loadExternalAnimeMappings("frieren"))
         }
 
         temp.toFile().deleteRecursively()
