@@ -23,6 +23,22 @@ class DandanplayPlaybackStatusTest {
                     episodeTitle = "Episode 01",
                     shiftSeconds = 0.0,
                 ),
+                matchCandidates = listOf(
+                    DandanplayMatch(
+                        episodeId = 123,
+                        animeId = 456,
+                        animeTitle = "Example Anime",
+                        episodeTitle = "Episode 01",
+                        shiftSeconds = 0.0,
+                    ),
+                    DandanplayMatch(
+                        episodeId = 124,
+                        animeId = 456,
+                        animeTitle = "Example Anime",
+                        episodeTitle = "Episode 02",
+                        shiftSeconds = null,
+                    ),
+                ),
                 eventCount = 2,
                 subtitle = DesktopPlaybackSubtitle(
                     source = "overlay.ass",
@@ -41,6 +57,8 @@ class DandanplayPlaybackStatusTest {
         assertContains(status.details, DandanplayPlaybackUiDetail("Episode ID", "123"))
         assertContains(status.details, DandanplayPlaybackUiDetail("Comments", "2 comments"))
         assertContains(status.details, DandanplayPlaybackUiDetail("ASS overlay", "attached"))
+        assertEquals(123, status.selectedEpisodeId)
+        assertEquals(listOf(123L, 124L), status.matchCandidates.map(DandanplayMatch::episodeId))
     }
 
     @Test

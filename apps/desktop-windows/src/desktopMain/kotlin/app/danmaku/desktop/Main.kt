@@ -656,6 +656,7 @@ private fun DesktopShell(
         item: LibraryMediaItem,
         loadAfterPrepare: Boolean = false,
         refreshDandanplay: Boolean = false,
+        preferredDandanplayEpisodeId: Long? = null,
     ) {
         val library = indexedLibrary ?: return
         scope.launch {
@@ -678,6 +679,7 @@ private fun DesktopShell(
                                 mediaId = item.id,
                                 mediaPath = mediaPath,
                                 forceRefresh = refreshDandanplay,
+                                preferredEpisodeId = preferredDandanplayEpisodeId,
                             )
                         }
                         val dandanplaySubtitle = dandanplayResult
@@ -746,6 +748,21 @@ private fun DesktopShell(
         }
         appendDiagnostic("danmaku", "Refreshing dandanplay cache for ${preparation.item.id}")
         prepareLocalPlayback(preparation.item, refreshDandanplay = true)
+    }
+
+    fun selectPreparedDandanplayMatch(
+        preparation: DesktopLocalPlaybackPreparation,
+        match: DandanplayMatch,
+    ) {
+        appendDiagnostic(
+            "danmaku",
+            "Selecting dandanplay match ${match.displayTitle} (${match.episodeId}) for ${preparation.item.id}",
+        )
+        prepareLocalPlayback(
+            item = preparation.item,
+            refreshDandanplay = true,
+            preferredDandanplayEpisodeId = match.episodeId,
+        )
     }
 
     fun clearPreparedDandanplayCache(preparation: DesktopLocalPlaybackPreparation) {
@@ -1216,6 +1233,7 @@ private fun DesktopShell(
                             onSetFavorite = ::setFavorite,
                             onSetAutoNextLocalPlayback = ::setAutoNextLocalPlayback,
                             onRefreshDandanplay = ::refreshPreparedDandanplay,
+                            onSelectDandanplayMatch = ::selectPreparedDandanplayMatch,
                             onClearDandanplayCache = ::clearPreparedDandanplayCache,
                             onClearDanmakuOverlay = ::clearPreparedDanmakuOverlay,
                             onAttachManualDanmaku = ::attachManualDanmaku,
@@ -1966,6 +1984,7 @@ private fun MediaLibraryTab(
     onSetFavorite: (LibraryMediaItem, Boolean) -> Unit,
     onSetAutoNextLocalPlayback: (Boolean) -> Unit,
     onRefreshDandanplay: (DesktopLocalPlaybackPreparation) -> Unit,
+    onSelectDandanplayMatch: (DesktopLocalPlaybackPreparation, DandanplayMatch) -> Unit,
     onClearDandanplayCache: (DesktopLocalPlaybackPreparation) -> Unit,
     onClearDanmakuOverlay: (DesktopLocalPlaybackPreparation) -> Unit,
     onAttachManualDanmaku: (DesktopLocalPlaybackPreparation) -> Unit,
@@ -2284,6 +2303,12 @@ private fun MediaLibraryTab(
                         status.details.forEach { detail ->
                             MetadataRow(detail.label, detail.value)
                         }
+                        DandanplayMatchCandidatePicker(
+                            preparation = preparation,
+                            status = status,
+                            isPreparing = isPreparingLocalPlayback,
+                            onSelectDandanplayMatch = onSelectDandanplayMatch,
+                        )
                     }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = { onLoadPreparedPlayback(preparation) }) {
@@ -2985,6 +3010,67 @@ private fun DesktopSeriesDetailPanel(
         }
     }
 }
+
+@Composable
+private fun DandanplayMatchCandidatePicker(
+    preparation: DesktopLocalPlaybackPreparation,
+    status: DandanplayPlaybackUiStatus,
+    isPreparing: Boolean,
+    onSelectDandanplayMatch: (DesktopLocalPlaybackPreparation, DandanplayMatch) -> Unit,
+) {
+    val candidates = status.matchCandidates.distinctBy(DandanplayMatch::episodeId)
+    if (candidates.size <= 1) return
+
+    Spacer(modifier = Modifier.height(8.dp))
+    Divider(color = DanmakuColors.SurfaceRaised)
+    Spacer(modifier = Modifier.height(8.dp))
+    Text(
+        "Match candidates",
+        color = Color.White,
+        fontWeight = FontWeight.SemiBold,
+    )
+    Spacer(modifier = Modifier.height(6.dp))
+    LazyColumn(modifier = Modifier.heightIn(max = 180.dp)) {
+        items(candidates, key = { it.episodeId }) { match ->
+            val isSelected = match.episodeId == status.selectedEpisodeId
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 3.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        match.displayTitle,
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        dandanplayMatchCandidateDetail(match),
+                        color = DanmakuColors.TextMuted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Button(
+                    onClick = { onSelectDandanplayMatch(preparation, match) },
+                    enabled = !isPreparing && !isSelected,
+                ) {
+                    Text(if (isSelected) "Selected" else "Use match")
+                }
+            }
+        }
+    }
+}
+
+private fun dandanplayMatchCandidateDetail(match: DandanplayMatch): String =
+    buildList {
+        add("Episode ID ${match.episodeId}")
+        match.animeId?.let { add("Anime ID $it") }
+        match.shiftSeconds?.let { add("Shift ${it}s") }
+    }.joinToString(" / ")
 
 @Composable
 private fun DesktopEpisodeDetailPanel(

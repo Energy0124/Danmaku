@@ -24,22 +24,25 @@ class DesktopDandanplayDanmakuResolverTest {
         val resolver = DesktopDandanplayDanmakuResolver(
             loadConnection = { DandanplayConnection("http://127.0.0.1:9000") },
             cacheStore = cacheStore,
-            fetchTrack = { connection, fingerprint ->
+            fetchMatches = { connection, fingerprint ->
                 fetchCount += 1
                 assertEquals("http://127.0.0.1:9000/", connection.baseUri.toString())
                 assertEquals("Episode 01.mkv", fingerprint.fileName)
                 assertEquals("5d41402abc4b2a76b9719d911017c592", fingerprint.normalizedFileHash)
-                DandanplayCommentTrack(
-                    match = DandanplayMatch(
+                listOf(
+                    DandanplayMatch(
                         episodeId = 123,
                         animeId = 456,
                         animeTitle = "Example",
                         episodeTitle = "Episode 01",
                         shiftSeconds = 0.0,
                     ),
-                    events = listOf(
-                        DanmakuEvent(id = "one", timestampMs = 1_000, text = "hello overlay"),
-                    ),
+                )
+            },
+            fetchComments = { _, match ->
+                assertEquals(123, match.episodeId)
+                listOf(
+                    DanmakuEvent(id = "one", timestampMs = 1_000, text = "hello overlay"),
                 )
             },
             cacheDirectory = cache,
@@ -87,7 +90,7 @@ class DesktopDandanplayDanmakuResolverTest {
 
         val noMatch = DesktopDandanplayDanmakuResolver(
             loadConnection = { DandanplayConnection("http://127.0.0.1:9000") },
-            fetchTrack = { _, _ -> null },
+            fetchMatches = { _, _ -> emptyList() },
             cacheDirectory = temp.resolve("no-match-cache"),
         ).resolve("media-id", media)
 
@@ -96,24 +99,72 @@ class DesktopDandanplayDanmakuResolverTest {
 
         val noComments = DesktopDandanplayDanmakuResolver(
             loadConnection = { DandanplayConnection("http://127.0.0.1:9000") },
-            fetchTrack = { _, _ ->
-                DandanplayCommentTrack(
-                    match = DandanplayMatch(
+            fetchMatches = { _, _ ->
+                listOf(
+                    DandanplayMatch(
                         episodeId = 123,
                         animeId = null,
                         animeTitle = null,
                         episodeTitle = null,
                         shiftSeconds = null,
                     ),
-                    events = emptyList(),
                 )
             },
+            fetchComments = { _, _ -> emptyList() },
             cacheDirectory = temp.resolve("no-comments-cache"),
         ).resolve("media-id", media)
 
         assertNull(noComments.subtitle)
         assertNull(noComments.cachePath)
         assertEquals(0, noComments.eventCount)
+
+        temp.toFile().deleteRecursively()
+    }
+
+    @Test
+    fun fetchesCommentsForPreferredMatchCandidate() {
+        val temp = createTempDirectory("danmaku-dandanplay-preferred")
+        val media = temp.resolve("Episode 01.mkv")
+        media.writeBytes("hello".encodeToByteArray())
+        var fetchedEpisodeId: Long? = null
+        val resolver = DesktopDandanplayDanmakuResolver(
+            loadConnection = { DandanplayConnection("http://127.0.0.1:9000") },
+            fetchMatches = { _, _ ->
+                listOf(
+                    DandanplayMatch(
+                        episodeId = 111,
+                        animeId = 1,
+                        animeTitle = "First",
+                        episodeTitle = "Episode",
+                        shiftSeconds = null,
+                    ),
+                    DandanplayMatch(
+                        episodeId = 222,
+                        animeId = 2,
+                        animeTitle = "Chosen",
+                        episodeTitle = "Episode",
+                        shiftSeconds = 1.5,
+                    ),
+                )
+            },
+            fetchComments = { _, match ->
+                fetchedEpisodeId = match.episodeId
+                listOf(DanmakuEvent(id = "chosen", timestampMs = 1_000, text = match.displayTitle))
+            },
+            cacheDirectory = temp.resolve("cache"),
+        )
+
+        val resolution = resolver.resolve(
+            mediaId = "media-id",
+            mediaPath = media,
+            forceRefresh = true,
+            preferredEpisodeId = 222,
+        )
+
+        assertEquals(222, fetchedEpisodeId)
+        assertEquals(222, resolution.match?.episodeId)
+        assertEquals(listOf(111L, 222L), resolution.matchCandidates.map(DandanplayMatch::episodeId))
+        assertContains(assertNotNull(resolution.cachePath).readText(), "Chosen")
 
         temp.toFile().deleteRecursively()
     }
@@ -144,19 +195,19 @@ class DesktopDandanplayDanmakuResolverTest {
         val resolver = DesktopDandanplayDanmakuResolver(
             loadConnection = { DandanplayConnection("http://127.0.0.1:9000") },
             cacheStore = cacheStore,
-            fetchTrack = { _, _ ->
+            fetchMatches = { _, _ ->
                 fetchCount += 1
-                DandanplayCommentTrack(
-                    match = DandanplayMatch(
+                listOf(
+                    DandanplayMatch(
                         episodeId = 456,
                         animeId = null,
                         animeTitle = "Fresh",
                         episodeTitle = "Episode",
                         shiftSeconds = null,
                     ),
-                    events = listOf(DanmakuEvent(id = "fresh", timestampMs = 1_000, text = "fresh")),
                 )
             },
+            fetchComments = { _, _ -> listOf(DanmakuEvent(id = "fresh", timestampMs = 1_000, text = "fresh")) },
             cacheDirectory = temp.resolve("cache"),
         )
 
@@ -196,19 +247,19 @@ class DesktopDandanplayDanmakuResolverTest {
             loadConnection = { DandanplayConnection("http://127.0.0.1:9000") },
             cacheMaxAgeDays = { 1 },
             cacheStore = cacheStore,
-            fetchTrack = { _, _ ->
+            fetchMatches = { _, _ ->
                 fetchCount += 1
-                DandanplayCommentTrack(
-                    match = DandanplayMatch(
+                listOf(
+                    DandanplayMatch(
                         episodeId = 456,
                         animeId = null,
                         animeTitle = "Fresh",
                         episodeTitle = null,
                         shiftSeconds = null,
                     ),
-                    events = listOf(DanmakuEvent(id = "fresh", timestampMs = 1_000, text = "fresh")),
                 )
             },
+            fetchComments = { _, _ -> listOf(DanmakuEvent(id = "fresh", timestampMs = 1_000, text = "fresh")) },
             cacheDirectory = temp.resolve("cache"),
             nowEpochMs = { 2 * 24L * 60L * 60L * 1_000L },
         )

@@ -21,8 +21,11 @@ class DesktopDandanplayDanmakuResolver(
     private val cacheMaxAgeDays: () -> Int = { DEFAULT_CACHE_MAX_AGE_DAYS },
     private val danmakuSettings: () -> DanmakuDisplaySettings = { DanmakuDisplaySettings() },
     private val cacheStore: DandanplayCommentCacheStore? = null,
-    private val fetchTrack: (DandanplayConnection, DandanplayMediaFingerprint) -> DandanplayCommentTrack? = { connection, fingerprint ->
-        DandanplayDanmakuClient(connection).fetchBestMatchComments(fingerprint)
+    private val fetchMatches: (DandanplayConnection, DandanplayMediaFingerprint) -> List<DandanplayMatch> = { connection, fingerprint ->
+        DandanplayDanmakuClient(connection).match(fingerprint)
+    },
+    private val fetchComments: (DandanplayConnection, DandanplayMatch) -> List<DanmakuEvent> = { connection, match ->
+        DandanplayDanmakuClient(connection).fetchComments(match.episodeId, withRelated = true)
     },
     private val cacheDirectory: Path = defaultCacheDirectory(),
     private val nowEpochMs: () -> Long = System::currentTimeMillis,
@@ -31,10 +34,12 @@ class DesktopDandanplayDanmakuResolver(
         mediaId: String,
         mediaPath: Path,
         forceRefresh: Boolean = false,
+        preferredEpisodeId: Long? = null,
     ): DesktopDandanplayDanmakuResolution {
         require(mediaId.isNotBlank()) { "mediaId must not be blank" }
+        require(preferredEpisodeId == null || preferredEpisodeId > 0) { "preferredEpisodeId must be positive" }
         val fingerprint = DandanplayMediaFingerprint.fromPath(mediaPath)
-        if (!forceRefresh) {
+        if (!forceRefresh && preferredEpisodeId == null) {
             cacheStore
                 ?.loadDandanplayCommentCache(mediaId)
                 ?.takeIf { it.fileHash.equals(fingerprint.normalizedFileHash, ignoreCase = true) }
@@ -46,16 +51,28 @@ class DesktopDandanplayDanmakuResolver(
                         mediaId = mediaId,
                         fingerprint = fingerprint,
                         track = cachedTrack,
+                        matchCandidates = listOf(cachedTrack.match),
                         source = DesktopDandanplayResolutionSource.CACHE,
                         shouldPersist = false,
                     )
                 }
         }
 
-        val track = fetchTrack(loadConnection(), fingerprint)
+        val connection = loadConnection()
+        val matches = fetchMatches(connection, fingerprint)
+        val match = preferredEpisodeId
+            ?.let { episodeId -> matches.firstOrNull { it.episodeId == episodeId } }
+            ?: matches.firstOrNull()
+        val track = match?.let { selectedMatch ->
+            DandanplayCommentTrack(
+                match = selectedMatch,
+                events = fetchComments(connection, selectedMatch),
+            )
+        }
             ?: return DesktopDandanplayDanmakuResolution(
                 fingerprint = fingerprint,
                 match = null,
+                matchCandidates = matches,
                 eventCount = 0,
                 subtitle = null,
                 cachePath = null,
@@ -65,6 +82,7 @@ class DesktopDandanplayDanmakuResolver(
             mediaId = mediaId,
             fingerprint = fingerprint,
             track = track,
+            matchCandidates = matches,
             source = DesktopDandanplayResolutionSource.NETWORK,
             shouldPersist = true,
         )
@@ -86,6 +104,7 @@ class DesktopDandanplayDanmakuResolver(
         mediaId: String,
         fingerprint: DandanplayMediaFingerprint,
         track: DandanplayCommentTrack,
+        matchCandidates: List<DandanplayMatch>,
         source: DesktopDandanplayResolutionSource,
         shouldPersist: Boolean,
     ): DesktopDandanplayDanmakuResolution {
@@ -96,6 +115,7 @@ class DesktopDandanplayDanmakuResolver(
             return DesktopDandanplayDanmakuResolution(
                 fingerprint = fingerprint,
                 match = track.match,
+                matchCandidates = matchCandidates,
                 eventCount = 0,
                 subtitle = null,
                 cachePath = null,
@@ -113,6 +133,7 @@ class DesktopDandanplayDanmakuResolver(
         val resolution = DesktopDandanplayDanmakuResolution(
             fingerprint = fingerprint,
             match = track.match,
+            matchCandidates = matchCandidates,
             eventCount = track.events.size,
             subtitle = DesktopPlaybackSubtitle(
                 source = cachePath.toAbsolutePath().normalize().absolutePathString(),
@@ -155,6 +176,7 @@ class DesktopDandanplayDanmakuResolver(
 data class DesktopDandanplayDanmakuResolution(
     val fingerprint: DandanplayMediaFingerprint,
     val match: DandanplayMatch?,
+    val matchCandidates: List<DandanplayMatch> = emptyList(),
     val eventCount: Int,
     val subtitle: DesktopPlaybackSubtitle?,
     val cachePath: Path?,

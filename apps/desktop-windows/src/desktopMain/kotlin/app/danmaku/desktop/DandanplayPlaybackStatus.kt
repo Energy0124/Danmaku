@@ -6,6 +6,8 @@ data class DandanplayPlaybackUiStatus(
     val mediaId: String,
     val summary: String,
     val details: List<DandanplayPlaybackUiDetail> = emptyList(),
+    val selectedEpisodeId: Long? = null,
+    val matchCandidates: List<DandanplayMatch> = emptyList(),
 )
 
 data class DandanplayPlaybackUiDetail(
@@ -49,6 +51,8 @@ fun dandanplayStatusFromResolution(
         mediaId = mediaId,
         summary = summary,
         details = details,
+        selectedEpisodeId = resolution.match?.episodeId,
+        matchCandidates = resolution.matchCandidates,
     )
 }
 

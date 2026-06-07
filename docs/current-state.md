@@ -1,6 +1,6 @@
 # Current State
 
-Updated on 2026-06-06.
+Updated on 2026-06-07.
 
 ## Implemented
 
@@ -178,9 +178,11 @@ Updated on 2026-06-06.
   hash or size changes.
 - The Windows prepared-playback card exposes dandanplay cache status plus
   controls to force-refresh provider comments or clear the cached match/comments
-  for the prepared episode. It also has a separate prepared-overlay removal
-  action, so manually attached or fetched danmaku can be removed without
-  touching provider cache state.
+  for the prepared episode. Fresh dandanplay match responses with multiple
+  candidate `episodeId` values also show a picker that can force-refresh the
+  selected candidate's comments into the prepared ASS overlay. It also has a
+  separate prepared-overlay removal action, so manually attached or fetched
+  danmaku can be removed without touching provider cache state.
 - dandanplay provider settings include a configurable cache max age in days.
   Cached matches older than that age are treated as stale, and the Profile tab
   exposes a cleanup action for expired dandanplay cache rows.

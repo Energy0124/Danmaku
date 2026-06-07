@@ -124,6 +124,8 @@ unblocked slices inside these tracks as the vertical slice hardens.
   local catalog item so rematches are avoidable when file fingerprints match.
 - [x] Add Windows prepared-playback controls to force-refresh or clear the
   cached dandanplay match/comments for an episode.
+- [x] Add a Windows prepared-playback dandanplay match-candidate picker for
+  manually selecting the correct `/api/v2/match` `episodeId`.
 - [x] Add explicit dandanplay cache-expiry policy and cleanup controls.
 - [x] Add shared danmaku display settings for visibility, opacity, font scale,
   speed, density, display area, keyword filters, and regex filters, and wire
