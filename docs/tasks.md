@@ -166,6 +166,8 @@ unblocked slices inside these tracks as the vertical slice hardens.
 - [x] Add Windows fullscreen and aspect-ratio playback controls.
 - [x] Add Windows paired-catalog one-click stream playback while retaining
   explicit prepare actions for diagnostics.
+- [x] Add Windows paired-catalog search, title/path sorting, subtitle filtering,
+  and a filter-reset empty state.
 - [x] Persist Windows playback defaults for volume, playback rate, and aspect
   mode.
 - [x] Add Windows player keyboard shortcuts for play/pause, seek, volume,
@@ -276,6 +278,8 @@ unblocked slices inside these tracks as the vertical slice hardens.
 - [x] Keep the Windows desktop app starting an embedded library server by default.
 - [x] Add Windows paired-server catalog browsing and stream URL selection with
   embedded same-PC defaults.
+- [x] Add Windows paired-server catalog search, title/path sorting, subtitle
+  filtering, and filter-reset empty state.
 - [x] Add shared LAN playback preparation for Windows remote-stream handoff with
   resume lookup.
 - [x] Add Windows host direct local-file playback preparation with resume lookup.

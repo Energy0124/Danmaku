@@ -3278,6 +3278,21 @@ private fun RemoteLibraryBrowser(
     }
     var isLoading by remember { mutableStateOf(false) }
     var isPreparingPlayback by remember { mutableStateOf(false) }
+    var searchText by remember { mutableStateOf("") }
+    var sort by remember { mutableStateOf(LibraryCatalogSort.TITLE) }
+    var subtitleFilter by remember { mutableStateOf(LibrarySubtitleFilter.ANY) }
+    val totalItems = catalog?.items.orEmpty()
+    val filteredItems = remember(catalog, searchText, sort, subtitleFilter) {
+        catalog
+            ?.filteredItems(
+                LibraryCatalogQuery(
+                    searchText = searchText,
+                    sort = sort,
+                    subtitleFilter = subtitleFilter,
+                ),
+            )
+            .orEmpty()
+    }
 
     fun refreshCatalog() {
         val requestedServerUrl = serverUrl
@@ -3370,23 +3385,69 @@ private fun RemoteLibraryBrowser(
         Text(if (isLoading) "Loading..." else "Load paired server catalog")
     }
     libraryError?.let { Text("Paired library error: $it") }
-    Text("Paired episodes: ${catalog?.items?.size ?: 0}")
-    LazyColumn(modifier = Modifier.height(140.dp)) {
-        items(catalog?.items.orEmpty(), key = { it.id }) { item ->
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    onClick = { prepareRemotePlayback(item, loadAfterPrepare = false) },
-                    enabled = !isPreparingPlayback,
-                ) {
-                    Text(if (isPreparingPlayback) "Preparing..." else "Prepare")
+    Text("Paired episodes: ${totalItems.size}")
+    OutlinedTextField(
+        value = searchText,
+        onValueChange = { searchText = it },
+        label = { Text("Search paired episodes") },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+    )
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Button(
+            onClick = { sort = LibraryCatalogSort.TITLE },
+            enabled = sort != LibraryCatalogSort.TITLE,
+        ) {
+            Text("Sort title")
+        }
+        Button(
+            onClick = { sort = LibraryCatalogSort.PATH },
+            enabled = sort != LibraryCatalogSort.PATH,
+        ) {
+            Text("Sort path")
+        }
+        Button(
+            onClick = {
+                subtitleFilter = if (subtitleFilter == LibrarySubtitleFilter.ANY) {
+                    LibrarySubtitleFilter.WITH_SUBTITLES
+                } else {
+                    LibrarySubtitleFilter.ANY
                 }
-                Button(
-                    onClick = { prepareRemotePlayback(item, loadAfterPrepare = true) },
-                    enabled = !isPreparingPlayback,
-                ) {
-                    Text(if (isPreparingPlayback) "Loading..." else "Play stream")
+            },
+        ) {
+            Text(if (subtitleFilter == LibrarySubtitleFilter.ANY) "Require subtitles" else "All episodes")
+        }
+    }
+    MetadataRow("Showing", "${filteredItems.size} / ${totalItems.size} paired episodes")
+    when {
+        catalog == null -> EmptyState("Load a paired server catalog to browse remote episodes.")
+        totalItems.isEmpty() -> EmptyState("The paired server did not publish any episodes.")
+        filteredItems.isEmpty() -> EmptyState(
+            text = "No paired episodes match the current filters.",
+            actionLabel = "Reset filters",
+            onAction = {
+                searchText = ""
+                sort = LibraryCatalogSort.TITLE
+                subtitleFilter = LibrarySubtitleFilter.ANY
+            },
+        )
+        else -> LazyColumn(modifier = Modifier.height(180.dp)) {
+            items(filteredItems, key = { it.id }) { item ->
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = { prepareRemotePlayback(item, loadAfterPrepare = false) },
+                        enabled = !isPreparingPlayback,
+                    ) {
+                        Text(if (isPreparingPlayback) "Preparing..." else "Prepare")
+                    }
+                    Button(
+                        onClick = { prepareRemotePlayback(item, loadAfterPrepare = true) },
+                        enabled = !isPreparingPlayback,
+                    ) {
+                        Text(if (isPreparingPlayback) "Loading..." else "Play stream")
+                    }
+                    Text("${item.seriesTitle} - ${item.episodeTitle}")
                 }
-                Text("${item.seriesTitle} - ${item.episodeTitle}")
             }
         }
     }
