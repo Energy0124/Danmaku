@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "types": ["@cloudflare/workers-types", "node"],
+    "noEmit": false,
+    "outDir": "build-test",
+    "rootDir": "."
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts"]
+}

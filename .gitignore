@@ -4,8 +4,16 @@
 .android-sdk/
 .antigravitycli/
 .codex-remote-attachments/
+.npm-cache/
+**/.npm-cache/
 build/
 **/build/
+build-test/
+**/build-test/
+dist/
+**/dist/
+node_modules/
+**/node_modules/
 local.properties
 
 target/

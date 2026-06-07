@@ -121,6 +121,33 @@ jobs:
       - name: Test Rust workspace
         run: cargo test --workspace
 
+  dandanplay-worker-proxy:
+    name: Dandanplay Worker proxy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: tools/dandanplay-worker-proxy/package-lock.json
+
+      - name: Install Worker dependencies
+        working-directory: tools/dandanplay-worker-proxy
+        run: npm ci
+
+      - name: Typecheck Worker proxy
+        working-directory: tools/dandanplay-worker-proxy
+        run: npm run typecheck
+
+      - name: Test Worker proxy
+        working-directory: tools/dandanplay-worker-proxy
+        run: npm test
+
   macos-desktop:
     name: macOS desktop build and tests
     runs-on: macos-latest

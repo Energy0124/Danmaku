@@ -178,16 +178,19 @@ saved yet:
 ```properties
 danmaku.dandanplay.appId=your-app-id
 danmaku.dandanplay.appSecret=your-app-secret
+danmaku.dandanplay.proxyBaseUrl=https://your-worker.example.workers.dev
 danmaku.dandanplay.authenticationMode=signed
 danmaku.dandanplay.cacheMaxAgeDays=30
 ```
 
 The same fallback can be supplied through environment variables named
 `DANMAKU_DANDANPLAY_APP_ID`, `DANMAKU_DANDANPLAY_APP_SECRET`,
+`DANMAKU_DANDANPLAY_PROXY_BASE_URL`,
 `DANMAKU_DANDANPLAY_AUTHENTICATION_MODE`, and
-`DANMAKU_DANDANPLAY_CACHE_MAX_AGE_DAYS`. These values are for local
-development and CI-only checks; do not embed provider secrets in distributable
-client artifacts.
+`DANMAKU_DANDANPLAY_CACHE_MAX_AGE_DAYS`. Direct AppId/AppSecret values win when
+present; the proxy URL is used only when no direct AppSecret exists. These
+values are for local development, proxy routing, and CI-only checks; do not
+embed provider secrets in distributable client artifacts.
 
 ## Build And Test
 
@@ -203,6 +206,17 @@ cargo test --workspace
 .\gradlew.bat --no-daemon :shared:library-client-android:testDebugUnitTest
 .\gradlew.bat --no-daemon :shared:player-android-media3:assembleDebugAndroidTest
 .\gradlew.bat --no-daemon :apps:android-mobile:assembleDebug :apps:android-tv:assembleDebug
+```
+
+The optional Cloudflare Worker proxy under `tools/dandanplay-worker-proxy`
+signs `/api/v2/match` and `/api/v2/comment/{episodeId}` requests at the edge so
+public clients can fetch danmaku without shipping an AppSecret:
+
+```powershell
+cd tools\dandanplay-worker-proxy
+npm ci
+npm run typecheck
+npm test
 ```
 
 To build and run the Windows shell in a developer checkout:

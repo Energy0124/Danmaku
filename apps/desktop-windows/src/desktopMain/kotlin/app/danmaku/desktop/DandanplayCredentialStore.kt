@@ -152,6 +152,7 @@ class DandanplayCredentialStore(
 
 data class DandanplayLocalCredentialDefaults(
     val baseUrl: String = DandanplayConnection.DEFAULT_BASE_URL,
+    val proxyBaseUrl: String? = null,
     val appId: String? = null,
     val appSecret: String? = null,
     val authenticationMode: DandanplayAuthenticationMode = DandanplayAuthenticationMode.SIGNED,
@@ -177,6 +178,7 @@ data class DandanplayLocalCredentialDefaults(
 
             val baseUrl = value("danmaku.dandanplay.baseUrl", "DANMAKU_DANDANPLAY_BASE_URL")
                 ?: DandanplayConnection.DEFAULT_BASE_URL
+            val proxyBaseUrl = value("danmaku.dandanplay.proxyBaseUrl", "DANMAKU_DANDANPLAY_PROXY_BASE_URL")
             val appId = value("danmaku.dandanplay.appId", "DANMAKU_DANDANPLAY_APP_ID")
             val appSecret = value("danmaku.dandanplay.appSecret", "DANMAKU_DANDANPLAY_APP_SECRET")
             val authenticationMode = value(
@@ -189,12 +191,20 @@ data class DandanplayLocalCredentialDefaults(
                 "danmaku.dandanplay.cacheMaxAgeDays",
                 "DANMAKU_DANDANPLAY_CACHE_MAX_AGE_DAYS",
             )?.toIntOrNull()?.takeIf { it >= 1 }
+            val hasDirectCredentials = appId != null && appSecret != null
+            val effectiveBaseUrl = if (hasDirectCredentials) baseUrl else proxyBaseUrl ?: baseUrl
 
-            return if (appId == null && appSecret == null && baseUrl == DandanplayConnection.DEFAULT_BASE_URL) {
+            return if (
+                appId == null &&
+                appSecret == null &&
+                proxyBaseUrl == null &&
+                baseUrl == DandanplayConnection.DEFAULT_BASE_URL
+            ) {
                 null
             } else {
                 DandanplayLocalCredentialDefaults(
-                    baseUrl = baseUrl,
+                    baseUrl = effectiveBaseUrl,
+                    proxyBaseUrl = proxyBaseUrl,
                     appId = appId,
                     appSecret = appSecret,
                     authenticationMode = authenticationMode,

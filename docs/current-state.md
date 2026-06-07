@@ -149,7 +149,13 @@ Updated on 2026-06-06.
   password-masked while editing. Ignored `local.properties` values and matching
   `DANMAKU_DANDANPLAY_*` environment variables can seed local development when
   no encrypted provider settings have been saved yet, without embedding secrets
-  into distributable artifacts.
+  into distributable artifacts. A `proxyBaseUrl`/`DANMAKU_DANDANPLAY_PROXY_BASE_URL`
+  fallback can point public clients at the Cloudflare Worker proxy, but only
+  when no direct local AppSecret is available.
+- A TypeScript Cloudflare Worker proxy lives under
+  `tools/dandanplay-worker-proxy`. It signs `/api/v2/match` and
+  `/api/v2/comment/{episodeId}` requests with Worker secrets, validates the
+  public request shape, and has Node-based unit tests plus CI coverage.
 - Windows local-library playback can use the configured dandanplay-compatible
   provider to fingerprint the local media file, match it, fetch comments, render
   the fetched comments into a cached ASS overlay, and attach that overlay to

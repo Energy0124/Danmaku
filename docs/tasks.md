@@ -116,6 +116,8 @@ unblocked slices inside these tracks as the vertical slice hardens.
   settings form.
 - [x] Add ignored local-property and environment-variable dandanplay credential
   fallbacks for local development without embedding secrets into builds.
+- [x] Add Cloudflare Worker dandanplay proxy scaffolding plus a client fallback
+  URL that is used only when no direct local AppSecret is available.
 - [x] Attach matched dandanplay-fetched tracks to Windows local-library playback
   by rendering fetched comments into a cached ASS overlay file.
 - [x] Persist chosen dandanplay `episodeId` values and fetched raw comments per

@@ -127,6 +127,7 @@ class DandanplayCredentialStoreTest {
             """
             danmaku.dandanplay.appId=local-file-app-id
             danmaku.dandanplay.appSecret=local-file-secret
+            danmaku.dandanplay.proxyBaseUrl=https://proxy.example.test
             danmaku.dandanplay.authenticationMode=credential
             danmaku.dandanplay.cacheMaxAgeDays=9
             """.trimIndent(),
@@ -139,8 +140,41 @@ class DandanplayCredentialStoreTest {
 
         assertEquals("environment-app-id", defaults?.appId)
         assertEquals("local-file-secret", defaults?.appSecret)
+        assertEquals(DandanplayConnection.DEFAULT_BASE_URL, defaults?.baseUrl)
+        assertEquals("https://proxy.example.test", defaults?.proxyBaseUrl)
         assertEquals(DandanplayAuthenticationMode.CREDENTIAL, defaults?.authenticationMode)
         assertEquals(9, defaults?.cacheMaxAgeDays)
+    }
+
+    @Test
+    fun usesProxyDefaultsOnlyWhenDirectSecretIsAbsent() {
+        val propertiesPath = createTempDirectory("danmaku-dandanplay-proxy").resolve("local.properties")
+        propertiesPath.toFile().writeText(
+            """
+            danmaku.dandanplay.proxyBaseUrl=https://proxy.example.test
+            danmaku.dandanplay.appId=local-file-app-id
+            """.trimIndent(),
+        )
+
+        val proxyDefaults = DandanplayLocalCredentialDefaults.load(
+            environment = emptyMap(),
+            propertiesPath = propertiesPath,
+        )
+
+        assertEquals("https://proxy.example.test", proxyDefaults?.baseUrl)
+        assertEquals("https://proxy.example.test", proxyDefaults?.proxyBaseUrl)
+        assertEquals("local-file-app-id", proxyDefaults?.appId)
+        assertFalse(proxyDefaults?.appSecret != null)
+
+        val directDefaults = DandanplayLocalCredentialDefaults.load(
+            environment = mapOf("DANMAKU_DANDANPLAY_APP_SECRET" to "environment-secret"),
+            propertiesPath = propertiesPath,
+        )
+
+        assertEquals(DandanplayConnection.DEFAULT_BASE_URL, directDefaults?.baseUrl)
+        assertEquals("https://proxy.example.test", directDefaults?.proxyBaseUrl)
+        assertEquals("local-file-app-id", directDefaults?.appId)
+        assertEquals("environment-secret", directDefaults?.appSecret)
     }
 
     @Test

@@ -1,0 +1,7 @@
+name = "danmaku-dandanplay-proxy"
+main = "src/index.ts"
+compatibility_date = "2026-06-07"
+
+[vars]
+DANDANPLAY_BASE_URL = "https://api.dandanplay.net"
+DANDANPLAY_COMMENT_CACHE_TTL_SECONDS = "86400"
