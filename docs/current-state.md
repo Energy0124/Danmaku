@@ -233,7 +233,8 @@ Updated on 2026-06-06.
   previous/next actions from progress rails and episode lists.
 - Windows desktop persists favorite local media IDs in the desktop settings
   table, exposes Favorite/Unfavorite actions in episode rows and episode
-  detail, and can filter the local episode list to favorites only.
+  detail, can filter the local episode list to favorites only, and shows a
+  reset action when search/favorite/subtitle filters hide every episode.
 - Android mobile library browsing includes a compact series rail that summarizes
   the largest connected-PC titles and narrows the episode list through the
   existing search field. Selecting a series now opens a compact series detail

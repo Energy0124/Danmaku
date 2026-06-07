@@ -218,6 +218,8 @@ unblocked slices inside these tracks as the vertical slice hardens.
   rail, selected-series detail strip, and richer episode rows.
 - [x] Add Android mobile and Android TV no-results library states with reset
   actions for search, subtitle, and favorites filters.
+- [x] Add a Windows local-library no-results reset state for search, subtitle,
+  and favorites filters.
 - [x] Add Android mobile progress scrubbing and Android TV remote-friendly seek
   controls backed by shared seek-target clamping.
 - [x] Add compile-checked Android mobile Library page Compose instrumentation

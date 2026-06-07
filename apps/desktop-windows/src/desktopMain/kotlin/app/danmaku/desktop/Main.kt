@@ -2200,7 +2200,16 @@ private fun MediaLibraryTab(
                 if (totalItems.isEmpty()) {
                     EmptyState("No indexed episodes yet.")
                 } else if (items.isEmpty()) {
-                    EmptyState("No episodes match the current filters.")
+                    EmptyState(
+                        text = "No episodes match the current filters.",
+                        actionLabel = "Reset filters",
+                        onAction = {
+                            searchText = ""
+                            sort = LibraryCatalogSort.TITLE
+                            subtitleFilter = LibrarySubtitleFilter.ANY
+                            favoriteFilter = LibraryFavoriteFilter.ANY
+                        },
+                    )
                 } else {
                     LazyColumn(modifier = Modifier.height(280.dp)) {
                         items(items, key = { it.id }) { item ->
@@ -2770,15 +2779,30 @@ private fun MetadataRow(
 }
 
 @Composable
-private fun EmptyState(text: String) {
+private fun EmptyState(
+    text: String,
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null,
+) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(96.dp)
+            .heightIn(min = 96.dp)
             .background(DanmakuColors.SurfaceRaised, RoundedCornerShape(10.dp)),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text, color = DanmakuColors.TextMuted)
+        Column(
+            modifier = Modifier.padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(text, color = DanmakuColors.TextMuted)
+            if (actionLabel != null && onAction != null) {
+                Button(onClick = onAction) {
+                    Text(actionLabel)
+                }
+            }
+        }
     }
 }
 
