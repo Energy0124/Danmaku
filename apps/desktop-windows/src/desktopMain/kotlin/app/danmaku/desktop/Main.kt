@@ -3,7 +3,9 @@ package app.danmaku.desktop
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -18,6 +20,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -62,6 +67,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
@@ -75,6 +82,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
@@ -129,6 +137,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.awt.Rectangle
+import java.awt.Window as AwtWindow
+import kotlin.math.roundToInt
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Instant
@@ -137,6 +148,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import javax.swing.JFileChooser
 import javax.swing.filechooser.FileNameExtensionFilter
+import org.jetbrains.skia.Image as SkiaImage
 
 fun main(args: Array<String>) = application {
     val launchOptions = remember(args) { DesktopLaunchOptions.parse(args) }
@@ -147,6 +159,7 @@ fun main(args: Array<String>) = application {
         title = "Danmaku",
     ) {
         DesktopShell(
+            awtWindow = window,
             windowState = windowState,
             launchOptions = launchOptions,
             onRequestExit = ::exitApplication,
@@ -168,6 +181,7 @@ private data class PreparedLocalPlaybackResult(
 
 @Composable
 private fun DesktopShell(
+    awtWindow: AwtWindow,
     windowState: WindowState,
     launchOptions: DesktopLaunchOptions = DesktopLaunchOptions(),
     onRequestExit: () -> Unit = {},
@@ -245,6 +259,27 @@ private fun DesktopShell(
     var mpvVideoWindowId by remember { mutableStateOf<Long?>(null) }
     val requiresNativeVideoHost = hostPlatform.requiresEmbeddedMpvVideoHost
     val nativeVideoHostReady = !requiresNativeVideoHost || mpvVideoWindowId != null
+    val mpvControlScriptPath: Result<Path?> = remember(hostPlatform, mpvVideoWindowId) {
+        if (hostPlatform == DesktopHostPlatform.WINDOWS) {
+            runCatching { DesktopMpvScriptResources.installDanmakuOscScript() }
+        } else {
+            Result.success(null)
+        }
+    }
+    LaunchedEffect(mpvControlScriptPath) {
+        mpvControlScriptPath
+            .onSuccess { scriptPath ->
+                if (scriptPath != null) {
+                    val sizeText = runCatching { Files.size(scriptPath) }
+                        .map { " ($it bytes)" }
+                        .getOrDefault("")
+                    appendDiagnostic("mpv", "Installed custom mpv OSC script: $scriptPath$sizeText")
+                }
+            }
+            .onFailure { error ->
+                appendDiagnostic("mpv", "Custom mpv OSC script unavailable: ${error.message}")
+            }
+    }
     val videoHostStatus = if (requiresNativeVideoHost) {
         if (mpvVideoWindowId == null) {
             "waiting for native window"
@@ -254,7 +289,7 @@ private fun DesktopShell(
     } else {
         "${hostPlatform.displayName} mpv-managed output"
     }
-    val mpvNativeOptions = remember(hostPlatform, mpvVideoWindowId, diagnosticFileLog.mpvLogPath) {
+    val mpvNativeOptions = remember(hostPlatform, mpvVideoWindowId, diagnosticFileLog.mpvLogPath, mpvControlScriptPath) {
         buildMap {
             put("config", "no")
             put("terminal", "no")
@@ -262,7 +297,12 @@ private fun DesktopShell(
             put("log-file", diagnosticFileLog.mpvLogPath.toAbsolutePath().normalize().toString())
             if (hostPlatform == DesktopHostPlatform.WINDOWS) {
                 mpvVideoWindowId
-                    ?.let(DesktopMpvWindowsOptions::forWindowId)
+                    ?.let { windowId ->
+                        DesktopMpvWindowsOptions.forWindowId(
+                            windowId = windowId,
+                            controlScriptPath = mpvControlScriptPath.getOrNull(),
+                        )
+                    }
                     ?.let(::putAll)
             }
         }
@@ -309,35 +349,67 @@ private fun DesktopShell(
                 "Created mpv runtime with ${hostPlatform.displayName} mpv-managed output"
             },
         )
+        appendDiagnostic("mpv", "Runtime mode: ${mpvRuntime.mode}; ${mpvRuntime.statusMessage}")
         appendDiagnostic("diagnostics", "App log: ${diagnosticFileLog.appLogPath}")
         appendDiagnostic("diagnostics", "mpv log: ${diagnosticFileLog.mpvLogPath}")
     }
-    val syntheticOverlayTrack = remember(danmakuSettings) {
-        DesktopSyntheticDanmakuAssTrack.createDefault(danmakuSettings)
+    fun forwardMpvOscBinding(
+        bindingName: String,
+        x: Int? = null,
+        y: Int? = null,
+        sourceWidth: Int? = null,
+        sourceHeight: Int? = null,
+    ) {
+        if (hostPlatform != DesktopHostPlatform.WINDOWS) {
+            return
+        }
+        val args = buildList {
+            add("script-binding")
+            add("danmaku_osc/$bindingName")
+            if (x != null && y != null) {
+                add(
+                    listOfNotNull(
+                        x.coerceAtLeast(0),
+                        y.coerceAtLeast(0),
+                        sourceWidth?.coerceAtLeast(1),
+                        sourceHeight?.coerceAtLeast(1),
+                    ).joinToString(separator = ","),
+                )
+            }
+        }
+        runCatching {
+            mpvRuntime.executor.execute(DesktopMpvCommand(args))
+        }.onFailure { error ->
+            appendDiagnostic("mpv", "Custom OSC input forward failed: ${error.message ?: error::class.simpleName}")
+        }
     }
-    var overlayStatus by remember { mutableStateOf("Synthetic danmaku overlay: waiting for media load") }
-    val playbackSession = remember(playbackController, syntheticOverlayTrack, mpvRuntime) {
+    fun forwardMpvOscWheel(
+        x: Int,
+        y: Int,
+        sourceWidth: Int,
+        sourceHeight: Int,
+        rotation: Int,
+    ) {
+        val bindingName = if (rotation < 0) {
+            "danmaku-osc-wheel-up"
+        } else {
+            "danmaku-osc-wheel-down"
+        }
+        repeat(kotlin.math.abs(rotation).coerceIn(1, 5)) {
+            forwardMpvOscBinding(bindingName, x, y, sourceWidth, sourceHeight)
+        }
+    }
+    var overlayStatus by remember { mutableStateOf("Danmaku overlay: waiting for matched comments") }
+    val playbackSession = remember(playbackController, mpvRuntime) {
         DesktopPlaybackSession(
             controller = playbackController,
             afterLoad = { request ->
                 if (request.subtitles.any(DesktopPlaybackSubtitle::isDanmakuOverlay)) {
-                    overlayStatus = "Fetched danmaku overlay: attached to mpv video"
-                    appendDiagnostic("overlay", "Skipping synthetic overlay because fetched danmaku is attached")
+                    overlayStatus = "Matched danmaku overlay: attached to mpv video"
+                    appendDiagnostic("overlay", "Matched/manual danmaku overlay attached for ${request.label}")
                 } else {
-                    runCatching {
-                        appendDiagnostic("overlay", "Attaching synthetic ASS danmaku track after loading ${request.label}")
-                        syntheticOverlayTrack.attachTo(mpvRuntime.executor)
-                    }.onSuccess {
-                        overlayStatus = if (danmakuSettings.visible) {
-                            "Synthetic danmaku overlay: attached to mpv video"
-                        } else {
-                            "Danmaku hidden by display settings"
-                        }
-                        appendDiagnostic("overlay", "Synthetic ASS danmaku track attached")
-                    }.onFailure { error ->
-                        overlayStatus = "Synthetic danmaku overlay error: ${error.message}"
-                        appendDiagnostic("overlay", "Synthetic ASS danmaku attach failed: ${error.message}")
-                    }
+                    overlayStatus = "No matched danmaku overlay attached"
+                    appendDiagnostic("overlay", "Loaded ${request.label} without danmaku overlay")
                 }
             },
             attachSubtitle = { subtitle ->
@@ -357,6 +429,66 @@ private fun DesktopShell(
     var registeredRoots by remember { mutableStateOf(rootRegistry.loadRoots()) }
     var playbackSnapshot by remember(playbackController) { mutableStateOf(playbackController.snapshot()) }
     val isFullscreen = windowState.placement == WindowPlacement.Fullscreen
+    var floatingWindowBounds by remember { mutableStateOf(Rectangle(awtWindow.bounds)) }
+    var pendingFloatingWindowRestore by remember { mutableStateOf(false) }
+    LaunchedEffect(isFullscreen, pendingFloatingWindowRestore) {
+        if (!isFullscreen && pendingFloatingWindowRestore) {
+            delay(150)
+            awtWindow.bounds = awtWindow.scaledRestoreBounds(floatingWindowBounds)
+            awtWindow.validate()
+            delay(150)
+            awtWindow.bounds = awtWindow.scaledRestoreBounds(floatingWindowBounds)
+            awtWindow.validate()
+            pendingFloatingWindowRestore = false
+        }
+    }
+    fun setWindowFullscreen(enabled: Boolean, source: String) {
+        appendDiagnostic("playback", "$source set window fullscreen ${if (enabled) "on" else "off"}")
+        if (enabled) {
+            pendingFloatingWindowRestore = false
+            floatingWindowBounds = Rectangle(awtWindow.bounds)
+            windowState.placement = WindowPlacement.Fullscreen
+        } else {
+            windowState.placement = WindowPlacement.Floating
+            pendingFloatingWindowRestore = true
+        }
+    }
+    LaunchedEffect(mpvRuntime, hostPlatform, isFullscreen) {
+        if (hostPlatform != DesktopHostPlatform.WINDOWS) {
+            return@LaunchedEffect
+        }
+        runCatching {
+            mpvRuntime.executor.execute(
+                DesktopMpvCommand(
+                    listOf(
+                        "script-binding",
+                        if (isFullscreen) {
+                            MPV_OSC_APP_FULLSCREEN_ON_BINDING
+                        } else {
+                            MPV_OSC_APP_FULLSCREEN_OFF_BINDING
+                        },
+                    ),
+                ),
+            )
+        }.onFailure { error ->
+            appendDiagnostic("mpv", "Custom OSC fullscreen state sync failed: ${error.message ?: error::class.simpleName}")
+        }
+    }
+    LaunchedEffect(mpvRuntime, hostPlatform, isFullscreen) {
+        if (hostPlatform != DesktopHostPlatform.WINDOWS) {
+            return@LaunchedEffect
+        }
+        val reader = mpvRuntime.propertyReader ?: return@LaunchedEffect
+        var lastRequest = reader.readProperty(MPV_OSC_FULLSCREEN_REQUEST_PROPERTY)
+        while (true) {
+            delay(200)
+            val nextRequest = reader.readProperty(MPV_OSC_FULLSCREEN_REQUEST_PROPERTY)
+            if (!nextRequest.isNullOrBlank() && nextRequest != lastRequest) {
+                lastRequest = nextRequest
+                setWindowFullscreen(!isFullscreen, "mpv OSC")
+            }
+        }
+    }
     var videoAspectMode by remember(playbackController) { mutableStateOf(playbackController.videoAspectMode) }
     var indexedLibrary by remember {
         mutableStateOf(
@@ -658,10 +790,34 @@ private fun DesktopShell(
         refreshDandanplay: Boolean = false,
         preferredDandanplayEpisodeId: Long? = null,
     ) {
-        val library = indexedLibrary ?: return
+        val library = indexedLibrary
+        if (library == null) {
+            dandanplayCacheStatus = dandanplayStatusMessage(
+                mediaId = item.id,
+                summary = "library is not indexed; cannot check danmaku",
+                details = item.dandanplayStatusContext(dandanplaySettings),
+            )
+            libraryError = "Index or scan a local library before preparing playback."
+            appendDiagnostic("playback", "Cannot prepare local playback; library is not indexed")
+            return
+        }
         scope.launch {
             appendDiagnostic("playback", "Preparing local library playback: ${item.id}")
             isPreparingLocalPlayback = true
+            dandanplayCacheStatus = dandanplayStatusMessage(
+                mediaId = item.id,
+                summary = when {
+                    preferredDandanplayEpisodeId != null -> "loading selected dandanplay match..."
+                    refreshDandanplay -> "refreshing dandanplay match..."
+                    else -> "checking dandanplay match..."
+                },
+                details = item.dandanplayStatusContext(dandanplaySettings) +
+                    listOfNotNull(
+                        preferredDandanplayEpisodeId?.let {
+                            DandanplayPlaybackUiDetail("Requested episode ID", it.toString())
+                        },
+                    ),
+            )
             runCatching {
                 withContext(Dispatchers.IO) {
                     val preparation = localPlaybackPreparer.prepare(library, item)
@@ -705,7 +861,7 @@ private fun DesktopShell(
                 )
                 when {
                     !dandanplaySettings.isFetchEnabled ->
-                        appendDiagnostic("danmaku", "dandanplay fetching is not configured; using local/synthetic overlay")
+                        appendDiagnostic("danmaku", "dandanplay fetching is not configured; no automatic danmaku overlay attached")
                     result.dandanplayError != null ->
                         appendDiagnostic("danmaku", "dandanplay fetch failed for ${item.id}: ${result.dandanplayError.message}")
                     result.dandanplayResolution?.subtitle != null ->
@@ -722,8 +878,50 @@ private fun DesktopShell(
                     else ->
                         appendDiagnostic("danmaku", "dandanplay found no match for ${item.id}")
                 }
-                result.dandanplayResolution?.let { resolution ->
-                    dandanplayCacheStatus = dandanplayStatusFromResolution(item.id, resolution)
+                dandanplayCacheStatus = when {
+                    !dandanplaySettings.isFetchEnabled ->
+                        dandanplayStatusMessage(
+                            mediaId = item.id,
+                            summary = "dandanplay fetching is not configured",
+                            details = item.dandanplayStatusContext(dandanplaySettings) +
+                                DandanplayPlaybackUiDetail(
+                                    "Result",
+                                    "automatic danmaku matching skipped",
+                                ),
+                        )
+                    result.dandanplayError != null ->
+                        dandanplayStatusMessage(
+                            mediaId = item.id,
+                            summary = "dandanplay match failed",
+                            details = item.dandanplayStatusContext(dandanplaySettings) +
+                                DandanplayPlaybackUiDetail(
+                                    "Error",
+                                    result.dandanplayError.readableMessage(),
+                                ),
+                        )
+                    result.dandanplayResolution != null -> {
+                        val resolution = result.dandanplayResolution
+                        val playbackDetail = when {
+                            resolution.subtitle == null -> null
+                            loadAfterPrepare -> DandanplayPlaybackUiDetail("Playback", "loading into player now")
+                            else -> DandanplayPlaybackUiDetail(
+                                "Playback",
+                                "overlay prepared; use Load into player to attach it",
+                            )
+                        }
+                        val status = dandanplayStatusFromResolution(item.id, resolution)
+                        status.copy(
+                            details = item.dandanplayStatusContext(dandanplaySettings) +
+                                status.details +
+                                listOfNotNull(playbackDetail),
+                        )
+                    }
+                    else ->
+                        dandanplayStatusMessage(
+                            mediaId = item.id,
+                            summary = "dandanplay returned no result",
+                            details = item.dandanplayStatusContext(dandanplaySettings),
+                        )
                 }
                 if (loadAfterPrepare) {
                     appendDiagnostic("playback", "Auto-loading prepared local playback: ${item.id}")
@@ -731,6 +929,12 @@ private fun DesktopShell(
                 }
             }.onFailure {
                 libraryError = it.message
+                dandanplayCacheStatus = dandanplayStatusMessage(
+                    mediaId = item.id,
+                    summary = "prepare failed before danmaku could load",
+                    details = item.dandanplayStatusContext(dandanplaySettings) +
+                        DandanplayPlaybackUiDetail("Error", it.readableMessage()),
+                )
                 appendDiagnostic("playback", "Prepare local playback failed: ${it.message}")
             }
             isPreparingLocalPlayback = false
@@ -742,6 +946,11 @@ private fun DesktopShell(
             dandanplayCacheStatus = dandanplayStatusMessage(
                 mediaId = preparation.item.id,
                 summary = "dandanplay fetching is not configured",
+                details = preparation.item.dandanplayStatusContext(dandanplaySettings) +
+                    DandanplayPlaybackUiDetail(
+                        "Result",
+                        "automatic danmaku refresh skipped",
+                    ),
             )
             appendDiagnostic("danmaku", "Cannot refresh dandanplay cache; provider fetching is not configured")
             return
@@ -776,6 +985,7 @@ private fun DesktopShell(
                 dandanplayCacheStatus = dandanplayStatusMessage(
                     mediaId = preparation.item.id,
                     summary = "dandanplay cache cleared",
+                    details = preparation.item.dandanplayStatusContext(dandanplaySettings),
                 )
                 appendDiagnostic("danmaku", "Cleared dandanplay cache for ${preparation.item.id}")
             }.onFailure {
@@ -789,6 +999,7 @@ private fun DesktopShell(
         dandanplayCacheStatus = dandanplayStatusMessage(
             mediaId = preparation.item.id,
             summary = "prepared danmaku overlay removed",
+            details = preparation.item.dandanplayStatusContext(dandanplaySettings),
         )
         appendDiagnostic("danmaku", "Removed prepared danmaku overlay for ${preparation.item.id}")
     }
@@ -809,6 +1020,11 @@ private fun DesktopShell(
                 dandanplayCacheStatus = dandanplayStatusMessage(
                     mediaId = preparation.item.id,
                     summary = "manual danmaku: attached ${overlay.eventCount} comments",
+                    details = preparation.item.dandanplayStatusContext(dandanplaySettings) +
+                        listOf(
+                            DandanplayPlaybackUiDetail("Source file", overlay.inputPath.toString()),
+                            DandanplayPlaybackUiDetail("Comments", "${overlay.eventCount} comments"),
+                        ),
                 )
                 appendDiagnostic(
                     "danmaku",
@@ -1077,7 +1293,26 @@ private fun DesktopShell(
                             mpvRuntimeStatus = mpvRuntime.statusMessage,
                             videoHostStatus = videoHostStatus,
                             overlayStatus = overlayStatus,
-                            onWindowIdChanged = { mpvVideoWindowId = it },
+                            onWindowIdChanged = { windowId ->
+                                if (mpvVideoWindowId != windowId) {
+                                    appendDiagnostic(
+                                        "video-host",
+                                        windowId
+                                            ?.let { "Native video window attached: $it" }
+                                            ?: "Native video window detached",
+                                    )
+                                }
+                                mpvVideoWindowId = windowId
+                            },
+                            onMpvPointerMove = { x, y, width, height ->
+                                forwardMpvOscBinding("danmaku-osc-mouse-move", x, y, width, height)
+                            },
+                            onMpvPrimaryClick = { x, y, width, height ->
+                                forwardMpvOscBinding("danmaku-osc-left-click", x, y, width, height)
+                            },
+                            onMpvWheel = { x, y, width, height, rotation ->
+                                forwardMpvOscWheel(x, y, width, height, rotation)
+                            },
                             onOpenMediaFile = {
                                 appendDiagnostic("playback", "Opening direct media file picker")
                                 selectMediaFile(
@@ -1172,14 +1407,7 @@ private fun DesktopShell(
                             },
                             isFullscreen = isFullscreen,
                             videoAspectMode = videoAspectMode,
-                            onSetFullscreen = { enabled ->
-                                appendDiagnostic("playback", "Set window fullscreen ${if (enabled) "on" else "off"}")
-                                windowState.placement = if (enabled) {
-                                    WindowPlacement.Fullscreen
-                                } else {
-                                    WindowPlacement.Floating
-                                }
-                            },
+                            onSetFullscreen = { enabled -> setWindowFullscreen(enabled, "playback") },
                             onSetVideoAspectMode = { mode ->
                                 appendDiagnostic("playback", "Dispatch video aspect ${mode.label}")
                                 playbackController.setVideoAspectMode(mode)
@@ -1446,6 +1674,9 @@ private fun PlaybackTab(
     videoHostStatus: String,
     overlayStatus: String,
     onWindowIdChanged: (Long?) -> Unit,
+    onMpvPointerMove: (x: Int, y: Int, width: Int, height: Int) -> Unit,
+    onMpvPrimaryClick: (x: Int, y: Int, width: Int, height: Int) -> Unit,
+    onMpvWheel: (x: Int, y: Int, width: Int, height: Int, rotation: Int) -> Unit,
     onOpenMediaFile: () -> Unit,
     onPlay: () -> Unit,
     onPause: () -> Unit,
@@ -1468,12 +1699,28 @@ private fun PlaybackTab(
     modifier: Modifier = Modifier,
 ) {
     var controlsVisible by remember { mutableStateOf(true) }
+    var controlsInteractionSerial by remember { mutableStateOf(0L) }
     val focusRequester = remember { FocusRequester() }
     val hasMedia = playbackSnapshot.source != null
     val shouldAutoHide = hasMedia && playbackSnapshot.status == PlaybackStatus.PLAYING
+    fun revealControls() {
+        controlsInteractionSerial += 1
+        controlsVisible = true
+    }
+    fun Modifier.revealControlsOnPointerInput(): Modifier =
+        onPointerEvent(PointerEventType.Move) {
+            revealControls()
+        }.onPointerEvent(PointerEventType.Enter) {
+            revealControls()
+        }.onPointerEvent(PointerEventType.Press) {
+            revealControls()
+        }.onPointerEvent(PointerEventType.Scroll) {
+            revealControls()
+        }
+
     fun handleShortcut(shortcut: DesktopPlayerShortcut): Boolean {
         if (!hasMedia) return false
-        controlsVisible = true
+        revealControls()
         when (shortcut) {
             DesktopPlayerShortcut.TOGGLE_PLAY_PAUSE -> {
                 if (playbackSnapshot.status == PlaybackStatus.PLAYING) {
@@ -1506,86 +1753,167 @@ private fun PlaybackTab(
         focusRequester.requestFocus()
     }
 
-    LaunchedEffect(controlsVisible, shouldAutoHide) {
+    LaunchedEffect(controlsVisible, controlsInteractionSerial, shouldAutoHide) {
         if (controlsVisible && shouldAutoHide) {
             delay(PLAYER_CONTROLS_AUTO_HIDE_MS)
             controlsVisible = false
         }
     }
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Color.Black)
-            .onPreviewKeyEvent { event ->
-                event.toDesktopPlayerShortcutInput()
-                    ?.let(::resolveDesktopPlayerShortcut)
-                    ?.let(::handleShortcut)
-                    ?: false
-            }
-            .focusRequester(focusRequester)
-            .focusable()
-            .onPointerEvent(PointerEventType.Move) {
-                controlsVisible = true
-            }
-            .onPointerEvent(PointerEventType.Enter) {
-                controlsVisible = true
-            },
-    ) {
-        if (controlsVisible || !shouldAutoHide) {
-            PlayerTopOverlay(
-                title = playbackLabel ?: playbackSnapshot.source?.toString()?.redactToken() ?: "No media loaded",
+    val playbackModifier = modifier
+        .fillMaxSize()
+        .background(Color.Black)
+        .onPreviewKeyEvent { event ->
+            event.toDesktopPlayerShortcutInput()
+                ?.let(::resolveDesktopPlayerShortcut)
+                ?.let(::handleShortcut)
+                ?: false
+        }
+        .focusRequester(focusRequester)
+        .focusable()
+        .revealControlsOnPointerInput()
+
+    val emptyHostControlsState = if (!hasMedia) {
+        DesktopMpvVideoControlsState(
+            visible = true,
+            hasMedia = false,
+            title = playbackLabel ?: playbackSnapshot.source?.toString()?.redactToken() ?: "No media loaded",
+            status = playbackSnapshot.status.name,
+            overlayStatus = overlayStatus,
+            positionMs = 0L,
+            durationMs = null,
+            isPlaying = false,
+            volumePercent = playbackSnapshot.volumePercent,
+            playbackRate = playbackSnapshot.playbackRate,
+            audioText = "Audio",
+            subtitleText = "Sub",
+            aspectText = videoAspectMode.label,
+            isFullscreen = isFullscreen,
+            canOpenMedia = canOpenMedia,
+            canCycleAudio = false,
+            canCycleSubtitle = false,
+        )
+    } else {
+        null
+    }
+    val emptyHostControlsActions = if (!hasMedia) {
+        DesktopMpvVideoControlsActions(
+            onShowHome = onShowHome,
+            onShowLibrary = onShowLibrary,
+            onOpenMediaFile = onOpenMediaFile,
+            onPlayPause = {},
+            onSeekBackward = {},
+            onSeekBackwardLarge = {},
+            onSeekForward = {},
+            onSeekForwardLarge = {},
+            onSeekTo = { _: Long -> },
+            onSetVolume = { _: Int -> },
+            onCyclePlaybackRate = {},
+            onCycleAudioTrack = {},
+            onCycleSubtitleTrack = {},
+            onCycleAspectMode = {},
+            onToggleFullscreen = { onSetFullscreen(!isFullscreen) },
+        )
+    } else {
+        null
+    }
+
+    Column(modifier = playbackModifier) {
+        if (hasMedia && !isFullscreen) {
+            PlaybackWindowNavigationHeader(
+                title = playbackLabel ?: playbackSnapshot.source?.toString()?.redactToken() ?: "Playing",
                 status = playbackSnapshot.status.name,
                 overlayStatus = overlayStatus,
-                isFullscreen = isFullscreen,
                 onShowHome = onShowHome,
                 onShowLibrary = onShowLibrary,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(PLAYER_WINDOW_NAVIGATION_HEIGHT_DP.dp)
+                    .revealControlsOnPointerInput(),
             )
         }
-        Box(modifier = Modifier.weight(1f)) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+        ) {
             DesktopMpvVideoHost(
                 onWindowIdChanged = onWindowIdChanged,
+                onUserInput = ::revealControls,
+                onMpvPointerMove = onMpvPointerMove,
+                onMpvPrimaryClick = onMpvPrimaryClick,
+                onMpvWheel = onMpvWheel,
+                controlsState = emptyHostControlsState,
+                controlsActions = emptyHostControlsActions,
                 modifier = Modifier.fillMaxSize(),
             )
             if (!hasMedia) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(PLAYER_TOP_CONTROLS_HEIGHT_DP.dp)
+                        .align(Alignment.TopCenter)
+                        .revealControlsOnPointerInput(),
+                ) {
+                    PlayerTopOverlay(
+                        title = playbackLabel ?: playbackSnapshot.source?.toString()?.redactToken() ?: "No media loaded",
+                        status = playbackSnapshot.status.name,
+                        overlayStatus = overlayStatus,
+                        isFullscreen = isFullscreen,
+                        onShowHome = onShowHome,
+                        onShowLibrary = onShowLibrary,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .revealControlsOnPointerInput(),
+                    )
+                }
                 PlayerEmptyOverlay(
                     canOpenMedia = canOpenMedia,
                     mpvRuntimeStatus = mpvRuntimeStatus,
                     videoHostStatus = videoHostStatus,
                     onOpenMediaFile = onOpenMediaFile,
                 )
-            }
-            playbackSnapshot.errorMessage?.let { error ->
-                Text(
-                    text = error,
-                    color = DanmakuColors.Warning,
+                playbackSnapshot.errorMessage?.let { error ->
+                    Text(
+                        text = error,
+                        color = DanmakuColors.Warning,
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .background(Color.Black.copy(alpha = 0.7f), RoundedCornerShape(8.dp))
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                    )
+                }
+                Box(
                     modifier = Modifier
-                        .align(Alignment.Center)
-                        .background(Color.Black.copy(alpha = 0.7f), RoundedCornerShape(8.dp))
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                )
+                        .fillMaxWidth()
+                        .height(PLAYER_BOTTOM_CONTROLS_HEIGHT_DP.dp)
+                        .align(Alignment.BottomCenter)
+                        .revealControlsOnPointerInput(),
+                ) {
+                    PlayerBottomOverlay(
+                        playbackSnapshot = playbackSnapshot,
+                        isFullscreen = isFullscreen,
+                        videoAspectMode = videoAspectMode,
+                        onOpenMediaFile = onOpenMediaFile,
+                        onPlay = onPlay,
+                        onPause = onPause,
+                        onSeekBackward = onSeekBackward,
+                        onSeekBackwardLarge = onSeekBackwardLarge,
+                        onSeekForward = onSeekForward,
+                        onSeekForwardLarge = onSeekForwardLarge,
+                        onSeekTo = onSeekTo,
+                        onSetPlaybackRate = onSetPlaybackRate,
+                        onSetVolume = onSetVolume,
+                        onSelectAudioTrack = onSelectAudioTrack,
+                        onSelectSubtitleTrack = onSelectSubtitleTrack,
+                        onSetFullscreen = onSetFullscreen,
+                        onSetVideoAspectMode = onSetVideoAspectMode,
+                        canOpenMedia = canOpenMedia,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .revealControlsOnPointerInput(),
+                    )
+                }
             }
-        }
-        if (controlsVisible || !shouldAutoHide) {
-            PlayerBottomOverlay(
-                playbackSnapshot = playbackSnapshot,
-                isFullscreen = isFullscreen,
-                videoAspectMode = videoAspectMode,
-                onOpenMediaFile = onOpenMediaFile,
-                onPlay = onPlay,
-                onPause = onPause,
-                onSeekBackward = onSeekBackward,
-                onSeekBackwardLarge = onSeekBackwardLarge,
-                onSeekForward = onSeekForward,
-                onSeekForwardLarge = onSeekForwardLarge,
-                onSeekTo = onSeekTo,
-                onSetPlaybackRate = onSetPlaybackRate,
-                onSetVolume = onSetVolume,
-                onSelectAudioTrack = onSelectAudioTrack,
-                onSelectSubtitleTrack = onSelectSubtitleTrack,
-                onSetFullscreen = onSetFullscreen,
-                onSetVideoAspectMode = onSetVideoAspectMode,
-                canOpenMedia = canOpenMedia,
-            )
         }
     }
 }
@@ -1622,9 +1950,10 @@ private fun PlayerEmptyOverlay(
     mpvRuntimeStatus: String,
     videoHostStatus: String,
     onOpenMediaFile: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
             .padding(24.dp),
         verticalArrangement = Arrangement.Center,
@@ -1642,6 +1971,50 @@ private fun PlayerEmptyOverlay(
         Button(onClick = onOpenMediaFile, enabled = canOpenMedia) {
             Text("Open media file")
         }
+    }
+}
+
+@Composable
+private fun PlaybackWindowNavigationHeader(
+    title: String,
+    status: String,
+    overlayStatus: String,
+    onShowHome: () -> Unit,
+    onShowLibrary: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .background(Color.Black)
+            .padding(horizontal = 12.dp, vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        PlayerIconButton(Icons.Filled.Home, "Home", onClick = onShowHome)
+        PlayerIconButton(Icons.AutoMirrored.Filled.LibraryBooks, "Library", onClick = onShowLibrary)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                color = Color.White,
+                style = MaterialTheme.typography.body2,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = overlayStatus,
+                color = DanmakuColors.TextMuted,
+                style = MaterialTheme.typography.caption,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Text(
+            text = status,
+            color = DanmakuColors.TextMuted,
+            style = MaterialTheme.typography.caption,
+            maxLines = 1,
+        )
     }
 }
 
@@ -2047,207 +2420,24 @@ private fun MediaLibraryTab(
                 MetadataRow("Last scan", "${it.reusedItemCount} unchanged, ${it.refreshedItemCount} refreshed")
             }
         }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            SectionCard(
-                title = "Next Up",
-                modifier = Modifier.weight(1f),
-            ) {
-                if (nextUpItems.isEmpty()) {
-                    EmptyState("Index local episodes to build a next-up queue.")
-                } else {
-                    LazyColumn(modifier = Modifier.heightIn(max = 220.dp)) {
-                        items(nextUpItems, key = { it.mediaItem.id }) { item ->
-                            NextUpRow(
-                                item = item,
-                                isPreparing = isPreparingLocalPlayback,
-                                onShowDetails = { selectedEpisodeId = it.id },
-                                onPrepareLocalPlayback = onPrepareLocalPlayback,
-                                onPlayLocalPlayback = onPlayLocalPlayback,
-                            )
-                        }
-                    }
-                }
-            }
-            SectionCard(
-                title = "Continue Watching",
-                modifier = Modifier.weight(1f),
-            ) {
-                if (continueWatchingItems.isEmpty()) {
-                    EmptyState("No in-progress local episodes yet.")
-                } else {
-                    LazyColumn(modifier = Modifier.heightIn(max = 220.dp)) {
-                        items(continueWatchingItems, key = { it.mediaItem.id }) { item ->
-                            ContinueWatchingRow(
-                                item = item,
-                                isPreparing = isPreparingLocalPlayback,
-                                onShowDetails = { selectedEpisodeId = it.id },
-                                onPlayLocalPlayback = onPlayLocalPlayback,
-                            )
-                        }
-                    }
-                }
-            }
-            SectionCard(
-                title = "Recently Watched",
-                modifier = Modifier.weight(1f),
-            ) {
-                if (recentlyWatchedItems.isEmpty()) {
-                    EmptyState("No saved local playback activity yet.")
-                } else {
-                    LazyColumn(modifier = Modifier.heightIn(max = 220.dp)) {
-                        items(recentlyWatchedItems, key = { it.mediaItem.id }) { item ->
-                            RecentlyWatchedRow(
-                                item = item,
-                                isPreparing = isPreparingLocalPlayback,
-                                onShowDetails = { selectedEpisodeId = it.id },
-                                onPrepareLocalPlayback = onPrepareLocalPlayback,
-                                onPlayLocalPlayback = onPlayLocalPlayback,
-                            )
-                        }
-                    }
-                }
-            }
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            SectionCard(
-                title = "Registered Folders",
-                modifier = Modifier.weight(0.9f),
-            ) {
-                if (registeredRoots.isEmpty()) {
-                    EmptyState("No library folders added yet.")
-                } else {
-                    LazyColumn(modifier = Modifier.height(180.dp)) {
-                        items(registeredRoots, key = { it.id }) { root ->
-                            MediaRootRow(root)
-                        }
-                    }
-                }
-            }
-            SectionCard(
-                title = "Series",
-                modifier = Modifier.weight(1.1f),
-            ) {
-                MetadataRow("Grouped", "${series.size} series")
-                if (series.isEmpty()) {
-                    EmptyState("No indexed series yet.")
-                } else {
-                    LazyColumn(modifier = Modifier.height(280.dp)) {
-                        items(series, key = { it.id }) { librarySeries ->
-                            DesktopSeriesRow(
-                                series = librarySeries,
-                                watchSummary = seriesWatchSummaryById[librarySeries.id],
-                                isSelected = librarySeries.id == selectedSeries?.id,
-                                onSelect = { selectedSeriesId = librarySeries.id },
-                            )
-                        }
-                    }
-                }
-            }
-            SectionCard(
-                title = "Episodes",
-                modifier = Modifier.weight(1.4f),
-            ) {
-                var searchText by remember { mutableStateOf("") }
-                var sort by remember { mutableStateOf(LibraryCatalogSort.TITLE) }
-                var subtitleFilter by remember { mutableStateOf(LibrarySubtitleFilter.ANY) }
-                var favoriteFilter by remember { mutableStateOf(LibraryFavoriteFilter.ANY) }
-                val catalog = indexedLibrary?.catalog
-                val totalItems = catalog?.items.orEmpty()
-                val items = catalog
-                    ?.filteredItems(
-                        LibraryCatalogQuery(
-                            searchText = searchText,
-                            sort = sort,
-                            subtitleFilter = subtitleFilter,
-                            favoriteFilter = favoriteFilter,
-                            favoriteMediaIds = favoriteMediaIds,
-                        ),
-                    )
-                    .orEmpty()
-                OutlinedTextField(
-                    value = searchText,
-                    onValueChange = { searchText = it },
-                    label = { Text("Search episodes") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = { sort = LibraryCatalogSort.TITLE },
-                        enabled = sort != LibraryCatalogSort.TITLE,
-                    ) {
-                        Text("Sort title")
-                    }
-                    Button(
-                        onClick = { sort = LibraryCatalogSort.PATH },
-                        enabled = sort != LibraryCatalogSort.PATH,
-                    ) {
-                        Text("Sort path")
-                    }
-                    Button(
-                        onClick = {
-                            subtitleFilter = if (subtitleFilter == LibrarySubtitleFilter.ANY) {
-                                LibrarySubtitleFilter.WITH_SUBTITLES
-                            } else {
-                                LibrarySubtitleFilter.ANY
-                            }
-                        },
-                    ) {
-                        Text(if (subtitleFilter == LibrarySubtitleFilter.ANY) "Require subtitles" else "All episodes")
-                    }
-                    Button(
-                        onClick = {
-                            favoriteFilter = if (favoriteFilter == LibraryFavoriteFilter.ANY) {
-                                LibraryFavoriteFilter.FAVORITES_ONLY
-                            } else {
-                                LibraryFavoriteFilter.ANY
-                            }
-                        },
-                    ) {
-                        Text(if (favoriteFilter == LibraryFavoriteFilter.ANY) "Favorites only" else "All episodes")
-                    }
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                MetadataRow("Favorites", "${favoriteMediaIds.size} saved")
-                MetadataRow("Showing", "${items.size} / ${totalItems.size} episodes")
-                if (totalItems.isEmpty()) {
-                    EmptyState("No indexed episodes yet.")
-                } else if (items.isEmpty()) {
-                    EmptyState(
-                        text = "No episodes match the current filters.",
-                        actionLabel = "Reset filters",
-                        onAction = {
-                            searchText = ""
-                            sort = LibraryCatalogSort.TITLE
-                            subtitleFilter = LibrarySubtitleFilter.ANY
-                            favoriteFilter = LibraryFavoriteFilter.ANY
-                        },
-                    )
-                } else {
-                    LazyColumn(modifier = Modifier.height(280.dp)) {
-                        items(items, key = { it.id }) { item ->
-                            EpisodeRow(
-                                item = item,
-                                watchStatus = watchStatusById[item.id],
-                                isFavorite = item.id in favoriteMediaIds,
-                                isPreparing = isPreparingLocalPlayback,
-                                onShowDetails = { selectedEpisodeId = it.id },
-                                onSetFavorite = onSetFavorite,
-                                onPrepareLocalPlayback = onPrepareLocalPlayback,
-                                onPlayLocalPlayback = onPlayLocalPlayback,
-                            )
-                        }
-                    }
-                }
-            }
-        }
+        LocalLibraryGallery(
+            registeredRoots = registeredRoots,
+            indexedLibrary = indexedLibrary,
+            series = series,
+            selectedSeries = selectedSeries,
+            nextUpItems = nextUpItems,
+            continueWatchingItems = continueWatchingItems,
+            recentlyWatchedItems = recentlyWatchedItems,
+            watchStatusById = watchStatusById,
+            seriesWatchSummaryById = seriesWatchSummaryById,
+            favoriteMediaIds = favoriteMediaIds,
+            isPreparing = isPreparingLocalPlayback,
+            onSelectSeries = { selectedSeriesId = it.id },
+            onShowDetails = { selectedEpisodeId = it.id },
+            onSetFavorite = onSetFavorite,
+            onPrepareLocalPlayback = onPrepareLocalPlayback,
+            onPlayLocalPlayback = onPlayLocalPlayback,
+        )
         selectedSeries?.let { librarySeries ->
             DesktopSeriesDetailPanel(
                 series = librarySeries,
@@ -2299,7 +2489,12 @@ private fun MediaLibraryTab(
                 dandanplayCacheStatus
                     ?.takeIf { it.mediaId == preparation.item.id }
                     ?.let { status ->
-                        MetadataRow("Danmaku status", status.summary)
+                        val statusColor = if (status.summary.isDandanplayWarningStatus()) {
+                            DanmakuColors.Warning
+                        } else {
+                            Color.White
+                        }
+                        MetadataRow("Danmaku status", status.summary, valueColor = statusColor)
                         status.details.forEach { detail ->
                             MetadataRow(detail.label, detail.value)
                         }
@@ -2310,6 +2505,11 @@ private fun MediaLibraryTab(
                             onSelectDandanplayMatch = onSelectDandanplayMatch,
                         )
                     }
+                    ?: MetadataRow(
+                        "Danmaku status",
+                        "not checked yet; use Refresh danmaku",
+                        valueColor = DanmakuColors.TextMuted,
+                    )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = { onLoadPreparedPlayback(preparation) }) {
                         Text("Load into player")
@@ -2367,6 +2567,397 @@ private fun MediaLibraryTab(
         }
     }
 }
+
+@Composable
+private fun LocalLibraryGallery(
+    registeredRoots: List<DesktopLibraryRoot>,
+    indexedLibrary: IndexedLocalLibrary?,
+    series: List<LibrarySeries>,
+    selectedSeries: LibrarySeries?,
+    nextUpItems: List<LibraryNextUpItem>,
+    continueWatchingItems: List<LibraryPlaybackProgressItem>,
+    recentlyWatchedItems: List<LibraryPlaybackProgressItem>,
+    watchStatusById: Map<String, LibraryWatchStatus>,
+    seriesWatchSummaryById: Map<String, LibrarySeriesWatchSummary>,
+    favoriteMediaIds: Set<String>,
+    isPreparing: Boolean,
+    onSelectSeries: (LibrarySeries) -> Unit,
+    onShowDetails: (LibraryMediaItem) -> Unit,
+    onSetFavorite: (LibraryMediaItem, Boolean) -> Unit,
+    onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
+    onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
+) {
+    var searchText by remember { mutableStateOf("") }
+    var subtitleFilter by remember { mutableStateOf(LibrarySubtitleFilter.ANY) }
+    var favoriteFilter by remember { mutableStateOf(LibraryFavoriteFilter.ANY) }
+    val catalog = indexedLibrary?.catalog
+    val filtersAreDefault = searchText.isBlank() &&
+        subtitleFilter == LibrarySubtitleFilter.ANY &&
+        favoriteFilter == LibraryFavoriteFilter.ANY
+    val filteredEpisodes = remember(catalog, searchText, subtitleFilter, favoriteFilter, favoriteMediaIds) {
+        catalog
+            ?.filteredItems(
+                LibraryCatalogQuery(
+                    searchText = searchText,
+                    sort = LibraryCatalogSort.TITLE,
+                    subtitleFilter = subtitleFilter,
+                    favoriteFilter = favoriteFilter,
+                    favoriteMediaIds = favoriteMediaIds,
+                ),
+            )
+            .orEmpty()
+    }
+    val visibleSeries = remember(series, filteredEpisodes, filtersAreDefault) {
+        val visibleIds = filteredEpisodes.mapTo(mutableSetOf()) { it.seriesTitle.trim() }
+        if (visibleIds.isEmpty() && filtersAreDefault) {
+            series
+        } else {
+            series.filter { it.title in visibleIds }
+        }
+    }
+    val coverBySeriesId = remember(indexedLibrary, series) {
+        series.associate { librarySeries ->
+            librarySeries.id to findSeriesCoverImage(librarySeries, indexedLibrary)
+        }
+    }
+
+    SectionCard("Media Library") {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 620.dp),
+            horizontalArrangement = Arrangement.spacedBy(18.dp),
+        ) {
+            LocalLibrarySidebar(
+                registeredRoots = registeredRoots,
+                nextUpCount = nextUpItems.size,
+                continueWatchingCount = continueWatchingItems.size,
+                recentlyWatchedCount = recentlyWatchedItems.size,
+                seriesCount = series.size,
+                modifier = Modifier.width(190.dp),
+            )
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    OutlinedTextField(
+                        value = searchText,
+                        onValueChange = { searchText = it },
+                        label = { Text("Search library") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f),
+                    )
+                    PlayerOverlayButton(
+                        text = if (subtitleFilter == LibrarySubtitleFilter.ANY) "Subtitles" else "All subs",
+                        onClick = {
+                            subtitleFilter = if (subtitleFilter == LibrarySubtitleFilter.ANY) {
+                                LibrarySubtitleFilter.WITH_SUBTITLES
+                            } else {
+                                LibrarySubtitleFilter.ANY
+                            }
+                        },
+                    )
+                    PlayerOverlayButton(
+                        text = if (favoriteFilter == LibraryFavoriteFilter.ANY) "Favorites" else "All",
+                        onClick = {
+                            favoriteFilter = if (favoriteFilter == LibraryFavoriteFilter.ANY) {
+                                LibraryFavoriteFilter.FAVORITES_ONLY
+                            } else {
+                                LibraryFavoriteFilter.ANY
+                            }
+                        },
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    StatusPill("${filteredEpisodes.size} / ${catalog?.items?.size ?: 0} episodes")
+                    StatusPill("${favoriteMediaIds.size} favorites")
+                    selectedSeries?.let { StatusPill(it.title) }
+                }
+                if (series.isEmpty()) {
+                    EmptyState("No indexed series yet. Add a folder and scan to build the cover library.")
+                } else if (visibleSeries.isEmpty()) {
+                    EmptyState(
+                        text = "No series match the current filters.",
+                        actionLabel = "Reset filters",
+                        onAction = {
+                            searchText = ""
+                            subtitleFilter = LibrarySubtitleFilter.ANY
+                            favoriteFilter = LibraryFavoriteFilter.ANY
+                        },
+                    )
+                } else {
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(minSize = 150.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(560.dp),
+                        horizontalArrangement = Arrangement.spacedBy(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(22.dp),
+                    ) {
+                        items(visibleSeries, key = { it.id }) { librarySeries ->
+                            SeriesPosterCard(
+                                series = librarySeries,
+                                coverPath = coverBySeriesId[librarySeries.id],
+                                watchSummary = seriesWatchSummaryById[librarySeries.id],
+                                isSelected = librarySeries.id == selectedSeries?.id,
+                                isPreparing = isPreparing,
+                                onSelect = { onSelectSeries(librarySeries) },
+                                onPlay = {
+                                    onPlayLocalPlayback(
+                                        nextPlayableEpisode(
+                                            librarySeries = librarySeries,
+                                            watchStatusById = watchStatusById,
+                                        ),
+                                    )
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        selectedSeries?.let { librarySeries ->
+            Spacer(modifier = Modifier.height(8.dp))
+            Divider(color = DanmakuColors.SurfaceRaised)
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(librarySeries.title, style = MaterialTheme.typography.h6, fontWeight = FontWeight.Bold)
+            LazyColumn(modifier = Modifier.heightIn(max = 260.dp)) {
+                items(librarySeries.seasons.flatMap { it.items }, key = { it.id }) { item ->
+                    EpisodeRow(
+                        item = item,
+                        watchStatus = watchStatusById[item.id],
+                        isFavorite = item.id in favoriteMediaIds,
+                        isPreparing = isPreparing,
+                        onShowDetails = onShowDetails,
+                        onSetFavorite = onSetFavorite,
+                        onPrepareLocalPlayback = onPrepareLocalPlayback,
+                        onPlayLocalPlayback = onPlayLocalPlayback,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LocalLibrarySidebar(
+    registeredRoots: List<DesktopLibraryRoot>,
+    nextUpCount: Int,
+    continueWatchingCount: Int,
+    recentlyWatchedCount: Int,
+    seriesCount: Int,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color.Black.copy(alpha = 0.22f))
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text("Browse", color = Color.White, fontWeight = FontWeight.Bold)
+        LibraryNavItem("Recently playing", continueWatchingCount)
+        LibraryNavItem("Next up", nextUpCount)
+        LibraryNavItem("Recently watched", recentlyWatchedCount)
+        LibraryNavItem("Series", seriesCount)
+        Divider(color = DanmakuColors.SurfaceRaised)
+        Text("Folders", color = DanmakuColors.TextMuted, fontWeight = FontWeight.Bold)
+        if (registeredRoots.isEmpty()) {
+            Text("No folders", color = DanmakuColors.TextMuted)
+        } else {
+            registeredRoots.take(6).forEach { root ->
+                Text(
+                    text = root.displayName,
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            if (registeredRoots.size > 6) {
+                Text("+${registeredRoots.size - 6} more", color = DanmakuColors.TextMuted)
+            }
+        }
+    }
+}
+
+@Composable
+private fun LibraryNavItem(
+    label: String,
+    count: Int,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(6.dp))
+            .background(DanmakuColors.SurfaceRaised.copy(alpha = 0.72f))
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+        Text(count.toString(), color = DanmakuColors.TextMuted, maxLines = 1)
+    }
+}
+
+@Composable
+private fun SeriesPosterCard(
+    series: LibrarySeries,
+    coverPath: Path?,
+    watchSummary: LibrarySeriesWatchSummary?,
+    isSelected: Boolean,
+    isPreparing: Boolean,
+    onSelect: () -> Unit,
+    onPlay: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (isSelected) DanmakuColors.SurfaceRaised else Color.Transparent)
+            .clickable(onClick = onSelect)
+            .padding(6.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(0.70f)
+                .clip(RoundedCornerShape(6.dp))
+                .background(DanmakuColors.SurfaceRaised),
+        ) {
+            SeriesPosterImage(
+                coverPath = coverPath,
+                title = series.title,
+                modifier = Modifier.fillMaxSize(),
+            )
+            Text(
+                text = "${watchSummary?.watchedCount ?: 0}/${series.episodeCount}",
+                color = Color.White,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .background(Color.Black.copy(alpha = 0.72f), RoundedCornerShape(topEnd = 4.dp))
+                    .padding(horizontal = 6.dp, vertical = 3.dp),
+                maxLines = 1,
+            )
+        }
+        Text(
+            text = series.title,
+            color = Color.White,
+            fontWeight = FontWeight.Bold,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            text = watchSummary.progressLabel(),
+            color = DanmakuColors.TextMuted,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Button(
+            onClick = onPlay,
+            enabled = !isPreparing,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(if (isPreparing) "Loading..." else "Play")
+        }
+    }
+}
+
+@Composable
+private fun SeriesPosterImage(
+    coverPath: Path?,
+    title: String,
+    modifier: Modifier = Modifier,
+) {
+    val bitmap = rememberLocalImageBitmap(coverPath)
+    if (bitmap != null) {
+        Image(
+            bitmap = bitmap,
+            contentDescription = title,
+            contentScale = ContentScale.Crop,
+            modifier = modifier,
+        )
+    } else {
+        Box(
+            modifier = modifier.background(DanmakuColors.AccentSoft),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = title.initialsForPoster(),
+                color = Color.White,
+                style = MaterialTheme.typography.h4,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+    }
+}
+
+@Composable
+private fun rememberLocalImageBitmap(path: Path?): ImageBitmap? =
+    remember(path) {
+        path
+            ?.takeIf(Files::isRegularFile)
+            ?.let { imagePath ->
+                runCatching {
+                    SkiaImage.makeFromEncoded(Files.readAllBytes(imagePath)).toComposeImageBitmap()
+                }.getOrNull()
+            }
+    }
+
+private fun nextPlayableEpisode(
+    librarySeries: LibrarySeries,
+    watchStatusById: Map<String, LibraryWatchStatus>,
+): LibraryMediaItem {
+    val items = librarySeries.seasons.flatMap { it.items }
+    return items.firstOrNull { watchStatusById[it.id]?.state == LibraryWatchState.IN_PROGRESS }
+        ?: items.firstOrNull { watchStatusById[it.id]?.state != LibraryWatchState.WATCHED }
+        ?: items.first()
+}
+
+private fun findSeriesCoverImage(
+    series: LibrarySeries,
+    indexedLibrary: IndexedLocalLibrary?,
+): Path? {
+    val firstItem = series.seasons.firstOrNull()?.items?.firstOrNull() ?: return null
+    val firstMediaPath = indexedLibrary?.filesById?.get(firstItem.id) ?: return null
+    return findCoverImageNear(firstMediaPath)
+}
+
+private fun findCoverImageNear(mediaPath: Path): Path? {
+    val directories = sequenceOf(mediaPath.parent, mediaPath.parent?.parent)
+        .filterNotNull()
+        .distinct()
+        .toList()
+    return directories.firstNotNullOfOrNull(::findPreferredCoverImage)
+}
+
+private fun findPreferredCoverImage(directory: Path): Path? {
+    if (!Files.isDirectory(directory)) return null
+    val images = Files.list(directory).use { paths ->
+        paths
+            .filter(Files::isRegularFile)
+            .filter { it.fileName.toString().substringAfterLast('.', "").lowercase() in COVER_IMAGE_EXTENSIONS }
+            .sorted(compareBy<Path> { coverImageRank(it.fileName.toString()) }.thenBy { it.fileName.toString().lowercase() })
+            .toList()
+    }
+    return images.firstOrNull()
+}
+
+private fun coverImageRank(fileName: String): Int {
+    val baseName = fileName.substringBeforeLast('.').lowercase()
+    return COVER_IMAGE_NAMES.indexOf(baseName).takeIf { it >= 0 } ?: Int.MAX_VALUE
+}
+
+private fun String.initialsForPoster(): String =
+    split(Regex("""\s+"""))
+        .filter(String::isNotBlank)
+        .take(2)
+        .joinToString(separator = "") { it.first().uppercaseChar().toString() }
+        .ifBlank { take(1).uppercase(Locale.US) }
 
 @Composable
 private fun DownloadsTab(
@@ -2472,7 +3063,7 @@ private fun DanmakuDisplaySettingsCard(
 
     SectionCard("Danmaku Display") {
         Text(
-            "Controls generated ASS danmaku overlays for synthetic and fetched comment tracks. Reload media or refresh cached danmaku to apply renderer changes.",
+            "Controls generated ASS danmaku overlays for matched and manually attached comment tracks. Reload media or refresh cached danmaku to apply renderer changes.",
             color = DanmakuColors.TextMuted,
         )
         MetadataRow("Visibility", if (settings.visible) "Shown" else "Hidden")
@@ -3774,6 +4365,34 @@ private fun selectDanmakuFile(title: String) =
             ?.toPath()
     }
 
+private fun LibraryMediaItem.dandanplayStatusContext(
+    settings: DandanplayProviderSettings,
+): List<DandanplayPlaybackUiDetail> =
+    listOf(
+        DandanplayPlaybackUiDetail("Library episode", "$seriesTitle - $episodeTitle"),
+        DandanplayPlaybackUiDetail("Media ID", id),
+        DandanplayPlaybackUiDetail("Library file", relativePath),
+        DandanplayPlaybackUiDetail("Provider", settings.statusText),
+    )
+
+private fun Throwable.readableMessage(): String =
+    message?.takeIf(String::isNotBlank) ?: javaClass.simpleName
+
+private fun String.isDandanplayWarningStatus(): Boolean {
+    val normalized = lowercase()
+    return listOf(
+        "failed",
+        "not configured",
+        "not indexed",
+        "no match",
+        "no comments",
+        "no result",
+        "not checked",
+        "cannot",
+        "skipped",
+    ).any(normalized::contains)
+}
+
 private fun String.redactToken(): String =
     replace(Regex("([?&]token=)[^&]+"), "\$1...")
 
@@ -3818,6 +4437,18 @@ private fun LibraryNextUpItem.nextUpActionLabel(): String =
         LibraryNextUpReason.START -> "Play"
     }
 
+private fun AwtWindow.scaledRestoreBounds(bounds: Rectangle): Rectangle {
+    val transform = graphicsConfiguration?.defaultTransform
+    val scaleX = transform?.scaleX?.takeIf { it > 1.0 } ?: 1.0
+    val scaleY = transform?.scaleY?.takeIf { it > 1.0 } ?: 1.0
+    return Rectangle(
+        bounds.x,
+        bounds.y,
+        (bounds.width * scaleX).roundToInt().coerceAtLeast(1),
+        (bounds.height * scaleY).roundToInt().coerceAtLeast(1),
+    )
+}
+
 private const val PLAYBACK_HOST_SETTLE_DELAY_MS = 300L
 
 private const val PLAYBACK_SNAPSHOT_POLL_INTERVAL_MS = 500L
@@ -3828,7 +4459,32 @@ private const val MAX_DIAGNOSTIC_LOG_ENTRIES = 200
 
 private const val LOCAL_AUTO_NEXT_SETTING_KEY = "playback.local_auto_next"
 
-private const val PLAYER_CONTROLS_AUTO_HIDE_MS = 3_000L
+private const val MPV_OSC_FULLSCREEN_REQUEST_PROPERTY = "user-data/danmaku-osc/fullscreen-toggle-request"
+
+private const val MPV_OSC_APP_FULLSCREEN_ON_BINDING = "danmaku_osc/danmaku-osc-app-fullscreen-on"
+
+private const val MPV_OSC_APP_FULLSCREEN_OFF_BINDING = "danmaku_osc/danmaku-osc-app-fullscreen-off"
+
+private const val PLAYER_CONTROLS_AUTO_HIDE_MS = 6_000L
+
+private const val PLAYER_WINDOW_NAVIGATION_HEIGHT_DP = 44
+
+private const val PLAYER_TOP_CONTROLS_HEIGHT_DP = 74
+
+private const val PLAYER_BOTTOM_CONTROLS_HEIGHT_DP = 154
+
+private val COVER_IMAGE_EXTENSIONS = setOf("jpg", "jpeg", "png", "webp")
+
+private val COVER_IMAGE_NAMES = listOf(
+    "poster",
+    "cover",
+    "folder",
+    "keyvisual",
+    "key_visual",
+    "key-visual",
+    "thumbnail",
+    "thumb",
+)
 
 private val PLAYBACK_RATE_STEPS = listOf(0.5f, 1f, 1.25f, 1.5f, 2f)
 

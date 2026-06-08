@@ -54,6 +54,7 @@ class DandanplayPlaybackStatusTest {
         assertEquals("dandanplay network: attached 2 comments", status.summary)
         assertContains(status.details, DandanplayPlaybackUiDetail("Provider source", "network"))
         assertContains(status.details, DandanplayPlaybackUiDetail("Matched episode", "Example Anime - Episode 01"))
+        assertContains(status.details, DandanplayPlaybackUiDetail("Anime ID", "456"))
         assertContains(status.details, DandanplayPlaybackUiDetail("Episode ID", "123"))
         assertContains(status.details, DandanplayPlaybackUiDetail("Comments", "2 comments"))
         assertContains(status.details, DandanplayPlaybackUiDetail("ASS overlay", "attached"))
@@ -89,10 +90,11 @@ class DandanplayPlaybackStatusTest {
         val status = dandanplayStatusMessage(
             mediaId = "media-1",
             summary = "dandanplay cache cleared",
+            details = listOf(DandanplayPlaybackUiDetail("Library episode", "Example Anime - Episode 01")),
         )
 
         assertEquals("media-1", status.mediaId)
         assertEquals("dandanplay cache cleared", status.summary)
-        assertEquals(emptyList(), status.details)
+        assertEquals(listOf(DandanplayPlaybackUiDetail("Library episode", "Example Anime - Episode 01")), status.details)
     }
 }

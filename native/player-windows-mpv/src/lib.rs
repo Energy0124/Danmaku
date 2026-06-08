@@ -17,7 +17,8 @@ mod ffi;
 
 pub use ffi::{
     DanmakuMpv, DanmakuMpvStatus, danmaku_mpv_command, danmaku_mpv_create,
-    danmaku_mpv_create_with_options, danmaku_mpv_destroy, danmaku_mpv_status_ok,
+    danmaku_mpv_create_with_options, danmaku_mpv_destroy, danmaku_mpv_osd_overlay,
+    danmaku_mpv_status_ok,
 };
 
 pub use windows::{LibraryLoadError, Mpv, MpvError, MpvLibrary};

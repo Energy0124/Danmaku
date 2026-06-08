@@ -17,13 +17,40 @@ type MpvInitialize = unsafe extern "C" fn(*mut MpvHandle) -> i32;
 type MpvDestroy = unsafe extern "C" fn(*mut MpvHandle);
 type MpvTerminateDestroy = unsafe extern "C" fn(*mut MpvHandle);
 type MpvCommand = unsafe extern "C" fn(*mut MpvHandle, *const *const c_char) -> i32;
+type MpvCommandNode = unsafe extern "C" fn(*mut MpvHandle, *mut MpvNode, *mut MpvNode) -> i32;
 type MpvSetOptionString = unsafe extern "C" fn(*mut MpvHandle, *const c_char, *const c_char) -> i32;
 type MpvGetPropertyString = unsafe extern "C" fn(*mut MpvHandle, *const c_char) -> *mut c_char;
 type MpvFree = unsafe extern "C" fn(*mut c_void);
 
+const MPV_FORMAT_STRING: i32 = 1;
+const MPV_FORMAT_FLAG: i32 = 3;
+const MPV_FORMAT_INT64: i32 = 4;
+const MPV_FORMAT_NODE_MAP: i32 = 8;
+
 #[repr(C)]
 struct MpvHandle {
     _private: [u8; 0],
+}
+
+#[repr(C)]
+union MpvNodeValue {
+    string: *mut c_char,
+    flag: i32,
+    int64: i64,
+    list: *mut MpvNodeList,
+}
+
+#[repr(C)]
+struct MpvNode {
+    value: MpvNodeValue,
+    format: i32,
+}
+
+#[repr(C)]
+struct MpvNodeList {
+    num: i32,
+    values: *mut MpvNode,
+    keys: *mut *mut c_char,
 }
 
 pub struct MpvLibrary {
@@ -38,6 +65,7 @@ struct MpvApi {
     destroy: MpvDestroy,
     terminate_destroy: MpvTerminateDestroy,
     command: MpvCommand,
+    command_node: MpvCommandNode,
     set_option_string: MpvSetOptionString,
     get_property_string: MpvGetPropertyString,
     free: MpvFree,
@@ -65,6 +93,9 @@ impl MpvLibrary {
         };
         let command =
             unsafe { mem::transmute::<*mut c_void, MpvCommand>(module.symbol("mpv_command")?) };
+        let command_node = unsafe {
+            mem::transmute::<*mut c_void, MpvCommandNode>(module.symbol("mpv_command_node")?)
+        };
         let set_option_string = unsafe {
             mem::transmute::<*mut c_void, MpvSetOptionString>(
                 module.symbol("mpv_set_option_string")?,
@@ -86,6 +117,7 @@ impl MpvLibrary {
                 destroy,
                 terminate_destroy,
                 command,
+                command_node,
                 set_option_string,
                 get_property_string,
                 free,
@@ -167,6 +199,102 @@ impl Mpv {
         pointers.push(std::ptr::null());
 
         let status = unsafe { (self.api.command)(self.handle.as_ptr(), pointers.as_ptr()) };
+        if status < 0 {
+            Err(MpvError::CommandFailed(status))
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn osd_overlay(
+        &self,
+        id: i64,
+        format: &str,
+        data: &str,
+        res_x: i64,
+        res_y: i64,
+        z: i64,
+        hidden: bool,
+    ) -> Result<(), MpvError> {
+        let strings = vec![
+            CString::new("_name").map_err(|_| MpvError::InvalidCommandArgument("_name".into()))?,
+            CString::new("id").map_err(|_| MpvError::InvalidCommandArgument("id".into()))?,
+            CString::new("format").map_err(|_| MpvError::InvalidCommandArgument("format".into()))?,
+            CString::new("data").map_err(|_| MpvError::InvalidCommandArgument("data".into()))?,
+            CString::new("res_x").map_err(|_| MpvError::InvalidCommandArgument("res_x".into()))?,
+            CString::new("res_y").map_err(|_| MpvError::InvalidCommandArgument("res_y".into()))?,
+            CString::new("z").map_err(|_| MpvError::InvalidCommandArgument("z".into()))?,
+            CString::new("hidden").map_err(|_| MpvError::InvalidCommandArgument("hidden".into()))?,
+            CString::new("osd-overlay")
+                .map_err(|_| MpvError::InvalidCommandArgument("osd-overlay".into()))?,
+            CString::new(format).map_err(|_| MpvError::InvalidCommandArgument(format.into()))?,
+            CString::new(data).map_err(|_| MpvError::InvalidCommandArgument(data.into()))?,
+        ];
+        let mut keys = vec![
+            strings[0].as_ptr() as *mut c_char,
+            strings[1].as_ptr() as *mut c_char,
+            strings[2].as_ptr() as *mut c_char,
+            strings[3].as_ptr() as *mut c_char,
+            strings[4].as_ptr() as *mut c_char,
+            strings[5].as_ptr() as *mut c_char,
+            strings[6].as_ptr() as *mut c_char,
+            strings[7].as_ptr() as *mut c_char,
+        ];
+        let mut values = vec![
+            MpvNode {
+                value: MpvNodeValue {
+                    string: strings[8].as_ptr() as *mut c_char,
+                },
+                format: MPV_FORMAT_STRING,
+            },
+            MpvNode {
+                value: MpvNodeValue { int64: id },
+                format: MPV_FORMAT_INT64,
+            },
+            MpvNode {
+                value: MpvNodeValue {
+                    string: strings[9].as_ptr() as *mut c_char,
+                },
+                format: MPV_FORMAT_STRING,
+            },
+            MpvNode {
+                value: MpvNodeValue {
+                    string: strings[10].as_ptr() as *mut c_char,
+                },
+                format: MPV_FORMAT_STRING,
+            },
+            MpvNode {
+                value: MpvNodeValue { int64: res_x },
+                format: MPV_FORMAT_INT64,
+            },
+            MpvNode {
+                value: MpvNodeValue { int64: res_y },
+                format: MPV_FORMAT_INT64,
+            },
+            MpvNode {
+                value: MpvNodeValue { int64: z },
+                format: MPV_FORMAT_INT64,
+            },
+            MpvNode {
+                value: MpvNodeValue {
+                    flag: i32::from(hidden),
+                },
+                format: MPV_FORMAT_FLAG,
+            },
+        ];
+        let mut list = MpvNodeList {
+            num: values.len() as i32,
+            values: values.as_mut_ptr(),
+            keys: keys.as_mut_ptr(),
+        };
+        let mut root = MpvNode {
+            value: MpvNodeValue { list: &mut list },
+            format: MPV_FORMAT_NODE_MAP,
+        };
+
+        let status = unsafe {
+            (self.api.command_node)(self.handle.as_ptr(), &mut root, std::ptr::null_mut())
+        };
         if status < 0 {
             Err(MpvError::CommandFailed(status))
         } else {

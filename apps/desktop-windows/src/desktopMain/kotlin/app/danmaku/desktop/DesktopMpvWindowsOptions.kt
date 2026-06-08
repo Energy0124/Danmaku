@@ -1,9 +1,28 @@
 package app.danmaku.desktop
 
+import java.nio.file.Path
+
 object DesktopMpvWindowsOptions {
-    fun forWindowId(windowId: Long): Map<String, String> {
+    fun forWindowId(
+        windowId: Long,
+        controlScriptPath: Path? = null,
+    ): Map<String, String> {
         val unsignedWindowId = windowId.toUInt()
         require(unsignedWindowId != 0u) { "windowId must not be zero" }
-        return mapOf("wid" to unsignedWindowId.toString())
+        return embeddedPlaybackOptions(controlScriptPath) + mapOf("wid" to unsignedWindowId.toString())
     }
+
+    private fun embeddedPlaybackOptions(controlScriptPath: Path?): Map<String, String> =
+        buildMap {
+            put("input-default-bindings", "yes")
+            put("input-cursor", "yes")
+            put("input-vo-keyboard", "yes")
+            if (controlScriptPath == null) {
+                put("osc", "yes")
+                put("script-opts", "osc-layout=bottombar,osc-visibility=always")
+            } else {
+                put("osc", "no")
+                put("scripts", controlScriptPath.toAbsolutePath().normalize().toString())
+            }
+        }
 }

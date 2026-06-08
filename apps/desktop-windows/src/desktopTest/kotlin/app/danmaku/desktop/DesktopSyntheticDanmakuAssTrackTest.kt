@@ -2,6 +2,8 @@ package app.danmaku.desktop
 
 import app.danmaku.domain.DanmakuEvent
 import app.danmaku.domain.DanmakuDisplaySettings
+import app.danmaku.domain.DanmakuMode
+import app.danmaku.domain.DanmakuStyle
 import java.nio.file.Files
 import kotlin.io.path.readText
 import kotlin.test.Test
@@ -23,6 +25,31 @@ class DesktopSyntheticDanmakuAssTrackTest {
         assertContains(ass, "Dialogue: 0,0:00:01.23,0:00:08.23,Danmaku")
         assertContains(ass, "{\\move(1280,24,-")
         assertContains(ass, "hello \\{world\\}")
+    }
+
+    @Test
+    fun rendersFixedTopAndBottomEventsWithoutSendingThemThroughScrollingScheduler() {
+        val ass = SyntheticDanmakuAssRenderer.render(
+            listOf(
+                DanmakuEvent(id = "scroll", timestampMs = 1_000, text = "scrolling"),
+                DanmakuEvent(
+                    id = "top",
+                    timestampMs = 1_100,
+                    text = "top fixed",
+                    style = DanmakuStyle(mode = DanmakuMode.TOP),
+                ),
+                DanmakuEvent(
+                    id = "bottom",
+                    timestampMs = 1_200,
+                    text = "bottom fixed",
+                    style = DanmakuStyle(mode = DanmakuMode.BOTTOM),
+                ),
+            ),
+        )
+
+        assertContains(ass, "{\\move(1280,24,-")
+        assertContains(ass, "{\\an8\\pos(640,24)}top fixed")
+        assertContains(ass, "{\\an2\\pos(640,696)}bottom fixed")
     }
 
     @Test

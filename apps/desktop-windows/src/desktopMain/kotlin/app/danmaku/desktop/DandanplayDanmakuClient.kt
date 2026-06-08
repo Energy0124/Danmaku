@@ -15,6 +15,7 @@ import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 import java.net.HttpURLConnection
 import java.net.URI
+import java.net.URL
 import java.nio.file.Files
 import java.nio.file.Path
 import java.security.MessageDigest
@@ -137,41 +138,93 @@ class DandanplayDanmakuClient(
     ): JsonElement {
         val urlPath = apiPath.trimStart('/')
         val endpoint = if (query == null) urlPath else "$urlPath?$query"
-        val httpConnection = (connection.baseUri.resolve(endpoint).toURL().openConnection() as HttpURLConnection).apply {
+        var requestUrl = connection.baseUri.resolve(endpoint).toURL()
+        repeat(MAX_REDIRECTS + 1) { redirectCount ->
+            val httpConnection = openHttpConnection(
+                url = requestUrl,
+                method = method,
+                apiPath = apiPath,
+                body = body,
+                authenticate = redirectCount == 0,
+            )
+
+            try {
+                if (body != null) {
+                    httpConnection.outputStream.bufferedWriter().use {
+                        it.write(body.toString())
+                    }
+                }
+                val status = httpConnection.responseCode
+                val responseBody = httpConnection.responseStream(status).use { input ->
+                    val bytes = input.readNBytes(maxResponseBytes + 1)
+                    check(bytes.size <= maxResponseBytes) {
+                        "dandanplay response exceeded $maxResponseBytes bytes"
+                    }
+                    bytes.toString(Charsets.UTF_8)
+                }
+                if (httpConnection.shouldFollowDandanplayRedirect(method, status, body)) {
+                    check(redirectCount < MAX_REDIRECTS) {
+                        "dandanplay redirect limit exceeded for $requestUrl"
+                    }
+                    requestUrl = requestUrl.resolveHttpRedirect(httpConnection.getHeaderField("Location"))
+                    return@repeat
+                }
+                check(status == HttpURLConnection.HTTP_OK) {
+                    httpConnection.dandanplayHttpErrorMessage(status, responseBody)
+                }
+                return json.parseToJsonElement(responseBody)
+            } finally {
+                httpConnection.disconnect()
+            }
+        }
+        error("dandanplay redirect limit exceeded for $requestUrl")
+    }
+
+    private fun openHttpConnection(
+        url: URL,
+        method: String,
+        apiPath: String,
+        body: JsonObject?,
+        authenticate: Boolean,
+    ): HttpURLConnection =
+        (url.openConnection() as HttpURLConnection).apply {
             requestMethod = method
             instanceFollowRedirects = false
             connectTimeout = connectTimeoutMillis
             readTimeout = readTimeoutMillis
             setRequestProperty("Accept", "application/json")
-            setAuthenticationHeaders(apiPath)
+            if (authenticate) {
+                setAuthenticationHeaders(apiPath)
+            }
             if (body != null) {
                 doOutput = true
                 setRequestProperty("Content-Type", "application/json; charset=utf-8")
             }
         }
 
-        return try {
-            if (body != null) {
-                httpConnection.outputStream.bufferedWriter().use {
-                    it.write(body.toString())
+    private fun HttpURLConnection.dandanplayHttpErrorMessage(
+        status: Int,
+        responseBody: String,
+    ): String =
+        buildString {
+            append("dandanplay returned HTTP ")
+            append(status)
+            append(" for ")
+            append(url)
+            getHeaderField("Location")
+                ?.takeIf(String::isNotBlank)
+                ?.let { location ->
+                    append("; redirected to ")
+                    append(location)
                 }
-            }
-            val status = httpConnection.responseCode
-            val responseBody = httpConnection.responseStream(status).use { input ->
-                val bytes = input.readNBytes(maxResponseBytes + 1)
-                check(bytes.size <= maxResponseBytes) {
-                    "dandanplay response exceeded $maxResponseBytes bytes"
+            responseBody
+                .take(256)
+                .takeIf(String::isNotBlank)
+                ?.let { body ->
+                    append("; body=")
+                    append(body.replaceLineBreaks())
                 }
-                bytes.toString(Charsets.UTF_8)
-            }
-            check(status == HttpURLConnection.HTTP_OK) {
-                "dandanplay returned HTTP $status"
-            }
-            json.parseToJsonElement(responseBody)
-        } finally {
-            httpConnection.disconnect()
         }
-    }
 
     private fun HttpURLConnection.setAuthenticationHeaders(apiPath: String) {
         if (!connection.hasCredentials) return
@@ -198,10 +251,28 @@ class DandanplayDanmakuClient(
             inputStream
         }
 
+    private fun HttpURLConnection.shouldFollowDandanplayRedirect(
+        method: String,
+        status: Int,
+        body: JsonObject?,
+    ): Boolean =
+        body == null &&
+            method.equals("GET", ignoreCase = true) &&
+            status in DANDANPLAY_REDIRECT_STATUSES &&
+            !getHeaderField("Location").isNullOrBlank()
+
     private companion object {
         const val DEFAULT_CONNECT_TIMEOUT_MILLIS = 5_000
         const val DEFAULT_READ_TIMEOUT_MILLIS = 15_000
         const val DEFAULT_MAX_RESPONSE_BYTES = 16 * 1024 * 1024
+        const val MAX_REDIRECTS = 5
+        val DANDANPLAY_REDIRECT_STATUSES = setOf(
+            HttpURLConnection.HTTP_MOVED_PERM,
+            HttpURLConnection.HTTP_MOVED_TEMP,
+            HttpURLConnection.HTTP_SEE_OTHER,
+            307,
+            308,
+        )
     }
 }
 
@@ -350,3 +421,24 @@ private fun JsonObject.double(key: String): Double? =
         ?.jsonPrimitive
         ?.contentOrNull
         ?.toDoubleOrNull()
+
+private fun URL.resolveHttpRedirect(location: String?): URL {
+    val redirectLocation = location?.takeIf(String::isNotBlank)
+        ?: error("dandanplay redirect did not include a Location header")
+    val redirectUri = URI(redirectLocation)
+    val resolvedUri = if (redirectUri.isAbsolute) {
+        redirectUri
+    } else {
+        toURI().resolve(redirectUri)
+    }
+    require(resolvedUri.scheme.equals("http", ignoreCase = true) || resolvedUri.scheme.equals("https", ignoreCase = true)) {
+        "dandanplay redirect must use http or https"
+    }
+    require(resolvedUri.host != null) {
+        "dandanplay redirect must include a host"
+    }
+    return resolvedUri.toURL()
+}
+
+private fun String.replaceLineBreaks(): String =
+    replace('\r', ' ').replace('\n', ' ')

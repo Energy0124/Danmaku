@@ -161,12 +161,17 @@ data class DandanplayLocalCredentialDefaults(
     companion object {
         fun load(
             environment: Map<String, String> = System.getenv(),
-            propertiesPath: Path = Path.of(System.getProperty("user.dir"), "local.properties"),
+            propertiesPath: Path? = null,
         ): DandanplayLocalCredentialDefaults? {
             val properties = Properties()
-            if (Files.isRegularFile(propertiesPath)) {
-                Files.newInputStream(propertiesPath).use(properties::load)
-            }
+            val paths = propertiesPath
+                ?.let(::listOf)
+                ?: defaultLocalPropertiesPaths(environment)
+            paths
+                .filter(Files::isRegularFile)
+                .forEach { path ->
+                    Files.newInputStream(path).use(properties::load)
+                }
 
             fun value(
                 propertyName: String,
@@ -212,6 +217,31 @@ data class DandanplayLocalCredentialDefaults(
                 )
             }
         }
+
+        private fun defaultLocalPropertiesPaths(environment: Map<String, String>): List<Path> =
+            buildList {
+                add(Path.of(System.getProperty("user.dir"), "local.properties"))
+                environment["LOCALAPPDATA"]
+                    ?.takeIf(String::isNotBlank)
+                    ?.let(Path::of)
+                    ?.resolve("Danmaku")
+                    ?.resolve("local.properties")
+                    ?.let(::add)
+                System.getProperty("user.home")
+                    ?.takeIf(String::isNotBlank)
+                    ?.let(Path::of)
+                    ?.resolve(".danmaku")
+                    ?.resolve("local.properties")
+                    ?.let(::add)
+                System.getProperty("danmaku.localProperties")
+                    ?.takeIf(String::isNotBlank)
+                    ?.let(Path::of)
+                    ?.let(::add)
+                environment["DANMAKU_LOCAL_PROPERTIES"]
+                    ?.takeIf(String::isNotBlank)
+                    ?.let(Path::of)
+                    ?.let(::add)
+            }.distinct()
     }
 }
 

@@ -19,6 +19,7 @@ class DandanplayCredentialStoreTest {
                 store = catalogStore,
                 secretProtector = ReversingSecretProtector,
                 nowEpochMs = { 456 },
+                localDefaultsProvider = { null },
             )
 
             val settings = credentialStore.saveSettings(
@@ -62,6 +63,7 @@ class DandanplayCredentialStoreTest {
             val credentialStore = DandanplayCredentialStore(
                 store = catalogStore,
                 secretProtector = ReversingSecretProtector,
+                localDefaultsProvider = { null },
             )
 
             assertEquals(appSecret, credentialStore.loadConnection().appSecret)
@@ -144,6 +146,28 @@ class DandanplayCredentialStoreTest {
         assertEquals("https://proxy.example.test", defaults?.proxyBaseUrl)
         assertEquals(DandanplayAuthenticationMode.CREDENTIAL, defaults?.authenticationMode)
         assertEquals(9, defaults?.cacheMaxAgeDays)
+    }
+
+    @Test
+    fun loadsLocalDefaultsFromStableUserConfigPath() {
+        val appData = createTempDirectory("danmaku-dandanplay-appdata")
+        val propertiesPath = appData.resolve("Danmaku").resolve("local.properties")
+        propertiesPath.parent.toFile().mkdirs()
+        propertiesPath.toFile().writeText(
+            """
+            danmaku.dandanplay.appId=user-config-app-id
+            danmaku.dandanplay.appSecret=user-config-secret
+            danmaku.dandanplay.authenticationMode=signed
+            """.trimIndent(),
+        )
+
+        val defaults = DandanplayLocalCredentialDefaults.load(
+            environment = mapOf("LOCALAPPDATA" to appData.toString()),
+        )
+
+        assertEquals("user-config-app-id", defaults?.appId)
+        assertEquals("user-config-secret", defaults?.appSecret)
+        assertEquals(DandanplayAuthenticationMode.SIGNED, defaults?.authenticationMode)
     }
 
     @Test

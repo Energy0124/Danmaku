@@ -2,6 +2,7 @@ package app.danmaku.desktop
 
 import app.danmaku.domain.DanmakuEvent
 import app.danmaku.domain.DanmakuDisplaySettings
+import app.danmaku.domain.DanmakuMode
 import app.danmaku.domain.DanmakuStyle
 import app.danmaku.domain.MeasuredDanmakuEvent
 import app.danmaku.domain.ScrollingDanmakuLaneScheduler
@@ -42,6 +43,7 @@ internal object SyntheticDanmakuAssRenderer {
     private const val PLAY_RES_X = 1280
     private const val PLAY_RES_Y = 720
     private const val TRAVEL_DURATION_MS = 7_000L
+    private const val FIXED_DURATION_MS = 5_000L
     private const val LANE_COUNT = 8
     private const val LANE_HEIGHT = 58
     private const val HORIZONTAL_GAP_PX = 36f
@@ -54,7 +56,10 @@ internal object SyntheticDanmakuAssRenderer {
         val filteredEvents = settings.filter(events)
         val travelDurationMs = settings.scaledTravelDurationMs(TRAVEL_DURATION_MS)
         val laneCount = settings.scaledLaneCount(LANE_COUNT)
-        val measuredEvents = filteredEvents.map { event ->
+        val scrollingEvents = filteredEvents.filter { it.style.mode == DanmakuMode.SCROLLING }
+        val fixedTopEvents = filteredEvents.filter { it.style.mode == DanmakuMode.TOP }
+        val fixedBottomEvents = filteredEvents.filter { it.style.mode == DanmakuMode.BOTTOM }
+        val measuredEvents = scrollingEvents.map { event ->
             MeasuredDanmakuEvent(
                 event = event,
                 widthPx = estimateTextWidthPx(event.text),
@@ -103,8 +108,54 @@ internal object SyntheticDanmakuAssRenderer {
                     "Dialogue: 0,${startMs.toAssTimestamp()},${endMs.toAssTimestamp()}," +
                         "Danmaku,,0,0,0,," +
                         "{\\move($PLAY_RES_X,$y,${-width},$y)\\an7}$text",
-                )
+                    )
             }
+            appendFixedEvents(
+                events = fixedTopEvents,
+                mode = DanmakuMode.TOP,
+                laneCount = laneCount,
+                settings = settings,
+            )
+            appendFixedEvents(
+                events = fixedBottomEvents,
+                mode = DanmakuMode.BOTTOM,
+                laneCount = laneCount,
+                settings = settings,
+            )
+        }
+    }
+
+    private fun StringBuilder.appendFixedEvents(
+        events: List<DanmakuEvent>,
+        mode: DanmakuMode,
+        laneCount: Int,
+        settings: DanmakuDisplaySettings,
+    ) {
+        if (events.isEmpty()) return
+        val laneEndTimes = LongArray(laneCount) { Long.MIN_VALUE }
+        events.sortedBy(DanmakuEvent::timestampMs).forEach { event ->
+            val startMs = settings.shiftedTimestampMs(event.timestampMs)
+            val endMs = startMs + FIXED_DURATION_MS
+            val laneIndex = laneEndTimes.indexOfFirst { it <= startMs }
+                .takeIf { it >= 0 }
+                ?: laneEndTimes.indices.minBy { laneEndTimes[it] }
+            laneEndTimes[laneIndex] = endMs
+            val y = when (mode) {
+                DanmakuMode.TOP -> 24 + laneIndex * LANE_HEIGHT
+                DanmakuMode.BOTTOM -> PLAY_RES_Y - 24 - laneIndex * LANE_HEIGHT
+                DanmakuMode.SCROLLING -> 24 + laneIndex * LANE_HEIGHT
+            }
+            val alignment = when (mode) {
+                DanmakuMode.TOP -> 8
+                DanmakuMode.BOTTOM -> 2
+                DanmakuMode.SCROLLING -> 8
+            }
+            val text = event.text.escapeAssText()
+            appendLine(
+                "Dialogue: 0,${startMs.toAssTimestamp()},${endMs.toAssTimestamp()}," +
+                    "Danmaku,,0,0,0,," +
+                    "{\\an$alignment\\pos(${PLAY_RES_X / 2},$y)}$text",
+            )
         }
     }
 

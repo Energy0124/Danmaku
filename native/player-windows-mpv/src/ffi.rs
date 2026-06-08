@@ -111,6 +111,40 @@ pub unsafe extern "C" fn danmaku_mpv_command(
 }
 
 #[unsafe(no_mangle)]
+pub unsafe extern "C" fn danmaku_mpv_osd_overlay(
+    handle: *mut DanmakuMpv,
+    id: i64,
+    format: *const c_char,
+    data: *const c_char,
+    res_x: i64,
+    res_y: i64,
+    z: i64,
+    hidden: i32,
+) -> DanmakuMpvStatus {
+    if handle.is_null() || format.is_null() || data.is_null() {
+        return DanmakuMpvStatus::NullPointer;
+    }
+
+    let handle = unsafe { &mut *handle };
+    let format = unsafe { CStr::from_ptr(format) };
+    let Ok(format) = format.to_str() else {
+        return DanmakuMpvStatus::InvalidUtf8;
+    };
+    let data = unsafe { CStr::from_ptr(data) };
+    let Ok(data) = data.to_str() else {
+        return DanmakuMpvStatus::InvalidUtf8;
+    };
+
+    match handle
+        .mpv
+        .osd_overlay(id, format, data, res_x, res_y, z, hidden != 0)
+    {
+        Ok(()) => DanmakuMpvStatus::Ok,
+        Err(_) => DanmakuMpvStatus::CommandFailed,
+    }
+}
+
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn danmaku_mpv_get_property_string(
     handle: *mut DanmakuMpv,
     name: *const c_char,
@@ -268,5 +302,36 @@ mod tests {
         unsafe {
             danmaku_mpv_destroy(null_handle());
         }
+    }
+
+    #[test]
+    fn rejects_null_osd_overlay_arguments() {
+        let format = CString::new("ass-events").unwrap();
+        let data = CString::new("overlay").unwrap();
+
+        assert_eq!(DanmakuMpvStatus::NullPointer, unsafe {
+            super::danmaku_mpv_osd_overlay(
+                null_handle(),
+                1,
+                format.as_ptr(),
+                data.as_ptr(),
+                1920,
+                1080,
+                100,
+                0,
+            )
+        });
+        assert_eq!(DanmakuMpvStatus::NullPointer, unsafe {
+            super::danmaku_mpv_osd_overlay(
+                null_handle(),
+                1,
+                ptr::null(),
+                data.as_ptr(),
+                1920,
+                1080,
+                100,
+                0,
+            )
+        });
     }
 }

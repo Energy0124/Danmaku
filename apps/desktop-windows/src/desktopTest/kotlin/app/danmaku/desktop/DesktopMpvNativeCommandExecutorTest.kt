@@ -133,6 +133,41 @@ class DesktopMpvNativeCommandExecutorTest {
         assertEquals(DesktopMpvNativeStatus.COMMAND_FAILED, error.status)
     }
 
+    @Test
+    fun rendersOsdOverlaysThroughNativeBridge() {
+        val nativeLibrary = RecordingDesktopMpvNativeLibrary()
+        val executor = DesktopMpvNativeCommandExecutor.create(
+            nativeLibrary = nativeLibrary,
+            libmpvPath = Path.of("S:/runtime/windows/libmpv/libmpv-2.dll"),
+        )
+
+        executor.render(
+            DesktopMpvOsdOverlay(
+                id = 20,
+                format = "ass-events",
+                data = "{\\an2}controls",
+                resX = 1920,
+                resY = 1080,
+                z = 100,
+            ),
+        )
+
+        assertEquals(
+            listOf(
+                RecordingOsdOverlay(
+                    id = 20,
+                    format = "ass-events",
+                    data = "{\\an2}controls",
+                    resX = 1920,
+                    resY = 1080,
+                    z = 100,
+                    hidden = 0,
+                ),
+            ),
+            nativeLibrary.osdOverlays,
+        )
+    }
+
     private class RecordingDesktopMpvNativeLibrary(
         val handle: Pointer? = Pointer.createConstant(0x1234),
         private val createStatus: DesktopMpvNativeStatus = DesktopMpvNativeStatus.OK,
@@ -143,6 +178,7 @@ class DesktopMpvNativeCommandExecutorTest {
         var createdOptions: Map<String, String> = emptyMap()
         var destroyedHandle: Pointer? = null
         val commands = mutableListOf<List<String>>()
+        val osdOverlays = mutableListOf<RecordingOsdOverlay>()
 
         override fun danmaku_mpv_create_with_options(
             libmpvPath: String,
@@ -165,6 +201,28 @@ class DesktopMpvNativeCommandExecutorTest {
             argsLen: Long,
         ): Int {
             commands += readStrings(args, argsLen)
+            return commandStatus.code
+        }
+
+        override fun danmaku_mpv_osd_overlay(
+            handle: Pointer,
+            id: Long,
+            format: String,
+            data: String,
+            resX: Long,
+            resY: Long,
+            z: Long,
+            hidden: Int,
+        ): Int {
+            osdOverlays += RecordingOsdOverlay(
+                id = id,
+                format = format,
+                data = data,
+                resX = resX,
+                resY = resY,
+                z = z,
+                hidden = hidden,
+            )
             return commandStatus.code
         }
 
@@ -195,4 +253,14 @@ class DesktopMpvNativeCommandExecutorTest {
                     .getString(0, Charsets.UTF_8.name())
             }
     }
+
+    private data class RecordingOsdOverlay(
+        val id: Long,
+        val format: String,
+        val data: String,
+        val resX: Long,
+        val resY: Long,
+        val z: Long,
+        val hidden: Int,
+    )
 }

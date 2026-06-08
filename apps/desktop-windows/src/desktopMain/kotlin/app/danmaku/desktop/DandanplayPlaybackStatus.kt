@@ -30,6 +30,7 @@ fun dandanplayStatusFromResolution(
         add(DandanplayPlaybackUiDetail("Provider source", source))
         resolution.match?.let { match ->
             add(DandanplayPlaybackUiDetail("Matched episode", match.displayTitle))
+            add(DandanplayPlaybackUiDetail("Anime ID", match.animeId.toString()))
             add(DandanplayPlaybackUiDetail("Episode ID", match.episodeId.toString()))
         }
         add(DandanplayPlaybackUiDetail("Comments", commentCount))
@@ -59,8 +60,13 @@ fun dandanplayStatusFromResolution(
 fun dandanplayStatusMessage(
     mediaId: String,
     summary: String,
+    details: List<DandanplayPlaybackUiDetail> = emptyList(),
 ): DandanplayPlaybackUiStatus =
-    DandanplayPlaybackUiStatus(mediaId = mediaId, summary = summary)
+    DandanplayPlaybackUiStatus(
+        mediaId = mediaId,
+        summary = summary,
+        details = details,
+    )
 
 private fun Int.toCommentCountLabel(): String =
     if (this == 1) {

@@ -23,6 +23,17 @@ interface DesktopMpvNativeLibrary : Library {
         argsLen: Long,
     ): Int
 
+    fun danmaku_mpv_osd_overlay(
+        handle: Pointer,
+        id: Long,
+        format: String,
+        data: String,
+        resX: Long,
+        resY: Long,
+        z: Long,
+        hidden: Int,
+    ): Int
+
     fun danmaku_mpv_get_property_string(
         handle: Pointer,
         name: String,
@@ -58,10 +69,32 @@ class DesktopMpvNativeException(
     message: String,
 ) : RuntimeException(message)
 
+data class DesktopMpvOsdOverlay(
+    val id: Long,
+    val format: String,
+    val data: String,
+    val resX: Long,
+    val resY: Long,
+    val z: Long = 0,
+    val hidden: Boolean = false,
+) {
+    init {
+        require(id >= 0) { "overlay id must not be negative" }
+        require(format.isNotBlank()) { "overlay format must not be blank" }
+        require(data.none { it == '\u0000' }) { "overlay data must not contain null bytes" }
+        require(resX > 0) { "overlay resX must be positive" }
+        require(resY > 0) { "overlay resY must be positive" }
+    }
+}
+
+fun interface DesktopMpvOsdOverlayRenderer {
+    fun render(overlay: DesktopMpvOsdOverlay)
+}
+
 class DesktopMpvNativeCommandExecutor private constructor(
     private val nativeLibrary: DesktopMpvNativeLibrary,
     private val handle: Pointer,
-) : CloseableDesktopMpvCommandExecutor, DesktopMpvPropertyReader {
+) : CloseableDesktopMpvCommandExecutor, DesktopMpvPropertyReader, DesktopMpvOsdOverlayRenderer {
     override fun execute(command: DesktopMpvCommand) {
         val args = StringArray(command.args.toTypedArray(), Charsets.UTF_8.name())
         val status = DesktopMpvNativeStatus.fromCode(
@@ -99,6 +132,22 @@ class DesktopMpvNativeCommandExecutor private constructor(
         }
         checkStatus(status, "mpv property read failed: $name")
         return buffer.getString(0, Charsets.UTF_8.name()).takeIf(String::isNotBlank)
+    }
+
+    override fun render(overlay: DesktopMpvOsdOverlay) {
+        val status = DesktopMpvNativeStatus.fromCode(
+            nativeLibrary.danmaku_mpv_osd_overlay(
+                handle = handle,
+                id = overlay.id,
+                format = overlay.format,
+                data = overlay.data,
+                resX = overlay.resX,
+                resY = overlay.resY,
+                z = overlay.z,
+                hidden = if (overlay.hidden) 1 else 0,
+            ),
+        )
+        checkStatus(status, "mpv osd-overlay failed")
     }
 
     override fun close() {

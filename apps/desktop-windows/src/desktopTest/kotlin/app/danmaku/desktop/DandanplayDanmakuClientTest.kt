@@ -143,6 +143,58 @@ class DandanplayDanmakuClientTest {
         }
     }
 
+    @Test
+    fun includesRedirectLocationWhenApiReturnsHttpRedirect() {
+        DandanplayFixture(
+            matchStatusCode = 302,
+            matchLocation = "https://www.dandanplay.net/login",
+            matchResponse = "",
+        ).use { fixture ->
+            val client = DandanplayDanmakuClient(DandanplayConnection(fixture.baseUrl))
+
+            val error = assertFailsWith<IllegalStateException> {
+                client.match(
+                    DandanplayMediaFingerprint(
+                        fileName = "Example S01E01.mkv",
+                        fileHash = "658d05841b9476ccc7420b3f0bb21c3b",
+                        fileSizeBytes = 123_456,
+                    ),
+                )
+            }
+
+            assertTrue(error.message.orEmpty().contains("HTTP 302"))
+            assertTrue(error.message.orEmpty().contains("/api/v2/match"))
+            assertTrue(error.message.orEmpty().contains("redirected to https://www.dandanplay.net/login"))
+        }
+    }
+
+    @Test
+    fun followsDandanplayCommentRedirectsWithoutReusingCredentials() {
+        DandanplayFixture(
+            commentStatusCode = 302,
+            commentLocationPath = "/api/comment/123450001?from=0&related=b-1&shift=0",
+        ).use { fixture ->
+            val client = DandanplayDanmakuClient(
+                DandanplayConnection(
+                    baseUrl = fixture.baseUrl,
+                    appId = "test-app",
+                    appSecret = "test-secret",
+                ),
+                clock = Clock.fixed(Instant.ofEpochSecond(1_735_660_800), ZoneOffset.UTC),
+            )
+
+            val comments = client.fetchComments(123450001)
+
+            assertEquals(2, comments.size)
+            val originalRequest = fixture.requests.first { it.path == "/api/v2/comment/123450001" }
+            assertSignedHeaders(originalRequest, "/api/v2/comment/123450001")
+            val redirectedRequest = fixture.requests.first { it.path == "/api/comment/123450001" }
+            assertEquals("from=0&related=b-1&shift=0", redirectedRequest.query)
+            assertNull(redirectedRequest.headers["X-AppId"])
+            assertNull(redirectedRequest.headers["X-Signature"])
+        }
+    }
+
     private fun assertSignedHeaders(request: CapturedRequest, path: String) {
         assertEquals("test-app", request.headers["X-AppId"])
         assertEquals("1735660800", request.headers["X-Timestamp"])
@@ -180,6 +232,8 @@ class DandanplayDanmakuClientTest {
               ]
             }
         """.trimIndent(),
+        private val matchStatusCode: Int = 200,
+        private val matchLocation: String? = null,
         private val commentResponse: String = """
             {
               "success": true,
@@ -191,6 +245,8 @@ class DandanplayDanmakuClientTest {
               ]
             }
         """.trimIndent(),
+        private val commentStatusCode: Int = 200,
+        private val commentLocationPath: String? = null,
     ) : AutoCloseable {
         private val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         val requests = CopyOnWriteArrayList<CapturedRequest>()
@@ -215,9 +271,23 @@ class DandanplayDanmakuClientTest {
                 val response = when (exchange.requestURI.path) {
                     "/api/v2/match" -> matchResponse
                     "/api/v2/comment/123450001" -> commentResponse
+                    "/api/comment/123450001" -> commentResponse
                     else -> """{"success":false,"message":"not found"}"""
                 }
-                respond(exchange, response)
+                respond(
+                    exchange = exchange,
+                    response = response,
+                    statusCode = when (exchange.requestURI.path) {
+                        "/api/v2/match" -> matchStatusCode
+                        "/api/v2/comment/123450001" -> commentStatusCode
+                        else -> 200
+                    },
+                    location = when (exchange.requestURI.path) {
+                        "/api/v2/match" -> matchLocation
+                        "/api/v2/comment/123450001" -> commentLocationPath?.let { "$baseUrl$it" }
+                        else -> null
+                    },
+                )
             }
             server.start()
         }
@@ -226,10 +296,16 @@ class DandanplayDanmakuClientTest {
             server.stop(0)
         }
 
-        private fun respond(exchange: HttpExchange, response: String) {
+        private fun respond(
+            exchange: HttpExchange,
+            response: String,
+            statusCode: Int,
+            location: String?,
+        ) {
             val bytes = response.toByteArray()
             exchange.responseHeaders.add("Content-Type", "application/json; charset=utf-8")
-            exchange.sendResponseHeaders(200, bytes.size.toLong())
+            location?.let { exchange.responseHeaders.add("Location", it) }
+            exchange.sendResponseHeaders(statusCode, bytes.size.toLong())
             exchange.responseBody.use { it.write(bytes) }
         }
     }
