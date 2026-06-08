@@ -5,13 +5,20 @@ the platform surface.
 
 ## Current Focus
 
-Windows playback now has a packaged Rust/JNA/libmpv command path, stable native
-child-window host, player-first Playback tab, packaged mpv DLLs in the default
-Compose distributable, and a fast GUI smoke script for real local files. The
-shared scrolling danmaku lane scheduler is implemented, and Windows can attach
-indexed sidecars plus generated or dandanplay-fetched ASS danmaku tracks through
-mpv. Android mobile and TV clients can browse the LAN catalog and pass selected
-streams plus indexed sidecar subtitles to Media3.
+The top product priority is replacing the Windows Library tab's internal-tool
+layout with the three-pane professional library workspace described in
+`docs/design/windows-library-ui-redesign.md`. Keep the current playback and LAN
+foundations stable while making the library feel like the primary host surface:
+left navigation/source rail, searchable center media view, and right inspector
+for selected series or episodes.
+
+Windows playback already has a packaged Rust/JNA/libmpv command path, stable
+native child-window host, player-first Playback tab, packaged mpv DLLs in the
+default Compose distributable, and a fast GUI smoke script for real local files.
+The shared scrolling danmaku lane scheduler is implemented, and Windows can
+attach indexed sidecars plus generated or dandanplay-fetched ASS danmaku tracks
+through mpv. Android mobile and TV clients can browse the LAN catalog and pass
+selected streams plus indexed sidecar subtitles to Media3.
 
 ## Feature-Complete Product Tracks
 
@@ -186,6 +193,12 @@ unblocked slices inside these tracks as the vertical slice hardens.
   mode.
 - [x] Add Windows player keyboard shortcuts for play/pause, seek, volume,
   playback rate, track cycling, aspect mode, and fullscreen.
+- [x] Replace the Windows Library tab with the first three-pane redesign pass:
+  left navigation/source rail, center media workspace, and selected-item
+  inspector.
+- [ ] Polish the redesigned Windows Library workspace with visual QA, keyboard
+  grid/list selection, clearer overflow menus, and responsive behavior at
+  1366x768 and 1920x1080.
 - [ ] Continue tightening fullscreen player chrome around the stable native
   video host.
 

@@ -14,9 +14,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -40,17 +42,31 @@ import androidx.compose.material.Text
 import androidx.compose.material.darkColors
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.LibraryBooks
+import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Computer
+import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material.icons.filled.FastRewind
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Forward10
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.FullscreenExit
+import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Replay10
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Subtitles
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -2400,182 +2416,425 @@ private fun MediaLibraryTab(
                     ?.id
                     ?.let { id -> catalog?.episodeDetail(id, playbackProgresses) }
         }
-        SectionCard("Local Media Library") {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Button(onClick = onAddLibraryFolder, enabled = !isIndexing) {
-                    Text(if (isIndexing) "Indexing..." else "Add library folder")
-                }
-                Button(
-                    onClick = onRescanRegisteredRoots,
-                    enabled = registeredRoots.isNotEmpty() && !isIndexing,
-                ) {
-                    Text("Rescan folders")
-                }
-            }
-            libraryError?.let {
-                Spacer(modifier = Modifier.height(8.dp))
-                MetadataRow("Library error", it, valueColor = DanmakuColors.Warning)
-            }
-            lastScanStats?.let {
-                MetadataRow("Last scan", "${it.reusedItemCount} unchanged, ${it.refreshedItemCount} refreshed")
-            }
-        }
-        LocalLibraryGallery(
+        WindowsLibraryWorkspace(
             registeredRoots = registeredRoots,
             indexedLibrary = indexedLibrary,
             series = series,
             selectedSeries = selectedSeries,
+            selectedEpisodeDetail = selectedEpisodeDetail,
+            selectedLocalPlaybackPreparation = selectedLocalPlaybackPreparation,
+            dandanplayCacheStatus = dandanplayCacheStatus,
+            autoNextLocalPlayback = autoNextLocalPlayback,
             nextUpItems = nextUpItems,
             continueWatchingItems = continueWatchingItems,
             recentlyWatchedItems = recentlyWatchedItems,
             watchStatusById = watchStatusById,
             seriesWatchSummaryById = seriesWatchSummaryById,
             favoriteMediaIds = favoriteMediaIds,
+            isIndexing = isIndexing,
             isPreparing = isPreparingLocalPlayback,
+            libraryError = libraryError,
+            lastScanStats = lastScanStats,
+            onAddLibraryFolder = onAddLibraryFolder,
+            onRescanRegisteredRoots = onRescanRegisteredRoots,
             onSelectSeries = { selectedSeriesId = it.id },
             onShowDetails = { selectedEpisodeId = it.id },
             onSetFavorite = onSetFavorite,
+            onSetAutoNextLocalPlayback = onSetAutoNextLocalPlayback,
+            onRefreshDandanplay = onRefreshDandanplay,
+            onSelectDandanplayMatch = onSelectDandanplayMatch,
+            onClearDandanplayCache = onClearDandanplayCache,
+            onClearDanmakuOverlay = onClearDanmakuOverlay,
+            onAttachManualDanmaku = onAttachManualDanmaku,
+            onLoadPreparedPlayback = onLoadPreparedPlayback,
             onPrepareLocalPlayback = onPrepareLocalPlayback,
             onPlayLocalPlayback = onPlayLocalPlayback,
+            remoteBrowser = remoteBrowser,
         )
-        selectedSeries?.let { librarySeries ->
-            DesktopSeriesDetailPanel(
-                series = librarySeries,
-                watchSummary = seriesWatchSummaryById[librarySeries.id],
-                watchStatusById = watchStatusById,
-                favoriteMediaIds = favoriteMediaIds,
-                isPreparing = isPreparingLocalPlayback,
-                onShowDetails = { selectedEpisodeId = it.id },
-                onSetFavorite = onSetFavorite,
-                onPrepareLocalPlayback = onPrepareLocalPlayback,
-                onPlayLocalPlayback = onPlayLocalPlayback,
+    }
+}
+
+private enum class WindowsLibraryView(
+    val label: String,
+) {
+    CONTINUE_WATCHING("Continue"),
+    NEXT_UP("Next up"),
+    ALL_SERIES("All Series"),
+    RECENTLY_WATCHED("History"),
+    FAVORITES("Favorites"),
+    FILES("Files"),
+    PAIRED("Paired"),
+}
+
+@Composable
+private fun WindowsLibraryWorkspace(
+    registeredRoots: List<DesktopLibraryRoot>,
+    indexedLibrary: IndexedLocalLibrary?,
+    series: List<LibrarySeries>,
+    selectedSeries: LibrarySeries?,
+    selectedEpisodeDetail: LibraryEpisodeDetail?,
+    selectedLocalPlaybackPreparation: DesktopLocalPlaybackPreparation?,
+    dandanplayCacheStatus: DandanplayPlaybackUiStatus?,
+    autoNextLocalPlayback: Boolean,
+    nextUpItems: List<LibraryNextUpItem>,
+    continueWatchingItems: List<LibraryPlaybackProgressItem>,
+    recentlyWatchedItems: List<LibraryPlaybackProgressItem>,
+    watchStatusById: Map<String, LibraryWatchStatus>,
+    seriesWatchSummaryById: Map<String, LibrarySeriesWatchSummary>,
+    favoriteMediaIds: Set<String>,
+    isIndexing: Boolean,
+    isPreparing: Boolean,
+    libraryError: String?,
+    lastScanStats: LocalMediaLibraryScanStats?,
+    onAddLibraryFolder: () -> Unit,
+    onRescanRegisteredRoots: () -> Unit,
+    onSelectSeries: (LibrarySeries) -> Unit,
+    onShowDetails: (LibraryMediaItem) -> Unit,
+    onSetFavorite: (LibraryMediaItem, Boolean) -> Unit,
+    onSetAutoNextLocalPlayback: (Boolean) -> Unit,
+    onRefreshDandanplay: (DesktopLocalPlaybackPreparation) -> Unit,
+    onSelectDandanplayMatch: (DesktopLocalPlaybackPreparation, DandanplayMatch) -> Unit,
+    onClearDandanplayCache: (DesktopLocalPlaybackPreparation) -> Unit,
+    onClearDanmakuOverlay: (DesktopLocalPlaybackPreparation) -> Unit,
+    onAttachManualDanmaku: (DesktopLocalPlaybackPreparation) -> Unit,
+    onLoadPreparedPlayback: (DesktopLocalPlaybackPreparation) -> Unit,
+    onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
+    onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
+    remoteBrowser: @Composable () -> Unit,
+) {
+    var selectedView by remember { mutableStateOf(WindowsLibraryView.ALL_SERIES) }
+    var searchText by remember { mutableStateOf("") }
+    var sort by remember { mutableStateOf(LibraryCatalogSort.TITLE) }
+    var subtitleFilter by remember { mutableStateOf(LibrarySubtitleFilter.ANY) }
+    var favoriteFilter by remember { mutableStateOf(LibraryFavoriteFilter.ANY) }
+    val catalog = indexedLibrary?.catalog
+    val effectiveFavoriteFilter = if (selectedView == WindowsLibraryView.FAVORITES) {
+        LibraryFavoriteFilter.FAVORITES_ONLY
+    } else {
+        favoriteFilter
+    }
+    val filteredEpisodes = remember(catalog, searchText, sort, subtitleFilter, effectiveFavoriteFilter, favoriteMediaIds) {
+        catalog
+            ?.filteredItems(
+                LibraryCatalogQuery(
+                    searchText = searchText,
+                    sort = sort,
+                    subtitleFilter = subtitleFilter,
+                    favoriteFilter = effectiveFavoriteFilter,
+                    favoriteMediaIds = favoriteMediaIds,
+                ),
             )
+            .orEmpty()
+    }
+    val filtersAreDefault = searchText.isBlank() &&
+        sort == LibraryCatalogSort.TITLE &&
+        subtitleFilter == LibrarySubtitleFilter.ANY &&
+        effectiveFavoriteFilter == LibraryFavoriteFilter.ANY
+    val visibleSeries = remember(series, filteredEpisodes, filtersAreDefault) {
+        val visibleTitles = filteredEpisodes.mapTo(mutableSetOf()) { it.seriesTitle.trim() }
+        if (visibleTitles.isEmpty() && filtersAreDefault) {
+            series
+        } else {
+            series.filter { it.title in visibleTitles }
         }
-        selectedEpisodeDetail?.let { detail ->
-            DesktopEpisodeDetailPanel(
-                detail = detail,
-                isFavorite = detail.mediaItem.id in favoriteMediaIds,
-                isPreparing = isPreparingLocalPlayback,
-                onSetFavorite = onSetFavorite,
-                onPrepareLocalPlayback = onPrepareLocalPlayback,
-                onPlayLocalPlayback = onPlayLocalPlayback,
-                onSelectEpisode = { selectedEpisodeId = it.id },
-            )
+    }
+    val coverBySeriesId = remember(indexedLibrary, series) {
+        series.associate { librarySeries ->
+            librarySeries.id to findSeriesCoverImage(librarySeries, indexedLibrary)
         }
-        selectedLocalPlaybackPreparation?.let { preparation ->
-            SectionCard("Prepared Playback") {
-                val previousItem = indexedLibrary?.catalog?.previousItem(preparation.item.id)
-                val nextItem = indexedLibrary?.catalog?.nextItem(preparation.item.id)
-                val hasDanmakuOverlay = preparation.subtitles.any(DesktopPlaybackSubtitle::isDanmakuOverlay)
-                MetadataRow(
-                    "Episode",
-                    "${preparation.item.seriesTitle} - ${preparation.item.episodeTitle}",
-                )
-                MetadataRow("Source", preparation.source.path)
-                MetadataRow("Resume", preparation.resumePositionMs?.let { "$it ms" } ?: "start from beginning")
-                MetadataRow(
-                    "Attached tracks",
-                    preparation.subtitles
-                        .takeIf { it.isNotEmpty() }
-                        ?.joinToString { subtitle ->
-                            if (subtitle.isDanmakuOverlay) {
-                                "${subtitle.label} (danmaku)"
-                            } else {
-                                subtitle.label
-                            }
-                        }
-                        ?: "none",
-                )
-                dandanplayCacheStatus
-                    ?.takeIf { it.mediaId == preparation.item.id }
-                    ?.let { status ->
-                        val statusColor = if (status.summary.isDandanplayWarningStatus()) {
-                            DanmakuColors.Warning
-                        } else {
-                            Color.White
-                        }
-                        MetadataRow("Danmaku status", status.summary, valueColor = statusColor)
-                        status.details.forEach { detail ->
-                            MetadataRow(detail.label, detail.value)
-                        }
-                        DandanplayMatchCandidatePicker(
-                            preparation = preparation,
-                            status = status,
-                            isPreparing = isPreparingLocalPlayback,
-                            onSelectDandanplayMatch = onSelectDandanplayMatch,
-                        )
-                    }
-                    ?: MetadataRow(
-                        "Danmaku status",
-                        "not checked yet; use Refresh danmaku",
-                        valueColor = DanmakuColors.TextMuted,
-                    )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { onLoadPreparedPlayback(preparation) }) {
-                        Text("Load into player")
-                    }
-                    Button(
-                        onClick = { onRefreshDandanplay(preparation) },
-                        enabled = !isPreparingLocalPlayback,
-                    ) {
-                        Text(if (isPreparingLocalPlayback) "Refreshing..." else "Refresh danmaku")
-                    }
-                    Button(
-                        onClick = { onClearDandanplayCache(preparation) },
-                        enabled = !isPreparingLocalPlayback,
-                    ) {
-                        Text("Clear dandanplay cache")
-                    }
-                    Button(
-                        onClick = { onClearDanmakuOverlay(preparation) },
-                        enabled = hasDanmakuOverlay && !isPreparingLocalPlayback,
-                    ) {
-                        Text("Remove danmaku overlay")
-                    }
-                    Button(
-                        onClick = { onAttachManualDanmaku(preparation) },
-                        enabled = !isPreparingLocalPlayback,
-                    ) {
-                        Text("Attach local danmaku")
-                    }
-                    Button(
-                        onClick = {
-                            previousItem?.let(onPrepareLocalPlayback)
-                        },
-                        enabled = previousItem != null && !isPreparingLocalPlayback,
-                    ) {
-                        Text("Previous episode")
-                    }
-                    Button(
-                        onClick = {
-                            nextItem?.let(onPrepareLocalPlayback)
-                        },
-                        enabled = nextItem != null && !isPreparingLocalPlayback,
-                    ) {
-                        Text("Next episode")
-                    }
-                    Button(
-                        onClick = { onSetAutoNextLocalPlayback(!autoNextLocalPlayback) },
-                    ) {
-                        Text(if (autoNextLocalPlayback) "Auto-next on" else "Auto-next off")
-                    }
+    }
+    val selectedInspectorSeries = selectedEpisodeDetail?.series ?: selectedSeries
+    val selectedInspectorItem = selectedEpisodeDetail?.mediaItem
+        ?: selectedLocalPlaybackPreparation?.item
+        ?: selectedSeries?.let { nextPlayableEpisode(it, watchStatusById) }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 720.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        LibraryWorkspaceRail(
+            selectedView = selectedView,
+            registeredRoots = registeredRoots,
+            localEpisodeCount = catalog?.items?.size ?: 0,
+            nextUpCount = nextUpItems.size,
+            continueWatchingCount = continueWatchingItems.size,
+            recentlyWatchedCount = recentlyWatchedItems.size,
+            favoriteCount = favoriteMediaIds.size,
+            seriesCount = series.size,
+            isIndexing = isIndexing,
+            libraryError = libraryError,
+            lastScanStats = lastScanStats,
+            onSelectView = { selectedView = it },
+            onAddLibraryFolder = onAddLibraryFolder,
+            onRescanRegisteredRoots = onRescanRegisteredRoots,
+            modifier = Modifier.width(230.dp),
+        )
+        LibraryCenterWorkspace(
+            selectedView = selectedView,
+            searchText = searchText,
+            onSearchTextChange = { searchText = it },
+            sort = sort,
+            onSortChange = { sort = it },
+            subtitleFilter = subtitleFilter,
+            onToggleSubtitleFilter = {
+                subtitleFilter = if (subtitleFilter == LibrarySubtitleFilter.ANY) {
+                    LibrarySubtitleFilter.WITH_SUBTITLES
+                } else {
+                    LibrarySubtitleFilter.ANY
                 }
-            }
+            },
+            favoriteFilter = favoriteFilter,
+            onToggleFavoriteFilter = {
+                favoriteFilter = if (favoriteFilter == LibraryFavoriteFilter.ANY) {
+                    LibraryFavoriteFilter.FAVORITES_ONLY
+                } else {
+                    LibraryFavoriteFilter.ANY
+                }
+            },
+            catalog = catalog,
+            visibleSeries = visibleSeries,
+            selectedSeries = selectedSeries,
+            filteredEpisodes = filteredEpisodes,
+            coverBySeriesId = coverBySeriesId,
+            continueWatchingItems = continueWatchingItems,
+            nextUpItems = nextUpItems,
+            recentlyWatchedItems = recentlyWatchedItems,
+            watchStatusById = watchStatusById,
+            seriesWatchSummaryById = seriesWatchSummaryById,
+            favoriteMediaIds = favoriteMediaIds,
+            isPreparing = isPreparing,
+            onSelectSeries = onSelectSeries,
+            onShowDetails = onShowDetails,
+            onSetFavorite = onSetFavorite,
+            onPrepareLocalPlayback = onPrepareLocalPlayback,
+            onPlayLocalPlayback = onPlayLocalPlayback,
+            onResetFilters = {
+                searchText = ""
+                sort = LibraryCatalogSort.TITLE
+                subtitleFilter = LibrarySubtitleFilter.ANY
+                favoriteFilter = LibraryFavoriteFilter.ANY
+            },
+            remoteBrowser = remoteBrowser,
+            modifier = Modifier.weight(1f),
+        )
+        LibraryInspectorPane(
+            selectedSeries = selectedInspectorSeries,
+            selectedEpisodeDetail = selectedEpisodeDetail,
+            selectedItem = selectedInspectorItem,
+            selectedLocalPlaybackPreparation = selectedLocalPlaybackPreparation,
+            dandanplayCacheStatus = dandanplayCacheStatus,
+            autoNextLocalPlayback = autoNextLocalPlayback,
+            coverPath = selectedInspectorSeries?.let { coverBySeriesId[it.id] },
+            watchSummary = selectedInspectorSeries?.let { seriesWatchSummaryById[it.id] },
+            watchStatusById = watchStatusById,
+            favoriteMediaIds = favoriteMediaIds,
+            isPreparing = isPreparing,
+            onShowDetails = onShowDetails,
+            onSetFavorite = onSetFavorite,
+            onSetAutoNextLocalPlayback = onSetAutoNextLocalPlayback,
+            onRefreshDandanplay = onRefreshDandanplay,
+            onSelectDandanplayMatch = onSelectDandanplayMatch,
+            onClearDandanplayCache = onClearDandanplayCache,
+            onClearDanmakuOverlay = onClearDanmakuOverlay,
+            onAttachManualDanmaku = onAttachManualDanmaku,
+            onLoadPreparedPlayback = onLoadPreparedPlayback,
+            onPrepareLocalPlayback = onPrepareLocalPlayback,
+            onPlayLocalPlayback = onPlayLocalPlayback,
+            modifier = Modifier.width(340.dp),
+        )
+    }
+}
+
+@Composable
+private fun LibraryWorkspaceRail(
+    selectedView: WindowsLibraryView,
+    registeredRoots: List<DesktopLibraryRoot>,
+    localEpisodeCount: Int,
+    nextUpCount: Int,
+    continueWatchingCount: Int,
+    recentlyWatchedCount: Int,
+    favoriteCount: Int,
+    seriesCount: Int,
+    isIndexing: Boolean,
+    libraryError: String?,
+    lastScanStats: LocalMediaLibraryScanStats?,
+    onSelectView: (WindowsLibraryView) -> Unit,
+    onAddLibraryFolder: () -> Unit,
+    onRescanRegisteredRoots: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    WorkspacePanel(modifier = modifier.fillMaxHeight()) {
+        Text("Danmaku", style = MaterialTheme.typography.h6, fontWeight = FontWeight.Bold)
+        Text("Library host", color = DanmakuColors.TextMuted, maxLines = 1)
+        Spacer(modifier = Modifier.height(4.dp))
+        LibraryRailNavigationItem(
+            icon = Icons.Filled.History,
+            label = WindowsLibraryView.CONTINUE_WATCHING.label,
+            count = continueWatchingCount,
+            selected = selectedView == WindowsLibraryView.CONTINUE_WATCHING,
+            onClick = { onSelectView(WindowsLibraryView.CONTINUE_WATCHING) },
+        )
+        LibraryRailNavigationItem(
+            icon = Icons.Filled.PlayArrow,
+            label = WindowsLibraryView.NEXT_UP.label,
+            count = nextUpCount,
+            selected = selectedView == WindowsLibraryView.NEXT_UP,
+            onClick = { onSelectView(WindowsLibraryView.NEXT_UP) },
+        )
+        LibraryRailNavigationItem(
+            icon = Icons.Filled.GridView,
+            label = WindowsLibraryView.ALL_SERIES.label,
+            count = seriesCount,
+            selected = selectedView == WindowsLibraryView.ALL_SERIES,
+            onClick = { onSelectView(WindowsLibraryView.ALL_SERIES) },
+        )
+        LibraryRailNavigationItem(
+            icon = Icons.Filled.History,
+            label = WindowsLibraryView.RECENTLY_WATCHED.label,
+            count = recentlyWatchedCount,
+            selected = selectedView == WindowsLibraryView.RECENTLY_WATCHED,
+            onClick = { onSelectView(WindowsLibraryView.RECENTLY_WATCHED) },
+        )
+        LibraryRailNavigationItem(
+            icon = Icons.Filled.Star,
+            label = WindowsLibraryView.FAVORITES.label,
+            count = favoriteCount,
+            selected = selectedView == WindowsLibraryView.FAVORITES,
+            onClick = { onSelectView(WindowsLibraryView.FAVORITES) },
+        )
+        LibraryRailNavigationItem(
+            icon = Icons.AutoMirrored.Filled.ViewList,
+            label = WindowsLibraryView.FILES.label,
+            count = localEpisodeCount,
+            selected = selectedView == WindowsLibraryView.FILES,
+            onClick = { onSelectView(WindowsLibraryView.FILES) },
+        )
+        LibraryRailNavigationItem(
+            icon = Icons.Filled.Devices,
+            label = WindowsLibraryView.PAIRED.label,
+            count = 0,
+            selected = selectedView == WindowsLibraryView.PAIRED,
+            onClick = { onSelectView(WindowsLibraryView.PAIRED) },
+        )
+        Divider(color = DanmakuColors.SurfaceRaised)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PlayerIconButton(
+                imageVector = Icons.Filled.Add,
+                contentDescription = "Add library folder",
+                enabled = !isIndexing,
+                onClick = onAddLibraryFolder,
+            )
+            PlayerIconButton(
+                imageVector = Icons.Filled.Refresh,
+                contentDescription = "Rescan folders",
+                enabled = registeredRoots.isNotEmpty() && !isIndexing,
+                onClick = onRescanRegisteredRoots,
+            )
         }
-        SectionCard("Paired Library Client") {
-            remoteBrowser()
+        LibrarySourceStatus(
+            icon = Icons.Filled.Computer,
+            label = "Local PC",
+            value = if (isIndexing) "Indexing..." else "$localEpisodeCount episodes",
+            statusColor = if (libraryError == null) DanmakuColors.Good else DanmakuColors.Warning,
+        )
+        LibrarySourceStatus(
+            icon = Icons.Filled.Devices,
+            label = "Paired devices",
+            value = "LAN browser ready",
+            statusColor = DanmakuColors.Accent,
+        )
+        libraryError?.let { error ->
+            Text(error, color = DanmakuColors.Warning, maxLines = 3, overflow = TextOverflow.Ellipsis)
+        }
+        lastScanStats?.let { stats ->
+            Text(
+                "Last scan: ${stats.reusedItemCount} unchanged, ${stats.refreshedItemCount} refreshed",
+                color = DanmakuColors.TextMuted,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Divider(color = DanmakuColors.SurfaceRaised)
+        Text("Folders", color = DanmakuColors.TextMuted, fontWeight = FontWeight.Bold)
+        if (registeredRoots.isEmpty()) {
+            Text("No folders yet", color = DanmakuColors.TextMuted)
+        } else {
+            registeredRoots.take(5).forEach { root ->
+                Text(root.displayName, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            if (registeredRoots.size > 5) {
+                Text("+${registeredRoots.size - 5} more", color = DanmakuColors.TextMuted)
+            }
         }
     }
 }
 
 @Composable
-private fun LocalLibraryGallery(
-    registeredRoots: List<DesktopLibraryRoot>,
-    indexedLibrary: IndexedLocalLibrary?,
-    series: List<LibrarySeries>,
+private fun LibraryRailNavigationItem(
+    icon: ImageVector,
+    label: String,
+    count: Int,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (selected) DanmakuColors.AccentSoft else Color.Transparent)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Icon(icon, contentDescription = label, tint = if (selected) Color.White else DanmakuColors.TextMuted)
+        Text(label, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+        if (count > 0) {
+            Text(count.toString(), color = DanmakuColors.TextMuted, maxLines = 1)
+        }
+    }
+}
+
+@Composable
+private fun LibrarySourceStatus(
+    icon: ImageVector,
+    label: String,
+    value: String,
+    statusColor: Color,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Icon(icon, contentDescription = label, tint = DanmakuColors.TextMuted)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(label, color = Color.White, maxLines = 1)
+            Text(value, color = statusColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+@Composable
+private fun LibraryCenterWorkspace(
+    selectedView: WindowsLibraryView,
+    searchText: String,
+    onSearchTextChange: (String) -> Unit,
+    sort: LibraryCatalogSort,
+    onSortChange: (LibraryCatalogSort) -> Unit,
+    subtitleFilter: LibrarySubtitleFilter,
+    onToggleSubtitleFilter: () -> Unit,
+    favoriteFilter: LibraryFavoriteFilter,
+    onToggleFavoriteFilter: () -> Unit,
+    catalog: LibraryCatalog?,
+    visibleSeries: List<LibrarySeries>,
     selectedSeries: LibrarySeries?,
-    nextUpItems: List<LibraryNextUpItem>,
+    filteredEpisodes: List<LibraryMediaItem>,
+    coverBySeriesId: Map<String, Path?>,
     continueWatchingItems: List<LibraryPlaybackProgressItem>,
+    nextUpItems: List<LibraryNextUpItem>,
     recentlyWatchedItems: List<LibraryPlaybackProgressItem>,
     watchStatusById: Map<String, LibraryWatchStatus>,
     seriesWatchSummaryById: Map<String, LibrarySeriesWatchSummary>,
@@ -2586,222 +2845,721 @@ private fun LocalLibraryGallery(
     onSetFavorite: (LibraryMediaItem, Boolean) -> Unit,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
+    onResetFilters: () -> Unit,
+    remoteBrowser: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    var searchText by remember { mutableStateOf("") }
-    var subtitleFilter by remember { mutableStateOf(LibrarySubtitleFilter.ANY) }
-    var favoriteFilter by remember { mutableStateOf(LibraryFavoriteFilter.ANY) }
-    val catalog = indexedLibrary?.catalog
-    val filtersAreDefault = searchText.isBlank() &&
-        subtitleFilter == LibrarySubtitleFilter.ANY &&
-        favoriteFilter == LibraryFavoriteFilter.ANY
-    val filteredEpisodes = remember(catalog, searchText, subtitleFilter, favoriteFilter, favoriteMediaIds) {
-        catalog
-            ?.filteredItems(
-                LibraryCatalogQuery(
-                    searchText = searchText,
-                    sort = LibraryCatalogSort.TITLE,
-                    subtitleFilter = subtitleFilter,
-                    favoriteFilter = favoriteFilter,
-                    favoriteMediaIds = favoriteMediaIds,
-                ),
-            )
-            .orEmpty()
-    }
-    val visibleSeries = remember(series, filteredEpisodes, filtersAreDefault) {
-        val visibleIds = filteredEpisodes.mapTo(mutableSetOf()) { it.seriesTitle.trim() }
-        if (visibleIds.isEmpty() && filtersAreDefault) {
-            series
-        } else {
-            series.filter { it.title in visibleIds }
+    WorkspacePanel(modifier = modifier.fillMaxHeight()) {
+        if (selectedView == WindowsLibraryView.PAIRED) {
+            Text("Paired Library", style = MaterialTheme.typography.h6, fontWeight = FontWeight.Bold)
+            Text("Browse another trusted desktop server without leaving the library workspace.", color = DanmakuColors.TextMuted)
+            Divider(color = DanmakuColors.SurfaceRaised)
+            remoteBrowser()
+            return@WorkspacePanel
         }
-    }
-    val coverBySeriesId = remember(indexedLibrary, series) {
-        series.associate { librarySeries ->
-            librarySeries.id to findSeriesCoverImage(librarySeries, indexedLibrary)
-        }
-    }
 
-    SectionCard("Media Library") {
-        Row(
+        LibraryWorkspaceToolbar(
+            selectedView = selectedView,
+            searchText = searchText,
+            onSearchTextChange = onSearchTextChange,
+            sort = sort,
+            onSortChange = onSortChange,
+            subtitleFilter = subtitleFilter,
+            onToggleSubtitleFilter = onToggleSubtitleFilter,
+            favoriteFilter = favoriteFilter,
+            onToggleFavoriteFilter = onToggleFavoriteFilter,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            StatusPill("${filteredEpisodes.size} / ${catalog?.items?.size ?: 0} episodes")
+            StatusPill("${favoriteMediaIds.size} favorites")
+            selectedSeries?.let { StatusPill(it.title) }
+        }
+        when (selectedView) {
+            WindowsLibraryView.CONTINUE_WATCHING -> ContinueWatchingList(
+                items = continueWatchingItems,
+                isPreparing = isPreparing,
+                onShowDetails = onShowDetails,
+                onPlayLocalPlayback = onPlayLocalPlayback,
+            )
+            WindowsLibraryView.NEXT_UP -> NextUpList(
+                items = nextUpItems,
+                isPreparing = isPreparing,
+                onShowDetails = onShowDetails,
+                onPrepareLocalPlayback = onPrepareLocalPlayback,
+                onPlayLocalPlayback = onPlayLocalPlayback,
+            )
+            WindowsLibraryView.RECENTLY_WATCHED -> RecentlyWatchedList(
+                items = recentlyWatchedItems,
+                isPreparing = isPreparing,
+                onShowDetails = onShowDetails,
+                onPrepareLocalPlayback = onPrepareLocalPlayback,
+                onPlayLocalPlayback = onPlayLocalPlayback,
+            )
+            WindowsLibraryView.FAVORITES,
+            WindowsLibraryView.FILES -> EpisodeListView(
+                episodes = filteredEpisodes,
+                watchStatusById = watchStatusById,
+                favoriteMediaIds = favoriteMediaIds,
+                isPreparing = isPreparing,
+                emptyText = if (selectedView == WindowsLibraryView.FAVORITES) {
+                    "No favorite episodes match the current filters."
+                } else {
+                    "No episodes match the current filters."
+                },
+                onResetFilters = onResetFilters,
+                onShowDetails = onShowDetails,
+                onSetFavorite = onSetFavorite,
+                onPrepareLocalPlayback = onPrepareLocalPlayback,
+                onPlayLocalPlayback = onPlayLocalPlayback,
+            )
+            WindowsLibraryView.ALL_SERIES,
+            WindowsLibraryView.PAIRED -> AllSeriesView(
+                catalog = catalog,
+                visibleSeries = visibleSeries,
+                selectedSeries = selectedSeries,
+                coverBySeriesId = coverBySeriesId,
+                continueWatchingItems = continueWatchingItems,
+                nextUpItems = nextUpItems,
+                watchStatusById = watchStatusById,
+                seriesWatchSummaryById = seriesWatchSummaryById,
+                isPreparing = isPreparing,
+                onResetFilters = onResetFilters,
+                onSelectSeries = onSelectSeries,
+                onShowDetails = onShowDetails,
+                onPlayLocalPlayback = onPlayLocalPlayback,
+            )
+        }
+    }
+}
+
+@Composable
+private fun LibraryWorkspaceToolbar(
+    selectedView: WindowsLibraryView,
+    searchText: String,
+    onSearchTextChange: (String) -> Unit,
+    sort: LibraryCatalogSort,
+    onSortChange: (LibraryCatalogSort) -> Unit,
+    subtitleFilter: LibrarySubtitleFilter,
+    onToggleSubtitleFilter: () -> Unit,
+    favoriteFilter: LibraryFavoriteFilter,
+    onToggleFavoriteFilter: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(selectedView.label, style = MaterialTheme.typography.h6, fontWeight = FontWeight.Bold)
+            Text("Search, filter, and select media without leaving context.", color = DanmakuColors.TextMuted)
+        }
+        OutlinedTextField(
+            value = searchText,
+            onValueChange = onSearchTextChange,
+            label = { Text("Search anime, episode, path") },
+            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = "Search") },
+            singleLine = true,
+            modifier = Modifier.width(360.dp),
+        )
+        PlayerIconButton(
+            imageVector = Icons.Filled.FilterList,
+            contentDescription = if (subtitleFilter == LibrarySubtitleFilter.ANY) {
+                "Require subtitles"
+            } else {
+                "Show all subtitles"
+            },
+            onClick = onToggleSubtitleFilter,
+        )
+        PlayerIconButton(
+            imageVector = Icons.Filled.Star,
+            contentDescription = if (favoriteFilter == LibraryFavoriteFilter.ANY) {
+                "Favorites only"
+            } else {
+                "Show all favorites"
+            },
+            onClick = onToggleFavoriteFilter,
+        )
+        PlayerIconButton(
+            imageVector = if (sort == LibraryCatalogSort.TITLE) Icons.Filled.GridView else Icons.AutoMirrored.Filled.ViewList,
+            contentDescription = if (sort == LibraryCatalogSort.TITLE) "Sort by path" else "Sort by title",
+            onClick = {
+                onSortChange(
+                    if (sort == LibraryCatalogSort.TITLE) {
+                        LibraryCatalogSort.PATH
+                    } else {
+                        LibraryCatalogSort.TITLE
+                    },
+                )
+            },
+        )
+    }
+}
+
+@Composable
+private fun AllSeriesView(
+    catalog: LibraryCatalog?,
+    visibleSeries: List<LibrarySeries>,
+    selectedSeries: LibrarySeries?,
+    coverBySeriesId: Map<String, Path?>,
+    continueWatchingItems: List<LibraryPlaybackProgressItem>,
+    nextUpItems: List<LibraryNextUpItem>,
+    watchStatusById: Map<String, LibraryWatchStatus>,
+    seriesWatchSummaryById: Map<String, LibrarySeriesWatchSummary>,
+    isPreparing: Boolean,
+    onResetFilters: () -> Unit,
+    onSelectSeries: (LibrarySeries) -> Unit,
+    onShowDetails: (LibraryMediaItem) -> Unit,
+    onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
+) {
+    LibraryProgressOverview(
+        continueWatchingItems = continueWatchingItems,
+        nextUpItems = nextUpItems,
+        isPreparing = isPreparing,
+        onShowDetails = onShowDetails,
+        onPlayLocalPlayback = onPlayLocalPlayback,
+    )
+    Text("All Series", style = MaterialTheme.typography.h6, fontWeight = FontWeight.Bold)
+    when {
+        catalog == null || catalog.items.isEmpty() -> EmptyState("No indexed series yet. Add a folder and scan to build the cover library.")
+        visibleSeries.isEmpty() -> EmptyState(
+            text = "No series match the current filters.",
+            actionLabel = "Reset filters",
+            onAction = onResetFilters,
+        )
+        else -> LazyVerticalGrid(
+            columns = GridCells.Adaptive(minSize = 150.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 620.dp),
-            horizontalArrangement = Arrangement.spacedBy(18.dp),
+                .height(500.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            LocalLibrarySidebar(
-                registeredRoots = registeredRoots,
-                nextUpCount = nextUpItems.size,
-                continueWatchingCount = continueWatchingItems.size,
-                recentlyWatchedCount = recentlyWatchedItems.size,
-                seriesCount = series.size,
-                modifier = Modifier.width(190.dp),
-            )
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    OutlinedTextField(
-                        value = searchText,
-                        onValueChange = { searchText = it },
-                        label = { Text("Search library") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f),
-                    )
-                    PlayerOverlayButton(
-                        text = if (subtitleFilter == LibrarySubtitleFilter.ANY) "Subtitles" else "All subs",
-                        onClick = {
-                            subtitleFilter = if (subtitleFilter == LibrarySubtitleFilter.ANY) {
-                                LibrarySubtitleFilter.WITH_SUBTITLES
-                            } else {
-                                LibrarySubtitleFilter.ANY
-                            }
-                        },
-                    )
-                    PlayerOverlayButton(
-                        text = if (favoriteFilter == LibraryFavoriteFilter.ANY) "Favorites" else "All",
-                        onClick = {
-                            favoriteFilter = if (favoriteFilter == LibraryFavoriteFilter.ANY) {
-                                LibraryFavoriteFilter.FAVORITES_ONLY
-                            } else {
-                                LibraryFavoriteFilter.ANY
-                            }
-                        },
-                    )
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StatusPill("${filteredEpisodes.size} / ${catalog?.items?.size ?: 0} episodes")
-                    StatusPill("${favoriteMediaIds.size} favorites")
-                    selectedSeries?.let { StatusPill(it.title) }
-                }
-                if (series.isEmpty()) {
-                    EmptyState("No indexed series yet. Add a folder and scan to build the cover library.")
-                } else if (visibleSeries.isEmpty()) {
-                    EmptyState(
-                        text = "No series match the current filters.",
-                        actionLabel = "Reset filters",
-                        onAction = {
-                            searchText = ""
-                            subtitleFilter = LibrarySubtitleFilter.ANY
-                            favoriteFilter = LibraryFavoriteFilter.ANY
-                        },
-                    )
-                } else {
-                    LazyVerticalGrid(
-                        columns = GridCells.Adaptive(minSize = 150.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(560.dp),
-                        horizontalArrangement = Arrangement.spacedBy(18.dp),
-                        verticalArrangement = Arrangement.spacedBy(22.dp),
-                    ) {
-                        items(visibleSeries, key = { it.id }) { librarySeries ->
-                            SeriesPosterCard(
-                                series = librarySeries,
-                                coverPath = coverBySeriesId[librarySeries.id],
-                                watchSummary = seriesWatchSummaryById[librarySeries.id],
-                                isSelected = librarySeries.id == selectedSeries?.id,
-                                isPreparing = isPreparing,
-                                onSelect = { onSelectSeries(librarySeries) },
-                                onPlay = {
-                                    onPlayLocalPlayback(
-                                        nextPlayableEpisode(
-                                            librarySeries = librarySeries,
-                                            watchStatusById = watchStatusById,
-                                        ),
-                                    )
-                                },
-                            )
-                        }
-                    }
-                }
-            }
-        }
-        selectedSeries?.let { librarySeries ->
-            Spacer(modifier = Modifier.height(8.dp))
-            Divider(color = DanmakuColors.SurfaceRaised)
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(librarySeries.title, style = MaterialTheme.typography.h6, fontWeight = FontWeight.Bold)
-            LazyColumn(modifier = Modifier.heightIn(max = 260.dp)) {
-                items(librarySeries.seasons.flatMap { it.items }, key = { it.id }) { item ->
-                    EpisodeRow(
-                        item = item,
-                        watchStatus = watchStatusById[item.id],
-                        isFavorite = item.id in favoriteMediaIds,
-                        isPreparing = isPreparing,
-                        onShowDetails = onShowDetails,
-                        onSetFavorite = onSetFavorite,
-                        onPrepareLocalPlayback = onPrepareLocalPlayback,
-                        onPlayLocalPlayback = onPlayLocalPlayback,
-                    )
-                }
+            items(visibleSeries, key = { it.id }) { librarySeries ->
+                SeriesPosterCard(
+                    series = librarySeries,
+                    coverPath = coverBySeriesId[librarySeries.id],
+                    watchSummary = seriesWatchSummaryById[librarySeries.id],
+                    isSelected = librarySeries.id == selectedSeries?.id,
+                    isPreparing = isPreparing,
+                    onSelect = { onSelectSeries(librarySeries) },
+                    onPlay = {
+                        onPlayLocalPlayback(
+                            nextPlayableEpisode(
+                                librarySeries = librarySeries,
+                                watchStatusById = watchStatusById,
+                            ),
+                        )
+                    },
+                )
             }
         }
     }
 }
 
 @Composable
-private fun LocalLibrarySidebar(
-    registeredRoots: List<DesktopLibraryRoot>,
-    nextUpCount: Int,
-    continueWatchingCount: Int,
-    recentlyWatchedCount: Int,
-    seriesCount: Int,
+private fun LibraryProgressOverview(
+    continueWatchingItems: List<LibraryPlaybackProgressItem>,
+    nextUpItems: List<LibraryNextUpItem>,
+    isPreparing: Boolean,
+    onShowDetails: (LibraryMediaItem) -> Unit,
+    onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
+) {
+    val cards = buildList {
+        continueWatchingItems.take(2).forEach { item ->
+            add(
+                LibraryProgressCardModel(
+                    title = item.mediaItem.seriesTitle,
+                    subtitle = item.mediaItem.episodeTitle,
+                    detail = "Resume at ${item.progress.positionMs.formatPlaybackTime()}",
+                    progressPercent = item.progress.progressPercent(),
+                    actionLabel = "Resume",
+                    mediaItem = item.mediaItem,
+                ),
+            )
+        }
+        nextUpItems.take(2).forEach { item ->
+            add(
+                LibraryProgressCardModel(
+                    title = item.mediaItem.seriesTitle,
+                    subtitle = item.mediaItem.episodeTitle,
+                    detail = item.nextUpLabel(),
+                    progressPercent = item.progress?.progressPercent(),
+                    actionLabel = item.nextUpActionLabel(),
+                    mediaItem = item.mediaItem,
+                ),
+            )
+        }
+    }.distinctBy { it.mediaItem.id }.take(4)
+    if (cards.isEmpty()) return
+
+    Text("Continue Watching", style = MaterialTheme.typography.h6, fontWeight = FontWeight.Bold)
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        cards.forEach { card ->
+            LibraryProgressCard(
+                card = card,
+                isPreparing = isPreparing,
+                onShowDetails = onShowDetails,
+                onPlayLocalPlayback = onPlayLocalPlayback,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+private data class LibraryProgressCardModel(
+    val title: String,
+    val subtitle: String,
+    val detail: String,
+    val progressPercent: Int?,
+    val actionLabel: String,
+    val mediaItem: LibraryMediaItem,
+)
+
+@Composable
+private fun LibraryProgressCard(
+    card: LibraryProgressCardModel,
+    isPreparing: Boolean,
+    onShowDetails: (LibraryMediaItem) -> Unit,
+    onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(10.dp))
-            .background(Color.Black.copy(alpha = 0.22f))
+            .clip(RoundedCornerShape(8.dp))
+            .background(DanmakuColors.SurfaceRaised.copy(alpha = 0.72f))
+            .clickable { onShowDetails(card.mediaItem) }
             .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Text("Browse", color = Color.White, fontWeight = FontWeight.Bold)
-        LibraryNavItem("Recently playing", continueWatchingCount)
-        LibraryNavItem("Next up", nextUpCount)
-        LibraryNavItem("Recently watched", recentlyWatchedCount)
-        LibraryNavItem("Series", seriesCount)
-        Divider(color = DanmakuColors.SurfaceRaised)
-        Text("Folders", color = DanmakuColors.TextMuted, fontWeight = FontWeight.Bold)
-        if (registeredRoots.isEmpty()) {
-            Text("No folders", color = DanmakuColors.TextMuted)
-        } else {
-            registeredRoots.take(6).forEach { root ->
-                Text(
-                    text = root.displayName,
-                    color = Color.White,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            if (registeredRoots.size > 6) {
-                Text("+${registeredRoots.size - 6} more", color = DanmakuColors.TextMuted)
+        Text(card.title, color = Color.White, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(card.subtitle, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        MiniProgressBar(percent = card.progressPercent)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(card.detail, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            Button(
+                onClick = { onPlayLocalPlayback(card.mediaItem) },
+                enabled = !isPreparing,
+            ) {
+                Text(if (isPreparing) "Loading..." else card.actionLabel)
             }
         }
     }
 }
 
 @Composable
-private fun LibraryNavItem(
+private fun ContinueWatchingList(
+    items: List<LibraryPlaybackProgressItem>,
+    isPreparing: Boolean,
+    onShowDetails: (LibraryMediaItem) -> Unit,
+    onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
+) {
+    if (items.isEmpty()) {
+        EmptyState("No in-progress local episodes yet.")
+    } else {
+        LazyColumn(modifier = Modifier.height(560.dp)) {
+            items(items, key = { it.mediaItem.id }) { item ->
+                ContinueWatchingRow(
+                    item = item,
+                    isPreparing = isPreparing,
+                    onShowDetails = onShowDetails,
+                    onPlayLocalPlayback = onPlayLocalPlayback,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun NextUpList(
+    items: List<LibraryNextUpItem>,
+    isPreparing: Boolean,
+    onShowDetails: (LibraryMediaItem) -> Unit,
+    onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
+    onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
+) {
+    if (items.isEmpty()) {
+        EmptyState("No next-up item yet. Start watching from All Series.")
+    } else {
+        LazyColumn(modifier = Modifier.height(560.dp)) {
+            items(items, key = { it.mediaItem.id }) { item ->
+                NextUpRow(
+                    item = item,
+                    isPreparing = isPreparing,
+                    onShowDetails = onShowDetails,
+                    onPrepareLocalPlayback = onPrepareLocalPlayback,
+                    onPlayLocalPlayback = onPlayLocalPlayback,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecentlyWatchedList(
+    items: List<LibraryPlaybackProgressItem>,
+    isPreparing: Boolean,
+    onShowDetails: (LibraryMediaItem) -> Unit,
+    onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
+    onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
+) {
+    if (items.isEmpty()) {
+        EmptyState("No recently watched local episodes yet.")
+    } else {
+        LazyColumn(modifier = Modifier.height(560.dp)) {
+            items(items, key = { it.mediaItem.id }) { item ->
+                RecentlyWatchedRow(
+                    item = item,
+                    isPreparing = isPreparing,
+                    onShowDetails = onShowDetails,
+                    onPrepareLocalPlayback = onPrepareLocalPlayback,
+                    onPlayLocalPlayback = onPlayLocalPlayback,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun EpisodeListView(
+    episodes: List<LibraryMediaItem>,
+    watchStatusById: Map<String, LibraryWatchStatus>,
+    favoriteMediaIds: Set<String>,
+    isPreparing: Boolean,
+    emptyText: String,
+    onResetFilters: () -> Unit,
+    onShowDetails: (LibraryMediaItem) -> Unit,
+    onSetFavorite: (LibraryMediaItem, Boolean) -> Unit,
+    onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
+    onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
+) {
+    if (episodes.isEmpty()) {
+        EmptyState(
+            text = emptyText,
+            actionLabel = "Reset filters",
+            onAction = onResetFilters,
+        )
+    } else {
+        LazyColumn(modifier = Modifier.height(560.dp)) {
+            items(episodes, key = { it.id }) { item ->
+                EpisodeRow(
+                    item = item,
+                    watchStatus = watchStatusById[item.id],
+                    isFavorite = item.id in favoriteMediaIds,
+                    isPreparing = isPreparing,
+                    onShowDetails = onShowDetails,
+                    onSetFavorite = onSetFavorite,
+                    onPrepareLocalPlayback = onPrepareLocalPlayback,
+                    onPlayLocalPlayback = onPlayLocalPlayback,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LibraryInspectorPane(
+    selectedSeries: LibrarySeries?,
+    selectedEpisodeDetail: LibraryEpisodeDetail?,
+    selectedItem: LibraryMediaItem?,
+    selectedLocalPlaybackPreparation: DesktopLocalPlaybackPreparation?,
+    dandanplayCacheStatus: DandanplayPlaybackUiStatus?,
+    autoNextLocalPlayback: Boolean,
+    coverPath: Path?,
+    watchSummary: LibrarySeriesWatchSummary?,
+    watchStatusById: Map<String, LibraryWatchStatus>,
+    favoriteMediaIds: Set<String>,
+    isPreparing: Boolean,
+    onShowDetails: (LibraryMediaItem) -> Unit,
+    onSetFavorite: (LibraryMediaItem, Boolean) -> Unit,
+    onSetAutoNextLocalPlayback: (Boolean) -> Unit,
+    onRefreshDandanplay: (DesktopLocalPlaybackPreparation) -> Unit,
+    onSelectDandanplayMatch: (DesktopLocalPlaybackPreparation, DandanplayMatch) -> Unit,
+    onClearDandanplayCache: (DesktopLocalPlaybackPreparation) -> Unit,
+    onClearDanmakuOverlay: (DesktopLocalPlaybackPreparation) -> Unit,
+    onAttachManualDanmaku: (DesktopLocalPlaybackPreparation) -> Unit,
+    onLoadPreparedPlayback: (DesktopLocalPlaybackPreparation) -> Unit,
+    onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
+    onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    WorkspacePanel(modifier = modifier.fillMaxHeight()) {
+        if (selectedSeries == null || selectedItem == null) {
+            Text("Inspector", style = MaterialTheme.typography.h6, fontWeight = FontWeight.Bold)
+            EmptyState("Select a series or episode to inspect playback, subtitles, and danmaku readiness.")
+            return@WorkspacePanel
+        }
+        val activePreparation = selectedLocalPlaybackPreparation?.takeIf { it.item.id == selectedItem.id }
+        val isFavorite = selectedItem.id in favoriteMediaIds
+        val status = dandanplayCacheStatus?.takeIf { it.mediaId == selectedItem.id }
+        val hasDanmakuOverlay = activePreparation?.subtitles?.any(DesktopPlaybackSubtitle::isDanmakuOverlay) == true
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(210.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(DanmakuColors.SurfaceRaised),
+        ) {
+            SeriesPosterImage(
+                coverPath = coverPath,
+                title = selectedSeries.title,
+                modifier = Modifier.fillMaxSize(),
+            )
+            Text(
+                watchSummary.progressLabel(),
+                color = Color.White,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .background(Color.Black.copy(alpha = 0.72f), RoundedCornerShape(topEnd = 6.dp))
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                maxLines = 1,
+            )
+        }
+        Text(selectedSeries.title, style = MaterialTheme.typography.h6, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(
+            selectedEpisodeDetail?.mediaItem?.episodeTitle ?: "Next playable: ${selectedItem.episodeTitle}",
+            color = DanmakuColors.TextMuted,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        MiniProgressBar(percent = watchStatusById[selectedItem.id]?.progress?.progressPercent())
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = { onPlayLocalPlayback(selectedItem) },
+                enabled = !isPreparing,
+                modifier = Modifier.weight(1f),
+            ) {
+                Icon(Icons.Filled.PlayArrow, contentDescription = "Play", modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(if (isPreparing) "Loading..." else selectedItem.primaryPlaybackActionLabel(watchStatusById[selectedItem.id]))
+            }
+            Button(
+                onClick = { onPrepareLocalPlayback(selectedItem) },
+                enabled = !isPreparing,
+                modifier = Modifier.weight(1f),
+            ) {
+                Text(if (isPreparing) "Preparing..." else "Prepare")
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PlayerIconButton(
+                imageVector = Icons.Filled.Star,
+                contentDescription = if (isFavorite) "Unfavorite" else "Favorite",
+                onClick = { onSetFavorite(selectedItem, !isFavorite) },
+            )
+            PlayerIconButton(
+                imageVector = Icons.Filled.Subtitles,
+                contentDescription = "Show episode details",
+                onClick = { onShowDetails(selectedItem) },
+            )
+            PlayerIconButton(
+                imageVector = Icons.Filled.MoreHoriz,
+                contentDescription = "More episode actions",
+                enabled = activePreparation != null,
+                onClick = { activePreparation?.let(onLoadPreparedPlayback) },
+            )
+        }
+        Divider(color = DanmakuColors.SurfaceRaised)
+        Text("Readiness", fontWeight = FontWeight.Bold)
+        InspectorStatusRow(
+            icon = if (activePreparation != null) Icons.Filled.CheckCircle else Icons.Filled.Warning,
+            label = if (activePreparation != null) "Prepared playback" else "Prepare to inspect tracks",
+            value = activePreparation?.resumePositionMs?.let { "Resume ${it.formatPlaybackTime()}" } ?: "Not prepared",
+            color = if (activePreparation != null) DanmakuColors.Good else DanmakuColors.TextMuted,
+        )
+        InspectorStatusRow(
+            icon = if (status?.summary?.isDandanplayWarningStatus() == true) Icons.Filled.Warning else Icons.Filled.CheckCircle,
+            label = "Danmaku",
+            value = status?.summary ?: "Not checked yet",
+            color = when {
+                status == null -> DanmakuColors.TextMuted
+                status.summary.isDandanplayWarningStatus() -> DanmakuColors.Warning
+                else -> DanmakuColors.Good
+            },
+        )
+        InspectorStatusRow(
+            icon = Icons.Filled.Subtitles,
+            label = "Subtitles",
+            value = "${selectedItem.subtitles.size} indexed",
+            color = if (selectedItem.subtitles.isNotEmpty()) DanmakuColors.Good else DanmakuColors.TextMuted,
+        )
+        selectedEpisodeDetail?.let { detail ->
+            MetadataRow("Season", detail.season.label)
+            MetadataRow("Watch", detail.watchStatus.statusLabel())
+            MetadataRow("Size", detail.mediaItem.sizeBytes.formatLibrarySize())
+        }
+        Divider(color = DanmakuColors.SurfaceRaised)
+        Text("Episodes", fontWeight = FontWeight.Bold)
+        LazyColumn(modifier = Modifier.heightIn(max = 220.dp)) {
+            selectedSeries.seasons.forEach { season ->
+                item(key = season.id) {
+                    Text(season.label, color = DanmakuColors.TextMuted, fontWeight = FontWeight.Bold)
+                }
+                items(season.items, key = { it.id }) { item ->
+                    CompactInspectorEpisodeRow(
+                        item = item,
+                        selected = item.id == selectedItem.id,
+                        watchStatus = watchStatusById[item.id],
+                        onClick = { onShowDetails(item) },
+                    )
+                }
+            }
+        }
+        activePreparation?.let { preparation ->
+            Divider(color = DanmakuColors.SurfaceRaised)
+            Text("Advanced", fontWeight = FontWeight.Bold)
+            Button(onClick = { onLoadPreparedPlayback(preparation) }, modifier = Modifier.fillMaxWidth()) {
+                Text("Load into player")
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = { onRefreshDandanplay(preparation) },
+                    enabled = !isPreparing,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text("Refresh danmaku")
+                }
+                Button(
+                    onClick = { onAttachManualDanmaku(preparation) },
+                    enabled = !isPreparing,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text("Attach local")
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = { onClearDanmakuOverlay(preparation) },
+                    enabled = hasDanmakuOverlay && !isPreparing,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text("Remove overlay")
+                }
+                Button(
+                    onClick = { onClearDandanplayCache(preparation) },
+                    enabled = !isPreparing,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text("Clear cache")
+                }
+            }
+            Button(
+                onClick = { onSetAutoNextLocalPlayback(!autoNextLocalPlayback) },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(if (autoNextLocalPlayback) "Auto-next on" else "Auto-next off")
+            }
+            status?.details?.forEach { detail ->
+                MetadataRow(detail.label, detail.value)
+            }
+            status?.let {
+                DandanplayMatchCandidatePicker(
+                    preparation = preparation,
+                    status = it,
+                    isPreparing = isPreparing,
+                    onSelectDandanplayMatch = onSelectDandanplayMatch,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun InspectorStatusRow(
+    icon: ImageVector,
     label: String,
-    count: Int,
+    value: String,
+    color: Color,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(DanmakuColors.SurfaceRaised.copy(alpha = 0.62f))
+            .padding(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Icon(icon, contentDescription = label, tint = color, modifier = Modifier.size(18.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(label, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(value, color = color, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+@Composable
+private fun CompactInspectorEpisodeRow(
+    item: LibraryMediaItem,
+    selected: Boolean,
+    watchStatus: LibraryWatchStatus?,
+    onClick: () -> Unit,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(6.dp))
-            .background(DanmakuColors.SurfaceRaised.copy(alpha = 0.72f))
-            .padding(horizontal = 10.dp, vertical = 8.dp),
+            .background(if (selected) DanmakuColors.AccentSoft else Color.Transparent)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text(label, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-        Text(count.toString(), color = DanmakuColors.TextMuted, maxLines = 1)
+        Text(item.episodeTitle, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+        Text(watchStatus.statusLabel(), color = DanmakuColors.TextMuted, maxLines = 1)
     }
 }
+
+@Composable
+private fun MiniProgressBar(
+    percent: Int?,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(4.dp)
+            .clip(RoundedCornerShape(999.dp))
+            .background(Color.White.copy(alpha = 0.12f)),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth((percent ?: 0).coerceIn(0, 100) / 100f)
+                .fillMaxHeight()
+                .background(DanmakuColors.Accent),
+        )
+    }
+}
+
+@Composable
+private fun WorkspacePanel(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(DanmakuColors.Surface)
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        content = content,
+    )
+}
+
+private fun PlaybackProgress.progressPercent(): Int? =
+    durationMs
+        ?.takeIf { it > 0L }
+        ?.let { duration -> ((positionMs.coerceAtLeast(0L) * 100L) / duration).coerceIn(0L, 100L).toInt() }
+
+private fun LibraryMediaItem.primaryPlaybackActionLabel(watchStatus: LibraryWatchStatus?): String =
+    if (watchStatus?.state == LibraryWatchState.IN_PROGRESS) {
+        "Resume"
+    } else {
+        "Play"
+    }
 
 @Composable
 private fun SeriesPosterCard(
@@ -3538,71 +4296,6 @@ private fun DesktopSeriesRow(
 }
 
 @Composable
-private fun DesktopSeriesDetailPanel(
-    series: LibrarySeries,
-    watchSummary: LibrarySeriesWatchSummary?,
-    watchStatusById: Map<String, LibraryWatchStatus>,
-    favoriteMediaIds: Set<String>,
-    isPreparing: Boolean,
-    onShowDetails: (LibraryMediaItem) -> Unit,
-    onSetFavorite: (LibraryMediaItem, Boolean) -> Unit,
-    onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
-    onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
-) {
-    SectionCard("Series Detail") {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                MetadataRow("Series", series.title)
-                MetadataRow("Episodes", series.episodeCount.toString())
-                MetadataRow("Seasons", series.seasons.size.toString())
-                MetadataRow("Progress", watchSummary.progressLabel())
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                MetadataRow("Subtitles", "${series.subtitleTrackCount} tracks")
-                MetadataRow("Library size", series.totalSizeBytes.formatLibrarySize())
-                MetadataRow("Latest item", series.latestIndexedItem.episodeTitle)
-            }
-        }
-        LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
-            items(series.seasons, key = { it.id }) { season ->
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 6.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    Text(
-                        "${season.label} (${season.items.size} episodes)",
-                        fontWeight = FontWeight.Bold,
-                    )
-                    season.items.take(4).forEach { item ->
-                        EpisodeRow(
-                            item = item,
-                            watchStatus = watchStatusById[item.id],
-                            isFavorite = item.id in favoriteMediaIds,
-                            isPreparing = isPreparing,
-                            onShowDetails = onShowDetails,
-                            onSetFavorite = onSetFavorite,
-                            onPrepareLocalPlayback = onPrepareLocalPlayback,
-                            onPlayLocalPlayback = onPlayLocalPlayback,
-                        )
-                    }
-                    if (season.items.size > 4) {
-                        Text(
-                            "${season.items.size - 4} more episodes in this season",
-                            color = DanmakuColors.TextMuted,
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
 private fun DandanplayMatchCandidatePicker(
     preparation: DesktopLocalPlaybackPreparation,
     status: DandanplayPlaybackUiStatus,
@@ -3662,72 +4355,6 @@ private fun dandanplayMatchCandidateDetail(match: DandanplayMatch): String =
         match.animeId?.let { add("Anime ID $it") }
         match.shiftSeconds?.let { add("Shift ${it}s") }
     }.joinToString(" / ")
-
-@Composable
-private fun DesktopEpisodeDetailPanel(
-    detail: LibraryEpisodeDetail,
-    isFavorite: Boolean,
-    isPreparing: Boolean,
-    onSetFavorite: (LibraryMediaItem, Boolean) -> Unit,
-    onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
-    onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
-    onSelectEpisode: (LibraryMediaItem) -> Unit,
-) {
-    SectionCard("Episode Detail") {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                MetadataRow(
-                    "Episode",
-                    "${detail.mediaItem.seriesTitle} - ${detail.mediaItem.episodeTitle}",
-                )
-                MetadataRow("Series", detail.series.title)
-                MetadataRow("Season", detail.season.label)
-                MetadataRow("Watch state", detail.watchStatus.statusLabel())
-                MetadataRow("Favorite", if (isFavorite) "Yes" else "No")
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                MetadataRow("Subtitles", "${detail.mediaItem.subtitles.size} tracks")
-                MetadataRow("Library size", detail.mediaItem.sizeBytes.formatLibrarySize())
-                MetadataRow("Media type", detail.mediaItem.mediaType)
-                MetadataRow("Path", detail.mediaItem.relativePath)
-            }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(
-                onClick = { onPrepareLocalPlayback(detail.mediaItem) },
-                enabled = !isPreparing,
-            ) {
-                Text(if (isPreparing) "Preparing..." else "Prepare")
-            }
-            Button(
-                onClick = { onPlayLocalPlayback(detail.mediaItem) },
-                enabled = !isPreparing,
-            ) {
-                Text(if (isPreparing) "Loading..." else "Play")
-            }
-            Button(
-                onClick = { onSetFavorite(detail.mediaItem, !isFavorite) },
-            ) {
-                Text(if (isFavorite) "Unfavorite" else "Favorite")
-            }
-            Button(
-                onClick = { detail.previousItem?.let(onSelectEpisode) },
-                enabled = detail.previousItem != null,
-            ) {
-                Text("Previous episode")
-            }
-            Button(
-                onClick = { detail.nextItem?.let(onSelectEpisode) },
-                enabled = detail.nextItem != null,
-            ) {
-                Text("Next episode")
-            }
-        }
-    }
-}
 
 private fun LibrarySeriesWatchSummary?.progressLabel(): String =
     if (this == null) {
