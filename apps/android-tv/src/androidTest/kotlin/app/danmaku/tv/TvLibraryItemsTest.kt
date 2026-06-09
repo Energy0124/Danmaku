@@ -1,9 +1,12 @@
 package app.danmaku.tv
 
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.pressKey
 import androidx.tv.material3.MaterialTheme
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryMediaItem
@@ -126,7 +129,7 @@ class TvLibraryItemsTest {
             }
         }
 
-        composeRule.onNodeWithTag("episode-details:example-2").performClick()
+        composeRule.onNodeWithTag("episode:example-2").performClick()
         composeRule.onNodeWithTag("episode-detail:example-2").assertExists()
         composeRule.onNodeWithText("Example Show / Season unknown / New").assertExists()
         composeRule.onNodeWithText("Next").performClick()
@@ -134,7 +137,7 @@ class TvLibraryItemsTest {
     }
 
     @Test
-    fun episodeButtonRoutesSelectedItemToPlayCallback() {
+    fun episodeCardShowsDetailsAndQuickActionRoutesPlayCallback() {
         var playedItemId: String? = null
         composeRule.setContent {
             MaterialTheme {
@@ -147,6 +150,34 @@ class TvLibraryItemsTest {
         }
 
         composeRule.onNodeWithTag("episode:example-1").performClick()
+        composeRule.onNodeWithTag("episode-detail:example-1").assertExists()
+        composeRule.onNodeWithTag("episode-play:example-1").performClick()
+
+        composeRule.runOnIdle {
+            assertEquals("example-1", playedItemId)
+        }
+    }
+
+    @Test
+    fun dpadCenterSelectsEpisodeCardAndQuickPlayAction() {
+        var playedItemId: String? = null
+        composeRule.setContent {
+            MaterialTheme {
+                LibraryItems(
+                    catalog = seededCatalog(),
+                    playbackProgresses = emptyList(),
+                    onPlay = { playedItemId = it.id },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("episode:example-1").performKeyInput {
+            pressKey(Key.DirectionCenter)
+        }
+        composeRule.onNodeWithTag("episode-detail:example-1").assertExists()
+        composeRule.onNodeWithTag("episode-play:example-1").performKeyInput {
+            pressKey(Key.DirectionCenter)
+        }
 
         composeRule.runOnIdle {
             assertEquals("example-1", playedItemId)

@@ -30,8 +30,8 @@ Status legend:
 - `[~]` Add stable left navigation rail for Home/Library/Search/Favorites/PC.
 - `[~]` Make connected-library default focus land on Next Up.
 - `[~]` Add focus-aware scaling/border states for TV cards.
-- `[ ]` Reduce action-heavy TV rows to one primary card target plus focused quick actions.
-- `[ ]` Expand D-pad tests beyond Discover/Refresh.
+- `[x]` Reduce action-heavy TV rows to one primary card target plus focused quick actions.
+- `[x]` Expand D-pad tests beyond Discover/Refresh.
 
 ## Phase 3 - Metadata/Poster Integration
 
@@ -66,4 +66,6 @@ Status legend:
 - 2026-06-09: `:apps:android-mobile:compileDebugKotlin`, `:apps:android-tv:compileDebugKotlin`, `:apps:android-mobile:assembleDebug`, `:apps:android-tv:assembleDebug`, `:apps:android-mobile:compileDebugAndroidTestKotlin`, and `:apps:android-tv:compileDebugAndroidTestKotlin` passed after adding mobile/TV poster image rendering; mobile/TV unit-test tasks remain `NO-SOURCE`.
 - 2026-06-09: Shared series grouping now uses matched anime IDs per item, keeps unmatched items in their local series, and searches matched anime titles so selected anime series filter correctly across desktop, mobile, and TV.
 - 2026-06-09: `:shared:domain:jvmTest`, `:apps:desktop-windows:desktopTest`, `:apps:android-mobile:compileDebugKotlin`, and `:apps:android-tv:compileDebugKotlin` passed after matched-anime grouping changes.
+- 2026-06-09: TV episode rows now use the large row card as the primary details target, with Play and Favorite as quick actions; D-pad center coverage now checks both the primary row and quick Play action.
+- 2026-06-09: `:apps:android-tv:compileDebugKotlin` and `:apps:android-tv:compileDebugAndroidTestKotlin` passed after simplifying TV episode row actions.
 - Connected Android instrumentation tests are still pending a device/emulator run.

@@ -1549,7 +1549,7 @@ private fun TvEpisodeButton(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Button(
-            onClick = onPlay,
+            onClick = onShowDetails,
             modifier = Modifier
                 .weight(1f)
                 .tvFocusHalo(RoundedCornerShape(18.dp))
@@ -1590,20 +1590,20 @@ private fun TvEpisodeButton(
             }
         }
         Button(
+            onClick = onPlay,
+            modifier = Modifier
+                .tvFocusHalo(RoundedCornerShape(18.dp))
+                .testTag("episode-play:${item.id}"),
+        ) {
+            Text("Play")
+        }
+        Button(
             onClick = { onSetFavorite(!isFavorite) },
             modifier = Modifier
                 .tvFocusHalo(RoundedCornerShape(18.dp))
                 .testTag("episode-favorite:${item.id}"),
         ) {
             Text(if (isFavorite) "Unfavorite" else "Favorite")
-        }
-        Button(
-            onClick = onShowDetails,
-            modifier = Modifier
-                .tvFocusHalo(RoundedCornerShape(18.dp))
-                .testTag("episode-details:${item.id}"),
-        ) {
-            Text("Details")
         }
     }
 }
