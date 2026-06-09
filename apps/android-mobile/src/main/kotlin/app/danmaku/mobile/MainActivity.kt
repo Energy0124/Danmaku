@@ -1,11 +1,13 @@
 package app.danmaku.mobile
 
+import android.graphics.BitmapFactory
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -70,6 +72,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -125,6 +130,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.net.HttpURLConnection
+import java.net.URI
+import java.net.URLEncoder
 
 private val AppBackground = Color(0xFF101214)
 private val PlayerBlack = Color(0xFF050607)
@@ -134,6 +142,23 @@ private val SubtleText = Color(0xFFB7C0C9)
 private val AccentBlue = Color(0xFF7DD3FC)
 private val AccentAmber = Color(0xFFFBBF24)
 private val DangerRed = Color(0xFFFCA5A5)
+
+internal data class LibraryPosterEndpoint(
+    val baseUrl: String,
+    val pairingToken: String,
+) {
+    fun posterUrl(item: LibraryMediaItem): String? {
+        val path = item.posterPath ?: return null
+        return "${baseUrl.trim().trimEnd('/')}$path?token=${pairingToken.encodedQueryValue()}"
+    }
+}
+
+private enum class PosterImageLoadState {
+    IDLE,
+    LOADING,
+    LOADED,
+    FAILED,
+}
 
 private enum class MobileTab(
     val label: String,
@@ -217,6 +242,9 @@ private fun MobilePlayerScreen() {
             ),
         )
         .orEmpty()
+    val posterEndpoint = catalog?.let {
+        LibraryPosterEndpoint(serverUrl, pairingToken)
+    }
     val openDocument = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri ?: return@rememberLauncherForActivityResult
         controller?.let {
@@ -376,6 +404,7 @@ private fun MobilePlayerScreen() {
             MobileTab.Library -> LibraryPage(
                 contentPadding = innerPadding,
                 catalog = catalog,
+                posterEndpoint = posterEndpoint,
                 playbackProgresses = playbackProgresses,
                 filteredItems = filteredItems,
                 totalCount = totalItems.size,
@@ -563,6 +592,7 @@ internal fun WatchPage(
 internal fun LibraryPage(
     contentPadding: PaddingValues,
     catalog: LibraryCatalog?,
+    posterEndpoint: LibraryPosterEndpoint? = null,
     playbackProgresses: List<PlaybackProgress>,
     filteredItems: List<LibraryMediaItem>,
     totalCount: Int,
@@ -646,6 +676,7 @@ internal fun LibraryPage(
                 item(key = "library-next-up") {
                     NextUpPanel(
                         items = nextUpItems,
+                        posterEndpoint = posterEndpoint,
                         onShowDetails = { selectedEpisodeId = it.id },
                         onPlay = onPlay,
                     )
@@ -659,6 +690,7 @@ internal fun LibraryPage(
                         tag = "library-continue-watching",
                         itemTagPrefix = "continue-watching",
                         items = continueWatchingItems,
+                        posterEndpoint = posterEndpoint,
                         onShowDetails = { selectedEpisodeId = it.id },
                         onPlay = onPlay,
                     )
@@ -672,16 +704,18 @@ internal fun LibraryPage(
                         tag = "library-recently-watched",
                         itemTagPrefix = "recently-watched",
                         items = recentlyWatchedItems,
+                        posterEndpoint = posterEndpoint,
                         onShowDetails = { selectedEpisodeId = it.id },
                         onPlay = onPlay,
                     )
                 }
             }
             item(key = "library-series-rail") {
-                SeriesRail(
-                    series = series.take(12),
-                    watchSummaryById = seriesWatchSummaryById,
-                    searchText = searchText,
+                    SeriesRail(
+                        series = series.take(12),
+                        watchSummaryById = seriesWatchSummaryById,
+                        posterEndpoint = posterEndpoint,
+                        searchText = searchText,
                     onSelectSeries = onSearchTextChange,
                     onClearSearch = { onSearchTextChange("") },
                 )
@@ -700,6 +734,7 @@ internal fun LibraryPage(
                 item(key = "episode-detail-${detail.mediaItem.id}") {
                     EpisodeDetailPanel(
                         detail = detail,
+                        posterEndpoint = posterEndpoint,
                         isFavorite = detail.mediaItem.id in favoriteMediaIds,
                         onSetFavorite = { onSetFavorite(detail.mediaItem, it) },
                         onPlay = onPlay,
@@ -727,6 +762,7 @@ internal fun LibraryPage(
             items(filteredItems, key = LibraryMediaItem::id) { item ->
                 EpisodeRow(
                     item = item,
+                    posterEndpoint = posterEndpoint,
                     selected = nowPlaying?.id == item.id,
                     watchStatus = watchStatusById[item.id],
                     isFavorite = item.id in favoriteMediaIds,
@@ -772,6 +808,7 @@ internal fun LibraryPage(
                     selectedEpisodeDetail?.let { detail ->
                         EpisodeDetailPanel(
                             detail = detail,
+                            posterEndpoint = posterEndpoint,
                             isFavorite = detail.mediaItem.id in favoriteMediaIds,
                             onSetFavorite = { onSetFavorite(detail.mediaItem, it) },
                             onPlay = onPlay,
@@ -827,6 +864,7 @@ private fun TabletDetailPlaceholder(catalog: LibraryCatalog?) {
 @Composable
 private fun EpisodeDetailPanel(
     detail: LibraryEpisodeDetail,
+    posterEndpoint: LibraryPosterEndpoint?,
     isFavorite: Boolean,
     onSetFavorite: (Boolean) -> Unit,
     onPlay: (LibraryMediaItem) -> Unit,
@@ -849,10 +887,12 @@ private fun EpisodeDetailPanel(
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                PosterFallbackTile(
+                LibraryPosterTile(
+                    item = detail.mediaItem,
                     title = detail.series.title,
                     selected = false,
                     progressLabel = detail.watchStatus.statusLabel().substringBefore(" · "),
+                    posterEndpoint = posterEndpoint,
                     modifier = Modifier
                         .width(86.dp)
                         .aspectRatio(0.70f),
@@ -937,6 +977,7 @@ private fun EpisodeDetailPanel(
 @Composable
 private fun NextUpPanel(
     items: List<LibraryNextUpItem>,
+    posterEndpoint: LibraryPosterEndpoint?,
     onShowDetails: (LibraryMediaItem) -> Unit,
     onPlay: (LibraryMediaItem) -> Unit,
 ) {
@@ -971,6 +1012,7 @@ private fun NextUpPanel(
                 items(items, key = { it.mediaItem.id }) { item ->
                     NextUpChip(
                         item = item,
+                        posterEndpoint = posterEndpoint,
                         onShowDetails = { onShowDetails(item.mediaItem) },
                         onPlay = { onPlay(item.mediaItem) },
                     )
@@ -983,6 +1025,7 @@ private fun NextUpPanel(
 @Composable
 private fun NextUpChip(
     item: LibraryNextUpItem,
+    posterEndpoint: LibraryPosterEndpoint?,
     onShowDetails: () -> Unit,
     onPlay: () -> Unit,
 ) {
@@ -998,10 +1041,12 @@ private fun NextUpChip(
             modifier = Modifier.padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            PosterFallbackTile(
+            LibraryPosterTile(
+                item = item.mediaItem,
                 title = item.mediaItem.seriesTitle,
                 selected = false,
                 progressLabel = item.nextUpActionLabel(),
+                posterEndpoint = posterEndpoint,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(96.dp),
@@ -1047,42 +1092,74 @@ private fun NextUpChip(
 }
 
 @Composable
-private fun PosterFallbackTile(
+private fun LibraryPosterTile(
+    item: LibraryMediaItem,
     title: String,
     selected: Boolean,
+    posterEndpoint: LibraryPosterEndpoint?,
     progressLabel: String? = null,
     modifier: Modifier = Modifier,
 ) {
+    val posterUrl = posterEndpoint?.posterUrl(item)
+    val posterImage = rememberPosterImage(posterUrl)
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(14.dp))
             .background(if (selected) AccentBlue else Color(0xFF26313A)),
     ) {
-        Text(
-            title.initials(),
-            color = if (selected) PlayerBlack else Color(0xFFE5E7EB),
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.align(Alignment.Center),
-        )
+        if (posterImage.bitmap != null) {
+            Image(
+                bitmap = posterImage.bitmap,
+                contentDescription = "Poster for $title",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+            )
+        } else {
+            Text(
+                title.initials(),
+                color = if (selected) PlayerBlack else Color(0xFFE5E7EB),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.align(Alignment.Center),
+            )
+        }
+        if (posterImage.state == PosterImageLoadState.LOADING) {
+            PosterPill(
+                label = "Loading",
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(8.dp),
+            )
+        }
         progressLabel?.let {
-            Surface(
+            PosterPill(
+                label = it,
                 modifier = Modifier
                     .align(Alignment.BottomStart)
                     .padding(8.dp),
-                shape = CircleShape,
-                color = Color.Black.copy(alpha = 0.62f),
-            ) {
-                Text(
-                    it,
-                    color = Color.White,
-                    style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
+            )
         }
+    }
+}
+
+@Composable
+private fun PosterPill(
+    label: String,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        shape = CircleShape,
+        color = Color.Black.copy(alpha = 0.62f),
+    ) {
+        Text(
+            label,
+            color = Color.White,
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
@@ -1093,6 +1170,7 @@ private fun ProgressRail(
     tag: String,
     itemTagPrefix: String,
     items: List<LibraryPlaybackProgressItem>,
+    posterEndpoint: LibraryPosterEndpoint?,
     onShowDetails: (LibraryMediaItem) -> Unit,
     onPlay: (LibraryMediaItem) -> Unit,
 ) {
@@ -1127,6 +1205,7 @@ private fun ProgressRail(
                 items(items, key = { it.mediaItem.id }) { item ->
                     ProgressChip(
                         item = item,
+                        posterEndpoint = posterEndpoint,
                         playTag = "$itemTagPrefix:${item.mediaItem.id}",
                         detailTag = "$itemTagPrefix-details:${item.mediaItem.id}",
                         onShowDetails = { onShowDetails(item.mediaItem) },
@@ -1141,6 +1220,7 @@ private fun ProgressRail(
 @Composable
 private fun ProgressChip(
     item: LibraryPlaybackProgressItem,
+    posterEndpoint: LibraryPosterEndpoint?,
     playTag: String,
     detailTag: String,
     onShowDetails: () -> Unit,
@@ -1158,6 +1238,16 @@ private fun ProgressChip(
             modifier = Modifier.padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
+            LibraryPosterTile(
+                item = item.mediaItem,
+                title = item.mediaItem.seriesTitle,
+                selected = false,
+                posterEndpoint = posterEndpoint,
+                progressLabel = item.progress.progressLabel(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(96.dp),
+            )
             Text(
                 item.mediaItem.seriesTitle,
                 fontWeight = FontWeight.SemiBold,
@@ -1202,6 +1292,7 @@ private fun ProgressChip(
 private fun SeriesRail(
     series: List<LibrarySeries>,
     watchSummaryById: Map<String, LibrarySeriesWatchSummary>,
+    posterEndpoint: LibraryPosterEndpoint?,
     searchText: String,
     onSelectSeries: (String) -> Unit,
     onClearSearch: () -> Unit,
@@ -1252,6 +1343,7 @@ private fun SeriesRail(
                     SeriesPosterCard(
                         series = summary,
                         watchSummary = watchSummaryById[summary.id],
+                        posterEndpoint = posterEndpoint,
                         selected = selected,
                         onClick = {
                             if (selected) {
@@ -1272,6 +1364,7 @@ private fun SeriesRail(
 private fun SeriesPosterCard(
     series: LibrarySeries,
     watchSummary: LibrarySeriesWatchSummary?,
+    posterEndpoint: LibraryPosterEndpoint?,
     selected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -1292,9 +1385,11 @@ private fun SeriesPosterCard(
             modifier = Modifier.padding(10.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            PosterFallbackTile(
+            LibraryPosterTile(
+                item = series.latestIndexedItem,
                 title = series.title,
                 selected = selected,
+                posterEndpoint = posterEndpoint,
                 progressLabel = "${watchSummary?.watchedCount ?: 0}/${series.episodeCount}",
                 modifier = Modifier
                     .fillMaxWidth()
@@ -2256,6 +2351,7 @@ private fun TrackButtons(
 @Composable
 private fun EpisodeRow(
     item: LibraryMediaItem,
+    posterEndpoint: LibraryPosterEndpoint?,
     selected: Boolean,
     watchStatus: LibraryWatchStatus?,
     isFavorite: Boolean,
@@ -2293,9 +2389,11 @@ private fun EpisodeRow(
             modifier = Modifier.padding(14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            PosterFallbackTile(
+            LibraryPosterTile(
+                item = item,
                 title = item.seriesTitle,
                 selected = selected,
+                posterEndpoint = posterEndpoint,
                 progressLabel = null,
                 modifier = Modifier
                     .size(52.dp),
@@ -2451,6 +2549,55 @@ private fun String.serverDisplayName(): String =
     removePrefix("http://")
         .removePrefix("https://")
         .ifBlank { "No server selected" }
+
+private data class PosterImageState(
+    val bitmap: ImageBitmap?,
+    val state: PosterImageLoadState,
+)
+
+@Composable
+private fun rememberPosterImage(url: String?): PosterImageState {
+    var bitmap by remember(url) { mutableStateOf<ImageBitmap?>(null) }
+    var state by remember(url) { mutableStateOf(PosterImageLoadState.IDLE) }
+
+    LaunchedEffect(url) {
+        bitmap = null
+        if (url == null) {
+            state = PosterImageLoadState.IDLE
+            return@LaunchedEffect
+        }
+        state = PosterImageLoadState.LOADING
+        val loaded = withContext(Dispatchers.IO) {
+            loadPosterImage(url)
+        }
+        bitmap = loaded
+        state = if (loaded == null) PosterImageLoadState.FAILED else PosterImageLoadState.LOADED
+    }
+
+    return PosterImageState(bitmap, state)
+}
+
+private fun loadPosterImage(url: String): ImageBitmap? {
+    val connection = (URI(url).toURL().openConnection() as HttpURLConnection).apply {
+        connectTimeout = 3_000
+        readTimeout = 5_000
+        requestMethod = "GET"
+    }
+    return try {
+        if (connection.responseCode !in 200..299) {
+            null
+        } else {
+            connection.inputStream.use { input ->
+                BitmapFactory.decodeStream(input)?.asImageBitmap()
+            }
+        }
+    } finally {
+        connection.disconnect()
+    }
+}
+
+private fun String.encodedQueryValue(): String =
+    URLEncoder.encode(this, Charsets.UTF_8.name())
 
 private fun String.initials(): String {
     val words = trim()

@@ -1,9 +1,11 @@
 package app.danmaku.tv
 
+import android.graphics.BitmapFactory
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
@@ -17,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -41,6 +44,9 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
@@ -97,6 +103,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.net.HttpURLConnection
+import java.net.URI
+import java.net.URLEncoder
 
 private val TvAppBackground = Color(0xFF090B0E)
 private val TvPanelColor = Color(0xFF15191D)
@@ -104,6 +113,23 @@ private val TvPanelRaisedColor = Color(0xFF20262B)
 private val TvCardColor = Color(0xFF111820)
 private val TvAccentBlue = Color(0xFF7DD3FC)
 private val TvMutedText = Color(0xFFB7C0C9)
+
+internal data class LibraryPosterEndpoint(
+    val baseUrl: String,
+    val pairingToken: String,
+) {
+    fun posterUrl(item: LibraryMediaItem): String? {
+        val path = item.posterPath ?: return null
+        return "${baseUrl.trim().trimEnd('/')}$path?token=${pairingToken.encodedQueryValue()}"
+    }
+}
+
+private enum class PosterImageLoadState {
+    IDLE,
+    LOADING,
+    LOADED,
+    FAILED,
+}
 
 @Composable
 private fun Modifier.tvFocusHalo(
@@ -167,6 +193,9 @@ private fun TvPlayerScreen() {
     var catalog by remember { mutableStateOf<LibraryCatalog?>(null) }
     var playbackProgresses by remember { mutableStateOf<List<PlaybackProgress>>(emptyList()) }
     var libraryError by remember { mutableStateOf<String?>(null) }
+    val posterEndpoint = catalog?.let {
+        LibraryPosterEndpoint(serverUrl, pairingToken)
+    }
     fun refreshLibrary() {
         scope.launch {
             runCatching {
@@ -339,6 +368,7 @@ private fun TvPlayerScreen() {
             )
             LibraryItems(
                 catalog = catalog,
+                posterEndpoint = posterEndpoint,
                 playbackProgresses = playbackProgresses,
                 favoriteMediaIds = favoriteMediaIds,
                 onSetFavorite = { item, isFavorite ->
@@ -564,34 +594,66 @@ private fun TvRailPill(
 
 @Composable
 private fun TvPosterTile(
+    item: LibraryMediaItem,
     title: String,
+    posterEndpoint: LibraryPosterEndpoint?,
     modifier: Modifier = Modifier,
     label: String? = null,
 ) {
+    val posterUrl = posterEndpoint?.posterUrl(item)
+    val posterImage = rememberPosterImage(posterUrl)
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(18.dp))
             .background(Color(0xFF26313A)),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            title.initials(),
-            color = Color(0xFFE5E7EB),
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-        )
+        if (posterImage.bitmap != null) {
+            Image(
+                bitmap = posterImage.bitmap,
+                contentDescription = "Poster for $title",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+            )
+        } else {
+            Text(
+                title.initials(),
+                color = Color(0xFFE5E7EB),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+        if (posterImage.state == PosterImageLoadState.LOADING) {
+            TvPosterPill(
+                label = "Loading",
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(10.dp),
+            )
+        }
         label?.let {
-            Box(
+            TvPosterPill(
+                label = it,
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .padding(10.dp)
-                    .clip(CircleShape)
-                    .background(Color.Black.copy(alpha = 0.62f))
-                    .padding(horizontal = 10.dp, vertical = 5.dp),
-            ) {
-                Text(it, color = Color.White)
-            }
+                    .padding(10.dp),
+            )
         }
+    }
+}
+
+@Composable
+private fun TvPosterPill(
+    label: String,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .clip(CircleShape)
+            .background(Color.Black.copy(alpha = 0.62f))
+            .padding(horizontal = 10.dp, vertical = 5.dp),
+    ) {
+        Text(label, color = Color.White)
     }
 }
 
@@ -768,6 +830,7 @@ private fun TvSavedConnectionCard(
 @Composable
 internal fun LibraryItems(
     catalog: LibraryCatalog?,
+    posterEndpoint: LibraryPosterEndpoint? = null,
     playbackProgresses: List<PlaybackProgress> = emptyList(),
     favoriteMediaIds: Set<String> = emptySet(),
     onSetFavorite: (LibraryMediaItem, Boolean) -> Unit = { _, _ -> },
@@ -918,6 +981,7 @@ internal fun LibraryItems(
             if (nextUpItems.isNotEmpty()) {
                 TvNextUpRail(
                     items = nextUpItems,
+                    posterEndpoint = posterEndpoint,
                     initialFocusRequester = nextUpFocusRequester,
                     onShowDetails = { selectedEpisodeId = it.id },
                     onPlay = onPlay,
@@ -929,6 +993,7 @@ internal fun LibraryItems(
                     tag = "library-continue-watching",
                     itemTagPrefix = "continue-watching",
                     items = continueWatchingItems,
+                    posterEndpoint = posterEndpoint,
                     onShowDetails = { selectedEpisodeId = it.id },
                     onPlay = onPlay,
                 )
@@ -939,6 +1004,7 @@ internal fun LibraryItems(
                     tag = "library-recently-watched",
                     itemTagPrefix = "recently-watched",
                     items = recentlyWatchedItems,
+                    posterEndpoint = posterEndpoint,
                     onShowDetails = { selectedEpisodeId = it.id },
                     onPlay = onPlay,
                 )
@@ -976,7 +1042,9 @@ internal fun LibraryItems(
                         ) {
                             Column {
                                 TvPosterTile(
+                                    item = summary.latestIndexedItem,
                                     title = summary.title,
+                                    posterEndpoint = posterEndpoint,
                                     label = seriesWatchSummaryById[summary.id].shortProgressLabel(),
                                     modifier = Modifier
                                         .width(180.dp)
@@ -1005,6 +1073,7 @@ internal fun LibraryItems(
             selectedEpisodeDetail?.let { detail ->
                 TvEpisodeDetail(
                     detail = detail,
+                    posterEndpoint = posterEndpoint,
                     isFavorite = detail.mediaItem.id in favoriteMediaIds,
                     onSetFavorite = { onSetFavorite(detail.mediaItem, it) },
                     onPlay = onPlay,
@@ -1041,6 +1110,7 @@ internal fun LibraryItems(
                         items(filteredItems, key = LibraryMediaItem::id) { item ->
                             TvEpisodeButton(
                                 item = item,
+                                posterEndpoint = posterEndpoint,
                                 watchStatus = watchStatusById[item.id],
                                 isFavorite = item.id in favoriteMediaIds,
                                 onSetFavorite = { onSetFavorite(item, it) },
@@ -1091,6 +1161,7 @@ private fun TvLibraryEmptyPanel(
 @Composable
 private fun TvEpisodeDetail(
     detail: LibraryEpisodeDetail,
+    posterEndpoint: LibraryPosterEndpoint?,
     isFavorite: Boolean,
     onSetFavorite: (Boolean) -> Unit,
     onPlay: (LibraryMediaItem) -> Unit,
@@ -1109,6 +1180,16 @@ private fun TvEpisodeDetail(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            TvPosterTile(
+                item = detail.mediaItem,
+                title = detail.series.title,
+                posterEndpoint = posterEndpoint,
+                label = detail.watchStatus.statusLabel().substringBefore(" / "),
+                modifier = Modifier
+                    .width(96.dp)
+                    .aspectRatio(0.72f),
+            )
+            Spacer(modifier = Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     detail.mediaItem.episodeTitle,
@@ -1168,6 +1249,7 @@ private fun TvProgressRail(
     tag: String,
     itemTagPrefix: String,
     items: List<LibraryPlaybackProgressItem>,
+    posterEndpoint: LibraryPosterEndpoint?,
     onShowDetails: (LibraryMediaItem) -> Unit,
     onPlay: (LibraryMediaItem) -> Unit,
 ) {
@@ -1214,7 +1296,9 @@ private fun TvProgressRail(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     TvPosterTile(
+                        item = item.mediaItem,
                         title = item.mediaItem.seriesTitle,
+                        posterEndpoint = posterEndpoint,
                         label = "Resume",
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1261,6 +1345,7 @@ private fun TvProgressRail(
 @Composable
 private fun TvNextUpRail(
     items: List<LibraryNextUpItem>,
+    posterEndpoint: LibraryPosterEndpoint?,
     initialFocusRequester: FocusRequester? = null,
     onShowDetails: (LibraryMediaItem) -> Unit,
     onPlay: (LibraryMediaItem) -> Unit,
@@ -1309,7 +1394,9 @@ private fun TvNextUpRail(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     TvPosterTile(
+                        item = item.mediaItem,
                         title = item.mediaItem.seriesTitle,
+                        posterEndpoint = posterEndpoint,
                         label = item.nextUpActionLabel(),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1449,6 +1536,7 @@ private fun TvSeriesDetail(
 @Composable
 private fun TvEpisodeButton(
     item: LibraryMediaItem,
+    posterEndpoint: LibraryPosterEndpoint?,
     watchStatus: LibraryWatchStatus?,
     isFavorite: Boolean,
     onSetFavorite: (Boolean) -> Unit,
@@ -1471,6 +1559,13 @@ private fun TvEpisodeButton(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                TvPosterTile(
+                    item = item,
+                    title = item.seriesTitle,
+                    posterEndpoint = posterEndpoint,
+                    modifier = Modifier.size(64.dp),
+                )
+                Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         item.seriesTitle,
@@ -1515,6 +1610,55 @@ private fun TvEpisodeButton(
 
 private fun LibrarySeries.episodeLabel(): String =
     if (episodeCount == 1) "1 episode" else "$episodeCount episodes"
+
+private data class PosterImageState(
+    val bitmap: ImageBitmap?,
+    val state: PosterImageLoadState,
+)
+
+@Composable
+private fun rememberPosterImage(url: String?): PosterImageState {
+    var bitmap by remember(url) { mutableStateOf<ImageBitmap?>(null) }
+    var state by remember(url) { mutableStateOf(PosterImageLoadState.IDLE) }
+
+    LaunchedEffect(url) {
+        bitmap = null
+        if (url == null) {
+            state = PosterImageLoadState.IDLE
+            return@LaunchedEffect
+        }
+        state = PosterImageLoadState.LOADING
+        val loaded = withContext(Dispatchers.IO) {
+            loadPosterImage(url)
+        }
+        bitmap = loaded
+        state = if (loaded == null) PosterImageLoadState.FAILED else PosterImageLoadState.LOADED
+    }
+
+    return PosterImageState(bitmap, state)
+}
+
+private fun loadPosterImage(url: String): ImageBitmap? {
+    val connection = (URI(url).toURL().openConnection() as HttpURLConnection).apply {
+        connectTimeout = 3_000
+        readTimeout = 5_000
+        requestMethod = "GET"
+    }
+    return try {
+        if (connection.responseCode !in 200..299) {
+            null
+        } else {
+            connection.inputStream.use { input ->
+                BitmapFactory.decodeStream(input)?.asImageBitmap()
+            }
+        }
+    } finally {
+        connection.disconnect()
+    }
+}
+
+private fun String.encodedQueryValue(): String =
+    URLEncoder.encode(this, Charsets.UTF_8.name())
 
 private fun LibrarySeriesWatchSummary?.shortProgressLabel(): String =
     if (this == null) {

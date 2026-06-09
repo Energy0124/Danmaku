@@ -11,7 +11,7 @@ Status legend:
 ## Phase 1 - Mobile Polish
 
 - `[~]` Keep current bottom tab structure while making the Library tab poster-led.
-- `[~]` Add reusable fallback poster/artwork component for series and episodes.
+- `[~]` Add reusable fallback poster/artwork component for series and episodes, now with LAN poster image loading.
 - `[~]` Replace the series chip rail with poster cards.
 - `[~]` Add phone/tablet breakpoint and two-pane tablet layout.
 - `[~]` Add compact active-filter status chips below the toolbar.
@@ -25,7 +25,7 @@ Status legend:
 - `[~]` Move TV library browsing toward a dedicated shell instead of a raw vertical stack.
 - `[~]` Add TV visual system constants for background, panels, focus, muted text, and accent.
 - `[~]` Replace raw gray library panels with composed TV panel/card surfaces.
-- `[~]` Add poster-like fallback cards for Next Up, progress rails, and series.
+- `[~]` Add poster-like fallback cards for Next Up, progress rails, and series, now with LAN poster image loading.
 - `[~]` Move PC setup fields into a dedicated PC surface/screen.
 - `[~]` Add stable left navigation rail for Home/Library/Search/Favorites/PC.
 - `[~]` Make connected-library default focus land on Next Up.
@@ -62,4 +62,6 @@ Status legend:
 - 2026-06-09: `:apps:android-tv:compileDebugKotlin`, `:apps:android-tv:assembleDebug`, `:apps:android-tv:compileDebugAndroidTestKotlin`, and `git diff --check` passed after extracting the PC connection panel and wiring Next Up default focus; `:apps:android-tv:testDebugUnitTest` completed with `NO-SOURCE`.
 - 2026-06-09: LAN catalog now carries cached matched anime metadata, poster paths, and metadata status; local grouping is preserved while mobile/TV episode rows and detail panels show matched titles and poster readiness separately.
 - 2026-06-09: `:shared:domain:jvmTest`, `:shared:library-server-core:jvmTest`, `:apps:desktop-windows:desktopTest`, `:shared:library-client:jvmTest`, `:shared:library-client-android:testDebugUnitTest`, `:apps:android-mobile:assembleDebug`, `:apps:android-tv:assembleDebug`, `:apps:android-mobile:compileDebugAndroidTestKotlin`, and `:apps:android-tv:compileDebugAndroidTestKotlin` passed after LAN poster/metadata publication; mobile/TV unit-test tasks remain `NO-SOURCE`.
+- 2026-06-09: Android mobile and TV now render authenticated LAN poster images in detail panels, episode rows, Next Up/progress rails, and series cards, with fallback initials and a visible loading pill while poster requests are in flight.
+- 2026-06-09: `:apps:android-mobile:compileDebugKotlin`, `:apps:android-tv:compileDebugKotlin`, `:apps:android-mobile:assembleDebug`, `:apps:android-tv:assembleDebug`, `:apps:android-mobile:compileDebugAndroidTestKotlin`, and `:apps:android-tv:compileDebugAndroidTestKotlin` passed after adding mobile/TV poster image rendering; mobile/TV unit-test tasks remain `NO-SOURCE`.
 - Connected Android instrumentation tests are still pending a device/emulator run.
