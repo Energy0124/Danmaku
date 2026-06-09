@@ -196,8 +196,10 @@ unblocked slices inside these tracks as the vertical slice hardens.
 - [x] Replace the Windows Library tab with the first three-pane redesign pass:
   left navigation/source rail, center media workspace, and selected-item
   inspector.
-- [ ] Polish the redesigned Windows Library workspace with visual QA, keyboard
-  grid/list selection, clearer overflow menus, and responsive behavior at
+- [x] Polish the redesigned Windows Library workspace with keyboard grid/list
+  selection, clearer overflow menus, and responsive behavior for desktop
+  widths around 1366px and 1920px.
+- [ ] Complete visual QA for the redesigned Windows Library workspace at
   1366x768 and 1920x1080.
 - [ ] Continue tightening fullscreen player chrome around the stable native
   video host.
