@@ -15,7 +15,7 @@ Status legend:
 - `[~]` Replace the series chip rail with poster cards.
 - `[ ]` Add phone/tablet breakpoint and two-pane tablet layout.
 - `[~]` Add compact active-filter status chips below the toolbar.
-- `[ ]` Convert episode detail into a stable detail surface or bottom-sheet style flow.
+- `[~]` Convert episode detail into a stable detail surface or bottom-sheet style flow.
 - `[ ]` Surface matched anime metadata and original file/folder title separately once LAN catalog exposes it.
 - `[ ]` Show poster/metadata loading state once client-visible metadata status exists.
 - `[ ]` Extend mobile instrumentation tests for poster rail, active filters, and detail selection.
@@ -27,7 +27,7 @@ Status legend:
 - `[~]` Replace raw gray library panels with composed TV panel/card surfaces.
 - `[~]` Add poster-like fallback cards for Next Up, progress rails, and series.
 - `[ ]` Move PC setup fields into a dedicated PC surface/screen.
-- `[ ]` Add stable left navigation rail for Home/Library/Search/Favorites/PC.
+- `[~]` Add stable left navigation rail for Home/Library/Search/Favorites/PC.
 - `[ ]` Make connected-library default focus land on Next Up.
 - `[ ]` Add focus-aware scaling/border states for TV cards.
 - `[ ]` Reduce action-heavy TV rows to one primary card target plus focused quick actions.
@@ -56,4 +56,5 @@ Status legend:
 - 2026-06-09: `:apps:android-tv:assembleDebug` passed.
 - 2026-06-09: `:apps:android-mobile:testDebugUnitTest` completed with `NO-SOURCE`.
 - 2026-06-09: `:apps:android-tv:testDebugUnitTest` completed with `NO-SOURCE`.
+- 2026-06-09: Re-ran mobile/TV compile, assemble, unit-test tasks, and `git diff --check` after mobile detail and TV shell polish; all passed, with unit-test tasks still `NO-SOURCE`.
 - Connected Android instrumentation tests are still pending a device/emulator run.

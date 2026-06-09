@@ -753,21 +753,38 @@ private fun EpisodeDetailPanel(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    detail.mediaItem.episodeTitle,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                PosterFallbackTile(
+                    title = detail.series.title,
+                    selected = false,
+                    progressLabel = detail.watchStatus.statusLabel().substringBefore(" · "),
+                    modifier = Modifier
+                        .width(86.dp)
+                        .aspectRatio(0.70f),
                 )
-                Text(
-                    "${detail.series.title} · ${detail.season.label} · ${detail.watchStatus.statusLabel()}",
-                    color = SubtleText,
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        detail.mediaItem.episodeTitle,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        "${detail.series.title} · ${detail.season.label} · ${detail.watchStatus.statusLabel()}",
+                        color = SubtleText,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),

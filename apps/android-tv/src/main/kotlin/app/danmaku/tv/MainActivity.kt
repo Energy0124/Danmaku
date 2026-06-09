@@ -39,6 +39,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -534,10 +535,27 @@ private fun TvLibraryNavigationRail(
             TvRailPill("Filters active", active = true)
         }
         Spacer(modifier = Modifier.height(12.dp))
-        Text("Next Up", color = TvMutedText)
-        Text("Series", color = TvMutedText)
-        Text("Episodes", color = TvMutedText)
-        Text("PC", color = TvMutedText)
+        TvRailNavigationItem("Home")
+        TvRailNavigationItem("Library", selected = true)
+        TvRailNavigationItem("Search", selected = hasActiveFilters)
+        TvRailNavigationItem("Favorites", selected = favoriteCount > 0)
+        TvRailNavigationItem("PC", selected = catalog != null)
+    }
+}
+
+@Composable
+private fun TvRailNavigationItem(
+    label: String,
+    selected: Boolean = false,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(if (selected) Color(0xFF273747) else Color.Transparent)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+    ) {
+        Text(label, color = if (selected) Color.White else TvMutedText)
     }
 }
 
@@ -694,217 +712,220 @@ internal fun LibraryItems(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    "PC Library",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    catalog?.rootName ?: "Connect to a Windows library server",
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            Text("${filteredItems.size} / ${totalItems.size} episodes")
-        }
-        Text("${favoriteMediaIds.size} favorites")
-        BasicTextField(
-            value = searchText,
-            onValueChange = { searchText = it },
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color.DarkGray)
-                .padding(10.dp)
-                .focusable(),
-            decorationBox = { innerTextField ->
-                if (searchText.isBlank()) {
-                    Text("Search library")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "PC Library",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        catalog?.rootName ?: "Connect to a Windows library server",
+                        color = TvMutedText,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
-                innerTextField()
-            },
-        )
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            item {
-                Button(
-                    onClick = {
-                        favoriteFilter = if (favoriteFilter == LibraryFavoriteFilter.ANY) {
-                            LibraryFavoriteFilter.FAVORITES_ONLY
-                        } else {
-                            LibraryFavoriteFilter.ANY
-                        }
-                    },
-                    modifier = Modifier.testTag("library-favorites-filter"),
-                ) {
-                    Text(if (favoriteFilter == LibraryFavoriteFilter.ANY) "Favorites" else "All episodes")
-                }
+                TvRailPill("${filteredItems.size} / ${totalItems.size} episodes", active = totalItems.isNotEmpty())
             }
-            item {
-                Button(
-                    onClick = { sort = LibraryCatalogSort.TITLE },
-                    enabled = sort != LibraryCatalogSort.TITLE,
-                ) {
-                    Text("Sort title")
-                }
-            }
-            item {
-                Button(
-                    onClick = { sort = LibraryCatalogSort.PATH },
-                    enabled = sort != LibraryCatalogSort.PATH,
-                ) {
-                    Text("Sort path")
-                }
-            }
-            item {
-                Button(
-                    onClick = {
-                        subtitleFilter = if (subtitleFilter == LibrarySubtitleFilter.ANY) {
-                            LibrarySubtitleFilter.WITH_SUBTITLES
-                        } else {
-                            LibrarySubtitleFilter.ANY
-                        }
-                    },
-                ) {
-                    Text(if (subtitleFilter == LibrarySubtitleFilter.ANY) "Subtitles" else "All")
-                }
-            }
-        }
-        if (nextUpItems.isNotEmpty()) {
-            TvNextUpRail(
-                items = nextUpItems,
-                onShowDetails = { selectedEpisodeId = it.id },
-                onPlay = onPlay,
-            )
-        }
-        if (continueWatchingItems.isNotEmpty()) {
-            TvProgressRail(
-                title = "Continue Watching",
-                tag = "library-continue-watching",
-                itemTagPrefix = "continue-watching",
-                items = continueWatchingItems,
-                onShowDetails = { selectedEpisodeId = it.id },
-                onPlay = onPlay,
-            )
-        }
-        if (recentlyWatchedItems.isNotEmpty()) {
-            TvProgressRail(
-                title = "Recently Watched",
-                tag = "library-recently-watched",
-                itemTagPrefix = "recently-watched",
-                items = recentlyWatchedItems,
-                onShowDetails = { selectedEpisodeId = it.id },
-                onPlay = onPlay,
-            )
-        }
-        if (series.isNotEmpty()) {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                item(key = "all-series") {
-                    Button(
-                        onClick = {
-                            selectedSeriesId = null
-                            searchText = ""
-                        },
-                        enabled = searchText.isNotBlank() || selectedSeriesId != null,
-                        modifier = Modifier.testTag("series:all"),
-                    ) {
-                        Text("All series")
+            BasicTextField(
+                value = searchText,
+                onValueChange = { searchText = it },
+                singleLine = true,
+                textStyle = TextStyle(color = Color.White),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(TvCardColor)
+                    .padding(horizontal = 16.dp, vertical = 14.dp)
+                    .focusable(),
+                decorationBox = { innerTextField ->
+                    if (searchText.isBlank()) {
+                        Text("Search library", color = TvMutedText)
                     }
-                }
-                items(series, key = { it.id }) { summary ->
+                    innerTextField()
+                },
+            )
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                item {
                     Button(
                         onClick = {
-                            val alreadySelected = selectedSeriesId == summary.id
-                            selectedSeriesId = if (alreadySelected) null else summary.id
-                            searchText = if (alreadySelected) {
-                                ""
+                            favoriteFilter = if (favoriteFilter == LibraryFavoriteFilter.ANY) {
+                                LibraryFavoriteFilter.FAVORITES_ONLY
                             } else {
-                                summary.title
+                                LibraryFavoriteFilter.ANY
                             }
                         },
-                        modifier = Modifier.testTag("series:${summary.title}"),
+                        modifier = Modifier.testTag("library-favorites-filter"),
                     ) {
-                        Column {
-                            TvPosterTile(
-                                title = summary.title,
-                                label = seriesWatchSummaryById[summary.id].shortProgressLabel(),
-                                modifier = Modifier
-                                    .width(180.dp)
-                                    .aspectRatio(0.75f),
+                        Text(if (favoriteFilter == LibraryFavoriteFilter.ANY) "Favorites" else "All episodes")
+                    }
+                }
+                item {
+                    Button(
+                        onClick = { sort = LibraryCatalogSort.TITLE },
+                        enabled = sort != LibraryCatalogSort.TITLE,
+                    ) {
+                        Text("Sort title")
+                    }
+                }
+                item {
+                    Button(
+                        onClick = { sort = LibraryCatalogSort.PATH },
+                        enabled = sort != LibraryCatalogSort.PATH,
+                    ) {
+                        Text("Sort path")
+                    }
+                }
+                item {
+                    Button(
+                        onClick = {
+                            subtitleFilter = if (subtitleFilter == LibrarySubtitleFilter.ANY) {
+                                LibrarySubtitleFilter.WITH_SUBTITLES
+                            } else {
+                                LibrarySubtitleFilter.ANY
+                            }
+                        },
+                    ) {
+                        Text(if (subtitleFilter == LibrarySubtitleFilter.ANY) "Subtitles" else "All")
+                    }
+                }
+            }
+            if (nextUpItems.isNotEmpty()) {
+                TvNextUpRail(
+                    items = nextUpItems,
+                    onShowDetails = { selectedEpisodeId = it.id },
+                    onPlay = onPlay,
+                )
+            }
+            if (continueWatchingItems.isNotEmpty()) {
+                TvProgressRail(
+                    title = "Continue Watching",
+                    tag = "library-continue-watching",
+                    itemTagPrefix = "continue-watching",
+                    items = continueWatchingItems,
+                    onShowDetails = { selectedEpisodeId = it.id },
+                    onPlay = onPlay,
+                )
+            }
+            if (recentlyWatchedItems.isNotEmpty()) {
+                TvProgressRail(
+                    title = "Recently Watched",
+                    tag = "library-recently-watched",
+                    itemTagPrefix = "recently-watched",
+                    items = recentlyWatchedItems,
+                    onShowDetails = { selectedEpisodeId = it.id },
+                    onPlay = onPlay,
+                )
+            }
+            if (series.isNotEmpty()) {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    item(key = "all-series") {
+                        Button(
+                            onClick = {
+                                selectedSeriesId = null
+                                searchText = ""
+                            },
+                            enabled = searchText.isNotBlank() || selectedSeriesId != null,
+                            modifier = Modifier.testTag("series:all"),
+                        ) {
+                            Text("All series")
+                        }
+                    }
+                    items(series, key = { it.id }) { summary ->
+                        Button(
+                            onClick = {
+                                val alreadySelected = selectedSeriesId == summary.id
+                                selectedSeriesId = if (alreadySelected) null else summary.id
+                                searchText = if (alreadySelected) {
+                                    ""
+                                } else {
+                                    summary.title
+                                }
+                            },
+                            modifier = Modifier.testTag("series:${summary.title}"),
+                        ) {
+                            Column {
+                                TvPosterTile(
+                                    title = summary.title,
+                                    label = seriesWatchSummaryById[summary.id].shortProgressLabel(),
+                                    modifier = Modifier
+                                        .width(180.dp)
+                                        .aspectRatio(0.75f),
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    summary.title,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(summary.episodeLabel())
+                                Text(seriesWatchSummaryById[summary.id].shortProgressLabel())
+                            }
+                        }
+                    }
+                }
+            }
+            selectedSeries?.let { summary ->
+                TvSeriesDetail(
+                    series = summary,
+                    watchSummary = seriesWatchSummaryById[summary.id],
+                    onPlay = onPlay,
+                )
+            }
+            selectedEpisodeDetail?.let { detail ->
+                TvEpisodeDetail(
+                    detail = detail,
+                    isFavorite = detail.mediaItem.id in favoriteMediaIds,
+                    onSetFavorite = { onSetFavorite(detail.mediaItem, it) },
+                    onPlay = onPlay,
+                    onSelectEpisode = { selectedEpisodeId = it.id },
+                )
+            }
+            when {
+                catalog == null || totalItems.isEmpty() -> {
+                    TvLibraryEmptyPanel(
+                        title = "No PC library connected",
+                        body = "Discover or pair with a Windows library server to browse episodes on TV.",
+                    )
+                }
+                filteredItems.isEmpty() -> {
+                    TvLibraryEmptyPanel(
+                        title = "No matching episodes",
+                        body = "Reset search, favorites, and subtitle filters to return to the full library.",
+                        actionLabel = "Reset filters",
+                        onAction = {
+                            searchText = ""
+                            sort = LibraryCatalogSort.TITLE
+                            subtitleFilter = LibrarySubtitleFilter.ANY
+                            favoriteFilter = LibraryFavoriteFilter.ANY
+                            selectedSeriesId = null
+                            selectedEpisodeId = null
+                        },
+                    )
+                }
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier.height(320.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        items(filteredItems, key = LibraryMediaItem::id) { item ->
+                            TvEpisodeButton(
+                                item = item,
+                                watchStatus = watchStatusById[item.id],
+                                isFavorite = item.id in favoriteMediaIds,
+                                onSetFavorite = { onSetFavorite(item, it) },
+                                onShowDetails = { selectedEpisodeId = item.id },
+                                onPlay = { onPlay(item) },
                             )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                summary.title,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            Text(summary.episodeLabel())
-                            Text(seriesWatchSummaryById[summary.id].shortProgressLabel())
                         }
                     }
                 }
             }
         }
-        selectedSeries?.let { summary ->
-            TvSeriesDetail(
-                series = summary,
-                watchSummary = seriesWatchSummaryById[summary.id],
-                onPlay = onPlay,
-            )
-        }
-        selectedEpisodeDetail?.let { detail ->
-            TvEpisodeDetail(
-                detail = detail,
-                isFavorite = detail.mediaItem.id in favoriteMediaIds,
-                onSetFavorite = { onSetFavorite(detail.mediaItem, it) },
-                onPlay = onPlay,
-                onSelectEpisode = { selectedEpisodeId = it.id },
-            )
-        }
-        when {
-            catalog == null || totalItems.isEmpty() -> {
-                TvLibraryEmptyPanel(
-                    title = "No PC library connected",
-                    body = "Discover or pair with a Windows library server to browse episodes on TV.",
-                )
-            }
-            filteredItems.isEmpty() -> {
-                TvLibraryEmptyPanel(
-                    title = "No matching episodes",
-                    body = "Reset search, favorites, and subtitle filters to return to the full library.",
-                    actionLabel = "Reset filters",
-                    onAction = {
-                        searchText = ""
-                        sort = LibraryCatalogSort.TITLE
-                        subtitleFilter = LibrarySubtitleFilter.ANY
-                        favoriteFilter = LibraryFavoriteFilter.ANY
-                        selectedSeriesId = null
-                        selectedEpisodeId = null
-                    },
-                )
-            }
-            else -> {
-                LazyColumn(
-                    modifier = Modifier.height(320.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    items(filteredItems, key = LibraryMediaItem::id) { item ->
-                        TvEpisodeButton(
-                            item = item,
-                            watchStatus = watchStatusById[item.id],
-                            isFavorite = item.id in favoriteMediaIds,
-                            onSetFavorite = { onSetFavorite(item, it) },
-                            onShowDetails = { selectedEpisodeId = item.id },
-                            onPlay = { onPlay(item) },
-                        )
-                    }
-                }
-            }
-        }
-    }
     }
 }
 
