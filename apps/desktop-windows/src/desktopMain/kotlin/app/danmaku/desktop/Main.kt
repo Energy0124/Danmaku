@@ -111,6 +111,7 @@ import androidx.compose.ui.window.WindowState
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import app.danmaku.domain.DanmakuDisplaySettings
+import app.danmaku.domain.ExternalAnimeInfo
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryCatalogQuery
 import app.danmaku.domain.LibraryCatalogSort
@@ -525,8 +526,12 @@ private fun DesktopShell(
             },
         )
     }
-    var seriesPosterById by remember(indexedLibrary) {
-        mutableStateOf(loadSeriesPosterById(indexedLibrary, animeMetadataResolver))
+    var libraryMetadataVersion by remember { mutableStateOf(0) }
+    val displayIndexedLibrary = remember(indexedLibrary, libraryMetadataVersion, animeMetadataResolver) {
+        indexedLibrary?.withExternalAnimeMetadata(animeMetadataResolver)
+    }
+    val seriesPosterById = remember(displayIndexedLibrary, libraryMetadataVersion, animeMetadataResolver) {
+        loadSeriesPosterById(displayIndexedLibrary, animeMetadataResolver)
     }
     var playbackProgresses by remember { mutableStateOf(catalogStore.loadPlaybackProgress()) }
     var favoriteMediaIds by remember { mutableStateOf(catalogStore.loadFavoriteMediaIds()) }
@@ -547,7 +552,7 @@ private fun DesktopShell(
             onLibraryPublished = { library ->
                 scope.launch {
                     indexedLibrary = library
-                    seriesPosterById = loadSeriesPosterById(library, animeMetadataResolver)
+                    libraryMetadataVersion += 1
                     registeredRoots = rootRegistry.loadRoots()
                     selectedLocalPlaybackPreparation = null
                     libraryError = null
@@ -589,7 +594,10 @@ private fun DesktopShell(
         }
         val missingSeries = library.catalog
             .groupedSeries()
-            .filter { series -> seriesPosterById[series.id] == null }
+            .filter { series ->
+                findSeriesCoverImage(series, library) == null &&
+                    animeMetadataResolver.cachedPosterForSeries(series) == null
+            }
             .take(MAX_BACKGROUND_POSTER_REFRESH_SERIES)
         if (missingSeries.isEmpty()) return
 
@@ -612,7 +620,7 @@ private fun DesktopShell(
                         result.getOrNull() != null
                     }
                 }
-                seriesPosterById = loadSeriesPosterById(indexedLibrary, animeMetadataResolver)
+                libraryMetadataVersion += 1
                 failures.take(3).forEach { failure ->
                     appendDiagnostic("metadata", "Poster refresh failed for $failure")
                 }
@@ -638,7 +646,7 @@ private fun DesktopShell(
         appendDiagnostic("library", "Publishing library: ${library.catalog.items.size} items")
         server.publish(library.toPublishedLibrary())
         indexedLibrary = library
-        seriesPosterById = loadSeriesPosterById(library, animeMetadataResolver)
+        libraryMetadataVersion += 1
         playbackProgresses = catalogStore.loadPlaybackProgress()
         favoriteMediaIds = catalogStore.loadFavoriteMediaIds()
         registeredRoots = rootRegistry.loadRoots()
@@ -975,7 +983,7 @@ private fun DesktopShell(
                                     "Refreshed dandanplay poster metadata for ${item.seriesTitle}",
                                 )
                             }
-                            seriesPosterById = loadSeriesPosterById(indexedLibrary, animeMetadataResolver)
+                            libraryMetadataVersion += 1
                         }?.onFailure { error ->
                             appendDiagnostic(
                                 "metadata",
@@ -1568,7 +1576,7 @@ private fun DesktopShell(
                         DesktopShellTab.PLAYBACK -> Unit
                         DesktopShellTab.MEDIA_LIBRARY -> MediaLibraryTab(
                             registeredRoots = registeredRoots,
-                            indexedLibrary = indexedLibrary,
+                            indexedLibrary = displayIndexedLibrary,
                             seriesPosterById = seriesPosterById,
                             playbackProgresses = playbackProgresses,
                             favoriteMediaIds = favoriteMediaIds,
@@ -4069,6 +4077,46 @@ private fun findSeriesCoverImage(
     val firstMediaPath = indexedLibrary?.filesById?.get(firstItem.id) ?: return null
     return findCoverImageNear(firstMediaPath)
 }
+
+internal fun IndexedLocalLibrary.withExternalAnimeMetadata(
+    metadataResolver: DesktopAnimeMetadataResolver,
+): IndexedLocalLibrary {
+    val displayCatalog = catalog.withExternalAnimeMetadata(metadataResolver)
+    return if (displayCatalog == catalog) {
+        this
+    } else {
+        copy(catalog = displayCatalog)
+    }
+}
+
+internal fun LibraryCatalog.withExternalAnimeMetadata(
+    metadataResolver: DesktopAnimeMetadataResolver,
+): LibraryCatalog {
+    val displayTitleByLocalTitle = groupedSeries()
+        .mapNotNull { series ->
+            metadataResolver.cachedAnimeInfoForSeries(series)
+                ?.libraryDisplayTitle()
+                ?.takeIf { it.isNotBlank() }
+                ?.let { displayTitle -> series.title to displayTitle }
+        }
+        .toMap()
+    if (displayTitleByLocalTitle.isEmpty()) return this
+
+    var changed = false
+    val displayItems = items.map { item ->
+        val displayTitle = displayTitleByLocalTitle[item.seriesTitle.trim()]
+        if (displayTitle == null || displayTitle == item.seriesTitle) {
+            item
+        } else {
+            changed = true
+            item.copy(seriesTitle = displayTitle)
+        }
+    }
+    return if (changed) copy(items = displayItems) else this
+}
+
+internal fun ExternalAnimeInfo.libraryDisplayTitle(): String =
+    titles.chinese ?: titles.primary
 
 private fun loadSeriesPosterById(
     indexedLibrary: IndexedLocalLibrary?,

@@ -102,12 +102,18 @@ class DesktopAnimeMetadataResolver(
     }
 
     fun cachedPosterForSeries(series: LibrarySeries): Path? =
-        catalogStore.loadExternalAnimeMappings(series.id)
+        cachedAnimeIdsForSeries(series)
             .asSequence()
-            .filter { it.animeId.provider == ExternalAnimeProvider.DANDANPLAY }
-            .mapNotNull { mapping -> catalogStore.loadExternalAnimeMetadataCache(mapping.animeId) }
+            .mapNotNull(catalogStore::loadExternalAnimeMetadataCache)
             .mapNotNull { metadata -> posterCache.cachedPath(metadata.anime.imageUrl) }
             .firstOrNull()
+
+    fun cachedAnimeInfoForSeries(series: LibrarySeries): ExternalAnimeInfo? =
+        cachedAnimeIdsForSeries(series)
+            .asSequence()
+            .mapNotNull(catalogStore::loadExternalAnimeMetadataCache)
+            .firstOrNull()
+            ?.anime
 
     private fun cachedDandanplayAnimeIdForSeries(series: LibrarySeries): Long? =
         series.indexedItems()
@@ -123,6 +129,20 @@ class DesktopAnimeMetadataResolver(
                     .thenBy { it.key },
             )
             ?.key
+
+    private fun cachedAnimeIdsForSeries(series: LibrarySeries): List<ExternalAnimeId> =
+        catalogStore.loadExternalAnimeMappings(series.id)
+            .asSequence()
+            .map(ExternalAnimeMapping::animeId)
+            .filter { it.provider == ExternalAnimeProvider.DANDANPLAY }
+            .plus(
+                cachedDandanplayAnimeIdForSeries(series)
+                    ?.let { ExternalAnimeId(ExternalAnimeProvider.DANDANPLAY, it) }
+                    ?.let(::sequenceOf)
+                    ?: emptySequence(),
+            )
+            .distinct()
+            .toList()
 }
 
 private fun LibrarySeries.firstIndexedItem(): LibraryMediaItem =
