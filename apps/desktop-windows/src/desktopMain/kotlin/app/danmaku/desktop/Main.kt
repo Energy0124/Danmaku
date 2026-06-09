@@ -2901,12 +2901,14 @@ private fun LibraryCenterWorkspace(
             WindowsLibraryView.CONTINUE_WATCHING -> ContinueWatchingList(
                 items = continueWatchingItems,
                 isPreparing = isPreparing,
+                compact = compact,
                 onShowDetails = onShowDetails,
                 onPlayLocalPlayback = onPlayLocalPlayback,
             )
             WindowsLibraryView.NEXT_UP -> NextUpList(
                 items = nextUpItems,
                 isPreparing = isPreparing,
+                compact = compact,
                 onShowDetails = onShowDetails,
                 onPrepareLocalPlayback = onPrepareLocalPlayback,
                 onPlayLocalPlayback = onPlayLocalPlayback,
@@ -2914,6 +2916,7 @@ private fun LibraryCenterWorkspace(
             WindowsLibraryView.RECENTLY_WATCHED -> RecentlyWatchedList(
                 items = recentlyWatchedItems,
                 isPreparing = isPreparing,
+                compact = compact,
                 onShowDetails = onShowDetails,
                 onPrepareLocalPlayback = onPrepareLocalPlayback,
                 onPlayLocalPlayback = onPlayLocalPlayback,
@@ -2929,6 +2932,7 @@ private fun LibraryCenterWorkspace(
                 } else {
                     "No episodes match the current filters."
                 },
+                compact = compact,
                 onResetFilters = onResetFilters,
                 onShowDetails = onShowDetails,
                 onSetFavorite = onSetFavorite,
@@ -3236,6 +3240,7 @@ private fun LibraryProgressCard(
 private fun ContinueWatchingList(
     items: List<LibraryPlaybackProgressItem>,
     isPreparing: Boolean,
+    compact: Boolean,
     onShowDetails: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
 ) {
@@ -3260,6 +3265,7 @@ private fun ContinueWatchingList(
                     item = item,
                     selected = items.indexOf(item) == boundedSelectedIndex,
                     isPreparing = isPreparing,
+                    compact = compact,
                     onShowDetails = onShowDetails,
                     onPlayLocalPlayback = onPlayLocalPlayback,
                 )
@@ -3272,6 +3278,7 @@ private fun ContinueWatchingList(
 private fun NextUpList(
     items: List<LibraryNextUpItem>,
     isPreparing: Boolean,
+    compact: Boolean,
     onShowDetails: (LibraryMediaItem) -> Unit,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
@@ -3297,6 +3304,7 @@ private fun NextUpList(
                     item = item,
                     selected = items.indexOf(item) == boundedSelectedIndex,
                     isPreparing = isPreparing,
+                    compact = compact,
                     onShowDetails = onShowDetails,
                     onPrepareLocalPlayback = onPrepareLocalPlayback,
                     onPlayLocalPlayback = onPlayLocalPlayback,
@@ -3310,6 +3318,7 @@ private fun NextUpList(
 private fun RecentlyWatchedList(
     items: List<LibraryPlaybackProgressItem>,
     isPreparing: Boolean,
+    compact: Boolean,
     onShowDetails: (LibraryMediaItem) -> Unit,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
@@ -3335,6 +3344,7 @@ private fun RecentlyWatchedList(
                     item = item,
                     selected = items.indexOf(item) == boundedSelectedIndex,
                     isPreparing = isPreparing,
+                    compact = compact,
                     onShowDetails = onShowDetails,
                     onPrepareLocalPlayback = onPrepareLocalPlayback,
                     onPlayLocalPlayback = onPlayLocalPlayback,
@@ -3351,6 +3361,7 @@ private fun EpisodeListView(
     favoriteMediaIds: Set<String>,
     isPreparing: Boolean,
     emptyText: String,
+    compact: Boolean,
     onResetFilters: () -> Unit,
     onShowDetails: (LibraryMediaItem) -> Unit,
     onSetFavorite: (LibraryMediaItem, Boolean) -> Unit,
@@ -3384,6 +3395,7 @@ private fun EpisodeListView(
                     watchStatus = watchStatusById[item.id],
                     isFavorite = item.id in favoriteMediaIds,
                     isPreparing = isPreparing,
+                    compact = compact,
                     onShowDetails = onShowDetails,
                     onSetFavorite = onSetFavorite,
                     onPrepareLocalPlayback = onPrepareLocalPlayback,
@@ -4630,6 +4642,7 @@ private fun NextUpRow(
     item: LibraryNextUpItem,
     selected: Boolean,
     isPreparing: Boolean,
+    compact: Boolean,
     onShowDetails: (LibraryMediaItem) -> Unit,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
@@ -4654,14 +4667,22 @@ private fun NextUpRow(
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { onShowDetails(item.mediaItem) }) {
-                Text("Details")
+            if (compact) {
+                PlayerIconButton(
+                    imageVector = Icons.Filled.Subtitles,
+                    contentDescription = "Details",
+                    onClick = { onShowDetails(item.mediaItem) },
+                )
+            } else {
+                Button(onClick = { onShowDetails(item.mediaItem) }) {
+                    Text("Details")
+                }
             }
             Button(
                 onClick = { onPrepareLocalPlayback(item.mediaItem) },
                 enabled = !isPreparing,
             ) {
-                Text(if (isPreparing) "Preparing..." else "Prepare")
+                Text(if (isPreparing) "Preparing..." else if (compact) "Prep" else "Prepare")
             }
             Button(
                 onClick = { onPlayLocalPlayback(item.mediaItem) },
@@ -4678,6 +4699,7 @@ private fun ContinueWatchingRow(
     item: LibraryPlaybackProgressItem,
     selected: Boolean,
     isPreparing: Boolean,
+    compact: Boolean,
     onShowDetails: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
 ) {
@@ -4702,8 +4724,16 @@ private fun ContinueWatchingRow(
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { onShowDetails(item.mediaItem) }) {
-                Text("Details")
+            if (compact) {
+                PlayerIconButton(
+                    imageVector = Icons.Filled.Subtitles,
+                    contentDescription = "Details",
+                    onClick = { onShowDetails(item.mediaItem) },
+                )
+            } else {
+                Button(onClick = { onShowDetails(item.mediaItem) }) {
+                    Text("Details")
+                }
             }
             Button(
                 onClick = { onPlayLocalPlayback(item.mediaItem) },
@@ -4720,6 +4750,7 @@ private fun RecentlyWatchedRow(
     item: LibraryPlaybackProgressItem,
     selected: Boolean,
     isPreparing: Boolean,
+    compact: Boolean,
     onShowDetails: (LibraryMediaItem) -> Unit,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
@@ -4746,14 +4777,22 @@ private fun RecentlyWatchedRow(
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { onShowDetails(item.mediaItem) }) {
-                Text("Details")
+            if (compact) {
+                PlayerIconButton(
+                    imageVector = Icons.Filled.Subtitles,
+                    contentDescription = "Details",
+                    onClick = { onShowDetails(item.mediaItem) },
+                )
+            } else {
+                Button(onClick = { onShowDetails(item.mediaItem) }) {
+                    Text("Details")
+                }
             }
             Button(
                 onClick = { onPrepareLocalPlayback(item.mediaItem) },
                 enabled = !isPreparing,
             ) {
-                Text(if (isPreparing) "Preparing..." else "Prepare")
+                Text(if (isPreparing) "Preparing..." else if (compact) "Prep" else "Prepare")
             }
             Button(
                 onClick = { onPlayLocalPlayback(item.mediaItem) },
@@ -4772,6 +4811,7 @@ private fun EpisodeRow(
     watchStatus: LibraryWatchStatus?,
     isFavorite: Boolean,
     isPreparing: Boolean,
+    compact: Boolean,
     onShowDetails: (LibraryMediaItem) -> Unit,
     onSetFavorite: (LibraryMediaItem, Boolean) -> Unit,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
@@ -4800,17 +4840,30 @@ private fun EpisodeRow(
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { onShowDetails(item) }) {
-                Text("Details")
-            }
-            Button(onClick = { onSetFavorite(item, !isFavorite) }) {
-                Text(if (isFavorite) "Unfavorite" else "Favorite")
+            if (compact) {
+                PlayerIconButton(
+                    imageVector = Icons.Filled.Subtitles,
+                    contentDescription = "Details",
+                    onClick = { onShowDetails(item) },
+                )
+                PlayerIconButton(
+                    imageVector = Icons.Filled.Star,
+                    contentDescription = if (isFavorite) "Unfavorite" else "Favorite",
+                    onClick = { onSetFavorite(item, !isFavorite) },
+                )
+            } else {
+                Button(onClick = { onShowDetails(item) }) {
+                    Text("Details")
+                }
+                Button(onClick = { onSetFavorite(item, !isFavorite) }) {
+                    Text(if (isFavorite) "Unfavorite" else "Favorite")
+                }
             }
             Button(
                 onClick = { onPrepareLocalPlayback(item) },
                 enabled = !isPreparing,
             ) {
-                Text(if (isPreparing) "Preparing..." else "Prepare")
+                Text(if (isPreparing) "Preparing..." else if (compact) "Prep" else "Prepare")
             }
             Button(
                 onClick = { onPlayLocalPlayback(item) },
