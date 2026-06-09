@@ -1,0 +1,127 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="title desc">
+  <title id="title">Android mobile library mockup</title>
+  <desc id="desc">Phone mockup for Danmaku mobile library with poster-led continue card, filters, series rail, episode list, mini player, and bottom navigation.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#101214"/>
+      <stop offset="1" stop-color="#172026"/>
+    </linearGradient>
+    <linearGradient id="posterA" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7dd3fc"/>
+      <stop offset="1" stop-color="#273747"/>
+    </linearGradient>
+    <linearGradient id="posterB" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fbbf24"/>
+      <stop offset="1" stop-color="#25303a"/>
+    </linearGradient>
+    <style>
+      .screen { fill: url(#bg); }
+      .panel { fill: #15191d; stroke: #2b3239; stroke-width: 1; }
+      .panel2 { fill: #20262b; stroke: #343d45; stroke-width: 1; }
+      .accent { fill: #7dd3fc; }
+      .amber { fill: #fbbf24; }
+      .text { fill: #f7f7f8; font-family: Inter, Segoe UI, Arial, sans-serif; }
+      .muted { fill: #b7c0c9; font-family: Inter, Segoe UI, Arial, sans-serif; }
+      .tiny { font-size: 10px; }
+      .small { font-size: 12px; }
+      .body { font-size: 14px; }
+      .title { font-size: 22px; font-weight: 700; }
+      .label { font-size: 11px; font-weight: 700; letter-spacing: 0; }
+      .buttonText { fill: #050607; font-family: Inter, Segoe UI, Arial, sans-serif; font-size: 12px; font-weight: 700; }
+    </style>
+  </defs>
+
+  <rect class="screen" width="390" height="844" rx="34"/>
+  <rect x="14" y="16" width="362" height="812" rx="28" fill="none" stroke="#2b3239"/>
+
+  <text x="26" y="54" class="text title">Library</text>
+  <rect x="242" y="30" width="88" height="28" rx="14" fill="#1e2930" stroke="#35424d"/>
+  <circle cx="258" cy="44" r="5" class="accent"/>
+  <text x="270" y="48" class="muted small">Seeded PC</text>
+  <circle cx="352" cy="44" r="14" fill="#20262b" stroke="#343d45"/>
+  <text x="347" y="49" class="accent body">S</text>
+
+  <rect x="24" y="76" width="342" height="42" rx="16" class="panel2"/>
+  <text x="44" y="102" class="muted body">Search anime, episode, path</text>
+
+  <g transform="translate(24 132)">
+    <rect width="92" height="30" rx="15" fill="#273747" stroke="#7dd3fc"/>
+    <text x="17" y="20" class="text small">Favorites</text>
+    <rect x="102" width="84" height="30" rx="15" fill="#1e2930" stroke="#35424d"/>
+    <text x="124" y="20" class="muted small">Subtitles</text>
+    <rect x="196" width="74" height="30" rx="15" fill="#1e2930" stroke="#35424d"/>
+    <text x="218" y="20" class="muted small">Title</text>
+    <rect x="280" width="62" height="30" rx="15" fill="#1e2930" stroke="#35424d"/>
+    <text x="301" y="20" class="muted small">Path</text>
+  </g>
+
+  <rect x="24" y="178" width="342" height="138" rx="20" class="panel2"/>
+  <rect x="40" y="196" width="76" height="104" rx="12" fill="url(#posterA)"/>
+  <text x="61" y="252" class="text title">01</text>
+  <text x="132" y="207" class="muted small">NEXT UP</text>
+  <text x="132" y="231" class="text body" font-weight="700">Example Show</text>
+  <text x="132" y="251" class="muted small">Episode 02 - Matched anime title</text>
+  <rect x="132" y="267" width="112" height="28" rx="14" class="accent"/>
+  <text x="166" y="286" class="buttonText">Resume</text>
+  <rect x="254" y="267" width="76" height="28" rx="14" fill="#15191d" stroke="#35424d"/>
+  <text x="274" y="286" class="muted small">Details</text>
+
+  <text x="24" y="348" class="text body" font-weight="700">Anime Series</text>
+  <g transform="translate(24 362)">
+    <g>
+      <rect width="82" height="120" rx="14" class="panel"/>
+      <rect x="8" y="8" width="66" height="86" rx="10" fill="url(#posterA)"/>
+      <rect x="12" y="72" width="34" height="16" rx="8" fill="#050607" opacity="0.72"/>
+      <text x="19" y="84" class="text tiny">3/12</text>
+      <text x="8" y="111" class="text tiny">Example Show</text>
+    </g>
+    <g transform="translate(96 0)">
+      <rect width="82" height="120" rx="14" class="panel"/>
+      <rect x="8" y="8" width="66" height="86" rx="10" fill="url(#posterB)"/>
+      <text x="8" y="111" class="text tiny">Other Show</text>
+    </g>
+    <g transform="translate(192 0)">
+      <rect width="82" height="120" rx="14" class="panel"/>
+      <rect x="8" y="8" width="66" height="86" rx="10" fill="#26313a"/>
+      <text x="16" y="56" class="muted tiny">Syncing</text>
+      <text x="8" y="111" class="text tiny">New Anime</text>
+    </g>
+    <g transform="translate(288 0)">
+      <rect width="82" height="120" rx="14" class="panel"/>
+      <rect x="8" y="8" width="66" height="86" rx="10" fill="#2c3a40"/>
+      <text x="8" y="111" class="text tiny">Long Title...</text>
+    </g>
+  </g>
+
+  <text x="24" y="516" class="text body" font-weight="700">Episodes</text>
+  <g transform="translate(24 532)">
+    <rect width="342" height="74" rx="18" class="panel"/>
+    <rect x="12" y="12" width="50" height="50" rx="12" fill="url(#posterA)"/>
+    <text x="76" y="28" class="text small" font-weight="700">Example Show</text>
+    <text x="76" y="46" class="muted small">Episode 01 - file title visible</text>
+    <text x="76" y="62" class="muted tiny">In progress - 2 subs - Favorite</text>
+    <circle cx="318" cy="37" r="18" class="accent"/>
+    <text x="313" y="42" class="buttonText">P</text>
+  </g>
+  <g transform="translate(24 616)">
+    <rect width="342" height="74" rx="18" class="panel"/>
+    <rect x="12" y="12" width="50" height="50" rx="12" fill="url(#posterB)"/>
+    <text x="76" y="28" class="text small" font-weight="700">Other Show</text>
+    <text x="76" y="46" class="muted small">Pilot</text>
+    <text x="76" y="62" class="muted tiny">New - no subtitles</text>
+    <circle cx="318" cy="37" r="18" fill="#20262b" stroke="#35424d"/>
+    <text x="313" y="42" class="muted small">P</text>
+  </g>
+
+  <rect x="24" y="708" width="342" height="52" rx="18" fill="#101820" stroke="#35424d"/>
+  <rect x="38" y="720" width="34" height="28" rx="8" fill="url(#posterA)"/>
+  <text x="84" y="730" class="text tiny" font-weight="700">Now Playing</text>
+  <text x="84" y="746" class="muted tiny">Example Show - Episode 01</text>
+  <circle cx="336" cy="734" r="16" class="accent"/>
+  <text x="332" y="739" class="buttonText">||</text>
+
+  <rect x="0" y="782" width="390" height="62" fill="#15191d"/>
+  <text x="62" y="817" class="muted small">Watch</text>
+  <text x="165" y="817" class="accent small" font-weight="700">Library</text>
+  <text x="280" y="817" class="muted small">Connect</text>
+</svg>
