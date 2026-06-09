@@ -171,7 +171,7 @@ import org.jetbrains.skia.Image as SkiaImage
 
 fun main(args: Array<String>) = application {
     val launchOptions = remember(args) { DesktopLaunchOptions.parse(args) }
-    val windowState = rememberWindowState()
+    val windowState = rememberWindowState(width = 1600.dp, height = 960.dp)
     Window(
         onCloseRequest = ::exitApplication,
         state = windowState,
@@ -951,27 +951,15 @@ private fun DesktopShell(
                 libraryError = null
                 result.dandanplayResolution?.match?.animeId?.let { animeId ->
                     scope.launch {
-                        val metadataRefreshResult: Result<Pair<String, Path?>>? = withContext(Dispatchers.IO) {
-                            val series = indexedLibrary
-                                ?.catalog
-                                ?.groupedSeries()
-                                ?.firstOrNull { librarySeries ->
-                                    librarySeries.seasons.any { season ->
-                                        season.items.any { seriesItem -> seriesItem.id == item.id }
-                                    }
-                                }
-                            series?.let {
-                                runCatching {
-                                    val posterPath = animeMetadataResolver.refreshDandanplayMetadataForSeries(
-                                        series = it,
-                                        animeId = animeId,
-                                        forceRefresh = refreshDandanplay,
-                                    )
-                                    it.id to posterPath
-                                }
+                        val metadataRefreshResult = withContext(Dispatchers.IO) {
+                            runCatching {
+                                animeMetadataResolver.refreshDandanplayMetadataForAnime(
+                                    animeId = animeId,
+                                    forceRefresh = refreshDandanplay,
+                                )
                             }
                         }
-                        metadataRefreshResult?.onSuccess { (refreshedSeriesId, posterPath) ->
+                        metadataRefreshResult.onSuccess { posterPath ->
                             if (posterPath == null) {
                                 appendDiagnostic(
                                     "metadata",
@@ -984,7 +972,7 @@ private fun DesktopShell(
                                 )
                             }
                             libraryMetadataVersion += 1
-                        }?.onFailure { error ->
+                        }.onFailure { error ->
                             appendDiagnostic(
                                 "metadata",
                                 "Dandanplay poster metadata refresh failed for ${item.seriesTitle}: " +
@@ -4092,6 +4080,14 @@ internal fun IndexedLocalLibrary.withExternalAnimeMetadata(
 internal fun LibraryCatalog.withExternalAnimeMetadata(
     metadataResolver: DesktopAnimeMetadataResolver,
 ): LibraryCatalog {
+    val displayTitleByMediaId = items
+        .mapNotNull { item ->
+            metadataResolver.cachedAnimeInfoForItem(item)
+                ?.libraryDisplayTitle()
+                ?.takeIf { it.isNotBlank() }
+                ?.let { displayTitle -> item.id to displayTitle }
+        }
+        .toMap()
     val displayTitleByLocalTitle = groupedSeries()
         .mapNotNull { series ->
             metadataResolver.cachedAnimeInfoForSeries(series)
@@ -4100,11 +4096,12 @@ internal fun LibraryCatalog.withExternalAnimeMetadata(
                 ?.let { displayTitle -> series.title to displayTitle }
         }
         .toMap()
-    if (displayTitleByLocalTitle.isEmpty()) return this
+    if (displayTitleByMediaId.isEmpty() && displayTitleByLocalTitle.isEmpty()) return this
 
     var changed = false
     val displayItems = items.map { item ->
-        val displayTitle = displayTitleByLocalTitle[item.seriesTitle.trim()]
+        val displayTitle = displayTitleByMediaId[item.id]
+            ?: displayTitleByLocalTitle[item.seriesTitle.trim()]
         if (displayTitle == null || displayTitle == item.seriesTitle) {
             item
         } else {

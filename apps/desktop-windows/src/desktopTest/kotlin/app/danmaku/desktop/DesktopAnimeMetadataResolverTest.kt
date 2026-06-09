@@ -163,6 +163,106 @@ class DesktopAnimeMetadataResolverTest {
 
         temp.toFile().deleteRecursively()
     }
+
+    @Test
+    fun animeMetadataRefreshDoesNotCreateSeriesMapping() {
+        val temp = createTempDirectory("danmaku-anime-item-metadata")
+        val databasePath = temp.resolve("catalog.db")
+        val animeId = ExternalAnimeId(ExternalAnimeProvider.DANDANPLAY, 18844)
+
+        DesktopLibraryCatalogStore(databasePath).use { store ->
+            val resolver = DesktopAnimeMetadataResolver(
+                catalogStore = store,
+                loadConnection = { DandanplayConnection("http://127.0.0.1:9") },
+                fetchAnimeDetails = { _, requestedAnimeId ->
+                    ExternalAnimeInfo(
+                        id = ExternalAnimeId(ExternalAnimeProvider.DANDANPLAY, requestedAnimeId),
+                        titles = ExternalAnimeTitleSet(primary = "Classroom S4"),
+                    )
+                },
+            )
+
+            assertNull(resolver.refreshDandanplayMetadataForAnime(animeId.value))
+
+            assertNotNull(store.loadExternalAnimeMetadataCache(animeId))
+            assertEquals(emptyList(), store.loadExternalAnimeMappings("example-show"))
+        }
+
+        temp.toFile().deleteRecursively()
+    }
+
+    @Test
+    fun displayCatalogAppliesItemAnimeMetadataBeforeSeriesMapping() {
+        val temp = createTempDirectory("danmaku-anime-item-display-metadata")
+        val databasePath = temp.resolve("catalog.db")
+        val firstItem = libraryMediaItem(id = "episode-1")
+        val secondItem = libraryMediaItem(id = "episode-2", episodeTitle = "Episode 02")
+        val catalog = LibraryCatalog(
+            rootName = "Anime",
+            indexedAtEpochMs = 123,
+            items = listOf(firstItem, secondItem),
+        )
+        val localSeries = catalog.groupedSeries().single()
+        val seriesAnimeId = ExternalAnimeId(ExternalAnimeProvider.DANDANPLAY, 19451)
+        val itemAnimeId = ExternalAnimeId(ExternalAnimeProvider.DANDANPLAY, 18844)
+
+        DesktopLibraryCatalogStore(databasePath).use { store ->
+            store.saveExternalAnimeMapping(
+                ExternalAnimeMapping(
+                    localSeriesId = localSeries.id,
+                    animeId = seriesAnimeId,
+                    source = ExternalAnimeMappingSource.AUTO,
+                    confidence = 1.0,
+                    mappedAtEpochMs = 456,
+                ),
+            )
+            store.saveExternalAnimeMetadataCache(
+                DesktopExternalAnimeMetadataCache(
+                    anime = ExternalAnimeInfo(
+                        id = seriesAnimeId,
+                        titles = ExternalAnimeTitleSet(primary = "Series Anime"),
+                    ),
+                    fetchedAtEpochMs = 456,
+                ),
+            )
+            store.saveExternalAnimeMetadataCache(
+                DesktopExternalAnimeMetadataCache(
+                    anime = ExternalAnimeInfo(
+                        id = itemAnimeId,
+                        titles = ExternalAnimeTitleSet(primary = "Item Anime"),
+                    ),
+                    fetchedAtEpochMs = 789,
+                ),
+            )
+            store.saveDandanplayCommentCache(
+                dandanplayCommentCache(
+                    mediaId = firstItem.id,
+                    animeId = itemAnimeId.value,
+                ),
+            )
+            val resolver = DesktopAnimeMetadataResolver(
+                catalogStore = store,
+                loadConnection = { DandanplayConnection("http://127.0.0.1:9") },
+            )
+
+            val displaySeries = IndexedLocalLibrary(
+                catalog = catalog,
+                filesById = emptyMap(),
+            ).withExternalAnimeMetadata(resolver).catalog.groupedSeries()
+
+            assertEquals(
+                mapOf(
+                    "Item Anime" to listOf(firstItem.id),
+                    "Series Anime" to listOf(secondItem.id),
+                ),
+                displaySeries.associate { series ->
+                    series.title to series.seasons.flatMap { season -> season.items.map(LibraryMediaItem::id) }
+                },
+            )
+        }
+
+        temp.toFile().deleteRecursively()
+    }
 }
 
 private fun libraryMediaItem(
@@ -178,4 +278,23 @@ private fun libraryMediaItem(
         sizeBytes = 12,
         mediaType = "video/x-matroska",
         streamPath = "/library/items/$id/stream",
+    )
+
+private fun dandanplayCommentCache(
+    mediaId: String,
+    animeId: Long,
+): DesktopDandanplayCommentCache =
+    DesktopDandanplayCommentCache(
+        mediaId = mediaId,
+        fileHash = "0123456789abcdef0123456789abcdef",
+        fileName = "$mediaId.mkv",
+        fileSizeBytes = 12,
+        episodeId = animeId * 10_000 + 1,
+        animeId = animeId,
+        animeTitle = "Anime $animeId",
+        episodeTitle = "Episode 1",
+        shiftSeconds = null,
+        commentsJson = """{"events":[]}""",
+        renderedAssPath = null,
+        fetchedAtEpochMs = 123,
     )
