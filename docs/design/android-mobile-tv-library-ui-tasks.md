@@ -13,7 +13,7 @@ Status legend:
 - `[~]` Keep current bottom tab structure while making the Library tab poster-led.
 - `[~]` Add reusable fallback poster/artwork component for series and episodes.
 - `[~]` Replace the series chip rail with poster cards.
-- `[ ]` Add phone/tablet breakpoint and two-pane tablet layout.
+- `[~]` Add phone/tablet breakpoint and two-pane tablet layout.
 - `[~]` Add compact active-filter status chips below the toolbar.
 - `[~]` Convert episode detail into a stable detail surface or bottom-sheet style flow.
 - `[ ]` Surface matched anime metadata and original file/folder title separately once LAN catalog exposes it.
@@ -57,4 +57,5 @@ Status legend:
 - 2026-06-09: `:apps:android-mobile:testDebugUnitTest` completed with `NO-SOURCE`.
 - 2026-06-09: `:apps:android-tv:testDebugUnitTest` completed with `NO-SOURCE`.
 - 2026-06-09: Re-ran mobile/TV compile, assemble, unit-test tasks, and `git diff --check` after mobile detail and TV shell polish; all passed, with unit-test tasks still `NO-SOURCE`.
+- 2026-06-09: `:apps:android-mobile:compileDebugKotlin`, `:apps:android-mobile:assembleDebug`, and `git diff --check` passed after adding the tablet two-pane library layout branch; `:apps:android-mobile:testDebugUnitTest` completed with `NO-SOURCE`.
 - Connected Android instrumentation tests are still pending a device/emulator run.

@@ -10,6 +10,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
@@ -28,8 +29,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeDown
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
@@ -581,24 +584,25 @@ internal fun LibraryPage(
     onConnect: () -> Unit,
 ) {
     var selectedEpisodeId by remember(catalog) { mutableStateOf<String?>(null) }
-    PageColumn(contentPadding) {
-        val series = catalog?.groupedSeries().orEmpty()
-        val nextUpItems = catalog?.nextUpItems(playbackProgresses, limit = 5).orEmpty()
-        val continueWatchingItems = catalog?.continueWatchingItems(playbackProgresses, limit = 5).orEmpty()
-        val recentlyWatchedItems = catalog?.recentlyWatchedItems(playbackProgresses, limit = 5).orEmpty()
-        val watchStatusById = catalog?.watchStatusByMediaId(playbackProgresses).orEmpty()
-        val seriesWatchSummaryById = catalog?.seriesWatchSummaryById(playbackProgresses).orEmpty()
-        val selectedSeries = searchText
-            .takeIf(String::isNotBlank)
-            ?.let { selectedTitle ->
-                series.firstOrNull { it.title.equals(selectedTitle.trim(), ignoreCase = true) }
-            }
-        val selectedDetailId = selectedEpisodeId
-            ?.takeIf { id -> filteredItems.any { it.id == id } }
-            ?: nowPlaying?.id?.takeIf { id -> filteredItems.any { it.id == id } }
-            ?: filteredItems.firstOrNull()?.id
-        val selectedEpisodeDetail = selectedDetailId
-            ?.let { id -> catalog?.episodeDetail(id, playbackProgresses) }
+    val series = catalog?.groupedSeries().orEmpty()
+    val nextUpItems = catalog?.nextUpItems(playbackProgresses, limit = 5).orEmpty()
+    val continueWatchingItems = catalog?.continueWatchingItems(playbackProgresses, limit = 5).orEmpty()
+    val recentlyWatchedItems = catalog?.recentlyWatchedItems(playbackProgresses, limit = 5).orEmpty()
+    val watchStatusById = catalog?.watchStatusByMediaId(playbackProgresses).orEmpty()
+    val seriesWatchSummaryById = catalog?.seriesWatchSummaryById(playbackProgresses).orEmpty()
+    val selectedSeries = searchText
+        .takeIf(String::isNotBlank)
+        ?.let { selectedTitle ->
+            series.firstOrNull { it.title.equals(selectedTitle.trim(), ignoreCase = true) }
+        }
+    val selectedDetailId = selectedEpisodeId
+        ?.takeIf { id -> filteredItems.any { it.id == id } }
+        ?: nowPlaying?.id?.takeIf { id -> filteredItems.any { it.id == id } }
+        ?: filteredItems.firstOrNull()?.id
+    val selectedEpisodeDetail = selectedDetailId
+        ?.let { id -> catalog?.episodeDetail(id, playbackProgresses) }
+
+    fun LazyListScope.libraryFeedItems(showInlineEpisodeDetail: Boolean) {
         item(key = "library-page-header") {
             PageHeader(
                 icon = Icons.Filled.VideoLibrary,
@@ -691,15 +695,17 @@ internal fun LibraryPage(
                 }
             }
         }
-        selectedEpisodeDetail?.let { detail ->
-            item(key = "episode-detail-${detail.mediaItem.id}") {
-                EpisodeDetailPanel(
-                    detail = detail,
-                    isFavorite = detail.mediaItem.id in favoriteMediaIds,
-                    onSetFavorite = { onSetFavorite(detail.mediaItem, it) },
-                    onPlay = onPlay,
-                    onSelectEpisode = { selectedEpisodeId = it.id },
-                )
+        if (showInlineEpisodeDetail) {
+            selectedEpisodeDetail?.let { detail ->
+                item(key = "episode-detail-${detail.mediaItem.id}") {
+                    EpisodeDetailPanel(
+                        detail = detail,
+                        isFavorite = detail.mediaItem.id in favoriteMediaIds,
+                        onSetFavorite = { onSetFavorite(detail.mediaItem, it) },
+                        onPlay = onPlay,
+                        onSelectEpisode = { selectedEpisodeId = it.id },
+                    )
+                }
             }
         }
         if (catalog == null) {
@@ -729,6 +735,91 @@ internal fun LibraryPage(
                     onPlay = { onPlay(item) },
                 )
             }
+        }
+    }
+
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(AppBackground)
+            .padding(contentPadding)
+            .safeDrawingPadding(),
+    ) {
+        val useTwoPane = maxWidth >= 840.dp
+        if (useTwoPane) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(start = 18.dp, top = 16.dp, end = 18.dp, bottom = 20.dp),
+                horizontalArrangement = Arrangement.spacedBy(18.dp),
+            ) {
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("library-master-pane"),
+                    contentPadding = PaddingValues(bottom = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    libraryFeedItems(showInlineEpisodeDetail = false)
+                }
+                Column(
+                    modifier = Modifier
+                        .width(380.dp)
+                        .verticalScroll(rememberScrollState())
+                        .testTag("library-detail-pane"),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    selectedEpisodeDetail?.let { detail ->
+                        EpisodeDetailPanel(
+                            detail = detail,
+                            isFavorite = detail.mediaItem.id in favoriteMediaIds,
+                            onSetFavorite = { onSetFavorite(detail.mediaItem, it) },
+                            onPlay = onPlay,
+                            onSelectEpisode = { selectedEpisodeId = it.id },
+                        )
+                    } ?: TabletDetailPlaceholder(catalog = catalog)
+                }
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(start = 16.dp, top = 14.dp, end = 16.dp, bottom = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                libraryFeedItems(showInlineEpisodeDetail = true)
+            }
+        }
+    }
+}
+
+@Composable
+private fun TabletDetailPlaceholder(catalog: LibraryCatalog?) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("library-detail-placeholder"),
+        shape = RoundedCornerShape(20.dp),
+        color = Color(0xFF15191D),
+        border = BorderStroke(1.dp, Color(0xFF2B3239)),
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                if (catalog == null) "No library connected" else "Select an episode",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                if (catalog == null) {
+                    "Connect to the Windows library server to keep episode details visible here."
+                } else {
+                    "Episode artwork, status, subtitles, and navigation stay pinned in this pane."
+                },
+                color = SubtleText,
+                style = MaterialTheme.typography.bodyMedium,
+            )
         }
     }
 }
