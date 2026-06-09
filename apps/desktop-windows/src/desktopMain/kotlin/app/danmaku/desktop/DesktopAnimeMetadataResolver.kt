@@ -1,6 +1,7 @@
 package app.danmaku.desktop
 
 import app.danmaku.domain.ExternalAnimeId
+import app.danmaku.domain.ExternalAnimeInfo
 import app.danmaku.domain.ExternalAnimeMapping
 import app.danmaku.domain.ExternalAnimeMappingSource
 import app.danmaku.domain.ExternalAnimeProvider
@@ -12,6 +13,15 @@ class DesktopAnimeMetadataResolver(
     private val catalogStore: DesktopLibraryCatalogStore,
     private val loadConnection: () -> DandanplayConnection,
     private val posterCache: DesktopAnimePosterCache = DesktopAnimePosterCache.default(),
+    private val fetchAnimeDetails: (DandanplayConnection, Long) -> ExternalAnimeInfo =
+        { connection, animeId -> DandanplayDanmakuClient(connection).fetchAnimeDetails(animeId) },
+    private val matchAnimeIdForPath: (DandanplayConnection, Path) -> Long? =
+        { connection, path ->
+            DandanplayDanmakuClient(connection)
+                .match(DandanplayMediaFingerprint.fromPath(path))
+                .firstOrNull()
+                ?.animeId
+        },
     private val nowEpochMs: () -> Long = System::currentTimeMillis,
 ) {
     fun refreshDandanplayMetadataForSeries(
@@ -28,7 +38,7 @@ class DesktopAnimeMetadataResolver(
         val metadata = if (!forceRefresh && cachedMetadata != null) {
             cachedMetadata.anime
         } else {
-            DandanplayDanmakuClient(loadConnection()).fetchAnimeDetails(externalAnimeId.value)
+            fetchAnimeDetails(loadConnection(), externalAnimeId.value)
                 .also { anime ->
                     catalogStore.saveExternalAnimeMetadataCache(
                         DesktopExternalAnimeMetadataCache(
@@ -71,12 +81,18 @@ class DesktopAnimeMetadataResolver(
             )
         }
 
+        val cachedAnimeId = cachedDandanplayAnimeIdForSeries(series)
+        if (cachedAnimeId != null) {
+            return refreshDandanplayMetadataForSeries(
+                series = series,
+                animeId = cachedAnimeId,
+                forceRefresh = forceRefresh,
+            )
+        }
+
         val mediaItem = series.firstIndexedItem()
         val mediaPath = mediaPathById[mediaItem.id] ?: return null
-        val animeId = DandanplayDanmakuClient(loadConnection())
-            .match(DandanplayMediaFingerprint.fromPath(mediaPath))
-            .firstOrNull()
-            ?.animeId
+        val animeId = matchAnimeIdForPath(loadConnection(), mediaPath)
             ?: return null
         return refreshDandanplayMetadataForSeries(
             series = series,
@@ -92,10 +108,28 @@ class DesktopAnimeMetadataResolver(
             .mapNotNull { mapping -> catalogStore.loadExternalAnimeMetadataCache(mapping.animeId) }
             .mapNotNull { metadata -> posterCache.cachedPath(metadata.anime.imageUrl) }
             .firstOrNull()
+
+    private fun cachedDandanplayAnimeIdForSeries(series: LibrarySeries): Long? =
+        series.indexedItems()
+            .mapNotNull { item ->
+                catalogStore.loadDandanplayCommentCache(item.id)
+                    ?.animeId
+                    ?.takeIf { animeId -> animeId > 0 }
+            }
+            .groupingBy { it }
+            .eachCount()
+            .maxWithOrNull(
+                compareBy<Map.Entry<Long, Int>> { it.value }
+                    .thenBy { it.key },
+            )
+            ?.key
 }
 
 private fun LibrarySeries.firstIndexedItem(): LibraryMediaItem =
+    indexedItems()
+        .first()
+
+private fun LibrarySeries.indexedItems(): Sequence<LibraryMediaItem> =
     seasons
         .asSequence()
         .flatMap { it.items.asSequence() }
-        .first()

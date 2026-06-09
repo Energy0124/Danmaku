@@ -595,20 +595,38 @@ private fun DesktopShell(
 
         scope.launch {
             isRefreshingSeriesPosters = true
-            appendDiagnostic("metadata", "Refreshing posters for ${missingSeries.size} local series")
-            val refreshedCount = withContext(Dispatchers.IO) {
-                missingSeries.count { series ->
-                    runCatching {
-                        animeMetadataResolver.ensureDandanplayPosterForSeries(
-                            series = series,
-                            mediaPathById = library.filesById,
-                        )
-                    }.getOrNull() != null
+            try {
+                appendDiagnostic("metadata", "Refreshing posters for ${missingSeries.size} local series")
+                val failures = mutableListOf<String>()
+                val refreshedCount = withContext(Dispatchers.IO) {
+                    missingSeries.count { series ->
+                        val result = runCatching {
+                            animeMetadataResolver.ensureDandanplayPosterForSeries(
+                                series = series,
+                                mediaPathById = library.filesById,
+                            )
+                        }
+                        result.onFailure { error ->
+                            failures += "${series.title}: ${error.message ?: error::class.simpleName}"
+                        }
+                        result.getOrNull() != null
+                    }
                 }
+                seriesPosterById = loadSeriesPosterById(indexedLibrary, animeMetadataResolver)
+                failures.take(3).forEach { failure ->
+                    appendDiagnostic("metadata", "Poster refresh failed for $failure")
+                }
+                val omittedFailureCount = failures.size - 3
+                if (omittedFailureCount > 0) {
+                    appendDiagnostic("metadata", "Poster refresh had $omittedFailureCount additional failures")
+                }
+                appendDiagnostic(
+                    "metadata",
+                    "Poster refresh complete: $refreshedCount/${missingSeries.size} series updated",
+                )
+            } finally {
+                isRefreshingSeriesPosters = false
             }
-            seriesPosterById = loadSeriesPosterById(indexedLibrary, animeMetadataResolver)
-            isRefreshingSeriesPosters = false
-            appendDiagnostic("metadata", "Poster refresh complete: $refreshedCount/${missingSeries.size} series updated")
         }
     }
 
@@ -925,7 +943,7 @@ private fun DesktopShell(
                 libraryError = null
                 result.dandanplayResolution?.match?.animeId?.let { animeId ->
                     scope.launch {
-                        val refreshedSeriesId = withContext(Dispatchers.IO) {
+                        val metadataRefreshResult: Result<Pair<String, Path?>>? = withContext(Dispatchers.IO) {
                             val series = indexedLibrary
                                 ?.catalog
                                 ?.groupedSeries()
@@ -936,18 +954,34 @@ private fun DesktopShell(
                                 }
                             series?.let {
                                 runCatching {
-                                    animeMetadataResolver.refreshDandanplayMetadataForSeries(
+                                    val posterPath = animeMetadataResolver.refreshDandanplayMetadataForSeries(
                                         series = it,
                                         animeId = animeId,
                                         forceRefresh = refreshDandanplay,
                                     )
-                                    it.id
-                                }.getOrNull()
+                                    it.id to posterPath
+                                }
                             }
                         }
-                        if (refreshedSeriesId != null) {
+                        metadataRefreshResult?.onSuccess { (refreshedSeriesId, posterPath) ->
+                            if (posterPath == null) {
+                                appendDiagnostic(
+                                    "metadata",
+                                    "Refreshed dandanplay metadata for ${item.seriesTitle}; no poster URL available",
+                                )
+                            } else {
+                                appendDiagnostic(
+                                    "metadata",
+                                    "Refreshed dandanplay poster metadata for ${item.seriesTitle}",
+                                )
+                            }
                             seriesPosterById = loadSeriesPosterById(indexedLibrary, animeMetadataResolver)
-                            appendDiagnostic("metadata", "Refreshed dandanplay poster metadata for ${item.seriesTitle}")
+                        }?.onFailure { error ->
+                            appendDiagnostic(
+                                "metadata",
+                                "Dandanplay poster metadata refresh failed for ${item.seriesTitle}: " +
+                                    (error.message ?: error::class.simpleName),
+                            )
                         }
                     }
                 }
