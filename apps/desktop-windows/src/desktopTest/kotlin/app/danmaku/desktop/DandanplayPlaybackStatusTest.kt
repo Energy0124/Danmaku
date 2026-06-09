@@ -86,6 +86,40 @@ class DandanplayPlaybackStatusTest {
     }
 
     @Test
+    fun describesCachedTrackAsReadyButNotAttached() {
+        val status = dandanplayCachedInspectionStatus(
+            mediaId = "media-1",
+            resolution = DesktopDandanplayDanmakuResolution(
+                fingerprint = DandanplayMediaFingerprint(
+                    fileName = "Episode 01.mkv",
+                    fileHash = "5d41402abc4b2a76b9719d911017c592",
+                    fileSizeBytes = 5,
+                ),
+                match = DandanplayMatch(
+                    episodeId = 123,
+                    animeId = 456,
+                    animeTitle = "Example Anime",
+                    episodeTitle = "Episode 01",
+                    shiftSeconds = 0.0,
+                ),
+                eventCount = 2,
+                subtitle = DesktopPlaybackSubtitle(
+                    source = "overlay.ass",
+                    label = "dandanplay: Example Anime - Episode 01",
+                    isDanmakuOverlay = true,
+                ),
+                cachePath = Path.of("cache", "overlay.ass"),
+                source = DesktopDandanplayResolutionSource.CACHE,
+            ),
+        )
+
+        assertEquals("dandanplay cache: 2 comments ready", status.summary)
+        assertContains(status.details, DandanplayPlaybackUiDetail("Provider source", "cache"))
+        assertContains(status.details, DandanplayPlaybackUiDetail("Comments", "2 comments"))
+        assertContains(status.details, DandanplayPlaybackUiDetail("ASS overlay", "cached; prepare or play to attach"))
+    }
+
+    @Test
     fun wrapsSimpleOperatorStatusMessages() {
         val status = dandanplayStatusMessage(
             mediaId = "media-1",

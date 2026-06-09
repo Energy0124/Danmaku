@@ -40,22 +40,7 @@ class DesktopDandanplayDanmakuResolver(
         require(preferredEpisodeId == null || preferredEpisodeId > 0) { "preferredEpisodeId must be positive" }
         val fingerprint = DandanplayMediaFingerprint.fromPath(mediaPath)
         if (!forceRefresh && preferredEpisodeId == null) {
-            cacheStore
-                ?.loadDandanplayCommentCache(mediaId)
-                ?.takeIf { it.fileHash.equals(fingerprint.normalizedFileHash, ignoreCase = true) }
-                ?.takeIf { it.fileSizeBytes == fingerprint.fileSizeBytes }
-                ?.takeUnless { it.isExpired(nowEpochMs(), cacheMaxAgeDays()) }
-                ?.toCommentTrack()
-                ?.let { cachedTrack ->
-                    return renderResolution(
-                        mediaId = mediaId,
-                        fingerprint = fingerprint,
-                        track = cachedTrack,
-                        matchCandidates = listOf(cachedTrack.match),
-                        source = DesktopDandanplayResolutionSource.CACHE,
-                        shouldPersist = false,
-                    )
-                }
+            resolveCached(mediaId, mediaPath, fingerprint)?.let { return it }
         }
 
         val connection = loadConnection()
@@ -86,6 +71,14 @@ class DesktopDandanplayDanmakuResolver(
             source = DesktopDandanplayResolutionSource.NETWORK,
             shouldPersist = true,
         )
+    }
+
+    fun resolveCached(
+        mediaId: String,
+        mediaPath: Path,
+    ): DesktopDandanplayDanmakuResolution? {
+        require(mediaId.isNotBlank()) { "mediaId must not be blank" }
+        return resolveCached(mediaId, mediaPath, DandanplayMediaFingerprint.fromPath(mediaPath))
     }
 
     fun clearCache(mediaId: String) {
@@ -147,6 +140,30 @@ class DesktopDandanplayDanmakuResolver(
             cacheStore?.saveDandanplayCommentCache(track.toCache(mediaId, fingerprint, cachePath, nowEpochMs()))
         }
         return resolution
+    }
+
+    private fun resolveCached(
+        mediaId: String,
+        mediaPath: Path,
+        fingerprint: DandanplayMediaFingerprint,
+    ): DesktopDandanplayDanmakuResolution? {
+        require(Files.isRegularFile(mediaPath)) { "mediaPath must be a regular file" }
+        return cacheStore
+            ?.loadDandanplayCommentCache(mediaId)
+            ?.takeIf { it.fileHash.equals(fingerprint.normalizedFileHash, ignoreCase = true) }
+            ?.takeIf { it.fileSizeBytes == fingerprint.fileSizeBytes }
+            ?.takeUnless { it.isExpired(nowEpochMs(), cacheMaxAgeDays()) }
+            ?.toCommentTrack()
+            ?.let { cachedTrack ->
+                renderResolution(
+                    mediaId = mediaId,
+                    fingerprint = fingerprint,
+                    track = cachedTrack,
+                    matchCandidates = listOf(cachedTrack.match),
+                    source = DesktopDandanplayResolutionSource.CACHE,
+                    shouldPersist = false,
+                )
+            }
     }
 
     private companion object {

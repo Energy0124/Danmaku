@@ -1199,6 +1199,66 @@ private fun DesktopShell(
         }
     }
 
+    fun inspectCachedDandanplay(item: LibraryMediaItem) {
+        val library = indexedLibrary
+        if (library == null) {
+            dandanplayCacheStatus = dandanplayStatusMessage(
+                mediaId = item.id,
+                summary = "library is not indexed; cannot check cached danmaku",
+                details = item.dandanplayStatusContext(dandanplaySettings),
+            )
+            return
+        }
+        val existingStatus = dandanplayCacheStatus
+        val hasPreparedOverlay = selectedLocalPlaybackPreparation
+            ?.takeIf { it.item.id == item.id }
+            ?.subtitles
+            ?.any(DesktopPlaybackSubtitle::isDanmakuOverlay) == true
+        if (hasPreparedOverlay || existingStatus?.mediaId == item.id && !existingStatus.summary.contains("checking")) {
+            return
+        }
+
+        scope.launch {
+            dandanplayCacheStatus = dandanplayStatusMessage(
+                mediaId = item.id,
+                summary = "checking cached danmaku...",
+                details = item.dandanplayStatusContext(dandanplaySettings),
+            )
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val mediaPath = library.filesById[item.id]
+                        ?: error("Indexed media file is missing for ${item.id}")
+                    dandanplayDanmakuResolver.resolveCached(item.id, mediaPath)
+                }
+            }
+            result.onSuccess { resolution ->
+                dandanplayCacheStatus = if (resolution == null) {
+                    dandanplayStatusMessage(
+                        mediaId = item.id,
+                        summary = "no valid cached danmaku",
+                        details = item.dandanplayStatusContext(dandanplaySettings) +
+                            DandanplayPlaybackUiDetail(
+                                "Cache",
+                                "prepare or refresh danmaku to fetch comments",
+                            ),
+                    )
+                } else {
+                    val status = dandanplayCachedInspectionStatus(item.id, resolution)
+                    status.copy(
+                        details = item.dandanplayStatusContext(dandanplaySettings) + status.details,
+                    )
+                }
+            }.onFailure { error ->
+                dandanplayCacheStatus = dandanplayStatusMessage(
+                    mediaId = item.id,
+                    summary = "cached danmaku check failed",
+                    details = item.dandanplayStatusContext(dandanplaySettings) +
+                        DandanplayPlaybackUiDetail("Error", error.readableMessage()),
+                )
+            }
+        }
+    }
+
     fun refreshPreparedDandanplay(preparation: DesktopLocalPlaybackPreparation) {
         if (!dandanplaySettings.isFetchEnabled) {
             dandanplayCacheStatus = dandanplayStatusMessage(
@@ -1720,6 +1780,7 @@ private fun DesktopShell(
                             onPlayLocalPlayback = { item ->
                                 prepareLocalPlayback(item, loadAfterPrepare = true)
                             },
+                            onInspectCachedDandanplay = ::inspectCachedDandanplay,
                             onSetFavorite = ::setFavorite,
                             onSetAutoNextLocalPlayback = ::setAutoNextLocalPlayback,
                             onRefreshDandanplay = ::refreshPreparedDandanplay,
@@ -2644,6 +2705,7 @@ private fun MediaLibraryTab(
     onRescanRegisteredRoots: () -> Unit,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
+    onInspectCachedDandanplay: (LibraryMediaItem) -> Unit,
     onSetFavorite: (LibraryMediaItem, Boolean) -> Unit,
     onSetAutoNextLocalPlayback: (Boolean) -> Unit,
     onRefreshDandanplay: (DesktopLocalPlaybackPreparation) -> Unit,
@@ -2688,6 +2750,7 @@ private fun MediaLibraryTab(
                     librarySeries.seasons.any { season -> season.items.any { seriesItem -> seriesItem.id == item.id } }
                 }
                 ?.let { selectedSeriesId = it.id }
+            onInspectCachedDandanplay(item)
         }
         val selectedSeries = series.firstOrNull { it.id == selectedSeriesId } ?: series.firstOrNull()
         val selectedEpisodeDetail = remember(

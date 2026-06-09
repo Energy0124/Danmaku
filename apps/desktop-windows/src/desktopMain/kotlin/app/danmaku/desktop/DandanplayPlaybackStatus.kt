@@ -57,6 +57,47 @@ fun dandanplayStatusFromResolution(
     )
 }
 
+fun dandanplayCachedInspectionStatus(
+    mediaId: String,
+    resolution: DesktopDandanplayDanmakuResolution,
+): DandanplayPlaybackUiStatus {
+    val commentCount = resolution.eventCount.toCommentCountLabel()
+    val summary = when {
+        resolution.subtitle != null -> "dandanplay cache: $commentCount ready"
+        resolution.match != null -> "dandanplay cache: matched, no comments"
+        else -> "dandanplay cache: no usable comments"
+    }
+    val details = buildList {
+        add(DandanplayPlaybackUiDetail("Provider source", "cache"))
+        resolution.match?.let { match ->
+            add(DandanplayPlaybackUiDetail("Matched episode", match.displayTitle))
+            match.animeId?.let { animeId -> add(DandanplayPlaybackUiDetail("Anime ID", animeId.toString())) }
+            add(DandanplayPlaybackUiDetail("Episode ID", match.episodeId.toString()))
+        }
+        add(DandanplayPlaybackUiDetail("Comments", commentCount))
+        add(
+            DandanplayPlaybackUiDetail(
+                label = "ASS overlay",
+                value = if (resolution.subtitle == null) {
+                    "not available"
+                } else {
+                    "cached; prepare or play to attach"
+                },
+            ),
+        )
+        resolution.cachePath?.let { cachePath ->
+            add(DandanplayPlaybackUiDetail("Cache file", cachePath.toAbsolutePath().normalize().absolutePathString()))
+        }
+    }
+    return DandanplayPlaybackUiStatus(
+        mediaId = mediaId,
+        summary = summary,
+        details = details,
+        selectedEpisodeId = resolution.match?.episodeId,
+        matchCandidates = resolution.matchCandidates,
+    )
+}
+
 fun dandanplayStatusMessage(
     mediaId: String,
     summary: String,

@@ -83,6 +83,47 @@ class DesktopDandanplayDanmakuResolverTest {
     }
 
     @Test
+    fun inspectsCachedTrackWithoutFetchingNetworkData() {
+        val temp = createTempDirectory("danmaku-dandanplay-cache-inspect")
+        val media = temp.resolve("Episode 01.mkv")
+        media.writeBytes("hello".encodeToByteArray())
+        val cacheStore = InMemoryDandanplayCommentCacheStore()
+        cacheStore.saveDandanplayCommentCache(
+            DesktopDandanplayCommentCache(
+                mediaId = "media-id",
+                fileHash = "5d41402abc4b2a76b9719d911017c592",
+                fileName = "Episode 01.mkv",
+                fileSizeBytes = 5,
+                episodeId = 123,
+                animeId = 456,
+                animeTitle = "Cached Anime",
+                episodeTitle = "Episode 01",
+                shiftSeconds = 0.0,
+                commentsJson = """{"events":[{"timestampMs":1000,"text":"cached"}]}""",
+                renderedAssPath = null,
+                fetchedAtEpochMs = 1_000,
+            ),
+        )
+        val resolver = DesktopDandanplayDanmakuResolver(
+            loadConnection = { error("cache inspection should not load provider connection") },
+            cacheStore = cacheStore,
+            fetchMatches = { _, _ -> error("cache inspection should not fetch matches") },
+            fetchComments = { _, _ -> error("cache inspection should not fetch comments") },
+            cacheDirectory = temp.resolve("cache"),
+            nowEpochMs = { 1_001 },
+        )
+
+        val resolution = assertNotNull(resolver.resolveCached("media-id", media))
+
+        assertEquals(DesktopDandanplayResolutionSource.CACHE, resolution.source)
+        assertEquals(123, resolution.match?.episodeId)
+        assertEquals(1, resolution.eventCount)
+        assertContains(assertNotNull(resolution.cachePath).readText(), "cached")
+
+        temp.toFile().deleteRecursively()
+    }
+
+    @Test
     fun returnsNoSubtitleWhenNoMatchOrNoComments() {
         val temp = createTempDirectory("danmaku-dandanplay-resolver")
         val media = temp.resolve("Episode 01.mkv")
