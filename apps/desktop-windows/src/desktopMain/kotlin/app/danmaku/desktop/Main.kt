@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
@@ -100,7 +101,9 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
@@ -2647,6 +2650,18 @@ private fun MediaLibraryTab(
         val series = remember(indexedLibrary?.catalog) {
             indexedLibrary?.catalog?.groupedSeries().orEmpty()
         }
+        fun selectSeries(series: LibrarySeries) {
+            selectedSeriesId = series.id
+            selectedEpisodeId = null
+        }
+        fun showEpisodeDetails(item: LibraryMediaItem) {
+            selectedEpisodeId = item.id
+            series
+                .firstOrNull { librarySeries ->
+                    librarySeries.seasons.any { season -> season.items.any { seriesItem -> seriesItem.id == item.id } }
+                }
+                ?.let { selectedSeriesId = it.id }
+        }
         val selectedSeries = series.firstOrNull { it.id == selectedSeriesId } ?: series.firstOrNull()
         val selectedEpisodeDetail = remember(
             indexedLibrary?.catalog,
@@ -2687,8 +2702,8 @@ private fun MediaLibraryTab(
             lastScanStats = lastScanStats,
             onAddLibraryFolder = onAddLibraryFolder,
             onRescanRegisteredRoots = onRescanRegisteredRoots,
-            onSelectSeries = { selectedSeriesId = it.id },
-            onShowDetails = { selectedEpisodeId = it.id },
+            onSelectSeries = ::selectSeries,
+            onShowDetails = ::showEpisodeDetails,
             onSetFavorite = onSetFavorite,
             onSetAutoNextLocalPlayback = onSetAutoNextLocalPlayback,
             onRefreshDandanplay = onRefreshDandanplay,
@@ -2800,13 +2815,19 @@ private fun WindowsLibraryWorkspace(
     val selectedInspectorItem = selectedEpisodeDetail?.mediaItem
         ?: selectedLocalPlaybackPreparation?.item
         ?: selectedSeries?.let { nextPlayableEpisode(it, watchStatusById) }
+    var inspectorWidthOverride by remember { mutableStateOf<Float?>(null) }
 
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         val compactWorkspace = maxWidth < 1380.dp
         val railWidth = if (compactWorkspace) 204.dp else 230.dp
-        val inspectorWidth = if (compactWorkspace) 304.dp else 340.dp
+        val defaultInspectorWidth = if (compactWorkspace) 372f else 460f
+        val minInspectorWidth = if (compactWorkspace) 328f else 380f
+        val maxInspectorWidth = minOf(if (compactWorkspace) 460f else 620f, maxWidth.value * 0.45f)
+        val inspectorWidth = (inspectorWidthOverride ?: defaultInspectorWidth)
+            .coerceIn(minInspectorWidth, maxInspectorWidth)
         val panelGap = if (compactWorkspace) 10.dp else 14.dp
         val workspaceMinHeight = if (compactWorkspace) 660.dp else 720.dp
+        val density = LocalDensity.current
 
         Row(
             modifier = Modifier
@@ -2885,6 +2906,20 @@ private fun WindowsLibraryWorkspace(
                 remoteBrowser = remoteBrowser,
                 modifier = Modifier.weight(1f),
             )
+            Box(
+                modifier = Modifier
+                    .width(8.dp)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(DanmakuColors.SurfaceRaised.copy(alpha = 0.74f))
+                    .pointerInput(compactWorkspace, minInspectorWidth, maxInspectorWidth) {
+                        detectHorizontalDragGestures { _, dragAmount ->
+                            val deltaDp = with(density) { dragAmount.toDp().value }
+                            inspectorWidthOverride = (inspectorWidth - deltaDp)
+                                .coerceIn(minInspectorWidth, maxInspectorWidth)
+                        }
+                    },
+            )
             LibraryInspectorPane(
                 selectedSeries = selectedInspectorSeries,
                 selectedEpisodeDetail = selectedEpisodeDetail,
@@ -2914,7 +2949,7 @@ private fun WindowsLibraryWorkspace(
                 onLoadPreparedPlayback = onLoadPreparedPlayback,
                 onPrepareLocalPlayback = onPrepareLocalPlayback,
                 onPlayLocalPlayback = onPlayLocalPlayback,
-                modifier = Modifier.width(inspectorWidth),
+                modifier = Modifier.width(inspectorWidth.dp),
             )
         }
     }
@@ -5078,6 +5113,7 @@ private fun NextUpRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
             .background(if (selected) DanmakuColors.SurfaceRaised.copy(alpha = 0.70f) else Color.Transparent)
+            .clickable { onShowDetails(item.mediaItem) }
             .padding(horizontal = 8.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -5134,6 +5170,7 @@ private fun ContinueWatchingRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
             .background(if (selected) DanmakuColors.SurfaceRaised.copy(alpha = 0.70f) else Color.Transparent)
+            .clickable { onShowDetails(item.mediaItem) }
             .padding(horizontal = 8.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -5186,6 +5223,7 @@ private fun RecentlyWatchedRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
             .background(if (selected) DanmakuColors.SurfaceRaised.copy(alpha = 0.70f) else Color.Transparent)
+            .clickable { onShowDetails(item.mediaItem) }
             .padding(horizontal = 8.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -5250,6 +5288,7 @@ private fun EpisodeRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
             .background(if (selected) DanmakuColors.SurfaceRaised.copy(alpha = 0.70f) else Color.Transparent)
+            .clickable { onShowDetails(item) }
             .padding(horizontal = 8.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically,
