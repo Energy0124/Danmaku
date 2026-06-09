@@ -115,6 +115,70 @@ class ExternalAnimeTrackingTest {
         }
     }
 
+    @Test
+    fun derivesCompletedExternalTrackingUpdateFromWatchedSeries() {
+        val series = librarySeries()
+        val mapping = externalMapping(series.id)
+        val watchStatusById = series.watchStatusById(
+            "episode-1" to LibraryWatchState.WATCHED,
+            "episode-2" to LibraryWatchState.WATCHED,
+        )
+
+        val update = series.externalAnimeTrackingUpdate(mapping, watchStatusById)
+
+        assertEquals(mapping.animeId, update.animeId)
+        assertEquals(ExternalAnimeListStatus.COMPLETED, update.status)
+        assertEquals(2, update.watchedEpisodes)
+    }
+
+    @Test
+    fun derivesWatchingExternalTrackingUpdateWithoutCountingInProgressEpisodeAsWatched() {
+        val series = librarySeries()
+        val mapping = externalMapping(series.id)
+        val watchStatusById = series.watchStatusById(
+            "episode-1" to LibraryWatchState.WATCHED,
+            "episode-2" to LibraryWatchState.IN_PROGRESS,
+        )
+
+        val update = series.externalAnimeTrackingUpdate(mapping, watchStatusById)
+
+        assertEquals(ExternalAnimeListStatus.WATCHING, update.status)
+        assertEquals(1, update.watchedEpisodes)
+    }
+
+    @Test
+    fun derivesPlanToWatchExternalTrackingUpdateForNewSeries() {
+        val series = librarySeries()
+        val mapping = externalMapping(series.id)
+        val watchStatusById = series.watchStatusById(
+            "episode-1" to LibraryWatchState.NEW,
+            "episode-2" to LibraryWatchState.NEW,
+        )
+
+        val update = series.externalAnimeTrackingUpdate(mapping, watchStatusById)
+
+        assertEquals(ExternalAnimeListStatus.PLAN_TO_WATCH, update.status)
+        assertEquals(0, update.watchedEpisodes)
+    }
+
+    @Test
+    fun rejectsTrackingUpdateForMismatchedMappingOrMissingWatchStatus() {
+        val series = librarySeries()
+
+        assertFailsWith<IllegalArgumentException> {
+            series.externalAnimeTrackingUpdate(
+                externalMapping("other-series"),
+                series.watchStatusById(
+                    "episode-1" to LibraryWatchState.NEW,
+                    "episode-2" to LibraryWatchState.NEW,
+                ),
+            )
+        }
+        assertFailsWith<IllegalArgumentException> {
+            series.externalAnimeTrackingUpdate(externalMapping(series.id), emptyMap())
+        }
+    }
+
     private fun animeInfo(
         id: ExternalAnimeId,
         primary: String,
@@ -136,5 +200,60 @@ class ExternalAnimeTrackingTest {
             ),
             episodeCount = episodeCount,
             startYear = startYear,
+        )
+
+    private fun librarySeries(): LibrarySeries =
+        LibrarySeries(
+            id = "frieren",
+            title = "Frieren",
+            seasons = listOf(
+                LibrarySeason(
+                    id = "frieren-season-unknown",
+                    label = "Season unknown",
+                    sortKey = Int.MAX_VALUE,
+                    items = listOf(
+                        libraryMediaItem("episode-1", "Episode 01"),
+                        libraryMediaItem("episode-2", "Episode 02"),
+                    ),
+                ),
+            ),
+        )
+
+    private fun externalMapping(localSeriesId: String): ExternalAnimeMapping =
+        ExternalAnimeMapping(
+            localSeriesId = localSeriesId,
+            animeId = ExternalAnimeId(ExternalAnimeProvider.MY_ANIME_LIST, 52991),
+            source = ExternalAnimeMappingSource.MANUAL,
+            confidence = 1.0,
+            mappedAtEpochMs = 123,
+        )
+
+    private fun LibrarySeries.watchStatusById(
+        vararg states: Pair<String, LibraryWatchState>,
+    ): Map<String, LibraryWatchStatus> {
+        val stateById = states.toMap()
+        return seasons
+            .flatMap(LibrarySeason::items)
+            .associate { item ->
+                item.id to LibraryWatchStatus(
+                    mediaItem = item,
+                    state = stateById.getValue(item.id),
+                    progress = null,
+                )
+            }
+    }
+
+    private fun libraryMediaItem(
+        id: String,
+        episodeTitle: String,
+    ): LibraryMediaItem =
+        LibraryMediaItem(
+            id = id,
+            seriesTitle = "Frieren",
+            episodeTitle = episodeTitle,
+            relativePath = "$episodeTitle.mkv",
+            sizeBytes = 1_000L,
+            mediaType = "video/x-matroska",
+            streamPath = "/library/items/$id/stream",
         )
 }

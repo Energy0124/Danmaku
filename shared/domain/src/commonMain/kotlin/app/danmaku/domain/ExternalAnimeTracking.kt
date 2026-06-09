@@ -116,6 +116,37 @@ data class ExternalAnimeTrackingUpdate(
     }
 }
 
+fun LibrarySeries.externalAnimeTrackingUpdate(
+    mapping: ExternalAnimeMapping,
+    watchStatusByMediaId: Map<String, LibraryWatchStatus>,
+    trackingEnabled: Boolean = true,
+    ratingEnabled: Boolean = true,
+): ExternalAnimeTrackingUpdate {
+    require(mapping.localSeriesId == id) {
+        "mapping localSeriesId must match series id"
+    }
+    val items = seasons.flatMap(LibrarySeason::items)
+    val missingStatusItem = items.firstOrNull { it.id !in watchStatusByMediaId }
+    require(missingStatusItem == null) {
+        "watch status is missing for ${missingStatusItem?.id}"
+    }
+    val states = items.map { item -> watchStatusByMediaId.getValue(item.id).state }
+    val watchedEpisodes = states.count { it == LibraryWatchState.WATCHED }
+    val status = when {
+        watchedEpisodes == states.size -> ExternalAnimeListStatus.COMPLETED
+        states.any { it == LibraryWatchState.WATCHED || it == LibraryWatchState.IN_PROGRESS } ->
+            ExternalAnimeListStatus.WATCHING
+        else -> ExternalAnimeListStatus.PLAN_TO_WATCH
+    }
+    return ExternalAnimeTrackingUpdate(
+        animeId = mapping.animeId,
+        status = status,
+        watchedEpisodes = watchedEpisodes,
+        trackingEnabled = trackingEnabled,
+        ratingEnabled = ratingEnabled,
+    )
+}
+
 @Serializable
 data class ExternalAnimeMatchQuery(
     val title: String,
