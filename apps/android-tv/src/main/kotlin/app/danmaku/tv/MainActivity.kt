@@ -3,7 +3,9 @@ package app.danmaku.tv
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -33,9 +35,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -100,6 +104,25 @@ private val TvPanelRaisedColor = Color(0xFF20262B)
 private val TvCardColor = Color(0xFF111820)
 private val TvAccentBlue = Color(0xFF7DD3FC)
 private val TvMutedText = Color(0xFFB7C0C9)
+
+@Composable
+private fun Modifier.tvFocusHalo(
+    shape: RoundedCornerShape = RoundedCornerShape(20.dp),
+): Modifier {
+    var isFocused by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(
+        targetValue = if (isFocused) 1.035f else 1f,
+        label = "tv-focus-halo-scale",
+    )
+    return this
+        .scale(scale)
+        .border(
+            width = if (isFocused) 2.dp else 1.dp,
+            color = if (isFocused) TvAccentBlue else Color.Transparent,
+            shape = shape,
+        )
+        .onFocusChanged { isFocused = it.isFocused }
+}
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -830,7 +853,9 @@ internal fun LibraryItems(
                                 searchText = ""
                             },
                             enabled = searchText.isNotBlank() || selectedSeriesId != null,
-                            modifier = Modifier.testTag("series:all"),
+                            modifier = Modifier
+                                .tvFocusHalo(RoundedCornerShape(18.dp))
+                                .testTag("series:all"),
                         ) {
                             Text("All series")
                         }
@@ -846,7 +871,9 @@ internal fun LibraryItems(
                                     summary.title
                                 }
                             },
-                            modifier = Modifier.testTag("series:${summary.title}"),
+                            modifier = Modifier
+                                .tvFocusHalo(RoundedCornerShape(22.dp))
+                                .testTag("series:${summary.title}"),
                         ) {
                             Column {
                                 TvPosterTile(
@@ -1054,11 +1081,22 @@ private fun TvProgressRail(
         }
         LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             items(items, key = { it.mediaItem.id }) { item ->
+                var cardHasFocus by remember(item.mediaItem.id) { mutableStateOf(false) }
+                val cardScale by animateFloatAsState(
+                    targetValue = if (cardHasFocus) 1.025f else 1f,
+                    label = "$itemTagPrefix-card-focus-scale",
+                )
                 Column(
                     modifier = Modifier
                         .width(320.dp)
+                        .scale(cardScale)
                         .clip(RoundedCornerShape(20.dp))
                         .background(TvCardColor)
+                        .border(
+                            width = if (cardHasFocus) 2.dp else 1.dp,
+                            color = if (cardHasFocus) TvAccentBlue else Color.Transparent,
+                            shape = RoundedCornerShape(20.dp),
+                        )
                         .padding(10.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
@@ -1084,13 +1122,19 @@ private fun TvProgressRail(
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(
                             onClick = { onShowDetails(item.mediaItem) },
-                            modifier = Modifier.testTag("$itemTagPrefix-details:${item.mediaItem.id}"),
+                            modifier = Modifier
+                                .onFocusChanged { cardHasFocus = it.isFocused }
+                                .tvFocusHalo(RoundedCornerShape(16.dp))
+                                .testTag("$itemTagPrefix-details:${item.mediaItem.id}"),
                         ) {
                             Text("Details")
                         }
                         Button(
                             onClick = { onPlay(item.mediaItem) },
-                            modifier = Modifier.testTag("$itemTagPrefix:${item.mediaItem.id}"),
+                            modifier = Modifier
+                                .onFocusChanged { cardHasFocus = it.isFocused }
+                                .tvFocusHalo(RoundedCornerShape(16.dp))
+                                .testTag("$itemTagPrefix:${item.mediaItem.id}"),
                         ) {
                             Text("Play")
                         }
@@ -1130,11 +1174,22 @@ private fun TvNextUpRail(
         }
         LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             items(items, key = { it.mediaItem.id }) { item ->
+                var cardHasFocus by remember(item.mediaItem.id) { mutableStateOf(false) }
+                val cardScale by animateFloatAsState(
+                    targetValue = if (cardHasFocus) 1.025f else 1f,
+                    label = "next-up-card-focus-scale",
+                )
                 Column(
                     modifier = Modifier
                         .width(320.dp)
+                        .scale(cardScale)
                         .clip(RoundedCornerShape(20.dp))
                         .background(TvCardColor)
+                        .border(
+                            width = if (cardHasFocus) 2.dp else 1.dp,
+                            color = if (cardHasFocus) TvAccentBlue else Color.Transparent,
+                            shape = RoundedCornerShape(20.dp),
+                        )
                         .padding(10.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
@@ -1160,13 +1215,19 @@ private fun TvNextUpRail(
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(
                             onClick = { onShowDetails(item.mediaItem) },
-                            modifier = Modifier.testTag("next-up-details:${item.mediaItem.id}"),
+                            modifier = Modifier
+                                .onFocusChanged { cardHasFocus = it.isFocused }
+                                .tvFocusHalo(RoundedCornerShape(16.dp))
+                                .testTag("next-up-details:${item.mediaItem.id}"),
                         ) {
                             Text("Details")
                         }
                         Button(
                             onClick = { onPlay(item.mediaItem) },
-                            modifier = Modifier.testTag("next-up:${item.mediaItem.id}"),
+                            modifier = Modifier
+                                .onFocusChanged { cardHasFocus = it.isFocused }
+                                .tvFocusHalo(RoundedCornerShape(16.dp))
+                                .testTag("next-up:${item.mediaItem.id}"),
                         ) {
                             Text(item.nextUpActionLabel())
                         }
@@ -1248,6 +1309,7 @@ private fun TvSeriesDetail(
                             onClick = { onPlay(item) },
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .tvFocusHalo(RoundedCornerShape(16.dp))
                                 .testTag("series-detail-episode:${item.id}"),
                         ) {
                             Text(item.episodeTitle, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -1280,6 +1342,7 @@ private fun TvEpisodeButton(
             onClick = onPlay,
             modifier = Modifier
                 .weight(1f)
+                .tvFocusHalo(RoundedCornerShape(18.dp))
                 .testTag("episode:${item.id}"),
         ) {
             Row(
@@ -1315,13 +1378,17 @@ private fun TvEpisodeButton(
         }
         Button(
             onClick = { onSetFavorite(!isFavorite) },
-            modifier = Modifier.testTag("episode-favorite:${item.id}"),
+            modifier = Modifier
+                .tvFocusHalo(RoundedCornerShape(18.dp))
+                .testTag("episode-favorite:${item.id}"),
         ) {
             Text(if (isFavorite) "Unfavorite" else "Favorite")
         }
         Button(
             onClick = onShowDetails,
-            modifier = Modifier.testTag("episode-details:${item.id}"),
+            modifier = Modifier
+                .tvFocusHalo(RoundedCornerShape(18.dp))
+                .testTag("episode-details:${item.id}"),
         ) {
             Text("Details")
         }
