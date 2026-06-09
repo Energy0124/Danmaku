@@ -94,6 +94,52 @@ class LibrarySeriesTest {
     }
 
     @Test
+    fun groupsMatchedItemsByAnimeIdAndKeepsUnmatchedItemsLocal() {
+        val catalog = catalogOf(
+            item(
+                id = "one",
+                seriesTitle = "Shared Folder",
+                episodeTitle = "Episode 01",
+                animeMetadata = animeMetadata(101, "First Anime"),
+            ),
+            item(
+                id = "two",
+                seriesTitle = "Different Folder",
+                episodeTitle = "Episode 02",
+                animeMetadata = animeMetadata(101, "First Anime"),
+            ),
+            item(
+                id = "three",
+                seriesTitle = "Shared Folder",
+                episodeTitle = "Episode 01",
+                animeMetadata = animeMetadata(202, "Second Anime"),
+            ),
+            item(
+                id = "unknown",
+                seriesTitle = "Shared Folder",
+                episodeTitle = "Preview",
+            ),
+        )
+
+        val seriesByTitle = catalog.groupedSeries().associate { series ->
+            series.title to series.seasons.flatMap { season -> season.items.map(LibraryMediaItem::id) }
+        }
+        val idsByTitle = catalog.groupedSeries().associate { series -> series.title to series.id }
+
+        assertEquals(
+            mapOf(
+                "First Anime" to listOf("one", "two"),
+                "Second Anime" to listOf("three"),
+                "Shared Folder" to listOf("unknown"),
+            ),
+            seriesByTitle,
+        )
+        assertEquals("anime-dandanplay-101", idsByTitle["First Anime"])
+        assertEquals("anime-dandanplay-202", idsByTitle["Second Anime"])
+        assertEquals("shared-folder", idsByTitle["Shared Folder"])
+    }
+
+    @Test
     fun summarizesSeriesWatchProgress() {
         val catalog = catalogOf(
             item(id = "one", seriesTitle = "Example Show", episodeTitle = "Episode 01"),
@@ -147,6 +193,7 @@ class LibrarySeriesTest {
         relativePath: String = "$seriesTitle/$episodeTitle.mkv",
         sizeBytes: Long = 123,
         subtitleCount: Int = 0,
+        animeMetadata: LibraryAnimeMetadata? = null,
     ): LibraryMediaItem =
         LibraryMediaItem(
             id = id,
@@ -156,6 +203,7 @@ class LibrarySeriesTest {
             sizeBytes = sizeBytes,
             mediaType = "video/x-matroska",
             streamPath = "/media/$id",
+            animeMetadata = animeMetadata,
             subtitles = (1..subtitleCount).map { index ->
                 LibrarySubtitleTrack(
                     id = "$id-subtitle-$index",
@@ -178,5 +226,15 @@ class LibrarySeriesTest {
             positionMs = positionMs,
             durationMs = durationMs,
             updatedAtEpochMs = updatedAtEpochMs,
+        )
+
+    private fun animeMetadata(
+        animeId: Long,
+        displayTitle: String,
+    ): LibraryAnimeMetadata =
+        LibraryAnimeMetadata(
+            animeId = ExternalAnimeId(ExternalAnimeProvider.DANDANPLAY, animeId),
+            displayTitle = displayTitle,
+            primaryTitle = displayTitle,
         )
 }

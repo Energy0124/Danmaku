@@ -59,7 +59,16 @@ private fun LibraryMediaItem.matchesSearch(searchText: String): Boolean {
     if (terms.isEmpty()) {
         return true
     }
-    val searchableText = listOf(seriesTitle, episodeTitle, relativePath)
+    val searchableText = listOfNotNull(
+        seriesTitle,
+        episodeTitle,
+        relativePath,
+        animeMetadata?.displayTitle,
+        animeMetadata?.primaryTitle,
+        animeMetadata?.chineseTitle,
+        animeMetadata?.englishTitle,
+        animeMetadata?.japaneseTitle,
+    )
         .joinToString(separator = " ")
         .lowercase()
     return terms.all { term -> searchableText.contains(term.lowercase()) }

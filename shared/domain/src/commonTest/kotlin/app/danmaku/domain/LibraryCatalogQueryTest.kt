@@ -24,6 +24,37 @@ class LibraryCatalogQueryTest {
     }
 
     @Test
+    fun filtersByMatchedAnimeTitles() {
+        val catalog = LibraryCatalog(
+            rootName = "Anime",
+            indexedAtEpochMs = 123,
+            items = listOf(
+                item(
+                    id = "one",
+                    seriesTitle = "Local Folder",
+                    episodeTitle = "Episode 01",
+                    animeMetadata = LibraryAnimeMetadata(
+                        animeId = ExternalAnimeId(ExternalAnimeProvider.DANDANPLAY, 101),
+                        displayTitle = "Matched Anime",
+                        primaryTitle = "Primary Title",
+                        japaneseTitle = "Japanese Title",
+                    ),
+                ),
+                item(id = "two", seriesTitle = "Other Show", episodeTitle = "Episode 01"),
+            ),
+        )
+
+        assertEquals(
+            listOf("one"),
+            catalog.filteredItems(LibraryCatalogQuery(searchText = "matched anime")).map { it.id },
+        )
+        assertEquals(
+            listOf("one"),
+            catalog.filteredItems(LibraryCatalogQuery(searchText = "japanese")).map { it.id },
+        )
+    }
+
+    @Test
     fun filtersToItemsWithSubtitles() {
         val catalog = LibraryCatalog(
             rootName = "Anime",
@@ -136,6 +167,7 @@ class LibraryCatalogQueryTest {
         episodeTitle: String,
         relativePath: String = "$seriesTitle/$episodeTitle.mkv",
         subtitles: List<LibrarySubtitleTrack> = emptyList(),
+        animeMetadata: LibraryAnimeMetadata? = null,
     ): LibraryMediaItem =
         LibraryMediaItem(
             id = id,
@@ -146,5 +178,6 @@ class LibraryCatalogQueryTest {
             mediaType = "video/x-matroska",
             streamPath = "/media/$id",
             subtitles = subtitles,
+            animeMetadata = animeMetadata,
         )
 }

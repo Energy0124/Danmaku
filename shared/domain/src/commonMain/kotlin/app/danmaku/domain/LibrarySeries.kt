@@ -57,16 +57,16 @@ data class LibrarySeriesWatchSummary(
 
 fun LibraryCatalog.groupedSeries(): List<LibrarySeries> =
     items
-        .groupBy { it.seriesTitle.trim() }
-        .map { (seriesTitle, seriesItems) ->
+        .groupBy(LibrarySeriesIdentity::fromItem)
+        .map { (seriesIdentity, seriesItems) ->
             LibrarySeries(
-                id = seriesTitle.stableLibraryId(),
-                title = seriesTitle,
+                id = seriesIdentity.id,
+                title = seriesIdentity.title,
                 seasons = seriesItems
                     .groupBy(LibraryMediaItem::seasonIdentity)
                     .map { (seasonIdentity, seasonItems) ->
                         LibrarySeason(
-                            id = "${seriesTitle.stableLibraryId()}-${seasonIdentity.id}",
+                            id = "${seriesIdentity.id}-${seasonIdentity.id}",
                             label = seasonIdentity.label,
                             sortKey = seasonIdentity.sortKey,
                             items = seasonItems.sortedWith(libraryItemTitleComparator()),
@@ -80,7 +80,8 @@ fun LibraryCatalog.groupedSeries(): List<LibrarySeries> =
         }
         .sortedWith(
             compareByDescending<LibrarySeries> { it.episodeCount }
-                .thenBy { it.title.lowercase() },
+                .thenBy { it.title.lowercase() }
+                .thenBy { it.id },
         )
 
 fun LibraryCatalog.seriesWatchSummaryById(
@@ -112,6 +113,32 @@ private data class LibrarySeasonIdentity(
     val label: String,
     val sortKey: Int,
 )
+
+private data class LibrarySeriesIdentity(
+    val id: String,
+    val title: String,
+) {
+    companion object {
+        fun fromItem(item: LibraryMediaItem): LibrarySeriesIdentity {
+            val metadata = item.animeMetadata
+            if (metadata != null) {
+                return LibrarySeriesIdentity(
+                    id = "anime-${metadata.animeId.stableLibraryId()}",
+                    title = metadata.displayTitle,
+                )
+            }
+            return local(item.seriesTitle)
+        }
+
+        private fun local(seriesTitle: String): LibrarySeriesIdentity {
+            val normalizedTitle = seriesTitle.trim().ifBlank { "Series" }
+            return LibrarySeriesIdentity(
+                id = normalizedTitle.stableLibraryId(),
+                title = normalizedTitle,
+            )
+        }
+    }
+}
 
 private fun LibraryMediaItem.seasonIdentity(): LibrarySeasonIdentity {
     val searchableText = "$relativePath $episodeTitle"
@@ -173,3 +200,6 @@ private fun String.stableLibraryId(): String {
         .trim('-')
     return normalized.ifBlank { "series" }
 }
+
+private fun ExternalAnimeId.stableLibraryId(): String =
+    "${provider.name.lowercase()}-$value"

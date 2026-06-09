@@ -38,7 +38,7 @@ Status legend:
 - `[~]` Extend published LAN catalog with poster references.
 - `[~]` Extend published LAN catalog with matched anime metadata.
 - `[~]` Expose metadata/poster loading or last-refreshed state to clients.
-- `[ ]` Use matched anime grouping consistently on mobile and TV.
+- `[x]` Use matched anime grouping consistently on mobile and TV.
 
 ## QA Targets
 
@@ -60,8 +60,10 @@ Status legend:
 - 2026-06-09: `:apps:android-mobile:compileDebugKotlin`, `:apps:android-mobile:assembleDebug`, and `git diff --check` passed after adding the tablet two-pane library layout branch; `:apps:android-mobile:testDebugUnitTest` completed with `NO-SOURCE`.
 - 2026-06-09: `:apps:android-tv:compileDebugKotlin`, `:apps:android-tv:assembleDebug`, `:apps:android-tv:compileDebugAndroidTestKotlin`, and `git diff --check` passed after adding focus halo states; `:apps:android-tv:testDebugUnitTest` completed with `NO-SOURCE`.
 - 2026-06-09: `:apps:android-tv:compileDebugKotlin`, `:apps:android-tv:assembleDebug`, `:apps:android-tv:compileDebugAndroidTestKotlin`, and `git diff --check` passed after extracting the PC connection panel and wiring Next Up default focus; `:apps:android-tv:testDebugUnitTest` completed with `NO-SOURCE`.
-- 2026-06-09: LAN catalog now carries cached matched anime metadata, poster paths, and metadata status; local grouping is preserved while mobile/TV episode rows and detail panels show matched titles and poster readiness separately.
+- 2026-06-09: LAN catalog now carries cached matched anime metadata, poster paths, and metadata status; episode rows/details preserve local file context while shared grouping can use matched anime metadata.
 - 2026-06-09: `:shared:domain:jvmTest`, `:shared:library-server-core:jvmTest`, `:apps:desktop-windows:desktopTest`, `:shared:library-client:jvmTest`, `:shared:library-client-android:testDebugUnitTest`, `:apps:android-mobile:assembleDebug`, `:apps:android-tv:assembleDebug`, `:apps:android-mobile:compileDebugAndroidTestKotlin`, and `:apps:android-tv:compileDebugAndroidTestKotlin` passed after LAN poster/metadata publication; mobile/TV unit-test tasks remain `NO-SOURCE`.
 - 2026-06-09: Android mobile and TV now render authenticated LAN poster images in detail panels, episode rows, Next Up/progress rails, and series cards, with fallback initials and a visible loading pill while poster requests are in flight.
 - 2026-06-09: `:apps:android-mobile:compileDebugKotlin`, `:apps:android-tv:compileDebugKotlin`, `:apps:android-mobile:assembleDebug`, `:apps:android-tv:assembleDebug`, `:apps:android-mobile:compileDebugAndroidTestKotlin`, and `:apps:android-tv:compileDebugAndroidTestKotlin` passed after adding mobile/TV poster image rendering; mobile/TV unit-test tasks remain `NO-SOURCE`.
+- 2026-06-09: Shared series grouping now uses matched anime IDs per item, keeps unmatched items in their local series, and searches matched anime titles so selected anime series filter correctly across desktop, mobile, and TV.
+- 2026-06-09: `:shared:domain:jvmTest`, `:apps:desktop-windows:desktopTest`, `:apps:android-mobile:compileDebugKotlin`, and `:apps:android-tv:compileDebugKotlin` passed after matched-anime grouping changes.
 - Connected Android instrumentation tests are still pending a device/emulator run.

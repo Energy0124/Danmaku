@@ -95,7 +95,7 @@ class DesktopAnimeMetadataResolverTest {
     }
 
     @Test
-    fun displayCatalogSurfacesCachedAnimeMetadataWithoutChangingLocalGrouping() {
+    fun displayCatalogGroupsItemsByCachedAnimeMetadata() {
         val temp = createTempDirectory("danmaku-anime-display-metadata")
         val databasePath = temp.resolve("catalog.db")
         val firstItem = libraryMediaItem(
@@ -156,8 +156,7 @@ class DesktopAnimeMetadataResolverTest {
 
             assertEquals(
                 mapOf(
-                    "Yomotsu Hegui" to listOf(firstItem.id),
-                    "黄泉使者" to listOf(secondItem.id),
+                    "黄泉的使者" to listOf(firstItem.id, secondItem.id),
                 ),
                 displaySeries.associate { series ->
                     series.title to series.seasons.flatMap { season -> season.items.map(LibraryMediaItem::id) }
@@ -200,7 +199,7 @@ class DesktopAnimeMetadataResolverTest {
     }
 
     @Test
-    fun displayCatalogKeepsLocalGroupingWhenOnlyOneEpisodeHasItemMetadata() {
+    fun displayCatalogSplitsOnlyItemsWithItemMetadata() {
         val temp = createTempDirectory("danmaku-anime-item-display-metadata")
         val databasePath = temp.resolve("catalog.db")
         val firstItem = libraryMediaItem(id = "episode-1")
@@ -260,7 +259,10 @@ class DesktopAnimeMetadataResolverTest {
             val displaySeries = displayCatalog.groupedSeries()
 
             assertEquals(
-                mapOf("Example Show" to listOf(firstItem.id, secondItem.id)),
+                mapOf(
+                    "Item Anime" to listOf(firstItem.id),
+                    "Example Show" to listOf(secondItem.id),
+                ),
                 displaySeries.associate { series ->
                     series.title to series.seasons.flatMap { season -> season.items.map(LibraryMediaItem::id) }
                 },

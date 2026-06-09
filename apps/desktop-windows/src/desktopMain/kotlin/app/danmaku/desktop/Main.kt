@@ -2831,11 +2831,15 @@ private fun WindowsLibraryWorkspace(
         subtitleFilter == LibrarySubtitleFilter.ANY &&
         effectiveFavoriteFilter == LibraryFavoriteFilter.ANY
     val visibleSeries = remember(series, filteredEpisodes, filtersAreDefault) {
-        val visibleTitles = filteredEpisodes.mapTo(mutableSetOf()) { it.seriesTitle.trim() }
-        if (visibleTitles.isEmpty() && filtersAreDefault) {
+        val visibleMediaIds = filteredEpisodes.mapTo(mutableSetOf(), LibraryMediaItem::id)
+        if (visibleMediaIds.isEmpty() && filtersAreDefault) {
             series
         } else {
-            series.filter { it.title in visibleTitles }
+            series.filter { librarySeries ->
+                librarySeries.seasons.any { season ->
+                    season.items.any { item -> item.id in visibleMediaIds }
+                }
+            }
         }
     }
     val selectedInspectorSeries = selectedEpisodeDetail?.series ?: selectedSeries
