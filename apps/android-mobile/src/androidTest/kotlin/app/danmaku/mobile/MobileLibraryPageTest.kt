@@ -7,14 +7,20 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
+import app.danmaku.domain.ExternalAnimeId
+import app.danmaku.domain.ExternalAnimeProvider
+import app.danmaku.domain.LibraryAnimeMetadata
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryCatalogQuery
 import app.danmaku.domain.LibraryCatalogSort
 import app.danmaku.domain.LibraryFavoriteFilter
+import app.danmaku.domain.LibraryItemMetadataStatus
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySubtitleFilter
 import app.danmaku.domain.LibrarySubtitleTrack
@@ -115,6 +121,93 @@ class MobileLibraryPageTest {
         composeRule.onNodeWithTag("episode:example-1").assertExists()
         composeRule.onNodeWithTag("episode:example-2").assertExists()
         composeRule.onNodeWithTag("episode:other-1").assertDoesNotExist()
+    }
+
+    @Test
+    fun rendersPosterMetadataActiveFiltersAndMatchedSeriesSelection() {
+        composeRule.setContent {
+            MaterialTheme {
+                val catalog = LibraryCatalog(
+                    rootName = "Seeded PC",
+                    indexedAtEpochMs = 1_700_000_000_000,
+                    items = listOf(
+                        mediaItem(
+                            id = "example-1",
+                            seriesTitle = "Folder Title",
+                            episodeTitle = "Episode 01",
+                            subtitleCount = 2,
+                            posterPath = "/posters/example-1",
+                            animeMetadata = matchedMetadata(),
+                            metadataStatus = LibraryItemMetadataStatus.READY,
+                        ),
+                        mediaItem(
+                            id = "example-2",
+                            seriesTitle = "Folder Title",
+                            episodeTitle = "Episode 02",
+                            subtitleCount = 0,
+                        ),
+                        mediaItem(
+                            id = "other-1",
+                            seriesTitle = "Other Show",
+                            episodeTitle = "Pilot",
+                            subtitleCount = 1,
+                        ),
+                    ),
+                )
+                var searchText by remember { mutableStateOf("") }
+                val sort = LibraryCatalogSort.PATH
+                val subtitleFilter = LibrarySubtitleFilter.WITH_SUBTITLES
+                val favoriteFilter = LibraryFavoriteFilter.FAVORITES_ONLY
+                val favoriteIds = setOf("example-1")
+                val filteredItems = catalog.filteredItems(
+                    LibraryCatalogQuery(
+                        searchText = searchText,
+                        sort = sort,
+                        subtitleFilter = subtitleFilter,
+                        favoriteFilter = favoriteFilter,
+                        favoriteMediaIds = favoriteIds,
+                    ),
+                )
+
+                LibraryPage(
+                    contentPadding = PaddingValues(0.dp),
+                    catalog = catalog,
+                    playbackProgresses = emptyList(),
+                    filteredItems = filteredItems,
+                    totalCount = catalog.items.size,
+                    snapshot = PlaybackSnapshot(),
+                    nowPlaying = null,
+                    searchText = searchText,
+                    onSearchTextChange = { searchText = it },
+                    sort = sort,
+                    onSortChange = {},
+                    subtitleFilter = subtitleFilter,
+                    onSubtitleFilterChange = {},
+                    favoriteMediaIds = favoriteIds,
+                    favoriteFilter = favoriteFilter,
+                    onFavoriteFilterChange = {},
+                    onPlay = {},
+                    onPlayPause = {},
+                    onOpenPlayer = {},
+                    onConnect = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("library-series-rail").assertExists()
+        composeRule.onNodeWithText("Favorites only").assertExists()
+        composeRule.onNodeWithText("Subtitles only").assertExists()
+        composeRule.onNodeWithText("Path sort").assertExists()
+        composeRule.onNodeWithTag("series:Matched Anime").performClick()
+
+        composeRule.onNodeWithText("1 of 3 episodes").assertExists()
+        composeRule.onNodeWithTag("series-detail:Matched Anime").assertExists()
+        composeRule.onNodeWithTag("episode-details:example-1").performClick()
+        composeRule.onNodeWithTag("episode-detail:example-1").assertExists()
+        composeRule.onNodeWithText("Matched anime: Matched Anime").assertExists()
+        composeRule.onAllNodesWithText("Poster ready").assertCountEquals(2)
+        composeRule.onNodeWithTag("episode:example-1").assertExists()
+        composeRule.onNodeWithTag("episode:example-2").assertDoesNotExist()
     }
 
     @Test
@@ -532,6 +625,9 @@ class MobileLibraryPageTest {
         seriesTitle: String,
         episodeTitle: String,
         subtitleCount: Int,
+        posterPath: String? = null,
+        animeMetadata: LibraryAnimeMetadata? = null,
+        metadataStatus: LibraryItemMetadataStatus = LibraryItemMetadataStatus.NOT_AVAILABLE,
     ): LibraryMediaItem =
         LibraryMediaItem(
             id = id,
@@ -550,5 +646,18 @@ class MobileLibraryPageTest {
                     streamPath = "/subtitles/$id-$index",
                 )
             },
+            posterPath = posterPath,
+            animeMetadata = animeMetadata,
+            metadataStatus = metadataStatus,
+        )
+
+    private fun matchedMetadata(): LibraryAnimeMetadata =
+        LibraryAnimeMetadata(
+            animeId = ExternalAnimeId(ExternalAnimeProvider.DANDANPLAY, 101),
+            displayTitle = "Matched Anime",
+            primaryTitle = "Matched Anime",
+            englishTitle = "Matched Anime",
+            episodeCount = 2,
+            startYear = 2026,
         )
 }
