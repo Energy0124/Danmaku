@@ -2,6 +2,7 @@ package app.danmaku.desktop
 
 import app.danmaku.domain.DanmakuMode
 import app.danmaku.domain.DanmakuSize
+import app.danmaku.domain.ExternalAnimeProvider
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
 import java.net.InetSocketAddress
@@ -93,6 +94,36 @@ class DandanplayDanmakuClientTest {
             assertNull(compatibleRequest.headers["X-AppId"])
             assertNull(compatibleRequest.headers["X-AppSecret"])
             assertNull(compatibleRequest.headers["X-Signature"])
+        }
+    }
+
+    @Test
+    fun fetchesAnimeDetailsWithPosterImageUrl() {
+        DandanplayFixture().use { fixture ->
+            val clock = Clock.fixed(Instant.ofEpochSecond(1_735_660_800), ZoneOffset.UTC)
+            val client = DandanplayDanmakuClient(
+                connection = DandanplayConnection(
+                    baseUrl = fixture.baseUrl,
+                    appId = "test-app",
+                    appSecret = "test-secret",
+                ),
+                clock = clock,
+            )
+
+            val anime = client.fetchAnimeDetails(12345)
+
+            assertEquals(ExternalAnimeProvider.DANDANPLAY, anime.id.provider)
+            assertEquals(12345, anime.id.value)
+            assertEquals("Example Anime", anime.titles.primary)
+            assertEquals("示例动画", anime.titles.chinese)
+            assertEquals(2, anime.episodeCount)
+            assertEquals(2024, anime.startYear)
+            assertEquals("https://img.example.test/poster.jpg", anime.imageUrl)
+            assertEquals("Example summary", anime.summary)
+
+            val detailRequest = fixture.requests.first { it.path == "/api/v2/bangumi/12345" }
+            assertEquals("GET", detailRequest.method)
+            assertSignedHeaders(detailRequest, "/api/v2/bangumi/12345")
         }
     }
 
@@ -247,6 +278,26 @@ class DandanplayDanmakuClientTest {
         """.trimIndent(),
         private val commentStatusCode: Int = 200,
         private val commentLocationPath: String? = null,
+        private val detailResponse: String = """
+            {
+              "success": true,
+              "bangumi": {
+                "animeId": 12345,
+                "animeTitle": "Example Anime",
+                "imageUrl": "https://img.example.test/poster.jpg",
+                "summary": "Example summary",
+                "airDate": "2024-01-05",
+                "titles": [
+                  {"title": "示例动画", "language": "zh-CN"},
+                  {"title": "Example Anime", "language": "en"}
+                ],
+                "episodes": [
+                  {"episodeId": 123450001, "episodeTitle": "Episode 01"},
+                  {"episodeId": 123450002, "episodeTitle": "Episode 02"}
+                ]
+              }
+            }
+        """.trimIndent(),
     ) : AutoCloseable {
         private val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         val requests = CopyOnWriteArrayList<CapturedRequest>()
@@ -271,6 +322,7 @@ class DandanplayDanmakuClientTest {
                 val response = when (exchange.requestURI.path) {
                     "/api/v2/match" -> matchResponse
                     "/api/v2/comment/123450001" -> commentResponse
+                    "/api/v2/bangumi/12345" -> detailResponse
                     "/api/comment/123450001" -> commentResponse
                     else -> """{"success":false,"message":"not found"}"""
                 }

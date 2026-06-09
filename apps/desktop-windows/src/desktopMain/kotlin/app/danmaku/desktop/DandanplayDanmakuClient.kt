@@ -1,6 +1,10 @@
 package app.danmaku.desktop
 
 import app.danmaku.domain.DanmakuEvent
+import app.danmaku.domain.ExternalAnimeId
+import app.danmaku.domain.ExternalAnimeInfo
+import app.danmaku.domain.ExternalAnimeProvider
+import app.danmaku.domain.ExternalAnimeTitleSet
 import app.danmaku.domain.LocalDanmakuParser
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -128,6 +132,20 @@ class DandanplayDanmakuClient(
             match = bestMatch,
             events = fetchComments(bestMatch.episodeId, withRelated),
         )
+    }
+
+    fun fetchAnimeDetails(animeId: Long): ExternalAnimeInfo {
+        require(animeId > 0) { "animeId must be positive" }
+        val data = requestJson(
+            method = "GET",
+            apiPath = "/api/v2/bangumi/$animeId",
+        ).asObject()
+        check(data.boolean("success") != false) {
+            "dandanplay anime detail fetch failed: ${data.string("message") ?: data.string("errorMessage") ?: "unknown error"}"
+        }
+        val anime = data["bangumi"]?.asObjectOrNull()
+            ?: error("dandanplay anime detail response did not include bangumi")
+        return anime.toExternalAnimeInfo(animeId)
     }
 
     private fun requestJson(
@@ -374,6 +392,56 @@ private fun JsonObject.toDandanplayMatch(): DandanplayMatch? {
     )
 }
 
+private fun JsonObject.toExternalAnimeInfo(fallbackAnimeId: Long): ExternalAnimeInfo {
+    val animeId = long("animeId")
+        ?: long("AnimeId")
+        ?: long("id")
+        ?: fallbackAnimeId
+    val primaryTitle = string("animeTitle")
+        ?: string("AnimeTitle")
+        ?: string("name")
+        ?: string("Name")
+        ?: "dandanplay anime $animeId"
+    val parsedTitles = array("titles")
+        .mapNotNull(JsonElement::asObjectOrNull)
+        .mapNotNull { titleObject ->
+            val title = titleObject.string("title") ?: return@mapNotNull null
+            title to (titleObject.string("language") ?: "")
+        }
+    val chineseTitle = parsedTitles
+        .firstOrNull { (_, language) ->
+            language.contains("zh", ignoreCase = true) || language.contains("cn", ignoreCase = true)
+        }
+        ?.first
+    val alternateNames = parsedTitles
+        .map { it.first }
+        .filterNot { it.equals(primaryTitle, ignoreCase = true) || it == chineseTitle }
+        .distinct()
+    val imageUrl = (string("imageUrl") ?: string("ImageUrl"))
+        ?.toHttpsUrlOrNull()
+    val episodeCount = array("episodes")
+        .takeIf { it.isNotEmpty() }
+        ?.size
+        ?: long("episodeCount")?.toInt()
+        ?: long("EpisodeCount")?.toInt()
+    val startYear = (string("airDate") ?: string("AirDate"))
+        ?.take(4)
+        ?.toIntOrNull()
+        ?.takeIf { it in 1900..2200 }
+    return ExternalAnimeInfo(
+        id = ExternalAnimeId(ExternalAnimeProvider.DANDANPLAY, animeId),
+        titles = ExternalAnimeTitleSet(
+            primary = primaryTitle,
+            chinese = chineseTitle,
+            alternateNames = alternateNames,
+        ),
+        episodeCount = episodeCount,
+        startYear = startYear,
+        imageUrl = imageUrl,
+        summary = (string("summary") ?: string("Summary"))?.takeIf(String::isNotBlank),
+    )
+}
+
 private fun JsonObject.toDanmakuEvent(index: Int): DanmakuEvent? {
     val parameter = string("p")
         ?: string("P")
@@ -442,3 +510,14 @@ private fun URL.resolveHttpRedirect(location: String?): URL {
 
 private fun String.replaceLineBreaks(): String =
     replace('\r', ' ').replace('\n', ' ')
+
+private fun String.toHttpsUrlOrNull(): String? =
+    trim()
+        .takeIf(String::isNotBlank)
+        ?.let { url ->
+            when {
+                url.startsWith("https://", ignoreCase = true) -> url
+                url.startsWith("http://", ignoreCase = true) -> "https://${url.drop("http://".length)}"
+                else -> null
+            }
+        }

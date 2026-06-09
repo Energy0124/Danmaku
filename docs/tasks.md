@@ -196,6 +196,8 @@ unblocked slices inside these tracks as the vertical slice hardens.
 - [x] Replace the Windows Library tab with the first three-pane redesign pass:
   left navigation/source rail, center media workspace, and selected-item
   inspector.
+- [x] Fetch Windows local-library series posters from dandanplay anime metadata
+  after a successful episode match and cache the images for the poster grid.
 - [x] Polish the redesigned Windows Library workspace with keyboard grid/list
   selection, clearer overflow menus, and responsive behavior for desktop
   widths around 1366px and 1920px.

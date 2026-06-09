@@ -6,6 +6,7 @@ import kotlinx.serialization.Serializable
 enum class ExternalAnimeProvider {
     MY_ANIME_LIST,
     BANGUMI,
+    DANDANPLAY,
 }
 
 @Serializable
@@ -21,6 +22,7 @@ data class ExternalAnimeId(
         get() = when (provider) {
             ExternalAnimeProvider.MY_ANIME_LIST -> "https://myanimelist.net/anime/$value"
             ExternalAnimeProvider.BANGUMI -> "https://bangumi.tv/subject/$value"
+            ExternalAnimeProvider.DANDANPLAY -> "https://www.dandanplay.com/bangumi/$value"
         }
 }
 

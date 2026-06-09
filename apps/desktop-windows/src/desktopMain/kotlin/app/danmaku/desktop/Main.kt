@@ -226,6 +226,14 @@ private fun DesktopShell(
     val dandanplayCredentialStore = remember(catalogStore) {
         DandanplayCredentialStore(catalogStore)
     }
+    val posterCache = remember { DesktopAnimePosterCache.default() }
+    val animeMetadataResolver = remember(catalogStore, dandanplayCredentialStore, posterCache) {
+        DesktopAnimeMetadataResolver(
+            catalogStore = catalogStore,
+            loadConnection = dandanplayCredentialStore::loadConnection,
+            posterCache = posterCache,
+        )
+    }
     var dandanplaySettings by remember(dandanplayCredentialStore) {
         mutableStateOf(dandanplayCredentialStore.loadSettings())
     }
@@ -517,6 +525,9 @@ private fun DesktopShell(
             },
         )
     }
+    var seriesPosterById by remember(indexedLibrary) {
+        mutableStateOf(loadSeriesPosterById(indexedLibrary, animeMetadataResolver))
+    }
     var playbackProgresses by remember { mutableStateOf(catalogStore.loadPlaybackProgress()) }
     var favoriteMediaIds by remember { mutableStateOf(catalogStore.loadFavoriteMediaIds()) }
     var selectedLocalPlaybackPreparation by remember {
@@ -535,6 +546,7 @@ private fun DesktopShell(
             onLibraryPublished = { library ->
                 scope.launch {
                     indexedLibrary = library
+                    seriesPosterById = loadSeriesPosterById(library, animeMetadataResolver)
                     registeredRoots = rootRegistry.loadRoots()
                     selectedLocalPlaybackPreparation = null
                     libraryError = null
@@ -572,6 +584,7 @@ private fun DesktopShell(
         appendDiagnostic("library", "Publishing library: ${library.catalog.items.size} items")
         server.publish(library.toPublishedLibrary())
         indexedLibrary = library
+        seriesPosterById = loadSeriesPosterById(library, animeMetadataResolver)
         playbackProgresses = catalogStore.loadPlaybackProgress()
         favoriteMediaIds = catalogStore.loadFavoriteMediaIds()
         registeredRoots = rootRegistry.loadRoots()
@@ -873,6 +886,34 @@ private fun DesktopShell(
             }.onSuccess { result ->
                 selectedLocalPlaybackPreparation = result.preparation
                 libraryError = null
+                result.dandanplayResolution?.match?.animeId?.let { animeId ->
+                    scope.launch {
+                        val refreshedSeriesId = withContext(Dispatchers.IO) {
+                            val series = indexedLibrary
+                                ?.catalog
+                                ?.groupedSeries()
+                                ?.firstOrNull { librarySeries ->
+                                    librarySeries.seasons.any { season ->
+                                        season.items.any { seriesItem -> seriesItem.id == item.id }
+                                    }
+                                }
+                            series?.let {
+                                runCatching {
+                                    animeMetadataResolver.refreshDandanplayMetadataForSeries(
+                                        series = it,
+                                        animeId = animeId,
+                                        forceRefresh = refreshDandanplay,
+                                    )
+                                    it.id
+                                }.getOrNull()
+                            }
+                        }
+                        if (refreshedSeriesId != null) {
+                            seriesPosterById = loadSeriesPosterById(indexedLibrary, animeMetadataResolver)
+                            appendDiagnostic("metadata", "Refreshed dandanplay poster metadata for ${item.seriesTitle}")
+                        }
+                    }
+                }
                 appendDiagnostic(
                     "playback",
                     "Prepared local playback: ${item.id}; source=${result.preparation.source.path}; resume=${result.preparation.resumePositionMs}",
@@ -1457,6 +1498,7 @@ private fun DesktopShell(
                         DesktopShellTab.MEDIA_LIBRARY -> MediaLibraryTab(
                             registeredRoots = registeredRoots,
                             indexedLibrary = indexedLibrary,
+                            seriesPosterById = seriesPosterById,
                             playbackProgresses = playbackProgresses,
                             favoriteMediaIds = favoriteMediaIds,
                             isIndexing = isIndexing,
@@ -2359,6 +2401,7 @@ private fun Int.floorMod(size: Int): Int =
 private fun MediaLibraryTab(
     registeredRoots: List<DesktopLibraryRoot>,
     indexedLibrary: IndexedLocalLibrary?,
+    seriesPosterById: Map<String, Path?>,
     playbackProgresses: List<PlaybackProgress>,
     favoriteMediaIds: Set<String>,
     isIndexing: Boolean,
@@ -2422,6 +2465,7 @@ private fun MediaLibraryTab(
             registeredRoots = registeredRoots,
             indexedLibrary = indexedLibrary,
             series = series,
+            seriesPosterById = seriesPosterById,
             selectedSeries = selectedSeries,
             selectedEpisodeDetail = selectedEpisodeDetail,
             selectedLocalPlaybackPreparation = selectedLocalPlaybackPreparation,
@@ -2473,6 +2517,7 @@ private fun WindowsLibraryWorkspace(
     registeredRoots: List<DesktopLibraryRoot>,
     indexedLibrary: IndexedLocalLibrary?,
     series: List<LibrarySeries>,
+    seriesPosterById: Map<String, Path?>,
     selectedSeries: LibrarySeries?,
     selectedEpisodeDetail: LibraryEpisodeDetail?,
     selectedLocalPlaybackPreparation: DesktopLocalPlaybackPreparation?,
@@ -2540,11 +2585,6 @@ private fun WindowsLibraryWorkspace(
             series.filter { it.title in visibleTitles }
         }
     }
-    val coverBySeriesId = remember(indexedLibrary, series) {
-        series.associate { librarySeries ->
-            librarySeries.id to findSeriesCoverImage(librarySeries, indexedLibrary)
-        }
-    }
     val selectedInspectorSeries = selectedEpisodeDetail?.series ?: selectedSeries
     val selectedInspectorItem = selectedEpisodeDetail?.mediaItem
         ?: selectedLocalPlaybackPreparation?.item
@@ -2607,7 +2647,7 @@ private fun WindowsLibraryWorkspace(
                 visibleSeries = visibleSeries,
                 selectedSeries = selectedSeries,
                 filteredEpisodes = filteredEpisodes,
-                coverBySeriesId = coverBySeriesId,
+                coverBySeriesId = seriesPosterById,
                 continueWatchingItems = continueWatchingItems,
                 nextUpItems = nextUpItems,
                 recentlyWatchedItems = recentlyWatchedItems,
@@ -2637,7 +2677,7 @@ private fun WindowsLibraryWorkspace(
                 selectedLocalPlaybackPreparation = selectedLocalPlaybackPreparation,
                 dandanplayCacheStatus = dandanplayCacheStatus,
                 autoNextLocalPlayback = autoNextLocalPlayback,
-                coverPath = selectedInspectorSeries?.let { coverBySeriesId[it.id] },
+                coverPath = selectedInspectorSeries?.let { seriesPosterById[it.id] },
                 watchSummary = selectedInspectorSeries?.let { seriesWatchSummaryById[it.id] },
                 watchStatusById = watchStatusById,
                 favoriteMediaIds = favoriteMediaIds,
@@ -3957,6 +3997,19 @@ private fun findSeriesCoverImage(
     val firstItem = series.seasons.firstOrNull()?.items?.firstOrNull() ?: return null
     val firstMediaPath = indexedLibrary?.filesById?.get(firstItem.id) ?: return null
     return findCoverImageNear(firstMediaPath)
+}
+
+private fun loadSeriesPosterById(
+    indexedLibrary: IndexedLocalLibrary?,
+    metadataResolver: DesktopAnimeMetadataResolver,
+): Map<String, Path?> {
+    val library = indexedLibrary ?: return emptyMap()
+    return library.catalog.groupedSeries().associate { series ->
+        series.id to (
+            findSeriesCoverImage(series, library)
+                ?: metadataResolver.cachedPosterForSeries(series)
+            )
+    }
 }
 
 private fun findCoverImageNear(mediaPath: Path): Path? {
