@@ -287,97 +287,56 @@ private fun TvPlayerScreen() {
                 ) {
                     Text("Vol + ${snapshot.volumePercent}%")
                 }
-                Button(
-                    onClick = ::refreshLibrary,
-                    modifier = Modifier
-                        .focusRequester(refreshPcFocusRequester)
-                        .focusProperties {
-                            right = discoverPcFocusRequester
-                        },
-                ) {
-                    Text("Refresh PC library")
-                }
-                Button(
-                    onClick = {
-                        scope.launch {
-                            runCatching {
-                                withContext(Dispatchers.IO) {
-                                    discoveryClient.discover().firstOrNull()
-                                        ?: error("No Windows library server discovered")
-                                }
-                            }.onSuccess {
-                                serverUrl = it.baseUrl
-                                libraryError = null
-                            }.onFailure {
-                                libraryError = it.message
-                            }
-                        }
-                    },
-                    modifier = Modifier
-                        .focusRequester(discoverPcFocusRequester)
-                        .focusProperties {
-                            left = refreshPcFocusRequester
-                        },
-                ) {
-                    Text("Discover PC")
-                }
-                Button(
-                    onClick = {
+            }
+            TvPcConnectionPanel(
+                serverUrl = serverUrl,
+                onServerUrlChange = { serverUrl = it },
+                pairingToken = pairingToken,
+                onPairingTokenChange = { pairingToken = it },
+                savedConnections = savedConnections,
+                selectedBaseUrl = serverUrl.trim().trimEnd('/'),
+                libraryError = libraryError,
+                refreshPcFocusRequester = refreshPcFocusRequester,
+                discoverPcFocusRequester = discoverPcFocusRequester,
+                onRefresh = ::refreshLibrary,
+                onDiscover = {
+                    scope.launch {
                         runCatching {
-                            connectionStore.saveCurrentConnection(
-                                baseUrl = serverUrl,
-                                pairingToken = pairingToken,
-                                displayName = catalog?.rootName,
-                            )
+                            withContext(Dispatchers.IO) {
+                                discoveryClient.discover().firstOrNull()
+                                    ?: error("No Windows library server discovered")
+                            }
                         }.onSuccess {
-                            savedConnections = connectionStore.loadProfiles()
+                            serverUrl = it.baseUrl
                             libraryError = null
                         }.onFailure {
                             libraryError = it.message
                         }
-                    },
-                ) {
-                    Text("Save PC")
-                }
-            }
-            BasicTextField(
-                value = serverUrl,
-                onValueChange = { serverUrl = it },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color.White)
-                    .padding(8.dp)
-                    .focusable(),
-            )
-            BasicTextField(
-                value = pairingToken,
-                onValueChange = { pairingToken = it },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color.White)
-                    .padding(8.dp)
-                    .focusable(),
-            )
-            if (savedConnections.isNotEmpty()) {
-                Text("Saved PCs", style = MaterialTheme.typography.titleMedium)
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(savedConnections, key = { it.id }) { connection ->
-                        TvSavedConnectionCard(
-                            connection = connection,
-                            isSelected = connection.normalizedBaseUrl == serverUrl.trim().trimEnd('/'),
-                            onSelect = {
-                                serverUrl = connection.baseUrl
-                                pairingToken = connection.pairingToken
-                            },
-                            onForget = {
-                                connectionStore.forgetProfile(connection.id)
-                                savedConnections = connectionStore.loadProfiles()
-                            },
-                        )
                     }
-                }
-            }
-            libraryError?.let { Text("Library error: $it") }
+                },
+                onSave = {
+                    runCatching {
+                        connectionStore.saveCurrentConnection(
+                            baseUrl = serverUrl,
+                            pairingToken = pairingToken,
+                            displayName = catalog?.rootName,
+                        )
+                    }.onSuccess {
+                        savedConnections = connectionStore.loadProfiles()
+                        libraryError = null
+                    }.onFailure {
+                        libraryError = it.message
+                    }
+                },
+                onSelectConnection = {
+                    serverUrl = it.baseUrl
+                    pairingToken = it.pairingToken
+                },
+                onForgetConnection = {
+                    connectionStore.forgetProfile(it.id)
+                    savedConnections = connectionStore.loadProfiles()
+                },
+            )
             LibraryItems(
                 catalog = catalog,
                 playbackProgresses = playbackProgresses,
@@ -637,6 +596,133 @@ private fun TvPosterTile(
 }
 
 @Composable
+private fun TvPcConnectionPanel(
+    serverUrl: String,
+    onServerUrlChange: (String) -> Unit,
+    pairingToken: String,
+    onPairingTokenChange: (String) -> Unit,
+    savedConnections: List<LanLibraryConnectionProfile>,
+    selectedBaseUrl: String,
+    libraryError: String?,
+    refreshPcFocusRequester: FocusRequester,
+    discoverPcFocusRequester: FocusRequester,
+    onRefresh: () -> Unit,
+    onDiscover: () -> Unit,
+    onSave: () -> Unit,
+    onSelectConnection: (LanLibraryConnectionProfile) -> Unit,
+    onForgetConnection: (LanLibraryConnectionProfile) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(24.dp))
+            .background(TvPanelRaisedColor)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("PC Connection", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text("Discover, pair, and save the Windows library server.", color = TvMutedText)
+            }
+            TvRailPill(if (serverUrl.isBlank()) "No server" else "Server set", active = serverUrl.isNotBlank())
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Button(
+                onClick = onRefresh,
+                modifier = Modifier
+                    .focusRequester(refreshPcFocusRequester)
+                    .focusProperties {
+                        right = discoverPcFocusRequester
+                    }
+                    .tvFocusHalo(RoundedCornerShape(18.dp)),
+            ) {
+                Text("Refresh")
+            }
+            Button(
+                onClick = onDiscover,
+                modifier = Modifier
+                    .focusRequester(discoverPcFocusRequester)
+                    .focusProperties {
+                        left = refreshPcFocusRequester
+                    }
+                    .tvFocusHalo(RoundedCornerShape(18.dp)),
+            ) {
+                Text("Discover")
+            }
+            Button(
+                onClick = onSave,
+                modifier = Modifier.tvFocusHalo(RoundedCornerShape(18.dp)),
+            ) {
+                Text("Save")
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            TvTextInput(
+                value = serverUrl,
+                onValueChange = onServerUrlChange,
+                placeholder = "PC server URL",
+                modifier = Modifier.weight(1f),
+            )
+            TvTextInput(
+                value = pairingToken,
+                onValueChange = onPairingTokenChange,
+                placeholder = "Pairing token",
+                modifier = Modifier.weight(1f),
+            )
+        }
+        if (savedConnections.isNotEmpty()) {
+            Text("Saved PCs", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                items(savedConnections, key = { it.id }) { connection ->
+                    TvSavedConnectionCard(
+                        connection = connection,
+                        isSelected = connection.normalizedBaseUrl == selectedBaseUrl,
+                        onSelect = { onSelectConnection(connection) },
+                        onForget = { onForgetConnection(connection) },
+                    )
+                }
+            }
+        }
+        libraryError?.let {
+            Text("Library error: $it", color = Color(0xFFFCA5A5))
+        }
+    }
+}
+
+@Composable
+private fun TvTextInput(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    modifier: Modifier = Modifier,
+) {
+    BasicTextField(
+        value = value,
+        onValueChange = onValueChange,
+        singleLine = true,
+        textStyle = TextStyle(color = Color.White),
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(TvCardColor)
+            .padding(horizontal = 14.dp, vertical = 12.dp)
+            .focusable(),
+        decorationBox = { innerTextField ->
+            if (value.isBlank()) {
+                Text(placeholder, color = TvMutedText)
+            }
+            innerTextField()
+        },
+    )
+}
+
+@Composable
 private fun TvSavedConnectionCard(
     connection: LanLibraryConnectionProfile,
     isSelected: Boolean,
@@ -646,7 +732,8 @@ private fun TvSavedConnectionCard(
     Column(
         modifier = Modifier
             .width(320.dp)
-            .background(if (isSelected) Color(0xFF273747) else Color.DarkGray)
+            .clip(RoundedCornerShape(20.dp))
+            .background(if (isSelected) Color(0xFF273747) else TvCardColor)
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -660,13 +747,17 @@ private fun TvSavedConnectionCard(
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
                 onClick = onSelect,
-                modifier = Modifier.testTag("saved-connection:${connection.id}"),
+                modifier = Modifier
+                    .tvFocusHalo(RoundedCornerShape(16.dp))
+                    .testTag("saved-connection:${connection.id}"),
             ) {
                 Text(if (isSelected) "Selected" else "Use")
             }
             Button(
                 onClick = onForget,
-                modifier = Modifier.testTag("saved-connection-forget:${connection.id}"),
+                modifier = Modifier
+                    .tvFocusHalo(RoundedCornerShape(16.dp))
+                    .testTag("saved-connection-forget:${connection.id}"),
             ) {
                 Text("Forget")
             }
@@ -704,6 +795,7 @@ internal fun LibraryItems(
     val nextUpItems = catalog?.nextUpItems(playbackProgresses, limit = 6).orEmpty()
     val continueWatchingItems = catalog?.continueWatchingItems(playbackProgresses, limit = 6).orEmpty()
     val recentlyWatchedItems = catalog?.recentlyWatchedItems(playbackProgresses, limit = 6).orEmpty()
+    val nextUpFocusRequester = remember { FocusRequester() }
     val watchStatusById = catalog?.watchStatusByMediaId(playbackProgresses).orEmpty()
     val seriesWatchSummaryById = catalog?.seriesWatchSummaryById(playbackProgresses).orEmpty()
     val selectedSeries = series.firstOrNull { it.id == selectedSeriesId }
@@ -712,6 +804,12 @@ internal fun LibraryItems(
         ?: filteredItems.firstOrNull()?.id
     val selectedEpisodeDetail = selectedDetailId
         ?.let { id -> catalog?.episodeDetail(id, playbackProgresses) }
+
+    LaunchedEffect(nextUpItems.firstOrNull()?.mediaItem?.id) {
+        if (nextUpItems.isNotEmpty()) {
+            nextUpFocusRequester.requestFocus()
+        }
+    }
 
     Row(
         modifier = Modifier
@@ -820,6 +918,7 @@ internal fun LibraryItems(
             if (nextUpItems.isNotEmpty()) {
                 TvNextUpRail(
                     items = nextUpItems,
+                    initialFocusRequester = nextUpFocusRequester,
                     onShowDetails = { selectedEpisodeId = it.id },
                     onPlay = onPlay,
                 )
@@ -1148,6 +1247,7 @@ private fun TvProgressRail(
 @Composable
 private fun TvNextUpRail(
     items: List<LibraryNextUpItem>,
+    initialFocusRequester: FocusRequester? = null,
     onShowDetails: (LibraryMediaItem) -> Unit,
     onPlay: (LibraryMediaItem) -> Unit,
 ) {
@@ -1173,6 +1273,7 @@ private fun TvNextUpRail(
             Text("${items.size} picks")
         }
         LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            val firstItemId = items.firstOrNull()?.mediaItem?.id
             items(items, key = { it.mediaItem.id }) { item ->
                 var cardHasFocus by remember(item.mediaItem.id) { mutableStateOf(false) }
                 val cardScale by animateFloatAsState(
@@ -1226,6 +1327,13 @@ private fun TvNextUpRail(
                             onClick = { onPlay(item.mediaItem) },
                             modifier = Modifier
                                 .onFocusChanged { cardHasFocus = it.isFocused }
+                                .then(
+                                    if (item.mediaItem.id == firstItemId && initialFocusRequester != null) {
+                                        Modifier.focusRequester(initialFocusRequester)
+                                    } else {
+                                        Modifier
+                                    },
+                                )
                                 .tvFocusHalo(RoundedCornerShape(16.dp))
                                 .testTag("next-up:${item.mediaItem.id}"),
                         ) {

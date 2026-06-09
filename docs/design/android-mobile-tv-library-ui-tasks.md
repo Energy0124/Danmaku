@@ -26,9 +26,9 @@ Status legend:
 - `[~]` Add TV visual system constants for background, panels, focus, muted text, and accent.
 - `[~]` Replace raw gray library panels with composed TV panel/card surfaces.
 - `[~]` Add poster-like fallback cards for Next Up, progress rails, and series.
-- `[ ]` Move PC setup fields into a dedicated PC surface/screen.
+- `[~]` Move PC setup fields into a dedicated PC surface/screen.
 - `[~]` Add stable left navigation rail for Home/Library/Search/Favorites/PC.
-- `[ ]` Make connected-library default focus land on Next Up.
+- `[~]` Make connected-library default focus land on Next Up.
 - `[~]` Add focus-aware scaling/border states for TV cards.
 - `[ ]` Reduce action-heavy TV rows to one primary card target plus focused quick actions.
 - `[ ]` Expand D-pad tests beyond Discover/Refresh.
@@ -59,4 +59,5 @@ Status legend:
 - 2026-06-09: Re-ran mobile/TV compile, assemble, unit-test tasks, and `git diff --check` after mobile detail and TV shell polish; all passed, with unit-test tasks still `NO-SOURCE`.
 - 2026-06-09: `:apps:android-mobile:compileDebugKotlin`, `:apps:android-mobile:assembleDebug`, and `git diff --check` passed after adding the tablet two-pane library layout branch; `:apps:android-mobile:testDebugUnitTest` completed with `NO-SOURCE`.
 - 2026-06-09: `:apps:android-tv:compileDebugKotlin`, `:apps:android-tv:assembleDebug`, `:apps:android-tv:compileDebugAndroidTestKotlin`, and `git diff --check` passed after adding focus halo states; `:apps:android-tv:testDebugUnitTest` completed with `NO-SOURCE`.
+- 2026-06-09: `:apps:android-tv:compileDebugKotlin`, `:apps:android-tv:assembleDebug`, `:apps:android-tv:compileDebugAndroidTestKotlin`, and `git diff --check` passed after extracting the PC connection panel and wiring Next Up default focus; `:apps:android-tv:testDebugUnitTest` completed with `NO-SOURCE`.
 - Connected Android instrumentation tests are still pending a device/emulator run.
