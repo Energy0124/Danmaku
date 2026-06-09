@@ -2516,6 +2516,29 @@ private fun PlayerIconButton(
 }
 
 @Composable
+private fun LibraryActionButton(
+    imageVector: ImageVector,
+    label: String,
+    enabled: Boolean = true,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier,
+    ) {
+        Icon(
+            imageVector = imageVector,
+            contentDescription = null,
+            modifier = Modifier.size(16.dp),
+        )
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+@Composable
 private fun PlayerOverlayButton(
     text: String,
     enabled: Boolean = true,
@@ -3533,12 +3556,12 @@ private fun LibraryProgressCard(
         MiniProgressBar(percent = card.progressPercent)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(card.detail, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-            Button(
+            LibraryActionButton(
+                imageVector = Icons.Filled.PlayArrow,
+                label = if (isPreparing) "Loading..." else card.actionLabel,
                 onClick = { onPlayLocalPlayback(card.mediaItem) },
                 enabled = !isPreparing,
-            ) {
-                Text(if (isPreparing) "Loading..." else card.actionLabel)
-            }
+            )
         }
     }
 }
@@ -3568,12 +3591,16 @@ private fun ContinueWatchingList(
                 ),
         ) {
             items(items, key = { it.mediaItem.id }) { item ->
+                val rowIndex = items.indexOf(item)
                 ContinueWatchingRow(
                     item = item,
-                    selected = items.indexOf(item) == boundedSelectedIndex,
+                    selected = rowIndex == boundedSelectedIndex,
                     isPreparing = isPreparing,
                     compact = compact,
-                    onShowDetails = onShowDetails,
+                    onShowDetails = {
+                        selectedIndex = rowIndex
+                        onShowDetails(it)
+                    },
                     onPlayLocalPlayback = onPlayLocalPlayback,
                 )
             }
@@ -3607,12 +3634,16 @@ private fun NextUpList(
                 ),
         ) {
             items(items, key = { it.mediaItem.id }) { item ->
+                val rowIndex = items.indexOf(item)
                 NextUpRow(
                     item = item,
-                    selected = items.indexOf(item) == boundedSelectedIndex,
+                    selected = rowIndex == boundedSelectedIndex,
                     isPreparing = isPreparing,
                     compact = compact,
-                    onShowDetails = onShowDetails,
+                    onShowDetails = {
+                        selectedIndex = rowIndex
+                        onShowDetails(it)
+                    },
                     onPrepareLocalPlayback = onPrepareLocalPlayback,
                     onPlayLocalPlayback = onPlayLocalPlayback,
                 )
@@ -3647,12 +3678,16 @@ private fun RecentlyWatchedList(
                 ),
         ) {
             items(items, key = { it.mediaItem.id }) { item ->
+                val rowIndex = items.indexOf(item)
                 RecentlyWatchedRow(
                     item = item,
-                    selected = items.indexOf(item) == boundedSelectedIndex,
+                    selected = rowIndex == boundedSelectedIndex,
                     isPreparing = isPreparing,
                     compact = compact,
-                    onShowDetails = onShowDetails,
+                    onShowDetails = {
+                        selectedIndex = rowIndex
+                        onShowDetails(it)
+                    },
                     onPrepareLocalPlayback = onPrepareLocalPlayback,
                     onPlayLocalPlayback = onPlayLocalPlayback,
                 )
@@ -3698,16 +3733,20 @@ private fun EpisodeListView(
                 ),
         ) {
             items(episodes, key = { it.id }) { item ->
+                val rowIndex = episodes.indexOf(item)
                 EpisodeRow(
                     item = item,
-                    selected = episodes.indexOf(item) == boundedSelectedIndex,
+                    selected = rowIndex == boundedSelectedIndex,
                     watchStatus = watchStatusById[item.id],
                     isFavorite = item.id in favoriteMediaIds,
                     originalSeriesTitle = originalSeriesTitleByMediaId[item.id],
                     isRefreshingMetadata = item.id in refreshingMetadataMediaIds,
                     isPreparing = isPreparing,
                     compact = compact,
-                    onShowDetails = onShowDetails,
+                    onShowDetails = {
+                        selectedIndex = rowIndex
+                        onShowDetails(it)
+                    },
                     onSetFavorite = onSetFavorite,
                     onPrepareLocalPlayback = onPrepareLocalPlayback,
                     onPlayLocalPlayback = onPlayLocalPlayback,
@@ -3809,13 +3848,13 @@ private fun LibraryInspectorPane(
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(if (isPreparing) "Loading..." else selectedItem.primaryPlaybackActionLabel(watchStatusById[selectedItem.id]))
             }
-            Button(
-                onClick = { onPrepareLocalPlayback(selectedItem) },
-                enabled = !isPreparing,
+            LibraryActionButton(
+                imageVector = Icons.Filled.Refresh,
+                label = if (isPreparing) "Preparing..." else if (compact) "Prep" else "Prepare",
                 modifier = Modifier.weight(1f),
-            ) {
-                Text(if (isPreparing) "Preparing..." else if (compact) "Prep" else "Prepare")
-            }
+                enabled = !isPreparing,
+                onClick = { onPrepareLocalPlayback(selectedItem) },
+            )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             PlayerIconButton(
@@ -3988,63 +4027,66 @@ private fun LibraryInspectorPane(
         activePreparation?.let { preparation ->
             Divider(color = DanmakuColors.SurfaceRaised)
             Text("Advanced", fontWeight = FontWeight.Bold)
-            Button(onClick = { onLoadPreparedPlayback(preparation) }, modifier = Modifier.fillMaxWidth()) {
-                Text("Load into player")
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    onClick = { onRefreshDandanplay(preparation) },
-                    enabled = !isPreparing,
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Text("Refresh danmaku")
-                }
-                Button(
-                    onClick = { onAttachManualDanmaku(preparation) },
-                    enabled = !isPreparing,
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Text("Attach local")
-                }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    onClick = { onRefreshEpisodeMetadata(selectedItem) },
-                    enabled = !isPreparing && !isRefreshingEpisodeMetadata,
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Text(if (isRefreshingEpisodeMetadata) "Metadata..." else "Episode meta")
-                }
-                Button(
-                    onClick = { onRefreshSeriesMetadata(selectedSeries) },
-                    enabled = !isPreparing && !isRefreshingSeriesMetadata,
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Text(if (isRefreshingSeriesMetadata) "Series..." else "Series meta")
-                }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    onClick = { onClearDanmakuOverlay(preparation) },
-                    enabled = hasDanmakuOverlay && !isPreparing,
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Text("Remove overlay")
-                }
-                Button(
-                    onClick = { onClearDandanplayCache(preparation) },
-                    enabled = !isPreparing,
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Text("Clear cache")
-                }
-            }
-            Button(
-                onClick = { onSetAutoNextLocalPlayback(!autoNextLocalPlayback) },
+            LibraryActionButton(
+                imageVector = Icons.Filled.PlayArrow,
+                label = "Load into player",
                 modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(if (autoNextLocalPlayback) "Auto-next on" else "Auto-next off")
+                onClick = { onLoadPreparedPlayback(preparation) },
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                LibraryActionButton(
+                    imageVector = Icons.Filled.Refresh,
+                    label = "Refresh danmaku",
+                    modifier = Modifier.weight(1f),
+                    enabled = !isPreparing,
+                    onClick = { onRefreshDandanplay(preparation) },
+                )
+                LibraryActionButton(
+                    imageVector = Icons.Filled.Subtitles,
+                    label = "Attach local",
+                    modifier = Modifier.weight(1f),
+                    enabled = !isPreparing,
+                    onClick = { onAttachManualDanmaku(preparation) },
+                )
             }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                LibraryActionButton(
+                    imageVector = Icons.Filled.Refresh,
+                    label = if (isRefreshingEpisodeMetadata) "Metadata..." else "Episode meta",
+                    modifier = Modifier.weight(1f),
+                    enabled = !isPreparing && !isRefreshingEpisodeMetadata,
+                    onClick = { onRefreshEpisodeMetadata(selectedItem) },
+                )
+                LibraryActionButton(
+                    imageVector = Icons.Filled.Refresh,
+                    label = if (isRefreshingSeriesMetadata) "Series..." else "Series meta",
+                    modifier = Modifier.weight(1f),
+                    enabled = !isPreparing && !isRefreshingSeriesMetadata,
+                    onClick = { onRefreshSeriesMetadata(selectedSeries) },
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                LibraryActionButton(
+                    imageVector = Icons.Filled.Subtitles,
+                    label = "Remove overlay",
+                    modifier = Modifier.weight(1f),
+                    enabled = hasDanmakuOverlay && !isPreparing,
+                    onClick = { onClearDanmakuOverlay(preparation) },
+                )
+                LibraryActionButton(
+                    imageVector = Icons.Filled.Refresh,
+                    label = "Clear cache",
+                    modifier = Modifier.weight(1f),
+                    enabled = !isPreparing,
+                    onClick = { onClearDandanplayCache(preparation) },
+                )
+            }
+            LibraryActionButton(
+                imageVector = Icons.Filled.FastForward,
+                label = if (autoNextLocalPlayback) "Auto-next on" else "Auto-next off",
+                modifier = Modifier.fillMaxWidth(),
+                onClick = { onSetAutoNextLocalPlayback(!autoNextLocalPlayback) },
+            )
             status?.details?.forEach { detail ->
                 MetadataRow(detail.label, detail.value)
             }
@@ -4296,13 +4338,13 @@ private fun SeriesPosterCard(
             ) {
                 Icon(Icons.Filled.Refresh, contentDescription = "Refresh metadata", modifier = Modifier.size(16.dp))
             }
-            Button(
-                onClick = onPlay,
-                enabled = !isPreparing,
+            LibraryActionButton(
+                imageVector = Icons.Filled.PlayArrow,
+                label = if (isPreparing) "Loading..." else "Play",
                 modifier = Modifier.weight(0.54f),
-            ) {
-                Text(if (isPreparing) "Loading..." else "Play")
-            }
+                enabled = !isPreparing,
+                onClick = onPlay,
+            )
         }
     }
 }
@@ -5136,22 +5178,24 @@ private fun NextUpRow(
                     onClick = { onShowDetails(item.mediaItem) },
                 )
             } else {
-                Button(onClick = { onShowDetails(item.mediaItem) }) {
-                    Text("Details")
-                }
+                LibraryActionButton(
+                    imageVector = Icons.Filled.Subtitles,
+                    label = "Details",
+                    onClick = { onShowDetails(item.mediaItem) },
+                )
             }
-            Button(
+            LibraryActionButton(
+                imageVector = Icons.Filled.Refresh,
+                label = if (isPreparing) "Preparing..." else if (compact) "Prep" else "Prepare",
+                enabled = !isPreparing,
                 onClick = { onPrepareLocalPlayback(item.mediaItem) },
+            )
+            LibraryActionButton(
+                imageVector = Icons.Filled.PlayArrow,
+                label = if (isPreparing) "Loading..." else item.nextUpActionLabel(),
                 enabled = !isPreparing,
-            ) {
-                Text(if (isPreparing) "Preparing..." else if (compact) "Prep" else "Prepare")
-            }
-            Button(
                 onClick = { onPlayLocalPlayback(item.mediaItem) },
-                enabled = !isPreparing,
-            ) {
-                Text(if (isPreparing) "Loading..." else item.nextUpActionLabel())
-            }
+            )
         }
     }
 }
@@ -5194,16 +5238,18 @@ private fun ContinueWatchingRow(
                     onClick = { onShowDetails(item.mediaItem) },
                 )
             } else {
-                Button(onClick = { onShowDetails(item.mediaItem) }) {
-                    Text("Details")
-                }
+                LibraryActionButton(
+                    imageVector = Icons.Filled.Subtitles,
+                    label = "Details",
+                    onClick = { onShowDetails(item.mediaItem) },
+                )
             }
-            Button(
-                onClick = { onPlayLocalPlayback(item.mediaItem) },
+            LibraryActionButton(
+                imageVector = Icons.Filled.PlayArrow,
+                label = if (isPreparing) "Loading..." else "Resume",
                 enabled = !isPreparing,
-            ) {
-                Text(if (isPreparing) "Loading..." else "Resume")
-            }
+                onClick = { onPlayLocalPlayback(item.mediaItem) },
+            )
         }
     }
 }
@@ -5248,22 +5294,24 @@ private fun RecentlyWatchedRow(
                     onClick = { onShowDetails(item.mediaItem) },
                 )
             } else {
-                Button(onClick = { onShowDetails(item.mediaItem) }) {
-                    Text("Details")
-                }
+                LibraryActionButton(
+                    imageVector = Icons.Filled.Subtitles,
+                    label = "Details",
+                    onClick = { onShowDetails(item.mediaItem) },
+                )
             }
-            Button(
+            LibraryActionButton(
+                imageVector = Icons.Filled.Refresh,
+                label = if (isPreparing) "Preparing..." else if (compact) "Prep" else "Prepare",
+                enabled = !isPreparing,
                 onClick = { onPrepareLocalPlayback(item.mediaItem) },
+            )
+            LibraryActionButton(
+                imageVector = Icons.Filled.PlayArrow,
+                label = if (isPreparing) "Loading..." else "Play",
                 enabled = !isPreparing,
-            ) {
-                Text(if (isPreparing) "Preparing..." else if (compact) "Prep" else "Prepare")
-            }
-            Button(
                 onClick = { onPlayLocalPlayback(item.mediaItem) },
-                enabled = !isPreparing,
-            ) {
-                Text(if (isPreparing) "Loading..." else "Play")
-            }
+            )
         }
     }
 }
@@ -5341,25 +5389,29 @@ private fun EpisodeRow(
                     onClick = { onSetFavorite(item, !isFavorite) },
                 )
             } else {
-                Button(onClick = { onShowDetails(item) }) {
-                    Text("Details")
-                }
-                Button(onClick = { onSetFavorite(item, !isFavorite) }) {
-                    Text(if (isFavorite) "Unfavorite" else "Favorite")
-                }
+                LibraryActionButton(
+                    imageVector = Icons.Filled.Subtitles,
+                    label = "Details",
+                    onClick = { onShowDetails(item) },
+                )
+                LibraryActionButton(
+                    imageVector = Icons.Filled.Star,
+                    label = if (isFavorite) "Unfavorite" else "Favorite",
+                    onClick = { onSetFavorite(item, !isFavorite) },
+                )
             }
-            Button(
+            LibraryActionButton(
+                imageVector = Icons.Filled.Refresh,
+                label = if (isPreparing) "Preparing..." else if (compact) "Prep" else "Prepare",
+                enabled = !isPreparing,
                 onClick = { onPrepareLocalPlayback(item) },
+            )
+            LibraryActionButton(
+                imageVector = Icons.Filled.PlayArrow,
+                label = if (isPreparing) "Loading..." else "Play",
                 enabled = !isPreparing,
-            ) {
-                Text(if (isPreparing) "Preparing..." else if (compact) "Prep" else "Prepare")
-            }
-            Button(
                 onClick = { onPlayLocalPlayback(item) },
-                enabled = !isPreparing,
-            ) {
-                Text(if (isPreparing) "Loading..." else "Play")
-            }
+            )
         }
     }
 }
