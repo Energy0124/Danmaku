@@ -125,24 +125,90 @@ data class ExternalAnimeTrackingPlan(
             "tracking plan updates must be unique by local series and provider"
         }
     }
+
+    val summary: ExternalAnimeTrackingPlanSummary =
+        ExternalAnimeTrackingPlanSummary(
+            updateCount = updates.size,
+            skippedCount = skipped.size,
+            providerUpdateCounts = updates
+                .groupingBy { it.mapping.animeId.provider }
+                .eachCount(),
+            skipReasonCounts = skipped
+                .groupingBy(ExternalAnimeTrackingPlanSkip::reason)
+                .eachCount(),
+        )
 }
 
 data class ExternalAnimeTrackingPlanUpdate(
     val series: LibrarySeries,
     val mapping: ExternalAnimeMapping,
     val update: ExternalAnimeTrackingUpdate,
-)
+) {
+    val label: String
+        get() = "${series.title} -> ${mapping.animeId.provider.displayName} " +
+            "${update.status.displayName}, ${update.watchedEpisodes ?: 0}/${series.episodeCount} watched"
+}
 
 data class ExternalAnimeTrackingPlanSkip(
     val localSeriesId: String,
     val provider: ExternalAnimeProvider? = null,
     val reason: ExternalAnimeTrackingPlanSkipReason,
-)
+) {
+    val label: String
+        get() {
+            val providerLabel = provider?.displayName ?: "External provider"
+            return "$providerLabel: ${reason.displayName} ($localSeriesId)"
+        }
+}
+
+data class ExternalAnimeTrackingPlanSummary(
+    val updateCount: Int,
+    val skippedCount: Int,
+    val providerUpdateCounts: Map<ExternalAnimeProvider, Int>,
+    val skipReasonCounts: Map<ExternalAnimeTrackingPlanSkipReason, Int>,
+) {
+    init {
+        require(updateCount >= 0) { "updateCount must not be negative" }
+        require(skippedCount >= 0) { "skippedCount must not be negative" }
+        require(providerUpdateCounts.values.all { it >= 0 }) {
+            "provider update counts must not be negative"
+        }
+        require(skipReasonCounts.values.all { it >= 0 }) {
+            "skip reason counts must not be negative"
+        }
+    }
+
+    val label: String
+        get() = "$updateCount updates ready, $skippedCount skipped"
+}
 
 enum class ExternalAnimeTrackingPlanSkipReason {
     MISSING_LOCAL_SERIES,
     UNMAPPED_LOCAL_SERIES,
 }
+
+val ExternalAnimeProvider.displayName: String
+    get() = when (this) {
+        ExternalAnimeProvider.MY_ANIME_LIST -> "MyAnimeList"
+        ExternalAnimeProvider.BANGUMI -> "Bangumi"
+        ExternalAnimeProvider.DANDANPLAY -> "dandanplay"
+    }
+
+val ExternalAnimeListStatus?.displayName: String
+    get() = when (this) {
+        ExternalAnimeListStatus.WATCHING -> "watching"
+        ExternalAnimeListStatus.COMPLETED -> "completed"
+        ExternalAnimeListStatus.ON_HOLD -> "on hold"
+        ExternalAnimeListStatus.DROPPED -> "dropped"
+        ExternalAnimeListStatus.PLAN_TO_WATCH -> "plan to watch"
+        null -> "unchanged"
+    }
+
+val ExternalAnimeTrackingPlanSkipReason.displayName: String
+    get() = when (this) {
+        ExternalAnimeTrackingPlanSkipReason.MISSING_LOCAL_SERIES -> "mapped series is no longer in the library"
+        ExternalAnimeTrackingPlanSkipReason.UNMAPPED_LOCAL_SERIES -> "series is not linked"
+    }
 
 fun LibraryCatalog.externalAnimeTrackingPlan(
     mappings: List<ExternalAnimeMapping>,

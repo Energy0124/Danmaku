@@ -15,7 +15,7 @@ Status legend:
 - `[x]` Derive external list progress updates from local watch state and external mappings.
 - `[x]` Build provider-neutral sync plans with eligible updates and skipped mapping reasons.
 - `[ ]` Add desktop task/status surfaces for pending external sync actions.
-- `[ ]` Add diagnostics for mapping confidence, sync eligibility, and skipped sync reasons.
+- `[x]` Add diagnostics for mapping confidence, sync eligibility, and skipped sync reasons.
 
 ## Phase 2 - Manual Mapping UX
 
@@ -52,3 +52,4 @@ Status legend:
 - 2026-06-09: Created this milestone after confirming MAL/Bangumi provider IDs, mapping models, and desktop DB storage exist, while live provider search/auth/list sync is not implemented yet.
 - 2026-06-09: Added provider-neutral domain logic to derive external tracking updates from local series watch state and mappings; this intentionally stops before provider auth/API writes.
 - 2026-06-09: Added provider-neutral external tracking sync plans that report update candidates, unmapped local series, and stale mappings that no longer match a local series.
+- 2026-06-09: Added provider-neutral tracking plan summaries and labels for UI/diagnostic surfaces, including provider names, update counts, skip counts, and human-readable skip reasons.

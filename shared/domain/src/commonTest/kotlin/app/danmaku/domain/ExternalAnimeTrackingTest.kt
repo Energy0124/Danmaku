@@ -204,6 +204,15 @@ class ExternalAnimeTrackingTest {
             plan.updates.map { it.mapping.animeId.provider },
         )
         assertEquals(listOf(1, 1), plan.updates.map { it.update.watchedEpisodes })
+        assertEquals("2 updates ready, 3 skipped", plan.summary.label)
+        assertEquals(1, plan.summary.providerUpdateCounts.getValue(ExternalAnimeProvider.BANGUMI))
+        assertEquals(1, plan.summary.providerUpdateCounts.getValue(ExternalAnimeProvider.MY_ANIME_LIST))
+        assertEquals(1, plan.summary.skipReasonCounts.getValue(ExternalAnimeTrackingPlanSkipReason.MISSING_LOCAL_SERIES))
+        assertEquals(2, plan.summary.skipReasonCounts.getValue(ExternalAnimeTrackingPlanSkipReason.UNMAPPED_LOCAL_SERIES))
+        assertEquals(
+            "Frieren -> Bangumi watching, 1/2 watched",
+            plan.updates.first().label,
+        )
         assertEquals(
             listOf(
                 ExternalAnimeTrackingPlanSkip(
@@ -223,6 +232,10 @@ class ExternalAnimeTrackingTest {
                 ),
             ),
             plan.skipped,
+        )
+        assertEquals(
+            "Bangumi: series is not linked (apothecary)",
+            plan.skipped.first().label,
         )
     }
 
@@ -252,6 +265,19 @@ class ExternalAnimeTrackingTest {
                 providers = emptySet(),
             )
         }
+    }
+
+    @Test
+    fun exposesProviderAndTrackingStatusDisplayNames() {
+        assertEquals("MyAnimeList", ExternalAnimeProvider.MY_ANIME_LIST.displayName)
+        assertEquals("Bangumi", ExternalAnimeProvider.BANGUMI.displayName)
+        assertEquals("dandanplay", ExternalAnimeProvider.DANDANPLAY.displayName)
+        assertEquals("completed", ExternalAnimeListStatus.COMPLETED.displayName)
+        assertEquals("unchanged", null.displayName)
+        assertEquals(
+            "mapped series is no longer in the library",
+            ExternalAnimeTrackingPlanSkipReason.MISSING_LOCAL_SERIES.displayName,
+        )
     }
 
     private fun animeInfo(
