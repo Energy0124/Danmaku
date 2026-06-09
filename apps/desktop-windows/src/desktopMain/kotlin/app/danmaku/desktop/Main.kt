@@ -530,6 +530,9 @@ private fun DesktopShell(
     val displayIndexedLibrary = remember(indexedLibrary, libraryMetadataVersion, animeMetadataResolver) {
         indexedLibrary?.withExternalAnimeMetadata(animeMetadataResolver)
     }
+    val originalSeriesTitleByMediaId = remember(indexedLibrary) {
+        indexedLibrary?.catalog?.items?.associate { item -> item.id to item.seriesTitle }.orEmpty()
+    }
     val seriesPosterById = remember(displayIndexedLibrary, libraryMetadataVersion, animeMetadataResolver) {
         loadSeriesPosterById(displayIndexedLibrary, animeMetadataResolver)
     }
@@ -544,6 +547,8 @@ private fun DesktopShell(
     var lastScanStats by remember { mutableStateOf<LocalMediaLibraryScanStats?>(null) }
     var dandanplayCacheStatus by remember { mutableStateOf<DandanplayPlaybackUiStatus?>(null) }
     var isRefreshingSeriesPosters by remember { mutableStateOf(false) }
+    var refreshingMetadataMediaIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var refreshingMetadataSeriesIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     val serverRuntime = remember(catalogStore, rootScanner, scope) {
         DesktopLibraryServerRuntime.start(
             catalogStore = catalogStore,
@@ -653,6 +658,124 @@ private fun DesktopShell(
         selectedLocalPlaybackPreparation = null
         libraryError = null
         refreshMissingSeriesPosters(library)
+    }
+
+    fun cleanupLegacySeriesAnimeMappings() {
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                catalogStore.deleteExternalAnimeMappings(
+                    app.danmaku.domain.ExternalAnimeProvider.DANDANPLAY,
+                    app.danmaku.domain.ExternalAnimeMappingSource.AUTO,
+                )
+            }
+            appendDiagnostic("metadata", "Cleaned legacy automatic series anime mappings")
+        }
+    }
+
+    fun refreshEpisodeAnimeMetadata(item: LibraryMediaItem, forceRefresh: Boolean = true) {
+        val library = indexedLibrary
+        if (library == null) {
+            appendDiagnostic("metadata", "Cannot refresh metadata; library is not indexed")
+            return
+        }
+        if (!dandanplaySettings.isFetchEnabled) {
+            appendDiagnostic("metadata", "Cannot refresh metadata; dandanplay provider is not configured")
+            return
+        }
+        if (item.id in refreshingMetadataMediaIds) return
+
+        scope.launch {
+            refreshingMetadataMediaIds = refreshingMetadataMediaIds + item.id
+            dandanplayCacheStatus = dandanplayStatusMessage(
+                mediaId = item.id,
+                summary = "refreshing anime metadata and poster...",
+                details = item.dandanplayStatusContext(dandanplaySettings),
+            )
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val animeId = animeMetadataResolver.cachedDandanplayAnimeIdForItem(item)
+                        ?: run {
+                            val mediaPath = library.filesById[item.id]
+                                ?: error("Indexed media file is missing for ${item.id}")
+                            dandanplayDanmakuResolver
+                                .resolve(mediaId = item.id, mediaPath = mediaPath, forceRefresh = false)
+                                .match
+                                ?.animeId
+                        }
+                        ?: error("dandanplay found no anime match for ${item.id}")
+                    animeMetadataResolver.refreshDandanplayMetadataForItem(
+                        item = item,
+                        animeId = animeId,
+                        forceRefresh = forceRefresh,
+                    )
+                }
+            }
+            result.onSuccess {
+                libraryMetadataVersion += 1
+                appendDiagnostic("metadata", "Refreshed anime metadata/poster for ${item.episodeTitle}")
+            }.onFailure { error ->
+                appendDiagnostic(
+                    "metadata",
+                    "Anime metadata refresh failed for ${item.episodeTitle}: ${error.message ?: error::class.simpleName}",
+                )
+            }
+            refreshingMetadataMediaIds = refreshingMetadataMediaIds - item.id
+        }
+    }
+
+    fun refreshSeriesAnimeMetadata(series: LibrarySeries) {
+        val library = indexedLibrary
+        if (library == null) {
+            appendDiagnostic("metadata", "Cannot refresh series metadata; library is not indexed")
+            return
+        }
+        if (!dandanplaySettings.isFetchEnabled) {
+            appendDiagnostic("metadata", "Cannot refresh series metadata; dandanplay provider is not configured")
+            return
+        }
+        if (series.id in refreshingMetadataSeriesIds) return
+
+        val items = series.seasons.flatMap { it.items }
+        scope.launch {
+            refreshingMetadataSeriesIds = refreshingMetadataSeriesIds + series.id
+            refreshingMetadataMediaIds = refreshingMetadataMediaIds + items.mapTo(mutableSetOf()) { it.id }
+            appendDiagnostic("metadata", "Refreshing anime metadata/posters for ${series.title}")
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    items.count { item ->
+                        val animeId = animeMetadataResolver.cachedDandanplayAnimeIdForItem(item)
+                            ?: run {
+                                val mediaPath = library.filesById[item.id] ?: return@count false
+                                dandanplayDanmakuResolver
+                                    .resolve(mediaId = item.id, mediaPath = mediaPath, forceRefresh = false)
+                                    .match
+                                    ?.animeId
+                            }
+                            ?: return@count false
+                        animeMetadataResolver.refreshDandanplayMetadataForItem(
+                            item = item,
+                            animeId = animeId,
+                            forceRefresh = true,
+                        ) != null
+                    }
+                }
+            }
+            result.onSuccess { refreshedCount ->
+                libraryMetadataVersion += 1
+                appendDiagnostic("metadata", "Series metadata refresh complete: $refreshedCount/${items.size} episodes updated")
+            }.onFailure { error ->
+                appendDiagnostic(
+                    "metadata",
+                    "Series metadata refresh failed for ${series.title}: ${error.message ?: error::class.simpleName}",
+                )
+            }
+            refreshingMetadataSeriesIds = refreshingMetadataSeriesIds - series.id
+            refreshingMetadataMediaIds = refreshingMetadataMediaIds - items.mapTo(mutableSetOf()) { it.id }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        cleanupLegacySeriesAnimeMappings()
     }
 
     fun setFavorite(item: LibraryMediaItem, isFavorite: Boolean) {
@@ -953,7 +1076,8 @@ private fun DesktopShell(
                     scope.launch {
                         val metadataRefreshResult = withContext(Dispatchers.IO) {
                             runCatching {
-                                animeMetadataResolver.refreshDandanplayMetadataForAnime(
+                                animeMetadataResolver.refreshDandanplayMetadataForItem(
+                                    item = item,
                                     animeId = animeId,
                                     forceRefresh = refreshDandanplay,
                                 )
@@ -1566,6 +1690,9 @@ private fun DesktopShell(
                             registeredRoots = registeredRoots,
                             indexedLibrary = displayIndexedLibrary,
                             seriesPosterById = seriesPosterById,
+                            originalSeriesTitleByMediaId = originalSeriesTitleByMediaId,
+                            refreshingMetadataMediaIds = refreshingMetadataMediaIds,
+                            refreshingMetadataSeriesIds = refreshingMetadataSeriesIds,
                             playbackProgresses = playbackProgresses,
                             favoriteMediaIds = favoriteMediaIds,
                             isIndexing = isIndexing,
@@ -1592,6 +1719,8 @@ private fun DesktopShell(
                             onClearDandanplayCache = ::clearPreparedDandanplayCache,
                             onClearDanmakuOverlay = ::clearPreparedDanmakuOverlay,
                             onAttachManualDanmaku = ::attachManualDanmaku,
+                            onRefreshEpisodeMetadata = ::refreshEpisodeAnimeMetadata,
+                            onRefreshSeriesMetadata = ::refreshSeriesAnimeMetadata,
                             onLoadPreparedPlayback = { preparation ->
                                 appendDiagnostic(
                                     "playback",
@@ -2469,6 +2598,9 @@ private fun MediaLibraryTab(
     registeredRoots: List<DesktopLibraryRoot>,
     indexedLibrary: IndexedLocalLibrary?,
     seriesPosterById: Map<String, Path?>,
+    originalSeriesTitleByMediaId: Map<String, String>,
+    refreshingMetadataMediaIds: Set<String>,
+    refreshingMetadataSeriesIds: Set<String>,
     playbackProgresses: List<PlaybackProgress>,
     favoriteMediaIds: Set<String>,
     isIndexing: Boolean,
@@ -2489,6 +2621,8 @@ private fun MediaLibraryTab(
     onClearDandanplayCache: (DesktopLocalPlaybackPreparation) -> Unit,
     onClearDanmakuOverlay: (DesktopLocalPlaybackPreparation) -> Unit,
     onAttachManualDanmaku: (DesktopLocalPlaybackPreparation) -> Unit,
+    onRefreshEpisodeMetadata: (LibraryMediaItem) -> Unit,
+    onRefreshSeriesMetadata: (LibrarySeries) -> Unit,
     onLoadPreparedPlayback: (DesktopLocalPlaybackPreparation) -> Unit,
     remoteBrowser: @Composable () -> Unit,
 ) {
@@ -2533,6 +2667,9 @@ private fun MediaLibraryTab(
             indexedLibrary = indexedLibrary,
             series = series,
             seriesPosterById = seriesPosterById,
+            originalSeriesTitleByMediaId = originalSeriesTitleByMediaId,
+            refreshingMetadataMediaIds = refreshingMetadataMediaIds,
+            refreshingMetadataSeriesIds = refreshingMetadataSeriesIds,
             selectedSeries = selectedSeries,
             selectedEpisodeDetail = selectedEpisodeDetail,
             selectedLocalPlaybackPreparation = selectedLocalPlaybackPreparation,
@@ -2559,6 +2696,8 @@ private fun MediaLibraryTab(
             onClearDandanplayCache = onClearDandanplayCache,
             onClearDanmakuOverlay = onClearDanmakuOverlay,
             onAttachManualDanmaku = onAttachManualDanmaku,
+            onRefreshEpisodeMetadata = onRefreshEpisodeMetadata,
+            onRefreshSeriesMetadata = onRefreshSeriesMetadata,
             onLoadPreparedPlayback = onLoadPreparedPlayback,
             onPrepareLocalPlayback = onPrepareLocalPlayback,
             onPlayLocalPlayback = onPlayLocalPlayback,
@@ -2585,6 +2724,9 @@ private fun WindowsLibraryWorkspace(
     indexedLibrary: IndexedLocalLibrary?,
     series: List<LibrarySeries>,
     seriesPosterById: Map<String, Path?>,
+    originalSeriesTitleByMediaId: Map<String, String>,
+    refreshingMetadataMediaIds: Set<String>,
+    refreshingMetadataSeriesIds: Set<String>,
     selectedSeries: LibrarySeries?,
     selectedEpisodeDetail: LibraryEpisodeDetail?,
     selectedLocalPlaybackPreparation: DesktopLocalPlaybackPreparation?,
@@ -2611,6 +2753,8 @@ private fun WindowsLibraryWorkspace(
     onClearDandanplayCache: (DesktopLocalPlaybackPreparation) -> Unit,
     onClearDanmakuOverlay: (DesktopLocalPlaybackPreparation) -> Unit,
     onAttachManualDanmaku: (DesktopLocalPlaybackPreparation) -> Unit,
+    onRefreshEpisodeMetadata: (LibraryMediaItem) -> Unit,
+    onRefreshSeriesMetadata: (LibrarySeries) -> Unit,
     onLoadPreparedPlayback: (DesktopLocalPlaybackPreparation) -> Unit,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
@@ -2715,6 +2859,9 @@ private fun WindowsLibraryWorkspace(
                 selectedSeries = selectedSeries,
                 filteredEpisodes = filteredEpisodes,
                 coverBySeriesId = seriesPosterById,
+                originalSeriesTitleByMediaId = originalSeriesTitleByMediaId,
+                refreshingMetadataMediaIds = refreshingMetadataMediaIds,
+                refreshingMetadataSeriesIds = refreshingMetadataSeriesIds,
                 continueWatchingItems = continueWatchingItems,
                 nextUpItems = nextUpItems,
                 recentlyWatchedItems = recentlyWatchedItems,
@@ -2726,6 +2873,7 @@ private fun WindowsLibraryWorkspace(
                 onSelectSeries = onSelectSeries,
                 onShowDetails = onShowDetails,
                 onSetFavorite = onSetFavorite,
+                onRefreshSeriesMetadata = onRefreshSeriesMetadata,
                 onPrepareLocalPlayback = onPrepareLocalPlayback,
                 onPlayLocalPlayback = onPlayLocalPlayback,
                 onResetFilters = {
@@ -2744,6 +2892,9 @@ private fun WindowsLibraryWorkspace(
                 selectedLocalPlaybackPreparation = selectedLocalPlaybackPreparation,
                 dandanplayCacheStatus = dandanplayCacheStatus,
                 autoNextLocalPlayback = autoNextLocalPlayback,
+                originalSeriesTitleByMediaId = originalSeriesTitleByMediaId,
+                refreshingMetadataMediaIds = refreshingMetadataMediaIds,
+                refreshingMetadataSeriesIds = refreshingMetadataSeriesIds,
                 coverPath = selectedInspectorSeries?.let { seriesPosterById[it.id] },
                 watchSummary = selectedInspectorSeries?.let { seriesWatchSummaryById[it.id] },
                 watchStatusById = watchStatusById,
@@ -2758,6 +2909,8 @@ private fun WindowsLibraryWorkspace(
                 onClearDandanplayCache = onClearDandanplayCache,
                 onClearDanmakuOverlay = onClearDanmakuOverlay,
                 onAttachManualDanmaku = onAttachManualDanmaku,
+                onRefreshEpisodeMetadata = onRefreshEpisodeMetadata,
+                onRefreshSeriesMetadata = onRefreshSeriesMetadata,
                 onLoadPreparedPlayback = onLoadPreparedPlayback,
                 onPrepareLocalPlayback = onPrepareLocalPlayback,
                 onPlayLocalPlayback = onPlayLocalPlayback,
@@ -2959,6 +3112,9 @@ private fun LibraryCenterWorkspace(
     selectedSeries: LibrarySeries?,
     filteredEpisodes: List<LibraryMediaItem>,
     coverBySeriesId: Map<String, Path?>,
+    originalSeriesTitleByMediaId: Map<String, String>,
+    refreshingMetadataMediaIds: Set<String>,
+    refreshingMetadataSeriesIds: Set<String>,
     continueWatchingItems: List<LibraryPlaybackProgressItem>,
     nextUpItems: List<LibraryNextUpItem>,
     recentlyWatchedItems: List<LibraryPlaybackProgressItem>,
@@ -2970,6 +3126,7 @@ private fun LibraryCenterWorkspace(
     onSelectSeries: (LibrarySeries) -> Unit,
     onShowDetails: (LibraryMediaItem) -> Unit,
     onSetFavorite: (LibraryMediaItem, Boolean) -> Unit,
+    onRefreshSeriesMetadata: (LibrarySeries) -> Unit,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
     onResetFilters: () -> Unit,
@@ -3033,6 +3190,8 @@ private fun LibraryCenterWorkspace(
                 episodes = filteredEpisodes,
                 watchStatusById = watchStatusById,
                 favoriteMediaIds = favoriteMediaIds,
+                originalSeriesTitleByMediaId = originalSeriesTitleByMediaId,
+                refreshingMetadataMediaIds = refreshingMetadataMediaIds,
                 isPreparing = isPreparing,
                 emptyText = if (selectedView == WindowsLibraryView.FAVORITES) {
                     "No favorite episodes match the current filters."
@@ -3052,6 +3211,7 @@ private fun LibraryCenterWorkspace(
                 visibleSeries = visibleSeries,
                 selectedSeries = selectedSeries,
                 coverBySeriesId = coverBySeriesId,
+                refreshingMetadataSeriesIds = refreshingMetadataSeriesIds,
                 continueWatchingItems = continueWatchingItems,
                 nextUpItems = nextUpItems,
                 watchStatusById = watchStatusById,
@@ -3061,6 +3221,7 @@ private fun LibraryCenterWorkspace(
                 onResetFilters = onResetFilters,
                 onSelectSeries = onSelectSeries,
                 onShowDetails = onShowDetails,
+                onRefreshSeriesMetadata = onRefreshSeriesMetadata,
                 onPlayLocalPlayback = onPlayLocalPlayback,
             )
         }
@@ -3169,6 +3330,7 @@ private fun AllSeriesView(
     visibleSeries: List<LibrarySeries>,
     selectedSeries: LibrarySeries?,
     coverBySeriesId: Map<String, Path?>,
+    refreshingMetadataSeriesIds: Set<String>,
     continueWatchingItems: List<LibraryPlaybackProgressItem>,
     nextUpItems: List<LibraryNextUpItem>,
     watchStatusById: Map<String, LibraryWatchStatus>,
@@ -3178,6 +3340,7 @@ private fun AllSeriesView(
     onResetFilters: () -> Unit,
     onSelectSeries: (LibrarySeries) -> Unit,
     onShowDetails: (LibraryMediaItem) -> Unit,
+    onRefreshSeriesMetadata: (LibrarySeries) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
 ) {
     LibraryProgressOverview(
@@ -3234,7 +3397,9 @@ private fun AllSeriesView(
                     watchSummary = seriesWatchSummaryById[librarySeries.id],
                     isSelected = librarySeries.id == selectedSeries?.id,
                     isPreparing = isPreparing,
+                    isRefreshingMetadata = librarySeries.id in refreshingMetadataSeriesIds,
                     onSelect = { onSelectSeries(librarySeries) },
+                    onRefreshMetadata = { onRefreshSeriesMetadata(librarySeries) },
                     onPlay = {
                         onPlayLocalPlayback(
                             nextPlayableEpisode(
@@ -3466,6 +3631,8 @@ private fun EpisodeListView(
     episodes: List<LibraryMediaItem>,
     watchStatusById: Map<String, LibraryWatchStatus>,
     favoriteMediaIds: Set<String>,
+    originalSeriesTitleByMediaId: Map<String, String>,
+    refreshingMetadataMediaIds: Set<String>,
     isPreparing: Boolean,
     emptyText: String,
     compact: Boolean,
@@ -3501,6 +3668,8 @@ private fun EpisodeListView(
                     selected = episodes.indexOf(item) == boundedSelectedIndex,
                     watchStatus = watchStatusById[item.id],
                     isFavorite = item.id in favoriteMediaIds,
+                    originalSeriesTitle = originalSeriesTitleByMediaId[item.id],
+                    isRefreshingMetadata = item.id in refreshingMetadataMediaIds,
                     isPreparing = isPreparing,
                     compact = compact,
                     onShowDetails = onShowDetails,
@@ -3521,6 +3690,9 @@ private fun LibraryInspectorPane(
     selectedLocalPlaybackPreparation: DesktopLocalPlaybackPreparation?,
     dandanplayCacheStatus: DandanplayPlaybackUiStatus?,
     autoNextLocalPlayback: Boolean,
+    originalSeriesTitleByMediaId: Map<String, String>,
+    refreshingMetadataMediaIds: Set<String>,
+    refreshingMetadataSeriesIds: Set<String>,
     coverPath: Path?,
     watchSummary: LibrarySeriesWatchSummary?,
     watchStatusById: Map<String, LibraryWatchStatus>,
@@ -3535,6 +3707,8 @@ private fun LibraryInspectorPane(
     onClearDandanplayCache: (DesktopLocalPlaybackPreparation) -> Unit,
     onClearDanmakuOverlay: (DesktopLocalPlaybackPreparation) -> Unit,
     onAttachManualDanmaku: (DesktopLocalPlaybackPreparation) -> Unit,
+    onRefreshEpisodeMetadata: (LibraryMediaItem) -> Unit,
+    onRefreshSeriesMetadata: (LibrarySeries) -> Unit,
     onLoadPreparedPlayback: (DesktopLocalPlaybackPreparation) -> Unit,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
@@ -3550,6 +3724,9 @@ private fun LibraryInspectorPane(
         val isFavorite = selectedItem.id in favoriteMediaIds
         val status = dandanplayCacheStatus?.takeIf { it.mediaId == selectedItem.id }
         val hasDanmakuOverlay = activePreparation?.subtitles?.any(DesktopPlaybackSubtitle::isDanmakuOverlay) == true
+        val isRefreshingEpisodeMetadata = selectedItem.id in refreshingMetadataMediaIds
+        val isRefreshingSeriesMetadata = selectedSeries.id in refreshingMetadataSeriesIds
+        val originalSeriesTitle = originalSeriesTitleByMediaId[selectedItem.id]
         var episodeActionsExpanded by remember(selectedItem.id, activePreparation?.item?.id) { mutableStateOf(false) }
 
         Box(
@@ -3581,6 +3758,11 @@ private fun LibraryInspectorPane(
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
+        originalSeriesTitle
+            ?.takeIf { it.isNotBlank() && it != selectedItem.seriesTitle }
+            ?.let { fileGroup ->
+                Text("File group: $fileGroup", color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
         MiniProgressBar(percent = watchStatusById[selectedItem.id]?.progress?.progressPercent())
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
@@ -3629,6 +3811,24 @@ private fun LibraryInspectorPane(
                         },
                     ) {
                         Text("Prepare playback")
+                    }
+                    DropdownMenuItem(
+                        enabled = !isPreparing && !isRefreshingEpisodeMetadata,
+                        onClick = {
+                            episodeActionsExpanded = false
+                            onRefreshEpisodeMetadata(selectedItem)
+                        },
+                    ) {
+                        Text("Refresh episode metadata")
+                    }
+                    DropdownMenuItem(
+                        enabled = !isPreparing && !isRefreshingSeriesMetadata,
+                        onClick = {
+                            episodeActionsExpanded = false
+                            onRefreshSeriesMetadata(selectedSeries)
+                        },
+                    ) {
+                        Text("Refresh series metadata")
                     }
                     activePreparation?.let { preparation ->
                         DropdownMenuItem(
@@ -3706,6 +3906,21 @@ private fun LibraryInspectorPane(
             },
         )
         InspectorStatusRow(
+            icon = Icons.Filled.Refresh,
+            label = "Metadata",
+            value = when {
+                isRefreshingEpisodeMetadata -> "Refreshing episode poster and anime title"
+                isRefreshingSeriesMetadata -> "Refreshing series posters and anime titles"
+                coverPath != null -> "Poster cached"
+                else -> "No poster cached yet"
+            },
+            color = when {
+                isRefreshingEpisodeMetadata || isRefreshingSeriesMetadata -> DanmakuColors.Accent
+                coverPath != null -> DanmakuColors.Good
+                else -> DanmakuColors.TextMuted
+            },
+        )
+        InspectorStatusRow(
             icon = Icons.Filled.Subtitles,
             label = "Subtitles",
             value = "${selectedItem.subtitles.size} indexed",
@@ -3728,6 +3943,8 @@ private fun LibraryInspectorPane(
                         item = item,
                         selected = item.id == selectedItem.id,
                         watchStatus = watchStatusById[item.id],
+                        originalSeriesTitle = originalSeriesTitleByMediaId[item.id],
+                        isRefreshingMetadata = item.id in refreshingMetadataMediaIds,
                         onClick = { onShowDetails(item) },
                     )
                 }
@@ -3753,6 +3970,22 @@ private fun LibraryInspectorPane(
                     modifier = Modifier.weight(1f),
                 ) {
                     Text("Attach local")
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = { onRefreshEpisodeMetadata(selectedItem) },
+                    enabled = !isPreparing && !isRefreshingEpisodeMetadata,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(if (isRefreshingEpisodeMetadata) "Metadata..." else "Episode meta")
+                }
+                Button(
+                    onClick = { onRefreshSeriesMetadata(selectedSeries) },
+                    enabled = !isPreparing && !isRefreshingSeriesMetadata,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(if (isRefreshingSeriesMetadata) "Series..." else "Series meta")
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -3821,6 +4054,8 @@ private fun CompactInspectorEpisodeRow(
     item: LibraryMediaItem,
     selected: Boolean,
     watchStatus: LibraryWatchStatus?,
+    originalSeriesTitle: String?,
+    isRefreshingMetadata: Boolean,
     onClick: () -> Unit,
 ) {
     Row(
@@ -3833,8 +4068,17 @@ private fun CompactInspectorEpisodeRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text(item.episodeTitle, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-        Text(watchStatus.statusLabel(), color = DanmakuColors.TextMuted, maxLines = 1)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(item.episodeTitle, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            originalSeriesTitle
+                ?.takeIf { it.isNotBlank() && it != item.seriesTitle }
+                ?.let { Text("File group: $it", color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+        }
+        Text(
+            if (isRefreshingMetadata) "Metadata..." else watchStatus.statusLabel(),
+            color = if (isRefreshingMetadata) DanmakuColors.Accent else DanmakuColors.TextMuted,
+            maxLines = 1,
+        )
     }
 }
 
@@ -3949,7 +4193,9 @@ private fun SeriesPosterCard(
     watchSummary: LibrarySeriesWatchSummary?,
     isSelected: Boolean,
     isPreparing: Boolean,
+    isRefreshingMetadata: Boolean,
     onSelect: () -> Unit,
+    onRefreshMetadata: () -> Unit,
     onPlay: () -> Unit,
 ) {
     Column(
@@ -3982,6 +4228,17 @@ private fun SeriesPosterCard(
                     .padding(horizontal = 6.dp, vertical = 3.dp),
                 maxLines = 1,
             )
+            if (isRefreshingMetadata) {
+                Text(
+                    text = "Metadata...",
+                    color = Color.White,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .background(Color.Black.copy(alpha = 0.72f), RoundedCornerShape(bottomEnd = 4.dp))
+                        .padding(horizontal = 6.dp, vertical = 3.dp),
+                    maxLines = 1,
+                )
+            }
         }
         Text(
             text = series.title,
@@ -3996,12 +4253,21 @@ private fun SeriesPosterCard(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        Button(
-            onClick = onPlay,
-            enabled = !isPreparing,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(if (isPreparing) "Loading..." else "Play")
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Button(
+                onClick = onRefreshMetadata,
+                enabled = !isPreparing && !isRefreshingMetadata,
+                modifier = Modifier.weight(0.46f),
+            ) {
+                Icon(Icons.Filled.Refresh, contentDescription = "Refresh metadata", modifier = Modifier.size(16.dp))
+            }
+            Button(
+                onClick = onPlay,
+                enabled = !isPreparing,
+                modifier = Modifier.weight(0.54f),
+            ) {
+                Text(if (isPreparing) "Loading..." else "Play")
+            }
         }
     }
 }
@@ -4088,20 +4354,11 @@ internal fun LibraryCatalog.withExternalAnimeMetadata(
                 ?.let { displayTitle -> item.id to displayTitle }
         }
         .toMap()
-    val displayTitleByLocalTitle = groupedSeries()
-        .mapNotNull { series ->
-            metadataResolver.cachedAnimeInfoForSeries(series)
-                ?.libraryDisplayTitle()
-                ?.takeIf { it.isNotBlank() }
-                ?.let { displayTitle -> series.title to displayTitle }
-        }
-        .toMap()
-    if (displayTitleByMediaId.isEmpty() && displayTitleByLocalTitle.isEmpty()) return this
+    if (displayTitleByMediaId.isEmpty()) return this
 
     var changed = false
     val displayItems = items.map { item ->
         val displayTitle = displayTitleByMediaId[item.id]
-            ?: displayTitleByLocalTitle[item.seriesTitle.trim()]
         if (displayTitle == null || displayTitle == item.seriesTitle) {
             item
         } else {
@@ -4979,6 +5236,8 @@ private fun EpisodeRow(
     selected: Boolean,
     watchStatus: LibraryWatchStatus?,
     isFavorite: Boolean,
+    originalSeriesTitle: String?,
+    isRefreshingMetadata: Boolean,
     isPreparing: Boolean,
     compact: Boolean,
     onShowDetails: (LibraryMediaItem) -> Unit,
@@ -4996,12 +5255,34 @@ private fun EpisodeRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(item.seriesTitle, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    item.seriesTitle,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                if (isRefreshingMetadata) {
+                    Text("Metadata...", color = DanmakuColors.Accent, maxLines = 1)
+                }
+            }
             Text(item.episodeTitle, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            originalSeriesTitle
+                ?.takeIf { it.isNotBlank() && it != item.seriesTitle }
+                ?.let { originalTitle ->
+                    Text(
+                        "File group: $originalTitle",
+                        color = DanmakuColors.TextMuted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             Text(
                 listOfNotNull(
                     watchStatus.statusLabel(),
                     "Favorite".takeIf { isFavorite },
+                    "Refreshing metadata".takeIf { isRefreshingMetadata },
                 ).joinToString(separator = " - "),
                 color = DanmakuColors.TextMuted,
                 maxLines = 1,

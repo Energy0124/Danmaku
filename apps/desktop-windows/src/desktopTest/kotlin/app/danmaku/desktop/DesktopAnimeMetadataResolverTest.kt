@@ -88,10 +88,7 @@ class DesktopAnimeMetadataResolverTest {
             assertFalse(matchedFile)
             val dandanplayId = ExternalAnimeId(ExternalAnimeProvider.DANDANPLAY, 19451)
             assertNotNull(store.loadExternalAnimeMetadataCache(dandanplayId))
-            assertEquals(
-                dandanplayId,
-                store.loadExternalAnimeMappings(series.id).single().animeId,
-            )
+            assertEquals(emptyList(), store.loadExternalAnimeMappings(series.id))
         }
 
         temp.toFile().deleteRecursively()
@@ -126,10 +123,10 @@ class DesktopAnimeMetadataResolverTest {
         )
 
         DesktopLibraryCatalogStore(databasePath).use { store ->
-            catalog.groupedSeries().forEach { series ->
-                store.saveExternalAnimeMapping(
-                    ExternalAnimeMapping(
-                        localSeriesId = series.id,
+            listOf(firstItem, secondItem).forEach { item ->
+                store.saveExternalAnimeItemMapping(
+                    DesktopExternalAnimeItemMapping(
+                        localMediaId = item.id,
                         animeId = animeId,
                         source = ExternalAnimeMappingSource.AUTO,
                         confidence = 1.0,
@@ -165,9 +162,10 @@ class DesktopAnimeMetadataResolverTest {
     }
 
     @Test
-    fun animeMetadataRefreshDoesNotCreateSeriesMapping() {
+    fun itemMetadataRefreshCreatesItemMappingOnly() {
         val temp = createTempDirectory("danmaku-anime-item-metadata")
         val databasePath = temp.resolve("catalog.db")
+        val item = libraryMediaItem(id = "episode-1")
         val animeId = ExternalAnimeId(ExternalAnimeProvider.DANDANPLAY, 18844)
 
         DesktopLibraryCatalogStore(databasePath).use { store ->
@@ -182,9 +180,10 @@ class DesktopAnimeMetadataResolverTest {
                 },
             )
 
-            assertNull(resolver.refreshDandanplayMetadataForAnime(animeId.value))
+            assertNull(resolver.refreshDandanplayMetadataForItem(item, animeId.value))
 
             assertNotNull(store.loadExternalAnimeMetadataCache(animeId))
+            assertEquals(animeId, store.loadExternalAnimeItemMappings(item.id).single().animeId)
             assertEquals(emptyList(), store.loadExternalAnimeMappings("example-show"))
         }
 
@@ -192,7 +191,7 @@ class DesktopAnimeMetadataResolverTest {
     }
 
     @Test
-    fun displayCatalogAppliesItemAnimeMetadataBeforeSeriesMapping() {
+    fun displayCatalogIgnoresSeriesMappingWhenOnlyOneEpisodeHasItemMetadata() {
         val temp = createTempDirectory("danmaku-anime-item-display-metadata")
         val databasePath = temp.resolve("catalog.db")
         val firstItem = libraryMediaItem(id = "episode-1")
@@ -253,7 +252,7 @@ class DesktopAnimeMetadataResolverTest {
             assertEquals(
                 mapOf(
                     "Item Anime" to listOf(firstItem.id),
-                    "Series Anime" to listOf(secondItem.id),
+                    "Example Show" to listOf(secondItem.id),
                 ),
                 displaySeries.associate { series ->
                     series.title to series.seasons.flatMap { season -> season.items.map(LibraryMediaItem::id) }

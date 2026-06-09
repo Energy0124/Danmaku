@@ -70,6 +70,11 @@ class DesktopLibraryCatalogStore(
             sql = CREATE_EXTERNAL_ANIME_MAPPING_TABLE_SQL,
             parameters = 0,
         )
+        driver.execute(
+            identifier = null,
+            sql = CREATE_EXTERNAL_ANIME_ITEM_MAPPING_TABLE_SQL,
+            parameters = 0,
+        )
         addColumnIfMissing("local_media_item", "subtitles_json", "TEXT NOT NULL DEFAULT '[]'")
         addColumnIfMissing("library_root_media_item", "subtitles_json", "TEXT NOT NULL DEFAULT '[]'")
         database = DesktopLibraryDatabase(driver)
@@ -479,6 +484,37 @@ class DesktopLibraryCatalogStore(
         database.libraryCatalogQueries.deleteExternalAnimeMapping(localSeriesId, provider.name)
     }
 
+    @Synchronized
+    fun deleteExternalAnimeMappings(provider: ExternalAnimeProvider, source: ExternalAnimeMappingSource) {
+        database.libraryCatalogQueries.deleteExternalAnimeMappingsByProviderSource(provider.name, source.name)
+    }
+
+    @Synchronized
+    fun loadExternalAnimeItemMappings(localMediaId: String): List<DesktopExternalAnimeItemMapping> {
+        require(localMediaId.isNotBlank()) { "localMediaId must not be blank" }
+        return database.libraryCatalogQueries
+            .selectExternalAnimeItemMappings(localMediaId, ::desktopExternalAnimeItemMapping)
+            .executeAsList()
+    }
+
+    @Synchronized
+    fun saveExternalAnimeItemMapping(mapping: DesktopExternalAnimeItemMapping) {
+        database.libraryCatalogQueries.upsertExternalAnimeItemMapping(
+            mapping.localMediaId,
+            mapping.animeId.provider.name,
+            mapping.animeId.value,
+            mapping.source.name,
+            mapping.confidence,
+            mapping.mappedAtEpochMs,
+        )
+    }
+
+    @Synchronized
+    fun deleteExternalAnimeItemMapping(localMediaId: String, provider: ExternalAnimeProvider) {
+        require(localMediaId.isNotBlank()) { "localMediaId must not be blank" }
+        database.libraryCatalogQueries.deleteExternalAnimeItemMapping(localMediaId, provider.name)
+    }
+
     override fun close() {
         driver.close()
     }
@@ -598,6 +634,18 @@ companion object {
               confidence REAL NOT NULL,
               mapped_at_epoch_ms INTEGER NOT NULL,
               PRIMARY KEY(local_series_id, provider)
+            )
+        """.trimIndent()
+
+        private val CREATE_EXTERNAL_ANIME_ITEM_MAPPING_TABLE_SQL = """
+            CREATE TABLE IF NOT EXISTS external_anime_item_mapping (
+              local_media_id TEXT NOT NULL,
+              provider TEXT NOT NULL,
+              anime_id INTEGER NOT NULL,
+              source TEXT NOT NULL,
+              confidence REAL NOT NULL,
+              mapped_at_epoch_ms INTEGER NOT NULL,
+              PRIMARY KEY(local_media_id, provider)
             )
         """.trimIndent()
 
@@ -752,6 +800,25 @@ companion object {
                 confidence = confidence,
                 mappedAtEpochMs = mappedAtEpochMs,
             )
+
+        private fun desktopExternalAnimeItemMapping(
+            localMediaId: String,
+            provider: String,
+            animeId: Long,
+            source: String,
+            confidence: Double,
+            mappedAtEpochMs: Long,
+        ): DesktopExternalAnimeItemMapping =
+            DesktopExternalAnimeItemMapping(
+                localMediaId = localMediaId,
+                animeId = ExternalAnimeId(
+                    provider = ExternalAnimeProvider.valueOf(provider),
+                    value = animeId,
+                ),
+                source = ExternalAnimeMappingSource.valueOf(source),
+                confidence = confidence,
+                mappedAtEpochMs = mappedAtEpochMs,
+            )
     }
 }
 
@@ -873,6 +940,20 @@ data class DesktopExternalAnimeMetadataCache(
 ) {
     init {
         require(fetchedAtEpochMs >= 0) { "fetchedAtEpochMs must not be negative" }
+    }
+}
+
+data class DesktopExternalAnimeItemMapping(
+    val localMediaId: String,
+    val animeId: ExternalAnimeId,
+    val source: ExternalAnimeMappingSource,
+    val confidence: Double,
+    val mappedAtEpochMs: Long,
+) {
+    init {
+        require(localMediaId.isNotBlank()) { "localMediaId must not be blank" }
+        require(confidence in 0.0..1.0) { "confidence must be between 0 and 1" }
+        require(mappedAtEpochMs >= 0) { "mappedAtEpochMs must not be negative" }
     }
 }
 

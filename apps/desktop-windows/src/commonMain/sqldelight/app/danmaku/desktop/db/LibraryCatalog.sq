@@ -104,6 +104,16 @@ CREATE TABLE external_anime_mapping (
   PRIMARY KEY(local_series_id, provider)
 );
 
+CREATE TABLE external_anime_item_mapping (
+  local_media_id TEXT NOT NULL,
+  provider TEXT NOT NULL,
+  anime_id INTEGER NOT NULL,
+  source TEXT NOT NULL,
+  confidence REAL NOT NULL,
+  mapped_at_epoch_ms INTEGER NOT NULL,
+  PRIMARY KEY(local_media_id, provider)
+);
+
 selectMetadata:
 SELECT root_path, root_name, indexed_at_epoch_ms
 FROM library_metadata
@@ -414,3 +424,34 @@ VALUES (?, ?, ?, ?, ?, ?);
 deleteExternalAnimeMapping:
 DELETE FROM external_anime_mapping
 WHERE local_series_id = ? AND provider = ?;
+
+deleteExternalAnimeMappingsByProviderSource:
+DELETE FROM external_anime_mapping
+WHERE provider = ? AND source = ?;
+
+selectExternalAnimeItemMappings:
+SELECT
+  local_media_id,
+  provider,
+  anime_id,
+  source,
+  confidence,
+  mapped_at_epoch_ms
+FROM external_anime_item_mapping
+WHERE local_media_id = ?
+ORDER BY provider;
+
+upsertExternalAnimeItemMapping:
+INSERT OR REPLACE INTO external_anime_item_mapping(
+  local_media_id,
+  provider,
+  anime_id,
+  source,
+  confidence,
+  mapped_at_epoch_ms
+)
+VALUES (?, ?, ?, ?, ?, ?);
+
+deleteExternalAnimeItemMapping:
+DELETE FROM external_anime_item_mapping
+WHERE local_media_id = ? AND provider = ?;

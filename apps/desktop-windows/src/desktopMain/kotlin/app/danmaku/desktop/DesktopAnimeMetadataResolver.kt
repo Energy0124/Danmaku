@@ -2,7 +2,6 @@ package app.danmaku.desktop
 
 import app.danmaku.domain.ExternalAnimeId
 import app.danmaku.domain.ExternalAnimeInfo
-import app.danmaku.domain.ExternalAnimeMapping
 import app.danmaku.domain.ExternalAnimeMappingSource
 import app.danmaku.domain.ExternalAnimeProvider
 import app.danmaku.domain.LibraryMediaItem
@@ -30,16 +29,6 @@ class DesktopAnimeMetadataResolver(
         forceRefresh: Boolean = false,
     ): Path? {
         val metadata = loadDandanplayMetadata(animeId, forceRefresh) ?: return null
-
-        catalogStore.saveExternalAnimeMapping(
-            ExternalAnimeMapping(
-                localSeriesId = series.id,
-                animeId = metadata.id,
-                source = ExternalAnimeMappingSource.AUTO,
-                confidence = 1.0,
-                mappedAtEpochMs = nowEpochMs(),
-            ),
-        )
         return posterCache.fetch(metadata.imageUrl, forceRefresh = forceRefresh)
     }
 
@@ -51,6 +40,24 @@ class DesktopAnimeMetadataResolver(
         return posterCache.fetch(metadata.imageUrl, forceRefresh = forceRefresh)
     }
 
+    fun refreshDandanplayMetadataForItem(
+        item: LibraryMediaItem,
+        animeId: Long?,
+        forceRefresh: Boolean = false,
+    ): Path? {
+        val metadata = loadDandanplayMetadata(animeId, forceRefresh) ?: return null
+        catalogStore.saveExternalAnimeItemMapping(
+            DesktopExternalAnimeItemMapping(
+                localMediaId = item.id,
+                animeId = metadata.id,
+                source = ExternalAnimeMappingSource.AUTO,
+                confidence = 1.0,
+                mappedAtEpochMs = nowEpochMs(),
+            ),
+        )
+        return posterCache.fetch(metadata.imageUrl, forceRefresh = forceRefresh)
+    }
+
     fun ensureDandanplayPosterForSeries(
         series: LibrarySeries,
         mediaPathById: Map<String, Path>,
@@ -59,18 +66,6 @@ class DesktopAnimeMetadataResolver(
         if (!forceRefresh) {
             cachedPosterForSeries(series)?.let { return it }
         }
-        val mappedAnimeId = catalogStore.loadExternalAnimeMappings(series.id)
-            .firstOrNull { it.animeId.provider == ExternalAnimeProvider.DANDANPLAY }
-            ?.animeId
-            ?.value
-        if (mappedAnimeId != null) {
-            return refreshDandanplayMetadataForSeries(
-                series = series,
-                animeId = mappedAnimeId,
-                forceRefresh = forceRefresh,
-            )
-        }
-
         val cachedAnimeId = cachedDandanplayAnimeIdForSeries(series)
         if (cachedAnimeId != null) {
             return refreshDandanplayMetadataForSeries(
@@ -106,12 +101,32 @@ class DesktopAnimeMetadataResolver(
             ?.anime
 
     fun cachedAnimeInfoForItem(item: LibraryMediaItem): ExternalAnimeInfo? =
-        catalogStore.loadDandanplayCommentCache(item.id)
-            ?.animeId
-            ?.takeIf { it > 0 }
-            ?.let { ExternalAnimeId(ExternalAnimeProvider.DANDANPLAY, it) }
+        catalogStore.loadExternalAnimeItemMappings(item.id)
+            .asSequence()
+            .map(DesktopExternalAnimeItemMapping::animeId)
+            .filter { it.provider == ExternalAnimeProvider.DANDANPLAY }
+            .plus(
+                catalogStore.loadDandanplayCommentCache(item.id)
+                    ?.animeId
+                    ?.takeIf { it > 0 }
+                    ?.let { ExternalAnimeId(ExternalAnimeProvider.DANDANPLAY, it) }
+                    ?.let(::sequenceOf)
+                    ?: emptySequence(),
+            )
+            .distinct()
+            .firstOrNull()
             ?.let(catalogStore::loadExternalAnimeMetadataCache)
             ?.anime
+
+    fun cachedDandanplayAnimeIdForItem(item: LibraryMediaItem): Long? =
+        catalogStore.loadExternalAnimeItemMappings(item.id)
+            .asSequence()
+            .map(DesktopExternalAnimeItemMapping::animeId)
+            .firstOrNull { it.provider == ExternalAnimeProvider.DANDANPLAY }
+            ?.value
+            ?: catalogStore.loadDandanplayCommentCache(item.id)
+            ?.animeId
+            ?.takeIf { it > 0 }
 
     private fun loadDandanplayMetadata(
         animeId: Long?,
@@ -154,16 +169,19 @@ class DesktopAnimeMetadataResolver(
             ?.key
 
     private fun cachedAnimeIdsForSeries(series: LibrarySeries): List<ExternalAnimeId> =
-        catalogStore.loadExternalAnimeMappings(series.id)
-            .asSequence()
-            .map(ExternalAnimeMapping::animeId)
-            .filter { it.provider == ExternalAnimeProvider.DANDANPLAY }
-            .plus(
-                cachedDandanplayAnimeIdForSeries(series)
-                    ?.let { ExternalAnimeId(ExternalAnimeProvider.DANDANPLAY, it) }
-                    ?.let(::sequenceOf)
-                    ?: emptySequence(),
-            )
+        series.indexedItems()
+            .flatMap { item ->
+                sequenceOf(
+                    catalogStore.loadExternalAnimeItemMappings(item.id)
+                        .asSequence()
+                        .map(DesktopExternalAnimeItemMapping::animeId)
+                        .firstOrNull { it.provider == ExternalAnimeProvider.DANDANPLAY },
+                    catalogStore.loadDandanplayCommentCache(item.id)
+                        ?.animeId
+                        ?.takeIf { it > 0 }
+                        ?.let { ExternalAnimeId(ExternalAnimeProvider.DANDANPLAY, it) },
+                ).filterNotNull()
+            }
             .distinct()
             .toList()
 }
