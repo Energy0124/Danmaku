@@ -5837,18 +5837,18 @@ private fun RemoteNextUpRow(
             Text(item.nextUpLabel(), color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(
+            LibraryActionButton(
+                imageVector = Icons.Filled.Refresh,
+                label = if (isPreparing) "Preparing..." else "Prepare",
+                enabled = !isPreparing,
                 onClick = onPrepareRemotePlayback,
+            )
+            LibraryActionButton(
+                imageVector = Icons.Filled.PlayArrow,
+                label = if (isPreparing) "Loading..." else item.nextUpActionLabel(),
                 enabled = !isPreparing,
-            ) {
-                Text(if (isPreparing) "Preparing..." else "Prepare")
-            }
-            Button(
                 onClick = onPlayRemotePlayback,
-                enabled = !isPreparing,
-            ) {
-                Text(if (isPreparing) "Loading..." else item.nextUpActionLabel())
-            }
+            )
         }
     }
 }
@@ -5877,12 +5877,12 @@ private fun RemoteContinueWatchingRow(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        Button(
-            onClick = onPlayRemotePlayback,
+        LibraryActionButton(
+            imageVector = Icons.Filled.PlayArrow,
+            label = if (isPreparing) "Loading..." else "Resume",
             enabled = !isPreparing,
-        ) {
-            Text(if (isPreparing) "Loading..." else "Resume")
-        }
+            onClick = onPlayRemotePlayback,
+        )
     }
 }
 
@@ -5918,18 +5918,18 @@ private fun RemoteEpisodeRow(
             Text(item.relativePath, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(
+            LibraryActionButton(
+                imageVector = Icons.Filled.Refresh,
+                label = if (isPreparing) "Preparing..." else "Prepare",
+                enabled = !isPreparing,
                 onClick = onPrepareRemotePlayback,
+            )
+            LibraryActionButton(
+                imageVector = Icons.Filled.PlayArrow,
+                label = if (isPreparing) "Loading..." else "Play",
                 enabled = !isPreparing,
-            ) {
-                Text(if (isPreparing) "Preparing..." else "Prepare")
-            }
-            Button(
                 onClick = onPlayRemotePlayback,
-                enabled = !isPreparing,
-            ) {
-                Text(if (isPreparing) "Loading..." else "Play")
-            }
+            )
         }
     }
 }

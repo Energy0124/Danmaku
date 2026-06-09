@@ -17,6 +17,8 @@ Status legend:
 - `[~]` Add compact active-filter status chips below the toolbar.
 - `[~]` Convert episode detail into a stable detail surface or bottom-sheet style flow.
 - `[~]` Surface matched anime metadata and original file/folder title separately once LAN catalog exposes it.
+- `[x]` Make episode rows select details by default, with Play as an explicit action.
+- `[x]` Remove duplicate header count affordances and add icons to high-frequency library actions.
 - `[x]` Show poster/metadata loading state once client-visible metadata status exists.
 - `[x]` Extend mobile instrumentation tests for poster rail, active filters, and detail selection.
 
@@ -30,6 +32,8 @@ Status legend:
 - `[~]` Add stable left navigation rail for Home/Library/Search/Favorites/PC.
 - `[~]` Make connected-library default focus land on Next Up.
 - `[~]` Add focus-aware scaling/border states for TV cards.
+- `[x]` Replace visual-only rail destinations with focusable actions that change library state.
+- `[x]` Make Next Up/progress rail cards use one primary details target plus one Play/Resume action.
 - `[x]` Reduce action-heavy TV rows to one primary card target plus focused quick actions.
 - `[x]` Expand D-pad tests beyond Discover/Refresh.
 
@@ -72,4 +76,8 @@ Status legend:
 - 2026-06-09: `:apps:android-mobile:compileDebugAndroidTestKotlin` passed after extending mobile library UI instrumentation coverage.
 - 2026-06-09: Mobile and TV rows/details now surface explicit `Poster/metadata loading` and metadata refresh failure states from LAN catalog metadata status.
 - 2026-06-09: `:apps:android-mobile:compileDebugKotlin`, `:apps:android-tv:compileDebugKotlin`, `:apps:android-mobile:compileDebugAndroidTestKotlin`, and `:apps:android-tv:compileDebugAndroidTestKotlin` passed after adding mobile/TV metadata loading-state UI.
+- 2026-06-09: Logged follow-up UI review findings for mobile row selection, duplicate mobile count chips, TV visual-only rail items, TV rail-card action structure, and icon polish candidates.
+- 2026-06-09: Mobile rows now select details while explicit Play buttons start playback; mobile header/count chips and library action buttons gained clearer icons; TV rail quick actions now mutate focus/filter state; TV Next Up/progress cards now use one primary details card plus one Play/Resume action; desktop remote rows now reuse icon library actions.
+- 2026-06-09: `:apps:android-mobile:compileDebugKotlin`, `:apps:android-tv:compileDebugKotlin`, `:apps:desktop-windows:compileKotlinDesktop`, `:apps:android-mobile:compileDebugAndroidTestKotlin`, and `:apps:android-tv:compileDebugAndroidTestKotlin` passed after the UI review fixes.
+- 2026-06-09: `:apps:desktop-windows:desktopTest`, `:apps:android-mobile:testDebugUnitTest`, `:apps:android-tv:testDebugUnitTest`, and `git diff --check` passed; mobile/TV unit-test tasks remain `NO-SOURCE`.
 - Connected Android instrumentation tests are still pending a device/emulator run.

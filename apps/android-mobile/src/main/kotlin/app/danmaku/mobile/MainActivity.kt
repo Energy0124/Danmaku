@@ -39,10 +39,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeDown
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.FolderOpen
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.SortByAlpha
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Subtitles
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -953,24 +957,48 @@ private fun EpisodeDetailPanel(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Button(onClick = { onPlay(detail.mediaItem) }) {
+                    Icon(
+                        imageVector = Icons.Filled.PlayArrow,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text("Play")
                 }
                 OutlinedButton(
                     onClick = { onSetFavorite(!isFavorite) },
                     modifier = Modifier.testTag("episode-detail-favorite:${detail.mediaItem.id}"),
                 ) {
+                    Icon(
+                        imageVector = Icons.Filled.Star,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(if (isFavorite) "Unfavorite" else "Favorite")
                 }
                 OutlinedButton(
                     onClick = { detail.previousItem?.let(onSelectEpisode) },
                     enabled = detail.previousItem != null,
                 ) {
+                    Icon(
+                        imageVector = Icons.Filled.SkipPrevious,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text("Previous")
                 }
                 OutlinedButton(
                     onClick = { detail.nextItem?.let(onSelectEpisode) },
                     enabled = detail.nextItem != null,
                 ) {
+                    Icon(
+                        imageVector = Icons.Filled.SkipNext,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text("Next")
                 }
             }
@@ -1923,16 +1951,8 @@ private fun LibraryHeader(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                AssistChip(
-                    onClick = {},
-                    label = { Text("$filteredCount/$totalCount") },
-                )
+                AssistChip(onClick = {}, label = { Text("${favoriteMediaIds.size} favorites") })
             }
-            Text(
-                "${favoriteMediaIds.size} favorites",
-                color = SubtleText,
-                style = MaterialTheme.typography.bodySmall,
-            )
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -1986,11 +2006,25 @@ private fun LibraryHeader(
                     selected = sort == LibraryCatalogSort.TITLE,
                     onClick = { onSortChange(LibraryCatalogSort.TITLE) },
                     label = { Text("Title") },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Filled.SortByAlpha,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    },
                 )
                 FilterChip(
                     selected = sort == LibraryCatalogSort.PATH,
                     onClick = { onSortChange(LibraryCatalogSort.PATH) },
                     label = { Text("Path") },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Filled.FolderOpen,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    },
                 )
                 FilterChip(
                     selected = subtitleFilter == LibrarySubtitleFilter.WITH_SUBTITLES,
@@ -2004,6 +2038,13 @@ private fun LibraryHeader(
                         )
                     },
                     label = { Text("Subtitles") },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Filled.Subtitles,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    },
                 )
             }
 
@@ -2381,7 +2422,7 @@ private fun EpisodeRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(18.dp))
-            .clickable(onClick = onPlay)
+            .clickable(onClick = onShowDetails)
             .testTag("episode:${item.id}"),
         shape = RoundedCornerShape(18.dp),
         color = if (selected) Color(0xFF263847) else PanelColor,
@@ -2432,13 +2473,25 @@ private fun EpisodeRow(
                 onClick = { onSetFavorite(!isFavorite) },
                 modifier = Modifier.testTag("episode-favorite:${item.id}"),
             ) {
+                Icon(
+                    imageVector = Icons.Filled.Star,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(modifier = Modifier.width(6.dp))
                 Text(if (isFavorite) "Unfavorite" else "Favorite")
             }
             TextButton(
-                onClick = onShowDetails,
-                modifier = Modifier.testTag("episode-details:${item.id}"),
+                onClick = onPlay,
+                modifier = Modifier.testTag("episode-play:${item.id}"),
             ) {
-                Text("Details")
+                Icon(
+                    imageVector = Icons.Filled.PlayArrow,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Play")
             }
         }
     }

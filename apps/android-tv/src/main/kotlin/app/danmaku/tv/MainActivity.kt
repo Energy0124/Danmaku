@@ -525,6 +525,13 @@ private fun TvLibraryNavigationRail(
     totalCount: Int,
     favoriteCount: Int,
     hasActiveFilters: Boolean,
+    searchActive: Boolean,
+    favoritesActive: Boolean,
+    subtitlesActive: Boolean,
+    onResetFilters: () -> Unit,
+    onFocusSearch: () -> Unit,
+    onToggleFavorites: () -> Unit,
+    onToggleSubtitles: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -548,11 +555,31 @@ private fun TvLibraryNavigationRail(
             TvRailPill("Filters active", active = true)
         }
         Spacer(modifier = Modifier.height(12.dp))
-        TvRailNavigationItem("Home")
-        TvRailNavigationItem("Library", selected = true)
-        TvRailNavigationItem("Search", selected = hasActiveFilters)
-        TvRailNavigationItem("Favorites", selected = favoriteCount > 0)
-        TvRailNavigationItem("PC", selected = catalog != null)
+        Text("Quick actions", color = TvMutedText, fontWeight = FontWeight.SemiBold)
+        TvRailNavigationItem(
+            label = "All episodes",
+            selected = !hasActiveFilters,
+            testTag = "tv-rail-all",
+            onClick = onResetFilters,
+        )
+        TvRailNavigationItem(
+            label = if (searchActive) "Search active" else "Search",
+            selected = searchActive,
+            testTag = "tv-rail-search",
+            onClick = onFocusSearch,
+        )
+        TvRailNavigationItem(
+            label = if (favoritesActive) "Favorites only" else "Favorites",
+            selected = favoritesActive,
+            testTag = "tv-rail-favorites",
+            onClick = onToggleFavorites,
+        )
+        TvRailNavigationItem(
+            label = if (subtitlesActive) "Subtitles only" else "Subtitles",
+            selected = subtitlesActive,
+            testTag = "tv-rail-subtitles",
+            onClick = onToggleSubtitles,
+        )
     }
 }
 
@@ -560,13 +587,15 @@ private fun TvLibraryNavigationRail(
 private fun TvRailNavigationItem(
     label: String,
     selected: Boolean = false,
+    testTag: String,
+    onClick: () -> Unit,
 ) {
-    Box(
+    Button(
+        onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(if (selected) Color(0xFF273747) else Color.Transparent)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .tvFocusHalo(RoundedCornerShape(16.dp))
+            .testTag(testTag),
     ) {
         Text(label, color = if (selected) Color.White else TvMutedText)
     }
@@ -860,6 +889,7 @@ internal fun LibraryItems(
     val continueWatchingItems = catalog?.continueWatchingItems(playbackProgresses, limit = 6).orEmpty()
     val recentlyWatchedItems = catalog?.recentlyWatchedItems(playbackProgresses, limit = 6).orEmpty()
     val nextUpFocusRequester = remember { FocusRequester() }
+    val searchFocusRequester = remember { FocusRequester() }
     val watchStatusById = catalog?.watchStatusByMediaId(playbackProgresses).orEmpty()
     val seriesWatchSummaryById = catalog?.seriesWatchSummaryById(playbackProgresses).orEmpty()
     val selectedSeries = series.firstOrNull { it.id == selectedSeriesId }
@@ -892,6 +922,32 @@ internal fun LibraryItems(
                 sort != LibraryCatalogSort.TITLE ||
                 subtitleFilter != LibrarySubtitleFilter.ANY ||
                 favoriteFilter != LibraryFavoriteFilter.ANY,
+            searchActive = searchText.isNotBlank(),
+            favoritesActive = favoriteFilter == LibraryFavoriteFilter.FAVORITES_ONLY,
+            subtitlesActive = subtitleFilter == LibrarySubtitleFilter.WITH_SUBTITLES,
+            onResetFilters = {
+                searchText = ""
+                sort = LibraryCatalogSort.TITLE
+                subtitleFilter = LibrarySubtitleFilter.ANY
+                favoriteFilter = LibraryFavoriteFilter.ANY
+                selectedSeriesId = null
+                selectedEpisodeId = null
+            },
+            onFocusSearch = { searchFocusRequester.requestFocus() },
+            onToggleFavorites = {
+                favoriteFilter = if (favoriteFilter == LibraryFavoriteFilter.ANY) {
+                    LibraryFavoriteFilter.FAVORITES_ONLY
+                } else {
+                    LibraryFavoriteFilter.ANY
+                }
+            },
+            onToggleSubtitles = {
+                subtitleFilter = if (subtitleFilter == LibrarySubtitleFilter.ANY) {
+                    LibrarySubtitleFilter.WITH_SUBTITLES
+                } else {
+                    LibrarySubtitleFilter.ANY
+                }
+            },
         )
         Column(
             modifier = Modifier.weight(1f),
@@ -925,6 +981,7 @@ internal fun LibraryItems(
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(18.dp))
                     .background(TvCardColor)
+                    .focusRequester(searchFocusRequester)
                     .padding(horizontal = 16.dp, vertical = 14.dp)
                     .focusable(),
                 decorationBox = { innerTextField ->
@@ -1294,56 +1351,55 @@ private fun TvProgressRail(
                     modifier = Modifier
                         .width(320.dp)
                         .scale(cardScale)
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(TvCardColor)
-                        .border(
-                            width = if (cardHasFocus) 2.dp else 1.dp,
-                            color = if (cardHasFocus) TvAccentBlue else Color.Transparent,
-                            shape = RoundedCornerShape(20.dp),
-                        )
-                        .padding(10.dp),
+                        .clip(RoundedCornerShape(20.dp)),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    TvPosterTile(
-                        item = item.mediaItem,
-                        title = item.mediaItem.seriesTitle,
-                        posterEndpoint = posterEndpoint,
-                        label = "Resume",
+                    Button(
+                        onClick = { onShowDetails(item.mediaItem) },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(120.dp),
-                    )
-                    Text(
-                        item.mediaItem.seriesTitle,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        item.mediaItem.episodeTitle,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(item.progress.progressLabel(), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(
-                            onClick = { onShowDetails(item.mediaItem) },
+                            .onFocusChanged { cardHasFocus = it.isFocused }
+                            .tvFocusHalo(RoundedCornerShape(20.dp))
+                            .testTag("$itemTagPrefix-details:${item.mediaItem.id}"),
+                    ) {
+                        Column(
                             modifier = Modifier
-                                .onFocusChanged { cardHasFocus = it.isFocused }
-                                .tvFocusHalo(RoundedCornerShape(16.dp))
-                                .testTag("$itemTagPrefix-details:${item.mediaItem.id}"),
+                                .fillMaxWidth()
+                                .padding(4.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            Text("Details")
+                            TvPosterTile(
+                                item = item.mediaItem,
+                                title = item.mediaItem.seriesTitle,
+                                posterEndpoint = posterEndpoint,
+                                label = "Resume",
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(120.dp),
+                            )
+                            Text(
+                                item.mediaItem.seriesTitle,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                item.mediaItem.episodeTitle,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(item.progress.progressLabel(), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
-                        Button(
-                            onClick = { onPlay(item.mediaItem) },
-                            modifier = Modifier
-                                .onFocusChanged { cardHasFocus = it.isFocused }
-                                .tvFocusHalo(RoundedCornerShape(16.dp))
-                                .testTag("$itemTagPrefix:${item.mediaItem.id}"),
-                        ) {
-                            Text("Play")
-                        }
+                    }
+                    Button(
+                        onClick = { onPlay(item.mediaItem) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onFocusChanged { cardHasFocus = it.isFocused }
+                            .tvFocusHalo(RoundedCornerShape(16.dp))
+                            .testTag("$itemTagPrefix:${item.mediaItem.id}"),
+                    ) {
+                        Text("Play")
                     }
                 }
             }
@@ -1392,63 +1448,62 @@ private fun TvNextUpRail(
                     modifier = Modifier
                         .width(320.dp)
                         .scale(cardScale)
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(TvCardColor)
-                        .border(
-                            width = if (cardHasFocus) 2.dp else 1.dp,
-                            color = if (cardHasFocus) TvAccentBlue else Color.Transparent,
-                            shape = RoundedCornerShape(20.dp),
-                        )
-                        .padding(10.dp),
+                        .clip(RoundedCornerShape(20.dp)),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    TvPosterTile(
-                        item = item.mediaItem,
-                        title = item.mediaItem.seriesTitle,
-                        posterEndpoint = posterEndpoint,
-                        label = item.nextUpActionLabel(),
+                    Button(
+                        onClick = { onShowDetails(item.mediaItem) },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(120.dp),
-                    )
-                    Text(
-                        item.mediaItem.seriesTitle,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        item.mediaItem.episodeTitle,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(item.nextUpLabel(), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(
-                            onClick = { onShowDetails(item.mediaItem) },
+                            .onFocusChanged { cardHasFocus = it.isFocused }
+                            .then(
+                                if (item.mediaItem.id == firstItemId && initialFocusRequester != null) {
+                                    Modifier.focusRequester(initialFocusRequester)
+                                } else {
+                                    Modifier
+                                },
+                            )
+                            .tvFocusHalo(RoundedCornerShape(20.dp))
+                            .testTag("next-up-details:${item.mediaItem.id}"),
+                    ) {
+                        Column(
                             modifier = Modifier
-                                .onFocusChanged { cardHasFocus = it.isFocused }
-                                .tvFocusHalo(RoundedCornerShape(16.dp))
-                                .testTag("next-up-details:${item.mediaItem.id}"),
+                                .fillMaxWidth()
+                                .padding(4.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            Text("Details")
+                            TvPosterTile(
+                                item = item.mediaItem,
+                                title = item.mediaItem.seriesTitle,
+                                posterEndpoint = posterEndpoint,
+                                label = item.nextUpActionLabel(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(120.dp),
+                            )
+                            Text(
+                                item.mediaItem.seriesTitle,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                item.mediaItem.episodeTitle,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(item.nextUpLabel(), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
-                        Button(
-                            onClick = { onPlay(item.mediaItem) },
-                            modifier = Modifier
-                                .onFocusChanged { cardHasFocus = it.isFocused }
-                                .then(
-                                    if (item.mediaItem.id == firstItemId && initialFocusRequester != null) {
-                                        Modifier.focusRequester(initialFocusRequester)
-                                    } else {
-                                        Modifier
-                                    },
-                                )
-                                .tvFocusHalo(RoundedCornerShape(16.dp))
-                                .testTag("next-up:${item.mediaItem.id}"),
-                        ) {
-                            Text(item.nextUpActionLabel())
-                        }
+                    }
+                    Button(
+                        onClick = { onPlay(item.mediaItem) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onFocusChanged { cardHasFocus = it.isFocused }
+                            .tvFocusHalo(RoundedCornerShape(16.dp))
+                            .testTag("next-up:${item.mediaItem.id}"),
+                    ) {
+                        Text(item.nextUpActionLabel())
                     }
                 }
             }

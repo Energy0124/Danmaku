@@ -202,7 +202,7 @@ class MobileLibraryPageTest {
 
         composeRule.onNodeWithText("1 of 3 episodes").assertExists()
         composeRule.onNodeWithTag("series-detail:Matched Anime").assertExists()
-        composeRule.onNodeWithTag("episode-details:example-1").performClick()
+        composeRule.onNodeWithTag("episode:example-1").performClick()
         composeRule.onNodeWithTag("episode-detail:example-1").assertExists()
         composeRule.onNodeWithText("Matched anime: Matched Anime").assertExists()
         composeRule.onAllNodesWithText("Poster ready").assertCountEquals(2)
@@ -352,7 +352,7 @@ class MobileLibraryPageTest {
             }
         }
 
-        composeRule.onNodeWithTag("episode-details:example-2").performClick()
+        composeRule.onNodeWithTag("episode:example-2").performClick()
         composeRule.onNodeWithTag("episode-detail:example-2").assertExists()
         composeRule.onNodeWithText("Example Show · Season unknown · New").assertExists()
         composeRule.onNodeWithText("Next").performClick()
@@ -503,7 +503,7 @@ class MobileLibraryPageTest {
     }
 
     @Test
-    fun activePlaybackShowsMiniPlayerAndRoutesEpisodeSelection() {
+    fun activePlaybackShowsMiniPlayerAndRoutesExplicitEpisodePlay() {
         var playedItemId: String? = null
         composeRule.setContent {
             MaterialTheme {
@@ -537,6 +537,13 @@ class MobileLibraryPageTest {
         composeRule.onNodeWithText("Example Show").assertExists()
         composeRule.onNodeWithText("Episode 01").assertExists()
         composeRule.onNodeWithTag("episode:example-2").performClick()
+        composeRule.onNodeWithTag("episode-detail:example-2").assertExists()
+
+        composeRule.runOnIdle {
+            assertEquals(null, playedItemId)
+        }
+
+        composeRule.onNodeWithTag("episode-play:example-2").performClick()
 
         composeRule.runOnIdle {
             assertEquals("example-2", playedItemId)
