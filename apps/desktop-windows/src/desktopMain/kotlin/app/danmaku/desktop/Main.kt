@@ -3,6 +3,7 @@ package app.danmaku.desktop
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -23,6 +24,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -2489,21 +2491,20 @@ private fun PlayerIconButton(
     imageVector: ImageVector,
     contentDescription: String,
     enabled: Boolean = true,
+    active: Boolean = false,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
+    val backgroundColor = when {
+        !enabled -> Color.White.copy(alpha = 0.06f)
+        active -> DanmakuColors.AccentSoft
+        else -> Color.White.copy(alpha = 0.14f)
+    }
     Box(
         modifier = modifier
             .width(36.dp)
             .height(34.dp)
-            .background(
-                color = if (enabled) {
-                    Color.White.copy(alpha = 0.14f)
-                } else {
-                    Color.White.copy(alpha = 0.06f)
-                },
-                shape = RoundedCornerShape(6.dp),
-            )
+            .background(color = backgroundColor, shape = RoundedCornerShape(6.dp))
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
@@ -3129,7 +3130,17 @@ private fun LibraryRailNavigationItem(
         Icon(icon, contentDescription = label, tint = if (selected) Color.White else DanmakuColors.TextMuted)
         Text(label, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
         if (count > 0) {
-            Text(count.toString(), color = DanmakuColors.TextMuted, maxLines = 1)
+            Text(
+                count.toString(),
+                color = if (selected) Color.White else DanmakuColors.TextMuted,
+                maxLines = 1,
+                modifier = Modifier
+                    .background(
+                        if (selected) Color.White.copy(alpha = 0.16f) else DanmakuColors.SurfaceRaised,
+                        RoundedCornerShape(999.dp),
+                    )
+                    .padding(horizontal = 7.dp, vertical = 2.dp),
+            )
         }
     }
 }
@@ -3212,9 +3223,23 @@ private fun LibraryCenterWorkspace(
             onToggleFavoriteFilter = onToggleFavoriteFilter,
             compact = compact,
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            StatusPill("${filteredEpisodes.size} / ${catalog?.items?.size ?: 0} episodes")
-            StatusPill("${favoriteMediaIds.size} favorites")
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            StatusPill("${filteredEpisodes.size} / ${catalog?.items?.size ?: 0} episodes", icon = Icons.AutoMirrored.Filled.ViewList)
+            StatusPill("${favoriteMediaIds.size} favorites", icon = Icons.Filled.Star)
+            if (subtitleFilter != LibrarySubtitleFilter.ANY) {
+                StatusPill("Subtitles only", icon = Icons.Filled.Subtitles, active = true)
+            }
+            if (selectedView == WindowsLibraryView.FAVORITES || favoriteFilter == LibraryFavoriteFilter.FAVORITES_ONLY) {
+                StatusPill("Favorites only", icon = Icons.Filled.Star, active = true)
+            }
+            if (sort != LibraryCatalogSort.TITLE) {
+                StatusPill("Path sort", icon = Icons.Filled.FolderOpen, active = true)
+            }
             if (!compact) {
                 selectedSeries?.let { StatusPill(it.title) }
             }
@@ -3309,6 +3334,7 @@ private fun LibraryWorkspaceToolbar(
                 } else {
                     "Show all subtitles"
                 },
+                active = subtitleFilter != LibrarySubtitleFilter.ANY,
                 onClick = onToggleSubtitleFilter,
             )
             PlayerIconButton(
@@ -3318,11 +3344,13 @@ private fun LibraryWorkspaceToolbar(
                 } else {
                     "Show all favorites"
                 },
+                active = selectedView == WindowsLibraryView.FAVORITES || favoriteFilter != LibraryFavoriteFilter.ANY,
                 onClick = onToggleFavoriteFilter,
             )
             PlayerIconButton(
                 imageVector = if (sort == LibraryCatalogSort.TITLE) Icons.Filled.GridView else Icons.AutoMirrored.Filled.ViewList,
                 contentDescription = if (sort == LibraryCatalogSort.TITLE) "Sort by path" else "Sort by title",
+                active = sort != LibraryCatalogSort.TITLE,
                 onClick = {
                     onSortChange(
                         if (sort == LibraryCatalogSort.TITLE) {
@@ -3590,8 +3618,7 @@ private fun ContinueWatchingList(
                     onPlaySelected = { items.getOrNull(boundedSelectedIndex)?.mediaItem?.let(onPlayLocalPlayback) },
                 ),
         ) {
-            items(items, key = { it.mediaItem.id }) { item ->
-                val rowIndex = items.indexOf(item)
+            itemsIndexed(items, key = { _, item -> item.mediaItem.id }) { rowIndex, item ->
                 ContinueWatchingRow(
                     item = item,
                     selected = rowIndex == boundedSelectedIndex,
@@ -3633,8 +3660,7 @@ private fun NextUpList(
                     onPlaySelected = { items.getOrNull(boundedSelectedIndex)?.mediaItem?.let(onPlayLocalPlayback) },
                 ),
         ) {
-            items(items, key = { it.mediaItem.id }) { item ->
-                val rowIndex = items.indexOf(item)
+            itemsIndexed(items, key = { _, item -> item.mediaItem.id }) { rowIndex, item ->
                 NextUpRow(
                     item = item,
                     selected = rowIndex == boundedSelectedIndex,
@@ -3677,8 +3703,7 @@ private fun RecentlyWatchedList(
                     onPlaySelected = { items.getOrNull(boundedSelectedIndex)?.mediaItem?.let(onPlayLocalPlayback) },
                 ),
         ) {
-            items(items, key = { it.mediaItem.id }) { item ->
-                val rowIndex = items.indexOf(item)
+            itemsIndexed(items, key = { _, item -> item.mediaItem.id }) { rowIndex, item ->
                 RecentlyWatchedRow(
                     item = item,
                     selected = rowIndex == boundedSelectedIndex,
@@ -3732,8 +3757,7 @@ private fun EpisodeListView(
                     onPlaySelected = { episodes.getOrNull(boundedSelectedIndex)?.let(onPlayLocalPlayback) },
                 ),
         ) {
-            items(episodes, key = { it.id }) { item ->
-                val rowIndex = episodes.indexOf(item)
+            itemsIndexed(episodes, key = { _, item -> item.id }) { rowIndex, item ->
                 EpisodeRow(
                     item = item,
                     selected = rowIndex == boundedSelectedIndex,
@@ -4898,14 +4922,28 @@ private fun SummaryCard(
 }
 
 @Composable
-private fun StatusPill(text: String) {
-    Text(
-        text = text,
+private fun StatusPill(
+    text: String,
+    icon: ImageVector? = null,
+    active: Boolean = false,
+) {
+    Row(
         modifier = Modifier
-            .background(DanmakuColors.SurfaceRaised, RoundedCornerShape(999.dp))
+            .background(if (active) DanmakuColors.AccentSoft else DanmakuColors.SurfaceRaised, RoundedCornerShape(999.dp))
             .padding(horizontal = 12.dp, vertical = 6.dp),
-        color = DanmakuColors.TextMuted,
-    )
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        icon?.let {
+            Icon(
+                imageVector = it,
+                contentDescription = null,
+                tint = if (active) Color.White else DanmakuColors.TextMuted,
+                modifier = Modifier.size(14.dp),
+            )
+        }
+        Text(text = text, color = if (active) Color.White else DanmakuColors.TextMuted, maxLines = 1)
+    }
 }
 
 @Composable
