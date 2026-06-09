@@ -13,6 +13,7 @@ Status legend:
 - `[x]` Model external anime providers, IDs, titles, metadata, mappings, and tracking updates.
 - `[x]` Persist external anime metadata cache, series mappings, and item mappings in the desktop library DB.
 - `[x]` Derive external list progress updates from local watch state and external mappings.
+- `[x]` Build provider-neutral sync plans with eligible updates and skipped mapping reasons.
 - `[ ]` Add desktop task/status surfaces for pending external sync actions.
 - `[ ]` Add diagnostics for mapping confidence, sync eligibility, and skipped sync reasons.
 
@@ -50,3 +51,4 @@ Status legend:
 
 - 2026-06-09: Created this milestone after confirming MAL/Bangumi provider IDs, mapping models, and desktop DB storage exist, while live provider search/auth/list sync is not implemented yet.
 - 2026-06-09: Added provider-neutral domain logic to derive external tracking updates from local series watch state and mappings; this intentionally stops before provider auth/API writes.
+- 2026-06-09: Added provider-neutral external tracking sync plans that report update candidates, unmapped local series, and stale mappings that no longer match a local series.

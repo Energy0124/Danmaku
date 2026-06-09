@@ -179,6 +179,81 @@ class ExternalAnimeTrackingTest {
         }
     }
 
+    @Test
+    fun buildsExternalTrackingPlanForMappedSeriesAndSkippedLocalSeries() {
+        val catalog = libraryCatalog(
+            librarySeries(),
+            librarySeries(id = "apothecary", title = "Apothecary"),
+        )
+        val malMapping = externalMapping("frieren", ExternalAnimeProvider.MY_ANIME_LIST, 52991)
+        val bangumiMapping = externalMapping("frieren", ExternalAnimeProvider.BANGUMI, 400602)
+        val staleMapping = externalMapping("deleted-series", ExternalAnimeProvider.MY_ANIME_LIST, 999)
+        val progresses = listOf(
+            playbackProgress("episode-1", positionMs = 1_470_000, durationMs = 1_500_000),
+            playbackProgress("episode-2", positionMs = 20_000, durationMs = 1_500_000),
+        )
+
+        val plan = catalog.externalAnimeTrackingPlan(
+            mappings = listOf(staleMapping, bangumiMapping, malMapping),
+            progresses = progresses,
+            providers = setOf(ExternalAnimeProvider.MY_ANIME_LIST, ExternalAnimeProvider.BANGUMI),
+        )
+
+        assertEquals(
+            listOf(ExternalAnimeProvider.BANGUMI, ExternalAnimeProvider.MY_ANIME_LIST),
+            plan.updates.map { it.mapping.animeId.provider },
+        )
+        assertEquals(listOf(1, 1), plan.updates.map { it.update.watchedEpisodes })
+        assertEquals(
+            listOf(
+                ExternalAnimeTrackingPlanSkip(
+                    localSeriesId = "apothecary",
+                    provider = ExternalAnimeProvider.BANGUMI,
+                    reason = ExternalAnimeTrackingPlanSkipReason.UNMAPPED_LOCAL_SERIES,
+                ),
+                ExternalAnimeTrackingPlanSkip(
+                    localSeriesId = "apothecary",
+                    provider = ExternalAnimeProvider.MY_ANIME_LIST,
+                    reason = ExternalAnimeTrackingPlanSkipReason.UNMAPPED_LOCAL_SERIES,
+                ),
+                ExternalAnimeTrackingPlanSkip(
+                    localSeriesId = "deleted-series",
+                    provider = ExternalAnimeProvider.MY_ANIME_LIST,
+                    reason = ExternalAnimeTrackingPlanSkipReason.MISSING_LOCAL_SERIES,
+                ),
+            ),
+            plan.skipped,
+        )
+    }
+
+    @Test
+    fun filtersExternalTrackingPlanByProvider() {
+        val catalog = libraryCatalog(librarySeries())
+
+        val plan = catalog.externalAnimeTrackingPlan(
+            mappings = listOf(
+                externalMapping("frieren", ExternalAnimeProvider.MY_ANIME_LIST, 52991),
+                externalMapping("frieren", ExternalAnimeProvider.BANGUMI, 400602),
+            ),
+            progresses = emptyList(),
+            providers = setOf(ExternalAnimeProvider.BANGUMI),
+        )
+
+        assertEquals(listOf(ExternalAnimeProvider.BANGUMI), plan.updates.map { it.mapping.animeId.provider })
+        assertEquals(emptyList(), plan.skipped)
+    }
+
+    @Test
+    fun rejectsExternalTrackingPlanWithoutProviders() {
+        assertFailsWith<IllegalArgumentException> {
+            libraryCatalog(librarySeries()).externalAnimeTrackingPlan(
+                mappings = emptyList(),
+                progresses = emptyList(),
+                providers = emptySet(),
+            )
+        }
+    }
+
     private fun animeInfo(
         id: ExternalAnimeId,
         primary: String,
@@ -202,27 +277,43 @@ class ExternalAnimeTrackingTest {
             startYear = startYear,
         )
 
-    private fun librarySeries(): LibrarySeries =
+    private fun libraryCatalog(vararg series: LibrarySeries): LibraryCatalog =
+        LibraryCatalog(
+            rootName = "Anime",
+            indexedAtEpochMs = 123,
+            items = series
+                .flatMap { it.seasons }
+                .flatMap { it.items },
+        )
+
+    private fun librarySeries(
+        id: String = "frieren",
+        title: String = "Frieren",
+    ): LibrarySeries =
         LibrarySeries(
-            id = "frieren",
-            title = "Frieren",
+            id = id,
+            title = title,
             seasons = listOf(
                 LibrarySeason(
-                    id = "frieren-season-unknown",
+                    id = "$id-season-unknown",
                     label = "Season unknown",
                     sortKey = Int.MAX_VALUE,
                     items = listOf(
-                        libraryMediaItem("episode-1", "Episode 01"),
-                        libraryMediaItem("episode-2", "Episode 02"),
+                        libraryMediaItem("$id-episode-1".shortEpisodeId(), title, "Episode 01"),
+                        libraryMediaItem("$id-episode-2".shortEpisodeId(), title, "Episode 02"),
                     ),
                 ),
             ),
         )
 
-    private fun externalMapping(localSeriesId: String): ExternalAnimeMapping =
+    private fun externalMapping(
+        localSeriesId: String,
+        provider: ExternalAnimeProvider = ExternalAnimeProvider.MY_ANIME_LIST,
+        animeId: Long = 52991,
+    ): ExternalAnimeMapping =
         ExternalAnimeMapping(
             localSeriesId = localSeriesId,
-            animeId = ExternalAnimeId(ExternalAnimeProvider.MY_ANIME_LIST, 52991),
+            animeId = ExternalAnimeId(provider, animeId),
             source = ExternalAnimeMappingSource.MANUAL,
             confidence = 1.0,
             mappedAtEpochMs = 123,
@@ -245,15 +336,31 @@ class ExternalAnimeTrackingTest {
 
     private fun libraryMediaItem(
         id: String,
+        seriesTitle: String = "Frieren",
         episodeTitle: String,
     ): LibraryMediaItem =
         LibraryMediaItem(
             id = id,
-            seriesTitle = "Frieren",
+            seriesTitle = seriesTitle,
             episodeTitle = episodeTitle,
             relativePath = "$episodeTitle.mkv",
             sizeBytes = 1_000L,
             mediaType = "video/x-matroska",
             streamPath = "/library/items/$id/stream",
         )
+
+    private fun playbackProgress(
+        mediaId: String,
+        positionMs: Long,
+        durationMs: Long,
+    ): PlaybackProgress =
+        PlaybackProgress(
+            mediaId = mediaId,
+            positionMs = positionMs,
+            durationMs = durationMs,
+            updatedAtEpochMs = 123,
+        )
+
+    private fun String.shortEpisodeId(): String =
+        removePrefix("frieren-")
 }

@@ -116,6 +116,102 @@ data class ExternalAnimeTrackingUpdate(
     }
 }
 
+data class ExternalAnimeTrackingPlan(
+    val updates: List<ExternalAnimeTrackingPlanUpdate>,
+    val skipped: List<ExternalAnimeTrackingPlanSkip>,
+) {
+    init {
+        require(updates.map { it.mapping.localSeriesId to it.mapping.animeId.provider }.distinct().size == updates.size) {
+            "tracking plan updates must be unique by local series and provider"
+        }
+    }
+}
+
+data class ExternalAnimeTrackingPlanUpdate(
+    val series: LibrarySeries,
+    val mapping: ExternalAnimeMapping,
+    val update: ExternalAnimeTrackingUpdate,
+)
+
+data class ExternalAnimeTrackingPlanSkip(
+    val localSeriesId: String,
+    val provider: ExternalAnimeProvider? = null,
+    val reason: ExternalAnimeTrackingPlanSkipReason,
+)
+
+enum class ExternalAnimeTrackingPlanSkipReason {
+    MISSING_LOCAL_SERIES,
+    UNMAPPED_LOCAL_SERIES,
+}
+
+fun LibraryCatalog.externalAnimeTrackingPlan(
+    mappings: List<ExternalAnimeMapping>,
+    progresses: List<PlaybackProgress>,
+    providers: Set<ExternalAnimeProvider> = setOf(
+        ExternalAnimeProvider.MY_ANIME_LIST,
+        ExternalAnimeProvider.BANGUMI,
+    ),
+    minimumStartedPositionMs: Long = 10_000,
+    watchedRemainingMs: Long = 30_000,
+): ExternalAnimeTrackingPlan {
+    require(providers.isNotEmpty()) { "providers must not be empty" }
+    val seriesById = groupedSeries().associateBy(LibrarySeries::id)
+    val watchStatusByMediaId = watchStatusByMediaId(
+        progresses = progresses,
+        minimumStartedPositionMs = minimumStartedPositionMs,
+        watchedRemainingMs = watchedRemainingMs,
+    )
+    val mappingsBySeriesId = mappings
+        .filter { mapping -> mapping.animeId.provider in providers }
+        .groupBy(ExternalAnimeMapping::localSeriesId)
+    val updates = mappingsBySeriesId
+        .flatMap { (seriesId, seriesMappings) ->
+            val series = seriesById[seriesId] ?: return@flatMap emptyList()
+            seriesMappings.map { mapping ->
+                ExternalAnimeTrackingPlanUpdate(
+                    series = series,
+                    mapping = mapping,
+                    update = series.externalAnimeTrackingUpdate(mapping, watchStatusByMediaId),
+                )
+            }
+        }
+        .sortedWith(
+            compareBy<ExternalAnimeTrackingPlanUpdate> { it.series.title.lowercase() }
+                .thenBy { it.mapping.animeId.provider.name }
+                .thenBy { it.mapping.animeId.value },
+        )
+    val missingSeriesSkips = mappingsBySeriesId
+        .filterKeys { seriesId -> seriesId !in seriesById }
+        .flatMap { (seriesId, seriesMappings) ->
+            seriesMappings.map { mapping ->
+                ExternalAnimeTrackingPlanSkip(
+                    localSeriesId = seriesId,
+                    provider = mapping.animeId.provider,
+                    reason = ExternalAnimeTrackingPlanSkipReason.MISSING_LOCAL_SERIES,
+                )
+            }
+        }
+    val unmappedSeriesSkips = seriesById.keys
+        .filter { seriesId -> mappingsBySeriesId[seriesId].isNullOrEmpty() }
+        .flatMap { seriesId ->
+            providers.map { provider ->
+                ExternalAnimeTrackingPlanSkip(
+                    localSeriesId = seriesId,
+                    provider = provider,
+                    reason = ExternalAnimeTrackingPlanSkipReason.UNMAPPED_LOCAL_SERIES,
+                )
+            }
+        }
+    return ExternalAnimeTrackingPlan(
+        updates = updates,
+        skipped = (missingSeriesSkips + unmappedSeriesSkips).sortedWith(
+            compareBy<ExternalAnimeTrackingPlanSkip> { it.localSeriesId }
+                .thenBy { it.provider?.name.orEmpty() }
+                .thenBy { it.reason.name },
+        ),
+    )
+}
+
 fun LibrarySeries.externalAnimeTrackingUpdate(
     mapping: ExternalAnimeMapping,
     watchStatusByMediaId: Map<String, LibraryWatchStatus>,
