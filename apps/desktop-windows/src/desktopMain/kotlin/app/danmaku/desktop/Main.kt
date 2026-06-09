@@ -538,6 +538,7 @@ private fun DesktopShell(
     var isPreparingLocalPlayback by remember { mutableStateOf(false) }
     var lastScanStats by remember { mutableStateOf<LocalMediaLibraryScanStats?>(null) }
     var dandanplayCacheStatus by remember { mutableStateOf<DandanplayPlaybackUiStatus?>(null) }
+    var isRefreshingSeriesPosters by remember { mutableStateOf(false) }
     val serverRuntime = remember(catalogStore, rootScanner, scope) {
         DesktopLibraryServerRuntime.start(
             catalogStore = catalogStore,
@@ -580,6 +581,41 @@ private fun DesktopShell(
         )
     }
 
+    fun refreshMissingSeriesPosters(library: IndexedLocalLibrary) {
+        if (isRefreshingSeriesPosters) return
+        if (!dandanplaySettings.isFetchEnabled) {
+            appendDiagnostic("metadata", "Skipping poster refresh; dandanplay provider is not configured")
+            return
+        }
+        val missingSeries = library.catalog
+            .groupedSeries()
+            .filter { series -> seriesPosterById[series.id] == null }
+            .take(MAX_BACKGROUND_POSTER_REFRESH_SERIES)
+        if (missingSeries.isEmpty()) return
+
+        scope.launch {
+            isRefreshingSeriesPosters = true
+            appendDiagnostic("metadata", "Refreshing posters for ${missingSeries.size} local series")
+            val refreshedCount = withContext(Dispatchers.IO) {
+                missingSeries.count { series ->
+                    runCatching {
+                        animeMetadataResolver.ensureDandanplayPosterForSeries(
+                            series = series,
+                            mediaPathById = library.filesById,
+                        )
+                    }.getOrNull() != null
+                }
+            }
+            seriesPosterById = loadSeriesPosterById(indexedLibrary, animeMetadataResolver)
+            isRefreshingSeriesPosters = false
+            appendDiagnostic("metadata", "Poster refresh complete: $refreshedCount/${missingSeries.size} series updated")
+        }
+    }
+
+    LaunchedEffect(indexedLibrary, dandanplaySettings.isFetchEnabled) {
+        indexedLibrary?.let(::refreshMissingSeriesPosters)
+    }
+
     fun applyPublishedLibrary(library: IndexedLocalLibrary) {
         appendDiagnostic("library", "Publishing library: ${library.catalog.items.size} items")
         server.publish(library.toPublishedLibrary())
@@ -590,6 +626,7 @@ private fun DesktopShell(
         registeredRoots = rootRegistry.loadRoots()
         selectedLocalPlaybackPreparation = null
         libraryError = null
+        refreshMissingSeriesPosters(library)
     }
 
     fun setFavorite(item: LibraryMediaItem, isFavorite: Boolean) {
@@ -5463,6 +5500,8 @@ private const val PLAYBACK_SNAPSHOT_POLL_INTERVAL_MS = 500L
 private const val WINDOWS_PROGRESS_SAVE_INTERVAL_MS = 5_000L
 
 private const val MAX_DIAGNOSTIC_LOG_ENTRIES = 200
+
+private const val MAX_BACKGROUND_POSTER_REFRESH_SERIES = 32
 
 private const val LOCAL_AUTO_NEXT_SETTING_KEY = "playback.local_auto_next"
 

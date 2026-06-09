@@ -4,6 +4,7 @@ import app.danmaku.domain.ExternalAnimeId
 import app.danmaku.domain.ExternalAnimeMapping
 import app.danmaku.domain.ExternalAnimeMappingSource
 import app.danmaku.domain.ExternalAnimeProvider
+import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySeries
 import java.nio.file.Path
 
@@ -50,6 +51,40 @@ class DesktopAnimeMetadataResolver(
         return posterCache.fetch(metadata.imageUrl, forceRefresh = forceRefresh)
     }
 
+    fun ensureDandanplayPosterForSeries(
+        series: LibrarySeries,
+        mediaPathById: Map<String, Path>,
+        forceRefresh: Boolean = false,
+    ): Path? {
+        if (!forceRefresh) {
+            cachedPosterForSeries(series)?.let { return it }
+        }
+        val mappedAnimeId = catalogStore.loadExternalAnimeMappings(series.id)
+            .firstOrNull { it.animeId.provider == ExternalAnimeProvider.DANDANPLAY }
+            ?.animeId
+            ?.value
+        if (mappedAnimeId != null) {
+            return refreshDandanplayMetadataForSeries(
+                series = series,
+                animeId = mappedAnimeId,
+                forceRefresh = forceRefresh,
+            )
+        }
+
+        val mediaItem = series.firstIndexedItem()
+        val mediaPath = mediaPathById[mediaItem.id] ?: return null
+        val animeId = DandanplayDanmakuClient(loadConnection())
+            .match(DandanplayMediaFingerprint.fromPath(mediaPath))
+            .firstOrNull()
+            ?.animeId
+            ?: return null
+        return refreshDandanplayMetadataForSeries(
+            series = series,
+            animeId = animeId,
+            forceRefresh = forceRefresh,
+        )
+    }
+
     fun cachedPosterForSeries(series: LibrarySeries): Path? =
         catalogStore.loadExternalAnimeMappings(series.id)
             .asSequence()
@@ -58,3 +93,9 @@ class DesktopAnimeMetadataResolver(
             .mapNotNull { metadata -> posterCache.cachedPath(metadata.anime.imageUrl) }
             .firstOrNull()
 }
+
+private fun LibrarySeries.firstIndexedItem(): LibraryMediaItem =
+    seasons
+        .asSequence()
+        .flatMap { it.items.asSequence() }
+        .first()
