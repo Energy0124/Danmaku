@@ -875,6 +875,15 @@ private fun EpisodeDetailPanel(
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
+                    detail.mediaItem.animeMetadata?.let { metadata ->
+                        Text(
+                            "Matched anime: ${metadata.displayTitle}",
+                            color = AccentBlue,
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
             }
             FlowRow(
@@ -884,6 +893,9 @@ private fun EpisodeDetailPanel(
                 AssistChip(onClick = {}, label = { Text(detail.mediaItem.formatSize()) })
                 AssistChip(onClick = {}, label = { Text("${detail.mediaItem.subtitles.size} subtitles") })
                 AssistChip(onClick = {}, label = { Text(detail.mediaItem.mediaType) })
+                detail.mediaItem.posterPath?.let {
+                    AssistChip(onClick = {}, label = { Text("Poster ready") })
+                }
             }
             Text(
                 detail.mediaItem.relativePath,
@@ -2255,6 +2267,10 @@ private fun EpisodeRow(
         add(watchStatus.statusLabel())
         add(item.formatSize())
         add("${item.subtitles.size} subtitle tracks")
+        item.animeMetadata?.let { add("Matched: ${it.displayTitle}") }
+        if (item.posterPath != null) {
+            add("Poster ready")
+        }
         if (isFavorite) {
             add("Favorite")
         }

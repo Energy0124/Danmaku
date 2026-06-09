@@ -7,6 +7,7 @@ data class PublishedLibrary(
     val catalog: LibraryCatalog,
     val filesById: Map<String, Path>,
     val subtitleFilesById: Map<String, Path> = emptyMap(),
+    val posterFilesById: Map<String, Path> = emptyMap(),
 ) {
     companion object {
         val EMPTY = PublishedLibrary(

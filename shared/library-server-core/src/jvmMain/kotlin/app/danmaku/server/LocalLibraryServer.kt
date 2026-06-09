@@ -46,6 +46,7 @@ class LocalLibraryServer(
         server.createContext("/api/progress/", ::handleProgress)
         server.createContext("/media/", ::handleMedia)
         server.createContext("/subtitles/", ::handleSubtitle)
+        server.createContext("/posters/", ::handlePoster)
         authenticatedPostHooks.forEach { hook ->
             server.createContext(hook.path) { exchange ->
                 handleAuthenticatedPostHook(exchange, hook)
@@ -224,6 +225,43 @@ class LocalLibraryServer(
         }
         exchange.sendResponseHeaders(200, contentLength)
         exchange.recordRequest("subtitle", 200, "id=$id; bytes=$contentLength; file=${path.fileName}")
+        Files.newInputStream(path).use { input ->
+            exchange.responseBody.use(input::copyTo)
+        }
+    }
+
+    private fun handlePoster(exchange: HttpExchange) {
+        if (exchange.requestMethod !in setOf("GET", "HEAD")) {
+            exchange.recordRequest("poster", 405, "method=${exchange.requestMethod}")
+            exchange.sendStatus(405)
+            return
+        }
+        if (!exchange.isAuthorized()) {
+            exchange.recordRequest("poster", 401, "unauthorized")
+            exchange.sendStatus(401)
+            return
+        }
+
+        val id = exchange.requestURI.path.removePrefix("/posters/")
+        val path = library.posterFilesById[id]
+        if (path == null || !Files.isRegularFile(path)) {
+            exchange.recordRequest("poster", 404, "id=$id")
+            exchange.sendStatus(404)
+            return
+        }
+
+        val contentLength = Files.size(path)
+        exchange.responseHeaders["Content-Type"] = listOf(contentType(path))
+        exchange.responseHeaders["Cache-Control"] = listOf("private, max-age=3600")
+        if (exchange.requestMethod == "HEAD") {
+            exchange.responseHeaders["Content-Length"] = listOf(contentLength.toString())
+            exchange.sendResponseHeaders(200, -1)
+            exchange.recordRequest("poster", 200, "id=$id; method=HEAD; bytes=$contentLength")
+            exchange.close()
+            return
+        }
+        exchange.sendResponseHeaders(200, contentLength)
+        exchange.recordRequest("poster", 200, "id=$id; bytes=$contentLength; file=${path.fileName}")
         Files.newInputStream(path).use { input ->
             exchange.responseBody.use(input::copyTo)
         }

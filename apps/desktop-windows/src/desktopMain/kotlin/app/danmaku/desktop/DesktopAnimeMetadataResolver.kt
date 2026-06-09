@@ -93,6 +93,11 @@ class DesktopAnimeMetadataResolver(
             .mapNotNull { metadata -> posterCache.cachedPath(metadata.anime.imageUrl) }
             .firstOrNull()
 
+    fun cachedPosterForItem(item: LibraryMediaItem): Path? =
+        cachedAnimeInfoForItem(item)
+            ?.imageUrl
+            ?.let(posterCache::cachedPath)
+
     fun cachedAnimeInfoForSeries(series: LibrarySeries): ExternalAnimeInfo? =
         cachedAnimeIdsForSeries(series)
             .asSequence()

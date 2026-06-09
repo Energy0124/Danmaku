@@ -117,9 +117,11 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import app.danmaku.domain.DanmakuDisplaySettings
 import app.danmaku.domain.ExternalAnimeInfo
+import app.danmaku.domain.LibraryAnimeMetadata
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryCatalogQuery
 import app.danmaku.domain.LibraryCatalogSort
+import app.danmaku.domain.LibraryItemMetadataStatus
 import app.danmaku.domain.LibraryEpisodeDetail
 import app.danmaku.domain.LibraryFavoriteFilter
 import app.danmaku.domain.LibraryMediaItem
@@ -554,10 +556,11 @@ private fun DesktopShell(
     var isRefreshingSeriesPosters by remember { mutableStateOf(false) }
     var refreshingMetadataMediaIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var refreshingMetadataSeriesIds by remember { mutableStateOf<Set<String>>(emptySet()) }
-    val serverRuntime = remember(catalogStore, rootScanner, scope) {
+    val serverRuntime = remember(catalogStore, rootScanner, animeMetadataResolver, scope) {
         DesktopLibraryServerRuntime.start(
             catalogStore = catalogStore,
             rootScanner = rootScanner,
+            metadataResolver = animeMetadataResolver,
             aniRssWebhookToken = aniRssCredentialStore.loadOrCreateWebhookToken(),
             onLibraryPublished = { library ->
                 scope.launch {
@@ -654,7 +657,7 @@ private fun DesktopShell(
 
     fun applyPublishedLibrary(library: IndexedLocalLibrary) {
         appendDiagnostic("library", "Publishing library: ${library.catalog.items.size} items")
-        server.publish(library.toPublishedLibrary())
+        server.publish(library.toPublishedLibrary(animeMetadataResolver))
         indexedLibrary = library
         libraryMetadataVersion += 1
         playbackProgresses = catalogStore.loadPlaybackProgress()
@@ -1406,7 +1409,7 @@ private fun DesktopShell(
     }
 
     LaunchedEffect(Unit) {
-        indexedLibrary?.toPublishedLibrary()?.let(server::publish)
+        indexedLibrary?.toPublishedLibrary(animeMetadataResolver)?.let(server::publish)
         if (registeredRoots.isNotEmpty()) {
             rescanRegisteredRoots()
         } else {
@@ -4447,24 +4450,28 @@ internal fun IndexedLocalLibrary.withExternalAnimeMetadata(
 internal fun LibraryCatalog.withExternalAnimeMetadata(
     metadataResolver: DesktopAnimeMetadataResolver,
 ): LibraryCatalog {
-    val displayTitleByMediaId = items
-        .mapNotNull { item ->
-            metadataResolver.cachedAnimeInfoForItem(item)
-                ?.libraryDisplayTitle()
-                ?.takeIf { it.isNotBlank() }
-                ?.let { displayTitle -> item.id to displayTitle }
-        }
-        .toMap()
-    if (displayTitleByMediaId.isEmpty()) return this
-
     var changed = false
     val displayItems = items.map { item ->
-        val displayTitle = displayTitleByMediaId[item.id]
-        if (displayTitle == null || displayTitle == item.seriesTitle) {
+        val animeInfo = metadataResolver.cachedAnimeInfoForItem(item)
+        val posterPath = metadataResolver.cachedPosterForItem(item)?.let { "/posters/${item.id}" }
+        val metadata = animeInfo?.toLibraryAnimeMetadata()
+        val status = when {
+            metadata != null || posterPath != null -> LibraryItemMetadataStatus.READY
+            else -> LibraryItemMetadataStatus.NOT_AVAILABLE
+        }
+        if (
+            item.animeMetadata == metadata &&
+            item.posterPath == posterPath &&
+            item.metadataStatus == status
+        ) {
             item
         } else {
             changed = true
-            item.copy(seriesTitle = displayTitle)
+            item.copy(
+                animeMetadata = metadata,
+                posterPath = posterPath,
+                metadataStatus = status,
+            )
         }
     }
     return if (changed) copy(items = displayItems) else this
@@ -4472,6 +4479,19 @@ internal fun LibraryCatalog.withExternalAnimeMetadata(
 
 internal fun ExternalAnimeInfo.libraryDisplayTitle(): String =
     titles.chinese ?: titles.primary
+
+private fun ExternalAnimeInfo.toLibraryAnimeMetadata(): LibraryAnimeMetadata =
+    LibraryAnimeMetadata(
+        animeId = id,
+        displayTitle = libraryDisplayTitle(),
+        primaryTitle = titles.primary,
+        chineseTitle = titles.chinese,
+        englishTitle = titles.english,
+        japaneseTitle = titles.japanese,
+        imageUrl = imageUrl,
+        episodeCount = episodeCount,
+        startYear = startYear,
+    )
 
 private fun loadSeriesPosterById(
     indexedLibrary: IndexedLocalLibrary?,
@@ -5847,12 +5867,28 @@ private fun RemoteEpisodeRow(
     }
 }
 
-internal fun IndexedLocalLibrary.toPublishedLibrary(): PublishedLibrary =
-    PublishedLibrary(
-        catalog = catalog,
+internal fun IndexedLocalLibrary.toPublishedLibrary(
+    metadataResolver: DesktopAnimeMetadataResolver? = null,
+): PublishedLibrary {
+    val publishedCatalog = metadataResolver?.let { catalog.withExternalAnimeMetadata(it) } ?: catalog
+    val posterFilesById = metadataResolver
+        ?.let { resolver ->
+            publishedCatalog.items
+                .mapNotNull { item ->
+                    item.posterPath?.let { _ ->
+                        resolver.cachedPosterForItem(item)?.let { poster -> item.id to poster }
+                    }
+                }
+                .toMap()
+        }
+        .orEmpty()
+    return PublishedLibrary(
+        catalog = publishedCatalog,
         filesById = filesById,
         subtitleFilesById = subtitleFilesById,
+        posterFilesById = posterFilesById,
     )
+}
 
 private fun selectLibraryDirectory(title: String) =
     JFileChooser().run {

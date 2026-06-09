@@ -54,6 +54,9 @@ data class LibraryMediaItem(
     val mediaType: String,
     val streamPath: String,
     val subtitles: List<LibrarySubtitleTrack> = emptyList(),
+    val posterPath: String? = null,
+    val animeMetadata: LibraryAnimeMetadata? = null,
+    val metadataStatus: LibraryItemMetadataStatus = LibraryItemMetadataStatus.NOT_AVAILABLE,
 ) {
     init {
         require(id.isNotBlank()) { "id must not be blank" }
@@ -63,9 +66,42 @@ data class LibraryMediaItem(
         require(sizeBytes >= 0) { "sizeBytes must not be negative" }
         require(mediaType.isNotBlank()) { "mediaType must not be blank" }
         require(streamPath.startsWith("/")) { "streamPath must be absolute" }
+        require(posterPath == null || posterPath.startsWith("/")) { "posterPath must be absolute" }
         require(subtitles.map(LibrarySubtitleTrack::id).distinct().size == subtitles.size) {
             "subtitle IDs must be unique"
         }
+    }
+}
+
+@Serializable
+enum class LibraryItemMetadataStatus {
+    NOT_AVAILABLE,
+    LOADING,
+    READY,
+    FAILED,
+}
+
+@Serializable
+data class LibraryAnimeMetadata(
+    val animeId: ExternalAnimeId,
+    val displayTitle: String,
+    val primaryTitle: String,
+    val chineseTitle: String? = null,
+    val englishTitle: String? = null,
+    val japaneseTitle: String? = null,
+    val imageUrl: String? = null,
+    val episodeCount: Int? = null,
+    val startYear: Int? = null,
+) {
+    init {
+        require(displayTitle.isNotBlank()) { "displayTitle must not be blank" }
+        require(primaryTitle.isNotBlank()) { "primaryTitle must not be blank" }
+        require(chineseTitle == null || chineseTitle.isNotBlank()) { "chineseTitle must not be blank" }
+        require(englishTitle == null || englishTitle.isNotBlank()) { "englishTitle must not be blank" }
+        require(japaneseTitle == null || japaneseTitle.isNotBlank()) { "japaneseTitle must not be blank" }
+        require(imageUrl == null || imageUrl.startsWith("https://")) { "imageUrl must be HTTPS" }
+        require(episodeCount == null || episodeCount > 0) { "episodeCount must be positive" }
+        require(startYear == null || startYear in 1900..2200) { "startYear must be reasonable" }
     }
 }
 

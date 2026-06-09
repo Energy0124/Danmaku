@@ -95,7 +95,7 @@ class DesktopAnimeMetadataResolverTest {
     }
 
     @Test
-    fun displayCatalogGroupsLocalFoldersByCachedAnimeMetadata() {
+    fun displayCatalogSurfacesCachedAnimeMetadataWithoutChangingLocalGrouping() {
         val temp = createTempDirectory("danmaku-anime-display-metadata")
         val databasePath = temp.resolve("catalog.db")
         val firstItem = libraryMediaItem(
@@ -150,12 +150,21 @@ class DesktopAnimeMetadataResolverTest {
             ).withExternalAnimeMetadata(resolver)
 
             val displaySeries = displayLibrary.catalog.groupedSeries()
+            val metadataById = displayLibrary.catalog.items.associate { item ->
+                item.id to item.animeMetadata
+            }
 
-            assertEquals(1, displaySeries.size)
-            assertEquals("黄泉的使者", displaySeries.single().title)
-            assertEquals(listOf(firstItem.id, secondItem.id), displaySeries.single().seasons.flatMap { season ->
-                season.items.map(LibraryMediaItem::id)
-            })
+            assertEquals(
+                mapOf(
+                    "Yomotsu Hegui" to listOf(firstItem.id),
+                    "黄泉使者" to listOf(secondItem.id),
+                ),
+                displaySeries.associate { series ->
+                    series.title to series.seasons.flatMap { season -> season.items.map(LibraryMediaItem::id) }
+                },
+            )
+            assertEquals("黄泉的使者", metadataById[firstItem.id]?.displayTitle)
+            assertEquals("黄泉的使者", metadataById[secondItem.id]?.displayTitle)
         }
 
         temp.toFile().deleteRecursively()
@@ -191,7 +200,7 @@ class DesktopAnimeMetadataResolverTest {
     }
 
     @Test
-    fun displayCatalogIgnoresSeriesMappingWhenOnlyOneEpisodeHasItemMetadata() {
+    fun displayCatalogKeepsLocalGroupingWhenOnlyOneEpisodeHasItemMetadata() {
         val temp = createTempDirectory("danmaku-anime-item-display-metadata")
         val databasePath = temp.resolve("catalog.db")
         val firstItem = libraryMediaItem(id = "episode-1")
@@ -244,20 +253,20 @@ class DesktopAnimeMetadataResolverTest {
                 loadConnection = { DandanplayConnection("http://127.0.0.1:9") },
             )
 
-            val displaySeries = IndexedLocalLibrary(
+            val displayCatalog = IndexedLocalLibrary(
                 catalog = catalog,
                 filesById = emptyMap(),
-            ).withExternalAnimeMetadata(resolver).catalog.groupedSeries()
+            ).withExternalAnimeMetadata(resolver).catalog
+            val displaySeries = displayCatalog.groupedSeries()
 
             assertEquals(
-                mapOf(
-                    "Item Anime" to listOf(firstItem.id),
-                    "Example Show" to listOf(secondItem.id),
-                ),
+                mapOf("Example Show" to listOf(firstItem.id, secondItem.id)),
                 displaySeries.associate { series ->
                     series.title to series.seasons.flatMap { season -> season.items.map(LibraryMediaItem::id) }
                 },
             )
+            assertEquals("Item Anime", displayCatalog.items.first { it.id == firstItem.id }.animeMetadata?.displayTitle)
+            assertNull(displayCatalog.items.first { it.id == secondItem.id }.animeMetadata)
         }
 
         temp.toFile().deleteRecursively()

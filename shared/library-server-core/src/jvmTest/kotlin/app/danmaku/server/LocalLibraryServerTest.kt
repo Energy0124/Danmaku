@@ -83,6 +83,50 @@ class LocalLibraryServerTest {
     }
 
     @Test
+    fun streamsOnlyPublishedPosterImages() {
+        val posterFile = createTempFile("danmaku-poster", ".jpg")
+        val posterBytes = byteArrayOf(0x01, 0x23, 0x45, 0x67)
+        posterFile.writeBytes(posterBytes)
+        val item = LibraryMediaItem(
+            id = "episode-id",
+            seriesTitle = "Example Show",
+            episodeTitle = "Episode 01",
+            relativePath = "Example Show/Episode 01.mp4",
+            sizeBytes = 1024,
+            mediaType = "video/mp4",
+            streamPath = "/media/episode-id",
+            posterPath = "/posters/episode-id",
+        )
+
+        try {
+            LocalLibraryServer(port = 0, pairingToken = "123456").use { server ->
+                server.publish(
+                    PublishedLibrary(
+                        catalog = LibraryCatalog("Example", 123, listOf(item)),
+                        filesById = emptyMap(),
+                        posterFilesById = mapOf(item.id to posterFile),
+                    ),
+                )
+                server.start()
+                val url = "${server.baseUrl()}${item.posterPath}"
+
+                assertEquals(401, connection(url).responseCode)
+                assertEquals(404, connection("${server.baseUrl()}/posters/missing?token=123456").responseCode)
+                val headResponse = connection("$url?token=123456").apply {
+                    requestMethod = "HEAD"
+                }
+                assertEquals(200, headResponse.responseCode)
+                assertEquals(posterBytes.size.toString(), headResponse.getHeaderField("Content-Length"))
+                val response = connection("$url?token=123456")
+                assertEquals(200, response.responseCode)
+                assertContentEquals(posterBytes, response.inputStream.readBytes())
+            }
+        } finally {
+            posterFile.deleteIfExists()
+        }
+    }
+
+    @Test
     fun acceptsOnlyAuthenticatedPostHooks() {
         val accepted = AtomicInteger()
         val hook = AuthenticatedPostHook(

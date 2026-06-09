@@ -1118,9 +1118,23 @@ private fun TvEpisodeDetail(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text("${detail.series.title} / ${detail.season.label} / ${detail.watchStatus.statusLabel()}")
+                detail.mediaItem.animeMetadata?.let { metadata ->
+                    Text(
+                        "Matched anime: ${metadata.displayTitle}",
+                        color = TvAccentBlue,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
                 Text(detail.mediaItem.relativePath, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            Text("${detail.mediaItem.subtitles.size} subtitles")
+            Text(
+                if (detail.mediaItem.posterPath == null) {
+                    "${detail.mediaItem.subtitles.size} subtitles"
+                } else {
+                    "${detail.mediaItem.subtitles.size} subtitles / poster"
+                },
+            )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Button(onClick = { onPlay(detail.mediaItem) }) {
@@ -1470,11 +1484,7 @@ private fun TvEpisodeButton(
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
-                        if (isFavorite) {
-                            "${watchStatus.statusLabel()} / Favorite"
-                        } else {
-                            watchStatus.statusLabel()
-                        },
+                        item.tvMetadataLabel(watchStatus, isFavorite),
                         color = Color.LightGray,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -1519,6 +1529,21 @@ private fun LibrarySeriesWatchSummary?.progressLabel(): String =
     } else {
         "$watchedCount watched, $inProgressCount watching, $newCount new"
     }
+
+private fun LibraryMediaItem.tvMetadataLabel(
+    watchStatus: LibraryWatchStatus?,
+    isFavorite: Boolean,
+): String =
+    buildList {
+        add(watchStatus.statusLabel())
+        animeMetadata?.let { add("Matched: ${it.displayTitle}") }
+        if (posterPath != null) {
+            add("Poster")
+        }
+        if (isFavorite) {
+            add("Favorite")
+        }
+    }.joinToString(" / ")
 
 private fun LibraryWatchStatus?.statusLabel(): String =
     when (this?.state) {

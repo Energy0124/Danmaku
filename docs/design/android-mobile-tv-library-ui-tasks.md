@@ -16,8 +16,8 @@ Status legend:
 - `[~]` Add phone/tablet breakpoint and two-pane tablet layout.
 - `[~]` Add compact active-filter status chips below the toolbar.
 - `[~]` Convert episode detail into a stable detail surface or bottom-sheet style flow.
-- `[ ]` Surface matched anime metadata and original file/folder title separately once LAN catalog exposes it.
-- `[ ]` Show poster/metadata loading state once client-visible metadata status exists.
+- `[~]` Surface matched anime metadata and original file/folder title separately once LAN catalog exposes it.
+- `[~]` Show poster/metadata loading state once client-visible metadata status exists.
 - `[ ]` Extend mobile instrumentation tests for poster rail, active filters, and detail selection.
 
 ## Phase 2 - TV Shell
@@ -35,9 +35,9 @@ Status legend:
 
 ## Phase 3 - Metadata/Poster Integration
 
-- `[ ]` Extend published LAN catalog with poster references.
-- `[ ]` Extend published LAN catalog with matched anime metadata.
-- `[ ]` Expose metadata/poster loading or last-refreshed state to clients.
+- `[~]` Extend published LAN catalog with poster references.
+- `[~]` Extend published LAN catalog with matched anime metadata.
+- `[~]` Expose metadata/poster loading or last-refreshed state to clients.
 - `[ ]` Use matched anime grouping consistently on mobile and TV.
 
 ## QA Targets
@@ -60,4 +60,6 @@ Status legend:
 - 2026-06-09: `:apps:android-mobile:compileDebugKotlin`, `:apps:android-mobile:assembleDebug`, and `git diff --check` passed after adding the tablet two-pane library layout branch; `:apps:android-mobile:testDebugUnitTest` completed with `NO-SOURCE`.
 - 2026-06-09: `:apps:android-tv:compileDebugKotlin`, `:apps:android-tv:assembleDebug`, `:apps:android-tv:compileDebugAndroidTestKotlin`, and `git diff --check` passed after adding focus halo states; `:apps:android-tv:testDebugUnitTest` completed with `NO-SOURCE`.
 - 2026-06-09: `:apps:android-tv:compileDebugKotlin`, `:apps:android-tv:assembleDebug`, `:apps:android-tv:compileDebugAndroidTestKotlin`, and `git diff --check` passed after extracting the PC connection panel and wiring Next Up default focus; `:apps:android-tv:testDebugUnitTest` completed with `NO-SOURCE`.
+- 2026-06-09: LAN catalog now carries cached matched anime metadata, poster paths, and metadata status; local grouping is preserved while mobile/TV episode rows and detail panels show matched titles and poster readiness separately.
+- 2026-06-09: `:shared:domain:jvmTest`, `:shared:library-server-core:jvmTest`, `:apps:desktop-windows:desktopTest`, `:shared:library-client:jvmTest`, `:shared:library-client-android:testDebugUnitTest`, `:apps:android-mobile:assembleDebug`, `:apps:android-tv:assembleDebug`, `:apps:android-mobile:compileDebugAndroidTestKotlin`, and `:apps:android-tv:compileDebugAndroidTestKotlin` passed after LAN poster/metadata publication; mobile/TV unit-test tasks remain `NO-SOURCE`.
 - Connected Android instrumentation tests are still pending a device/emulator run.

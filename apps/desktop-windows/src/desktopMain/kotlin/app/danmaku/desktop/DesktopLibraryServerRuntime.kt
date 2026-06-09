@@ -26,6 +26,7 @@ class DesktopLibraryServerRuntime private constructor(
         fun start(
             catalogStore: DesktopLibraryCatalogStore,
             rootScanner: DesktopLibraryRootScanner,
+            metadataResolver: DesktopAnimeMetadataResolver? = null,
             port: Int = LocalLibraryServer.DEFAULT_PORT,
             pairingToken: String? = null,
             aniRssWebhookToken: String,
@@ -37,7 +38,7 @@ class DesktopLibraryServerRuntime private constructor(
             val trigger = AniRssCompletionRescanTrigger(
                 scanAniRssRoots = rootScanner::scanAniRssRoots,
                 onScanComplete = { batch ->
-                    server.publish(batch.publishedLibrary.toPublishedLibrary())
+                    server.publish(batch.publishedLibrary.toPublishedLibrary(metadataResolver))
                     onLibraryPublished(batch.publishedLibrary)
                 },
                 debounceMillis = debounceMillis,
