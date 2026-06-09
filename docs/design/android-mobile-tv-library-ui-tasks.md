@@ -17,7 +17,7 @@ Status legend:
 - `[~]` Add compact active-filter status chips below the toolbar.
 - `[~]` Convert episode detail into a stable detail surface or bottom-sheet style flow.
 - `[~]` Surface matched anime metadata and original file/folder title separately once LAN catalog exposes it.
-- `[~]` Show poster/metadata loading state once client-visible metadata status exists.
+- `[x]` Show poster/metadata loading state once client-visible metadata status exists.
 - `[x]` Extend mobile instrumentation tests for poster rail, active filters, and detail selection.
 
 ## Phase 2 - TV Shell
@@ -70,4 +70,6 @@ Status legend:
 - 2026-06-09: `:apps:android-tv:compileDebugKotlin` and `:apps:android-tv:compileDebugAndroidTestKotlin` passed after simplifying TV episode row actions.
 - 2026-06-09: Mobile instrumentation coverage now includes poster-led matched anime series selection, active filter chips, and detail metadata/poster assertions.
 - 2026-06-09: `:apps:android-mobile:compileDebugAndroidTestKotlin` passed after extending mobile library UI instrumentation coverage.
+- 2026-06-09: Mobile and TV rows/details now surface explicit `Poster/metadata loading` and metadata refresh failure states from LAN catalog metadata status.
+- 2026-06-09: `:apps:android-mobile:compileDebugKotlin`, `:apps:android-tv:compileDebugKotlin`, `:apps:android-mobile:compileDebugAndroidTestKotlin`, and `:apps:android-tv:compileDebugAndroidTestKotlin` passed after adding mobile/TV metadata loading-state UI.
 - Connected Android instrumentation tests are still pending a device/emulator run.

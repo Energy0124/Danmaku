@@ -138,7 +138,7 @@ class MobileLibraryPageTest {
                             subtitleCount = 2,
                             posterPath = "/posters/example-1",
                             animeMetadata = matchedMetadata(),
-                            metadataStatus = LibraryItemMetadataStatus.READY,
+                            metadataStatus = LibraryItemMetadataStatus.LOADING,
                         ),
                         mediaItem(
                             id = "example-2",
@@ -206,6 +206,7 @@ class MobileLibraryPageTest {
         composeRule.onNodeWithTag("episode-detail:example-1").assertExists()
         composeRule.onNodeWithText("Matched anime: Matched Anime").assertExists()
         composeRule.onAllNodesWithText("Poster ready").assertCountEquals(2)
+        composeRule.onAllNodesWithText("Poster/metadata loading", substring = true).assertCountEquals(2)
         composeRule.onNodeWithTag("episode:example-1").assertExists()
         composeRule.onNodeWithTag("episode:example-2").assertDoesNotExist()
     }

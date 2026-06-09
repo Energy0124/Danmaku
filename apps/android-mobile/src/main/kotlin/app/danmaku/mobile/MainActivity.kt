@@ -89,6 +89,7 @@ import app.danmaku.domain.LibraryCatalogQuery
 import app.danmaku.domain.LibraryCatalogSort
 import app.danmaku.domain.LibraryEpisodeDetail
 import app.danmaku.domain.LibraryFavoriteFilter
+import app.danmaku.domain.LibraryItemMetadataStatus
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibraryNextUpItem
 import app.danmaku.domain.LibraryNextUpReason
@@ -935,6 +936,9 @@ private fun EpisodeDetailPanel(
                 AssistChip(onClick = {}, label = { Text(detail.mediaItem.mediaType) })
                 detail.mediaItem.posterPath?.let {
                     AssistChip(onClick = {}, label = { Text("Poster ready") })
+                }
+                detail.mediaItem.metadataStatusLabel()?.let { label ->
+                    AssistChip(onClick = {}, label = { Text(label) })
                 }
             }
             Text(
@@ -2367,6 +2371,7 @@ private fun EpisodeRow(
         if (item.posterPath != null) {
             add("Poster ready")
         }
+        item.metadataStatusLabel()?.let(::add)
         if (isFavorite) {
             add("Favorite")
         }
@@ -2438,6 +2443,14 @@ private fun EpisodeRow(
         }
     }
 }
+
+private fun LibraryMediaItem.metadataStatusLabel(): String? =
+    when (metadataStatus) {
+        LibraryItemMetadataStatus.LOADING -> "Poster/metadata loading"
+        LibraryItemMetadataStatus.FAILED -> "Metadata refresh failed"
+        LibraryItemMetadataStatus.READY -> null
+        LibraryItemMetadataStatus.NOT_AVAILABLE -> null
+    }
 
 @Composable
 private fun EmptyLibraryState(

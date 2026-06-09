@@ -65,6 +65,7 @@ import app.danmaku.domain.LibraryCatalogQuery
 import app.danmaku.domain.LibraryCatalogSort
 import app.danmaku.domain.LibraryEpisodeDetail
 import app.danmaku.domain.LibraryFavoriteFilter
+import app.danmaku.domain.LibraryItemMetadataStatus
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibraryNextUpItem
 import app.danmaku.domain.LibraryNextUpReason
@@ -1207,6 +1208,14 @@ private fun TvEpisodeDetail(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
+                detail.mediaItem.metadataStatusLabel()?.let { label ->
+                    Text(
+                        label,
+                        color = TvAccentBlue,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
                 Text(detail.mediaItem.relativePath, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Text(
@@ -1684,10 +1693,19 @@ private fun LibraryMediaItem.tvMetadataLabel(
         if (posterPath != null) {
             add("Poster")
         }
+        metadataStatusLabel()?.let(::add)
         if (isFavorite) {
             add("Favorite")
         }
     }.joinToString(" / ")
+
+private fun LibraryMediaItem.metadataStatusLabel(): String? =
+    when (metadataStatus) {
+        LibraryItemMetadataStatus.LOADING -> "Poster/metadata loading"
+        LibraryItemMetadataStatus.FAILED -> "Metadata refresh failed"
+        LibraryItemMetadataStatus.READY -> null
+        LibraryItemMetadataStatus.NOT_AVAILABLE -> null
+    }
 
 private fun LibraryWatchStatus?.statusLabel(): String =
     when (this?.state) {

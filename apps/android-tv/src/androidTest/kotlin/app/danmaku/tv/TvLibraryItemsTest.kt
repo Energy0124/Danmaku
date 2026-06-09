@@ -1,7 +1,9 @@
 package app.danmaku.tv
 
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performKeyInput
@@ -9,6 +11,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.pressKey
 import androidx.tv.material3.MaterialTheme
 import app.danmaku.domain.LibraryCatalog
+import app.danmaku.domain.LibraryItemMetadataStatus
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySubtitleTrack
 import app.danmaku.domain.PlaybackProgress
@@ -134,6 +137,36 @@ class TvLibraryItemsTest {
         composeRule.onNodeWithText("Example Show / Season unknown / New").assertExists()
         composeRule.onNodeWithText("Next").performClick()
         composeRule.onNodeWithTag("episode-detail:other-1").assertExists()
+    }
+
+    @Test
+    fun rendersMetadataLoadingStateInEpisodeRowsAndDetails() {
+        composeRule.setContent {
+            MaterialTheme {
+                LibraryItems(
+                    catalog = LibraryCatalog(
+                        rootName = "Seeded PC",
+                        indexedAtEpochMs = 1_700_000_000_000,
+                        items = listOf(
+                            mediaItem(
+                                id = "example-loading",
+                                seriesTitle = "Loading Show",
+                                episodeTitle = "Episode 01",
+                                subtitleCount = 1,
+                                metadataStatus = LibraryItemMetadataStatus.LOADING,
+                            ),
+                        ),
+                    ),
+                    playbackProgresses = emptyList(),
+                    onPlay = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("episode:example-loading").performClick()
+
+        composeRule.onNodeWithTag("episode-detail:example-loading").assertExists()
+        composeRule.onAllNodesWithText("Poster/metadata loading", substring = true).assertCountEquals(2)
     }
 
     @Test
@@ -334,6 +367,7 @@ class TvLibraryItemsTest {
         seriesTitle: String,
         episodeTitle: String,
         subtitleCount: Int,
+        metadataStatus: LibraryItemMetadataStatus = LibraryItemMetadataStatus.NOT_AVAILABLE,
     ): LibraryMediaItem =
         LibraryMediaItem(
             id = id,
@@ -352,5 +386,6 @@ class TvLibraryItemsTest {
                     streamPath = "/subtitles/$id-$index",
                 )
             },
+            metadataStatus = metadataStatus,
         )
 }
