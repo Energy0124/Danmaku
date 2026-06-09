@@ -6,9 +6,11 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -17,6 +19,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -28,6 +32,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
@@ -87,6 +92,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+private val TvAppBackground = Color(0xFF090B0E)
+private val TvPanelColor = Color(0xFF15191D)
+private val TvPanelRaisedColor = Color(0xFF20262B)
+private val TvCardColor = Color(0xFF111820)
+private val TvAccentBlue = Color(0xFF7DD3FC)
+private val TvMutedText = Color(0xFFB7C0C9)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -188,7 +200,10 @@ private fun TvPlayerScreen() {
 
     Surface(modifier = Modifier.fillMaxSize()) {
         Column(
-            modifier = Modifier.padding(40.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .background(TvAppBackground)
+                .padding(40.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Text("Danmaku TV", style = MaterialTheme.typography.headlineLarge)
@@ -490,6 +505,97 @@ private fun Long.formatPlaybackTime(): String {
 }
 
 @Composable
+private fun TvLibraryNavigationRail(
+    catalog: LibraryCatalog?,
+    filteredCount: Int,
+    totalCount: Int,
+    favoriteCount: Int,
+    hasActiveFilters: Boolean,
+) {
+    Column(
+        modifier = Modifier
+            .width(210.dp)
+            .clip(RoundedCornerShape(24.dp))
+            .background(TvCardColor)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Text("Library", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+        Text(
+            catalog?.rootName ?: "No PC connected",
+            color = TvMutedText,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        TvRailPill(if (catalog == null) "PC offline" else "PC ready", active = catalog != null)
+        TvRailPill("$filteredCount / $totalCount episodes")
+        TvRailPill("$favoriteCount favorites", active = favoriteCount > 0)
+        if (hasActiveFilters) {
+            TvRailPill("Filters active", active = true)
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+        Text("Next Up", color = TvMutedText)
+        Text("Series", color = TvMutedText)
+        Text("Episodes", color = TvMutedText)
+        Text("PC", color = TvMutedText)
+    }
+}
+
+@Composable
+private fun TvRailPill(
+    label: String,
+    active: Boolean = false,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(CircleShape)
+            .background(if (active) Color(0xFF273747) else TvPanelRaisedColor)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+    ) {
+        Text(
+            label,
+            color = if (active) TvAccentBlue else TvMutedText,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+private fun TvPosterTile(
+    title: String,
+    modifier: Modifier = Modifier,
+    label: String? = null,
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(18.dp))
+            .background(Color(0xFF26313A)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            title.initials(),
+            color = Color(0xFFE5E7EB),
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+        )
+        label?.let {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(10.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.62f))
+                    .padding(horizontal = 10.dp, vertical = 5.dp),
+            ) {
+                Text(it, color = Color.White)
+            }
+        }
+    }
+}
+
+@Composable
 private fun TvSavedConnectionCard(
     connection: LanLibraryConnectionProfile,
     isSelected: Boolean,
@@ -566,7 +672,28 @@ internal fun LibraryItems(
     val selectedEpisodeDetail = selectedDetailId
         ?.let { id -> catalog?.episodeDetail(id, playbackProgresses) }
 
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(28.dp))
+            .background(TvPanelColor)
+            .padding(20.dp),
+        horizontalArrangement = Arrangement.spacedBy(20.dp),
+    ) {
+        TvLibraryNavigationRail(
+            catalog = catalog,
+            filteredCount = filteredItems.size,
+            totalCount = totalItems.size,
+            favoriteCount = favoriteMediaIds.size,
+            hasActiveFilters = searchText.isNotBlank() ||
+                sort != LibraryCatalogSort.TITLE ||
+                subtitleFilter != LibrarySubtitleFilter.ANY ||
+                favoriteFilter != LibraryFavoriteFilter.ANY,
+        )
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -701,6 +828,14 @@ internal fun LibraryItems(
                         modifier = Modifier.testTag("series:${summary.title}"),
                     ) {
                         Column {
+                            TvPosterTile(
+                                title = summary.title,
+                                label = seriesWatchSummaryById[summary.id].shortProgressLabel(),
+                                modifier = Modifier
+                                    .width(180.dp)
+                                    .aspectRatio(0.75f),
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
                             Text(
                                 summary.title,
                                 maxLines = 1,
@@ -770,6 +905,7 @@ internal fun LibraryItems(
             }
         }
     }
+    }
 }
 
 @Composable
@@ -782,7 +918,8 @@ private fun TvLibraryEmptyPanel(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.DarkGray)
+            .clip(RoundedCornerShape(22.dp))
+            .background(TvPanelRaisedColor)
             .padding(16.dp)
             .testTag("library-empty-state"),
         verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -815,7 +952,8 @@ private fun TvEpisodeDetail(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.DarkGray)
+            .clip(RoundedCornerShape(22.dp))
+            .background(TvPanelRaisedColor)
             .padding(14.dp)
             .testTag("episode-detail:${detail.mediaItem.id}"),
         verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -875,7 +1013,8 @@ private fun TvProgressRail(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.DarkGray)
+            .clip(RoundedCornerShape(22.dp))
+            .background(TvPanelRaisedColor)
             .padding(14.dp)
             .testTag(tag),
         verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -897,10 +1036,18 @@ private fun TvProgressRail(
                 Column(
                     modifier = Modifier
                         .width(320.dp)
-                        .background(Color.Black.copy(alpha = 0.18f))
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(TvCardColor)
                         .padding(10.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
+                    TvPosterTile(
+                        title = item.mediaItem.seriesTitle,
+                        label = "Resume",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(120.dp),
+                    )
                     Text(
                         item.mediaItem.seriesTitle,
                         fontWeight = FontWeight.SemiBold,
@@ -942,7 +1089,8 @@ private fun TvNextUpRail(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.DarkGray)
+            .clip(RoundedCornerShape(22.dp))
+            .background(TvPanelRaisedColor)
             .padding(14.dp)
             .testTag("library-next-up"),
         verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -964,10 +1112,18 @@ private fun TvNextUpRail(
                 Column(
                     modifier = Modifier
                         .width(320.dp)
-                        .background(Color.Black.copy(alpha = 0.18f))
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(TvCardColor)
                         .padding(10.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
+                    TvPosterTile(
+                        title = item.mediaItem.seriesTitle,
+                        label = item.nextUpActionLabel(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(120.dp),
+                    )
                     Text(
                         item.mediaItem.seriesTitle,
                         fontWeight = FontWeight.SemiBold,
@@ -1015,6 +1171,16 @@ private fun LibraryNextUpItem.nextUpLabel(): String =
         LibraryNextUpReason.START -> "Start watching"
     }
 
+private fun String.initials(): String {
+    val words = trim()
+        .split(' ', '.', '_', '-', '[', ']')
+        .filter(String::isNotBlank)
+    return words
+        .take(2)
+        .joinToString(separator = "") { it.first().uppercaseChar().toString() }
+        .ifBlank { "?" }
+}
+
 @Composable
 private fun TvSeriesDetail(
     series: LibrarySeries,
@@ -1024,7 +1190,8 @@ private fun TvSeriesDetail(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.DarkGray)
+            .clip(RoundedCornerShape(22.dp))
+            .background(TvPanelRaisedColor)
             .padding(14.dp)
             .testTag("series-detail:${series.title}"),
         verticalArrangement = Arrangement.spacedBy(10.dp),

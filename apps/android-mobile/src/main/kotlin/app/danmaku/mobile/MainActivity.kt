@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
@@ -877,6 +878,14 @@ private fun NextUpChip(
             modifier = Modifier.padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
+            PosterFallbackTile(
+                title = item.mediaItem.seriesTitle,
+                selected = false,
+                progressLabel = item.nextUpActionLabel(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(96.dp),
+            )
             Text(
                 item.mediaItem.seriesTitle,
                 fontWeight = FontWeight.SemiBold,
@@ -912,6 +921,46 @@ private fun NextUpChip(
                 ) {
                     Text(item.nextUpActionLabel())
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PosterFallbackTile(
+    title: String,
+    selected: Boolean,
+    progressLabel: String? = null,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(if (selected) AccentBlue else Color(0xFF26313A)),
+    ) {
+        Text(
+            title.initials(),
+            color = if (selected) PlayerBlack else Color(0xFFE5E7EB),
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.align(Alignment.Center),
+        )
+        progressLabel?.let {
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(8.dp),
+                shape = CircleShape,
+                color = Color.Black.copy(alpha = 0.62f),
+            ) {
+                Text(
+                    it,
+                    color = Color.White,
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
         }
     }
@@ -1076,11 +1125,13 @@ private fun SeriesRail(
             }
             LazyRow(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 items(series, key = LibrarySeries::id) { summary ->
                     val selected = searchText.trim().equals(summary.title, ignoreCase = true)
-                    FilterChip(
+                    SeriesPosterCard(
+                        series = summary,
+                        watchSummary = watchSummaryById[summary.id],
                         selected = selected,
                         onClick = {
                             if (selected) {
@@ -1089,17 +1140,59 @@ private fun SeriesRail(
                                 onSelectSeries(summary.title)
                             }
                         },
-                        label = {
-                            Text(
-                                summary.displayLabel(watchSummaryById[summary.id]),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        },
                         modifier = Modifier.testTag("series:${summary.title}"),
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun SeriesPosterCard(
+    series: LibrarySeries,
+    watchSummary: LibrarySeriesWatchSummary?,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier
+            .width(132.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(18.dp),
+        color = if (selected) Color(0xFF263847) else PanelColor,
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (selected) AccentBlue else Color(0xFF2B3239),
+        ),
+    ) {
+        Column(
+            modifier = Modifier.padding(10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            PosterFallbackTile(
+                title = series.title,
+                selected = selected,
+                progressLabel = "${watchSummary?.watchedCount ?: 0}/${series.episodeCount}",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(0.70f),
+            )
+            Text(
+                series.title,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                watchSummary.progressLabel(),
+                color = SubtleText,
+                style = MaterialTheme.typography.bodySmall,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
@@ -1621,6 +1714,21 @@ private fun LibraryHeader(
                 color = SubtleText,
                 style = MaterialTheme.typography.bodySmall,
             )
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                AssistChip(onClick = {}, label = { Text("$filteredCount of $totalCount episodes") })
+                if (favoriteFilter == LibraryFavoriteFilter.FAVORITES_ONLY) {
+                    AssistChip(onClick = {}, label = { Text("Favorites only") })
+                }
+                if (subtitleFilter == LibrarySubtitleFilter.WITH_SUBTITLES) {
+                    AssistChip(onClick = {}, label = { Text("Subtitles only") })
+                }
+                if (sort == LibraryCatalogSort.PATH) {
+                    AssistChip(onClick = {}, label = { Text("Path sort") })
+                }
+            }
 
             OutlinedTextField(
                 value = searchText,
@@ -2061,20 +2169,13 @@ private fun EpisodeRow(
             modifier = Modifier.padding(14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(
+            PosterFallbackTile(
+                title = item.seriesTitle,
+                selected = selected,
+                progressLabel = null,
                 modifier = Modifier
-                    .size(46.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(if (selected) AccentBlue else Color(0xFF2B3239)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.PlayArrow,
-                    contentDescription = "Play ${item.episodeTitle}",
-                    tint = if (selected) PlayerBlack else Color(0xFFE5E7EB),
-                    modifier = Modifier.size(26.dp),
-                )
-            }
+                    .size(52.dp),
+            )
             Spacer(modifier = Modifier.width(12.dp))
             Column(
                 modifier = Modifier.weight(1f),
@@ -2226,6 +2327,16 @@ private fun String.serverDisplayName(): String =
     removePrefix("http://")
         .removePrefix("https://")
         .ifBlank { "No server selected" }
+
+private fun String.initials(): String {
+    val words = trim()
+        .split(' ', '.', '_', '-', '[', ']')
+        .filter(String::isNotBlank)
+    return words
+        .take(2)
+        .joinToString(separator = "") { it.first().uppercaseChar().toString() }
+        .ifBlank { "?" }
+}
 
 private fun LibraryMediaItem.formatSize(): String {
     return sizeBytes.formatSize()
