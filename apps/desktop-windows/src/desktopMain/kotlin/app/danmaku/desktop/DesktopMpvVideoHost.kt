@@ -122,6 +122,9 @@ private class DesktopMpvVideoPanel(
     private var controlsState: DesktopMpvVideoControlsState? = null
     private var controlsActions: DesktopMpvVideoControlsActions? = null
     private var isUpdatingControls = false
+    private var lastPublishedWindowId: Long? = null
+    private var pendingPublishedWindowId: Long? = null
+    private var windowIdPublishQueued = false
     private var lastObservedPointer: Point? = null
     private val pointerPollTimer = Timer(100) {
         revealOnPointerMovement()
@@ -169,7 +172,7 @@ private class DesktopMpvVideoPanel(
         override fun removeNotify() {
             pointerPollTimer.stop()
             lastObservedPointer = null
-            onWindowIdChanged(null)
+            queueVideoWindowId(null)
             super.removeNotify()
         }
     }
@@ -340,7 +343,28 @@ private class DesktopMpvVideoPanel(
         val windowId = runCatching {
             Pointer.nativeValue(Native.getComponentPointer(videoCanvas))
         }.getOrNull()?.takeIf { it != 0L }
-        onWindowIdChanged(windowId)
+        queueVideoWindowId(windowId)
+    }
+
+    private fun queueVideoWindowId(windowId: Long?) {
+        if (windowId == lastPublishedWindowId && !windowIdPublishQueued) {
+            return
+        }
+        pendingPublishedWindowId = windowId
+        if (windowIdPublishQueued) {
+            return
+        }
+        windowIdPublishQueued = true
+        SwingUtilities.invokeLater {
+            windowIdPublishQueued = false
+            val nextWindowId = pendingPublishedWindowId
+            pendingPublishedWindowId = null
+            if (nextWindowId == lastPublishedWindowId) {
+                return@invokeLater
+            }
+            lastPublishedWindowId = nextWindowId
+            onWindowIdChanged(nextWindowId)
+        }
     }
 
     private fun TranslucentPanel.buildBottomOverlay() {
