@@ -117,6 +117,8 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import app.danmaku.domain.DanmakuDisplaySettings
 import app.danmaku.domain.ExternalAnimeInfo
+import app.danmaku.domain.ExternalAnimeMapping
+import app.danmaku.domain.ExternalAnimeTrackingPlan
 import app.danmaku.domain.LibraryAnimeMetadata
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryCatalogQuery
@@ -141,6 +143,7 @@ import app.danmaku.domain.PlaybackTrack
 import app.danmaku.domain.PlaybackTrackKind
 import app.danmaku.domain.continueWatchingItems
 import app.danmaku.domain.episodeDetail
+import app.danmaku.domain.externalAnimeTrackingPlan
 import app.danmaku.domain.filteredItems
 import app.danmaku.domain.groupedSeries
 import app.danmaku.domain.nextItem
@@ -542,6 +545,13 @@ private fun DesktopShell(
     }
     val seriesPosterById = remember(displayIndexedLibrary, libraryMetadataVersion, animeMetadataResolver) {
         loadSeriesPosterById(displayIndexedLibrary, animeMetadataResolver)
+    }
+    val externalAnimeMappings = remember(displayIndexedLibrary, libraryMetadataVersion, catalogStore) {
+        displayIndexedLibrary
+            ?.catalog
+            ?.groupedSeries()
+            ?.flatMap { series -> catalogStore.loadExternalAnimeMappings(series.id) }
+            .orEmpty()
     }
     var playbackProgresses by remember { mutableStateOf(catalogStore.loadPlaybackProgress()) }
     var favoriteMediaIds by remember { mutableStateOf(catalogStore.loadFavoriteMediaIds()) }
@@ -1758,6 +1768,7 @@ private fun DesktopShell(
                             registeredRoots = registeredRoots,
                             indexedLibrary = displayIndexedLibrary,
                             seriesPosterById = seriesPosterById,
+                            externalAnimeMappings = externalAnimeMappings,
                             originalSeriesTitleByMediaId = originalSeriesTitleByMediaId,
                             refreshingMetadataMediaIds = refreshingMetadataMediaIds,
                             refreshingMetadataSeriesIds = refreshingMetadataSeriesIds,
@@ -2689,6 +2700,7 @@ private fun MediaLibraryTab(
     registeredRoots: List<DesktopLibraryRoot>,
     indexedLibrary: IndexedLocalLibrary?,
     seriesPosterById: Map<String, Path?>,
+    externalAnimeMappings: List<ExternalAnimeMapping>,
     originalSeriesTitleByMediaId: Map<String, String>,
     refreshingMetadataMediaIds: Set<String>,
     refreshingMetadataSeriesIds: Set<String>,
@@ -2739,6 +2751,12 @@ private fun MediaLibraryTab(
         val series = remember(indexedLibrary?.catalog) {
             indexedLibrary?.catalog?.groupedSeries().orEmpty()
         }
+        val externalTrackingPlan = remember(indexedLibrary?.catalog, externalAnimeMappings, playbackProgresses) {
+            indexedLibrary?.catalog?.externalAnimeTrackingPlan(
+                mappings = externalAnimeMappings,
+                progresses = playbackProgresses,
+            )
+        }
         fun selectSeries(series: LibrarySeries) {
             selectedSeriesId = series.id
             selectedEpisodeId = null
@@ -2772,6 +2790,7 @@ private fun MediaLibraryTab(
             indexedLibrary = indexedLibrary,
             series = series,
             seriesPosterById = seriesPosterById,
+            externalTrackingPlan = externalTrackingPlan,
             originalSeriesTitleByMediaId = originalSeriesTitleByMediaId,
             refreshingMetadataMediaIds = refreshingMetadataMediaIds,
             refreshingMetadataSeriesIds = refreshingMetadataSeriesIds,
@@ -2829,6 +2848,7 @@ private fun WindowsLibraryWorkspace(
     indexedLibrary: IndexedLocalLibrary?,
     series: List<LibrarySeries>,
     seriesPosterById: Map<String, Path?>,
+    externalTrackingPlan: ExternalAnimeTrackingPlan?,
     originalSeriesTitleByMediaId: Map<String, String>,
     refreshingMetadataMediaIds: Set<String>,
     refreshingMetadataSeriesIds: Set<String>,
@@ -2938,6 +2958,7 @@ private fun WindowsLibraryWorkspace(
                 recentlyWatchedCount = recentlyWatchedItems.size,
                 favoriteCount = favoriteMediaIds.size,
                 seriesCount = series.size,
+                externalTrackingPlan = externalTrackingPlan,
                 isIndexing = isIndexing,
                 libraryError = libraryError,
                 lastScanStats = lastScanStats,
@@ -2983,6 +3004,7 @@ private fun WindowsLibraryWorkspace(
                 watchStatusById = watchStatusById,
                 seriesWatchSummaryById = seriesWatchSummaryById,
                 favoriteMediaIds = favoriteMediaIds,
+                externalTrackingPlan = externalTrackingPlan,
                 isPreparing = isPreparing,
                 compact = compactWorkspace,
                 onSelectSeries = onSelectSeries,
@@ -3059,6 +3081,7 @@ private fun LibraryWorkspaceRail(
     recentlyWatchedCount: Int,
     favoriteCount: Int,
     seriesCount: Int,
+    externalTrackingPlan: ExternalAnimeTrackingPlan?,
     isIndexing: Boolean,
     libraryError: String?,
     lastScanStats: LocalMediaLibraryScanStats?,
@@ -3143,6 +3166,16 @@ private fun LibraryWorkspaceRail(
             label = "Local PC",
             value = if (isIndexing) "Indexing..." else "$localEpisodeCount episodes",
             statusColor = if (libraryError == null) DanmakuColors.Good else DanmakuColors.Warning,
+        )
+        LibrarySourceStatus(
+            icon = Icons.Filled.Refresh,
+            label = "External lists",
+            value = externalTrackingPlan?.summary?.label ?: "No library",
+            statusColor = if ((externalTrackingPlan?.summary?.updateCount ?: 0) > 0) {
+                DanmakuColors.Good
+            } else {
+                DanmakuColors.TextMuted
+            },
         )
         if (!compact) {
             LibrarySourceStatus(
@@ -3260,6 +3293,7 @@ private fun LibraryCenterWorkspace(
     watchStatusById: Map<String, LibraryWatchStatus>,
     seriesWatchSummaryById: Map<String, LibrarySeriesWatchSummary>,
     favoriteMediaIds: Set<String>,
+    externalTrackingPlan: ExternalAnimeTrackingPlan?,
     isPreparing: Boolean,
     compact: Boolean,
     onSelectSeries: (LibrarySeries) -> Unit,
@@ -3301,6 +3335,13 @@ private fun LibraryCenterWorkspace(
         ) {
             StatusPill("${filteredEpisodes.size} / ${catalog?.items?.size ?: 0} episodes", icon = Icons.AutoMirrored.Filled.ViewList)
             StatusPill("${favoriteMediaIds.size} favorites", icon = Icons.Filled.Star)
+            externalTrackingPlan?.summary?.let { summary ->
+                StatusPill(
+                    summary.label,
+                    icon = Icons.Filled.Refresh,
+                    active = summary.updateCount > 0,
+                )
+            }
             if (subtitleFilter != LibrarySubtitleFilter.ANY) {
                 StatusPill("Subtitles only", icon = Icons.Filled.Subtitles, active = true)
             }
