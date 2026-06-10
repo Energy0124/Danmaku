@@ -24,12 +24,12 @@ Status legend:
 
 ## Phase 2 - TV Shell
 
-- `[~]` Move TV library browsing toward a dedicated shell instead of a raw vertical stack.
+- `[x]` Move TV library browsing toward a dedicated shell instead of a raw vertical stack.
 - `[~]` Add TV visual system constants for background, panels, focus, muted text, and accent.
 - `[~]` Replace raw gray library panels with composed TV panel/card surfaces.
 - `[~]` Add poster-like fallback cards for Next Up, progress rails, and series, now with LAN poster image loading.
-- `[~]` Move PC setup fields into a dedicated PC surface/screen.
-- `[~]` Add stable left navigation rail for Home/Library/Search/Favorites/PC.
+- `[x]` Move PC setup fields into a dedicated PC surface/screen.
+- `[x]` Add stable left navigation rail for Home/Library/Search/Favorites/PC.
 - `[~]` Make connected-library default focus land on Next Up.
 - `[~]` Add focus-aware scaling/border states for TV cards.
 - `[x]` Replace visual-only rail destinations with focusable actions that change library state.
@@ -81,3 +81,4 @@ Status legend:
 - 2026-06-09: `:apps:android-mobile:compileDebugKotlin`, `:apps:android-tv:compileDebugKotlin`, `:apps:desktop-windows:compileKotlinDesktop`, `:apps:android-mobile:compileDebugAndroidTestKotlin`, and `:apps:android-tv:compileDebugAndroidTestKotlin` passed after the UI review fixes.
 - 2026-06-09: `:apps:desktop-windows:desktopTest`, `:apps:android-mobile:testDebugUnitTest`, `:apps:android-tv:testDebugUnitTest`, and `git diff --check` passed; mobile/TV unit-test tasks remain `NO-SOURCE`.
 - Connected Android instrumentation tests are still pending a device/emulator run.
+- 2026-06-10: Android TV now has a top-level 10-foot shell with Home/Library/Search/Favorites/PC destinations, a persistent left rail, player controls outside the PC setup flow, and a dedicated PC connection screen. `:apps:android-tv:compileDebugKotlin` and `:apps:android-tv:compileDebugAndroidTestKotlin` passed after the refactor.

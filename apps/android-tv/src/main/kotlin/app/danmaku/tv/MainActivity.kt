@@ -132,6 +132,16 @@ private enum class PosterImageLoadState {
     FAILED,
 }
 
+private enum class TvDestination(
+    val label: String,
+) {
+    Home("Home"),
+    Library("Library"),
+    Search("Search"),
+    Favorites("Favorites"),
+    Pc("PC"),
+}
+
 @Composable
 private fun Modifier.tvFocusHalo(
     shape: RoundedCornerShape = RoundedCornerShape(20.dp),
@@ -194,6 +204,7 @@ private fun TvPlayerScreen() {
     var catalog by remember { mutableStateOf<LibraryCatalog?>(null) }
     var playbackProgresses by remember { mutableStateOf<List<PlaybackProgress>>(emptyList()) }
     var libraryError by remember { mutableStateOf<String?>(null) }
+    var selectedDestination by remember { mutableStateOf(TvDestination.Pc) }
     val posterEndpoint = catalog?.let {
         LibraryPosterEndpoint(serverUrl, pairingToken)
     }
@@ -216,6 +227,7 @@ private fun TvPlayerScreen() {
                 )
                 savedConnections = connectionStore.loadProfiles()
                 libraryError = null
+                selectedDestination = TvDestination.Library
             }.onFailure {
                 libraryError = it.message
             }
@@ -253,159 +265,382 @@ private fun TvPlayerScreen() {
     }
 
     Surface(modifier = Modifier.fillMaxSize()) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxSize()
                 .background(TvAppBackground)
-                .padding(40.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+                .padding(32.dp),
+            horizontalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            Text("Danmaku TV", style = MaterialTheme.typography.headlineLarge)
-            Text("Android TV PC-library streaming")
-            AndroidView(
-                factory = { PlayerView(it) },
-                update = { it.player = controller?.player },
+            TvAppNavigationRail(
+                selectedDestination = selectedDestination,
+                catalog = catalog,
+                favoriteCount = favoriteMediaIds.size,
+                onSelectDestination = { selectedDestination = it },
+            )
+            LazyColumn(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(300.dp),
-            )
-            Text("Player state: ${snapshot.status}")
-            TvSeekControls(
-                snapshot = snapshot,
-                onSeekTo = { controller?.dispatch(PlaybackCommand.SeekTo(it)) },
-            )
-            playbackError?.let { Text("Playback connection error: $it") }
-            TrackControls(
-                snapshot = snapshot,
-                onSelectAudio = {
-                    controller?.dispatch(PlaybackCommand.SelectAudioTrack(it))
-                },
-                onSelectSubtitle = {
-                    controller?.dispatch(PlaybackCommand.SelectSubtitleTrack(it))
-                },
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Button(
-                    onClick = { controller?.dispatch(PlaybackCommand.Play) },
-                    enabled = snapshot.source != null,
-                ) {
-                    Text("Play")
+                    .weight(1f)
+                    .fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                item {
+                    TvDestinationHeader(
+                        selectedDestination = selectedDestination,
+                        catalog = catalog,
+                        snapshot = snapshot,
+                    )
                 }
-                Button(
-                    onClick = { controller?.dispatch(PlaybackCommand.Pause) },
-                    enabled = snapshot.source != null,
-                ) {
-                    Text("Pause")
-                }
-                Button(
-                    onClick = {
-                        controller?.dispatch(
-                            PlaybackCommand.SetVolume((snapshot.volumePercent - 10).coerceAtLeast(0)),
+                if (selectedDestination != TvDestination.Pc) {
+                    item {
+                        TvPlayerPanel(
+                            controller = controller,
+                            snapshot = snapshot,
+                            playbackError = playbackError,
+                            onSeekTo = { controller?.dispatch(PlaybackCommand.SeekTo(it)) },
+                            onSelectAudio = {
+                                controller?.dispatch(PlaybackCommand.SelectAudioTrack(it))
+                            },
+                            onSelectSubtitle = {
+                                controller?.dispatch(PlaybackCommand.SelectSubtitleTrack(it))
+                            },
+                            onPlay = { controller?.dispatch(PlaybackCommand.Play) },
+                            onPause = { controller?.dispatch(PlaybackCommand.Pause) },
+                            onVolumeDown = {
+                                controller?.dispatch(
+                                    PlaybackCommand.SetVolume((snapshot.volumePercent - 10).coerceAtLeast(0)),
+                                )
+                            },
+                            onVolumeUp = {
+                                controller?.dispatch(
+                                    PlaybackCommand.SetVolume((snapshot.volumePercent + 10).coerceAtMost(100)),
+                                )
+                            },
                         )
-                    },
-                    enabled = snapshot.source != null && snapshot.volumePercent > 0,
-                ) {
-                    Text("Vol -")
+                    }
                 }
-                Button(
-                    onClick = {
-                        controller?.dispatch(
-                            PlaybackCommand.SetVolume((snapshot.volumePercent + 10).coerceAtMost(100)),
+
+                when (selectedDestination) {
+                    TvDestination.Pc -> {
+                        item {
+                            TvPcConnectionPanel(
+                                serverUrl = serverUrl,
+                                onServerUrlChange = { serverUrl = it },
+                                pairingToken = pairingToken,
+                                onPairingTokenChange = { pairingToken = it },
+                                savedConnections = savedConnections,
+                                selectedBaseUrl = serverUrl.trim().trimEnd('/'),
+                                libraryError = libraryError,
+                                refreshPcFocusRequester = refreshPcFocusRequester,
+                                discoverPcFocusRequester = discoverPcFocusRequester,
+                                onRefresh = ::refreshLibrary,
+                                onDiscover = {
+                                    scope.launch {
+                                        runCatching {
+                                            withContext(Dispatchers.IO) {
+                                                discoveryClient.discover().firstOrNull()
+                                                    ?: error("No Windows library server discovered")
+                                            }
+                                        }.onSuccess {
+                                            serverUrl = it.baseUrl
+                                            libraryError = null
+                                        }.onFailure {
+                                            libraryError = it.message
+                                        }
+                                    }
+                                },
+                                onSave = {
+                                    runCatching {
+                                        connectionStore.saveCurrentConnection(
+                                            baseUrl = serverUrl,
+                                            pairingToken = pairingToken,
+                                            displayName = catalog?.rootName,
+                                        )
+                                    }.onSuccess {
+                                        savedConnections = connectionStore.loadProfiles()
+                                        libraryError = null
+                                    }.onFailure {
+                                        libraryError = it.message
+                                    }
+                                },
+                                onSelectConnection = {
+                                    serverUrl = it.baseUrl
+                                    pairingToken = it.pairingToken
+                                },
+                                onForgetConnection = {
+                                    connectionStore.forgetProfile(it.id)
+                                    savedConnections = connectionStore.loadProfiles()
+                                },
+                            )
+                        }
+                    }
+                    TvDestination.Home -> {
+                        item {
+                            TvHomePanel(
+                                catalog = catalog,
+                                playbackProgresses = playbackProgresses,
+                                posterEndpoint = posterEndpoint,
+                                onShowLibrary = { selectedDestination = TvDestination.Library },
+                                onShowPc = { selectedDestination = TvDestination.Pc },
+                                onPlay = { item ->
+                                    val activeController = controller ?: return@TvHomePanel
+                                    val target = LanPlaybackTarget(serverUrl, pairingToken, item.id)
+                                    scope.launch {
+                                        val resumePosition = runCatching {
+                                            withContext(Dispatchers.IO) {
+                                                progressSync.fetchResumePositionMs(target)
+                                            }
+                                        }.onFailure {
+                                            libraryError = "Resume lookup failed: ${it.message}"
+                                        }.getOrNull()
+                                        val preparation = playbackPreparer.prepare(
+                                            baseUrl = target.baseUrl,
+                                            pairingToken = target.pairingToken,
+                                            item = item,
+                                            resumePositionMs = resumePosition,
+                                        )
+                                        activeController.load(preparation)
+                                        preparation.resumePositionMs?.let {
+                                            activeController.dispatch(PlaybackCommand.SeekTo(it))
+                                        }
+                                        activeController.dispatch(PlaybackCommand.Play)
+                                    }
+                                },
+                            )
+                        }
+                    }
+                    TvDestination.Library,
+                    TvDestination.Search,
+                    TvDestination.Favorites,
+                    -> {
+                        item {
+                            LibraryItems(
+                                catalog = catalog,
+                                posterEndpoint = posterEndpoint,
+                                playbackProgresses = playbackProgresses,
+                                favoriteMediaIds = favoriteMediaIds,
+                                onSetFavorite = { item, isFavorite ->
+                                    runCatching {
+                                        favoriteStore.setFavoriteMediaId(item.id, isFavorite)
+                                    }.onSuccess {
+                                        favoriteMediaIds = it
+                                        libraryError = null
+                                    }.onFailure {
+                                        libraryError = it.message
+                                    }
+                                },
+                                onPlay = { item ->
+                                    val activeController = controller ?: return@LibraryItems
+                                    val target = LanPlaybackTarget(serverUrl, pairingToken, item.id)
+                                    scope.launch {
+                                        val resumePosition = runCatching {
+                                            withContext(Dispatchers.IO) {
+                                                progressSync.fetchResumePositionMs(target)
+                                            }
+                                        }.onFailure {
+                                            libraryError = "Resume lookup failed: ${it.message}"
+                                        }.getOrNull()
+                                        val preparation = playbackPreparer.prepare(
+                                            baseUrl = target.baseUrl,
+                                            pairingToken = target.pairingToken,
+                                            item = item,
+                                            resumePositionMs = resumePosition,
                         )
-                    },
-                    enabled = snapshot.source != null && snapshot.volumePercent < 100,
-                ) {
-                    Text("Vol + ${snapshot.volumePercent}%")
+                                        activeController.load(preparation)
+                                        preparation.resumePositionMs?.let {
+                                            activeController.dispatch(PlaybackCommand.SeekTo(it))
+                                        }
+                                        activeController.dispatch(PlaybackCommand.Play)
+                                    }
+                                },
+                            )
+                        }
+                    }
                 }
             }
-            TvPcConnectionPanel(
-                serverUrl = serverUrl,
-                onServerUrlChange = { serverUrl = it },
-                pairingToken = pairingToken,
-                onPairingTokenChange = { pairingToken = it },
-                savedConnections = savedConnections,
-                selectedBaseUrl = serverUrl.trim().trimEnd('/'),
-                libraryError = libraryError,
-                refreshPcFocusRequester = refreshPcFocusRequester,
-                discoverPcFocusRequester = discoverPcFocusRequester,
-                onRefresh = ::refreshLibrary,
-                onDiscover = {
-                    scope.launch {
-                        runCatching {
-                            withContext(Dispatchers.IO) {
-                                discoveryClient.discover().firstOrNull()
-                                    ?: error("No Windows library server discovered")
-                            }
-                        }.onSuccess {
-                            serverUrl = it.baseUrl
-                            libraryError = null
-                        }.onFailure {
-                            libraryError = it.message
-                        }
-                    }
-                },
-                onSave = {
-                    runCatching {
-                        connectionStore.saveCurrentConnection(
-                            baseUrl = serverUrl,
-                            pairingToken = pairingToken,
-                            displayName = catalog?.rootName,
-                        )
-                    }.onSuccess {
-                        savedConnections = connectionStore.loadProfiles()
-                        libraryError = null
-                    }.onFailure {
-                        libraryError = it.message
-                    }
-                },
-                onSelectConnection = {
-                    serverUrl = it.baseUrl
-                    pairingToken = it.pairingToken
-                },
-                onForgetConnection = {
-                    connectionStore.forgetProfile(it.id)
-                    savedConnections = connectionStore.loadProfiles()
-                },
+        }
+    }
+}
+
+@Composable
+private fun TvAppNavigationRail(
+    selectedDestination: TvDestination,
+    catalog: LibraryCatalog?,
+    favoriteCount: Int,
+    onSelectDestination: (TvDestination) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .width(220.dp)
+            .fillMaxSize()
+            .clip(RoundedCornerShape(28.dp))
+            .background(TvCardColor)
+            .padding(18.dp)
+            .testTag("tv-app-rail"),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Text("Danmaku", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Text(
+            catalog?.rootName ?: "No PC connected",
+            color = TvMutedText,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        TvRailPill(if (catalog == null) "PC offline" else "PC ready", active = catalog != null)
+        TvRailPill("$favoriteCount favorites", active = favoriteCount > 0)
+        Spacer(modifier = Modifier.height(8.dp))
+        TvDestination.entries.forEach { destination ->
+            TvRailNavigationItem(
+                label = destination.label,
+                selected = destination == selectedDestination,
+                testTag = "tv-destination:${destination.name}",
+                onClick = { onSelectDestination(destination) },
             )
-            LibraryItems(
-                catalog = catalog,
+        }
+    }
+}
+
+@Composable
+private fun TvDestinationHeader(
+    selectedDestination: TvDestination,
+    catalog: LibraryCatalog?,
+    snapshot: PlaybackSnapshot,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(24.dp))
+            .background(TvPanelColor)
+            .padding(18.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(selectedDestination.label, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            Text(
+                catalog?.rootName ?: "Connect to your Windows library from PC",
+                color = TvMutedText,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        TvRailPill("Player ${snapshot.status}", active = snapshot.source != null)
+    }
+}
+
+@Composable
+private fun TvPlayerPanel(
+    controller: Media3PlaybackController?,
+    snapshot: PlaybackSnapshot,
+    playbackError: String?,
+    onSeekTo: (Long) -> Unit,
+    onSelectAudio: (String) -> Unit,
+    onSelectSubtitle: (String?) -> Unit,
+    onPlay: () -> Unit,
+    onPause: () -> Unit,
+    onVolumeDown: () -> Unit,
+    onVolumeUp: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(24.dp))
+            .background(TvPanelRaisedColor)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        AndroidView(
+            factory = { PlayerView(it) },
+            update = { it.player = controller?.player },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(300.dp),
+        )
+        TvSeekControls(snapshot = snapshot, onSeekTo = onSeekTo)
+        playbackError?.let { Text("Playback connection error: $it", color = Color(0xFFFCA5A5)) }
+        TrackControls(
+            snapshot = snapshot,
+            onSelectAudio = onSelectAudio,
+            onSelectSubtitle = onSelectSubtitle,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Button(
+                onClick = onPlay,
+                enabled = snapshot.source != null,
+                modifier = Modifier.tvFocusHalo(RoundedCornerShape(18.dp)),
+            ) {
+                Text("Play")
+            }
+            Button(
+                onClick = onPause,
+                enabled = snapshot.source != null,
+                modifier = Modifier.tvFocusHalo(RoundedCornerShape(18.dp)),
+            ) {
+                Text("Pause")
+            }
+            Button(
+                onClick = onVolumeDown,
+                enabled = snapshot.source != null && snapshot.volumePercent > 0,
+                modifier = Modifier.tvFocusHalo(RoundedCornerShape(18.dp)),
+            ) {
+                Text("Vol -")
+            }
+            Button(
+                onClick = onVolumeUp,
+                enabled = snapshot.source != null && snapshot.volumePercent < 100,
+                modifier = Modifier.tvFocusHalo(RoundedCornerShape(18.dp)),
+            ) {
+                Text("Vol + ${snapshot.volumePercent}%")
+            }
+        }
+    }
+}
+
+@Composable
+private fun TvHomePanel(
+    catalog: LibraryCatalog?,
+    playbackProgresses: List<PlaybackProgress>,
+    posterEndpoint: LibraryPosterEndpoint?,
+    onShowLibrary: () -> Unit,
+    onShowPc: () -> Unit,
+    onPlay: (LibraryMediaItem) -> Unit,
+) {
+    val nextUpItems = catalog?.nextUpItems(playbackProgresses, limit = 6).orEmpty()
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(24.dp))
+            .background(TvPanelRaisedColor)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Now Playing and Next Up", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text(
+                    if (catalog == null) {
+                        "Connect a PC library to start browsing."
+                    } else {
+                        "${catalog.items.size} episodes available"
+                    },
+                    color = TvMutedText,
+                )
+            }
+            Button(
+                onClick = if (catalog == null) onShowPc else onShowLibrary,
+                modifier = Modifier.tvFocusHalo(RoundedCornerShape(18.dp)),
+            ) {
+                Text(if (catalog == null) "Open PC" else "Open Library")
+            }
+        }
+        if (nextUpItems.isNotEmpty()) {
+            TvNextUpRail(
+                items = nextUpItems,
                 posterEndpoint = posterEndpoint,
-                playbackProgresses = playbackProgresses,
-                favoriteMediaIds = favoriteMediaIds,
-                onSetFavorite = { item, isFavorite ->
-                    runCatching {
-                        favoriteStore.setFavoriteMediaId(item.id, isFavorite)
-                    }.onSuccess {
-                        favoriteMediaIds = it
-                        libraryError = null
-                    }.onFailure {
-                        libraryError = it.message
-                    }
-                },
-                onPlay = { item ->
-                    val activeController = controller ?: return@LibraryItems
-                    val target = LanPlaybackTarget(serverUrl, pairingToken, item.id)
-                    scope.launch {
-                        val resumePosition = runCatching {
-                            withContext(Dispatchers.IO) {
-                                progressSync.fetchResumePositionMs(target)
-                            }
-                        }.onFailure {
-                            libraryError = "Resume lookup failed: ${it.message}"
-                        }.getOrNull()
-                        val preparation = playbackPreparer.prepare(
-                            baseUrl = target.baseUrl,
-                            pairingToken = target.pairingToken,
-                            item = item,
-                            resumePositionMs = resumePosition,
-                        )
-                        activeController.load(preparation)
-                        preparation.resumePositionMs?.let {
-                            activeController.dispatch(PlaybackCommand.SeekTo(it))
-                        }
-                        activeController.dispatch(PlaybackCommand.Play)
-                    }
-                },
+                onShowDetails = { _ -> onShowLibrary() },
+                onPlay = onPlay,
             )
         }
     }
@@ -732,7 +967,7 @@ private fun TvPcConnectionPanel(
                     }
                     .tvFocusHalo(RoundedCornerShape(18.dp)),
             ) {
-                Text("Refresh")
+                Text("Refresh PC library")
             }
             Button(
                 onClick = onDiscover,
@@ -743,7 +978,7 @@ private fun TvPcConnectionPanel(
                     }
                     .tvFocusHalo(RoundedCornerShape(18.dp)),
             ) {
-                Text("Discover")
+                Text("Discover PC")
             }
             Button(
                 onClick = onSave,
