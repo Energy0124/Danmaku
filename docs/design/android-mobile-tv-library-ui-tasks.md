@@ -82,3 +82,4 @@ Status legend:
 - 2026-06-09: `:apps:desktop-windows:desktopTest`, `:apps:android-mobile:testDebugUnitTest`, `:apps:android-tv:testDebugUnitTest`, and `git diff --check` passed; mobile/TV unit-test tasks remain `NO-SOURCE`.
 - Connected Android instrumentation tests are still pending a device/emulator run.
 - 2026-06-10: Android TV now has a top-level 10-foot shell with Home/Library/Search/Favorites/PC destinations, a persistent left rail, player controls outside the PC setup flow, and a dedicated PC connection screen. `:apps:android-tv:compileDebugKotlin` and `:apps:android-tv:compileDebugAndroidTestKotlin` passed after the refactor.
+- 2026-06-10: Android TV Search and Favorites destinations now initialize the shared library browser into search focus and favorites-only mode instead of duplicating the default Library screen. `:apps:android-tv:compileDebugKotlin` and `:apps:android-tv:compileDebugAndroidTestKotlin` passed after adding regression coverage.

@@ -419,6 +419,12 @@ private fun TvPlayerScreen() {
                                 posterEndpoint = posterEndpoint,
                                 playbackProgresses = playbackProgresses,
                                 favoriteMediaIds = favoriteMediaIds,
+                                initialFavoriteFilter = if (selectedDestination == TvDestination.Favorites) {
+                                    LibraryFavoriteFilter.FAVORITES_ONLY
+                                } else {
+                                    LibraryFavoriteFilter.ANY
+                                },
+                                focusSearchOnStart = selectedDestination == TvDestination.Search,
                                 onSetFavorite = { item, isFavorite ->
                                     runCatching {
                                         favoriteStore.setFavoriteMediaId(item.id, isFavorite)
@@ -1098,13 +1104,15 @@ internal fun LibraryItems(
     posterEndpoint: LibraryPosterEndpoint? = null,
     playbackProgresses: List<PlaybackProgress> = emptyList(),
     favoriteMediaIds: Set<String> = emptySet(),
+    initialFavoriteFilter: LibraryFavoriteFilter = LibraryFavoriteFilter.ANY,
+    focusSearchOnStart: Boolean = false,
     onSetFavorite: (LibraryMediaItem, Boolean) -> Unit = { _, _ -> },
     onPlay: (LibraryMediaItem) -> Unit,
 ) {
     var searchText by remember { mutableStateOf("") }
     var sort by remember { mutableStateOf(LibraryCatalogSort.TITLE) }
     var subtitleFilter by remember { mutableStateOf(LibrarySubtitleFilter.ANY) }
-    var favoriteFilter by remember { mutableStateOf(LibraryFavoriteFilter.ANY) }
+    var favoriteFilter by remember(catalog, initialFavoriteFilter) { mutableStateOf(initialFavoriteFilter) }
     var selectedSeriesId by remember(catalog) { mutableStateOf<String?>(null) }
     var selectedEpisodeId by remember(catalog) { mutableStateOf<String?>(null) }
     val totalItems = catalog?.items.orEmpty()
@@ -1134,9 +1142,15 @@ internal fun LibraryItems(
     val selectedEpisodeDetail = selectedDetailId
         ?.let { id -> catalog?.episodeDetail(id, playbackProgresses) }
 
-    LaunchedEffect(nextUpItems.firstOrNull()?.mediaItem?.id) {
-        if (nextUpItems.isNotEmpty()) {
+    LaunchedEffect(nextUpItems.firstOrNull()?.mediaItem?.id, focusSearchOnStart) {
+        if (!focusSearchOnStart && nextUpItems.isNotEmpty()) {
             nextUpFocusRequester.requestFocus()
+        }
+    }
+
+    LaunchedEffect(focusSearchOnStart, catalog?.indexedAtEpochMs) {
+        if (focusSearchOnStart) {
+            searchFocusRequester.requestFocus()
         }
     }
 
@@ -1218,7 +1232,8 @@ internal fun LibraryItems(
                     .background(TvCardColor)
                     .focusRequester(searchFocusRequester)
                     .padding(horizontal = 16.dp, vertical = 14.dp)
-                    .focusable(),
+                    .focusable()
+                    .testTag("library-search-field"),
                 decorationBox = { innerTextField ->
                     if (searchText.isBlank()) {
                         Text("Search library", color = TvMutedText)

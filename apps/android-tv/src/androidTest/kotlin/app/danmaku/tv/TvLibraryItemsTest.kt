@@ -2,6 +2,7 @@ package app.danmaku.tv
 
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
@@ -11,6 +12,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.pressKey
 import androidx.tv.material3.MaterialTheme
 import app.danmaku.domain.LibraryCatalog
+import app.danmaku.domain.LibraryFavoriteFilter
 import app.danmaku.domain.LibraryItemMetadataStatus
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySubtitleTrack
@@ -99,6 +101,44 @@ class TvLibraryItemsTest {
         composeRule.runOnIdle {
             assertEquals("example-2" to false, toggledFavorite)
         }
+    }
+
+    @Test
+    fun initialFavoritesModeNarrowsEpisodes() {
+        composeRule.setContent {
+            MaterialTheme {
+                LibraryItems(
+                    catalog = seededCatalog(),
+                    playbackProgresses = emptyList(),
+                    favoriteMediaIds = setOf("example-2"),
+                    initialFavoriteFilter = LibraryFavoriteFilter.FAVORITES_ONLY,
+                    onPlay = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("1 / 3 episodes").assertExists()
+        composeRule.onNodeWithTag("episode:example-2").assertExists()
+        composeRule.onNodeWithTag("episode:example-1").assertDoesNotExist()
+        composeRule.onNodeWithTag("episode:other-1").assertDoesNotExist()
+    }
+
+    @Test
+    fun focusSearchOnStartRequestsSearchFieldFocus() {
+        composeRule.setContent {
+            MaterialTheme {
+                LibraryItems(
+                    catalog = seededCatalog(),
+                    playbackProgresses = emptyList(),
+                    focusSearchOnStart = true,
+                    onPlay = {},
+                )
+            }
+        }
+
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithTag("library-search-field").assertIsFocused()
     }
 
     @Test
