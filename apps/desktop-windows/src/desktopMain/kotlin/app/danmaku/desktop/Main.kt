@@ -116,8 +116,11 @@ import androidx.compose.ui.window.WindowState
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import app.danmaku.domain.DanmakuDisplaySettings
+import app.danmaku.domain.ExternalAnimeId
 import app.danmaku.domain.ExternalAnimeInfo
 import app.danmaku.domain.ExternalAnimeMapping
+import app.danmaku.domain.ExternalAnimeMappingSource
+import app.danmaku.domain.ExternalAnimeProvider
 import app.danmaku.domain.ExternalAnimeTrackingPlan
 import app.danmaku.domain.LibraryAnimeMetadata
 import app.danmaku.domain.LibraryCatalog
@@ -142,6 +145,7 @@ import app.danmaku.domain.PlaybackStatus
 import app.danmaku.domain.PlaybackTrack
 import app.danmaku.domain.PlaybackTrackKind
 import app.danmaku.domain.continueWatchingItems
+import app.danmaku.domain.displayName
 import app.danmaku.domain.episodeDetail
 import app.danmaku.domain.externalAnimeTrackingPlan
 import app.danmaku.domain.filteredItems
@@ -553,6 +557,13 @@ private fun DesktopShell(
             ?.flatMap { series -> catalogStore.loadExternalAnimeMappings(series.id) }
             .orEmpty()
     }
+    val externalAnimeItemMappingsByMediaId = remember(displayIndexedLibrary, libraryMetadataVersion, catalogStore) {
+        displayIndexedLibrary
+            ?.catalog
+            ?.items
+            ?.associate { item -> item.id to catalogStore.loadExternalAnimeItemMappings(item.id) }
+            .orEmpty()
+    }
     var playbackProgresses by remember { mutableStateOf(catalogStore.loadPlaybackProgress()) }
     var favoriteMediaIds by remember { mutableStateOf(catalogStore.loadFavoriteMediaIds()) }
     var selectedLocalPlaybackPreparation by remember {
@@ -789,6 +800,95 @@ private fun DesktopShell(
             }
             refreshingMetadataSeriesIds = refreshingMetadataSeriesIds - series.id
             refreshingMetadataMediaIds = refreshingMetadataMediaIds - items.mapTo(mutableSetOf()) { it.id }
+        }
+    }
+
+    fun saveManualExternalAnimeMapping(
+        series: LibrarySeries,
+        provider: ExternalAnimeProvider,
+        animeIdText: String,
+    ) {
+        val animeId = animeIdText.trim().toLongOrNull()?.takeIf { it > 0 }
+        if (animeId == null) {
+            appendDiagnostic("metadata", "Cannot link ${series.title}; ${provider.displayName} ID must be positive")
+            return
+        }
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                catalogStore.saveExternalAnimeMapping(
+                    ExternalAnimeMapping(
+                        localSeriesId = series.id,
+                        animeId = ExternalAnimeId(provider, animeId),
+                        source = ExternalAnimeMappingSource.MANUAL,
+                        confidence = 1.0,
+                        mappedAtEpochMs = System.currentTimeMillis(),
+                    ),
+                )
+            }
+            libraryMetadataVersion += 1
+            appendDiagnostic("metadata", "Linked ${series.title} to ${provider.displayName} #$animeId")
+        }
+    }
+
+    fun deleteManualExternalAnimeMapping(series: LibrarySeries, provider: ExternalAnimeProvider) {
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                catalogStore.deleteExternalAnimeMapping(series.id, provider)
+            }
+            libraryMetadataVersion += 1
+            appendDiagnostic("metadata", "Removed ${provider.displayName} link for ${series.title}")
+        }
+    }
+
+    fun saveManualExternalAnimeItemMapping(
+        item: LibraryMediaItem,
+        provider: ExternalAnimeProvider,
+        animeIdText: String,
+    ) {
+        val animeId = animeIdText.trim().toLongOrNull()?.takeIf { it > 0 }
+        if (animeId == null) {
+            appendDiagnostic("metadata", "Cannot link ${item.episodeTitle}; ${provider.displayName} ID must be positive")
+            return
+        }
+        scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    catalogStore.saveExternalAnimeItemMapping(
+                        DesktopExternalAnimeItemMapping(
+                            localMediaId = item.id,
+                            animeId = ExternalAnimeId(provider, animeId),
+                            source = ExternalAnimeMappingSource.MANUAL,
+                            confidence = 1.0,
+                            mappedAtEpochMs = System.currentTimeMillis(),
+                        ),
+                    )
+                    if (provider == ExternalAnimeProvider.DANDANPLAY && dandanplaySettings.isFetchEnabled) {
+                        animeMetadataResolver.refreshDandanplayMetadataForAnime(
+                            animeId = animeId,
+                            forceRefresh = false,
+                        )
+                    }
+                }
+            }
+            result.onSuccess {
+                libraryMetadataVersion += 1
+                appendDiagnostic("metadata", "Linked ${item.episodeTitle} to ${provider.displayName} #$animeId")
+            }.onFailure { error ->
+                appendDiagnostic(
+                    "metadata",
+                    "Episode link failed for ${item.episodeTitle}: ${error.message ?: error::class.simpleName}",
+                )
+            }
+        }
+    }
+
+    fun deleteManualExternalAnimeItemMapping(item: LibraryMediaItem, provider: ExternalAnimeProvider) {
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                catalogStore.deleteExternalAnimeItemMapping(item.id, provider)
+            }
+            libraryMetadataVersion += 1
+            appendDiagnostic("metadata", "Removed ${provider.displayName} episode link for ${item.episodeTitle}")
         }
     }
 
@@ -1769,6 +1869,7 @@ private fun DesktopShell(
                             indexedLibrary = displayIndexedLibrary,
                             seriesPosterById = seriesPosterById,
                             externalAnimeMappings = externalAnimeMappings,
+                            externalAnimeItemMappingsByMediaId = externalAnimeItemMappingsByMediaId,
                             originalSeriesTitleByMediaId = originalSeriesTitleByMediaId,
                             refreshingMetadataMediaIds = refreshingMetadataMediaIds,
                             refreshingMetadataSeriesIds = refreshingMetadataSeriesIds,
@@ -1801,6 +1902,10 @@ private fun DesktopShell(
                             onAttachManualDanmaku = ::attachManualDanmaku,
                             onRefreshEpisodeMetadata = ::refreshEpisodeAnimeMetadata,
                             onRefreshSeriesMetadata = ::refreshSeriesAnimeMetadata,
+                            onSaveExternalAnimeMapping = ::saveManualExternalAnimeMapping,
+                            onDeleteExternalAnimeMapping = ::deleteManualExternalAnimeMapping,
+                            onSaveExternalAnimeItemMapping = ::saveManualExternalAnimeItemMapping,
+                            onDeleteExternalAnimeItemMapping = ::deleteManualExternalAnimeItemMapping,
                             onLoadPreparedPlayback = { preparation ->
                                 appendDiagnostic(
                                     "playback",
@@ -2701,6 +2806,7 @@ private fun MediaLibraryTab(
     indexedLibrary: IndexedLocalLibrary?,
     seriesPosterById: Map<String, Path?>,
     externalAnimeMappings: List<ExternalAnimeMapping>,
+    externalAnimeItemMappingsByMediaId: Map<String, List<DesktopExternalAnimeItemMapping>>,
     originalSeriesTitleByMediaId: Map<String, String>,
     refreshingMetadataMediaIds: Set<String>,
     refreshingMetadataSeriesIds: Set<String>,
@@ -2727,6 +2833,10 @@ private fun MediaLibraryTab(
     onAttachManualDanmaku: (DesktopLocalPlaybackPreparation) -> Unit,
     onRefreshEpisodeMetadata: (LibraryMediaItem) -> Unit,
     onRefreshSeriesMetadata: (LibrarySeries) -> Unit,
+    onSaveExternalAnimeMapping: (LibrarySeries, ExternalAnimeProvider, String) -> Unit,
+    onDeleteExternalAnimeMapping: (LibrarySeries, ExternalAnimeProvider) -> Unit,
+    onSaveExternalAnimeItemMapping: (LibraryMediaItem, ExternalAnimeProvider, String) -> Unit,
+    onDeleteExternalAnimeItemMapping: (LibraryMediaItem, ExternalAnimeProvider) -> Unit,
     onLoadPreparedPlayback: (DesktopLocalPlaybackPreparation) -> Unit,
     remoteBrowser: @Composable () -> Unit,
 ) {
@@ -2791,6 +2901,8 @@ private fun MediaLibraryTab(
             series = series,
             seriesPosterById = seriesPosterById,
             externalTrackingPlan = externalTrackingPlan,
+            externalAnimeMappings = externalAnimeMappings,
+            externalAnimeItemMappingsByMediaId = externalAnimeItemMappingsByMediaId,
             originalSeriesTitleByMediaId = originalSeriesTitleByMediaId,
             refreshingMetadataMediaIds = refreshingMetadataMediaIds,
             refreshingMetadataSeriesIds = refreshingMetadataSeriesIds,
@@ -2822,6 +2934,10 @@ private fun MediaLibraryTab(
             onAttachManualDanmaku = onAttachManualDanmaku,
             onRefreshEpisodeMetadata = onRefreshEpisodeMetadata,
             onRefreshSeriesMetadata = onRefreshSeriesMetadata,
+            onSaveExternalAnimeMapping = onSaveExternalAnimeMapping,
+            onDeleteExternalAnimeMapping = onDeleteExternalAnimeMapping,
+            onSaveExternalAnimeItemMapping = onSaveExternalAnimeItemMapping,
+            onDeleteExternalAnimeItemMapping = onDeleteExternalAnimeItemMapping,
             onLoadPreparedPlayback = onLoadPreparedPlayback,
             onPrepareLocalPlayback = onPrepareLocalPlayback,
             onPlayLocalPlayback = onPlayLocalPlayback,
@@ -2849,6 +2965,8 @@ private fun WindowsLibraryWorkspace(
     series: List<LibrarySeries>,
     seriesPosterById: Map<String, Path?>,
     externalTrackingPlan: ExternalAnimeTrackingPlan?,
+    externalAnimeMappings: List<ExternalAnimeMapping>,
+    externalAnimeItemMappingsByMediaId: Map<String, List<DesktopExternalAnimeItemMapping>>,
     originalSeriesTitleByMediaId: Map<String, String>,
     refreshingMetadataMediaIds: Set<String>,
     refreshingMetadataSeriesIds: Set<String>,
@@ -2880,6 +2998,10 @@ private fun WindowsLibraryWorkspace(
     onAttachManualDanmaku: (DesktopLocalPlaybackPreparation) -> Unit,
     onRefreshEpisodeMetadata: (LibraryMediaItem) -> Unit,
     onRefreshSeriesMetadata: (LibrarySeries) -> Unit,
+    onSaveExternalAnimeMapping: (LibrarySeries, ExternalAnimeProvider, String) -> Unit,
+    onDeleteExternalAnimeMapping: (LibrarySeries, ExternalAnimeProvider) -> Unit,
+    onSaveExternalAnimeItemMapping: (LibraryMediaItem, ExternalAnimeProvider, String) -> Unit,
+    onDeleteExternalAnimeItemMapping: (LibraryMediaItem, ExternalAnimeProvider) -> Unit,
     onLoadPreparedPlayback: (DesktopLocalPlaybackPreparation) -> Unit,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
@@ -2929,6 +3051,12 @@ private fun WindowsLibraryWorkspace(
     val selectedInspectorItem = selectedEpisodeDetail?.mediaItem
         ?: selectedLocalPlaybackPreparation?.item
         ?: selectedSeries?.let { nextPlayableEpisode(it, watchStatusById) }
+    val selectedInspectorSeriesMappings = selectedInspectorSeries
+        ?.let { series -> externalAnimeMappings.filter { mapping -> mapping.localSeriesId == series.id } }
+        .orEmpty()
+    val selectedInspectorItemMappings = selectedInspectorItem
+        ?.let { item -> externalAnimeItemMappingsByMediaId[item.id] }
+        .orEmpty()
     var inspectorWidthOverride by remember { mutableStateOf<Float?>(null) }
 
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
@@ -3043,6 +3171,8 @@ private fun WindowsLibraryWorkspace(
                 selectedLocalPlaybackPreparation = selectedLocalPlaybackPreparation,
                 dandanplayCacheStatus = dandanplayCacheStatus,
                 autoNextLocalPlayback = autoNextLocalPlayback,
+                externalAnimeMappings = selectedInspectorSeriesMappings,
+                externalAnimeItemMappings = selectedInspectorItemMappings,
                 originalSeriesTitleByMediaId = originalSeriesTitleByMediaId,
                 refreshingMetadataMediaIds = refreshingMetadataMediaIds,
                 refreshingMetadataSeriesIds = refreshingMetadataSeriesIds,
@@ -3062,6 +3192,10 @@ private fun WindowsLibraryWorkspace(
                 onAttachManualDanmaku = onAttachManualDanmaku,
                 onRefreshEpisodeMetadata = onRefreshEpisodeMetadata,
                 onRefreshSeriesMetadata = onRefreshSeriesMetadata,
+                onSaveExternalAnimeMapping = onSaveExternalAnimeMapping,
+                onDeleteExternalAnimeMapping = onDeleteExternalAnimeMapping,
+                onSaveExternalAnimeItemMapping = onSaveExternalAnimeItemMapping,
+                onDeleteExternalAnimeItemMapping = onDeleteExternalAnimeItemMapping,
                 onLoadPreparedPlayback = onLoadPreparedPlayback,
                 onPrepareLocalPlayback = onPrepareLocalPlayback,
                 onPlayLocalPlayback = onPlayLocalPlayback,
@@ -3899,6 +4033,8 @@ private fun LibraryInspectorPane(
     selectedLocalPlaybackPreparation: DesktopLocalPlaybackPreparation?,
     dandanplayCacheStatus: DandanplayPlaybackUiStatus?,
     autoNextLocalPlayback: Boolean,
+    externalAnimeMappings: List<ExternalAnimeMapping>,
+    externalAnimeItemMappings: List<DesktopExternalAnimeItemMapping>,
     originalSeriesTitleByMediaId: Map<String, String>,
     refreshingMetadataMediaIds: Set<String>,
     refreshingMetadataSeriesIds: Set<String>,
@@ -3918,6 +4054,10 @@ private fun LibraryInspectorPane(
     onAttachManualDanmaku: (DesktopLocalPlaybackPreparation) -> Unit,
     onRefreshEpisodeMetadata: (LibraryMediaItem) -> Unit,
     onRefreshSeriesMetadata: (LibrarySeries) -> Unit,
+    onSaveExternalAnimeMapping: (LibrarySeries, ExternalAnimeProvider, String) -> Unit,
+    onDeleteExternalAnimeMapping: (LibrarySeries, ExternalAnimeProvider) -> Unit,
+    onSaveExternalAnimeItemMapping: (LibraryMediaItem, ExternalAnimeProvider, String) -> Unit,
+    onDeleteExternalAnimeItemMapping: (LibraryMediaItem, ExternalAnimeProvider) -> Unit,
     onLoadPreparedPlayback: (DesktopLocalPlaybackPreparation) -> Unit,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
@@ -4135,6 +4275,16 @@ private fun LibraryInspectorPane(
             value = "${selectedItem.subtitles.size} indexed",
             color = if (selectedItem.subtitles.isNotEmpty()) DanmakuColors.Good else DanmakuColors.TextMuted,
         )
+        ExternalAnimeMappingPanel(
+            selectedSeries = selectedSeries,
+            selectedItem = selectedItem,
+            seriesMappings = externalAnimeMappings,
+            itemMappings = externalAnimeItemMappings,
+            onSaveExternalAnimeMapping = onSaveExternalAnimeMapping,
+            onDeleteExternalAnimeMapping = onDeleteExternalAnimeMapping,
+            onSaveExternalAnimeItemMapping = onSaveExternalAnimeItemMapping,
+            onDeleteExternalAnimeItemMapping = onDeleteExternalAnimeItemMapping,
+        )
         selectedEpisodeDetail?.let { detail ->
             MetadataRow("Season", detail.season.label)
             MetadataRow("Watch", detail.watchStatus.statusLabel())
@@ -4233,6 +4383,134 @@ private fun LibraryInspectorPane(
                     onSelectDandanplayMatch = onSelectDandanplayMatch,
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun ExternalAnimeMappingPanel(
+    selectedSeries: LibrarySeries,
+    selectedItem: LibraryMediaItem,
+    seriesMappings: List<ExternalAnimeMapping>,
+    itemMappings: List<DesktopExternalAnimeItemMapping>,
+    onSaveExternalAnimeMapping: (LibrarySeries, ExternalAnimeProvider, String) -> Unit,
+    onDeleteExternalAnimeMapping: (LibrarySeries, ExternalAnimeProvider) -> Unit,
+    onSaveExternalAnimeItemMapping: (LibraryMediaItem, ExternalAnimeProvider, String) -> Unit,
+    onDeleteExternalAnimeItemMapping: (LibraryMediaItem, ExternalAnimeProvider) -> Unit,
+) {
+    val malMapping = seriesMappings.firstOrNull { it.animeId.provider == ExternalAnimeProvider.MY_ANIME_LIST }
+    val bangumiMapping = seriesMappings.firstOrNull { it.animeId.provider == ExternalAnimeProvider.BANGUMI }
+    val dandanplayItemMapping = itemMappings.firstOrNull { it.animeId.provider == ExternalAnimeProvider.DANDANPLAY }
+    val displayedDandanplayId = dandanplayItemMapping?.animeId?.value
+        ?: selectedItem.animeMetadata
+            ?.animeId
+            ?.takeIf { it.provider == ExternalAnimeProvider.DANDANPLAY }
+            ?.value
+
+    Divider(color = DanmakuColors.SurfaceRaised)
+    Text("External IDs", fontWeight = FontWeight.Bold)
+    ExternalSeriesMappingRow(
+        provider = ExternalAnimeProvider.MY_ANIME_LIST,
+        mapping = malMapping,
+        selectedSeries = selectedSeries,
+        onSave = onSaveExternalAnimeMapping,
+        onDelete = onDeleteExternalAnimeMapping,
+    )
+    ExternalSeriesMappingRow(
+        provider = ExternalAnimeProvider.BANGUMI,
+        mapping = bangumiMapping,
+        selectedSeries = selectedSeries,
+        onSave = onSaveExternalAnimeMapping,
+        onDelete = onDeleteExternalAnimeMapping,
+    )
+    ExternalItemMappingRow(
+        provider = ExternalAnimeProvider.DANDANPLAY,
+        currentId = displayedDandanplayId,
+        hasManualMapping = dandanplayItemMapping != null,
+        selectedItem = selectedItem,
+        onSave = onSaveExternalAnimeItemMapping,
+        onDelete = onDeleteExternalAnimeItemMapping,
+    )
+}
+
+@Composable
+private fun ExternalSeriesMappingRow(
+    provider: ExternalAnimeProvider,
+    mapping: ExternalAnimeMapping?,
+    selectedSeries: LibrarySeries,
+    onSave: (LibrarySeries, ExternalAnimeProvider, String) -> Unit,
+    onDelete: (LibrarySeries, ExternalAnimeProvider) -> Unit,
+) {
+    var animeIdText by remember(selectedSeries.id, provider, mapping?.animeId?.value) {
+        mutableStateOf(mapping?.animeId?.value?.toString().orEmpty())
+    }
+    ExternalMappingEditRow(
+        label = provider.displayName,
+        value = animeIdText,
+        onValueChange = { animeIdText = it.filter(Char::isDigit) },
+        saveLabel = if (mapping == null) "Link" else "Replace",
+        deleteEnabled = mapping != null,
+        onSave = { onSave(selectedSeries, provider, animeIdText) },
+        onDelete = { onDelete(selectedSeries, provider) },
+    )
+}
+
+@Composable
+private fun ExternalItemMappingRow(
+    provider: ExternalAnimeProvider,
+    currentId: Long?,
+    hasManualMapping: Boolean,
+    selectedItem: LibraryMediaItem,
+    onSave: (LibraryMediaItem, ExternalAnimeProvider, String) -> Unit,
+    onDelete: (LibraryMediaItem, ExternalAnimeProvider) -> Unit,
+) {
+    var animeIdText by remember(selectedItem.id, provider, currentId) {
+        mutableStateOf(currentId?.toString().orEmpty())
+    }
+    ExternalMappingEditRow(
+        label = "${provider.displayName} episode",
+        value = animeIdText,
+        onValueChange = { animeIdText = it.filter(Char::isDigit) },
+        saveLabel = if (hasManualMapping) "Replace" else "Correct",
+        deleteEnabled = hasManualMapping,
+        onSave = { onSave(selectedItem, provider, animeIdText) },
+        onDelete = { onDelete(selectedItem, provider) },
+    )
+}
+
+@Composable
+private fun ExternalMappingEditRow(
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    saveLabel: String,
+    deleteEnabled: Boolean,
+    onSave: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            label = { Text(label) },
+            singleLine = true,
+            modifier = Modifier.weight(1f),
+        )
+        Button(
+            enabled = value.toLongOrNull()?.let { it > 0 } == true,
+            onClick = onSave,
+        ) {
+            Text(saveLabel)
+        }
+        Button(
+            enabled = deleteEnabled,
+            onClick = onDelete,
+        ) {
+            Text("Remove")
         }
     }
 }

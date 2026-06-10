@@ -19,10 +19,10 @@ Status legend:
 
 ## Phase 2 - Manual Mapping UX
 
-- `[ ]` Add manual "Link external anime" action on the desktop series detail panel.
-- `[ ]` Show current Dandanplay, MyAnimeList, and Bangumi IDs in the inspector.
-- `[ ]` Allow removing/replacing a manual mapping without deleting cached metadata.
-- `[ ]` Support item-level correction when one local folder contains episodes from multiple anime.
+- `[x]` Add manual "Link external anime" action on the desktop series detail panel.
+- `[x]` Show current Dandanplay, MyAnimeList, and Bangumi IDs in the inspector.
+- `[x]` Allow removing/replacing a manual mapping without deleting cached metadata.
+- `[x]` Support item-level correction when one local folder contains episodes from multiple anime.
 
 ## Phase 3 - Provider Search
 
@@ -54,3 +54,4 @@ Status legend:
 - 2026-06-09: Added provider-neutral external tracking sync plans that report update candidates, unmapped local series, and stale mappings that no longer match a local series.
 - 2026-06-09: Added provider-neutral tracking plan summaries and labels for UI/diagnostic surfaces, including provider names, update counts, skip counts, and human-readable skip reasons.
 - 2026-06-10: Added desktop library rail and workspace status surfaces for provider-neutral external tracking sync plan summaries.
+- 2026-06-10: Added desktop inspector controls for manual MAL/Bangumi series links, Dandanplay episode corrections, and mapping removal/replacement without deleting cached metadata.
