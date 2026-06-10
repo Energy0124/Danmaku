@@ -1,17 +1,24 @@
 package app.danmaku.desktop
 
 import java.net.URI
+import java.nio.file.Files
+import java.nio.file.Path
 import java.util.Base64
+import java.util.Properties
 
 class ExternalAnimeCredentialStore(
     private val store: DesktopLibraryCatalogStore,
     private val secretProtector: DesktopSecretProtector = DesktopSecretProtector.default(),
     private val nowEpochMs: () -> Long = System::currentTimeMillis,
+    private val localPropertiesPaths: List<Path> = defaultLocalPropertiesPaths(System.getenv()),
 ) {
-    fun loadSettings(): ExternalAnimeProviderSettings =
-        ExternalAnimeProviderSettings(
-            myAnimeListClientId = store.loadSetting(MAL_CLIENT_ID_SETTING_KEY)?.value?.takeIf(String::isNotBlank),
-            hasMyAnimeListClientSecret = loadSecret(MAL_CLIENT_SECRET_SETTING_KEY) != null,
+    fun loadSettings(): ExternalAnimeProviderSettings {
+        val localDefaults = loadLocalCredentialDefaults()
+        return ExternalAnimeProviderSettings(
+            myAnimeListClientId = store.loadSetting(MAL_CLIENT_ID_SETTING_KEY)?.value?.takeIf(String::isNotBlank)
+                ?: localDefaults.myAnimeListClientId,
+            hasMyAnimeListClientSecret = loadSecret(MAL_CLIENT_SECRET_SETTING_KEY) != null ||
+                localDefaults.myAnimeListClientSecret != null,
             hasMyAnimeListAccessToken = loadSecret(MAL_ACCESS_TOKEN_SETTING_KEY) != null,
             bangumiBaseUrl = store.loadSetting(BANGUMI_BASE_URL_SETTING_KEY)?.value
                 ?: DEFAULT_BANGUMI_BASE_URL,
@@ -19,6 +26,7 @@ class ExternalAnimeCredentialStore(
                 ?: DEFAULT_BANGUMI_USER_AGENT,
             hasBangumiAccessToken = loadSecret(BANGUMI_ACCESS_TOKEN_SETTING_KEY) != null,
         )
+    }
 
     fun loadMyAnimeListSearchConnection(): MyAnimeListSearchConnection? =
         loadSettings()
@@ -38,6 +46,7 @@ class ExternalAnimeCredentialStore(
 
     fun loadMyAnimeListClientSecret(): String? =
         loadSecret(MAL_CLIENT_SECRET_SETTING_KEY)
+            ?: loadLocalCredentialDefaults().myAnimeListClientSecret
 
     fun loadMyAnimeListOAuthTokens(): MyAnimeListOAuthTokens? {
         val accessToken = loadSecret(MAL_ACCESS_TOKEN_SETTING_KEY) ?: return null
@@ -159,6 +168,34 @@ class ExternalAnimeCredentialStore(
         )
     }
 
+    private fun loadLocalCredentialDefaults(): MyAnimeListLocalCredentialDefaults {
+        val properties = Properties()
+        localPropertiesPaths
+            .filter(Files::isRegularFile)
+            .forEach { path ->
+                Files.newBufferedReader(path).use(properties::load)
+            }
+
+        fun value(
+            propertyName: String,
+            environmentName: String,
+        ): String? =
+            (System.getenv(environmentName) ?: properties.getProperty(propertyName))
+                ?.trim()
+                ?.takeIf(String::isNotEmpty)
+
+        return MyAnimeListLocalCredentialDefaults(
+            myAnimeListClientId = value(
+                "danmaku.myanimelist.clientId",
+                "DANMAKU_MYANIMELIST_CLIENT_ID",
+            ),
+            myAnimeListClientSecret = value(
+                "danmaku.myanimelist.clientSecret",
+                "DANMAKU_MYANIMELIST_CLIENT_SECRET",
+            ),
+        )
+    }
+
     private companion object {
         const val MAL_CLIENT_ID_SETTING_KEY = "external.my_anime_list.client_id"
         const val MAL_CLIENT_SECRET_SETTING_KEY = "external.my_anime_list.client_secret.dpapi"
@@ -168,8 +205,38 @@ class ExternalAnimeCredentialStore(
         const val BANGUMI_BASE_URL_SETTING_KEY = "external.bangumi.base_url"
         const val BANGUMI_USER_AGENT_SETTING_KEY = "external.bangumi.user_agent"
         const val BANGUMI_ACCESS_TOKEN_SETTING_KEY = "external.bangumi.access_token.dpapi"
+
+        fun defaultLocalPropertiesPaths(environment: Map<String, String>): List<Path> =
+            buildList {
+                add(Path.of(System.getProperty("user.dir"), "local.properties"))
+                environment["LOCALAPPDATA"]
+                    ?.takeIf(String::isNotBlank)
+                    ?.let(Path::of)
+                    ?.resolve("Danmaku")
+                    ?.resolve("local.properties")
+                    ?.let(::add)
+                System.getProperty("user.home")
+                    ?.takeIf(String::isNotBlank)
+                    ?.let(Path::of)
+                    ?.resolve(".danmaku")
+                    ?.resolve("local.properties")
+                    ?.let(::add)
+                System.getProperty("danmaku.localProperties")
+                    ?.takeIf(String::isNotBlank)
+                    ?.let(Path::of)
+                    ?.let(::add)
+                environment["DANMAKU_LOCAL_PROPERTIES"]
+                    ?.takeIf(String::isNotBlank)
+                    ?.let(Path::of)
+                    ?.let(::add)
+            }.distinct()
     }
 }
+
+private data class MyAnimeListLocalCredentialDefaults(
+    val myAnimeListClientId: String?,
+    val myAnimeListClientSecret: String?,
+)
 
 data class ExternalAnimeProviderSettings(
     val myAnimeListClientId: String? = null,

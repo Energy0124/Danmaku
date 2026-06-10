@@ -1,6 +1,7 @@
 package app.danmaku.desktop
 
 import kotlin.io.path.createTempDirectory
+import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -17,6 +18,7 @@ class ExternalAnimeCredentialStoreTest {
                 store = catalogStore,
                 secretProtector = ReversingSecretProtector,
                 nowEpochMs = { 123 },
+                localPropertiesPaths = emptyList(),
             )
 
             val settings = store.saveSettings(
@@ -48,6 +50,7 @@ class ExternalAnimeCredentialStoreTest {
             val store = ExternalAnimeCredentialStore(
                 store = catalogStore,
                 secretProtector = ReversingSecretProtector,
+                localPropertiesPaths = emptyList(),
             )
             store.saveSettings(
                 myAnimeListClientId = "mal-client",
@@ -84,6 +87,7 @@ class ExternalAnimeCredentialStoreTest {
             val store = ExternalAnimeCredentialStore(
                 store = catalogStore,
                 secretProtector = ReversingSecretProtector,
+                localPropertiesPaths = emptyList(),
             )
             store.saveSettings(
                 myAnimeListClientId = "mal-client",
@@ -116,6 +120,7 @@ class ExternalAnimeCredentialStoreTest {
                 store = catalogStore,
                 secretProtector = ReversingSecretProtector,
                 nowEpochMs = { 1_000 },
+                localPropertiesPaths = emptyList(),
             )
             store.saveSettings(
                 myAnimeListClientId = "mal-client",
@@ -138,6 +143,33 @@ class ExternalAnimeCredentialStoreTest {
             assertEquals("oauth-access", tokens.accessToken)
             assertEquals("oauth-refresh", tokens.refreshToken)
             assertEquals(3_601_000, tokens.expiresAtEpochMs)
+        }
+    }
+
+    @Test
+    fun loadsMyAnimeListClientCredentialsFromLocalPropertiesWhenEncryptedSettingsAreAbsent() {
+        val temp = createTempDirectory("danmaku-external-anime-local-properties")
+        val localProperties = temp.resolve("local.properties").apply {
+            writeText(
+                """
+                danmaku.myanimelist.clientId=local-mal-client
+                danmaku.myanimelist.clientSecret=local-mal-secret
+                """.trimIndent(),
+            )
+        }
+        DesktopLibraryCatalogStore(temp.resolve("catalog.db")).use { catalogStore ->
+            val store = ExternalAnimeCredentialStore(
+                store = catalogStore,
+                secretProtector = ReversingSecretProtector,
+                localPropertiesPaths = listOf(localProperties),
+            )
+
+            val settings = store.loadSettings()
+
+            assertEquals("local-mal-client", settings.myAnimeListClientId)
+            assertTrue(settings.hasMyAnimeListClientSecret)
+            assertEquals("local-mal-secret", store.loadMyAnimeListClientSecret())
+            assertEquals("local-mal-client", store.loadMyAnimeListSearchConnection()?.clientId)
         }
     }
 

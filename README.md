@@ -181,16 +181,20 @@ danmaku.dandanplay.appSecret=your-app-secret
 danmaku.dandanplay.proxyBaseUrl=https://your-worker.example.workers.dev
 danmaku.dandanplay.authenticationMode=signed
 danmaku.dandanplay.cacheMaxAgeDays=30
+danmaku.myanimelist.clientId=your-client-id
+danmaku.myanimelist.clientSecret=your-client-secret
 ```
 
 The same fallback can be supplied through environment variables named
 `DANMAKU_DANDANPLAY_APP_ID`, `DANMAKU_DANDANPLAY_APP_SECRET`,
 `DANMAKU_DANDANPLAY_PROXY_BASE_URL`,
 `DANMAKU_DANDANPLAY_AUTHENTICATION_MODE`, and
-`DANMAKU_DANDANPLAY_CACHE_MAX_AGE_DAYS`. Direct AppId/AppSecret values win when
-present; the proxy URL is used only when no direct AppSecret exists. These
-values are for local development, proxy routing, and CI-only checks; do not
-embed provider secrets in distributable client artifacts.
+`DANMAKU_DANDANPLAY_CACHE_MAX_AGE_DAYS`, plus
+`DANMAKU_MYANIMELIST_CLIENT_ID` and `DANMAKU_MYANIMELIST_CLIENT_SECRET`.
+Direct AppId/AppSecret values win when present; the proxy URL is used only when
+no direct AppSecret exists. These values are for local development, proxy
+routing, and CI-only checks; do not embed provider secrets in distributable
+client artifacts.
 
 ## Build And Test
 
