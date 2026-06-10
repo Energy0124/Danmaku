@@ -219,12 +219,14 @@ impl Mpv {
         let strings = vec![
             CString::new("_name").map_err(|_| MpvError::InvalidCommandArgument("_name".into()))?,
             CString::new("id").map_err(|_| MpvError::InvalidCommandArgument("id".into()))?,
-            CString::new("format").map_err(|_| MpvError::InvalidCommandArgument("format".into()))?,
+            CString::new("format")
+                .map_err(|_| MpvError::InvalidCommandArgument("format".into()))?,
             CString::new("data").map_err(|_| MpvError::InvalidCommandArgument("data".into()))?,
             CString::new("res_x").map_err(|_| MpvError::InvalidCommandArgument("res_x".into()))?,
             CString::new("res_y").map_err(|_| MpvError::InvalidCommandArgument("res_y".into()))?,
             CString::new("z").map_err(|_| MpvError::InvalidCommandArgument("z".into()))?,
-            CString::new("hidden").map_err(|_| MpvError::InvalidCommandArgument("hidden".into()))?,
+            CString::new("hidden")
+                .map_err(|_| MpvError::InvalidCommandArgument("hidden".into()))?,
             CString::new("osd-overlay")
                 .map_err(|_| MpvError::InvalidCommandArgument("osd-overlay".into()))?,
             CString::new(format).map_err(|_| MpvError::InvalidCommandArgument(format.into()))?,
