@@ -166,11 +166,13 @@ import app.danmaku.library.jvm.JvmLanLibraryClient
 import app.danmaku.server.LocalLibraryDiscoveryAnnouncer
 import app.danmaku.server.LocalLibraryServerEvent
 import app.danmaku.server.PublishedLibrary
+import app.danmaku.server.PublicGetHookResponse
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.awt.Rectangle
+import java.awt.Desktop
 import java.awt.Window as AwtWindow
 import kotlin.math.roundToInt
 import java.nio.file.Files
@@ -257,6 +259,9 @@ private fun DesktopShell(
     }
     var externalAnimeProviderSettings by remember(externalAnimeCredentialStore) {
         mutableStateOf(externalAnimeCredentialStore.loadSettings())
+    }
+    val myAnimeListOAuthService = remember(externalAnimeCredentialStore) {
+        MyAnimeListOAuthService(externalAnimeCredentialStore)
     }
     val localPlaybackPreparer = remember(catalogStore) {
         DesktopLocalPlaybackPreparer(catalogStore)
@@ -603,6 +608,33 @@ private fun DesktopShell(
                 scope.launch {
                     appendServerEvent(event)
                 }
+            },
+            onMyAnimeListOAuthCallback = { query ->
+                runCatching {
+                    myAnimeListOAuthService.completeAuthorization(query)
+                }.fold(
+                    onSuccess = { updatedSettings ->
+                        scope.launch {
+                            externalAnimeProviderSettings = updatedSettings
+                            appendDiagnostic("settings", "MyAnimeList OAuth authorization complete")
+                        }
+                        PublicGetHookResponse(
+                            status = 200,
+                            contentType = "text/html; charset=utf-8",
+                            body = "<!doctype html><title>Danmaku</title><h1>MyAnimeList connected</h1><p>You can close this tab and return to Danmaku.</p>",
+                        )
+                    },
+                    onFailure = { error ->
+                        scope.launch {
+                            appendDiagnostic("settings", "MyAnimeList OAuth authorization failed: ${error.message}")
+                        }
+                        PublicGetHookResponse(
+                            status = 400,
+                            contentType = "text/html; charset=utf-8",
+                            body = "<!doctype html><title>Danmaku</title><h1>MyAnimeList authorization failed</h1><p>${(error.message ?: "Unknown error").escapeHtml()}</p>",
+                        )
+                    },
+                )
             },
         )
     }
@@ -1555,6 +1587,7 @@ private fun DesktopShell(
 
     fun saveExternalAnimeProviderSettings(
         myAnimeListClientId: String?,
+        myAnimeListClientSecret: String?,
         myAnimeListAccessToken: String?,
         bangumiBaseUrl: String,
         bangumiUserAgent: String,
@@ -1565,6 +1598,7 @@ private fun DesktopShell(
                 withContext(Dispatchers.IO) {
                     externalAnimeCredentialStore.saveSettings(
                         myAnimeListClientId = myAnimeListClientId,
+                        myAnimeListClientSecret = myAnimeListClientSecret,
                         myAnimeListAccessToken = myAnimeListAccessToken,
                         bangumiBaseUrl = bangumiBaseUrl,
                         bangumiUserAgent = bangumiUserAgent,
@@ -1576,6 +1610,46 @@ private fun DesktopShell(
                 appendDiagnostic("settings", "Saved MyAnimeList/Bangumi provider settings")
             }.onFailure {
                 appendDiagnostic("settings", "Failed to save external anime provider settings: ${it.message}")
+            }
+        }
+    }
+
+    fun startMyAnimeListOAuth(
+        myAnimeListClientId: String?,
+        myAnimeListClientSecret: String?,
+    ) {
+        scope.launch {
+            runCatching {
+                val updatedSettings = withContext(Dispatchers.IO) {
+                    externalAnimeCredentialStore.saveSettings(
+                        myAnimeListClientId = myAnimeListClientId,
+                        myAnimeListClientSecret = myAnimeListClientSecret,
+                        myAnimeListAccessToken = null,
+                        bangumiBaseUrl = externalAnimeProviderSettings.bangumiBaseUrl,
+                        bangumiUserAgent = externalAnimeProviderSettings.bangumiUserAgent,
+                        bangumiAccessToken = null,
+                    )
+                }
+                externalAnimeProviderSettings = updatedSettings
+                val redirectUri = "${server.baseUrl()}${DesktopLibraryServerRuntime.MY_ANIME_LIST_OAUTH_CALLBACK_PATH}"
+                val clientSecret = myAnimeListClientSecret?.trim()?.takeIf(String::isNotBlank)
+                    ?: withContext(Dispatchers.IO) {
+                        externalAnimeCredentialStore.loadMyAnimeListClientSecret()
+                    }
+                val authorizationUri = myAnimeListOAuthService.beginAuthorization(
+                    redirectUri = redirectUri,
+                    clientSecret = clientSecret,
+                )
+                if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
+                    Desktop.getDesktop().browse(authorizationUri)
+                    "Opened MyAnimeList authorization in browser; callback=$redirectUri"
+                } else {
+                    "Open this MyAnimeList authorization URL: $authorizationUri"
+                }
+            }.onSuccess { message ->
+                appendDiagnostic("settings", message)
+            }.onFailure {
+                appendDiagnostic("settings", "Failed to start MyAnimeList OAuth: ${it.message}")
             }
         }
     }
@@ -2019,6 +2093,7 @@ private fun DesktopShell(
                             onCleanupExpiredDandanplayCaches = ::cleanupExpiredDandanplayCaches,
                             externalAnimeProviderSettings = externalAnimeProviderSettings,
                             onSaveExternalAnimeProviderSettings = ::saveExternalAnimeProviderSettings,
+                            onStartMyAnimeListOAuth = ::startMyAnimeListOAuth,
                             onClearMyAnimeListSettings = ::clearMyAnimeListSettings,
                             onClearBangumiSettings = ::clearBangumiSettings,
                         )
@@ -5261,7 +5336,8 @@ private fun ProfileTab(
     onClearDandanplaySettings: () -> Unit,
     onCleanupExpiredDandanplayCaches: () -> Unit,
     externalAnimeProviderSettings: ExternalAnimeProviderSettings,
-    onSaveExternalAnimeProviderSettings: (String?, String?, String, String, String?) -> Unit,
+    onSaveExternalAnimeProviderSettings: (String?, String?, String?, String, String, String?) -> Unit,
+    onStartMyAnimeListOAuth: (String?, String?) -> Unit,
     onClearMyAnimeListSettings: () -> Unit,
     onClearBangumiSettings: () -> Unit,
 ) {
@@ -5295,6 +5371,7 @@ private fun ProfileTab(
         ExternalAnimeProviderSettingsCard(
             settings = externalAnimeProviderSettings,
             onSave = onSaveExternalAnimeProviderSettings,
+            onStartMyAnimeListOAuth = onStartMyAnimeListOAuth,
             onClearMyAnimeList = onClearMyAnimeListSettings,
             onClearBangumi = onClearBangumiSettings,
         )
@@ -5560,11 +5637,13 @@ private fun DandanplayProviderCard(
 @Composable
 private fun ExternalAnimeProviderSettingsCard(
     settings: ExternalAnimeProviderSettings,
-    onSave: (String?, String?, String, String, String?) -> Unit,
+    onSave: (String?, String?, String?, String, String, String?) -> Unit,
+    onStartMyAnimeListOAuth: (String?, String?) -> Unit,
     onClearMyAnimeList: () -> Unit,
     onClearBangumi: () -> Unit,
 ) {
     var myAnimeListClientId by remember(settings) { mutableStateOf(settings.myAnimeListClientId.orEmpty()) }
+    var myAnimeListClientSecret by remember(settings) { mutableStateOf("") }
     var myAnimeListAccessToken by remember(settings) { mutableStateOf("") }
     var bangumiBaseUrl by remember(settings) { mutableStateOf(settings.bangumiBaseUrl) }
     var bangumiUserAgent by remember(settings) { mutableStateOf(settings.bangumiUserAgent) }
@@ -5594,6 +5673,22 @@ private fun ExternalAnimeProviderSettingsCard(
                         "MyAnimeList access token (leave blank to keep saved token)"
                     } else {
                         "MyAnimeList access token (optional)"
+                    },
+                )
+            },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            visualTransformation = PasswordVisualTransformation(),
+        )
+        OutlinedTextField(
+            value = myAnimeListClientSecret,
+            onValueChange = { myAnimeListClientSecret = it },
+            label = {
+                Text(
+                    if (settings.hasMyAnimeListClientSecret) {
+                        "MyAnimeList client secret (leave blank to keep saved secret)"
+                    } else {
+                        "MyAnimeList client secret (optional for OAuth)"
                     },
                 )
             },
@@ -5638,16 +5733,27 @@ private fun ExternalAnimeProviderSettingsCard(
                 onClick = {
                     onSave(
                         myAnimeListClientId,
+                        myAnimeListClientSecret,
                         myAnimeListAccessToken,
                         bangumiBaseUrl,
                         bangumiUserAgent,
                         bangumiAccessToken,
                     )
+                    myAnimeListClientSecret = ""
                     myAnimeListAccessToken = ""
                     bangumiAccessToken = ""
                 },
             ) {
                 Text("Save external lists")
+            }
+            Button(
+                onClick = {
+                    onStartMyAnimeListOAuth(myAnimeListClientId, myAnimeListClientSecret)
+                    myAnimeListClientSecret = ""
+                },
+                enabled = myAnimeListClientId.isNotBlank(),
+            ) {
+                Text("Connect MAL")
             }
             Button(onClick = onClearMyAnimeList) {
                 Text("Clear MAL")
@@ -6743,6 +6849,20 @@ private fun String.isDandanplayWarningStatus(): Boolean {
 
 private fun String.redactToken(): String =
     replace(Regex("([?&]token=)[^&]+"), "\$1...")
+
+private fun String.escapeHtml(): String =
+    buildString(length) {
+        this@escapeHtml.forEach { char ->
+            when (char) {
+                '&' -> append("&amp;")
+                '<' -> append("&lt;")
+                '>' -> append("&gt;")
+                '"' -> append("&quot;")
+                '\'' -> append("&#39;")
+                else -> append(char)
+            }
+        }
+    }
 
 private fun Long.toDiagnosticTime(): String =
     DIAGNOSTIC_TIME_FORMATTER.format(

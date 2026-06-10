@@ -3,6 +3,8 @@ package app.danmaku.desktop
 import app.danmaku.server.AuthenticatedPostHook
 import app.danmaku.server.LocalLibraryServer
 import app.danmaku.server.LocalLibraryServerEvent
+import app.danmaku.server.PublicGetHook
+import app.danmaku.server.PublicGetHookResponse
 
 class DesktopLibraryServerRuntime private constructor(
     val server: LocalLibraryServer,
@@ -22,6 +24,7 @@ class DesktopLibraryServerRuntime private constructor(
 
     companion object {
         const val ANI_RSS_DOWNLOAD_END_WEBHOOK_PATH = "/api/hooks/ani-rss/download-end"
+        const val MY_ANIME_LIST_OAUTH_CALLBACK_PATH = "/oauth/myanimelist/callback"
 
         fun start(
             catalogStore: DesktopLibraryCatalogStore,
@@ -33,6 +36,7 @@ class DesktopLibraryServerRuntime private constructor(
             debounceMillis: Long = 1_000L,
             onLibraryPublished: (IndexedLocalLibrary) -> Unit = {},
             onServerEvent: (LocalLibraryServerEvent) -> Unit = {},
+            onMyAnimeListOAuthCallback: ((Map<String, String>) -> PublicGetHookResponse)? = null,
         ): DesktopLibraryServerRuntime {
             lateinit var server: LocalLibraryServer
             val trigger = AniRssCompletionRescanTrigger(
@@ -48,12 +52,21 @@ class DesktopLibraryServerRuntime private constructor(
                 token = aniRssWebhookToken,
                 onAccepted = { trigger.requestRescan() },
             )
+            val publicGetHooks = listOfNotNull(
+                onMyAnimeListOAuthCallback?.let { callback ->
+                    PublicGetHook(
+                        path = MY_ANIME_LIST_OAUTH_CALLBACK_PATH,
+                        onAccepted = callback,
+                    )
+                },
+            )
             return try {
                 server = if (pairingToken == null) {
                     LocalLibraryServer(
                         port = port,
                         progressStore = catalogStore,
                         authenticatedPostHooks = listOf(hook),
+                        publicGetHooks = publicGetHooks,
                         eventSink = onServerEvent,
                     )
                 } else {
@@ -62,6 +75,7 @@ class DesktopLibraryServerRuntime private constructor(
                         pairingToken = pairingToken,
                         progressStore = catalogStore,
                         authenticatedPostHooks = listOf(hook),
+                        publicGetHooks = publicGetHooks,
                         eventSink = onServerEvent,
                     )
                 }

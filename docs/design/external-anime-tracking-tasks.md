@@ -34,6 +34,7 @@ Status legend:
 ## Phase 4 - External Progress Sync
 
 - `[x]` Add provider auth/settings for MyAnimeList.
+- `[x]` Add desktop MyAnimeList OAuth authorization callback and encrypted token storage.
 - `[x]` Add provider auth/settings for Bangumi.
 - `[x]` Convert local progress into provider list status, watched episode count, and optional score updates.
 - `[x]` Add dry-run preview before writing external list state.
@@ -42,9 +43,9 @@ Status legend:
 
 ## Phase 5 - QA
 
-- `[ ]` Unit-test mapping ranking and tracking update derivation.
-- `[ ]` Unit-test desktop mapping persistence migrations with MAL and Bangumi IDs.
-- `[ ]` Integration-test provider clients with recorded/fake responses.
+- `[x]` Unit-test mapping ranking and tracking update derivation.
+- `[x]` Unit-test desktop mapping persistence migrations with MAL and Bangumi IDs.
+- `[x]` Integration-test provider clients with recorded/fake responses.
 - `[ ]` Manual QA: map series to MAL and Bangumi, play episodes, sync progress, relaunch, and verify persisted state.
 
 ## Verification Log
@@ -59,3 +60,4 @@ Status legend:
 - 2026-06-10: Added desktop Profile settings and encrypted credential storage for MyAnimeList client/access tokens and Bangumi base URL/User-Agent/access tokens.
 - 2026-06-10: Added a desktop External Sync dry-run view that previews provider-neutral status and watched-episode updates plus skipped mapping reasons before any external list write is attempted.
 - 2026-06-10: Added provider-neutral external-progress conflict detection, sync failure retry/backoff metadata, and desktop External Sync sections for conflicts and failures.
+- 2026-06-10: Added the desktop MyAnimeList OAuth browser flow with local callback handling, encrypted access/refresh token persistence, fake token-exchange tests, public callback hook tests, and verified Phase 5 automated coverage. Manual live-account QA remains.

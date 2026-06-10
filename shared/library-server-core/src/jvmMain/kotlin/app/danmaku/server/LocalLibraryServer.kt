@@ -24,6 +24,7 @@ class LocalLibraryServer(
     val pairingToken: String = generatePairingToken(),
     private val progressStore: PlaybackProgressStore = InMemoryPlaybackProgressStore(),
     authenticatedPostHooks: List<AuthenticatedPostHook> = emptyList(),
+    publicGetHooks: List<PublicGetHook> = emptyList(),
     private val eventSink: (LocalLibraryServerEvent) -> Unit = {},
 ) : AutoCloseable {
     private val server = HttpServer.create(InetSocketAddress(port), 0)
@@ -39,6 +40,9 @@ class LocalLibraryServer(
         require(authenticatedPostHooks.map(AuthenticatedPostHook::path).distinct().size == authenticatedPostHooks.size) {
             "authenticated hook paths must be unique"
         }
+        require(publicGetHooks.map(PublicGetHook::path).distinct().size == publicGetHooks.size) {
+            "public GET hook paths must be unique"
+        }
         server.executor = executor
         server.createContext("/api/server/status", ::handleServerStatus)
         server.createContext("/api/library", ::handleCatalog)
@@ -50,6 +54,11 @@ class LocalLibraryServer(
         authenticatedPostHooks.forEach { hook ->
             server.createContext(hook.path) { exchange ->
                 handleAuthenticatedPostHook(exchange, hook)
+            }
+        }
+        publicGetHooks.forEach { hook ->
+            server.createContext(hook.path) { exchange ->
+                handlePublicGetHook(exchange, hook)
             }
         }
     }
@@ -369,6 +378,31 @@ class LocalLibraryServer(
             }
     }
 
+    private fun handlePublicGetHook(
+        exchange: HttpExchange,
+        hook: PublicGetHook,
+    ) {
+        if (exchange.requestMethod != "GET") {
+            exchange.recordRequest("public-hook", 405, "method=${exchange.requestMethod}")
+            exchange.sendStatus(405)
+            return
+        }
+
+        runCatching { hook.handle(exchange.requestURI.rawQuery.parseQueryParameters()) }
+            .onSuccess { response ->
+                exchange.recordRequest("public-hook", response.status, "path=${hook.path}")
+                exchange.sendText(response.status, response.contentType, response.body)
+            }
+            .onFailure { error ->
+                exchange.recordRequest("public-hook", 500, "path=${hook.path}; error=${error.message}")
+                exchange.sendText(
+                    status = 500,
+                    contentType = "text/plain; charset=utf-8",
+                    body = "Request failed.",
+                )
+            }
+    }
+
     private fun parseRange(header: String, fileSize: Long): LongRange? {
         if (!header.startsWith("bytes=") || fileSize == 0L) return null
         val value = header.removePrefix("bytes=")
@@ -404,17 +438,10 @@ class LocalLibraryServer(
 
     private fun HttpExchange.isAuthorized(): Boolean {
         val suppliedToken = requestURI.rawQuery
-            ?.split('&')
-            ?.mapNotNull { parameter ->
-                parameter.split('=', limit = 2)
-                    .takeIf { it.size == 2 }
-                    ?.let { (key, value) ->
-                        URLDecoder.decode(key, Charsets.UTF_8) to
-                            URLDecoder.decode(value, Charsets.UTF_8)
-                    }
-            }
-            ?.firstOrNull { (key) -> key == "token" }
-            ?.second
+            .parseQueryParameters()
+            .entries
+            .firstOrNull { (key) -> key == "token" }
+            ?.value
             ?: return false
         return MessageDigest.isEqual(
             pairingToken.toByteArray(),
@@ -433,6 +460,18 @@ class LocalLibraryServer(
         responseHeaders["Cache-Control"] = listOf("no-store")
         sendResponseHeaders(200, body.size.toLong())
         responseBody.use { it.write(body) }
+    }
+
+    private fun HttpExchange.sendText(
+        status: Int,
+        contentType: String,
+        body: String,
+    ) {
+        val bytes = body.toByteArray()
+        responseHeaders["Content-Type"] = listOf(contentType)
+        responseHeaders["Cache-Control"] = listOf("no-store")
+        sendResponseHeaders(status, bytes.size.toLong())
+        responseBody.use { it.write(bytes) }
     }
 
     private fun HttpExchange.recordRequest(
@@ -476,6 +515,29 @@ class LocalLibraryServer(
     }
 }
 
+data class PublicGetHook(
+    val path: String,
+    val onAccepted: (Map<String, String>) -> PublicGetHookResponse,
+) {
+    init {
+        require(path.startsWith("/")) { "public GET hook path must be absolute" }
+    }
+
+    fun handle(queryParameters: Map<String, String>): PublicGetHookResponse =
+        onAccepted(queryParameters)
+}
+
+data class PublicGetHookResponse(
+    val status: Int,
+    val contentType: String = "text/plain; charset=utf-8",
+    val body: String,
+) {
+    init {
+        require(status in 100..599) { "status must be a valid HTTP status code" }
+        require(contentType.isNotBlank()) { "contentType must not be blank" }
+    }
+}
+
 data class LocalLibraryServerEvent(
     val occurredAtEpochMs: Long,
     val category: String,
@@ -484,3 +546,17 @@ data class LocalLibraryServerEvent(
     val status: Int,
     val detail: String,
 )
+
+private fun String?.parseQueryParameters(): Map<String, String> =
+    this
+        ?.split('&')
+        ?.mapNotNull { parameter ->
+            parameter.split('=', limit = 2)
+                .takeIf { it.size == 2 }
+                ?.let { (key, value) ->
+                    URLDecoder.decode(key, Charsets.UTF_8) to
+                        URLDecoder.decode(value, Charsets.UTF_8)
+                }
+        }
+        ?.toMap()
+        .orEmpty()

@@ -11,6 +11,7 @@ class ExternalAnimeCredentialStore(
     fun loadSettings(): ExternalAnimeProviderSettings =
         ExternalAnimeProviderSettings(
             myAnimeListClientId = store.loadSetting(MAL_CLIENT_ID_SETTING_KEY)?.value?.takeIf(String::isNotBlank),
+            hasMyAnimeListClientSecret = loadSecret(MAL_CLIENT_SECRET_SETTING_KEY) != null,
             hasMyAnimeListAccessToken = loadSecret(MAL_ACCESS_TOKEN_SETTING_KEY) != null,
             bangumiBaseUrl = store.loadSetting(BANGUMI_BASE_URL_SETTING_KEY)?.value
                 ?: DEFAULT_BANGUMI_BASE_URL,
@@ -35,11 +36,24 @@ class ExternalAnimeCredentialStore(
     fun loadMyAnimeListAccessToken(): String? =
         loadSecret(MAL_ACCESS_TOKEN_SETTING_KEY)
 
+    fun loadMyAnimeListClientSecret(): String? =
+        loadSecret(MAL_CLIENT_SECRET_SETTING_KEY)
+
+    fun loadMyAnimeListOAuthTokens(): MyAnimeListOAuthTokens? {
+        val accessToken = loadSecret(MAL_ACCESS_TOKEN_SETTING_KEY) ?: return null
+        return MyAnimeListOAuthTokens(
+            accessToken = accessToken,
+            refreshToken = loadSecret(MAL_REFRESH_TOKEN_SETTING_KEY),
+            expiresAtEpochMs = store.loadSetting(MAL_EXPIRES_AT_SETTING_KEY)?.value?.toLongOrNull(),
+        )
+    }
+
     fun loadBangumiAccessToken(): String? =
         loadSecret(BANGUMI_ACCESS_TOKEN_SETTING_KEY)
 
     fun saveSettings(
         myAnimeListClientId: String?,
+        myAnimeListClientSecret: String?,
         myAnimeListAccessToken: String?,
         bangumiBaseUrl: String,
         bangumiUserAgent: String,
@@ -47,6 +61,7 @@ class ExternalAnimeCredentialStore(
     ): ExternalAnimeProviderSettings {
         val existing = loadSettings()
         val trimmedMalClientId = myAnimeListClientId?.trim()?.takeIf(String::isNotBlank)
+        val trimmedMalSecret = myAnimeListClientSecret?.trim()?.takeIf(String::isNotBlank)
         val trimmedMalToken = myAnimeListAccessToken?.trim()?.takeIf(String::isNotBlank)
         val trimmedBangumiToken = bangumiAccessToken?.trim()?.takeIf(String::isNotBlank)
         val normalizedBangumiBaseUrl = normalizeHttpsBaseUrl(bangumiBaseUrl, "Bangumi")
@@ -55,9 +70,17 @@ class ExternalAnimeCredentialStore(
 
         if (trimmedMalClientId == null) {
             store.deleteSetting(MAL_CLIENT_ID_SETTING_KEY)
+            store.deleteSetting(MAL_CLIENT_SECRET_SETTING_KEY)
             store.deleteSetting(MAL_ACCESS_TOKEN_SETTING_KEY)
+            store.deleteSetting(MAL_REFRESH_TOKEN_SETTING_KEY)
+            store.deleteSetting(MAL_EXPIRES_AT_SETTING_KEY)
         } else {
             saveSetting(MAL_CLIENT_ID_SETTING_KEY, trimmedMalClientId)
+            if (trimmedMalSecret != null) {
+                saveSecret(MAL_CLIENT_SECRET_SETTING_KEY, trimmedMalSecret)
+            } else if (!existing.hasMyAnimeListClientSecret) {
+                store.deleteSetting(MAL_CLIENT_SECRET_SETTING_KEY)
+            }
             if (trimmedMalToken != null) {
                 saveSecret(MAL_ACCESS_TOKEN_SETTING_KEY, trimmedMalToken)
             } else if (!existing.hasMyAnimeListAccessToken) {
@@ -76,9 +99,28 @@ class ExternalAnimeCredentialStore(
         return loadSettings()
     }
 
+    fun saveMyAnimeListOAuthTokens(
+        accessToken: String,
+        refreshToken: String?,
+        expiresInSeconds: Long?,
+    ): ExternalAnimeProviderSettings {
+        require(accessToken.isNotBlank()) { "accessToken must not be blank" }
+        saveSecret(MAL_ACCESS_TOKEN_SETTING_KEY, accessToken)
+        refreshToken
+            ?.takeIf(String::isNotBlank)
+            ?.let { saveSecret(MAL_REFRESH_TOKEN_SETTING_KEY, it) }
+        expiresInSeconds
+            ?.takeIf { it > 0 }
+            ?.let { saveSetting(MAL_EXPIRES_AT_SETTING_KEY, (nowEpochMs() + it * 1_000).toString()) }
+        return loadSettings()
+    }
+
     fun clearMyAnimeListSettings(): ExternalAnimeProviderSettings {
         store.deleteSetting(MAL_CLIENT_ID_SETTING_KEY)
+        store.deleteSetting(MAL_CLIENT_SECRET_SETTING_KEY)
         store.deleteSetting(MAL_ACCESS_TOKEN_SETTING_KEY)
+        store.deleteSetting(MAL_REFRESH_TOKEN_SETTING_KEY)
+        store.deleteSetting(MAL_EXPIRES_AT_SETTING_KEY)
         return loadSettings()
     }
 
@@ -119,7 +161,10 @@ class ExternalAnimeCredentialStore(
 
     private companion object {
         const val MAL_CLIENT_ID_SETTING_KEY = "external.my_anime_list.client_id"
+        const val MAL_CLIENT_SECRET_SETTING_KEY = "external.my_anime_list.client_secret.dpapi"
         const val MAL_ACCESS_TOKEN_SETTING_KEY = "external.my_anime_list.access_token.dpapi"
+        const val MAL_REFRESH_TOKEN_SETTING_KEY = "external.my_anime_list.refresh_token.dpapi"
+        const val MAL_EXPIRES_AT_SETTING_KEY = "external.my_anime_list.expires_at_epoch_ms"
         const val BANGUMI_BASE_URL_SETTING_KEY = "external.bangumi.base_url"
         const val BANGUMI_USER_AGENT_SETTING_KEY = "external.bangumi.user_agent"
         const val BANGUMI_ACCESS_TOKEN_SETTING_KEY = "external.bangumi.access_token.dpapi"
@@ -128,6 +173,7 @@ class ExternalAnimeCredentialStore(
 
 data class ExternalAnimeProviderSettings(
     val myAnimeListClientId: String? = null,
+    val hasMyAnimeListClientSecret: Boolean = false,
     val hasMyAnimeListAccessToken: Boolean = false,
     val bangumiBaseUrl: String = DEFAULT_BANGUMI_BASE_URL,
     val bangumiUserAgent: String = DEFAULT_BANGUMI_USER_AGENT,
@@ -136,7 +182,8 @@ data class ExternalAnimeProviderSettings(
     val myAnimeListStatusText: String
         get() = when {
             myAnimeListClientId == null -> "not configured"
-            hasMyAnimeListAccessToken -> "client ID and access token saved"
+            hasMyAnimeListAccessToken -> "OAuth token saved"
+            hasMyAnimeListClientSecret -> "client ID and secret saved"
             else -> "client ID saved for anime search"
         }
 
@@ -146,6 +193,18 @@ data class ExternalAnimeProviderSettings(
         } else {
             "public search only"
         }
+}
+
+data class MyAnimeListOAuthTokens(
+    val accessToken: String,
+    val refreshToken: String?,
+    val expiresAtEpochMs: Long?,
+) {
+    init {
+        require(accessToken.isNotBlank()) { "accessToken must not be blank" }
+        require(refreshToken == null || refreshToken.isNotBlank()) { "refreshToken must not be blank" }
+        require(expiresAtEpochMs == null || expiresAtEpochMs >= 0) { "expiresAtEpochMs must not be negative" }
+    }
 }
 
 private fun normalizeHttpsBaseUrl(value: String, label: String): String {

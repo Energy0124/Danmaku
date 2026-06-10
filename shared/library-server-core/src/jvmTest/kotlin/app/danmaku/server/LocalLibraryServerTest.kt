@@ -170,6 +170,35 @@ class LocalLibraryServerTest {
     }
 
     @Test
+    fun acceptsPublicGetHooksWithDecodedQueryParameters() {
+        val hook = PublicGetHook(
+            path = "/oauth/test/callback",
+            onAccepted = { query ->
+                PublicGetHookResponse(
+                    status = 200,
+                    contentType = "text/plain; charset=utf-8",
+                    body = "${query.getValue("code")}:${query.getValue("state")}",
+                )
+            },
+        )
+
+        LocalLibraryServer(
+            port = 0,
+            pairingToken = "123456",
+            publicGetHooks = listOf(hook),
+        ).use { server ->
+            server.start()
+            val url = "${server.baseUrl()}${hook.path}?code=abc%20123&state=expected"
+
+            val response = connection(url)
+
+            assertEquals(200, response.responseCode)
+            assertEquals("abc 123:expected", response.inputStream.bufferedReader().readText())
+            assertEquals(405, connection("${server.baseUrl()}${hook.path}", method = "POST").responseCode)
+        }
+    }
+
+    @Test
     fun rejectsUnauthorizedMediaRequestsAndInvalidRanges() {
         withServer(byteArrayOf(0, 1, 2, 3, 4, 5)) { server, item ->
             val mediaUrl = "${server.baseUrl()}${item.streamPath}"
