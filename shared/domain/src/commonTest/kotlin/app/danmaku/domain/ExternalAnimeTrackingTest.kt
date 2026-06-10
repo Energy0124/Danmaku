@@ -204,7 +204,7 @@ class ExternalAnimeTrackingTest {
             plan.updates.map { it.mapping.animeId.provider },
         )
         assertEquals(listOf(1, 1), plan.updates.map { it.update.watchedEpisodes })
-        assertEquals("2 updates ready, 3 skipped", plan.summary.label)
+        assertEquals("2 updates ready, 0 conflicts, 3 skipped", plan.summary.label)
         assertEquals(1, plan.summary.providerUpdateCounts.getValue(ExternalAnimeProvider.BANGUMI))
         assertEquals(1, plan.summary.providerUpdateCounts.getValue(ExternalAnimeProvider.MY_ANIME_LIST))
         assertEquals(1, plan.summary.skipReasonCounts.getValue(ExternalAnimeTrackingPlanSkipReason.MISSING_LOCAL_SERIES))
@@ -236,6 +236,84 @@ class ExternalAnimeTrackingTest {
         assertEquals(
             "Bangumi: series is not linked (apothecary)",
             plan.skipped.first().label,
+        )
+    }
+
+    @Test
+    fun externalTrackingPlanConflictsWhenExternalProgressIsAhead() {
+        val catalog = libraryCatalog(librarySeries())
+        val mapping = externalMapping("frieren", ExternalAnimeProvider.MY_ANIME_LIST, 52991)
+        val progresses = listOf(
+            playbackProgress("episode-1", positionMs = 20_000, durationMs = 1_500_000),
+            playbackProgress("episode-2", positionMs = 20_000, durationMs = 1_500_000),
+        )
+
+        val plan = catalog.externalAnimeTrackingPlan(
+            mappings = listOf(mapping),
+            progresses = progresses,
+            externalEntries = listOf(
+                ExternalAnimeListEntry(
+                    animeId = mapping.animeId,
+                    status = ExternalAnimeListStatus.COMPLETED,
+                    watchedEpisodes = 2,
+                    updatedAtEpochMs = 456,
+                ),
+            ),
+        )
+
+        assertEquals(emptyList(), plan.updates)
+        assertEquals(1, plan.conflicts.size)
+        val conflict = plan.conflicts.single()
+        assertEquals(ExternalAnimeTrackingPlanConflictReason.EXTERNAL_PROGRESS_AHEAD, conflict.reason)
+        assertEquals(0, conflict.localUpdate.watchedEpisodes)
+        assertEquals(2, conflict.externalEntry.watchedEpisodes)
+        assertEquals("Frieren -> MyAnimeList: external progress is ahead of local progress", conflict.label)
+        assertEquals("0 updates ready, 1 conflicts, 0 skipped", plan.summary.label)
+    }
+
+    @Test
+    fun externalTrackingPlanKeepsFailuresForSelectedProviders() {
+        val catalog = libraryCatalog(librarySeries())
+        val malFailure = ExternalAnimeSyncFailure(
+            animeId = ExternalAnimeId(ExternalAnimeProvider.MY_ANIME_LIST, 52991),
+            message = "HTTP 429",
+            failedAtEpochMs = 1_000,
+            attemptCount = 2,
+            retryAfterEpochMs = 61_000,
+        )
+        val dandanplayFailure = malFailure.copy(
+            animeId = ExternalAnimeId(ExternalAnimeProvider.DANDANPLAY, 123),
+        )
+
+        val plan = catalog.externalAnimeTrackingPlan(
+            mappings = emptyList(),
+            progresses = emptyList(),
+            failures = listOf(malFailure, dandanplayFailure),
+        )
+
+        assertEquals(listOf(malFailure), plan.failures)
+        assertEquals(1, plan.summary.failureCount)
+    }
+
+    @Test
+    fun computesExternalAnimeSyncRetryBackoff() {
+        assertEquals(
+            31_000,
+            externalAnimeSyncRetryAfterEpochMs(
+                failedAtEpochMs = 1_000,
+                attemptCount = 1,
+                baseDelayMs = 30_000,
+                maxDelayMs = 120_000,
+            ),
+        )
+        assertEquals(
+            121_000,
+            externalAnimeSyncRetryAfterEpochMs(
+                failedAtEpochMs = 1_000,
+                attemptCount = 4,
+                baseDelayMs = 30_000,
+                maxDelayMs = 120_000,
+            ),
         )
     }
 

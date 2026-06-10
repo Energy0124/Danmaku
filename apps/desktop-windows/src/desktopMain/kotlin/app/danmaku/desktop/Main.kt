@@ -3651,6 +3651,12 @@ private fun ExternalSyncPreviewView(
                 modifier = Modifier.weight(1f),
             )
             SummaryCard(
+                title = "Conflicts",
+                value = plan.summary.conflictCount.toString(),
+                caption = "external ahead",
+                modifier = Modifier.weight(1f),
+            )
+            SummaryCard(
                 title = "Skipped",
                 value = plan.summary.skippedCount.toString(),
                 caption = "mapping checks",
@@ -3682,6 +3688,32 @@ private fun ExternalSyncPreviewView(
                 }
             }
         }
+        Text("Conflicts", fontWeight = FontWeight.Bold)
+        if (plan.conflicts.isEmpty()) {
+            EmptyState("No external progress conflicts are detected.")
+        } else {
+            LazyColumn(
+                modifier = Modifier.heightIn(max = 220.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(plan.conflicts, key = { conflict -> "${conflict.mapping.localSeriesId}-${conflict.mapping.animeId.provider}" }) { conflict ->
+                    ExternalSyncConflictRow(conflict)
+                }
+            }
+        }
+        Text("Sync failures", fontWeight = FontWeight.Bold)
+        if (plan.failures.isEmpty()) {
+            EmptyState("No sync failures recorded.")
+        } else {
+            LazyColumn(
+                modifier = Modifier.heightIn(max = 180.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(plan.failures, key = { failure -> "${failure.animeId.provider}-${failure.animeId.value}" }) { failure ->
+                    ExternalSyncFailureRow(failure)
+                }
+            }
+        }
         if (plan.skipped.isNotEmpty()) {
             Text("Skipped", fontWeight = FontWeight.Bold)
             LazyColumn(
@@ -3709,6 +3741,65 @@ private fun ExternalSyncPreviewView(
             if (plan.skipped.size > 40) {
                 Text("+${plan.skipped.size - 40} more skipped", color = DanmakuColors.TextMuted)
             }
+        }
+    }
+}
+
+@Composable
+private fun ExternalSyncConflictRow(
+    conflict: app.danmaku.domain.ExternalAnimeTrackingPlanConflict,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(DanmakuColors.SurfaceRaised, RoundedCornerShape(8.dp))
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Icon(Icons.Filled.Warning, contentDescription = null, tint = DanmakuColors.Warning)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(conflict.series.title, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                "${conflict.mapping.animeId.provider.displayName} #${conflict.mapping.animeId.value}",
+                color = DanmakuColors.TextMuted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(conflict.reason.displayName, color = DanmakuColors.Warning, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Column(horizontalAlignment = Alignment.End) {
+            Text("Local ${conflict.localUpdate.watchedEpisodes ?: 0}", color = DanmakuColors.TextMuted, maxLines = 1)
+            Text("External ${conflict.externalEntry.watchedEpisodes ?: 0}", color = DanmakuColors.Warning, maxLines = 1)
+        }
+    }
+}
+
+@Composable
+private fun ExternalSyncFailureRow(
+    failure: app.danmaku.domain.ExternalAnimeSyncFailure,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(DanmakuColors.SurfaceRaised, RoundedCornerShape(8.dp))
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Icon(Icons.Filled.Warning, contentDescription = null, tint = DanmakuColors.Warning)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                "${failure.animeId.provider.displayName} #${failure.animeId.value}",
+                color = Color.White,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(failure.message, color = DanmakuColors.Warning, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Column(horizontalAlignment = Alignment.End) {
+            Text("Attempt ${failure.attemptCount}", color = DanmakuColors.TextMuted, maxLines = 1)
+            Text("Retry ${failure.retryAfterEpochMs.formatEpochTime()}", color = DanmakuColors.TextMuted, maxLines = 1)
         }
     }
 }
@@ -6654,6 +6745,11 @@ private fun String.redactToken(): String =
     replace(Regex("([?&]token=)[^&]+"), "\$1...")
 
 private fun Long.toDiagnosticTime(): String =
+    DIAGNOSTIC_TIME_FORMATTER.format(
+        Instant.ofEpochMilli(this).atZone(ZoneId.systemDefault()),
+    )
+
+private fun Long.formatEpochTime(): String =
     DIAGNOSTIC_TIME_FORMATTER.format(
         Instant.ofEpochMilli(this).atZone(ZoneId.systemDefault()),
     )

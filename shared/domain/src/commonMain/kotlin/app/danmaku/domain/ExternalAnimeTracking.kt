@@ -116,9 +116,25 @@ data class ExternalAnimeTrackingUpdate(
     }
 }
 
+data class ExternalAnimeListEntry(
+    val animeId: ExternalAnimeId,
+    val status: ExternalAnimeListStatus? = null,
+    val watchedEpisodes: Int? = null,
+    val score: Int? = null,
+    val updatedAtEpochMs: Long? = null,
+) {
+    init {
+        require(watchedEpisodes == null || watchedEpisodes >= 0) { "watchedEpisodes must not be negative" }
+        require(score == null || score in 0..10) { "score must be between 0 and 10" }
+        require(updatedAtEpochMs == null || updatedAtEpochMs >= 0) { "updatedAtEpochMs must not be negative" }
+    }
+}
+
 data class ExternalAnimeTrackingPlan(
     val updates: List<ExternalAnimeTrackingPlanUpdate>,
     val skipped: List<ExternalAnimeTrackingPlanSkip>,
+    val conflicts: List<ExternalAnimeTrackingPlanConflict> = emptyList(),
+    val failures: List<ExternalAnimeSyncFailure> = emptyList(),
 ) {
     init {
         require(updates.map { it.mapping.localSeriesId to it.mapping.animeId.provider }.distinct().size == updates.size) {
@@ -130,6 +146,8 @@ data class ExternalAnimeTrackingPlan(
         ExternalAnimeTrackingPlanSummary(
             updateCount = updates.size,
             skippedCount = skipped.size,
+            conflictCount = conflicts.size,
+            failureCount = failures.size,
             providerUpdateCounts = updates
                 .groupingBy { it.mapping.animeId.provider }
                 .eachCount(),
@@ -158,18 +176,48 @@ data class ExternalAnimeTrackingPlanSkip(
         get() {
             val providerLabel = provider?.displayName ?: "External provider"
             return "$providerLabel: ${reason.displayName} ($localSeriesId)"
-        }
+    }
+}
+
+data class ExternalAnimeTrackingPlanConflict(
+    val series: LibrarySeries,
+    val mapping: ExternalAnimeMapping,
+    val localUpdate: ExternalAnimeTrackingUpdate,
+    val externalEntry: ExternalAnimeListEntry,
+    val reason: ExternalAnimeTrackingPlanConflictReason,
+) {
+    val label: String
+        get() = "${series.title} -> ${mapping.animeId.provider.displayName}: ${reason.displayName}"
+}
+
+data class ExternalAnimeSyncFailure(
+    val animeId: ExternalAnimeId,
+    val message: String,
+    val failedAtEpochMs: Long,
+    val attemptCount: Int,
+    val retryAfterEpochMs: Long,
+) {
+    init {
+        require(message.isNotBlank()) { "message must not be blank" }
+        require(failedAtEpochMs >= 0) { "failedAtEpochMs must not be negative" }
+        require(attemptCount > 0) { "attemptCount must be positive" }
+        require(retryAfterEpochMs >= failedAtEpochMs) { "retryAfterEpochMs must not be before failedAtEpochMs" }
+    }
 }
 
 data class ExternalAnimeTrackingPlanSummary(
     val updateCount: Int,
     val skippedCount: Int,
+    val conflictCount: Int = 0,
+    val failureCount: Int = 0,
     val providerUpdateCounts: Map<ExternalAnimeProvider, Int>,
     val skipReasonCounts: Map<ExternalAnimeTrackingPlanSkipReason, Int>,
 ) {
     init {
         require(updateCount >= 0) { "updateCount must not be negative" }
         require(skippedCount >= 0) { "skippedCount must not be negative" }
+        require(conflictCount >= 0) { "conflictCount must not be negative" }
+        require(failureCount >= 0) { "failureCount must not be negative" }
         require(providerUpdateCounts.values.all { it >= 0 }) {
             "provider update counts must not be negative"
         }
@@ -179,12 +227,16 @@ data class ExternalAnimeTrackingPlanSummary(
     }
 
     val label: String
-        get() = "$updateCount updates ready, $skippedCount skipped"
+        get() = "$updateCount updates ready, $conflictCount conflicts, $skippedCount skipped"
 }
 
 enum class ExternalAnimeTrackingPlanSkipReason {
     MISSING_LOCAL_SERIES,
     UNMAPPED_LOCAL_SERIES,
+}
+
+enum class ExternalAnimeTrackingPlanConflictReason {
+    EXTERNAL_PROGRESS_AHEAD,
 }
 
 val ExternalAnimeProvider.displayName: String
@@ -210,9 +262,16 @@ val ExternalAnimeTrackingPlanSkipReason.displayName: String
         ExternalAnimeTrackingPlanSkipReason.UNMAPPED_LOCAL_SERIES -> "series is not linked"
     }
 
+val ExternalAnimeTrackingPlanConflictReason.displayName: String
+    get() = when (this) {
+        ExternalAnimeTrackingPlanConflictReason.EXTERNAL_PROGRESS_AHEAD -> "external progress is ahead of local progress"
+    }
+
 fun LibraryCatalog.externalAnimeTrackingPlan(
     mappings: List<ExternalAnimeMapping>,
     progresses: List<PlaybackProgress>,
+    externalEntries: List<ExternalAnimeListEntry> = emptyList(),
+    failures: List<ExternalAnimeSyncFailure> = emptyList(),
     providers: Set<ExternalAnimeProvider> = setOf(
         ExternalAnimeProvider.MY_ANIME_LIST,
         ExternalAnimeProvider.BANGUMI,
@@ -230,7 +289,8 @@ fun LibraryCatalog.externalAnimeTrackingPlan(
     val mappingsBySeriesId = mappings
         .filter { mapping -> mapping.animeId.provider in providers }
         .groupBy(ExternalAnimeMapping::localSeriesId)
-    val updates = mappingsBySeriesId
+    val externalEntryByAnimeId = externalEntries.associateBy(ExternalAnimeListEntry::animeId)
+    val updateCandidates = mappingsBySeriesId
         .flatMap { (seriesId, seriesMappings) ->
             val series = seriesById[seriesId] ?: return@flatMap emptyList()
             seriesMappings.map { mapping ->
@@ -241,6 +301,31 @@ fun LibraryCatalog.externalAnimeTrackingPlan(
                 )
             }
         }
+    val conflicts = updateCandidates
+        .mapNotNull { update ->
+            val externalEntry = externalEntryByAnimeId[update.mapping.animeId] ?: return@mapNotNull null
+            val externalWatched = externalEntry.watchedEpisodes ?: return@mapNotNull null
+            val localWatched = update.update.watchedEpisodes ?: return@mapNotNull null
+            if (externalWatched > localWatched) {
+                ExternalAnimeTrackingPlanConflict(
+                    series = update.series,
+                    mapping = update.mapping,
+                    localUpdate = update.update,
+                    externalEntry = externalEntry,
+                    reason = ExternalAnimeTrackingPlanConflictReason.EXTERNAL_PROGRESS_AHEAD,
+                )
+            } else {
+                null
+            }
+        }
+        .sortedWith(
+            compareBy<ExternalAnimeTrackingPlanConflict> { it.series.title.lowercase() }
+                .thenBy { it.mapping.animeId.provider.name }
+                .thenBy { it.mapping.animeId.value },
+        )
+    val conflictAnimeIds = conflicts.mapTo(mutableSetOf()) { it.mapping.animeId }
+    val updates = updateCandidates
+        .filterNot { it.mapping.animeId in conflictAnimeIds }
         .sortedWith(
             compareBy<ExternalAnimeTrackingPlanUpdate> { it.series.title.lowercase() }
                 .thenBy { it.mapping.animeId.provider.name }
@@ -275,7 +360,24 @@ fun LibraryCatalog.externalAnimeTrackingPlan(
                 .thenBy { it.provider?.name.orEmpty() }
                 .thenBy { it.reason.name },
         ),
+        conflicts = conflicts,
+        failures = failures.filter { failure -> failure.animeId.provider in providers },
     )
+}
+
+fun externalAnimeSyncRetryAfterEpochMs(
+    failedAtEpochMs: Long,
+    attemptCount: Int,
+    baseDelayMs: Long = 30_000,
+    maxDelayMs: Long = 30 * 60_000,
+): Long {
+    require(failedAtEpochMs >= 0) { "failedAtEpochMs must not be negative" }
+    require(attemptCount > 0) { "attemptCount must be positive" }
+    require(baseDelayMs > 0) { "baseDelayMs must be positive" }
+    require(maxDelayMs >= baseDelayMs) { "maxDelayMs must be at least baseDelayMs" }
+    val multiplier = 1L shl (attemptCount - 1).coerceAtMost(30)
+    val delay = (baseDelayMs * multiplier).coerceAtMost(maxDelayMs)
+    return failedAtEpochMs + delay
 }
 
 fun LibrarySeries.externalAnimeTrackingUpdate(
