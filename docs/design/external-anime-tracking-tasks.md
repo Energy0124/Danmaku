@@ -33,8 +33,8 @@ Status legend:
 
 ## Phase 4 - External Progress Sync
 
-- `[ ]` Add provider auth/settings for MyAnimeList.
-- `[ ]` Add provider auth/settings for Bangumi.
+- `[x]` Add provider auth/settings for MyAnimeList.
+- `[x]` Add provider auth/settings for Bangumi.
 - `[ ]` Convert local progress into provider list status, watched episode count, and optional score updates.
 - `[ ]` Add dry-run preview before writing external list state.
 - `[ ]` Add conflict handling for external progress ahead of local progress.
@@ -56,3 +56,4 @@ Status legend:
 - 2026-06-10: Added desktop library rail and workspace status surfaces for provider-neutral external tracking sync plan summaries.
 - 2026-06-10: Added desktop inspector controls for manual MAL/Bangumi series links, Dandanplay episode corrections, and mapping removal/replacement without deleting cached metadata.
 - 2026-06-10: Added desktop provider-search clients for MyAnimeList and Bangumi, a provider-neutral search/cache service, and parser tests with fake HTTP responses. MyAnimeList search requires a client ID; Bangumi search uses its public v0 subject search endpoint with a User-Agent.
+- 2026-06-10: Added desktop Profile settings and encrypted credential storage for MyAnimeList client/access tokens and Bangumi base URL/User-Agent/access tokens.

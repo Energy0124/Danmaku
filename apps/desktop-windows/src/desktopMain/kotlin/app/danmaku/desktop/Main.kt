@@ -241,6 +241,9 @@ private fun DesktopShell(
     val dandanplayCredentialStore = remember(catalogStore) {
         DandanplayCredentialStore(catalogStore)
     }
+    val externalAnimeCredentialStore = remember(catalogStore) {
+        ExternalAnimeCredentialStore(catalogStore)
+    }
     val posterCache = remember { DesktopAnimePosterCache.default() }
     val animeMetadataResolver = remember(catalogStore, dandanplayCredentialStore, posterCache) {
         DesktopAnimeMetadataResolver(
@@ -251,6 +254,9 @@ private fun DesktopShell(
     }
     var dandanplaySettings by remember(dandanplayCredentialStore) {
         mutableStateOf(dandanplayCredentialStore.loadSettings())
+    }
+    var externalAnimeProviderSettings by remember(externalAnimeCredentialStore) {
+        mutableStateOf(externalAnimeCredentialStore.loadSettings())
     }
     val localPlaybackPreparer = remember(catalogStore) {
         DesktopLocalPlaybackPreparer(catalogStore)
@@ -1547,6 +1553,63 @@ private fun DesktopShell(
         }
     }
 
+    fun saveExternalAnimeProviderSettings(
+        myAnimeListClientId: String?,
+        myAnimeListAccessToken: String?,
+        bangumiBaseUrl: String,
+        bangumiUserAgent: String,
+        bangumiAccessToken: String?,
+    ) {
+        scope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    externalAnimeCredentialStore.saveSettings(
+                        myAnimeListClientId = myAnimeListClientId,
+                        myAnimeListAccessToken = myAnimeListAccessToken,
+                        bangumiBaseUrl = bangumiBaseUrl,
+                        bangumiUserAgent = bangumiUserAgent,
+                        bangumiAccessToken = bangumiAccessToken,
+                    )
+                }
+            }.onSuccess { updatedSettings ->
+                externalAnimeProviderSettings = updatedSettings
+                appendDiagnostic("settings", "Saved MyAnimeList/Bangumi provider settings")
+            }.onFailure {
+                appendDiagnostic("settings", "Failed to save external anime provider settings: ${it.message}")
+            }
+        }
+    }
+
+    fun clearMyAnimeListSettings() {
+        scope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    externalAnimeCredentialStore.clearMyAnimeListSettings()
+                }
+            }.onSuccess { updatedSettings ->
+                externalAnimeProviderSettings = updatedSettings
+                appendDiagnostic("settings", "Cleared MyAnimeList provider settings")
+            }.onFailure {
+                appendDiagnostic("settings", "Failed to clear MyAnimeList provider settings: ${it.message}")
+            }
+        }
+    }
+
+    fun clearBangumiSettings() {
+        scope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    externalAnimeCredentialStore.clearBangumiSettings()
+                }
+            }.onSuccess { updatedSettings ->
+                externalAnimeProviderSettings = updatedSettings
+                appendDiagnostic("settings", "Cleared Bangumi provider settings")
+            }.onFailure {
+                appendDiagnostic("settings", "Failed to clear Bangumi provider settings: ${it.message}")
+            }
+        }
+    }
+
     fun cleanupExpiredDandanplayCaches() {
         scope.launch {
             runCatching {
@@ -1954,6 +2017,10 @@ private fun DesktopShell(
                             onSaveDandanplaySettings = ::saveDandanplaySettings,
                             onClearDandanplaySettings = ::clearDandanplaySettings,
                             onCleanupExpiredDandanplayCaches = ::cleanupExpiredDandanplayCaches,
+                            externalAnimeProviderSettings = externalAnimeProviderSettings,
+                            onSaveExternalAnimeProviderSettings = ::saveExternalAnimeProviderSettings,
+                            onClearMyAnimeListSettings = ::clearMyAnimeListSettings,
+                            onClearBangumiSettings = ::clearBangumiSettings,
                         )
                     }
                 }
@@ -4979,6 +5046,10 @@ private fun ProfileTab(
     onSaveDandanplaySettings: (String, String?, String?, DandanplayAuthenticationMode, Int) -> Unit,
     onClearDandanplaySettings: () -> Unit,
     onCleanupExpiredDandanplayCaches: () -> Unit,
+    externalAnimeProviderSettings: ExternalAnimeProviderSettings,
+    onSaveExternalAnimeProviderSettings: (String?, String?, String, String, String?) -> Unit,
+    onClearMyAnimeListSettings: () -> Unit,
+    onClearBangumiSettings: () -> Unit,
 ) {
     TabScaffold {
         SectionCard("Local Server") {
@@ -5006,6 +5077,12 @@ private fun ProfileTab(
             onSave = onSaveDandanplaySettings,
             onClear = onClearDandanplaySettings,
             onCleanupExpiredCaches = onCleanupExpiredDandanplayCaches,
+        )
+        ExternalAnimeProviderSettingsCard(
+            settings = externalAnimeProviderSettings,
+            onSave = onSaveExternalAnimeProviderSettings,
+            onClearMyAnimeList = onClearMyAnimeListSettings,
+            onClearBangumi = onClearBangumiSettings,
         )
         DiagnosticsPanel(diagnosticLog)
     }
@@ -5261,6 +5338,108 @@ private fun DandanplayProviderCard(
             }
             Button(onClick = onCleanupExpiredCaches) {
                 Text("Clean expired cache")
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExternalAnimeProviderSettingsCard(
+    settings: ExternalAnimeProviderSettings,
+    onSave: (String?, String?, String, String, String?) -> Unit,
+    onClearMyAnimeList: () -> Unit,
+    onClearBangumi: () -> Unit,
+) {
+    var myAnimeListClientId by remember(settings) { mutableStateOf(settings.myAnimeListClientId.orEmpty()) }
+    var myAnimeListAccessToken by remember(settings) { mutableStateOf("") }
+    var bangumiBaseUrl by remember(settings) { mutableStateOf(settings.bangumiBaseUrl) }
+    var bangumiUserAgent by remember(settings) { mutableStateOf(settings.bangumiUserAgent) }
+    var bangumiAccessToken by remember(settings) { mutableStateOf("") }
+
+    SectionCard("External Anime Lists") {
+        Text(
+            "MyAnimeList and Bangumi settings for anime search, manual mapping, and future progress sync.",
+            color = DanmakuColors.TextMuted,
+        )
+        MetadataRow("MyAnimeList", settings.myAnimeListStatusText)
+        MetadataRow("Bangumi", settings.bangumiStatusText)
+        Spacer(modifier = Modifier.height(8.dp))
+        OutlinedTextField(
+            value = myAnimeListClientId,
+            onValueChange = { myAnimeListClientId = it },
+            label = { Text("MyAnimeList client ID") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+        )
+        OutlinedTextField(
+            value = myAnimeListAccessToken,
+            onValueChange = { myAnimeListAccessToken = it },
+            label = {
+                Text(
+                    if (settings.hasMyAnimeListAccessToken) {
+                        "MyAnimeList access token (leave blank to keep saved token)"
+                    } else {
+                        "MyAnimeList access token (optional)"
+                    },
+                )
+            },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            visualTransformation = PasswordVisualTransformation(),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(
+                value = bangumiBaseUrl,
+                onValueChange = { bangumiBaseUrl = it },
+                label = { Text("Bangumi API base URL") },
+                modifier = Modifier.weight(1f),
+                singleLine = true,
+            )
+            OutlinedTextField(
+                value = bangumiUserAgent,
+                onValueChange = { bangumiUserAgent = it },
+                label = { Text("Bangumi User-Agent") },
+                modifier = Modifier.weight(1f),
+                singleLine = true,
+            )
+        }
+        OutlinedTextField(
+            value = bangumiAccessToken,
+            onValueChange = { bangumiAccessToken = it },
+            label = {
+                Text(
+                    if (settings.hasBangumiAccessToken) {
+                        "Bangumi access token (leave blank to keep saved token)"
+                    } else {
+                        "Bangumi access token (optional)"
+                    },
+                )
+            },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            visualTransformation = PasswordVisualTransformation(),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = {
+                    onSave(
+                        myAnimeListClientId,
+                        myAnimeListAccessToken,
+                        bangumiBaseUrl,
+                        bangumiUserAgent,
+                        bangumiAccessToken,
+                    )
+                    myAnimeListAccessToken = ""
+                    bangumiAccessToken = ""
+                },
+            ) {
+                Text("Save external lists")
+            }
+            Button(onClick = onClearMyAnimeList) {
+                Text("Clear MAL")
+            }
+            Button(onClick = onClearBangumi) {
+                Text("Clear Bangumi")
             }
         }
     }

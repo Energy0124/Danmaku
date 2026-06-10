@@ -100,8 +100,8 @@ class MyAnimeListAnimeSearchClient(
 }
 
 class BangumiAnimeSearchClient(
-    private val baseUri: URI = URI("https://api.bgm.tv/"),
-    private val userAgent: String = DEFAULT_USER_AGENT,
+    private val baseUri: URI = URI(DEFAULT_BANGUMI_BASE_URL),
+    private val userAgent: String = DEFAULT_BANGUMI_USER_AGENT,
     private val httpPost: ExternalAnimeHttpPost = ExternalAnimeHttpPost.default(),
     private val json: Json = externalAnimeSearchJson,
 ) : ExternalAnimeSearchClient {
@@ -277,4 +277,3 @@ private const val DEFAULT_SEARCH_LIMIT = 10
 private const val DEFAULT_CONNECT_TIMEOUT_MILLIS = 10_000
 private const val DEFAULT_READ_TIMEOUT_MILLIS = 20_000
 private const val DEFAULT_MAX_RESPONSE_BYTES = 1_000_000
-private const val DEFAULT_USER_AGENT = "Danmaku/0.1 (https://github.com/Energy0124/Danmaku)"
