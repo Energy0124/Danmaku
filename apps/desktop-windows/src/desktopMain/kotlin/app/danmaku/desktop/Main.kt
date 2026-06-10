@@ -3022,6 +3022,7 @@ private enum class WindowsLibraryView(
     RECENTLY_WATCHED("History"),
     FAVORITES("Favorites"),
     FILES("Files"),
+    EXTERNAL_SYNC("External Sync"),
     PAIRED("Paired"),
 }
 
@@ -3341,6 +3342,13 @@ private fun LibraryWorkspaceRail(
             onClick = { onSelectView(WindowsLibraryView.FILES) },
         )
         LibraryRailNavigationItem(
+            icon = Icons.Filled.Refresh,
+            label = WindowsLibraryView.EXTERNAL_SYNC.label,
+            count = externalTrackingPlan?.summary?.updateCount ?: 0,
+            selected = selectedView == WindowsLibraryView.EXTERNAL_SYNC,
+            onClick = { onSelectView(WindowsLibraryView.EXTERNAL_SYNC) },
+        )
+        LibraryRailNavigationItem(
             icon = Icons.Filled.Devices,
             label = WindowsLibraryView.PAIRED.label,
             count = 0,
@@ -3600,6 +3608,9 @@ private fun LibraryCenterWorkspace(
                 onPrepareLocalPlayback = onPrepareLocalPlayback,
                 onPlayLocalPlayback = onPlayLocalPlayback,
             )
+            WindowsLibraryView.EXTERNAL_SYNC -> ExternalSyncPreviewView(
+                plan = externalTrackingPlan,
+            )
             WindowsLibraryView.ALL_SERIES,
             WindowsLibraryView.PAIRED -> AllSeriesView(
                 catalog = catalog,
@@ -3618,6 +3629,118 @@ private fun LibraryCenterWorkspace(
                 onShowDetails = onShowDetails,
                 onRefreshSeriesMetadata = onRefreshSeriesMetadata,
                 onPlayLocalPlayback = onPlayLocalPlayback,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ExternalSyncPreviewView(
+    plan: ExternalAnimeTrackingPlan?,
+) {
+    if (plan == null) {
+        EmptyState("No indexed library is available for external sync preview.")
+        return
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            SummaryCard(
+                title = "Ready",
+                value = plan.summary.updateCount.toString(),
+                caption = "provider updates",
+                modifier = Modifier.weight(1f),
+            )
+            SummaryCard(
+                title = "Skipped",
+                value = plan.summary.skippedCount.toString(),
+                caption = "mapping checks",
+                modifier = Modifier.weight(1f),
+            )
+        }
+        if (plan.summary.providerUpdateCounts.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                plan.summary.providerUpdateCounts.toSortedMap(compareBy { it.name }).forEach { (provider, count) ->
+                    StatusPill("${provider.displayName}: $count", icon = Icons.Filled.Refresh, active = count > 0)
+                }
+            }
+        }
+        Text("Dry-run updates", fontWeight = FontWeight.Bold)
+        if (plan.updates.isEmpty()) {
+            EmptyState("No external progress updates are ready.")
+        } else {
+            LazyColumn(
+                modifier = Modifier.heightIn(max = 320.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(plan.updates, key = { update -> "${update.mapping.localSeriesId}-${update.mapping.animeId.provider}" }) { update ->
+                    ExternalSyncUpdateRow(update)
+                }
+            }
+        }
+        if (plan.skipped.isNotEmpty()) {
+            Text("Skipped", fontWeight = FontWeight.Bold)
+            LazyColumn(
+                modifier = Modifier.heightIn(max = 220.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(plan.skipped.take(40), key = { skip -> "${skip.localSeriesId}-${skip.provider}-${skip.reason}" }) { skip ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(DanmakuColors.SurfaceRaised, RoundedCornerShape(8.dp))
+                            .padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Icon(Icons.Filled.Warning, contentDescription = null, tint = DanmakuColors.TextMuted)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(skip.provider?.displayName ?: "External provider", color = Color.White, maxLines = 1)
+                            Text(skip.reason.displayName, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(skip.localSeriesId, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                }
+            }
+            if (plan.skipped.size > 40) {
+                Text("+${plan.skipped.size - 40} more skipped", color = DanmakuColors.TextMuted)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExternalSyncUpdateRow(
+    update: app.danmaku.domain.ExternalAnimeTrackingPlanUpdate,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(DanmakuColors.SurfaceRaised, RoundedCornerShape(8.dp))
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = DanmakuColors.Good)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(update.series.title, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                "${update.mapping.animeId.provider.displayName} #${update.mapping.animeId.value}",
+                color = DanmakuColors.TextMuted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Column(horizontalAlignment = Alignment.End) {
+            Text(update.update.status.displayName, color = DanmakuColors.Good, maxLines = 1)
+            Text(
+                "${update.update.watchedEpisodes ?: 0}/${update.series.episodeCount} watched",
+                color = DanmakuColors.TextMuted,
+                maxLines = 1,
             )
         }
     }
