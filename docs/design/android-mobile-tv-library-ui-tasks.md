@@ -39,15 +39,15 @@ Status legend:
 
 ## Phase 3 - Metadata/Poster Integration
 
-- `[~]` Extend published LAN catalog with poster references.
-- `[~]` Extend published LAN catalog with matched anime metadata.
-- `[~]` Expose metadata/poster loading or last-refreshed state to clients.
+- `[x]` Extend published LAN catalog with poster references.
+- `[x]` Extend published LAN catalog with matched anime metadata.
+- `[x]` Expose metadata/poster loading or last-refreshed state to clients.
 - `[x]` Use matched anime grouping consistently on mobile and TV.
 
 ## QA Targets
 
-- `[~]` Mobile compile and connected Android tests pass.
-- `[~]` TV compile and connected Android tests pass.
+- `[x]` Mobile and TV compile plus instrumentation source compile pass.
+- `[~]` Connected Android tests pass on device/emulator.
 - `[ ]` Phone portrait layout checked at 360x800 and 412x915.
 - `[ ]` Tablet landscape layout checked at 1280x800.
 - `[ ]` TV layout checked at 1080p and 4K safe-area spacing.

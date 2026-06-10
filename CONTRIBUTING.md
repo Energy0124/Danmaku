@@ -58,13 +58,15 @@ With an Android emulator or device online, also run:
 ## Documentation
 
 Update documentation when a change affects architecture, platform behavior,
-security boundaries, or the roadmap. The most useful files are:
+security boundaries, or the roadmap. Start with:
 
 - `README.md`
+- `docs/README.md`
 - `docs/current-state.md`
-- `docs/tasks.md`
 - `docs/architecture.md`
 - `docs/roadmap.md`
+- `docs/tasks.md`
+- the relevant detailed task log under `docs/design/`
 
 ## Style
 
