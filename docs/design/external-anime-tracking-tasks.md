@@ -38,6 +38,7 @@ Status legend:
 - `[x]` Add provider auth/settings for Bangumi.
 - `[x]` Convert local progress into provider list status, watched episode count, and optional score updates.
 - `[x]` Add dry-run preview before writing external list state.
+- `[x]` Add provider write clients for MyAnimeList and Bangumi progress/list updates.
 - `[x]` Add conflict handling for external progress ahead of local progress.
 - `[x]` Add retry/backoff and user-visible sync failure state.
 
@@ -61,3 +62,4 @@ Status legend:
 - 2026-06-10: Added a desktop External Sync dry-run view that previews provider-neutral status and watched-episode updates plus skipped mapping reasons before any external list write is attempted.
 - 2026-06-10: Added provider-neutral external-progress conflict detection, sync failure retry/backoff metadata, and desktop External Sync sections for conflicts and failures.
 - 2026-06-10: Added the desktop MyAnimeList OAuth browser flow with local callback handling, encrypted access/refresh token persistence, fake token-exchange tests, public callback hook tests, and verified Phase 5 automated coverage. Manual live-account QA remains.
+- 2026-06-10: Added provider write clients for MyAnimeList `my_list_status` updates and Bangumi collection progress updates, plus fake HTTP coverage for auth headers, payload mapping, and response parsing. `:apps:desktop-windows:desktopTest` passed.
