@@ -121,7 +121,9 @@ import app.danmaku.domain.ExternalAnimeInfo
 import app.danmaku.domain.ExternalAnimeMapping
 import app.danmaku.domain.ExternalAnimeMappingSource
 import app.danmaku.domain.ExternalAnimeProvider
+import app.danmaku.domain.ExternalAnimeSyncFailure
 import app.danmaku.domain.ExternalAnimeTrackingPlan
+import app.danmaku.domain.ExternalAnimeTrackingPlanUpdate
 import app.danmaku.domain.LibraryAnimeMetadata
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryCatalogQuery
@@ -148,6 +150,7 @@ import app.danmaku.domain.continueWatchingItems
 import app.danmaku.domain.displayName
 import app.danmaku.domain.episodeDetail
 import app.danmaku.domain.externalAnimeTrackingPlan
+import app.danmaku.domain.externalAnimeSyncRetryAfterEpochMs
 import app.danmaku.domain.filteredItems
 import app.danmaku.domain.groupedSeries
 import app.danmaku.domain.nextItem
@@ -588,6 +591,8 @@ private fun DesktopShell(
     var isRefreshingSeriesPosters by remember { mutableStateOf(false) }
     var refreshingMetadataMediaIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var refreshingMetadataSeriesIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var externalAnimeSyncFailures by remember { mutableStateOf<List<ExternalAnimeSyncFailure>>(emptyList()) }
+    var isExternalAnimeSyncing by remember { mutableStateOf(false) }
     val serverRuntime = remember(catalogStore, rootScanner, animeMetadataResolver, scope) {
         DesktopLibraryServerRuntime.start(
             catalogStore = catalogStore,
@@ -706,6 +711,78 @@ private fun DesktopShell(
                 )
             } finally {
                 isRefreshingSeriesPosters = false
+            }
+        }
+    }
+
+    fun externalAnimeSyncFailure(
+        update: ExternalAnimeTrackingPlanUpdate,
+        message: String,
+        previousFailures: Map<ExternalAnimeId, ExternalAnimeSyncFailure>,
+        failedAtEpochMs: Long,
+    ): ExternalAnimeSyncFailure {
+        val attemptCount = (previousFailures[update.mapping.animeId]?.attemptCount ?: 0) + 1
+        return ExternalAnimeSyncFailure(
+            animeId = update.mapping.animeId,
+            message = message,
+            failedAtEpochMs = failedAtEpochMs,
+            attemptCount = attemptCount,
+            retryAfterEpochMs = externalAnimeSyncRetryAfterEpochMs(failedAtEpochMs, attemptCount),
+        )
+    }
+
+    fun syncExternalAnimePlan(plan: ExternalAnimeTrackingPlan) {
+        if (isExternalAnimeSyncing || plan.updates.isEmpty()) {
+            return
+        }
+        isExternalAnimeSyncing = true
+        scope.launch {
+            try {
+                val previousFailures = externalAnimeSyncFailures.associateBy(ExternalAnimeSyncFailure::animeId)
+                val result = withContext(Dispatchers.IO) {
+                    val clients = buildMap {
+                        externalAnimeCredentialStore.loadMyAnimeListTrackingClient()
+                            ?.let { put(it.provider, it) }
+                        externalAnimeCredentialStore.loadBangumiTrackingClient()
+                            ?.let { put(it.provider, it) }
+                    }
+                    var successCount = 0
+                    val failures = mutableListOf<ExternalAnimeSyncFailure>()
+                    plan.updates.forEach { update ->
+                        val failedAtEpochMs = System.currentTimeMillis()
+                        val client = clients[update.mapping.animeId.provider]
+                        if (client == null) {
+                            failures += externalAnimeSyncFailure(
+                                update = update,
+                                message = "${update.mapping.animeId.provider.displayName} access token is not configured",
+                                previousFailures = previousFailures,
+                                failedAtEpochMs = failedAtEpochMs,
+                            )
+                            return@forEach
+                        }
+                        runCatching {
+                            client.updateListEntry(update.update)
+                        }.onSuccess {
+                            successCount += 1
+                        }.onFailure { error ->
+                            failures += externalAnimeSyncFailure(
+                                update = update,
+                                message = error.message ?: error.javaClass.simpleName.ifBlank { "External sync failed" },
+                                previousFailures = previousFailures,
+                                failedAtEpochMs = failedAtEpochMs,
+                            )
+                        }
+                    }
+                    successCount to failures
+                }
+                val (successCount, failures) = result
+                externalAnimeSyncFailures = failures
+                appendDiagnostic(
+                    "external-sync",
+                    "External list sync complete: $successCount succeeded, ${failures.size} failed",
+                )
+            } finally {
+                isExternalAnimeSyncing = false
             }
         }
     }
@@ -2012,6 +2089,8 @@ private fun DesktopShell(
                             refreshingMetadataSeriesIds = refreshingMetadataSeriesIds,
                             playbackProgresses = playbackProgresses,
                             favoriteMediaIds = favoriteMediaIds,
+                            externalAnimeSyncFailures = externalAnimeSyncFailures,
+                            isExternalAnimeSyncing = isExternalAnimeSyncing,
                             isIndexing = isIndexing,
                             isPreparingLocalPlayback = isPreparingLocalPlayback,
                             selectedLocalPlaybackPreparation = selectedLocalPlaybackPreparation,
@@ -2043,6 +2122,7 @@ private fun DesktopShell(
                             onDeleteExternalAnimeMapping = ::deleteManualExternalAnimeMapping,
                             onSaveExternalAnimeItemMapping = ::saveManualExternalAnimeItemMapping,
                             onDeleteExternalAnimeItemMapping = ::deleteManualExternalAnimeItemMapping,
+                            onSyncExternalAnimePlan = ::syncExternalAnimePlan,
                             onLoadPreparedPlayback = { preparation ->
                                 appendDiagnostic(
                                     "playback",
@@ -2954,6 +3034,8 @@ private fun MediaLibraryTab(
     refreshingMetadataSeriesIds: Set<String>,
     playbackProgresses: List<PlaybackProgress>,
     favoriteMediaIds: Set<String>,
+    externalAnimeSyncFailures: List<ExternalAnimeSyncFailure>,
+    isExternalAnimeSyncing: Boolean,
     isIndexing: Boolean,
     isPreparingLocalPlayback: Boolean,
     selectedLocalPlaybackPreparation: DesktopLocalPlaybackPreparation?,
@@ -2979,6 +3061,7 @@ private fun MediaLibraryTab(
     onDeleteExternalAnimeMapping: (LibrarySeries, ExternalAnimeProvider) -> Unit,
     onSaveExternalAnimeItemMapping: (LibraryMediaItem, ExternalAnimeProvider, String) -> Unit,
     onDeleteExternalAnimeItemMapping: (LibraryMediaItem, ExternalAnimeProvider) -> Unit,
+    onSyncExternalAnimePlan: (ExternalAnimeTrackingPlan) -> Unit,
     onLoadPreparedPlayback: (DesktopLocalPlaybackPreparation) -> Unit,
     remoteBrowser: @Composable () -> Unit,
 ) {
@@ -3003,10 +3086,16 @@ private fun MediaLibraryTab(
         val series = remember(indexedLibrary?.catalog) {
             indexedLibrary?.catalog?.groupedSeries().orEmpty()
         }
-        val externalTrackingPlan = remember(indexedLibrary?.catalog, externalAnimeMappings, playbackProgresses) {
+        val externalTrackingPlan = remember(
+            indexedLibrary?.catalog,
+            externalAnimeMappings,
+            playbackProgresses,
+            externalAnimeSyncFailures,
+        ) {
             indexedLibrary?.catalog?.externalAnimeTrackingPlan(
                 mappings = externalAnimeMappings,
                 progresses = playbackProgresses,
+                failures = externalAnimeSyncFailures,
             )
         }
         fun selectSeries(series: LibrarySeries) {
@@ -3043,6 +3132,7 @@ private fun MediaLibraryTab(
             series = series,
             seriesPosterById = seriesPosterById,
             externalTrackingPlan = externalTrackingPlan,
+            isExternalAnimeSyncing = isExternalAnimeSyncing,
             externalAnimeMappings = externalAnimeMappings,
             externalAnimeItemMappingsByMediaId = externalAnimeItemMappingsByMediaId,
             originalSeriesTitleByMediaId = originalSeriesTitleByMediaId,
@@ -3080,6 +3170,7 @@ private fun MediaLibraryTab(
             onDeleteExternalAnimeMapping = onDeleteExternalAnimeMapping,
             onSaveExternalAnimeItemMapping = onSaveExternalAnimeItemMapping,
             onDeleteExternalAnimeItemMapping = onDeleteExternalAnimeItemMapping,
+            onSyncExternalAnimePlan = onSyncExternalAnimePlan,
             onLoadPreparedPlayback = onLoadPreparedPlayback,
             onPrepareLocalPlayback = onPrepareLocalPlayback,
             onPlayLocalPlayback = onPlayLocalPlayback,
@@ -3108,6 +3199,7 @@ private fun WindowsLibraryWorkspace(
     series: List<LibrarySeries>,
     seriesPosterById: Map<String, Path?>,
     externalTrackingPlan: ExternalAnimeTrackingPlan?,
+    isExternalAnimeSyncing: Boolean,
     externalAnimeMappings: List<ExternalAnimeMapping>,
     externalAnimeItemMappingsByMediaId: Map<String, List<DesktopExternalAnimeItemMapping>>,
     originalSeriesTitleByMediaId: Map<String, String>,
@@ -3145,6 +3237,7 @@ private fun WindowsLibraryWorkspace(
     onDeleteExternalAnimeMapping: (LibrarySeries, ExternalAnimeProvider) -> Unit,
     onSaveExternalAnimeItemMapping: (LibraryMediaItem, ExternalAnimeProvider, String) -> Unit,
     onDeleteExternalAnimeItemMapping: (LibraryMediaItem, ExternalAnimeProvider) -> Unit,
+    onSyncExternalAnimePlan: (ExternalAnimeTrackingPlan) -> Unit,
     onLoadPreparedPlayback: (DesktopLocalPlaybackPreparation) -> Unit,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
@@ -3276,6 +3369,7 @@ private fun WindowsLibraryWorkspace(
                 seriesWatchSummaryById = seriesWatchSummaryById,
                 favoriteMediaIds = favoriteMediaIds,
                 externalTrackingPlan = externalTrackingPlan,
+                isExternalAnimeSyncing = isExternalAnimeSyncing,
                 isPreparing = isPreparing,
                 compact = compactWorkspace,
                 onSelectSeries = onSelectSeries,
@@ -3284,6 +3378,7 @@ private fun WindowsLibraryWorkspace(
                 onRefreshSeriesMetadata = onRefreshSeriesMetadata,
                 onPrepareLocalPlayback = onPrepareLocalPlayback,
                 onPlayLocalPlayback = onPlayLocalPlayback,
+                onSyncExternalAnimePlan = onSyncExternalAnimePlan,
                 onResetFilters = {
                     searchText = ""
                     sort = LibraryCatalogSort.TITLE
@@ -3578,6 +3673,7 @@ private fun LibraryCenterWorkspace(
     seriesWatchSummaryById: Map<String, LibrarySeriesWatchSummary>,
     favoriteMediaIds: Set<String>,
     externalTrackingPlan: ExternalAnimeTrackingPlan?,
+    isExternalAnimeSyncing: Boolean,
     isPreparing: Boolean,
     compact: Boolean,
     onSelectSeries: (LibrarySeries) -> Unit,
@@ -3586,6 +3682,7 @@ private fun LibraryCenterWorkspace(
     onRefreshSeriesMetadata: (LibrarySeries) -> Unit,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
+    onSyncExternalAnimePlan: (ExternalAnimeTrackingPlan) -> Unit,
     onResetFilters: () -> Unit,
     remoteBrowser: @Composable () -> Unit,
     modifier: Modifier = Modifier,
@@ -3685,6 +3782,8 @@ private fun LibraryCenterWorkspace(
             )
             WindowsLibraryView.EXTERNAL_SYNC -> ExternalSyncPreviewView(
                 plan = externalTrackingPlan,
+                isSyncing = isExternalAnimeSyncing,
+                onSync = onSyncExternalAnimePlan,
             )
             WindowsLibraryView.ALL_SERIES,
             WindowsLibraryView.PAIRED -> AllSeriesView(
@@ -3712,6 +3811,8 @@ private fun LibraryCenterWorkspace(
 @Composable
 private fun ExternalSyncPreviewView(
     plan: ExternalAnimeTrackingPlan?,
+    isSyncing: Boolean,
+    onSync: (ExternalAnimeTrackingPlan) -> Unit,
 ) {
     if (plan == null) {
         EmptyState("No indexed library is available for external sync preview.")
@@ -3736,6 +3837,30 @@ private fun ExternalSyncPreviewView(
                 value = plan.summary.skippedCount.toString(),
                 caption = "mapping checks",
                 modifier = Modifier.weight(1f),
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Button(
+                enabled = plan.updates.isNotEmpty() && !isSyncing,
+                onClick = { onSync(plan) },
+            ) {
+                Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(if (isSyncing) "Syncing updates" else "Sync ready updates")
+            }
+            Text(
+                if (plan.updates.isEmpty()) {
+                    "No provider writes are ready."
+                } else {
+                    "Writes ${plan.updates.size} ready updates to connected external lists."
+                },
+                color = DanmakuColors.TextMuted,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
             )
         }
         if (plan.summary.providerUpdateCounts.isNotEmpty()) {
