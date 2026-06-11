@@ -122,7 +122,6 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import app.danmaku.domain.DanmakuDisplaySettings
 import app.danmaku.domain.ExternalAnimeId
-import app.danmaku.domain.ExternalAnimeInfo
 import app.danmaku.domain.ExternalAnimeMatchCandidate
 import app.danmaku.domain.ExternalAnimeMatchQuery
 import app.danmaku.domain.ExternalAnimeMapping
@@ -131,7 +130,6 @@ import app.danmaku.domain.ExternalAnimeProvider
 import app.danmaku.domain.ExternalAnimeSyncFailure
 import app.danmaku.domain.ExternalAnimeTrackingPlan
 import app.danmaku.domain.ExternalAnimeTrackingPlanUpdate
-import app.danmaku.domain.LibraryAnimeMetadata
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryCatalogQuery
 import app.danmaku.domain.LibraryCatalogSort
@@ -176,7 +174,6 @@ import app.danmaku.library.LanPlaybackTarget
 import app.danmaku.library.jvm.JvmLanLibraryClient
 import app.danmaku.server.LocalLibraryDiscoveryAnnouncer
 import app.danmaku.server.LocalLibraryServerEvent
-import app.danmaku.server.PublishedLibrary
 import app.danmaku.server.PublicGetHookResponse
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -194,9 +191,6 @@ import java.nio.file.Path
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.util.Locale
-import javax.swing.JFileChooser
-import javax.swing.filechooser.FileNameExtensionFilter
 import org.jetbrains.skia.Image as SkiaImage
 
 fun main(args: Array<String>) = application {
@@ -8432,127 +8426,6 @@ private fun rememberLocalImageBitmap(path: Path?): ImageBitmap? =
             }
     }
 
-private fun nextPlayableEpisode(
-    librarySeries: LibrarySeries,
-    watchStatusById: Map<String, LibraryWatchStatus>,
-): LibraryMediaItem {
-    val items = librarySeries.seasons.flatMap { it.items }
-    return items.firstOrNull { watchStatusById[it.id]?.state == LibraryWatchState.IN_PROGRESS }
-        ?: items.firstOrNull { watchStatusById[it.id]?.state != LibraryWatchState.WATCHED }
-        ?: items.first()
-}
-
-private fun findSeriesCoverImage(
-    series: LibrarySeries,
-    indexedLibrary: IndexedLocalLibrary?,
-): Path? {
-    val firstItem = series.seasons.firstOrNull()?.items?.firstOrNull() ?: return null
-    val firstMediaPath = indexedLibrary?.filesById?.get(firstItem.id) ?: return null
-    return findCoverImageNear(firstMediaPath)
-}
-
-internal fun IndexedLocalLibrary.withExternalAnimeMetadata(
-    metadataResolver: DesktopAnimeMetadataResolver,
-): IndexedLocalLibrary {
-    val displayCatalog = catalog.withExternalAnimeMetadata(metadataResolver)
-    return if (displayCatalog == catalog) {
-        this
-    } else {
-        copy(catalog = displayCatalog)
-    }
-}
-
-internal fun LibraryCatalog.withExternalAnimeMetadata(
-    metadataResolver: DesktopAnimeMetadataResolver,
-): LibraryCatalog {
-    var changed = false
-    val displayItems = items.map { item ->
-        val animeInfo = metadataResolver.cachedAnimeInfoForItem(item)
-        val posterPath = metadataResolver.cachedPosterForItem(item)?.let { "/posters/${item.id}" }
-        val metadata = animeInfo?.toLibraryAnimeMetadata()
-        val status = when {
-            metadata != null || posterPath != null -> LibraryItemMetadataStatus.READY
-            else -> LibraryItemMetadataStatus.NOT_AVAILABLE
-        }
-        if (
-            item.animeMetadata == metadata &&
-            item.posterPath == posterPath &&
-            item.metadataStatus == status
-        ) {
-            item
-        } else {
-            changed = true
-            item.copy(
-                animeMetadata = metadata,
-                posterPath = posterPath,
-                metadataStatus = status,
-            )
-        }
-    }
-    return if (changed) copy(items = displayItems) else this
-}
-
-internal fun ExternalAnimeInfo.libraryDisplayTitle(): String =
-    titles.chinese ?: titles.primary
-
-private fun ExternalAnimeInfo.toLibraryAnimeMetadata(): LibraryAnimeMetadata =
-    LibraryAnimeMetadata(
-        animeId = id,
-        displayTitle = libraryDisplayTitle(),
-        primaryTitle = titles.primary,
-        chineseTitle = titles.chinese,
-        englishTitle = titles.english,
-        japaneseTitle = titles.japanese,
-        imageUrl = imageUrl,
-        episodeCount = episodeCount,
-        startYear = startYear,
-    )
-
-private fun loadSeriesPosterById(
-    indexedLibrary: IndexedLocalLibrary?,
-    metadataResolver: DesktopAnimeMetadataResolver,
-): Map<String, Path?> {
-    val library = indexedLibrary ?: return emptyMap()
-    return library.catalog.groupedSeries().associate { series ->
-        series.id to (
-            findSeriesCoverImage(series, library)
-                ?: metadataResolver.cachedPosterForSeries(series)
-            )
-    }
-}
-
-private fun findCoverImageNear(mediaPath: Path): Path? {
-    val directories = sequenceOf(mediaPath.parent, mediaPath.parent?.parent)
-        .filterNotNull()
-        .distinct()
-        .toList()
-    return directories.firstNotNullOfOrNull(::findPreferredCoverImage)
-}
-
-private fun findPreferredCoverImage(directory: Path): Path? {
-    if (!Files.isDirectory(directory)) return null
-    val images = Files.list(directory).use { paths ->
-        paths
-            .filter(Files::isRegularFile)
-            .filter { it.fileName.toString().substringAfterLast('.', "").lowercase() in COVER_IMAGE_EXTENSIONS }
-            .sorted(compareBy<Path> { coverImageRank(it.fileName.toString()) }.thenBy { it.fileName.toString().lowercase() })
-            .toList()
-    }
-    return images.firstOrNull()
-}
-
-private fun coverImageRank(fileName: String): Int {
-    val baseName = fileName.substringBeforeLast('.').lowercase()
-    return COVER_IMAGE_NAMES.indexOf(baseName).takeIf { it >= 0 } ?: Int.MAX_VALUE
-}
-
-private fun String.initialsForPoster(): String =
-    split(Regex("""\s+"""))
-        .filter(String::isNotBlank)
-        .take(2)
-        .joinToString(separator = "") { it.first().uppercaseChar().toString() }
-        .ifBlank { take(1).uppercase(Locale.US) }
-
 @Composable
 private fun DownloadsTab(
     strings: DesktopStrings,
@@ -11464,73 +11337,6 @@ private fun RemoteEpisodeRow(
     }
 }
 
-internal fun IndexedLocalLibrary.toPublishedLibrary(
-    metadataResolver: DesktopAnimeMetadataResolver? = null,
-): PublishedLibrary {
-    val publishedCatalog = metadataResolver?.let { catalog.withExternalAnimeMetadata(it) } ?: catalog
-    val posterFilesById = metadataResolver
-        ?.let { resolver ->
-            publishedCatalog.items
-                .mapNotNull { item ->
-                    item.posterPath?.let { _ ->
-                        resolver.cachedPosterForItem(item)?.let { poster -> item.id to poster }
-                    }
-                }
-                .toMap()
-        }
-        .orEmpty()
-    return PublishedLibrary(
-        catalog = publishedCatalog,
-        filesById = filesById,
-        subtitleFilesById = subtitleFilesById,
-        posterFilesById = posterFilesById,
-    )
-}
-
-private fun selectLibraryDirectory(title: String) =
-    JFileChooser().run {
-        fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
-        dialogTitle = title
-        takeIf { showOpenDialog(null) == JFileChooser.APPROVE_OPTION }
-            ?.selectedFile
-            ?.toPath()
-    }
-
-private fun selectMediaFile(title: String) =
-    JFileChooser().run {
-        fileSelectionMode = JFileChooser.FILES_ONLY
-        dialogTitle = title
-        fileFilter = FileNameExtensionFilter(
-            "Video files",
-            "mkv",
-            "mp4",
-            "m4v",
-            "avi",
-            "mov",
-            "webm",
-            "ts",
-            "m2ts",
-        )
-        takeIf { showOpenDialog(null) == JFileChooser.APPROVE_OPTION }
-            ?.selectedFile
-            ?.toPath()
-    }
-
-private fun selectDanmakuFile(title: String) =
-    JFileChooser().run {
-        fileSelectionMode = JFileChooser.FILES_ONLY
-        dialogTitle = title
-        fileFilter = FileNameExtensionFilter(
-            "Danmaku files",
-            "xml",
-            "json",
-            "danmaku",
-        )
-        takeIf { showOpenDialog(null) == JFileChooser.APPROVE_OPTION }
-            ?.selectedFile
-            ?.toPath()
-    }
-
 private fun LibraryMediaItem.dandanplayStatusContext(
     settings: DandanplayProviderSettings,
 ): List<DandanplayPlaybackUiDetail> =
@@ -11657,18 +11463,5 @@ private const val PLAYER_WINDOW_NAVIGATION_HEIGHT_DP = 44
 private const val PLAYER_TOP_CONTROLS_HEIGHT_DP = 74
 
 private const val PLAYER_BOTTOM_CONTROLS_HEIGHT_DP = 154
-
-private val COVER_IMAGE_EXTENSIONS = setOf("jpg", "jpeg", "png", "webp")
-
-private val COVER_IMAGE_NAMES = listOf(
-    "poster",
-    "cover",
-    "folder",
-    "keyvisual",
-    "key_visual",
-    "key-visual",
-    "thumbnail",
-    "thumb",
-)
 
 private val PLAYBACK_RATE_STEPS = listOf(0.5f, 1f, 1.25f, 1.5f, 2f)
