@@ -112,10 +112,15 @@ Status legend:
 - `[x]` Add provider connection cards for MyAnimeList and Bangumi.
 - `[x]` Add sync summary cards for ready updates, conflicts, failed retries,
   and manual mapping needed.
-- `[ ]` Build a tracking table with local series, matched provider anime, local
+- `[x]` Build a tracking table with local series, matched provider anime, local
   progress, provider progress, planned action, confidence, and status.
-- `[ ]` Add a selected-mapping inspector with provider IDs, episode mapping,
+- `[~]` Add a selected-mapping inspector with provider IDs, episode mapping,
   refresh provider state, sync now, remove mapping, and conflict resolution.
+  - Tracking now has selectable rows for conflicts, ready updates, failures,
+    and skipped mappings, plus an inspector showing provider IDs, URLs, local
+    series IDs, local/provider progress, confidence, status, scoped sync for
+    ready rows, and disabled planned controls for provider readback, mapping
+    removal, and conflict resolution.
 - `[ ]` Add provider readback before writes where APIs allow it.
 - `[ ]` Decide whether sync failures should be persisted across relaunch.
 - `[ ]` Add live-account QA checklist for OAuth, token refresh, sync preview,

@@ -3276,6 +3276,21 @@ private fun TrackingTab(
         )
     }
     TabScaffold {
+        val seriesById = remember(catalog) {
+            catalog?.groupedSeries()?.associateBy(LibrarySeries::id).orEmpty()
+        }
+        val trackingRows = remember(plan, externalAnimeMappings, seriesById) {
+            buildTrackingTableRows(
+                plan = plan,
+                mappings = externalAnimeMappings,
+                seriesById = seriesById,
+            )
+        }
+        var selectedTrackingRowId by remember(trackingRows) {
+            mutableStateOf(trackingRows.firstOrNull()?.id)
+        }
+        val selectedTrackingRow = trackingRows.firstOrNull { it.id == selectedTrackingRowId }
+            ?: trackingRows.firstOrNull()
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             TrackingProviderCard(
                 title = "MyAnimeList",
@@ -3332,12 +3347,363 @@ private fun TrackingTab(
         if (catalog == null) {
             EmptyState("Index a local library before reviewing external progress sync.", "Open Library", onOpenLibrary)
         } else {
-            ExternalSyncPreviewView(
+            TrackingWorkspace(
                 plan = plan,
+                rows = trackingRows,
+                selectedRow = selectedTrackingRow,
                 isSyncing = isExternalAnimeSyncing,
+                onSelectRow = { row -> selectedTrackingRowId = row.id },
                 onSync = onSyncExternalAnimePlan,
             )
         }
+    }
+}
+
+private enum class TrackingRowKind {
+    UPDATE,
+    CONFLICT,
+    SKIPPED,
+    FAILURE,
+}
+
+private data class TrackingTableRow(
+    val id: String,
+    val kind: TrackingRowKind,
+    val seriesTitle: String,
+    val localSeriesId: String,
+    val providerLabel: String,
+    val animeIdText: String,
+    val providerUrl: String?,
+    val localProgress: String,
+    val providerProgress: String,
+    val plannedAction: String,
+    val confidence: String,
+    val statusLabel: String,
+    val statusColor: Color,
+    val mapping: ExternalAnimeMapping?,
+    val update: ExternalAnimeTrackingPlanUpdate? = null,
+    val conflict: app.danmaku.domain.ExternalAnimeTrackingPlanConflict? = null,
+    val skip: app.danmaku.domain.ExternalAnimeTrackingPlanSkip? = null,
+    val failure: ExternalAnimeSyncFailure? = null,
+)
+
+private fun buildTrackingTableRows(
+    plan: ExternalAnimeTrackingPlan?,
+    mappings: List<ExternalAnimeMapping>,
+    seriesById: Map<String, LibrarySeries>,
+): List<TrackingTableRow> {
+    if (plan == null) {
+        return emptyList()
+    }
+    val mappingsByAnimeId = mappings.associateBy(ExternalAnimeMapping::animeId)
+    val mappingsBySeriesAndProvider = mappings.associateBy { it.localSeriesId to it.animeId.provider }
+    val updateRows = plan.updates.map { update ->
+        val mapping = update.mapping
+        TrackingTableRow(
+            id = "update-${mapping.localSeriesId}-${mapping.animeId.provider}-${mapping.animeId.value}",
+            kind = TrackingRowKind.UPDATE,
+            seriesTitle = update.series.title,
+            localSeriesId = mapping.localSeriesId,
+            providerLabel = mapping.animeId.provider.displayName,
+            animeIdText = mapping.animeId.value.toString(),
+            providerUrl = mapping.animeId.webUrl,
+            localProgress = "${update.update.watchedEpisodes ?: 0}/${update.series.episodeCount}",
+            providerProgress = "Readback pending",
+            plannedAction = "${update.update.status.displayName}, ${update.update.watchedEpisodes ?: 0} watched",
+            confidence = mapping.confidence.formatConfidence(),
+            statusLabel = "Ready",
+            statusColor = DanmakuColors.Good,
+            mapping = mapping,
+            update = update,
+        )
+    }
+    val conflictRows = plan.conflicts.map { conflict ->
+        val mapping = conflict.mapping
+        TrackingTableRow(
+            id = "conflict-${mapping.localSeriesId}-${mapping.animeId.provider}-${mapping.animeId.value}",
+            kind = TrackingRowKind.CONFLICT,
+            seriesTitle = conflict.series.title,
+            localSeriesId = mapping.localSeriesId,
+            providerLabel = mapping.animeId.provider.displayName,
+            animeIdText = mapping.animeId.value.toString(),
+            providerUrl = mapping.animeId.webUrl,
+            localProgress = "${conflict.localUpdate.watchedEpisodes ?: 0}/${conflict.series.episodeCount}",
+            providerProgress = "${conflict.externalEntry.watchedEpisodes ?: 0}/${conflict.series.episodeCount}",
+            plannedAction = "Review conflict",
+            confidence = mapping.confidence.formatConfidence(),
+            statusLabel = "Conflict",
+            statusColor = DanmakuColors.Warning,
+            mapping = mapping,
+            conflict = conflict,
+        )
+    }
+    val skippedRows = plan.skipped.map { skip ->
+        val mapping = skip.provider?.let { provider ->
+            mappingsBySeriesAndProvider[skip.localSeriesId to provider]
+        }
+        val series = seriesById[skip.localSeriesId]
+        TrackingTableRow(
+            id = "skip-${skip.localSeriesId}-${skip.provider?.name ?: "provider"}-${skip.reason.name}",
+            kind = TrackingRowKind.SKIPPED,
+            seriesTitle = series?.title ?: skip.localSeriesId,
+            localSeriesId = skip.localSeriesId,
+            providerLabel = skip.provider?.displayName ?: "External provider",
+            animeIdText = mapping?.animeId?.value?.toString() ?: "Not linked",
+            providerUrl = mapping?.animeId?.webUrl,
+            localProgress = series?.let { "0/${it.episodeCount}" } ?: "-",
+            providerProgress = "-",
+            plannedAction = skip.reason.displayName,
+            confidence = mapping?.confidence?.formatConfidence() ?: "No link",
+            statusLabel = if (mapping == null) "Needs mapping" else "Missing local series",
+            statusColor = DanmakuColors.TextMuted,
+            mapping = mapping,
+            skip = skip,
+        )
+    }
+    val failureRows = plan.failures.map { failure ->
+        val mapping = mappingsByAnimeId[failure.animeId]
+        val series = mapping?.let { seriesById[it.localSeriesId] }
+        TrackingTableRow(
+            id = "failure-${failure.animeId.provider}-${failure.animeId.value}-${failure.failedAtEpochMs}",
+            kind = TrackingRowKind.FAILURE,
+            seriesTitle = series?.title ?: failure.animeId.webUrl,
+            localSeriesId = mapping?.localSeriesId ?: "-",
+            providerLabel = failure.animeId.provider.displayName,
+            animeIdText = failure.animeId.value.toString(),
+            providerUrl = failure.animeId.webUrl,
+            localProgress = "-",
+            providerProgress = "Retry ${failure.retryAfterEpochMs.formatEpochTime()}",
+            plannedAction = failure.message,
+            confidence = mapping?.confidence?.formatConfidence() ?: "-",
+            statusLabel = "Failed x${failure.attemptCount}",
+            statusColor = DanmakuColors.Warning,
+            mapping = mapping,
+            failure = failure,
+        )
+    }
+    return (conflictRows + updateRows + failureRows + skippedRows).sortedWith(
+        compareBy<TrackingTableRow> { it.kind.ordinal }
+            .thenBy { it.seriesTitle.lowercase() }
+            .thenBy { it.providerLabel }
+            .thenBy { it.animeIdText },
+    )
+}
+
+@Composable
+private fun TrackingWorkspace(
+    plan: ExternalAnimeTrackingPlan?,
+    rows: List<TrackingTableRow>,
+    selectedRow: TrackingTableRow?,
+    isSyncing: Boolean,
+    onSelectRow: (TrackingTableRow) -> Unit,
+    onSync: (ExternalAnimeTrackingPlan) -> Unit,
+) {
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val compact = maxWidth < 1180.dp
+        if (compact) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                TrackingTablePanel(
+                    plan = plan,
+                    rows = rows,
+                    selectedRow = selectedRow,
+                    isSyncing = isSyncing,
+                    onSelectRow = onSelectRow,
+                    onSync = onSync,
+                )
+                TrackingInspectorPanel(
+                    selectedRow = selectedRow,
+                    isSyncing = isSyncing,
+                    onSync = onSync,
+                )
+                ExternalSyncPreviewView(plan = plan, isSyncing = isSyncing, onSync = onSync)
+            }
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    TrackingTablePanel(
+                        plan = plan,
+                        rows = rows,
+                        selectedRow = selectedRow,
+                        isSyncing = isSyncing,
+                        onSelectRow = onSelectRow,
+                        onSync = onSync,
+                    )
+                    ExternalSyncPreviewView(plan = plan, isSyncing = isSyncing, onSync = onSync)
+                }
+                TrackingInspectorPanel(
+                    selectedRow = selectedRow,
+                    isSyncing = isSyncing,
+                    onSync = onSync,
+                    modifier = Modifier.width(380.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TrackingTablePanel(
+    plan: ExternalAnimeTrackingPlan?,
+    rows: List<TrackingTableRow>,
+    selectedRow: TrackingTableRow?,
+    isSyncing: Boolean,
+    onSelectRow: (TrackingTableRow) -> Unit,
+    onSync: (ExternalAnimeTrackingPlan) -> Unit,
+) {
+    SectionCard("Tracking Table") {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text("Local and provider progress", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Button(
+                enabled = plan?.updates?.isNotEmpty() == true && !isSyncing,
+                onClick = { plan?.let(onSync) },
+            ) {
+                Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(if (isSyncing) "Syncing" else "Sync all ready")
+            }
+        }
+        if (rows.isEmpty()) {
+            EmptyState("No tracking rows are available yet. Link local series to MyAnimeList or Bangumi from Library details.")
+            return@SectionCard
+        }
+        TrackingTableHeader()
+        LazyColumn(
+            modifier = Modifier.heightIn(max = 520.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            items(rows, key = TrackingTableRow::id) { row ->
+                TrackingTableRowView(
+                    row = row,
+                    selected = selectedRow?.id == row.id,
+                    onClick = { onSelectRow(row) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TrackingTableHeader() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text("Local series", color = DanmakuColors.TextMuted, modifier = Modifier.weight(1.6f), maxLines = 1)
+        Text("Provider", color = DanmakuColors.TextMuted, modifier = Modifier.weight(1.0f), maxLines = 1)
+        Text("Progress", color = DanmakuColors.TextMuted, modifier = Modifier.weight(0.9f), maxLines = 1)
+        Text("Action", color = DanmakuColors.TextMuted, modifier = Modifier.weight(1.2f), maxLines = 1)
+        Text("Status", color = DanmakuColors.TextMuted, modifier = Modifier.weight(0.9f), maxLines = 1)
+    }
+}
+
+@Composable
+private fun TrackingTableRowView(
+    row: TrackingTableRow,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (selected) DanmakuColors.AccentSoft else DanmakuColors.SurfaceRaised.copy(alpha = 0.58f))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Column(modifier = Modifier.weight(1.6f)) {
+            Text(row.seriesTitle, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(row.localSeriesId, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Column(modifier = Modifier.weight(1.0f)) {
+            Text(row.providerLabel, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text("#${row.animeIdText}", color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Column(modifier = Modifier.weight(0.9f)) {
+            Text(row.localProgress, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(row.providerProgress, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Text(row.plannedAction, color = Color.White, modifier = Modifier.weight(1.2f), maxLines = 2, overflow = TextOverflow.Ellipsis)
+        StatusPill(row.statusLabel, active = row.kind == TrackingRowKind.UPDATE, color = row.statusColor, modifier = Modifier.weight(0.9f))
+    }
+}
+
+@Composable
+private fun TrackingInspectorPanel(
+    selectedRow: TrackingTableRow?,
+    isSyncing: Boolean,
+    onSync: (ExternalAnimeTrackingPlan) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    SectionCard("Mapping Inspector", modifier = modifier) {
+        if (selectedRow == null) {
+            EmptyState("Select a tracking row to inspect provider IDs, progress, and planned sync behavior.")
+            return@SectionCard
+        }
+        Text(selectedRow.seriesTitle, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        MetadataRow("Provider", selectedRow.providerLabel)
+        MetadataRow("Anime ID", selectedRow.animeIdText)
+        selectedRow.providerUrl?.let { MetadataRow("Provider URL", it) }
+        MetadataRow("Local series ID", selectedRow.localSeriesId)
+        MetadataRow("Local progress", selectedRow.localProgress)
+        MetadataRow("Provider progress", selectedRow.providerProgress)
+        MetadataRow("Confidence", selectedRow.confidence)
+        MetadataRow("Status", selectedRow.statusLabel, selectedRow.statusColor)
+        selectedRow.conflict?.let { conflict ->
+            MetadataRow("Conflict", conflict.reason.displayName, DanmakuColors.Warning)
+            MetadataRow("External watched", (conflict.externalEntry.watchedEpisodes ?: 0).toString())
+        }
+        selectedRow.failure?.let { failure ->
+            MetadataRow("Failure", failure.message, DanmakuColors.Warning)
+            MetadataRow("Next retry", failure.retryAfterEpochMs.formatEpochTime())
+        }
+        selectedRow.skip?.let { skip ->
+            MetadataRow("Skipped", skip.reason.displayName)
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                enabled = selectedRow.update != null && !isSyncing,
+                onClick = {
+                    selectedRow.update?.let { update ->
+                        onSync(
+                            ExternalAnimeTrackingPlan(
+                                updates = listOf(update),
+                                skipped = emptyList(),
+                            ),
+                        )
+                    }
+                },
+            ) {
+                Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(if (isSyncing) "Syncing" else "Sync selected")
+            }
+            Button(enabled = false, onClick = {}) {
+                Text("Refresh provider state")
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(enabled = false, onClick = {}) {
+                Text("Remove mapping")
+            }
+            Button(enabled = false, onClick = {}) {
+                Text("Resolve conflict")
+            }
+        }
+        Text(
+            "Provider readback, mapping removal, and conflict resolution controls are planned; ready updates can sync through the existing provider sync path.",
+            color = DanmakuColors.TextMuted,
+        )
     }
 }
 
@@ -7533,9 +7899,12 @@ private fun StatusPill(
     text: String,
     icon: ImageVector? = null,
     active: Boolean = false,
+    color: Color? = null,
+    modifier: Modifier = Modifier,
 ) {
+    val contentColor = color ?: if (active) Color.White else DanmakuColors.TextMuted
     Row(
-        modifier = Modifier
+        modifier = modifier
             .background(if (active) DanmakuColors.AccentSoft else DanmakuColors.SurfaceRaised, RoundedCornerShape(999.dp))
             .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -7545,11 +7914,11 @@ private fun StatusPill(
             Icon(
                 imageVector = it,
                 contentDescription = null,
-                tint = if (active) Color.White else DanmakuColors.TextMuted,
+                tint = contentColor,
                 modifier = Modifier.size(14.dp),
             )
         }
-        Text(text = text, color = if (active) Color.White else DanmakuColors.TextMuted, maxLines = 1)
+        Text(text = text, color = contentColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -8575,6 +8944,9 @@ private fun Long.formatEpochTime(): String =
     DIAGNOSTIC_TIME_FORMATTER.format(
         Instant.ofEpochMilli(this).atZone(ZoneId.systemDefault()),
     )
+
+private fun Double.formatConfidence(): String =
+    "${((coerceIn(0.0, 1.0) * 100.0) + 0.5).toInt()}%"
 
 private fun Long.formatPlaybackTime(): String {
     val totalSeconds = (this / 1_000).coerceAtLeast(0)
