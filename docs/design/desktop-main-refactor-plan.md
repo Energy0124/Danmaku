@@ -72,10 +72,12 @@ Initial slice:
   metadata refresh version, progress/favorites/download snapshots, selected
   local playback preparation, indexing/refresh flags, dandanplay cache status,
   and external sync status.
+- `DesktopShellSettingsActions` owns provider settings save/clear/test flows,
+  MyAnimeList OAuth launch, local server connection testing, dandanplay cache
+  manager actions, and danmaku display settings persistence.
 - `DesktopShell` delegates diagnostic/server-event actions and
   navigation/search/language actions to remembered state objects while playback
-  command handling, library actions, settings save/test, and provider actions
-  remain local.
+  command handling and library actions remain local.
 
 Acceptance:
 
@@ -149,9 +151,9 @@ Completed shared/library follow-up split:
 Remaining structural hotspot:
 
 - `DesktopShell.kt` still owns dependency construction, long-lived state,
-  effects, and most playback/library/settings action implementations. The next
-  refactor should introduce a typed action facade around the remaining command
-  handlers rather than adding more UI-only files.
+  effects, and most playback/library action implementations. The next refactor
+  should introduce typed playback and library action facades around the
+  remaining command handlers rather than adding more UI-only files.
 
 Acceptance:
 

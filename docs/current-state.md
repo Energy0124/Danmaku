@@ -43,9 +43,10 @@ trusted-LAN clients.
   state object for queued playback/progress/smoke/autonext flags, and a
   settings state object for preferences/provider statuses/cache entries.
   Library roots/catalog/progress/favorites/download and refresh/sync flags are
-  also in a shell library state object. `DesktopShell.kt` remains the main
-  orchestration hotspot for playback commands, library actions, settings, and
-  provider actions.
+  also in a shell library state object. Provider settings, connection tests,
+  dandanplay cache-manager actions, and danmaku settings persistence are in a
+  settings action object. `DesktopShell.kt` remains the main orchestration
+  hotspot for playback commands and library actions.
 - Multi-root local anime library indexing, incremental rescanning, ani-rss
   output-folder import, and persistent SQLDelight/SQLite storage.
 - Trusted-LAN library server with pairing token, JSON catalog, byte-range media

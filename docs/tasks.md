@@ -36,10 +36,11 @@ Status legend:
   remembered state objects, and playback session/progress flags have a
   remembered state object. Settings/preferences/provider status also now have
   a remembered state object, and library/catalog/progress/indexing/sync flags
-  are in a remembered state object.
-- `[ ]` Extract typed shell actions from `DesktopShell.kt`; UI files and state
-  holders are now mostly split, leaving action orchestration as the dominant
-  remaining hotspot.
+  are in a remembered state object. Settings/provider/cache actions are also
+  extracted into a typed action object.
+- `[ ]` Extract typed playback and library actions from `DesktopShell.kt`; UI
+  files, state holders, and settings actions are now mostly split, leaving
+  playback/library action orchestration as the dominant remaining hotspot.
 
 ## Next Engineering Work
 
