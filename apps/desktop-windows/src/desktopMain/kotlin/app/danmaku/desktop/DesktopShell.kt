@@ -1150,19 +1150,7 @@ internal fun DesktopShell(
         }
     }
 
-    var selectedTab by remember { mutableStateOf(DesktopShellTab.HOME) }
-    var globalSearchText by remember { mutableStateOf("") }
-    var librarySearchSeed by remember { mutableStateOf("") }
-    var librarySearchSeedVersion by remember { mutableStateOf(0) }
-    val globalSearchFocusRequester = remember { FocusRequester() }
-    var desktopLanguage by remember(catalogStore) {
-        mutableStateOf(
-            DesktopUiLanguage.fromStorageValue(
-                catalogStore.loadSetting(DESKTOP_UI_LANGUAGE_SETTING_KEY)?.value,
-            ),
-        )
-    }
-    val desktopStrings = remember(desktopLanguage) { desktopLanguage.strings }
+    val navigationState = rememberDesktopShellNavigationState(catalogStore, scope, ::appendDiagnostic)
     var pendingPlaybackRequest by remember { mutableStateOf<DesktopPlaybackRequest?>(null) }
     var activePlaybackLabel by remember { mutableStateOf<String?>(null) }
     var activeProgressMediaId by remember { mutableStateOf<String?>(null) }
@@ -1249,58 +1237,17 @@ internal fun DesktopShell(
                 "Queued playback for ${hostPlatform.displayName} mpv output: ${request.label}; source=${request.source.toString().redactToken()}"
             },
         )
-        selectedTab = DesktopShellTab.PLAYBACK
-    }
-
-    fun submitGlobalSearch() {
-        val query = globalSearchText.trim()
-        if (query.isBlank()) {
-            return
-        }
-        librarySearchSeed = query
-        librarySearchSeedVersion += 1
-        selectedTab = DesktopShellTab.MEDIA_LIBRARY
-        appendDiagnostic("shell", "Global search routed to Library: $query")
-    }
-
-    fun selectShellTabFromShortcut(tab: DesktopShellTab): Boolean {
-        selectedTab = tab
-        appendDiagnostic("shell", "Shortcut routed to ${desktopStrings.tabTitle(tab)}")
-        return true
-    }
-
-    fun setDesktopLanguage(language: DesktopUiLanguage) {
-        if (desktopLanguage == language) {
-            return
-        }
-        desktopLanguage = language
-        scope.launch {
-            runCatching {
-                withContext(Dispatchers.IO) {
-                    catalogStore.saveSetting(
-                        DesktopAppSetting(
-                            key = DESKTOP_UI_LANGUAGE_SETTING_KEY,
-                            value = language.storageValue,
-                            updatedAtEpochMs = System.currentTimeMillis(),
-                        ),
-                    )
-                }
-            }.onSuccess {
-                appendDiagnostic("settings", "Desktop language set to ${language.displayName}")
-            }.onFailure {
-                appendDiagnostic("settings", "Failed to save desktop language: ${it.message}")
-            }
-        }
+        navigationState.selectedTab = DesktopShellTab.PLAYBACK
     }
 
     fun triggerPrimaryPageAction(): Boolean {
-        return when (selectedTab) {
+        return when (navigationState.selectedTab) {
             DesktopShellTab.HOME,
             DesktopShellTab.MEDIA_LIBRARY -> {
                 if (registeredRoots.isEmpty() || isIndexing) {
                     false
                 } else {
-                    appendDiagnostic("shell", "Primary shortcut requested library rescan from ${desktopStrings.tabTitle(selectedTab)}")
+                    appendDiagnostic("shell", "Primary shortcut requested library rescan from ${navigationState.desktopStrings.tabTitle(navigationState.selectedTab)}")
                     rescanRegisteredRoots()
                     true
                 }
@@ -1357,8 +1304,8 @@ internal fun DesktopShell(
         }
         return when (event.key) {
             Key.K -> {
-                if (!isFullscreen && selectedTab != DesktopShellTab.PLAYBACK) {
-                    globalSearchFocusRequester.requestFocus()
+                if (!isFullscreen && navigationState.selectedTab != DesktopShellTab.PLAYBACK) {
+                    navigationState.globalSearchFocusRequester.requestFocus()
                     true
                 } else {
                     false
@@ -1374,12 +1321,12 @@ internal fun DesktopShell(
                     false
                 }
             }
-            Key.One -> selectShellTabFromShortcut(DesktopShellTab.HOME)
-            Key.Two -> selectShellTabFromShortcut(DesktopShellTab.MEDIA_LIBRARY)
-            Key.Three -> selectShellTabFromShortcut(DesktopShellTab.DOWNLOADS)
-            Key.Four -> selectShellTabFromShortcut(DesktopShellTab.PLAYBACK)
-            Key.Five -> selectShellTabFromShortcut(DesktopShellTab.TRACKING)
-            Key.Six -> selectShellTabFromShortcut(DesktopShellTab.PROFILE)
+            Key.One -> navigationState.selectTabFromShortcut(DesktopShellTab.HOME)
+            Key.Two -> navigationState.selectTabFromShortcut(DesktopShellTab.MEDIA_LIBRARY)
+            Key.Three -> navigationState.selectTabFromShortcut(DesktopShellTab.DOWNLOADS)
+            Key.Four -> navigationState.selectTabFromShortcut(DesktopShellTab.PLAYBACK)
+            Key.Five -> navigationState.selectTabFromShortcut(DesktopShellTab.TRACKING)
+            Key.Six -> navigationState.selectTabFromShortcut(DesktopShellTab.PROFILE)
             else -> false
         }
     }
@@ -2173,9 +2120,9 @@ internal fun DesktopShell(
         queueSmokePlayback(smokePlayback)
     }
 
-    LaunchedEffect(selectedTab, nativeVideoHostReady, pendingPlaybackRequest, playbackSession) {
+    LaunchedEffect(navigationState.selectedTab, nativeVideoHostReady, pendingPlaybackRequest, playbackSession) {
         val request = pendingPlaybackRequest ?: return@LaunchedEffect
-        if (selectedTab != DesktopShellTab.PLAYBACK || !nativeVideoHostReady) {
+        if (navigationState.selectedTab != DesktopShellTab.PLAYBACK || !nativeVideoHostReady) {
             return@LaunchedEffect
         }
         appendDiagnostic(
@@ -2189,7 +2136,7 @@ internal fun DesktopShell(
         if (requiresNativeVideoHost) {
             delay(PLAYBACK_HOST_SETTLE_DELAY_MS)
         }
-        if (pendingPlaybackRequest != request || selectedTab != DesktopShellTab.PLAYBACK || !nativeVideoHostReady) {
+        if (pendingPlaybackRequest != request || navigationState.selectedTab != DesktopShellTab.PLAYBACK || !nativeVideoHostReady) {
             appendDiagnostic("playback", "Queued playback changed before load; skipping stale request: ${request.label}")
             return@LaunchedEffect
         }
@@ -2274,12 +2221,12 @@ internal fun DesktopShell(
             color = DanmakuColors.Background,
         ) {
             Row(modifier = Modifier.fillMaxSize()) {
-                val showAppChrome = !isFullscreen && selectedTab != DesktopShellTab.PLAYBACK
+                val showAppChrome = !isFullscreen && navigationState.selectedTab != DesktopShellTab.PLAYBACK
                 if (showAppChrome) {
                     AppNavigationRail(
-                        selectedTab = selectedTab,
-                        strings = desktopStrings,
-                        onTabSelected = { selectedTab = it },
+                        selectedTab = navigationState.selectedTab,
+                        strings = navigationState.desktopStrings,
+                        onTabSelected = { navigationState.selectedTab = it },
                         playbackLabel = activePlaybackLabel,
                         playbackStatus = playbackSnapshot.status,
                         episodeCount = indexedLibrary?.catalog?.items?.size ?: 0,
@@ -2289,14 +2236,14 @@ internal fun DesktopShell(
                 Column(modifier = Modifier.fillMaxSize()) {
                     if (showAppChrome) {
                         ShellHeader(
-                            selectedTab = selectedTab,
-                            strings = desktopStrings,
-                            searchText = globalSearchText,
-                            onSearchTextChange = { globalSearchText = it },
-                            onSubmitSearch = ::submitGlobalSearch,
-                            searchFocusRequester = globalSearchFocusRequester,
+                            selectedTab = navigationState.selectedTab,
+                            strings = navigationState.desktopStrings,
+                            searchText = navigationState.globalSearchText,
+                            onSearchTextChange = { navigationState.globalSearchText = it },
+                            onSubmitSearch = navigationState::submitGlobalSearch,
+                            searchFocusRequester = navigationState.globalSearchFocusRequester,
                             onRefresh = ::rescanRegisteredRoots,
-                            onShowSettings = { selectedTab = DesktopShellTab.PROFILE },
+                            onShowSettings = { navigationState.selectedTab = DesktopShellTab.PROFILE },
                             playerStatus = playbackSnapshot.status.name,
                             episodeCount = indexedLibrary?.catalog?.items?.size ?: 0,
                             isRefreshEnabled = registeredRoots.isNotEmpty() && !isIndexing,
@@ -2306,21 +2253,21 @@ internal fun DesktopShell(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(
-                                if (isFullscreen || selectedTab == DesktopShellTab.PLAYBACK) {
+                                if (isFullscreen || navigationState.selectedTab == DesktopShellTab.PLAYBACK) {
                                     0.dp
                                 } else {
                                     18.dp
                                 },
                             ),
                     ) {
-                    if (selectedTab == DesktopShellTab.PLAYBACK) {
+                    if (navigationState.selectedTab == DesktopShellTab.PLAYBACK) {
                         val activeLocalMediaId = activeProgressMediaId.takeIf { activeProgressTarget == null }
                         val previousLocalPlaybackItem = activeLocalMediaId
                             ?.let { mediaId -> indexedLibrary?.catalog?.previousItem(mediaId) }
                         val nextLocalPlaybackItem = activeLocalMediaId
                             ?.let { mediaId -> indexedLibrary?.catalog?.nextItem(mediaId) }
                         PlaybackTab(
-                            strings = desktopStrings,
+                            strings = navigationState.desktopStrings,
                             playbackLabel = activePlaybackLabel,
                             playbackSnapshot = playbackSnapshot,
                             mpvRuntimeStatus = mpvRuntime.statusMessage,
@@ -2367,7 +2314,7 @@ internal fun DesktopShell(
                             onOpenMediaFile = {
                                 appendDiagnostic("playback", "Opening direct media file picker")
                                 selectMediaFile(
-                                    title = desktopStrings.chooseMediaFileTitle(hostPlatform.displayName),
+                                    title = navigationState.desktopStrings.chooseMediaFileTitle(hostPlatform.displayName),
                                 )?.let { mediaFile ->
                                     appendDiagnostic("playback", "Loading direct media file: $mediaFile")
                                     loadPlaybackRequest(mediaFile.toDirectLocalPlaybackRequest())
@@ -2469,15 +2416,15 @@ internal fun DesktopShell(
                                 }
                             },
                             onSaveDanmakuSettings = ::saveDanmakuSettings,
-                            onShowHome = { selectedTab = DesktopShellTab.HOME },
-                            onShowLibrary = { selectedTab = DesktopShellTab.MEDIA_LIBRARY },
+                            onShowHome = { navigationState.selectedTab = DesktopShellTab.HOME },
+                            onShowLibrary = { navigationState.selectedTab = DesktopShellTab.MEDIA_LIBRARY },
                             canOpenMedia = mpvVideoWindowId != null,
                             modifier = Modifier.fillMaxSize(),
                         )
                     }
-                    when (selectedTab) {
+                    when (navigationState.selectedTab) {
                         DesktopShellTab.HOME -> HomeTab(
-                            strings = desktopStrings,
+                            strings = navigationState.desktopStrings,
                             playbackSnapshot = playbackSnapshot,
                             registeredRoots = registeredRoots,
                             indexedLibrary = displayIndexedLibrary,
@@ -2499,10 +2446,10 @@ internal fun DesktopShell(
                             libraryError = libraryError,
                             lastScanStats = lastScanStats,
                             diagnosticLog = diagnosticLog,
-                            onOpenLibrary = { selectedTab = DesktopShellTab.MEDIA_LIBRARY },
-                            onOpenDownloads = { selectedTab = DesktopShellTab.DOWNLOADS },
-                            onOpenSettings = { selectedTab = DesktopShellTab.PROFILE },
-                            onOpenTracking = { selectedTab = DesktopShellTab.TRACKING },
+                            onOpenLibrary = { navigationState.selectedTab = DesktopShellTab.MEDIA_LIBRARY },
+                            onOpenDownloads = { navigationState.selectedTab = DesktopShellTab.DOWNLOADS },
+                            onOpenSettings = { navigationState.selectedTab = DesktopShellTab.PROFILE },
+                            onOpenTracking = { navigationState.selectedTab = DesktopShellTab.TRACKING },
                             onRefreshMetadata = {
                                 displayIndexedLibrary?.let(::refreshMissingSeriesPosters)
                             },
@@ -2512,7 +2459,7 @@ internal fun DesktopShell(
                         )
                         DesktopShellTab.PLAYBACK -> Unit
                         DesktopShellTab.TRACKING -> TrackingTab(
-                            strings = desktopStrings,
+                            strings = navigationState.desktopStrings,
                             indexedLibrary = displayIndexedLibrary,
                             externalAnimeMappings = externalAnimeMappings,
                             playbackProgresses = playbackProgresses,
@@ -2520,15 +2467,15 @@ internal fun DesktopShell(
                             isExternalAnimeSyncing = isExternalAnimeSyncing,
                             externalAnimeProviderSettings = externalAnimeProviderSettings,
                             onSyncExternalAnimePlan = ::syncExternalAnimePlan,
-                            onOpenSettings = { selectedTab = DesktopShellTab.PROFILE },
-                            onOpenLibrary = { selectedTab = DesktopShellTab.MEDIA_LIBRARY },
+                            onOpenSettings = { navigationState.selectedTab = DesktopShellTab.PROFILE },
+                            onOpenLibrary = { navigationState.selectedTab = DesktopShellTab.MEDIA_LIBRARY },
                         )
                         DesktopShellTab.MEDIA_LIBRARY -> MediaLibraryTab(
-                            strings = desktopStrings,
+                            strings = navigationState.desktopStrings,
                             registeredRoots = registeredRoots,
                             indexedLibrary = displayIndexedLibrary,
-                            searchSeed = librarySearchSeed,
-                            searchSeedVersion = librarySearchSeedVersion,
+                            searchSeed = navigationState.librarySearchSeed,
+                            searchSeedVersion = navigationState.librarySearchSeedVersion,
                             seriesPosterById = seriesPosterById,
                             externalAnimeMappings = externalAnimeMappings,
                             externalAnimeItemMappingsByMediaId = externalAnimeItemMappingsByMediaId,
@@ -2549,12 +2496,12 @@ internal fun DesktopShell(
                             lastScanStats = lastScanStats,
                             onAddLibraryFolder = {
                                 selectLibraryDirectory(
-                                    title = desktopStrings.chooseAnimeLibraryFolderTitle,
+                                    title = navigationState.desktopStrings.chooseAnimeLibraryFolderTitle,
                                 )?.let(::registerAndScanUserRoot)
                             },
                             onImportAniRssOutputFolder = {
                                 selectLibraryDirectory(
-                                    title = desktopStrings.chooseAniRssCompletedMediaFolderTitle,
+                                    title = navigationState.desktopStrings.chooseAniRssCompletedMediaFolderTitle,
                                 )?.let(::importAndScanAniRssRoot)
                             },
                             onRescanRegisteredRoots = ::rescanRegisteredRoots,
@@ -2589,7 +2536,7 @@ internal fun DesktopShell(
                             },
                             remoteBrowser = {
                                 RemoteLibraryBrowser(
-                                    strings = desktopStrings,
+                                    strings = navigationState.desktopStrings,
                                     defaultServerUrl = server.baseUrl(),
                                     defaultPairingToken = server.pairingToken,
                                     appendDiagnostic = ::appendDiagnostic,
@@ -2604,7 +2551,7 @@ internal fun DesktopShell(
                             },
                         )
                         DesktopShellTab.DOWNLOADS -> DownloadsTab(
-                            strings = desktopStrings,
+                            strings = navigationState.desktopStrings,
                             isIndexing = isIndexing,
                             webhookUrls = serverRuntime.aniRssWebhookUrls(),
                             webhookToken = serverRuntime.aniRssWebhookToken,
@@ -2612,7 +2559,7 @@ internal fun DesktopShell(
                             downloadQueueItems = downloadQueueItems,
                             onAddAniRssOutputFolder = {
                                 selectLibraryDirectory(
-                                    title = desktopStrings.chooseAniRssCompletedMediaFolderTitle,
+                                    title = navigationState.desktopStrings.chooseAniRssCompletedMediaFolderTitle,
                                 )?.let(::importAndScanAniRssRoot)
                             },
                             onRefreshQueue = {
@@ -2643,8 +2590,8 @@ internal fun DesktopShell(
                             },
                         )
                         DesktopShellTab.PROFILE -> ProfileTab(
-                            desktopLanguage = desktopLanguage,
-                            strings = desktopStrings,
+                            desktopLanguage = navigationState.desktopLanguage,
+                            strings = navigationState.desktopStrings,
                             mpvRuntimeStatus = mpvRuntime.statusMessage,
                             videoHostStatus = videoHostStatus,
                             serverBaseUrl = server.baseUrl(),
@@ -2660,7 +2607,7 @@ internal fun DesktopShell(
                             onRefreshDandanplayCacheEntries = ::refreshDandanplayCacheEntries,
                             onDeleteDandanplayCacheEntry = ::deleteDandanplayCacheEntry,
                             onCleanupExpiredDandanplayCaches = ::cleanupExpiredDandanplayCaches,
-                            onDesktopLanguageChange = ::setDesktopLanguage,
+                            onDesktopLanguageChange = navigationState::updateDesktopLanguage,
                             dandanplaySettings = dandanplaySettings,
                             onSaveDandanplaySettings = ::saveDandanplaySettings,
                             onClearDandanplaySettings = ::clearDandanplaySettings,
@@ -2685,4 +2632,3 @@ internal fun DesktopShell(
     }
 }
 }
-

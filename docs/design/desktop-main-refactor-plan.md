@@ -59,8 +59,12 @@ Initial slice:
 
 - `DesktopShellDiagnosticsState` owns diagnostic log, mpv command log, server
   events, file logging, and trim behavior.
-- `DesktopShell` delegates diagnostic/server-event actions to the remembered
-  state object while the remaining shell state is still local.
+- `DesktopShellNavigationState` owns selected tab, global search routing,
+  library search seeding, focus requester, desktop language, and language
+  persistence.
+- `DesktopShell` delegates diagnostic/server-event actions and
+  navigation/search/language actions to remembered state objects while playback,
+  library, settings, and provider actions remain local.
 
 Acceptance:
 
@@ -134,9 +138,9 @@ Completed shared/library follow-up split:
 Remaining structural hotspot:
 
 - `DesktopShell.kt` still owns dependency construction, long-lived state,
-  effects, and most action implementations. The next refactor should extract
-  remembered library/playback/settings state objects and a typed action facade
-  rather than adding more UI-only files.
+  effects, and most playback/library/settings action implementations. The next
+  refactor should extract remembered library/playback/settings state objects
+  and a typed action facade rather than adding more UI-only files.
 
 Acceptance:
 

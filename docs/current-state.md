@@ -38,7 +38,9 @@ trusted-LAN clients.
   overlays, panels, and presentation helpers. Shell chrome is separated from
   Home content. Shared primitives, local/remote library rows, library
   workspace, and library inspector surfaces are further split into focused
-  files; `DesktopShell.kt` remains the main orchestration hotspot.
+  files. `DesktopShell.kt` has diagnostics/server-event and
+  navigation/search/language state objects extracted, but remains the main
+  orchestration hotspot for playback, library, settings, and provider actions.
 - Multi-root local anime library indexing, incremental rescanning, ani-rss
   output-folder import, and persistent SQLDelight/SQLite storage.
 - Trusted-LAN library server with pairing token, JSON catalog, byte-range media
