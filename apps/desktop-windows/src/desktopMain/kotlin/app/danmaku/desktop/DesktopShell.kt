@@ -519,6 +519,7 @@ internal fun DesktopShell(
             requiresNativeVideoHost = requiresNativeVideoHost,
             getPlaybackSnapshot = { playbackSnapshot },
             setPlaybackSnapshot = { playbackSnapshot = it },
+            updateVideoAspectMode = { videoAspectMode = it },
             selectPlaybackTab = { navigationState.selectedTab = DesktopShellTab.PLAYBACK },
             appendDiagnostic = ::appendDiagnostic,
         )
@@ -853,101 +854,21 @@ internal fun DesktopShell(
                                     playbackActions.loadPlaybackRequest(mediaFile.toDirectLocalPlaybackRequest())
                                 }
                             },
-                            onPlay = {
-                                appendDiagnostic("playback", "Dispatch Play")
-                                playbackController.dispatch(PlaybackCommand.Play)
-                                playbackSnapshot = playbackController.snapshot()
-                            },
-                            onPause = {
-                                appendDiagnostic("playback", "Dispatch Pause")
-                                playbackController.dispatch(PlaybackCommand.Pause)
-                                playbackSnapshot = playbackController.snapshot()
-                                playbackActions.persistActivePlaybackProgress(playbackSnapshot, force = true)
-                            },
-                            onSeekBackward = {
-                                appendDiagnostic("playback", "Dispatch Seek -10s")
-                                playbackController.dispatch(
-                                    PlaybackCommand.SeekTo(
-                                        maxOf(0, playbackSnapshot.position.positionMs - 10_000),
-                                    ),
-                                )
-                                playbackSnapshot = playbackController.snapshot()
-                                playbackActions.persistActivePlaybackProgress(playbackSnapshot, force = true)
-                            },
-                            onSeekBackwardLarge = {
-                                appendDiagnostic("playback", "Dispatch Seek -30s")
-                                playbackController.dispatch(
-                                    PlaybackCommand.SeekTo(
-                                        maxOf(0, playbackSnapshot.position.positionMs - 30_000),
-                                    ),
-                                )
-                                playbackSnapshot = playbackController.snapshot()
-                                playbackActions.persistActivePlaybackProgress(playbackSnapshot, force = true)
-                            },
-                            onSeekForward = {
-                                appendDiagnostic("playback", "Dispatch Seek +10s")
-                                playbackController.dispatch(
-                                    PlaybackCommand.SeekTo(
-                                        playbackSnapshot.position.positionMs + 10_000,
-                                    ),
-                                )
-                                playbackSnapshot = playbackController.snapshot()
-                                playbackActions.persistActivePlaybackProgress(playbackSnapshot, force = true)
-                            },
-                            onSeekForwardLarge = {
-                                appendDiagnostic("playback", "Dispatch Seek +30s")
-                                playbackController.dispatch(
-                                    PlaybackCommand.SeekTo(
-                                        playbackSnapshot.position.positionMs + 30_000,
-                                    ),
-                                )
-                                playbackSnapshot = playbackController.snapshot()
-                                playbackActions.persistActivePlaybackProgress(playbackSnapshot, force = true)
-                            },
-                            onSeekTo = { positionMs ->
-                                appendDiagnostic("playback", "Dispatch Seek ${positionMs}ms")
-                                playbackController.dispatch(PlaybackCommand.SeekTo(positionMs))
-                                playbackSnapshot = playbackController.snapshot()
-                                playbackActions.persistActivePlaybackProgress(playbackSnapshot, force = true)
-                            },
-                            onSetPlaybackRate = { rate ->
-                                appendDiagnostic("playback", "Dispatch playback rate ${rate}x")
-                                playbackController.dispatch(PlaybackCommand.SetPlaybackRate(rate))
-                                playbackSnapshot = playbackController.snapshot()
-                                playbackActions.savePlaybackPreference("rate") {
-                                    savePlaybackRate(rate)
-                                }
-                            },
-                            onSetVolume = { volumePercent ->
-                                appendDiagnostic("playback", "Dispatch volume $volumePercent%")
-                                playbackController.dispatch(PlaybackCommand.SetVolume(volumePercent))
-                                playbackSnapshot = playbackController.snapshot()
-                                playbackActions.savePlaybackPreference("volume") {
-                                    saveVolumePercent(volumePercent)
-                                }
-                            },
-                            onSelectAudioTrack = { trackId ->
-                                appendDiagnostic("playback", "Dispatch audio track $trackId")
-                                playbackController.dispatch(PlaybackCommand.SelectAudioTrack(trackId))
-                                playbackSnapshot = playbackController.snapshot()
-                            },
-                            onSelectSubtitleTrack = { trackId ->
-                                appendDiagnostic("playback", "Dispatch subtitle track ${trackId ?: "off"}")
-                                playbackController.dispatch(PlaybackCommand.SelectSubtitleTrack(trackId))
-                                playbackSnapshot = playbackController.snapshot()
-                            },
+                            onPlay = playbackActions::dispatchPlay,
+                            onPause = playbackActions::dispatchPause,
+                            onSeekBackward = { playbackActions.seekBy(-10_000, "Dispatch Seek -10s") },
+                            onSeekBackwardLarge = { playbackActions.seekBy(-30_000, "Dispatch Seek -30s") },
+                            onSeekForward = { playbackActions.seekBy(10_000, "Dispatch Seek +10s") },
+                            onSeekForwardLarge = { playbackActions.seekBy(30_000, "Dispatch Seek +30s") },
+                            onSeekTo = playbackActions::seekTo,
+                            onSetPlaybackRate = playbackActions::setPlaybackRate,
+                            onSetVolume = playbackActions::setVolume,
+                            onSelectAudioTrack = playbackActions::selectAudioTrack,
+                            onSelectSubtitleTrack = playbackActions::selectSubtitleTrack,
                             isFullscreen = isFullscreen,
                             videoAspectMode = videoAspectMode,
                             onSetFullscreen = { enabled -> setWindowFullscreen(enabled, "playback") },
-                            onSetVideoAspectMode = { mode ->
-                                appendDiagnostic("playback", "Dispatch video aspect ${mode.label}")
-                                playbackController.setVideoAspectMode(mode)
-                                videoAspectMode = playbackController.videoAspectMode
-                                playbackSnapshot = playbackController.snapshot()
-                                playbackActions.savePlaybackPreference("aspect") {
-                                    saveVideoAspectMode(mode)
-                                }
-                            },
+                            onSetVideoAspectMode = playbackActions::setVideoAspectMode,
                             onSaveDanmakuSettings = settingsActions::saveDanmakuSettings,
                             onShowHome = { navigationState.selectedTab = DesktopShellTab.HOME },
                             onShowLibrary = { navigationState.selectedTab = DesktopShellTab.MEDIA_LIBRARY },

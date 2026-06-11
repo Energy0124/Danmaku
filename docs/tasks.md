@@ -43,10 +43,11 @@ Status legend:
   Library root, metadata, favorite, external mapping/search, and tracking sync
   actions are now split into a typed library action object. Download queue
   refresh/remove/open actions are also split into a typed action object.
-- `[ ]` Reduce shell/lifecycle/player callback wiring in `DesktopShell.kt`; UI
+- `[ ]` Reduce shell/lifecycle/window wiring in `DesktopShell.kt`; UI
   files, state holders, settings actions, playback actions, local
   playback/danmaku actions, library actions, and download actions are now
-  split, and stale monolith imports have been trimmed.
+  split, playback command callbacks are delegated, and stale monolith imports
+  have been trimmed.
 
 ## Next Engineering Work
 

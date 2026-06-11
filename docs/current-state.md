@@ -54,8 +54,7 @@ trusted-LAN clients.
   favorites, external mapping/search, and tracking sync actions are in a
   library action object. Persisted download queue refresh/removal and output
   folder opening are in a download action object. `DesktopShell.kt` remains
-  the main orchestration hotspot for shell/window effects and playback-tab
-  command callback wiring.
+  the main orchestration hotspot for shell/window effects and tab assembly.
 - Multi-root local anime library indexing, incremental rescanning, ani-rss
   output-folder import, and persistent SQLDelight/SQLite storage.
 - Trusted-LAN library server with pairing token, JSON catalog, byte-range media

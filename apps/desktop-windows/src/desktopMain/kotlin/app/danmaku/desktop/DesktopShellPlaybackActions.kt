@@ -26,6 +26,7 @@ internal class DesktopShellPlaybackActions(
     private val requiresNativeVideoHost: Boolean,
     private val getPlaybackSnapshot: () -> PlaybackSnapshot,
     private val setPlaybackSnapshot: (PlaybackSnapshot) -> Unit,
+    private val updateVideoAspectMode: (DesktopVideoAspectMode) -> Unit,
     private val selectPlaybackTab: () -> Unit,
     private val appendDiagnostic: (String, String) -> Unit,
 ) {
@@ -145,14 +146,80 @@ internal class DesktopShellPlaybackActions(
     fun pauseActivePlaybackAndPersist() {
         appendDiagnostic("playback", "Primary shortcut paused playback")
         playbackController.dispatch(PlaybackCommand.Pause)
-        setPlaybackSnapshot(playbackController.snapshot())
-        persistActivePlaybackProgress(getPlaybackSnapshot(), force = true)
+        val snapshot = updatePlaybackSnapshot()
+        persistActivePlaybackProgress(snapshot, force = true)
     }
 
     fun playActivePlayback() {
         appendDiagnostic("playback", "Primary shortcut started playback")
         playbackController.dispatch(PlaybackCommand.Play)
-        setPlaybackSnapshot(playbackController.snapshot())
+        updatePlaybackSnapshot()
+    }
+
+    fun dispatchPlay() {
+        appendDiagnostic("playback", "Dispatch Play")
+        playbackController.dispatch(PlaybackCommand.Play)
+        updatePlaybackSnapshot()
+    }
+
+    fun dispatchPause() {
+        appendDiagnostic("playback", "Dispatch Pause")
+        playbackController.dispatch(PlaybackCommand.Pause)
+        val snapshot = updatePlaybackSnapshot()
+        persistActivePlaybackProgress(snapshot, force = true)
+    }
+
+    fun seekBy(offsetMs: Long, diagnosticLabel: String) {
+        appendDiagnostic("playback", diagnosticLabel)
+        val currentPositionMs = getPlaybackSnapshot().position.positionMs
+        seekToPosition(maxOf(0, currentPositionMs + offsetMs))
+    }
+
+    fun seekTo(positionMs: Long) {
+        appendDiagnostic("playback", "Dispatch Seek ${positionMs}ms")
+        seekToPosition(positionMs)
+    }
+
+    fun setPlaybackRate(rate: Float) {
+        appendDiagnostic("playback", "Dispatch playback rate ${rate}x")
+        playbackController.dispatch(PlaybackCommand.SetPlaybackRate(rate))
+        updatePlaybackSnapshot()
+        savePlaybackPreference("rate") {
+            savePlaybackRate(rate)
+        }
+    }
+
+    fun setVolume(volumePercent: Int) {
+        appendDiagnostic("playback", "Dispatch volume $volumePercent%")
+        playbackController.dispatch(PlaybackCommand.SetVolume(volumePercent))
+        updatePlaybackSnapshot()
+        savePlaybackPreference("volume") {
+            saveVolumePercent(volumePercent)
+        }
+    }
+
+    fun selectAudioTrack(trackId: String) {
+        appendDiagnostic("playback", "Dispatch audio track $trackId")
+        playbackController.dispatch(PlaybackCommand.SelectAudioTrack(trackId))
+        updatePlaybackSnapshot()
+    }
+
+    fun selectSubtitleTrack(trackId: String?) {
+        appendDiagnostic("playback", "Dispatch subtitle track ${trackId ?: "off"}")
+        playbackController.dispatch(PlaybackCommand.SelectSubtitleTrack(trackId))
+        updatePlaybackSnapshot()
+    }
+
+    fun setVideoAspectMode(mode: DesktopVideoAspectMode) {
+        appendDiagnostic("playback", "Dispatch video aspect ${mode.label}")
+        if (playbackController is DesktopMpvPlaybackController) {
+            playbackController.setVideoAspectMode(mode)
+            updateVideoAspectMode(playbackController.videoAspectMode)
+        }
+        updatePlaybackSnapshot()
+        savePlaybackPreference("aspect") {
+            saveVideoAspectMode(mode)
+        }
     }
 
     private fun shouldPersistPlaybackProgress(
@@ -170,4 +237,13 @@ internal class DesktopShellPlaybackActions(
             lastSaved.positionMs - progress.positionMs >= WINDOWS_PROGRESS_SAVE_INTERVAL_MS ||
             progress.durationMs != lastSaved.durationMs
     }
+
+    private fun seekToPosition(positionMs: Long) {
+        playbackController.dispatch(PlaybackCommand.SeekTo(positionMs))
+        val snapshot = updatePlaybackSnapshot()
+        persistActivePlaybackProgress(snapshot, force = true)
+    }
+
+    private fun updatePlaybackSnapshot(): PlaybackSnapshot =
+        playbackController.snapshot().also(setPlaybackSnapshot)
 }
