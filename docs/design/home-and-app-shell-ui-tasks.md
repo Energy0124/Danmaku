@@ -135,8 +135,11 @@ Status legend:
 
 ## Android Mobile and Tablet Adaptation
 
-- `[ ]` Add Android string resources for English and Traditional Chinese
+- `[~]` Add Android string resources for English and Traditional Chinese
   (`zh-TW`) before broad UI polish locks in hardcoded copy.
+  - Android mobile now has English and `zh-TW` resource files for app label,
+    primary navigation, Home/Library/Player/Downloads/Tracking/Settings chrome,
+    operational status headings, and common actions.
 - `[ ]` Map Home, Library, Downloads, Tracking, and Settings into mobile
   navigation without copying the desktop rail directly.
 - `[ ]` Add mobile Home sections for Continue Watching, Recently Added, and key
@@ -150,8 +153,11 @@ Status legend:
 
 ## Android TV Adaptation
 
-- `[ ]` Add TV string resources for English and Traditional Chinese (`zh-TW`)
+- `[~]` Add TV string resources for English and Traditional Chinese (`zh-TW`)
   and verify translated labels in focused TV controls.
+  - Android TV now has English and `zh-TW` resource files for app label, TV
+    navigation, Home hero/rows, Library/Player empty states, operational status
+    headings, and common remote-friendly actions.
 - `[ ]` Map the Home shell into TV rails: hero/resume, Continue Watching,
   Recently Added, Library slices, and operational status.
 - `[ ]` Ensure each TV Home card has one obvious primary action and visible

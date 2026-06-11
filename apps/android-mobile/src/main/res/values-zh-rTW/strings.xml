@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Danmaku</string>
+    <string name="nav_watch">觀看</string>
+    <string name="nav_library">媒體庫</string>
+    <string name="nav_connect">連線</string>
+    <string name="home_continue_watching">繼續觀看</string>
+    <string name="home_recently_added">最近加入</string>
+    <string name="home_recently_watched">最近觀看</string>
+    <string name="home_operational_status">狀態</string>
+    <string name="library_title">媒體庫</string>
+    <string name="library_search_hint">搜尋動畫、集數或路徑</string>
+    <string name="library_empty">配對桌面媒體庫後即可瀏覽集數。</string>
+    <string name="player_title">播放器</string>
+    <string name="player_empty">選取集數以開始播放。</string>
+    <string name="downloads_title">下載</string>
+    <string name="tracking_title">追蹤</string>
+    <string name="settings_title">設定</string>
+    <string name="server_status_title">伺服器狀態</string>
+    <string name="metadata_status_title">中繼資料與海報</string>
+    <string name="downloads_status_title">下載</string>
+    <string name="tracking_status_title">外部追蹤</string>
+    <string name="danmaku_cache_status_title">已快取彈幕</string>
+    <string name="action_refresh">重新整理</string>
+    <string name="action_play">播放</string>
+    <string name="action_resume">繼續播放</string>
+    <string name="action_connect">連線</string>
+    <string name="action_retry">重試</string>
+</resources>
