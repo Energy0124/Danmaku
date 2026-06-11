@@ -29,6 +29,9 @@ Status legend:
   - Desktop shell language is now selectable and persisted from Settings >
     General, with English and `zh-TW` strings for the app rail, compact header,
     settings rail, and language card.
+  - Library metadata match dialog chrome, actions, empty/error states, poster
+    labels, and candidate status copy now use the same English / `zh-TW`
+    desktop string layer.
 - `[~]` Align the desktop top header with the target shell: app identity, global
   search, refresh/rescan, diagnostics/notifications, help, settings, and local
   profile/device controls.

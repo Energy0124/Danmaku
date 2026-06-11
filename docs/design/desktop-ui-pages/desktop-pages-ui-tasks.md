@@ -33,6 +33,10 @@ Status legend:
     Settings > General.
   - The shared shell rail, compact header, Settings section rail, and General
     language card use the first desktop string layer.
+  - The Library metadata match dialog now uses the desktop string layer for
+    English and `zh-TW` title, actions, empty/error states, poster labels, and
+    candidate status copy while preserving provider/anime titles as source
+    data.
   - Remaining: migrate page actions, status labels, dialogs, tooltips,
     inspector copy, and empty/error states.
 - `[ ]` Add UI review screenshots or checks for English and `zh-TW` labels in

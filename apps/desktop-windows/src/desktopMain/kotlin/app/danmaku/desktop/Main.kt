@@ -2589,6 +2589,7 @@ private fun DesktopShell(
                             onOpenLibrary = { selectedTab = DesktopShellTab.MEDIA_LIBRARY },
                         )
                         DesktopShellTab.MEDIA_LIBRARY -> MediaLibraryTab(
+                            strings = desktopStrings,
                             registeredRoots = registeredRoots,
                             indexedLibrary = displayIndexedLibrary,
                             searchSeed = librarySearchSeed,
@@ -2806,6 +2807,25 @@ private enum class DesktopUiLanguage(
             uiLanguagesValue = "English, Traditional Chinese",
             appLabel = "App",
             primaryTargetsLabel = "Primary targets",
+            searchAction = "Search",
+            searchingAction = "Searching...",
+            closeAction = "Close",
+            useAction = "Use",
+            mappedAction = "Mapped",
+            posterLoadingLabel = "Loading",
+            posterUnavailableLabel = "Poster unavailable",
+            metadataMatchTitle = "Metadata Match",
+            metadataMatchDescription = { title ->
+                "Search provider metadata for $title and save a series-level mapping."
+            },
+            metadataMatchSearchTitleLabel = "Search title",
+            metadataMatchSelectProviderError = "Select at least one provider to search.",
+            metadataMatchNoCandidates = { title -> "No provider candidates matched \"$title\"." },
+            metadataMatchMyAnimeListUnavailable = "MyAnimeList search needs a client ID in Settings > Providers",
+            metadataMatchBangumiUnavailable = "Bangumi search needs a valid API URL and User-Agent",
+            metadataMatchCurrentMappingsPrefix = "Current mappings:",
+            metadataMatchEmptyState = "Search MyAnimeList or Bangumi to review candidates and save a mapping.",
+            metadataMatchMatchedTitlePrefix = "matched:",
         ),
     ),
     ZH_TW(
@@ -2845,6 +2865,25 @@ private enum class DesktopUiLanguage(
             uiLanguagesValue = "英文、繁體中文",
             appLabel = "應用程式",
             primaryTargetsLabel = "主要平台",
+            searchAction = "搜尋",
+            searchingAction = "搜尋中...",
+            closeAction = "關閉",
+            useAction = "使用",
+            mappedAction = "已對應",
+            posterLoadingLabel = "載入中",
+            posterUnavailableLabel = "無法載入海報",
+            metadataMatchTitle = "中繼資料對應",
+            metadataMatchDescription = { title ->
+                "搜尋「$title」的服務中繼資料，並儲存系列層級對應。"
+            },
+            metadataMatchSearchTitleLabel = "搜尋標題",
+            metadataMatchSelectProviderError = "請至少選擇一個要搜尋的服務。",
+            metadataMatchNoCandidates = { title -> "找不到符合「$title」的服務候選項目。" },
+            metadataMatchMyAnimeListUnavailable = "MyAnimeList 搜尋需要在「設定 > 服務」填入 Client ID",
+            metadataMatchBangumiUnavailable = "Bangumi 搜尋需要有效的 API URL 與 User-Agent",
+            metadataMatchCurrentMappingsPrefix = "目前對應：",
+            metadataMatchEmptyState = "搜尋 MyAnimeList 或 Bangumi 以檢視候選項目並儲存對應。",
+            metadataMatchMatchedTitlePrefix = "符合標題：",
         ),
     );
 
@@ -2871,6 +2910,23 @@ private data class DesktopStrings(
     val uiLanguagesValue: String,
     val appLabel: String,
     val primaryTargetsLabel: String,
+    val searchAction: String,
+    val searchingAction: String,
+    val closeAction: String,
+    val useAction: String,
+    val mappedAction: String,
+    val posterLoadingLabel: String,
+    val posterUnavailableLabel: String,
+    val metadataMatchTitle: String,
+    val metadataMatchDescription: (String) -> String,
+    val metadataMatchSearchTitleLabel: String,
+    val metadataMatchSelectProviderError: String,
+    val metadataMatchNoCandidates: (String) -> String,
+    val metadataMatchMyAnimeListUnavailable: String,
+    val metadataMatchBangumiUnavailable: String,
+    val metadataMatchCurrentMappingsPrefix: String,
+    val metadataMatchEmptyState: String,
+    val metadataMatchMatchedTitlePrefix: String,
 ) {
     fun tabTitle(tab: DesktopShellTab): String = tabTitles[tab] ?: tab.title
     fun settingsSectionTitle(section: DesktopSettingsSection): String =
@@ -5300,6 +5356,7 @@ private fun Int.floorMod(size: Int): Int =
 
 @Composable
 private fun MediaLibraryTab(
+    strings: DesktopStrings,
     registeredRoots: List<DesktopLibraryRoot>,
     indexedLibrary: IndexedLocalLibrary?,
     searchSeed: String,
@@ -5410,6 +5467,7 @@ private fun MediaLibraryTab(
                     ?.let { id -> catalog?.episodeDetail(id, playbackProgresses) }
         }
         WindowsLibraryWorkspace(
+            strings = strings,
             registeredRoots = registeredRoots,
             indexedLibrary = indexedLibrary,
             searchSeed = searchSeed,
@@ -5485,6 +5543,7 @@ private enum class WindowsLibraryView(
 
 @Composable
 private fun WindowsLibraryWorkspace(
+    strings: DesktopStrings,
     registeredRoots: List<DesktopLibraryRoot>,
     indexedLibrary: IndexedLocalLibrary?,
     searchSeed: String,
@@ -5715,6 +5774,7 @@ private fun WindowsLibraryWorkspace(
                     },
             )
             LibraryInspectorPane(
+                strings = strings,
                 selectedSeries = selectedInspectorSeries,
                 selectedEpisodeDetail = selectedEpisodeDetail,
                 selectedItem = selectedInspectorItem,
@@ -7084,6 +7144,7 @@ private fun EpisodeListView(
 
 @Composable
 private fun LibraryInspectorPane(
+    strings: DesktopStrings,
     selectedSeries: LibrarySeries?,
     selectedEpisodeDetail: LibraryEpisodeDetail?,
     selectedItem: LibraryMediaItem?,
@@ -7338,6 +7399,7 @@ private fun LibraryInspectorPane(
             color = if (selectedItem.subtitles.isNotEmpty()) DanmakuColors.Good else DanmakuColors.TextMuted,
         )
         ExternalAnimeMappingPanel(
+            strings = strings,
             selectedSeries = selectedSeries,
             selectedItem = selectedItem,
             seriesMappings = externalAnimeMappings,
@@ -7454,6 +7516,7 @@ private fun LibraryInspectorPane(
 
 @Composable
 private fun ExternalAnimeMappingPanel(
+    strings: DesktopStrings,
     selectedSeries: LibrarySeries,
     selectedItem: LibraryMediaItem,
     seriesMappings: List<ExternalAnimeMapping>,
@@ -7509,6 +7572,7 @@ private fun ExternalAnimeMappingPanel(
     )
     if (showMatchDialog) {
         MetadataMatchDialog(
+            strings = strings,
             selectedSeries = selectedSeries,
             currentMappings = seriesMappings,
             externalAnimeProviderSettings = externalAnimeProviderSettings,
@@ -7522,6 +7586,7 @@ private fun ExternalAnimeMappingPanel(
 
 @Composable
 private fun MetadataMatchDialog(
+    strings: DesktopStrings,
     selectedSeries: LibrarySeries,
     currentMappings: List<ExternalAnimeMapping>,
     externalAnimeProviderSettings: ExternalAnimeProviderSettings,
@@ -7553,7 +7618,7 @@ private fun MetadataMatchDialog(
             if (includeBangumi) add(ExternalAnimeProvider.BANGUMI)
         }
         if (providers.isEmpty()) {
-            searchError = "Select at least one provider to search."
+            searchError = strings.metadataMatchSelectProviderError
             candidates = emptyList()
             return
         }
@@ -7569,7 +7634,7 @@ private fun MetadataMatchDialog(
             )
             result.onSuccess {
                 candidates = it
-                searchError = if (it.isEmpty()) "No provider candidates matched \"$title\"." else null
+                searchError = if (it.isEmpty()) strings.metadataMatchNoCandidates(title) else null
             }.onFailure {
                 candidates = emptyList()
                 searchError = it.readableMessage()
@@ -7581,20 +7646,20 @@ private fun MetadataMatchDialog(
     AlertDialog(
         modifier = Modifier.width(860.dp),
         onDismissRequest = onDismiss,
-        title = { Text("Metadata Match") },
+        title = { Text(strings.metadataMatchTitle) },
         text = {
             Column(
                 modifier = Modifier.heightIn(max = 620.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Text(
-                    "Search provider metadata for ${selectedSeries.title} and save a series-level mapping.",
+                    strings.metadataMatchDescription(selectedSeries.title),
                     color = DanmakuColors.TextMuted,
                 )
                 OutlinedTextField(
                     value = queryText,
                     onValueChange = { queryText = it },
-                    label = { Text("Search title") },
+                    label = { Text(strings.metadataMatchSearchTitleLabel) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -7624,7 +7689,7 @@ private fun MetadataMatchDialog(
                     Spacer(modifier = Modifier.weight(1f))
                     LibraryActionButton(
                         imageVector = Icons.Filled.Search,
-                        label = if (isSearching) "Searching..." else "Search",
+                        label = if (isSearching) strings.searchingAction else strings.searchAction,
                         enabled = !isSearching && queryText.isNotBlank(),
                         onClick = ::runSearch,
                     )
@@ -7632,8 +7697,8 @@ private fun MetadataMatchDialog(
                 if (!myAnimeListSearchAvailable || !bangumiSearchAvailable) {
                     Text(
                         buildList {
-                            if (!myAnimeListSearchAvailable) add("MyAnimeList search needs a client ID in Settings > Providers")
-                            if (!bangumiSearchAvailable) add("Bangumi search needs a valid API URL and User-Agent")
+                            if (!myAnimeListSearchAvailable) add(strings.metadataMatchMyAnimeListUnavailable)
+                            if (!bangumiSearchAvailable) add(strings.metadataMatchBangumiUnavailable)
                         }.joinToString("; "),
                         color = DanmakuColors.Warning,
                         maxLines = 2,
@@ -7642,7 +7707,8 @@ private fun MetadataMatchDialog(
                 }
                 currentMappings.takeIf { it.isNotEmpty() }?.let { mappings ->
                     Text(
-                        "Current mappings: " + mappings.joinToString { "${it.animeId.provider.displayName} #${it.animeId.value}" },
+                        strings.metadataMatchCurrentMappingsPrefix + " " +
+                            mappings.joinToString { "${it.animeId.provider.displayName} #${it.animeId.value}" },
                         color = DanmakuColors.TextMuted,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
@@ -7653,7 +7719,7 @@ private fun MetadataMatchDialog(
                 }
                 Divider(color = DanmakuColors.SurfaceRaised)
                 if (candidates.isEmpty()) {
-                    EmptyState("Search MyAnimeList or Bangumi to review candidates and save a mapping.")
+                    EmptyState(strings.metadataMatchEmptyState)
                 } else {
                     LazyColumn(
                         modifier = Modifier.heightIn(max = 360.dp),
@@ -7661,6 +7727,7 @@ private fun MetadataMatchDialog(
                     ) {
                         items(candidates, key = { "${it.anime.id.provider.name}:${it.anime.id.value}" }) { candidate ->
                             MetadataMatchCandidateRow(
+                                strings = strings,
                                 candidate = candidate,
                                 alreadyMapped = currentMappings.any { it.animeId == candidate.anime.id },
                                 onFetchPoster = onFetchMetadataMatchPoster,
@@ -7683,12 +7750,12 @@ private fun MetadataMatchDialog(
                 onClick = ::runSearch,
                 enabled = !isSearching && queryText.isNotBlank(),
             ) {
-                Text(if (isSearching) "Searching..." else "Search")
+                Text(if (isSearching) strings.searchingAction else strings.searchAction)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Close")
+                Text(strings.closeAction)
             }
         },
     )
@@ -7740,6 +7807,7 @@ private fun MetadataMatchProviderToggle(
 
 @Composable
 private fun MetadataMatchCandidateRow(
+    strings: DesktopStrings,
     candidate: ExternalAnimeMatchCandidate,
     alreadyMapped: Boolean,
     onFetchPoster: suspend (String?) -> Path?,
@@ -7772,17 +7840,20 @@ private fun MetadataMatchCandidateRow(
             posterPath = posterPath,
             title = anime.titles.primary,
             isLoading = isPosterLoading,
+            loadingLabel = strings.posterLoadingLabel,
         )
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(anime.titles.primary, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
                 buildList {
                     add("${anime.id.provider.displayName} #${anime.id.value}")
-                    anime.episodeCount?.let { add("$it episodes") }
+                    anime.episodeCount?.let { add("$it ${strings.episodesSuffix}") }
                     anime.startYear?.let { add(it.toString()) }
-                    candidate.matchedTitle?.takeIf { it != anime.titles.primary }?.let { add("matched: $it") }
+                    candidate.matchedTitle?.takeIf { it != anime.titles.primary }?.let {
+                        add("${strings.metadataMatchMatchedTitlePrefix} $it")
+                    }
                     if (anime.imageUrl != null && posterPath == null) {
-                        add(if (isPosterLoading) "poster loading" else "poster unavailable")
+                        add(if (isPosterLoading) strings.posterLoadingLabel else strings.posterUnavailableLabel)
                     }
                 }.joinToString(" - "),
                 color = DanmakuColors.TextMuted,
@@ -7803,7 +7874,7 @@ private fun MetadataMatchCandidateRow(
             enabled = !alreadyMapped,
             onClick = onUse,
         ) {
-            Text(if (alreadyMapped) "Mapped" else "Use")
+            Text(if (alreadyMapped) strings.mappedAction else strings.useAction)
         }
     }
 }
@@ -7813,6 +7884,7 @@ private fun MetadataMatchPosterPreview(
     posterPath: Path?,
     title: String,
     isLoading: Boolean,
+    loadingLabel: String,
 ) {
     val bitmap = rememberLocalImageBitmap(posterPath)
     Box(
@@ -7847,7 +7919,7 @@ private fun MetadataMatchPosterPreview(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = "Loading",
+                    text = loadingLabel,
                     color = Color.White,
                     style = MaterialTheme.typography.caption,
                     maxLines = 1,
