@@ -1151,17 +1151,7 @@ internal fun DesktopShell(
     }
 
     val navigationState = rememberDesktopShellNavigationState(catalogStore, scope, ::appendDiagnostic)
-    var pendingPlaybackRequest by remember { mutableStateOf<DesktopPlaybackRequest?>(null) }
-    var activePlaybackLabel by remember { mutableStateOf<String?>(null) }
-    var activeProgressMediaId by remember { mutableStateOf<String?>(null) }
-    var activeProgressTarget by remember { mutableStateOf<LanPlaybackTarget?>(null) }
-    var lastSavedPlaybackProgress by remember { mutableStateOf<PlaybackProgress?>(null) }
-    var lastAutoNextMediaId by remember { mutableStateOf<String?>(null) }
-    var smokePlaybackQueued by remember { mutableStateOf(false) }
-    var smokePlaybackExitStarted by remember { mutableStateOf(false) }
-    var autoNextLocalPlayback by remember {
-        mutableStateOf(catalogStore.loadSetting(LOCAL_AUTO_NEXT_SETTING_KEY)?.value == "true")
-    }
+    val playbackState = rememberDesktopShellPlaybackState(catalogStore)
 
     fun shouldPersistPlaybackProgress(
         progress: PlaybackProgress,
@@ -1170,7 +1160,7 @@ internal fun DesktopShell(
         if (progress.positionMs <= 0) {
             return false
         }
-        val lastSaved = lastSavedPlaybackProgress
+        val lastSaved = playbackState.lastSavedPlaybackProgress
         return force ||
             lastSaved == null ||
             lastSaved.mediaId != progress.mediaId ||
@@ -1183,13 +1173,13 @@ internal fun DesktopShell(
         snapshot: PlaybackSnapshot,
         force: Boolean = false,
     ) {
-        val mediaId = activeProgressMediaId ?: return
+        val mediaId = playbackState.activeProgressMediaId ?: return
         val progress = snapshot.toPlaybackProgress(mediaId, System.currentTimeMillis()) ?: return
         if (!shouldPersistPlaybackProgress(progress, force)) {
             return
         }
-        lastSavedPlaybackProgress = progress
-        val target = activeProgressTarget
+        playbackState.lastSavedPlaybackProgress = progress
+        val target = playbackState.activeProgressTarget
         scope.launch {
             runCatching {
                 withContext(Dispatchers.IO) {
@@ -1217,18 +1207,14 @@ internal fun DesktopShell(
     }
 
     fun loadPlaybackRequest(request: DesktopPlaybackRequest): PlaybackSnapshot {
-        activePlaybackLabel = request.label
-        activeProgressMediaId = request.progressMediaId
-        activeProgressTarget = request.progressTarget
-        lastSavedPlaybackProgress = null
-        lastAutoNextMediaId = null
+        playbackState.markPlaybackLoaded(request)
         return playbackSession.load(request).also {
             playbackSnapshot = it
         }
     }
 
     fun queuePlaybackUntilHostReady(request: DesktopPlaybackRequest) {
-        pendingPlaybackRequest = request
+        playbackState.pendingPlaybackRequest = request
         appendDiagnostic(
             "playback",
             if (requiresNativeVideoHost) {
@@ -1599,9 +1585,9 @@ internal fun DesktopShell(
         }
     }
 
-    LaunchedEffect(activeProgressMediaId, activeProgressTarget, indexedLibrary?.catalog) {
-        val mediaId = activeProgressMediaId ?: return@LaunchedEffect
-        if (activeProgressTarget != null) {
+    LaunchedEffect(playbackState.activeProgressMediaId, playbackState.activeProgressTarget, indexedLibrary?.catalog) {
+        val mediaId = playbackState.activeProgressMediaId ?: return@LaunchedEffect
+        if (playbackState.activeProgressTarget != null) {
             return@LaunchedEffect
         }
         val activeItem = indexedLibrary
@@ -1708,7 +1694,7 @@ internal fun DesktopShell(
     }
 
     fun setAutoNextLocalPlayback(enabled: Boolean) {
-        autoNextLocalPlayback = enabled
+        playbackState.autoNextLocalPlayback = enabled
         scope.launch {
             runCatching {
                 withContext(Dispatchers.IO) {
@@ -2113,15 +2099,15 @@ internal fun DesktopShell(
 
     LaunchedEffect(launchOptions.smokePlayback) {
         val smokePlayback = launchOptions.smokePlayback ?: return@LaunchedEffect
-        if (smokePlaybackQueued) {
+        if (playbackState.smokePlaybackQueued) {
             return@LaunchedEffect
         }
-        smokePlaybackQueued = true
+        playbackState.smokePlaybackQueued = true
         queueSmokePlayback(smokePlayback)
     }
 
-    LaunchedEffect(navigationState.selectedTab, nativeVideoHostReady, pendingPlaybackRequest, playbackSession) {
-        val request = pendingPlaybackRequest ?: return@LaunchedEffect
+    LaunchedEffect(navigationState.selectedTab, nativeVideoHostReady, playbackState.pendingPlaybackRequest, playbackSession) {
+        val request = playbackState.pendingPlaybackRequest ?: return@LaunchedEffect
         if (navigationState.selectedTab != DesktopShellTab.PLAYBACK || !nativeVideoHostReady) {
             return@LaunchedEffect
         }
@@ -2136,13 +2122,13 @@ internal fun DesktopShell(
         if (requiresNativeVideoHost) {
             delay(PLAYBACK_HOST_SETTLE_DELAY_MS)
         }
-        if (pendingPlaybackRequest != request || navigationState.selectedTab != DesktopShellTab.PLAYBACK || !nativeVideoHostReady) {
+        if (playbackState.pendingPlaybackRequest != request || navigationState.selectedTab != DesktopShellTab.PLAYBACK || !nativeVideoHostReady) {
             appendDiagnostic("playback", "Queued playback changed before load; skipping stale request: ${request.label}")
             return@LaunchedEffect
         }
         appendDiagnostic("playback", "Loading queued playback after host settle: ${request.label}")
         loadPlaybackRequest(request)
-        pendingPlaybackRequest = null
+        playbackState.pendingPlaybackRequest = null
     }
 
     LaunchedEffect(playbackController) {
@@ -2153,16 +2139,16 @@ internal fun DesktopShell(
                 playbackSnapshot = nextSnapshot
             }
             persistActivePlaybackProgress(nextSnapshot)
-            val mediaId = activeProgressMediaId
+            val mediaId = playbackState.activeProgressMediaId
             if (
-                autoNextLocalPlayback &&
+                playbackState.autoNextLocalPlayback &&
                 nextSnapshot.status == PlaybackStatus.ENDED &&
                 mediaId != null &&
-                activeProgressTarget == null &&
-                lastAutoNextMediaId != mediaId
+                playbackState.activeProgressTarget == null &&
+                playbackState.lastAutoNextMediaId != mediaId
             ) {
                 val nextItem = indexedLibrary?.catalog?.nextItem(mediaId)
-                lastAutoNextMediaId = mediaId
+                playbackState.lastAutoNextMediaId = mediaId
                 if (nextItem == null) {
                     appendDiagnostic("playback", "Auto-next reached end of local catalog at $mediaId")
                 } else {
@@ -2175,10 +2161,10 @@ internal fun DesktopShell(
 
     LaunchedEffect(launchOptions.smokePlayback, playbackSnapshot.status) {
         val smokePlayback = launchOptions.smokePlayback ?: return@LaunchedEffect
-        if (!smokePlayback.autoExit || smokePlaybackExitStarted || playbackSnapshot.status != PlaybackStatus.PLAYING) {
+        if (!smokePlayback.autoExit || playbackState.smokePlaybackExitStarted || playbackSnapshot.status != PlaybackStatus.PLAYING) {
             return@LaunchedEffect
         }
-        smokePlaybackExitStarted = true
+        playbackState.smokePlaybackExitStarted = true
         appendDiagnostic(
             "smoke",
             "Smoke playback reached PLAYING; waiting ${smokePlayback.playbackDuration.inWholeSeconds}s before exit",
@@ -2227,7 +2213,7 @@ internal fun DesktopShell(
                         selectedTab = navigationState.selectedTab,
                         strings = navigationState.desktopStrings,
                         onTabSelected = { navigationState.selectedTab = it },
-                        playbackLabel = activePlaybackLabel,
+                        playbackLabel = playbackState.activePlaybackLabel,
                         playbackStatus = playbackSnapshot.status,
                         episodeCount = indexedLibrary?.catalog?.items?.size ?: 0,
                         modifier = Modifier.width(224.dp),
@@ -2261,14 +2247,14 @@ internal fun DesktopShell(
                             ),
                     ) {
                     if (navigationState.selectedTab == DesktopShellTab.PLAYBACK) {
-                        val activeLocalMediaId = activeProgressMediaId.takeIf { activeProgressTarget == null }
+                        val activeLocalMediaId = playbackState.activeProgressMediaId.takeIf { playbackState.activeProgressTarget == null }
                         val previousLocalPlaybackItem = activeLocalMediaId
                             ?.let { mediaId -> indexedLibrary?.catalog?.previousItem(mediaId) }
                         val nextLocalPlaybackItem = activeLocalMediaId
                             ?.let { mediaId -> indexedLibrary?.catalog?.nextItem(mediaId) }
                         PlaybackTab(
                             strings = navigationState.desktopStrings,
-                            playbackLabel = activePlaybackLabel,
+                            playbackLabel = playbackState.activePlaybackLabel,
                             playbackSnapshot = playbackSnapshot,
                             mpvRuntimeStatus = mpvRuntime.statusMessage,
                             videoHostStatus = videoHostStatus,
@@ -2491,7 +2477,7 @@ internal fun DesktopShell(
                             isPreparingLocalPlayback = isPreparingLocalPlayback,
                             selectedLocalPlaybackPreparation = selectedLocalPlaybackPreparation,
                             dandanplayCacheStatus = dandanplayCacheStatus,
-                            autoNextLocalPlayback = autoNextLocalPlayback,
+                            autoNextLocalPlayback = playbackState.autoNextLocalPlayback,
                             libraryError = libraryError,
                             lastScanStats = lastScanStats,
                             onAddLibraryFolder = {

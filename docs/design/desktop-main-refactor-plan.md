@@ -62,9 +62,12 @@ Initial slice:
 - `DesktopShellNavigationState` owns selected tab, global search routing,
   library search seeding, focus requester, desktop language, and language
   persistence.
+- `DesktopShellPlaybackState` owns queued playback request, active playback
+  label/progress target, progress save cursors, auto-next flag, and smoke-test
+  playback flags.
 - `DesktopShell` delegates diagnostic/server-event actions and
-  navigation/search/language actions to remembered state objects while playback,
-  library, settings, and provider actions remain local.
+  navigation/search/language actions to remembered state objects while playback
+  command handling, library, settings, and provider actions remain local.
 
 Acceptance:
 
@@ -139,8 +142,9 @@ Remaining structural hotspot:
 
 - `DesktopShell.kt` still owns dependency construction, long-lived state,
   effects, and most playback/library/settings action implementations. The next
-  refactor should extract remembered library/playback/settings state objects
-  and a typed action facade rather than adding more UI-only files.
+  refactor should extract library/settings state objects and a typed action
+  facade around the remaining command handlers rather than adding more UI-only
+  files.
 
 Acceptance:
 

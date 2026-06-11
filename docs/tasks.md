@@ -33,8 +33,9 @@ Status legend:
 - `[~]` Introduce a desktop shell state/action boundary so orchestration moves
   out of feature rendering after the first file-ownership split; diagnostics
   and server-event state plus navigation/search/language state now have
-  remembered state objects.
-- `[ ]` Extract desktop library/playback/settings state and typed shell actions
+  remembered state objects, and playback session/progress flags have a
+  remembered state object.
+- `[ ]` Extract desktop library/settings state and typed shell actions
   from `DesktopShell.kt`; UI files are now mostly split, leaving orchestration
   as the dominant remaining hotspot.
 
