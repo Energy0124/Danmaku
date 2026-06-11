@@ -56,6 +56,12 @@ Status legend:
 
 - `[ ]` Align player overlays with the mockup: compact top overlay, bottom
   transport, and collapsible right panel.
+- `[ ]` Add Player focus mode that can hide both the left app rail and right
+  player details/danmaku panel so video uses almost the full window.
+- `[ ]` Add clear restore controls and keyboard shortcuts for left-rail and
+  right-panel visibility in Player.
+- `[ ]` Persist Player sidebar visibility for the current player session without
+  changing sidebar behavior on non-player pages.
 - `[ ]` Keep video dominant in embedded and fullscreen modes.
 - `[ ]` Add or verify controls for previous/next episode, skip, volume, rate,
   audio track, subtitle track, aspect, fullscreen, and danmaku visibility.

@@ -116,6 +116,11 @@ controls discoverable.
 ### Layout
 
 - Video surface is dominant.
+- Both sidebars must be hideable:
+  - The left app/navigation rail can collapse or fully hide while in Player.
+  - The right episode/details/danmaku panel can collapse or fully hide.
+  - With both hidden, the video surface should take almost all available
+    window space while preserving hover/keyboard access to essential controls.
 - Top overlay:
   - Back/Home and Library controls.
   - Current series, episode, and source badge.
@@ -135,6 +140,10 @@ controls discoverable.
 
 - Controls appear on mouse movement, keyboard focus, pause, or explicit panel
   open; they fade when playback is active and idle.
+- Player focus mode hides both sidebars and keeps playback controls available
+  through hover, keyboard shortcuts, and a small restore-sidebar affordance.
+- Sidebar visibility should persist for the current player session and should
+  not unexpectedly affect non-player pages.
 - Keyboard shortcuts remain available: play/pause, seek, volume, rate, track
   cycling, aspect, fullscreen.
 - Up Next is visible near the end of an episode and can be dismissed.

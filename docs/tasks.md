@@ -15,6 +15,8 @@ Status legend:
   header/navigation/status-column design direction.
 - `[~]` Extend the desktop page implementation toward the Library, Player,
   Downloads, Tracking, Settings, and secondary-surface mockups.
+- `[~]` Ensure the desktop Player can hide both sidebars so video uses almost
+  the full window in focus mode.
 - `[~]` Finish desktop playback QA for fullscreen, resize, aspect, 4K media,
   hardware decoding, and multi-display behavior.
 - `[~]` Complete Android mobile/tablet library viewport QA at phone and tablet

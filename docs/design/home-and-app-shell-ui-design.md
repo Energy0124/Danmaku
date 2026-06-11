@@ -184,6 +184,8 @@ Desktop is the reference shell:
 - Header search and utility actions.
 - Center dashboard plus right status column.
 - Resizable details panels in Library and Tracking.
+- Player-specific focus mode may collapse or hide the left rail and right
+  player panel so video can occupy almost the full window.
 - Keyboard shortcuts for search, refresh, play/pause, and navigation.
 
 ### Android Mobile and Tablet
