@@ -190,7 +190,10 @@ Status legend:
   - Provider settings now expose saved-configuration test actions for
     dandanplay, MyAnimeList, and Bangumi, using existing clients and writing
     success/failure details to diagnostics without logging secrets.
-  - Remaining: add local server health test action and inline result badges.
+  - Settings > Server now exposes a local server health test that validates
+    server status and the pairing-token catalog path, writing API version,
+    streaming support, and catalog item count to diagnostics.
+  - Remaining: add inline result badges.
 - `[~]` Ensure credentials are masked, stored only in approved local stores, and
   omitted from diagnostics.
 - `[~]` Add confirmation dialogs for clearing credentials and destructive cache

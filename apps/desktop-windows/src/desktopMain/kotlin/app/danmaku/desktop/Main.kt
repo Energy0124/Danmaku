@@ -1919,6 +1919,30 @@ private fun DesktopShell(
         }
     }
 
+    fun testLocalServerConnection() {
+        val baseUrl = server.baseUrl()
+        val pairingToken = server.pairingToken
+        scope.launch {
+            appendDiagnostic("settings", "Testing local server at $baseUrl...")
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    val client = JvmLanLibraryClient()
+                    val session = LanLibraryConnectionSession(client)
+                    val status = session.validateServer(baseUrl)
+                    val catalog = client.fetchCatalog(baseUrl, pairingToken)
+                    status to catalog.items.size
+                }
+            }.onSuccess { (status, itemCount) ->
+                appendDiagnostic(
+                    "settings",
+                    "Local server OK: API ${status.apiVersion}, streaming=${status.mediaStreaming}, items=$itemCount",
+                )
+            }.onFailure {
+                appendDiagnostic("settings", "Local server test failed: ${it.readableMessage()}")
+            }
+        }
+    }
+
     fun cleanupExpiredDandanplayCaches() {
         scope.launch {
             runCatching {
@@ -2424,6 +2448,7 @@ private fun DesktopShell(
                             onTestBangumiConnection = ::testBangumiConnection,
                             onClearMyAnimeListSettings = ::clearMyAnimeListSettings,
                             onClearBangumiSettings = ::clearBangumiSettings,
+                            onTestLocalServerConnection = ::testLocalServerConnection,
                         )
                     }
                 }
@@ -7781,6 +7806,7 @@ private fun ProfileTab(
     onTestBangumiConnection: () -> Unit,
     onClearMyAnimeListSettings: () -> Unit,
     onClearBangumiSettings: () -> Unit,
+    onTestLocalServerConnection: () -> Unit,
 ) {
     var selectedSection by remember { mutableStateOf(DesktopSettingsSection.GENERAL) }
     TabScaffold {
@@ -7821,6 +7847,7 @@ private fun ProfileTab(
                         onTestBangumiConnection = onTestBangumiConnection,
                         onClearMyAnimeListSettings = onClearMyAnimeListSettings,
                         onClearBangumiSettings = onClearBangumiSettings,
+                        onTestLocalServerConnection = onTestLocalServerConnection,
                     )
                 }
             } else {
@@ -7858,6 +7885,7 @@ private fun ProfileTab(
                         onTestBangumiConnection = onTestBangumiConnection,
                         onClearMyAnimeListSettings = onClearMyAnimeListSettings,
                         onClearBangumiSettings = onClearBangumiSettings,
+                        onTestLocalServerConnection = onTestLocalServerConnection,
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -7915,6 +7943,7 @@ private fun SettingsSectionContent(
     onTestBangumiConnection: () -> Unit,
     onClearMyAnimeListSettings: () -> Unit,
     onClearBangumiSettings: () -> Unit,
+    onTestLocalServerConnection: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -7991,6 +8020,11 @@ private fun SettingsSectionContent(
                     MetadataRow(
                         "Discovery",
                         "UDP ${app.danmaku.domain.LanLibraryServerAnnouncement.DEFAULT_DISCOVERY_PORT}",
+                    )
+                    LibraryActionButton(
+                        imageVector = Icons.Filled.Refresh,
+                        label = "Test local server",
+                        onClick = onTestLocalServerConnection,
                     )
                 }
             }
