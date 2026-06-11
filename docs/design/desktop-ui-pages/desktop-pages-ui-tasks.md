@@ -130,9 +130,19 @@ Status legend:
 
 - `[x]` Split settings into General, Library, Playback, Danmaku, Providers,
   Server, Storage, Privacy, and Diagnostics groups.
-- `[ ]` Add dirty-state tracking and disable Save Changes until values change.
-- `[ ]` Add inline validation for provider URLs, local paths, ports, cache days,
+- `[~]` Add dirty-state tracking and disable Save Changes until values change.
+  - Danmaku display, dandanplay provider, and external list provider forms now
+    derive validated drafts and only enable Save when editable values changed.
+  - Remaining: carry the same behavior into future editable Library, Playback,
+    Server, Storage, and destructive-action settings as those controls become
+    real forms.
+- `[~]` Add inline validation for provider URLs, local paths, ports, cache days,
   and numeric playback/danmaku values.
+  - Danmaku numeric ranges, dandanplay/Bangumi provider URLs, Bangumi
+    User-Agent, and dandanplay cache days now show inline validation and block
+    invalid saves.
+  - Remaining: local paths, ports, playback values, and download/cache storage
+    values once those settings are editable in the desktop UI.
 - `[ ]` Add Test Connection actions for dandanplay, MyAnimeList, Bangumi, and
   server settings where applicable.
 - `[~]` Ensure credentials are masked, stored only in approved local stores, and

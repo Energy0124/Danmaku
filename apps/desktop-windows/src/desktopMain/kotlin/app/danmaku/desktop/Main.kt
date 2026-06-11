@@ -7461,6 +7461,35 @@ private fun DanmakuDisplaySettingsCard(
     var offsetText by remember(settings) { mutableStateOf(settings.offsetMs.toString()) }
     var keywordFiltersText by remember(settings) { mutableStateOf(settings.keywordFilters.joinToString("\n")) }
     var regexFiltersText by remember(settings) { mutableStateOf(settings.regexFilters.joinToString("\n")) }
+    val opacityError = integerRangeError(opacityText, 0..100, "%")
+    val fontScaleError = integerRangeError(fontScaleText, 50..200, "%")
+    val speedError = integerRangeError(speedText, 25..300, "%")
+    val densityError = integerRangeError(densityText, 10..200, "%")
+    val displayAreaError = integerRangeError(displayAreaText, 10..100, "%")
+    val offsetError = longRangeError(offsetText, -3_600_000L..3_600_000L, "ms")
+    val draftSettings = if (
+        opacityError == null &&
+        fontScaleError == null &&
+        speedError == null &&
+        densityError == null &&
+        displayAreaError == null &&
+        offsetError == null
+    ) {
+        DanmakuDisplaySettings(
+            visible = visible,
+            opacityPercent = opacityText.toInt(),
+            fontScalePercent = fontScaleText.toInt(),
+            speedPercent = speedText.toInt(),
+            densityPercent = densityText.toInt(),
+            displayAreaPercent = displayAreaText.toInt(),
+            offsetMs = offsetText.toLong(),
+            keywordFilters = keywordFiltersText.toFilterEntries(),
+            regexFilters = regexFiltersText.toFilterEntries(),
+        )
+    } else {
+        null
+    }
+    val isDirty = draftSettings != null && draftSettings != settings
 
     SectionCard("Danmaku Display") {
         Text(
@@ -7493,6 +7522,7 @@ private fun DanmakuDisplaySettingsCard(
                 value = opacityText,
                 onValueChange = { opacityText = it },
                 label = { Text("Opacity %") },
+                isError = opacityError != null,
                 singleLine = true,
                 modifier = Modifier.weight(1f),
             )
@@ -7500,6 +7530,7 @@ private fun DanmakuDisplaySettingsCard(
                 value = fontScaleText,
                 onValueChange = { fontScaleText = it },
                 label = { Text("Font scale %") },
+                isError = fontScaleError != null,
                 singleLine = true,
                 modifier = Modifier.weight(1f),
             )
@@ -7507,15 +7538,18 @@ private fun DanmakuDisplaySettingsCard(
                 value = speedText,
                 onValueChange = { speedText = it },
                 label = { Text("Speed %") },
+                isError = speedError != null,
                 singleLine = true,
                 modifier = Modifier.weight(1f),
             )
         }
+        SettingsValidationText(listOfNotNull(opacityError, fontScaleError, speedError))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
                 value = densityText,
                 onValueChange = { densityText = it },
                 label = { Text("Density %") },
+                isError = densityError != null,
                 singleLine = true,
                 modifier = Modifier.weight(1f),
             )
@@ -7523,6 +7557,7 @@ private fun DanmakuDisplaySettingsCard(
                 value = displayAreaText,
                 onValueChange = { displayAreaText = it },
                 label = { Text("Display area %") },
+                isError = displayAreaError != null,
                 singleLine = true,
                 modifier = Modifier.weight(1f),
             )
@@ -7530,10 +7565,12 @@ private fun DanmakuDisplaySettingsCard(
                 value = offsetText,
                 onValueChange = { offsetText = it },
                 label = { Text("Offset ms") },
+                isError = offsetError != null,
                 singleLine = true,
                 modifier = Modifier.weight(1f),
             )
         }
+        SettingsValidationText(listOfNotNull(densityError, displayAreaError, offsetError))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
                 value = keywordFiltersText,
@@ -7551,27 +7588,12 @@ private fun DanmakuDisplaySettingsCard(
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
                 onClick = {
-                    onSave(
-                        DanmakuDisplaySettings(
-                            visible = visible,
-                            opacityPercent = opacityText.toIntOrNull()?.coerceIn(0, 100)
-                                ?: settings.opacityPercent,
-                            fontScalePercent = fontScaleText.toIntOrNull()?.coerceIn(50, 200)
-                                ?: settings.fontScalePercent,
-                            speedPercent = speedText.toIntOrNull()?.coerceIn(25, 300)
-                                ?: settings.speedPercent,
-                            densityPercent = densityText.toIntOrNull()?.coerceIn(10, 200)
-                                ?: settings.densityPercent,
-                            displayAreaPercent = displayAreaText.toIntOrNull()?.coerceIn(10, 100)
-                                ?: settings.displayAreaPercent,
-                            offsetMs = offsetText.toLongOrNull()?.coerceIn(-3_600_000L, 3_600_000L)
-                                ?: settings.offsetMs,
-                            keywordFilters = keywordFiltersText.toFilterEntries(),
-                            regexFilters = regexFiltersText.toFilterEntries(),
-                        ),
-                    )
+                    draftSettings?.let(onSave)
                 },
+                enabled = isDirty,
             ) {
+                Icon(Icons.Filled.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
                 Text("Save danmaku display")
             }
             Button(
@@ -7600,6 +7622,63 @@ private fun String.toFilterEntries(): List<String> =
         .toList()
 
 @Composable
+private fun SettingsValidationText(errors: List<String>) {
+    if (errors.isEmpty()) {
+        return
+    }
+    Text(
+        text = errors.joinToString(separator = "\n"),
+        color = DanmakuColors.Warning,
+    )
+}
+
+private fun integerRangeError(
+    text: String,
+    range: IntRange,
+    unit: String,
+): String? {
+    val value = text.trim().toIntOrNull()
+        ?: return "Enter a whole number from ${range.first} to ${range.last} $unit."
+    return if (value in range) {
+        null
+    } else {
+        "Enter a value from ${range.first} to ${range.last} $unit."
+    }
+}
+
+private fun longRangeError(
+    text: String,
+    range: LongRange,
+    unit: String,
+): String? {
+    val value = text.trim().toLongOrNull()
+        ?: return "Enter a whole number from ${range.first} to ${range.last} $unit."
+    return if (value in range) {
+        null
+    } else {
+        "Enter a value from ${range.first} to ${range.last} $unit."
+    }
+}
+
+private fun httpUrlError(
+    text: String,
+    label: String,
+): String? {
+    val value = text.trim()
+    if (value.isEmpty()) {
+        return "$label is required."
+    }
+    val uri = runCatching { java.net.URI(value) }.getOrNull()
+        ?: return "$label must be a valid HTTP or HTTPS URL."
+    val scheme = uri.scheme?.lowercase()
+    return when {
+        scheme != "http" && scheme != "https" -> "$label must use HTTP or HTTPS."
+        uri.host.isNullOrBlank() -> "$label must include a host."
+        else -> null
+    }
+}
+
+@Composable
 private fun DandanplayProviderCard(
     settings: DandanplayProviderSettings,
     onSave: (String, String?, String?, DandanplayAuthenticationMode, Int) -> Unit,
@@ -7611,6 +7690,16 @@ private fun DandanplayProviderCard(
     var appSecret by remember(settings) { mutableStateOf("") }
     var authenticationMode by remember(settings) { mutableStateOf(settings.authenticationMode) }
     var cacheMaxAgeDaysText by remember(settings) { mutableStateOf(settings.cacheMaxAgeDays.toString()) }
+    val baseUrlError = httpUrlError(baseUrl, "API base URL")
+    val cacheMaxAgeDaysError = integerRangeError(cacheMaxAgeDaysText, 1..3650, "days")
+    val normalizedAppId = appId.trim().ifEmpty { null }
+    val parsedCacheMaxAgeDays = cacheMaxAgeDaysText.toIntOrNull()
+    val isDirty = baseUrl.trim() != settings.baseUrl ||
+        normalizedAppId != settings.appId ||
+        appSecret.isNotBlank() ||
+        authenticationMode != settings.authenticationMode ||
+        parsedCacheMaxAgeDays != settings.cacheMaxAgeDays
+    val canSave = isDirty && baseUrlError == null && cacheMaxAgeDaysError == null
 
     SectionCard("Danmaku Providers") {
         Text(
@@ -7626,8 +7715,10 @@ private fun DandanplayProviderCard(
             onValueChange = { baseUrl = it },
             label = { Text("API base URL") },
             modifier = Modifier.fillMaxWidth(),
+            isError = baseUrlError != null,
             singleLine = true,
         )
+        SettingsValidationText(listOfNotNull(baseUrlError))
         OutlinedTextField(
             value = appId,
             onValueChange = { appId = it },
@@ -7656,8 +7747,10 @@ private fun DandanplayProviderCard(
             onValueChange = { cacheMaxAgeDaysText = it },
             label = { Text("Cache max age days") },
             modifier = Modifier.fillMaxWidth(),
+            isError = cacheMaxAgeDaysError != null,
             singleLine = true,
         )
+        SettingsValidationText(listOfNotNull(cacheMaxAgeDaysError))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
                 onClick = { authenticationMode = DandanplayAuthenticationMode.SIGNED },
@@ -7681,15 +7774,18 @@ private fun DandanplayProviderCard(
             Button(
                 onClick = {
                     onSave(
-                        baseUrl,
-                        appId,
-                        appSecret,
+                        baseUrl.trim(),
+                        normalizedAppId,
+                        appSecret.takeIf(String::isNotBlank),
                         authenticationMode,
-                        cacheMaxAgeDaysText.toIntOrNull()?.coerceAtLeast(1) ?: settings.cacheMaxAgeDays,
+                        parsedCacheMaxAgeDays ?: settings.cacheMaxAgeDays,
                     )
                     appSecret = ""
                 },
+                enabled = canSave,
             ) {
+                Icon(Icons.Filled.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
                 Text("Save dandanplay settings")
             }
             Button(onClick = onClear) {
@@ -7716,6 +7812,20 @@ private fun ExternalAnimeProviderSettingsCard(
     var bangumiBaseUrl by remember(settings) { mutableStateOf(settings.bangumiBaseUrl) }
     var bangumiUserAgent by remember(settings) { mutableStateOf(settings.bangumiUserAgent) }
     var bangumiAccessToken by remember(settings) { mutableStateOf("") }
+    val bangumiBaseUrlError = httpUrlError(bangumiBaseUrl, "Bangumi API base URL")
+    val bangumiUserAgentError = if (bangumiUserAgent.isBlank()) {
+        "Bangumi User-Agent is required."
+    } else {
+        null
+    }
+    val normalizedMyAnimeListClientId = myAnimeListClientId.trim().ifEmpty { null }
+    val isDirty = normalizedMyAnimeListClientId != settings.myAnimeListClientId ||
+        myAnimeListClientSecret.isNotBlank() ||
+        myAnimeListAccessToken.isNotBlank() ||
+        bangumiBaseUrl.trim() != settings.bangumiBaseUrl ||
+        bangumiUserAgent.trim() != settings.bangumiUserAgent ||
+        bangumiAccessToken.isNotBlank()
+    val canSave = isDirty && bangumiBaseUrlError == null && bangumiUserAgentError == null
 
     SectionCard("External Anime Lists") {
         Text(
@@ -7770,6 +7880,7 @@ private fun ExternalAnimeProviderSettingsCard(
                 onValueChange = { bangumiBaseUrl = it },
                 label = { Text("Bangumi API base URL") },
                 modifier = Modifier.weight(1f),
+                isError = bangumiBaseUrlError != null,
                 singleLine = true,
             )
             OutlinedTextField(
@@ -7777,9 +7888,11 @@ private fun ExternalAnimeProviderSettingsCard(
                 onValueChange = { bangumiUserAgent = it },
                 label = { Text("Bangumi User-Agent") },
                 modifier = Modifier.weight(1f),
+                isError = bangumiUserAgentError != null,
                 singleLine = true,
             )
         }
+        SettingsValidationText(listOfNotNull(bangumiBaseUrlError, bangumiUserAgentError))
         OutlinedTextField(
             value = bangumiAccessToken,
             onValueChange = { bangumiAccessToken = it },
@@ -7800,18 +7913,21 @@ private fun ExternalAnimeProviderSettingsCard(
             Button(
                 onClick = {
                     onSave(
-                        myAnimeListClientId,
-                        myAnimeListClientSecret,
-                        myAnimeListAccessToken,
-                        bangumiBaseUrl,
-                        bangumiUserAgent,
-                        bangumiAccessToken,
+                        normalizedMyAnimeListClientId,
+                        myAnimeListClientSecret.takeIf(String::isNotBlank),
+                        myAnimeListAccessToken.takeIf(String::isNotBlank),
+                        bangumiBaseUrl.trim(),
+                        bangumiUserAgent.trim(),
+                        bangumiAccessToken.takeIf(String::isNotBlank),
                     )
                     myAnimeListClientSecret = ""
                     myAnimeListAccessToken = ""
                     bangumiAccessToken = ""
                 },
+                enabled = canSave,
             ) {
+                Icon(Icons.Filled.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
                 Text("Save external lists")
             }
             Button(
