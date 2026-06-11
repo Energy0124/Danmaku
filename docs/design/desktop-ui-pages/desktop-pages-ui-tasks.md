@@ -95,6 +95,8 @@ Status legend:
   - Player empty state, top navigation chrome, and bottom transport
     content-description/tooling labels now use the desktop string layer for
     English / `zh-TW` readiness.
+  - Desktop native media/library/ani-rss picker titles and shell search icon
+    content descriptions now use the desktop string layer.
   - Remaining: migrate page actions, status labels, dialogs, tooltips,
     inspector copy, and empty/error states.
 - `[ ]` Add UI review screenshots or checks for English and `zh-TW` labels in

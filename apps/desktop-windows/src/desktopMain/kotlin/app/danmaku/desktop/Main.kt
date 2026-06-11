@@ -2436,7 +2436,7 @@ private fun DesktopShell(
                             onOpenMediaFile = {
                                 appendDiagnostic("playback", "Opening direct media file picker")
                                 selectMediaFile(
-                                    title = "Choose media file for ${hostPlatform.displayName} playback",
+                                    title = desktopStrings.chooseMediaFileTitle(hostPlatform.displayName),
                                 )?.let { mediaFile ->
                                     appendDiagnostic("playback", "Loading direct media file: $mediaFile")
                                     loadPlaybackRequest(mediaFile.toDirectLocalPlaybackRequest())
@@ -2618,12 +2618,12 @@ private fun DesktopShell(
                             lastScanStats = lastScanStats,
                             onAddLibraryFolder = {
                                 selectLibraryDirectory(
-                                    title = "Choose anime library folder",
+                                    title = desktopStrings.chooseAnimeLibraryFolderTitle,
                                 )?.let(::registerAndScanUserRoot)
                             },
                             onImportAniRssOutputFolder = {
                                 selectLibraryDirectory(
-                                    title = "Choose ani-rss completed-media folder",
+                                    title = desktopStrings.chooseAniRssCompletedMediaFolderTitle,
                                 )?.let(::importAndScanAniRssRoot)
                             },
                             onRescanRegisteredRoots = ::rescanRegisteredRoots,
@@ -2681,7 +2681,7 @@ private fun DesktopShell(
                             downloadQueueItems = downloadQueueItems,
                             onAddAniRssOutputFolder = {
                                 selectLibraryDirectory(
-                                    title = "Choose ani-rss completed-media folder",
+                                    title = desktopStrings.chooseAniRssCompletedMediaFolderTitle,
                                 )?.let(::importAndScanAniRssRoot)
                             },
                             onRefreshQueue = {
@@ -2839,6 +2839,9 @@ private enum class DesktopUiLanguage(
             playingLabel = "Playing",
             videoHostLabel = "Video host",
             openMediaFileAction = "Open media file",
+            chooseMediaFileTitle = { host -> "Choose media file for $host playback" },
+            chooseAnimeLibraryFolderTitle = "Choose anime library folder",
+            chooseAniRssCompletedMediaFolderTitle = "Choose ani-rss completed-media folder",
             homeAction = "Home",
             libraryAction = "Library",
             showPlayerChromeAction = "Show player chrome (H)",
@@ -3443,6 +3446,9 @@ private enum class DesktopUiLanguage(
             playingLabel = "播放中",
             videoHostLabel = "影片主機",
             openMediaFileAction = "開啟媒體檔案",
+            chooseMediaFileTitle = { host -> "選擇 $host 播放用媒體檔案" },
+            chooseAnimeLibraryFolderTitle = "選擇動畫媒體庫資料夾",
+            chooseAniRssCompletedMediaFolderTitle = "選擇 ani-rss 已完成媒體資料夾",
             homeAction = "首頁",
             libraryAction = "媒體庫",
             showPlayerChromeAction = "顯示播放器介面 (H)",
@@ -4034,6 +4040,9 @@ private data class DesktopStrings(
     val playingLabel: String,
     val videoHostLabel: String,
     val openMediaFileAction: String,
+    val chooseMediaFileTitle: (String) -> String,
+    val chooseAnimeLibraryFolderTitle: String,
+    val chooseAniRssCompletedMediaFolderTitle: String,
     val homeAction: String,
     val libraryAction: String,
     val showPlayerChromeAction: String,
@@ -4584,7 +4593,7 @@ private fun ShellHeader(
             value = searchText,
             onValueChange = onSearchTextChange,
             label = { Text(strings.searchLabel) },
-            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = "Search") },
+            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = strings.searchAction) },
             modifier = Modifier
                 .weight(1f)
                 .focusRequester(searchFocusRequester)

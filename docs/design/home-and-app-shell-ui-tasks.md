@@ -70,6 +70,8 @@ Status legend:
     track fallbacks, sliders, and preparation step labels.
   - Player empty state, top navigation chrome, and bottom transport
     labels/tooltips now use the same desktop string layer.
+  - Desktop native media/library/ani-rss picker titles and shell search icon
+    descriptions now use the same string layer.
   - Home and Library file-group labels plus Library metadata readiness badges
     now use the same English / `zh-TW` desktop string layer.
   - Library inspector and local row actions now use the same string layer for
