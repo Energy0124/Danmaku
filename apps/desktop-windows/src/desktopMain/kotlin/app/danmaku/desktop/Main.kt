@@ -578,6 +578,7 @@ private fun DesktopShell(
     }
     var playbackProgresses by remember { mutableStateOf(catalogStore.loadPlaybackProgress()) }
     var favoriteMediaIds by remember { mutableStateOf(catalogStore.loadFavoriteMediaIds()) }
+    var downloadQueueItems by remember { mutableStateOf(catalogStore.loadDownloads()) }
     var selectedLocalPlaybackPreparation by remember {
         mutableStateOf<DesktopLocalPlaybackPreparation?>(null)
     }
@@ -2195,10 +2196,14 @@ private fun DesktopShell(
                             webhookUrls = serverRuntime.aniRssWebhookUrls(),
                             webhookToken = serverRuntime.aniRssWebhookToken,
                             registeredRoots = registeredRoots,
+                            downloadQueueItems = downloadQueueItems,
                             onAddAniRssOutputFolder = {
                                 selectLibraryDirectory(
                                     title = "Choose ani-rss completed-media folder",
                                 )?.let(::importAndScanAniRssRoot)
+                            },
+                            onRefreshQueue = {
+                                downloadQueueItems = catalogStore.loadDownloads()
                             },
                         )
                         DesktopShellTab.PROFILE -> ProfileTab(
@@ -6092,6 +6097,16 @@ private fun PlaybackProgress.progressPercent(): Int? =
         ?.takeIf { it > 0L }
         ?.let { duration -> ((positionMs.coerceAtLeast(0L) * 100L) / duration).coerceIn(0L, 100L).toInt() }
 
+private fun DesktopDownloadQueueItem.downloadProgressPercent(): Int? =
+    totalBytes
+        ?.takeIf { it > 0L }
+        ?.let { total -> ((positionBytes.coerceAtLeast(0L) * 100L) / total).coerceIn(0L, 100L).toInt() }
+
+private fun DesktopDownloadQueueItem.downloadProgressLabel(): String =
+    totalBytes
+        ?.let { total -> "${positionBytes.formatLibrarySize()} / ${total.formatLibrarySize()}" }
+        ?: positionBytes.formatLibrarySize()
+
 private fun LibraryMediaItem.primaryPlaybackActionLabel(watchStatus: LibraryWatchStatus?): String =
     if (watchStatus?.state == LibraryWatchState.IN_PROGRESS) {
         "Resume"
@@ -6353,35 +6368,188 @@ private fun DownloadsTab(
     webhookUrls: List<String>,
     webhookToken: String,
     registeredRoots: List<DesktopLibraryRoot>,
+    downloadQueueItems: List<DesktopDownloadQueueItem>,
     onAddAniRssOutputFolder: () -> Unit,
+    onRefreshQueue: () -> Unit,
 ) {
     TabScaffold {
-        SectionCard("ani-rss Integration") {
-            Text(
-                "Use ani-rss for authorized acquisition, then point Danmaku at the completed-media folder.",
-                color = DanmakuColors.TextMuted,
+        val aniRssRoots = registeredRoots.filter {
+            it.provenance == DesktopLibraryRootProvenance.ANI_RSS_OUTPUT_FOLDER
+        }
+        val activeDownloads = downloadQueueItems.count { it.state.equals("active", ignoreCase = true) || it.state.equals("running", ignoreCase = true) }
+        val queuedDownloads = downloadQueueItems.count { it.state.equals("queued", ignoreCase = true) || it.state.equals("pending", ignoreCase = true) }
+        val completedDownloads = downloadQueueItems.count { it.state.equals("completed", ignoreCase = true) || it.state.equals("done", ignoreCase = true) }
+        val failedDownloads = downloadQueueItems.count { it.failureMessage != null || it.state.equals("failed", ignoreCase = true) }
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            SummaryCard(
+                title = "Active",
+                value = activeDownloads.toString(),
+                caption = "currently running",
+                modifier = Modifier.weight(1f),
             )
-            Spacer(modifier = Modifier.height(10.dp))
-            Button(onClick = onAddAniRssOutputFolder, enabled = !isIndexing) {
-                Text("Add ani-rss output folder")
+            SummaryCard(
+                title = "Queued",
+                value = queuedDownloads.toString(),
+                caption = "waiting",
+                modifier = Modifier.weight(1f),
+            )
+            SummaryCard(
+                title = "Completed",
+                value = completedDownloads.toString(),
+                caption = "ready to import",
+                modifier = Modifier.weight(1f),
+            )
+            SummaryCard(
+                title = "Failed",
+                value = failedDownloads.toString(),
+                caption = "needs attention",
+                modifier = Modifier.weight(1f),
+            )
+        }
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            val compact = maxWidth < 1180.dp
+            if (compact) {
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    DownloadsQueuePanel(downloadQueueItems, onRefreshQueue)
+                    DownloadsSetupPanel(
+                        isIndexing = isIndexing,
+                        webhookUrls = webhookUrls,
+                        webhookToken = webhookToken,
+                        aniRssRoots = aniRssRoots,
+                        onAddAniRssOutputFolder = onAddAniRssOutputFolder,
+                    )
+                }
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    DownloadsQueuePanel(
+                        downloadQueueItems = downloadQueueItems,
+                        onRefreshQueue = onRefreshQueue,
+                        modifier = Modifier.weight(1f),
+                    )
+                    DownloadsSetupPanel(
+                        isIndexing = isIndexing,
+                        webhookUrls = webhookUrls,
+                        webhookToken = webhookToken,
+                        aniRssRoots = aniRssRoots,
+                        onAddAniRssOutputFolder = onAddAniRssOutputFolder,
+                        modifier = Modifier.width(360.dp),
+                    )
+                }
             }
         }
-        SectionCard("Webhook") {
-            webhookUrls.forEach { url ->
-                MetadataRow("DOWNLOAD_END URL", url)
+    }
+}
+
+@Composable
+private fun DownloadsQueuePanel(
+    downloadQueueItems: List<DesktopDownloadQueueItem>,
+    onRefreshQueue: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    SectionCard("Download Queue", modifier = modifier) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            LibraryActionButton(
+                imageVector = Icons.Filled.Refresh,
+                label = "Refresh",
+                onClick = onRefreshQueue,
+            )
+            LibraryActionButton(
+                imageVector = Icons.Filled.Add,
+                label = "Add source",
+                enabled = false,
+                onClick = {},
+            )
+        }
+        Text(
+            "Queue execution is reserved for authorized source contracts. ani-rss completed-media imports are available today.",
+            color = DanmakuColors.TextMuted,
+        )
+        if (downloadQueueItems.isEmpty()) {
+            EmptyState("No persisted queue items yet. Completed ani-rss downloads can be imported from a trusted output folder.")
+        } else {
+            LazyColumn(
+                modifier = Modifier.heightIn(max = 520.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(downloadQueueItems, key = DesktopDownloadQueueItem::id) { item ->
+                    DownloadQueueRow(item)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DownloadsSetupPanel(
+    isIndexing: Boolean,
+    webhookUrls: List<String>,
+    webhookToken: String,
+    aniRssRoots: List<DesktopLibraryRoot>,
+    onAddAniRssOutputFolder: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        SectionCard("Authorized Sources") {
+            Text(
+                "Use providers you are authorized to access. Danmaku imports completed media and does not bypass DRM or service rules.",
+                color = DanmakuColors.TextMuted,
+            )
+            LibraryActionButton(
+                imageVector = Icons.Filled.FolderOpen,
+                label = "Add ani-rss output folder",
+                enabled = !isIndexing,
+                modifier = Modifier.fillMaxWidth(),
+                onClick = onAddAniRssOutputFolder,
+            )
+        }
+        SectionCard("ani-rss Webhook") {
+            if (webhookUrls.isEmpty()) {
+                EmptyState("No webhook URL is available yet.")
+            } else {
+                webhookUrls.forEach { url ->
+                    MetadataRow("DOWNLOAD_END URL", url)
+                }
             }
             MetadataRow("Header", "X-Danmaku-Webhook-Token")
             MetadataRow("Token", webhookToken)
         }
-        SectionCard("Download Roots") {
-            val aniRssRoots = registeredRoots.filter {
-                it.provenance == DesktopLibraryRootProvenance.ANI_RSS_OUTPUT_FOLDER
-            }
+        SectionCard("Import Roots") {
             if (aniRssRoots.isEmpty()) {
                 EmptyState("No ani-rss output folders registered.")
             } else {
                 aniRssRoots.forEach { root -> MediaRootRow(root) }
             }
+        }
+    }
+}
+
+@Composable
+private fun DownloadQueueRow(item: DesktopDownloadQueueItem) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(DanmakuColors.SurfaceRaised)
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Icon(
+            imageVector = if (item.failureMessage == null) Icons.Filled.CheckCircle else Icons.Filled.Warning,
+            contentDescription = null,
+            tint = if (item.failureMessage == null) DanmakuColors.TextMuted else DanmakuColors.Warning,
+        )
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(item.sourceUri.redactToken(), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(item.outputPath, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            item.failureMessage?.let {
+                Text(it, color = DanmakuColors.Warning, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            MiniProgressBar(percent = item.downloadProgressPercent())
+        }
+        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            StatusPill(item.state)
+            Text(item.downloadProgressLabel(), color = DanmakuColors.TextMuted, maxLines = 1)
         }
     }
 }

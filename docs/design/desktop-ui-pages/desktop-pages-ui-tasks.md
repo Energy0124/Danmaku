@@ -84,15 +84,15 @@ Status legend:
 
 - `[ ]` Define authorized download source contracts before implementing queue
   execution.
-- `[ ]` Implement queue dashboard sections for active, queued, completed, and
+- `[~]` Implement queue dashboard sections for active, queued, completed, and
   failed downloads.
 - `[ ]` Add per-item pause, resume, cancel, retry, remove, and open-folder
   actions.
-- `[ ]` Add bandwidth limit, schedule, destination, storage warning, and source
+- `[~]` Add bandwidth limit, schedule, destination, storage warning, and source
   authorization UI.
 - `[ ]` Add selected-download inspector with metadata, path, progress, checksum
   or cache state, logs, and retry history.
-- `[ ]` Ensure UI copy never implies unsupported scraping, torrent search, DRM
+- `[x]` Ensure UI copy never implies unsupported scraping, torrent search, DRM
   circumvention, or unauthorized access.
 
 ## Tracking Page
@@ -146,4 +146,4 @@ Status legend:
 - `[ ]` Add tests for tracking readback/plan/conflict/retry behavior.
 - `[ ]` Add tests for cache-state persistence and episode selection readback.
 - `[x]` Run `:apps:desktop-windows:compileKotlinDesktop` after UI wiring.
-- `[ ]` Run `:apps:desktop-windows:desktopTest` after behavior changes.
+- `[x]` Run `:apps:desktop-windows:desktopTest` after behavior changes.
