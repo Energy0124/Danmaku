@@ -2210,6 +2210,8 @@ private fun DesktopShell(
                             mpvRuntimeStatus = mpvRuntime.statusMessage,
                             videoHostStatus = videoHostStatus,
                             overlayStatus = overlayStatus,
+                            danmakuSettings = danmakuSettings,
+                            dandanplayCacheStatus = dandanplayCacheStatus,
                             onWindowIdChanged = { windowId ->
                                 if (mpvVideoWindowId != windowId) {
                                     appendDiagnostic(
@@ -2334,6 +2336,7 @@ private fun DesktopShell(
                                     saveVideoAspectMode(mode)
                                 }
                             },
+                            onSaveDanmakuSettings = ::saveDanmakuSettings,
                             onShowHome = { selectedTab = DesktopShellTab.HOME },
                             onShowLibrary = { selectedTab = DesktopShellTab.MEDIA_LIBRARY },
                             canOpenMedia = mpvVideoWindowId != null,
@@ -3985,6 +3988,8 @@ private fun PlaybackTab(
     mpvRuntimeStatus: String,
     videoHostStatus: String,
     overlayStatus: String,
+    danmakuSettings: DanmakuDisplaySettings,
+    dandanplayCacheStatus: DandanplayPlaybackUiStatus?,
     onWindowIdChanged: (Long?) -> Unit,
     onMpvPointerMove: (x: Int, y: Int, width: Int, height: Int) -> Unit,
     onMpvPrimaryClick: (x: Int, y: Int, width: Int, height: Int) -> Unit,
@@ -4005,6 +4010,7 @@ private fun PlaybackTab(
     videoAspectMode: DesktopVideoAspectMode,
     onSetFullscreen: (Boolean) -> Unit,
     onSetVideoAspectMode: (DesktopVideoAspectMode) -> Unit,
+    onSaveDanmakuSettings: (DanmakuDisplaySettings) -> Unit,
     onShowHome: () -> Unit,
     onShowLibrary: () -> Unit,
     canOpenMedia: Boolean,
@@ -4013,6 +4019,7 @@ private fun PlaybackTab(
     var controlsVisible by remember { mutableStateOf(true) }
     var controlsInteractionSerial by remember { mutableStateOf(0L) }
     var isFocusMode by remember { mutableStateOf(false) }
+    var rightPanelVisible by remember { mutableStateOf(true) }
     val focusRequester = remember { FocusRequester() }
     val hasMedia = playbackSnapshot.source != null
     val shouldAutoHide = hasMedia && playbackSnapshot.status == PlaybackStatus.PLAYING
@@ -4265,8 +4272,13 @@ private fun PlaybackTab(
                         onSetFullscreen = onSetFullscreen,
                         onSetVideoAspectMode = onSetVideoAspectMode,
                         isFocusMode = isFocusMode,
+                        rightPanelVisible = rightPanelVisible,
                         onToggleFocusMode = {
                             isFocusMode = !isFocusMode
+                            revealControls()
+                        },
+                        onToggleRightPanel = {
+                            rightPanelVisible = !rightPanelVisible
                             revealControls()
                         },
                         canOpenMedia = canOpenMedia,
@@ -4275,6 +4287,20 @@ private fun PlaybackTab(
                             .revealControlsOnPointerInput(),
                     )
                 }
+            }
+            if (hasMedia && controlsVisible && !isFocusMode && !isFullscreen && rightPanelVisible) {
+                PlayerRightPanel(
+                    playbackSnapshot = playbackSnapshot,
+                    overlayStatus = overlayStatus,
+                    dandanplayCacheStatus = dandanplayCacheStatus,
+                    danmakuSettings = danmakuSettings,
+                    onSaveDanmakuSettings = onSaveDanmakuSettings,
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(top = 74.dp, end = 18.dp, bottom = 132.dp)
+                        .width(320.dp)
+                        .revealControlsOnPointerInput(),
+                )
             }
             if (isFocusMode && controlsVisible && !isFullscreen) {
                 PlayerFocusRestoreButton(
@@ -4470,7 +4496,9 @@ private fun PlayerBottomOverlay(
     onSetFullscreen: (Boolean) -> Unit,
     onSetVideoAspectMode: (DesktopVideoAspectMode) -> Unit,
     isFocusMode: Boolean,
+    rightPanelVisible: Boolean,
     onToggleFocusMode: () -> Unit,
+    onToggleRightPanel: () -> Unit,
     canOpenMedia: Boolean,
     modifier: Modifier = Modifier,
 ) {
@@ -4608,6 +4636,17 @@ private fun PlayerBottomOverlay(
                 }
                 Spacer(modifier = Modifier.weight(1f))
                 PlayerIconButton(
+                    imageVector = Icons.Filled.Subtitles,
+                    contentDescription = if (rightPanelVisible) {
+                        "Hide danmaku panel"
+                    } else {
+                        "Show danmaku panel"
+                    },
+                    enabled = hasMedia,
+                    active = rightPanelVisible,
+                    onClick = onToggleRightPanel,
+                )
+                PlayerIconButton(
                     imageVector = if (isFocusMode) Icons.Filled.FullscreenExit else Icons.Filled.Fullscreen,
                     contentDescription = if (isFocusMode) "Show player chrome (H)" else "Hide player chrome (H)",
                     enabled = true,
@@ -4621,6 +4660,144 @@ private fun PlayerBottomOverlay(
                     onClick = { onSetFullscreen(!isFullscreen) },
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun PlayerRightPanel(
+    playbackSnapshot: PlaybackSnapshot,
+    overlayStatus: String,
+    dandanplayCacheStatus: DandanplayPlaybackUiStatus?,
+    danmakuSettings: DanmakuDisplaySettings,
+    onSaveDanmakuSettings: (DanmakuDisplaySettings) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val subtitleTracks = playbackSnapshot.tracks.filter { it.kind == PlaybackTrackKind.SUBTITLE }
+    val audioTracks = playbackSnapshot.tracks.filter { it.kind == PlaybackTrackKind.AUDIO }
+    val selectedSubtitle = subtitleTracks.firstOrNull(PlaybackTrack::selected)
+    val selectedAudio = audioTracks.firstOrNull(PlaybackTrack::selected)
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color.Black.copy(alpha = 0.78f))
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(Icons.Filled.Subtitles, contentDescription = null, tint = DanmakuColors.Accent)
+            Text("Danmaku", color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            StatusPill(if (danmakuSettings.visible) "Shown" else "Hidden", active = danmakuSettings.visible)
+        }
+        Text(overlayStatus, color = DanmakuColors.TextMuted, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        dandanplayCacheStatus?.let { status ->
+            MetadataRow("Cache", status.summary, if (status.summary.isDandanplayWarningStatus()) DanmakuColors.Warning else DanmakuColors.Good)
+        } ?: MetadataRow("Cache", "Not checked", DanmakuColors.TextMuted)
+        MetadataRow("Audio", selectedAudio?.label ?: "Default")
+        MetadataRow("Subtitle", selectedSubtitle?.label ?: "Off")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = { onSaveDanmakuSettings(danmakuSettings.copy(visible = !danmakuSettings.visible)) },
+                modifier = Modifier.weight(1f),
+            ) {
+                Icon(
+                    imageVector = if (danmakuSettings.visible) Icons.Filled.Subtitles else Icons.Filled.Warning,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(if (danmakuSettings.visible) "Hide" else "Show")
+            }
+        }
+        PlayerDanmakuSlider(
+            label = "Opacity",
+            value = danmakuSettings.opacityPercent,
+            range = 0..100,
+            suffix = "%",
+            onValueChange = { onSaveDanmakuSettings(danmakuSettings.copy(opacityPercent = it)) },
+        )
+        PlayerDanmakuSlider(
+            label = "Density",
+            value = danmakuSettings.densityPercent,
+            range = 10..200,
+            suffix = "%",
+            onValueChange = { onSaveDanmakuSettings(danmakuSettings.copy(densityPercent = it)) },
+        )
+        PlayerDanmakuSlider(
+            label = "Font",
+            value = danmakuSettings.fontScalePercent,
+            range = 50..200,
+            suffix = "%",
+            onValueChange = { onSaveDanmakuSettings(danmakuSettings.copy(fontScalePercent = it)) },
+        )
+        PlayerDanmakuSlider(
+            label = "Speed",
+            value = danmakuSettings.speedPercent,
+            range = 25..300,
+            suffix = "%",
+            onValueChange = { onSaveDanmakuSettings(danmakuSettings.copy(speedPercent = it)) },
+        )
+        PlayerDanmakuSlider(
+            label = "Area",
+            value = danmakuSettings.displayAreaPercent,
+            range = 10..100,
+            suffix = "%",
+            onValueChange = { onSaveDanmakuSettings(danmakuSettings.copy(displayAreaPercent = it)) },
+        )
+        PlayerDanmakuOffsetControl(
+            offsetMs = danmakuSettings.offsetMs,
+            onOffsetChange = { onSaveDanmakuSettings(danmakuSettings.copy(offsetMs = it)) },
+        )
+    }
+}
+
+@Composable
+private fun PlayerDanmakuSlider(
+    label: String,
+    value: Int,
+    range: IntRange,
+    suffix: String,
+    onValueChange: (Int) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(label, color = DanmakuColors.TextMuted, modifier = Modifier.weight(1f), maxLines = 1)
+            Text("$value$suffix", color = Color.White, maxLines = 1)
+        }
+        Slider(
+            value = value.toFloat(),
+            onValueChange = { onValueChange(it.roundToInt().coerceIn(range.first, range.last)) },
+            valueRange = range.first.toFloat()..range.last.toFloat(),
+        )
+    }
+}
+
+@Composable
+private fun PlayerDanmakuOffsetControl(
+    offsetMs: Long,
+    onOffsetChange: (Long) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Offset", color = DanmakuColors.TextMuted, modifier = Modifier.weight(1f), maxLines = 1)
+            Text("${offsetMs}ms", color = Color.White, maxLines = 1)
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PlayerOverlayButton(
+                text = "-500",
+                modifier = Modifier.weight(1f),
+                onClick = { onOffsetChange((offsetMs - 500L).coerceIn(-3_600_000L, 3_600_000L)) },
+            )
+            PlayerOverlayButton(
+                text = "Reset",
+                modifier = Modifier.weight(1f),
+                onClick = { onOffsetChange(0L) },
+            )
+            PlayerOverlayButton(
+                text = "+500",
+                modifier = Modifier.weight(1f),
+                onClick = { onOffsetChange((offsetMs + 500L).coerceIn(-3_600_000L, 3_600_000L)) },
+            )
         }
     }
 }

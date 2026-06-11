@@ -111,13 +111,23 @@ Status legend:
   mode.
 - `[x]` Persist Player focus visibility for the current player session without
   changing sidebar behavior on non-player pages.
-- `[ ]` Wire the future right player details/danmaku panel into focus mode once
+- `[x]` Wire the future right player details/danmaku panel into focus mode once
   that panel is implemented.
-- `[ ]` Keep video dominant in embedded and fullscreen modes.
+  - Player now has a collapsible right danmaku/details panel backed by current
+    playback state, selected audio/subtitle tracks, overlay status, cached
+    dandanplay status, and persisted danmaku display preferences. Focus mode
+    and fullscreen hide the panel so video takes over the workspace.
+- `[~]` Keep video dominant in embedded and fullscreen modes.
+  - Focus/fullscreen paths hide the right panel and non-video chrome; remaining
+    work is visual QA on default, narrow, wide, fullscreen, and 4K content.
 - `[ ]` Add or verify controls for previous/next episode, skip, volume, rate,
   audio track, subtitle track, aspect, fullscreen, and danmaku visibility.
-- `[ ]` Add right-panel controls for danmaku opacity, density, font size, lane
+- `[~]` Add right-panel controls for danmaku opacity, density, font size, lane
   behavior, offset, and filter presets.
+  - Right player panel now controls danmaku visibility, opacity, density, font
+    scale, speed, display area, and offset through the persisted danmaku
+    preference path.
+  - Remaining: lane behavior and filter preset editing.
 - `[ ]` Show cached danmaku state after media selection and after relaunch.
 - `[ ]` Add preparing and error states that identify the failed step.
 - `[ ]` Run fullscreen, resize, aspect, hardware decode, and 4K playback QA.
