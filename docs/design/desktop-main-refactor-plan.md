@@ -40,7 +40,7 @@ Acceptance:
 
 ## Phase 2: Shell State And Actions
 
-Status: next.
+Status: started.
 
 Introduce an internal state/action boundary after the mechanical split
 compiles:
@@ -55,12 +55,19 @@ compiles:
 - `DesktopShell` becomes a thin bridge from window inputs to
   `DesktopShellContent(state, actions)`.
 
+Initial slice:
+
+- `DesktopShellDiagnosticsState` owns diagnostic log, mpv command log, server
+  events, file logging, and trim behavior.
+- `DesktopShell` delegates diagnostic/server-event actions to the remembered
+  state object while the remaining shell state is still local.
+
 Acceptance:
 
 - Side effects are not launched from feature tab composables.
 - Feature tabs receive data plus callbacks rather than reaching into stores or
   runtimes.
-- `DesktopShell.kt` drops below 1,000 lines after the first state/action pass.
+- `DesktopShell.kt` drops below 1,000 lines after the full state/action pass.
 
 ## Phase 3: Feature File Follow-Up
 

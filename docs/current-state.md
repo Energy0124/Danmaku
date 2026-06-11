@@ -30,7 +30,8 @@ trusted-LAN clients.
   playback presentation constants/helpers have been split out of the original
   shell file. The `Main.kt` decomposition is now tracked in
   `docs/design/desktop-main-refactor-plan.md`, with feature tab files being
-  separated before the shell state/action boundary is introduced.
+  separated and the first remembered diagnostics/server-event state object
+  extracted from the shell.
 - Multi-root local anime library indexing, incremental rescanning, ani-rss
   output-folder import, and persistent SQLDelight/SQLite storage.
 - Trusted-LAN library server with pairing token, JSON catalog, byte-range media

@@ -31,7 +31,8 @@ Status legend:
 - `[~]` Continue decomposing desktop `Main.kt` into focused shell, tab,
   settings, player, library, and shared UI modules while preserving behavior.
 - `[~]` Introduce a desktop shell state/action boundary so orchestration moves
-  out of feature rendering after the first file-ownership split.
+  out of feature rendering after the first file-ownership split; diagnostics
+  and server-event state now have the first remembered state object.
 
 ## Next Engineering Work
 

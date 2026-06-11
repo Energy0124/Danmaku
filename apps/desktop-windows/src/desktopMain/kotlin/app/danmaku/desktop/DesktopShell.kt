@@ -265,38 +265,15 @@ internal fun DesktopShell(
         )
     }
     val scope = rememberCoroutineScope()
-    val mpvCommandLog = remember { mutableStateListOf<DesktopMpvCommand>() }
-    val diagnosticLog = remember { mutableStateListOf<DesktopDiagnosticLogEntry>() }
-    val serverEvents = remember { mutableStateListOf<LocalLibraryServerEvent>() }
-    val diagnosticFileLog = remember { DesktopDiagnosticFileLog.createDefault() }
-    fun appendDiagnostic(category: String, message: String) {
-        val entry = DesktopDiagnosticLogEntry(
-            occurredAtEpochMs = System.currentTimeMillis(),
-            category = category,
-            message = message.redactToken(),
-        )
-        diagnosticLog += entry
-        diagnosticFileLog.append(entry.occurredAtEpochMs, entry.category, entry.message)
-        while (diagnosticLog.size > MAX_DIAGNOSTIC_LOG_ENTRIES) {
-            diagnosticLog.removeAt(0)
-        }
-    }
-    fun appendServerEvent(event: LocalLibraryServerEvent) {
-        serverEvents += event
-        while (serverEvents.size > MAX_SERVER_DASHBOARD_EVENTS) {
-            serverEvents.removeAt(0)
-        }
-        val entry = DesktopDiagnosticLogEntry(
-            occurredAtEpochMs = event.occurredAtEpochMs,
-            category = "server:${event.category}",
-            message = "${event.method} ${event.path} -> ${event.status} ${event.detail}".redactToken(),
-        )
-        diagnosticLog += entry
-        diagnosticFileLog.append(entry.occurredAtEpochMs, entry.category, entry.message)
-        while (diagnosticLog.size > MAX_DIAGNOSTIC_LOG_ENTRIES) {
-            diagnosticLog.removeAt(0)
-        }
-    }
+    val diagnosticsState = rememberDesktopShellDiagnosticsState()
+    val mpvCommandLog = diagnosticsState.mpvCommandLog
+    val diagnosticLog = diagnosticsState.diagnosticLog
+    val serverEvents = diagnosticsState.serverEvents
+    val diagnosticFileLog = diagnosticsState.fileLog
+    fun appendDiagnostic(category: String, message: String) =
+        diagnosticsState.appendDiagnostic(category, message)
+    fun appendServerEvent(event: LocalLibraryServerEvent) =
+        diagnosticsState.appendServerEvent(event)
     var mpvVideoWindowId by remember { mutableStateOf<Long?>(null) }
     val requiresNativeVideoHost = hostPlatform.requiresEmbeddedMpvVideoHost
     val nativeVideoHostReady = !requiresNativeVideoHost || mpvVideoWindowId != null
