@@ -2103,6 +2103,7 @@ private fun DesktopShell(
                             onOpenLibrary = { selectedTab = DesktopShellTab.MEDIA_LIBRARY },
                             onOpenDownloads = { selectedTab = DesktopShellTab.DOWNLOADS },
                             onOpenSettings = { selectedTab = DesktopShellTab.PROFILE },
+                            onOpenTracking = { selectedTab = DesktopShellTab.TRACKING },
                             onRefreshMetadata = {
                                 displayIndexedLibrary?.let(::refreshMissingSeriesPosters)
                             },
@@ -2111,6 +2112,17 @@ private fun DesktopShell(
                             },
                         )
                         DesktopShellTab.PLAYBACK -> Unit
+                        DesktopShellTab.TRACKING -> TrackingTab(
+                            indexedLibrary = displayIndexedLibrary,
+                            externalAnimeMappings = externalAnimeMappings,
+                            playbackProgresses = playbackProgresses,
+                            externalAnimeSyncFailures = externalAnimeSyncFailures,
+                            isExternalAnimeSyncing = isExternalAnimeSyncing,
+                            externalAnimeProviderSettings = externalAnimeProviderSettings,
+                            onSyncExternalAnimePlan = ::syncExternalAnimePlan,
+                            onOpenSettings = { selectedTab = DesktopShellTab.PROFILE },
+                            onOpenLibrary = { selectedTab = DesktopShellTab.MEDIA_LIBRARY },
+                        )
                         DesktopShellTab.MEDIA_LIBRARY -> MediaLibraryTab(
                             registeredRoots = registeredRoots,
                             indexedLibrary = displayIndexedLibrary,
@@ -2225,6 +2237,7 @@ private enum class DesktopShellTab(
     PLAYBACK("Playback"),
     MEDIA_LIBRARY("Library"),
     DOWNLOADS("Downloads"),
+    TRACKING("Tracking"),
     PROFILE("Settings"),
 }
 
@@ -2350,9 +2363,9 @@ private fun AppNavigationRail(
         )
         AppRailItem(
             icon = Icons.Filled.Refresh,
-            label = "Tracking",
-            selected = false,
-            onClick = { onTabSelected(DesktopShellTab.MEDIA_LIBRARY) },
+            label = DesktopShellTab.TRACKING.title,
+            selected = selectedTab == DesktopShellTab.TRACKING,
+            onClick = { onTabSelected(DesktopShellTab.TRACKING) },
         )
         AppRailItem(
             icon = Icons.Filled.PlayArrow,
@@ -2479,6 +2492,7 @@ private fun HomeTab(
     onOpenLibrary: () -> Unit,
     onOpenDownloads: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenTracking: () -> Unit,
     onRefreshMetadata: () -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
 ) {
@@ -2549,6 +2563,7 @@ private fun HomeTab(
                         onOpenLibrary = onOpenLibrary,
                         onOpenDownloads = onOpenDownloads,
                         onOpenSettings = onOpenSettings,
+                        onOpenTracking = onOpenTracking,
                         onRefreshMetadata = onRefreshMetadata,
                     )
                 }
@@ -2588,6 +2603,7 @@ private fun HomeTab(
                         onOpenLibrary = onOpenLibrary,
                         onOpenDownloads = onOpenDownloads,
                         onOpenSettings = onOpenSettings,
+                        onOpenTracking = onOpenTracking,
                         onRefreshMetadata = onRefreshMetadata,
                         modifier = Modifier.width(332.dp),
                     )
@@ -2887,6 +2903,7 @@ private fun HomeStatusColumn(
     onOpenLibrary: () -> Unit,
     onOpenDownloads: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenTracking: () -> Unit,
     onRefreshMetadata: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -2945,7 +2962,7 @@ private fun HomeStatusColumn(
             detail = "${externalTrackingPlan?.summary?.updateCount ?: 0} ready updates",
             statusColor = if ((externalTrackingPlan?.summary?.updateCount ?: 0) > 0) DanmakuColors.Info else DanmakuColors.TextMuted,
             actionLabel = "Open Tracking",
-            onAction = onOpenLibrary,
+            onAction = onOpenTracking,
         )
         OperationalStatusCard(
             icon = Icons.Filled.FolderOpen,
@@ -3017,6 +3034,123 @@ private fun HomeSectionHeader(
             imageVector = Icons.AutoMirrored.Filled.ViewList,
             label = actionLabel,
             onClick = onAction,
+        )
+    }
+}
+
+@Composable
+private fun TrackingTab(
+    indexedLibrary: IndexedLocalLibrary?,
+    externalAnimeMappings: List<ExternalAnimeMapping>,
+    playbackProgresses: List<PlaybackProgress>,
+    externalAnimeSyncFailures: List<ExternalAnimeSyncFailure>,
+    isExternalAnimeSyncing: Boolean,
+    externalAnimeProviderSettings: ExternalAnimeProviderSettings,
+    onSyncExternalAnimePlan: (ExternalAnimeTrackingPlan) -> Unit,
+    onOpenSettings: () -> Unit,
+    onOpenLibrary: () -> Unit,
+) {
+    val catalog = indexedLibrary?.catalog
+    val plan = remember(catalog, externalAnimeMappings, playbackProgresses, externalAnimeSyncFailures) {
+        catalog?.externalAnimeTrackingPlan(
+            mappings = externalAnimeMappings,
+            progresses = playbackProgresses,
+            failures = externalAnimeSyncFailures,
+        )
+    }
+    TabScaffold {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            TrackingProviderCard(
+                title = "MyAnimeList",
+                status = externalAnimeProviderSettings.myAnimeListStatusText,
+                ready = externalAnimeProviderSettings.hasMyAnimeListAccessToken,
+                detail = if (externalAnimeProviderSettings.myAnimeListClientId != null) {
+                    "Client ID saved"
+                } else {
+                    "Configure API credentials to search and sync"
+                },
+                onOpenSettings = onOpenSettings,
+                modifier = Modifier.weight(1f),
+            )
+            TrackingProviderCard(
+                title = "Bangumi",
+                status = externalAnimeProviderSettings.bangumiStatusText,
+                ready = externalAnimeProviderSettings.hasBangumiAccessToken,
+                detail = externalAnimeProviderSettings.bangumiBaseUrl,
+                onOpenSettings = onOpenSettings,
+                modifier = Modifier.weight(1f),
+            )
+        }
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            SummaryCard(
+                title = "Mapped",
+                value = externalAnimeMappings.size.toString(),
+                caption = "series links",
+                modifier = Modifier.weight(1f),
+            )
+            SummaryCard(
+                title = "Ready",
+                value = (plan?.summary?.updateCount ?: 0).toString(),
+                caption = "provider writes",
+                modifier = Modifier.weight(1f),
+            )
+            SummaryCard(
+                title = "Conflicts",
+                value = (plan?.summary?.conflictCount ?: 0).toString(),
+                caption = "need review",
+                modifier = Modifier.weight(1f),
+            )
+            SummaryCard(
+                title = "Failures",
+                value = (plan?.summary?.failureCount ?: 0).toString(),
+                caption = "retry tracked",
+                modifier = Modifier.weight(1f),
+            )
+        }
+        HomeSectionHeader(
+            title = "Tracking Sync Preview",
+            actionLabel = "Open Library",
+            onAction = onOpenLibrary,
+        )
+        if (catalog == null) {
+            EmptyState("Index a local library before reviewing external progress sync.", "Open Library", onOpenLibrary)
+        } else {
+            ExternalSyncPreviewView(
+                plan = plan,
+                isSyncing = isExternalAnimeSyncing,
+                onSync = onSyncExternalAnimePlan,
+            )
+        }
+    }
+}
+
+@Composable
+private fun TrackingProviderCard(
+    title: String,
+    status: String,
+    ready: Boolean,
+    detail: String,
+    onOpenSettings: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    SectionCard(title, modifier = modifier) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Icon(
+                imageVector = if (ready) Icons.Filled.CheckCircle else Icons.Filled.Warning,
+                contentDescription = null,
+                tint = if (ready) DanmakuColors.Good else DanmakuColors.Warning,
+                modifier = Modifier.size(20.dp),
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(status, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(detail, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        LibraryActionButton(
+            imageVector = Icons.Filled.MoreHoriz,
+            label = "Provider settings",
+            modifier = Modifier.fillMaxWidth(),
+            onClick = onOpenSettings,
         )
     }
 }

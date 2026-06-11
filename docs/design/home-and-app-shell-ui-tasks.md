@@ -29,7 +29,7 @@ Status legend:
 - `[~]` Align the desktop top header with the target shell: app identity, global
   search, refresh/rescan, diagnostics/notifications, help, settings, and local
   profile/device controls.
-- `[~]` Normalize the desktop left navigation rail around Home, Library,
+- `[x]` Normalize the desktop left navigation rail around Home, Library,
   Downloads, Player, Tracking, and Settings.
 - `[~]` Add secondary library shortcuts in the rail or equivalent compact
   surface for Anime Series, Movies, OVAs / Specials, All Episodes,
@@ -38,7 +38,7 @@ Status legend:
   Library, and compact now-playing sections.
 - `[x]` Add a right-side operational status column on desktop Home for server,
   metadata/posters, external sync, downloads, and cached danmaku.
-- `[~]` Make status cards actionable with Open Dashboard, Refresh Metadata, Open
+- `[x]` Make status cards actionable with Open Dashboard, Refresh Metadata, Open
   Tracking / Sync Ready Updates, Open Downloads, and Manage Cache.
 - `[~]` Add explicit in-progress, stale, partial, failed, and ready states for
   metadata/poster, external sync, download, and danmaku cache cards.

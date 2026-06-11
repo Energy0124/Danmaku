@@ -31,9 +31,9 @@ Status legend:
   lookups while keeping provider/content titles unchanged.
 - `[ ]` Add UI review screenshots or checks for English and `zh-TW` labels in
   dense surfaces such as the rail, toolbar, inspector, and settings forms.
-- `[ ]` Normalize route labels to Home, Library, Downloads, Player, Tracking,
+- `[x]` Normalize route labels to Home, Library, Downloads, Player, Tracking,
   and Settings.
-- `[ ]` Decide whether Tracking becomes a first-class `DesktopShellTab` instead
+- `[x]` Decide whether Tracking becomes a first-class `DesktopShellTab` instead
   of remaining only inside the Library workspace.
 - `[ ]` Add consistent keyboard shortcuts for global search, refresh/rescan,
   route navigation, and primary page action.
@@ -97,10 +97,10 @@ Status legend:
 
 ## Tracking Page
 
-- `[ ]` Promote Tracking to a dedicated desktop destination if the product
+- `[x]` Promote Tracking to a dedicated desktop destination if the product
   keeps MAL/Bangumi sync as a first-class workflow.
-- `[ ]` Add provider connection cards for MyAnimeList and Bangumi.
-- `[ ]` Add sync summary cards for ready updates, conflicts, failed retries,
+- `[x]` Add provider connection cards for MyAnimeList and Bangumi.
+- `[x]` Add sync summary cards for ready updates, conflicts, failed retries,
   and manual mapping needed.
 - `[ ]` Build a tracking table with local series, matched provider anime, local
   progress, provider progress, planned action, confidence, and status.
@@ -145,5 +145,5 @@ Status legend:
   exist.
 - `[ ]` Add tests for tracking readback/plan/conflict/retry behavior.
 - `[ ]` Add tests for cache-state persistence and episode selection readback.
-- `[ ]` Run `:apps:desktop-windows:compileKotlinDesktop` after UI wiring.
+- `[x]` Run `:apps:desktop-windows:compileKotlinDesktop` after UI wiring.
 - `[ ]` Run `:apps:desktop-windows:desktopTest` after behavior changes.
