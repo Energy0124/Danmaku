@@ -588,6 +588,50 @@ class DesktopLibraryCatalogStoreTest {
     }
 
     @Test
+    fun replacingExternalAnimeItemMappingOnlyUpdatesSelectedEpisode() {
+        val temp = createTempDirectory("danmaku-external-anime-item-scope")
+        val databasePath = temp.resolve("catalog.db")
+        val originalEpisodeMapping = DesktopExternalAnimeItemMapping(
+            localMediaId = "episode-1",
+            animeId = ExternalAnimeId(ExternalAnimeProvider.DANDANPLAY, 19451),
+            source = ExternalAnimeMappingSource.AUTO,
+            confidence = 0.78,
+            mappedAtEpochMs = 1000,
+        )
+        val siblingEpisodeMapping = DesktopExternalAnimeItemMapping(
+            localMediaId = "episode-2",
+            animeId = ExternalAnimeId(ExternalAnimeProvider.DANDANPLAY, 19451),
+            source = ExternalAnimeMappingSource.AUTO,
+            confidence = 0.82,
+            mappedAtEpochMs = 1000,
+        )
+        val correctedEpisodeMapping = originalEpisodeMapping.copy(
+            animeId = ExternalAnimeId(ExternalAnimeProvider.DANDANPLAY, 18844),
+            source = ExternalAnimeMappingSource.MANUAL,
+            confidence = 1.0,
+            mappedAtEpochMs = 2000,
+        )
+
+        DesktopLibraryCatalogStore(databasePath).use { store ->
+            store.saveExternalAnimeItemMapping(originalEpisodeMapping)
+            store.saveExternalAnimeItemMapping(siblingEpisodeMapping)
+            store.saveExternalAnimeItemMapping(correctedEpisodeMapping)
+
+            assertEquals(
+                listOf(correctedEpisodeMapping),
+                store.loadExternalAnimeItemMappings("episode-1"),
+            )
+            assertEquals(
+                listOf(siblingEpisodeMapping),
+                store.loadExternalAnimeItemMappings("episode-2"),
+            )
+            assertEquals(emptyList(), store.loadExternalAnimeMappings("example-show"))
+        }
+
+        temp.toFile().deleteRecursively()
+    }
+
+    @Test
     fun addsExternalAnimeStorageToAnExistingCatalogDatabase() {
         val temp = createTempDirectory("danmaku-existing-external-anime-storage")
         val databasePath = temp.resolve("catalog.db")

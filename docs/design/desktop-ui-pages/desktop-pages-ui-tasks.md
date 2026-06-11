@@ -83,15 +83,23 @@ Status legend:
     preparation.
   - Remaining: align Paired remote-library metadata actions once remote
     metadata editing exists.
-- `[ ]` Ensure episode-level mapping updates only the selected episode.
+- `[x]` Ensure episode-level mapping updates only the selected episode.
+  - Episode mapping actions now route through the selected inspector
+    `LibraryMediaItem`, and the catalog store has regression coverage proving
+    replacing one episode mapping does not alter sibling episode mappings or
+    create a series-level mapping.
 - `[~]` Add cache-state readback when an episode is selected.
   - The Library inspector now checks persisted dandanplay cache state whenever
     the selected inspector episode changes, including default next-playable
     selections and prepared playback selections, and exposes a compact manual
     check-cache action on the selected episode.
   - Remaining: add persistence/relaunch coverage and broader cache manager UI.
-- `[ ]` Add tests for selection propagation, metadata refresh action routing,
+- `[~]` Add tests for selection propagation, metadata refresh action routing,
   and episode-only mapping updates.
+  - Episode-only item mapping persistence is covered at the catalog store
+    level.
+  - Remaining: add UI/route tests for selection propagation and metadata
+    refresh action routing.
 
 ## Player Page
 
