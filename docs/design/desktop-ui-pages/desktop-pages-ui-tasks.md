@@ -43,6 +43,9 @@ Status legend:
   - The Downloads dashboard, queue panel, filters, setup panel, selected-item
     inspector, confirmation copy, and planned queue-execution labels now use
     the desktop string layer.
+  - The Tracking provider cards, sync summary cards, table headers/actions,
+    generated row status labels, selected-mapping inspector, and planned
+    provider-readback controls now use the desktop string layer.
   - Remaining: migrate page actions, status labels, dialogs, tooltips,
     inspector copy, and empty/error states.
 - `[ ]` Add UI review screenshots or checks for English and `zh-TW` labels in
@@ -213,6 +216,10 @@ Status legend:
     series IDs, local/provider progress, confidence, status, scoped sync for
     ready rows, and disabled planned controls for provider readback, mapping
     removal, and conflict resolution.
+  - Tracking page chrome now has English / `zh-TW` strings for provider cards,
+    summary cards, table headers/actions, generated app-owned row labels,
+    inspector labels, and planned disabled controls while provider/anime values
+    stay source data.
 - `[ ]` Add provider readback before writes where APIs allow it.
 - `[ ]` Decide whether sync failures should be persisted across relaunch.
 - `[ ]` Add live-account QA checklist for OAuth, token refresh, sync preview,

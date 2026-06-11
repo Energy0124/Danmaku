@@ -37,6 +37,9 @@ Status legend:
     same desktop string layer.
   - Downloads dashboard, queue filters, setup/status panel, selected-item
     inspector, and confirmation copy now use the same desktop string layer.
+  - Tracking provider cards, summary cards, table headers/actions, generated
+    row labels, selected-mapping inspector, and planned provider controls now
+    use the same desktop string layer.
 - `[~]` Align the desktop top header with the target shell: app identity, global
   search, refresh/rescan, diagnostics/notifications, help, settings, and local
   profile/device controls.

@@ -2579,6 +2579,7 @@ private fun DesktopShell(
                         )
                         DesktopShellTab.PLAYBACK -> Unit
                         DesktopShellTab.TRACKING -> TrackingTab(
+                            strings = desktopStrings,
                             indexedLibrary = displayIndexedLibrary,
                             externalAnimeMappings = externalAnimeMappings,
                             playbackProgresses = playbackProgresses,
@@ -2902,6 +2903,58 @@ private enum class DesktopUiLanguage(
             retryAction = "Retry",
             cancelAction = "Cancel",
             downloadExecutionPlannedText = "Pause, resume, cancel, and retry will be enabled after authorized download source contracts and queue execution are implemented.",
+            providerSettingsAction = "Provider settings",
+            myAnimeListClientSavedLabel = "Client ID saved",
+            trackingCredentialsNeededLabel = "Configure API credentials to search and sync",
+            mappedSummaryTitle = "Mapped",
+            mappedSummaryCaption = "series links",
+            readySummaryTitle = "Ready",
+            readySummaryCaption = "provider writes",
+            conflictsSummaryTitle = "Conflicts",
+            conflictsSummaryCaption = "need review",
+            failuresSummaryTitle = "Failures",
+            failuresSummaryCaption = "retry tracked",
+            trackingSyncPreviewTitle = "Tracking Sync Preview",
+            openLibraryAction = "Open Library",
+            trackingNoLibraryText = "Index a local library before reviewing external progress sync.",
+            trackingTableTitle = "Tracking Table",
+            trackingTableDescription = "Local and provider progress",
+            syncAllReadyAction = "Sync all ready",
+            syncingAction = "Syncing",
+            trackingRowsEmptyText = "No tracking rows are available yet. Link local series to MyAnimeList or Bangumi from Library details.",
+            localSeriesHeader = "Local series",
+            providerHeader = "Provider",
+            actionHeader = "Action",
+            mappingInspectorTitle = "Mapping Inspector",
+            mappingInspectorEmptyText = "Select a tracking row to inspect provider IDs, progress, and planned sync behavior.",
+            animeIdLabel = "Anime ID",
+            providerUrlLabel = "Provider URL",
+            localSeriesIdLabel = "Local series ID",
+            localProgressLabel = "Local progress",
+            providerProgressLabel = "Provider progress",
+            confidenceLabel = "Confidence",
+            statusLabel = "Status",
+            conflictLabel = "Conflict",
+            externalWatchedLabel = "External watched",
+            nextRetryLabel = "Next retry",
+            skippedLabel = "Skipped",
+            syncSelectedAction = "Sync selected",
+            refreshProviderStateAction = "Refresh provider state",
+            removeMappingAction = "Remove mapping",
+            resolveConflictAction = "Resolve conflict",
+            trackingPlannedControlsText = "Provider readback, mapping removal, and conflict resolution controls are planned; ready updates can sync through the existing provider sync path.",
+            readbackPendingLabel = "Readback pending",
+            readyStatusLabel = "Ready",
+            reviewConflictAction = "Review conflict",
+            conflictStatusLabel = "Conflict",
+            externalProviderLabel = "External provider",
+            notLinkedLabel = "Not linked",
+            noLinkLabel = "No link",
+            needsMappingLabel = "Needs mapping",
+            missingLocalSeriesLabel = "Missing local series",
+            retryAtLabel = { epochMs -> "Retry ${epochMs.formatEpochTime()}" },
+            failedAttemptsLabel = { attempts -> "Failed x$attempts" },
+            watchedCountLabel = { count -> "$count watched" },
             searchAction = "Search",
             searchingAction = "Searching...",
             closeAction = "Close",
@@ -3053,6 +3106,58 @@ private enum class DesktopUiLanguage(
             retryAction = "重試",
             cancelAction = "取消",
             downloadExecutionPlannedText = "暫停、繼續、取消與重試會在授權下載來源合約與佇列執行完成後啟用。",
+            providerSettingsAction = "服務設定",
+            myAnimeListClientSavedLabel = "Client ID 已儲存",
+            trackingCredentialsNeededLabel = "設定 API 憑證後即可搜尋與同步",
+            mappedSummaryTitle = "已對應",
+            mappedSummaryCaption = "系列連結",
+            readySummaryTitle = "可同步",
+            readySummaryCaption = "服務寫入",
+            conflictsSummaryTitle = "衝突",
+            conflictsSummaryCaption = "需要檢視",
+            failuresSummaryTitle = "失敗",
+            failuresSummaryCaption = "已追蹤重試",
+            trackingSyncPreviewTitle = "追蹤同步預覽",
+            openLibraryAction = "開啟媒體庫",
+            trackingNoLibraryText = "先建立本機媒體庫索引，再檢視外部進度同步。",
+            trackingTableTitle = "追蹤表格",
+            trackingTableDescription = "本機與服務進度",
+            syncAllReadyAction = "同步所有可寫入項目",
+            syncingAction = "同步中",
+            trackingRowsEmptyText = "目前沒有追蹤資料列。請先在媒體庫詳情中連結本機系列到 MyAnimeList 或 Bangumi。",
+            localSeriesHeader = "本機系列",
+            providerHeader = "服務",
+            actionHeader = "動作",
+            mappingInspectorTitle = "對應檢視",
+            mappingInspectorEmptyText = "選取追蹤資料列以檢視服務 ID、進度與預計同步行為。",
+            animeIdLabel = "動畫 ID",
+            providerUrlLabel = "服務網址",
+            localSeriesIdLabel = "本機系列 ID",
+            localProgressLabel = "本機進度",
+            providerProgressLabel = "服務進度",
+            confidenceLabel = "信心值",
+            statusLabel = "狀態",
+            conflictLabel = "衝突",
+            externalWatchedLabel = "服務已看",
+            nextRetryLabel = "下次重試",
+            skippedLabel = "已略過",
+            syncSelectedAction = "同步所選項目",
+            refreshProviderStateAction = "重新讀取服務狀態",
+            removeMappingAction = "移除對應",
+            resolveConflictAction = "解決衝突",
+            trackingPlannedControlsText = "服務讀回、移除對應與衝突解決控制仍在規劃中；可同步項目會走現有服務同步路徑。",
+            readbackPendingLabel = "尚未讀回",
+            readyStatusLabel = "可同步",
+            reviewConflictAction = "檢視衝突",
+            conflictStatusLabel = "衝突",
+            externalProviderLabel = "外部服務",
+            notLinkedLabel = "未連結",
+            noLinkLabel = "無連結",
+            needsMappingLabel = "需要對應",
+            missingLocalSeriesLabel = "缺少本機系列",
+            retryAtLabel = { epochMs -> "重試 ${epochMs.formatEpochTime()}" },
+            failedAttemptsLabel = { attempts -> "失敗 x$attempts" },
+            watchedCountLabel = { count -> "已看 $count 集" },
             searchAction = "搜尋",
             searchingAction = "搜尋中...",
             closeAction = "關閉",
@@ -3174,6 +3279,58 @@ private data class DesktopStrings(
     val retryAction: String,
     val cancelAction: String,
     val downloadExecutionPlannedText: String,
+    val providerSettingsAction: String,
+    val myAnimeListClientSavedLabel: String,
+    val trackingCredentialsNeededLabel: String,
+    val mappedSummaryTitle: String,
+    val mappedSummaryCaption: String,
+    val readySummaryTitle: String,
+    val readySummaryCaption: String,
+    val conflictsSummaryTitle: String,
+    val conflictsSummaryCaption: String,
+    val failuresSummaryTitle: String,
+    val failuresSummaryCaption: String,
+    val trackingSyncPreviewTitle: String,
+    val openLibraryAction: String,
+    val trackingNoLibraryText: String,
+    val trackingTableTitle: String,
+    val trackingTableDescription: String,
+    val syncAllReadyAction: String,
+    val syncingAction: String,
+    val trackingRowsEmptyText: String,
+    val localSeriesHeader: String,
+    val providerHeader: String,
+    val actionHeader: String,
+    val mappingInspectorTitle: String,
+    val mappingInspectorEmptyText: String,
+    val animeIdLabel: String,
+    val providerUrlLabel: String,
+    val localSeriesIdLabel: String,
+    val localProgressLabel: String,
+    val providerProgressLabel: String,
+    val confidenceLabel: String,
+    val statusLabel: String,
+    val conflictLabel: String,
+    val externalWatchedLabel: String,
+    val nextRetryLabel: String,
+    val skippedLabel: String,
+    val syncSelectedAction: String,
+    val refreshProviderStateAction: String,
+    val removeMappingAction: String,
+    val resolveConflictAction: String,
+    val trackingPlannedControlsText: String,
+    val readbackPendingLabel: String,
+    val readyStatusLabel: String,
+    val reviewConflictAction: String,
+    val conflictStatusLabel: String,
+    val externalProviderLabel: String,
+    val notLinkedLabel: String,
+    val noLinkLabel: String,
+    val needsMappingLabel: String,
+    val missingLocalSeriesLabel: String,
+    val retryAtLabel: (Long) -> String,
+    val failedAttemptsLabel: (Int) -> String,
+    val watchedCountLabel: (Int) -> String,
     val searchAction: String,
     val searchingAction: String,
     val closeAction: String,
@@ -4033,6 +4190,7 @@ private fun HomeSectionHeader(
 
 @Composable
 private fun TrackingTab(
+    strings: DesktopStrings,
     indexedLibrary: IndexedLocalLibrary?,
     externalAnimeMappings: List<ExternalAnimeMapping>,
     playbackProgresses: List<PlaybackProgress>,
@@ -4057,6 +4215,7 @@ private fun TrackingTab(
         }
         val trackingRows = remember(plan, externalAnimeMappings, seriesById) {
             buildTrackingTableRows(
+                strings = strings,
                 plan = plan,
                 mappings = externalAnimeMappings,
                 seriesById = seriesById,
@@ -4073,10 +4232,11 @@ private fun TrackingTab(
                 status = externalAnimeProviderSettings.myAnimeListStatusText,
                 ready = externalAnimeProviderSettings.hasMyAnimeListAccessToken,
                 detail = if (externalAnimeProviderSettings.myAnimeListClientId != null) {
-                    "Client ID saved"
+                    strings.myAnimeListClientSavedLabel
                 } else {
-                    "Configure API credentials to search and sync"
+                    strings.trackingCredentialsNeededLabel
                 },
+                actionLabel = strings.providerSettingsAction,
                 onOpenSettings = onOpenSettings,
                 modifier = Modifier.weight(1f),
             )
@@ -4085,45 +4245,47 @@ private fun TrackingTab(
                 status = externalAnimeProviderSettings.bangumiStatusText,
                 ready = externalAnimeProviderSettings.hasBangumiAccessToken,
                 detail = externalAnimeProviderSettings.bangumiBaseUrl,
+                actionLabel = strings.providerSettingsAction,
                 onOpenSettings = onOpenSettings,
                 modifier = Modifier.weight(1f),
             )
         }
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             SummaryCard(
-                title = "Mapped",
+                title = strings.mappedSummaryTitle,
                 value = externalAnimeMappings.size.toString(),
-                caption = "series links",
+                caption = strings.mappedSummaryCaption,
                 modifier = Modifier.weight(1f),
             )
             SummaryCard(
-                title = "Ready",
+                title = strings.readySummaryTitle,
                 value = (plan?.summary?.updateCount ?: 0).toString(),
-                caption = "provider writes",
+                caption = strings.readySummaryCaption,
                 modifier = Modifier.weight(1f),
             )
             SummaryCard(
-                title = "Conflicts",
+                title = strings.conflictsSummaryTitle,
                 value = (plan?.summary?.conflictCount ?: 0).toString(),
-                caption = "need review",
+                caption = strings.conflictsSummaryCaption,
                 modifier = Modifier.weight(1f),
             )
             SummaryCard(
-                title = "Failures",
+                title = strings.failuresSummaryTitle,
                 value = (plan?.summary?.failureCount ?: 0).toString(),
-                caption = "retry tracked",
+                caption = strings.failuresSummaryCaption,
                 modifier = Modifier.weight(1f),
             )
         }
         HomeSectionHeader(
-            title = "Tracking Sync Preview",
-            actionLabel = "Open Library",
+            title = strings.trackingSyncPreviewTitle,
+            actionLabel = strings.openLibraryAction,
             onAction = onOpenLibrary,
         )
         if (catalog == null) {
-            EmptyState("Index a local library before reviewing external progress sync.", "Open Library", onOpenLibrary)
+            EmptyState(strings.trackingNoLibraryText, strings.openLibraryAction, onOpenLibrary)
         } else {
             TrackingWorkspace(
+                strings = strings,
                 plan = plan,
                 rows = trackingRows,
                 selectedRow = selectedTrackingRow,
@@ -4164,6 +4326,7 @@ private data class TrackingTableRow(
 )
 
 private fun buildTrackingTableRows(
+    strings: DesktopStrings,
     plan: ExternalAnimeTrackingPlan?,
     mappings: List<ExternalAnimeMapping>,
     seriesById: Map<String, LibrarySeries>,
@@ -4184,10 +4347,10 @@ private fun buildTrackingTableRows(
             animeIdText = mapping.animeId.value.toString(),
             providerUrl = mapping.animeId.webUrl,
             localProgress = "${update.update.watchedEpisodes ?: 0}/${update.series.episodeCount}",
-            providerProgress = "Readback pending",
-            plannedAction = "${update.update.status.displayName}, ${update.update.watchedEpisodes ?: 0} watched",
+            providerProgress = strings.readbackPendingLabel,
+            plannedAction = "${update.update.status.displayName}, ${strings.watchedCountLabel(update.update.watchedEpisodes ?: 0)}",
             confidence = mapping.confidence.formatConfidence(),
-            statusLabel = "Ready",
+            statusLabel = strings.readyStatusLabel,
             statusColor = DanmakuColors.Good,
             mapping = mapping,
             update = update,
@@ -4205,9 +4368,9 @@ private fun buildTrackingTableRows(
             providerUrl = mapping.animeId.webUrl,
             localProgress = "${conflict.localUpdate.watchedEpisodes ?: 0}/${conflict.series.episodeCount}",
             providerProgress = "${conflict.externalEntry.watchedEpisodes ?: 0}/${conflict.series.episodeCount}",
-            plannedAction = "Review conflict",
+            plannedAction = strings.reviewConflictAction,
             confidence = mapping.confidence.formatConfidence(),
-            statusLabel = "Conflict",
+            statusLabel = strings.conflictStatusLabel,
             statusColor = DanmakuColors.Warning,
             mapping = mapping,
             conflict = conflict,
@@ -4223,14 +4386,14 @@ private fun buildTrackingTableRows(
             kind = TrackingRowKind.SKIPPED,
             seriesTitle = series?.title ?: skip.localSeriesId,
             localSeriesId = skip.localSeriesId,
-            providerLabel = skip.provider?.displayName ?: "External provider",
-            animeIdText = mapping?.animeId?.value?.toString() ?: "Not linked",
+            providerLabel = skip.provider?.displayName ?: strings.externalProviderLabel,
+            animeIdText = mapping?.animeId?.value?.toString() ?: strings.notLinkedLabel,
             providerUrl = mapping?.animeId?.webUrl,
             localProgress = series?.let { "0/${it.episodeCount}" } ?: "-",
             providerProgress = "-",
             plannedAction = skip.reason.displayName,
-            confidence = mapping?.confidence?.formatConfidence() ?: "No link",
-            statusLabel = if (mapping == null) "Needs mapping" else "Missing local series",
+            confidence = mapping?.confidence?.formatConfidence() ?: strings.noLinkLabel,
+            statusLabel = if (mapping == null) strings.needsMappingLabel else strings.missingLocalSeriesLabel,
             statusColor = DanmakuColors.TextMuted,
             mapping = mapping,
             skip = skip,
@@ -4248,10 +4411,10 @@ private fun buildTrackingTableRows(
             animeIdText = failure.animeId.value.toString(),
             providerUrl = failure.animeId.webUrl,
             localProgress = "-",
-            providerProgress = "Retry ${failure.retryAfterEpochMs.formatEpochTime()}",
+            providerProgress = strings.retryAtLabel(failure.retryAfterEpochMs),
             plannedAction = failure.message,
             confidence = mapping?.confidence?.formatConfidence() ?: "-",
-            statusLabel = "Failed x${failure.attemptCount}",
+            statusLabel = strings.failedAttemptsLabel(failure.attemptCount),
             statusColor = DanmakuColors.Warning,
             mapping = mapping,
             failure = failure,
@@ -4267,6 +4430,7 @@ private fun buildTrackingTableRows(
 
 @Composable
 private fun TrackingWorkspace(
+    strings: DesktopStrings,
     plan: ExternalAnimeTrackingPlan?,
     rows: List<TrackingTableRow>,
     selectedRow: TrackingTableRow?,
@@ -4279,6 +4443,7 @@ private fun TrackingWorkspace(
         if (compact) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 TrackingTablePanel(
+                    strings = strings,
                     plan = plan,
                     rows = rows,
                     selectedRow = selectedRow,
@@ -4287,6 +4452,7 @@ private fun TrackingWorkspace(
                     onSync = onSync,
                 )
                 TrackingInspectorPanel(
+                    strings = strings,
                     selectedRow = selectedRow,
                     isSyncing = isSyncing,
                     onSync = onSync,
@@ -4300,6 +4466,7 @@ private fun TrackingWorkspace(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     TrackingTablePanel(
+                        strings = strings,
                         plan = plan,
                         rows = rows,
                         selectedRow = selectedRow,
@@ -4310,6 +4477,7 @@ private fun TrackingWorkspace(
                     ExternalSyncPreviewView(plan = plan, isSyncing = isSyncing, onSync = onSync)
                 }
                 TrackingInspectorPanel(
+                    strings = strings,
                     selectedRow = selectedRow,
                     isSyncing = isSyncing,
                     onSync = onSync,
@@ -4322,6 +4490,7 @@ private fun TrackingWorkspace(
 
 @Composable
 private fun TrackingTablePanel(
+    strings: DesktopStrings,
     plan: ExternalAnimeTrackingPlan?,
     rows: List<TrackingTableRow>,
     selectedRow: TrackingTableRow?,
@@ -4329,27 +4498,27 @@ private fun TrackingTablePanel(
     onSelectRow: (TrackingTableRow) -> Unit,
     onSync: (ExternalAnimeTrackingPlan) -> Unit,
 ) {
-    SectionCard("Tracking Table") {
+    SectionCard(strings.trackingTableTitle) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text("Local and provider progress", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Text(strings.trackingTableDescription, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             Button(
                 enabled = plan?.updates?.isNotEmpty() == true && !isSyncing,
                 onClick = { plan?.let(onSync) },
             ) {
                 Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
-                Text(if (isSyncing) "Syncing" else "Sync all ready")
+                Text(if (isSyncing) strings.syncingAction else strings.syncAllReadyAction)
             }
         }
         if (rows.isEmpty()) {
-            EmptyState("No tracking rows are available yet. Link local series to MyAnimeList or Bangumi from Library details.")
+            EmptyState(strings.trackingRowsEmptyText)
             return@SectionCard
         }
-        TrackingTableHeader()
+        TrackingTableHeader(strings)
         LazyColumn(
             modifier = Modifier.heightIn(max = 520.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -4366,18 +4535,18 @@ private fun TrackingTablePanel(
 }
 
 @Composable
-private fun TrackingTableHeader() {
+private fun TrackingTableHeader(strings: DesktopStrings) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 10.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Text("Local series", color = DanmakuColors.TextMuted, modifier = Modifier.weight(1.6f), maxLines = 1)
-        Text("Provider", color = DanmakuColors.TextMuted, modifier = Modifier.weight(1.0f), maxLines = 1)
-        Text("Progress", color = DanmakuColors.TextMuted, modifier = Modifier.weight(0.9f), maxLines = 1)
-        Text("Action", color = DanmakuColors.TextMuted, modifier = Modifier.weight(1.2f), maxLines = 1)
-        Text("Status", color = DanmakuColors.TextMuted, modifier = Modifier.weight(0.9f), maxLines = 1)
+        Text(strings.localSeriesHeader, color = DanmakuColors.TextMuted, modifier = Modifier.weight(1.6f), maxLines = 1)
+        Text(strings.providerHeader, color = DanmakuColors.TextMuted, modifier = Modifier.weight(1.0f), maxLines = 1)
+        Text(strings.progressLabel, color = DanmakuColors.TextMuted, modifier = Modifier.weight(0.9f), maxLines = 1)
+        Text(strings.actionHeader, color = DanmakuColors.TextMuted, modifier = Modifier.weight(1.2f), maxLines = 1)
+        Text(strings.statusLabel, color = DanmakuColors.TextMuted, modifier = Modifier.weight(0.9f), maxLines = 1)
     }
 }
 
@@ -4416,35 +4585,36 @@ private fun TrackingTableRowView(
 
 @Composable
 private fun TrackingInspectorPanel(
+    strings: DesktopStrings,
     selectedRow: TrackingTableRow?,
     isSyncing: Boolean,
     onSync: (ExternalAnimeTrackingPlan) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    SectionCard("Mapping Inspector", modifier = modifier) {
+    SectionCard(strings.mappingInspectorTitle, modifier = modifier) {
         if (selectedRow == null) {
-            EmptyState("Select a tracking row to inspect provider IDs, progress, and planned sync behavior.")
+            EmptyState(strings.mappingInspectorEmptyText)
             return@SectionCard
         }
         Text(selectedRow.seriesTitle, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        MetadataRow("Provider", selectedRow.providerLabel)
-        MetadataRow("Anime ID", selectedRow.animeIdText)
-        selectedRow.providerUrl?.let { MetadataRow("Provider URL", it) }
-        MetadataRow("Local series ID", selectedRow.localSeriesId)
-        MetadataRow("Local progress", selectedRow.localProgress)
-        MetadataRow("Provider progress", selectedRow.providerProgress)
-        MetadataRow("Confidence", selectedRow.confidence)
-        MetadataRow("Status", selectedRow.statusLabel, selectedRow.statusColor)
+        MetadataRow(strings.providerHeader, selectedRow.providerLabel)
+        MetadataRow(strings.animeIdLabel, selectedRow.animeIdText)
+        selectedRow.providerUrl?.let { MetadataRow(strings.providerUrlLabel, it) }
+        MetadataRow(strings.localSeriesIdLabel, selectedRow.localSeriesId)
+        MetadataRow(strings.localProgressLabel, selectedRow.localProgress)
+        MetadataRow(strings.providerProgressLabel, selectedRow.providerProgress)
+        MetadataRow(strings.confidenceLabel, selectedRow.confidence)
+        MetadataRow(strings.statusLabel, selectedRow.statusLabel, selectedRow.statusColor)
         selectedRow.conflict?.let { conflict ->
-            MetadataRow("Conflict", conflict.reason.displayName, DanmakuColors.Warning)
-            MetadataRow("External watched", (conflict.externalEntry.watchedEpisodes ?: 0).toString())
+            MetadataRow(strings.conflictLabel, conflict.reason.displayName, DanmakuColors.Warning)
+            MetadataRow(strings.externalWatchedLabel, (conflict.externalEntry.watchedEpisodes ?: 0).toString())
         }
         selectedRow.failure?.let { failure ->
-            MetadataRow("Failure", failure.message, DanmakuColors.Warning)
-            MetadataRow("Next retry", failure.retryAfterEpochMs.formatEpochTime())
+            MetadataRow(strings.failureLabel, failure.message, DanmakuColors.Warning)
+            MetadataRow(strings.nextRetryLabel, failure.retryAfterEpochMs.formatEpochTime())
         }
         selectedRow.skip?.let { skip ->
-            MetadataRow("Skipped", skip.reason.displayName)
+            MetadataRow(strings.skippedLabel, skip.reason.displayName)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
@@ -4462,22 +4632,22 @@ private fun TrackingInspectorPanel(
             ) {
                 Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
-                Text(if (isSyncing) "Syncing" else "Sync selected")
+                Text(if (isSyncing) strings.syncingAction else strings.syncSelectedAction)
             }
             Button(enabled = false, onClick = {}) {
-                Text("Refresh provider state")
+                Text(strings.refreshProviderStateAction)
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(enabled = false, onClick = {}) {
-                Text("Remove mapping")
+                Text(strings.removeMappingAction)
             }
             Button(enabled = false, onClick = {}) {
-                Text("Resolve conflict")
+                Text(strings.resolveConflictAction)
             }
         }
         Text(
-            "Provider readback, mapping removal, and conflict resolution controls are planned; ready updates can sync through the existing provider sync path.",
+            strings.trackingPlannedControlsText,
             color = DanmakuColors.TextMuted,
         )
     }
@@ -4489,6 +4659,7 @@ private fun TrackingProviderCard(
     status: String,
     ready: Boolean,
     detail: String,
+    actionLabel: String,
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -4507,7 +4678,7 @@ private fun TrackingProviderCard(
         }
         LibraryActionButton(
             imageVector = Icons.Filled.MoreHoriz,
-            label = "Provider settings",
+            label = actionLabel,
             modifier = Modifier.fillMaxWidth(),
             onClick = onOpenSettings,
         )
