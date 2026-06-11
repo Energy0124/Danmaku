@@ -31,6 +31,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.AlertDialog
 import androidx.compose.material.Button
 import androidx.compose.material.Card
 import androidx.compose.material.Divider
@@ -42,6 +43,7 @@ import androidx.compose.material.OutlinedTextField
 import androidx.compose.material.Slider
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
+import androidx.compose.material.TextButton
 import androidx.compose.material.darkColors
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.LibraryBooks
@@ -7632,6 +7634,36 @@ private fun SettingsValidationText(errors: List<String>) {
     )
 }
 
+@Composable
+private fun SettingsConfirmationDialog(
+    title: String,
+    text: String,
+    confirmLabel: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = { Text(text) },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onConfirm()
+                    onDismiss()
+                },
+            ) {
+                Text(confirmLabel)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        },
+    )
+}
+
 private fun integerRangeError(
     text: String,
     range: IntRange,
@@ -7690,6 +7722,8 @@ private fun DandanplayProviderCard(
     var appSecret by remember(settings) { mutableStateOf("") }
     var authenticationMode by remember(settings) { mutableStateOf(settings.authenticationMode) }
     var cacheMaxAgeDaysText by remember(settings) { mutableStateOf(settings.cacheMaxAgeDays.toString()) }
+    var showClearConfirm by remember { mutableStateOf(false) }
+    var showCleanupConfirm by remember { mutableStateOf(false) }
     val baseUrlError = httpUrlError(baseUrl, "API base URL")
     val cacheMaxAgeDaysError = integerRangeError(cacheMaxAgeDaysText, 1..3650, "days")
     val normalizedAppId = appId.trim().ifEmpty { null }
@@ -7788,13 +7822,31 @@ private fun DandanplayProviderCard(
                 Spacer(Modifier.width(6.dp))
                 Text("Save dandanplay settings")
             }
-            Button(onClick = onClear) {
+            Button(onClick = { showClearConfirm = true }) {
                 Text("Clear")
             }
-            Button(onClick = onCleanupExpiredCaches) {
+            Button(onClick = { showCleanupConfirm = true }) {
                 Text("Clean expired cache")
             }
         }
+    }
+    if (showClearConfirm) {
+        SettingsConfirmationDialog(
+            title = "Clear dandanplay settings?",
+            text = "This removes saved dandanplay credentials from local protected settings. API URL and cache defaults can be entered again later.",
+            confirmLabel = "Clear",
+            onConfirm = onClear,
+            onDismiss = { showClearConfirm = false },
+        )
+    }
+    if (showCleanupConfirm) {
+        SettingsConfirmationDialog(
+            title = "Clean expired dandanplay cache?",
+            text = "Expired cached danmaku entries will be removed according to the current cache age setting. Fresh valid entries are kept.",
+            confirmLabel = "Clean cache",
+            onConfirm = onCleanupExpiredCaches,
+            onDismiss = { showCleanupConfirm = false },
+        )
     }
 }
 
@@ -7812,6 +7864,8 @@ private fun ExternalAnimeProviderSettingsCard(
     var bangumiBaseUrl by remember(settings) { mutableStateOf(settings.bangumiBaseUrl) }
     var bangumiUserAgent by remember(settings) { mutableStateOf(settings.bangumiUserAgent) }
     var bangumiAccessToken by remember(settings) { mutableStateOf("") }
+    var showClearMyAnimeListConfirm by remember { mutableStateOf(false) }
+    var showClearBangumiConfirm by remember { mutableStateOf(false) }
     val bangumiBaseUrlError = httpUrlError(bangumiBaseUrl, "Bangumi API base URL")
     val bangumiUserAgentError = if (bangumiUserAgent.isBlank()) {
         "Bangumi User-Agent is required."
@@ -7939,13 +7993,31 @@ private fun ExternalAnimeProviderSettingsCard(
             ) {
                 Text("Connect MAL")
             }
-            Button(onClick = onClearMyAnimeList) {
+            Button(onClick = { showClearMyAnimeListConfirm = true }) {
                 Text("Clear MAL")
             }
-            Button(onClick = onClearBangumi) {
+            Button(onClick = { showClearBangumiConfirm = true }) {
                 Text("Clear Bangumi")
             }
         }
+    }
+    if (showClearMyAnimeListConfirm) {
+        SettingsConfirmationDialog(
+            title = "Clear MyAnimeList credentials?",
+            text = "This removes the saved MyAnimeList client secret and access token from local protected settings. Existing local anime mappings are not removed.",
+            confirmLabel = "Clear MAL",
+            onConfirm = onClearMyAnimeList,
+            onDismiss = { showClearMyAnimeListConfirm = false },
+        )
+    }
+    if (showClearBangumiConfirm) {
+        SettingsConfirmationDialog(
+            title = "Clear Bangumi credentials?",
+            text = "This removes the saved Bangumi access token from local protected settings. Existing local anime mappings are not removed.",
+            confirmLabel = "Clear Bangumi",
+            onConfirm = onClearBangumi,
+            onDismiss = { showClearBangumiConfirm = false },
+        )
     }
 }
 

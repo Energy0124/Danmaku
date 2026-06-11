@@ -147,8 +147,13 @@ Status legend:
   server settings where applicable.
 - `[~]` Ensure credentials are masked, stored only in approved local stores, and
   omitted from diagnostics.
-- `[ ]` Add confirmation dialogs for clearing credentials and destructive cache
+- `[~]` Add confirmation dialogs for clearing credentials and destructive cache
   or mapping actions.
+  - Settings now confirms dandanplay credential clearing, dandanplay expired
+    cache cleanup, MyAnimeList credential clearing, and Bangumi credential
+    clearing before invoking destructive callbacks.
+  - Remaining: confirm destructive mapping actions once mapping removal and
+    conflict-resolution flows are implemented.
 
 ## Secondary Surfaces
 
