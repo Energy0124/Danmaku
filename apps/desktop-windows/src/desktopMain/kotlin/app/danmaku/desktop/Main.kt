@@ -134,6 +134,7 @@ import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryCatalogQuery
 import app.danmaku.domain.LibraryCatalogSort
 import app.danmaku.domain.LibraryItemMetadataStatus
+import app.danmaku.domain.LocalDanmakuParser
 import app.danmaku.domain.LibraryEpisodeDetail
 import app.danmaku.domain.LibraryFavoriteFilter
 import app.danmaku.domain.LibraryMediaItem
@@ -286,6 +287,7 @@ private fun DesktopShell(
     var myAnimeListConnectionTestStatus by remember { mutableStateOf<SettingsConnectionTestStatus?>(null) }
     var bangumiConnectionTestStatus by remember { mutableStateOf<SettingsConnectionTestStatus?>(null) }
     var localServerConnectionTestStatus by remember { mutableStateOf<SettingsConnectionTestStatus?>(null) }
+    var dandanplayCacheEntries by remember { mutableStateOf(catalogStore.loadDandanplayCommentCaches()) }
     val myAnimeListOAuthService = remember(externalAnimeCredentialStore) {
         MyAnimeListOAuthService(externalAnimeCredentialStore)
     }
@@ -2097,11 +2099,48 @@ private fun DesktopShell(
             runCatching {
                 withContext(Dispatchers.IO) {
                     dandanplayDanmakuResolver.cleanupExpiredCaches()
+                    catalogStore.loadDandanplayCommentCaches()
                 }
-            }.onSuccess {
+            }.onSuccess { updatedEntries ->
+                dandanplayCacheEntries = updatedEntries
                 appendDiagnostic("danmaku", "Cleaned up expired dandanplay cache entries")
             }.onFailure {
                 appendDiagnostic("danmaku", "Failed to clean expired dandanplay cache entries: ${it.message}")
+            }
+        }
+    }
+    fun refreshDandanplayCacheEntries() {
+        scope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    catalogStore.loadDandanplayCommentCaches()
+                }
+            }.onSuccess {
+                dandanplayCacheEntries = it
+                appendDiagnostic("danmaku", "Reloaded ${it.size} dandanplay cache entr${if (it.size == 1) "y" else "ies"}")
+            }.onFailure {
+                appendDiagnostic("danmaku", "Failed to reload dandanplay cache entries: ${it.message}")
+            }
+        }
+    }
+    fun deleteDandanplayCacheEntry(mediaId: String) {
+        scope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    dandanplayDanmakuResolver.clearCache(mediaId)
+                    catalogStore.loadDandanplayCommentCaches()
+                }
+            }.onSuccess { updatedEntries ->
+                dandanplayCacheEntries = updatedEntries
+                if (dandanplayCacheStatus?.mediaId == mediaId) {
+                    dandanplayCacheStatus = dandanplayStatusMessage(
+                        mediaId = mediaId,
+                        summary = "dandanplay cache cleared",
+                    )
+                }
+                appendDiagnostic("danmaku", "Deleted dandanplay cache entry for $mediaId")
+            }.onFailure {
+                appendDiagnostic("danmaku", "Failed to delete dandanplay cache entry for $mediaId: ${it.message}")
             }
         }
     }
@@ -2609,13 +2648,16 @@ private fun DesktopShell(
                             diagnosticLog = diagnosticLog,
                             danmakuSettings = danmakuSettings,
                             onSaveDanmakuSettings = ::saveDanmakuSettings,
+                            dandanplayCacheEntries = dandanplayCacheEntries,
+                            onRefreshDandanplayCacheEntries = ::refreshDandanplayCacheEntries,
+                            onDeleteDandanplayCacheEntry = ::deleteDandanplayCacheEntry,
+                            onCleanupExpiredDandanplayCaches = ::cleanupExpiredDandanplayCaches,
                             onDesktopLanguageChange = ::setDesktopLanguage,
                             dandanplaySettings = dandanplaySettings,
                             onSaveDandanplaySettings = ::saveDandanplaySettings,
                             onClearDandanplaySettings = ::clearDandanplaySettings,
                             dandanplayConnectionTestStatus = dandanplayConnectionTestStatus,
                             onTestDandanplayConnection = ::testDandanplayConnection,
-                            onCleanupExpiredDandanplayCaches = ::cleanupExpiredDandanplayCaches,
                             externalAnimeProviderSettings = externalAnimeProviderSettings,
                             onSaveExternalAnimeProviderSettings = ::saveExternalAnimeProviderSettings,
                             onStartMyAnimeListOAuth = ::startMyAnimeListOAuth,
@@ -8269,13 +8311,16 @@ private fun ProfileTab(
     diagnosticLog: List<DesktopDiagnosticLogEntry>,
     danmakuSettings: DanmakuDisplaySettings,
     onSaveDanmakuSettings: (DanmakuDisplaySettings) -> Unit,
+    dandanplayCacheEntries: List<DesktopDandanplayCommentCache>,
+    onRefreshDandanplayCacheEntries: () -> Unit,
+    onDeleteDandanplayCacheEntry: (String) -> Unit,
+    onCleanupExpiredDandanplayCaches: () -> Unit,
     onDesktopLanguageChange: (DesktopUiLanguage) -> Unit,
     dandanplaySettings: DandanplayProviderSettings,
     onSaveDandanplaySettings: (String, String?, String?, DandanplayAuthenticationMode, Int) -> Unit,
     onClearDandanplaySettings: () -> Unit,
     dandanplayConnectionTestStatus: SettingsConnectionTestStatus?,
     onTestDandanplayConnection: () -> Unit,
-    onCleanupExpiredDandanplayCaches: () -> Unit,
     externalAnimeProviderSettings: ExternalAnimeProviderSettings,
     onSaveExternalAnimeProviderSettings: (String?, String?, String?, String, String, String?) -> Unit,
     onStartMyAnimeListOAuth: (String?, String?) -> Unit,
@@ -8315,13 +8360,16 @@ private fun ProfileTab(
                         diagnosticLog = diagnosticLog,
                         danmakuSettings = danmakuSettings,
                         onSaveDanmakuSettings = onSaveDanmakuSettings,
+                        dandanplayCacheEntries = dandanplayCacheEntries,
+                        onRefreshDandanplayCacheEntries = onRefreshDandanplayCacheEntries,
+                        onDeleteDandanplayCacheEntry = onDeleteDandanplayCacheEntry,
+                        onCleanupExpiredDandanplayCaches = onCleanupExpiredDandanplayCaches,
                         onDesktopLanguageChange = onDesktopLanguageChange,
                         dandanplaySettings = dandanplaySettings,
                         onSaveDandanplaySettings = onSaveDandanplaySettings,
                         onClearDandanplaySettings = onClearDandanplaySettings,
                         dandanplayConnectionTestStatus = dandanplayConnectionTestStatus,
                         onTestDandanplayConnection = onTestDandanplayConnection,
-                        onCleanupExpiredDandanplayCaches = onCleanupExpiredDandanplayCaches,
                         externalAnimeProviderSettings = externalAnimeProviderSettings,
                         onSaveExternalAnimeProviderSettings = onSaveExternalAnimeProviderSettings,
                         onStartMyAnimeListOAuth = onStartMyAnimeListOAuth,
@@ -8358,13 +8406,16 @@ private fun ProfileTab(
                         diagnosticLog = diagnosticLog,
                         danmakuSettings = danmakuSettings,
                         onSaveDanmakuSettings = onSaveDanmakuSettings,
+                        dandanplayCacheEntries = dandanplayCacheEntries,
+                        onRefreshDandanplayCacheEntries = onRefreshDandanplayCacheEntries,
+                        onDeleteDandanplayCacheEntry = onDeleteDandanplayCacheEntry,
+                        onCleanupExpiredDandanplayCaches = onCleanupExpiredDandanplayCaches,
                         onDesktopLanguageChange = onDesktopLanguageChange,
                         dandanplaySettings = dandanplaySettings,
                         onSaveDandanplaySettings = onSaveDandanplaySettings,
                         onClearDandanplaySettings = onClearDandanplaySettings,
                         dandanplayConnectionTestStatus = dandanplayConnectionTestStatus,
                         onTestDandanplayConnection = onTestDandanplayConnection,
-                        onCleanupExpiredDandanplayCaches = onCleanupExpiredDandanplayCaches,
                         externalAnimeProviderSettings = externalAnimeProviderSettings,
                         onSaveExternalAnimeProviderSettings = onSaveExternalAnimeProviderSettings,
                         onStartMyAnimeListOAuth = onStartMyAnimeListOAuth,
@@ -8421,13 +8472,16 @@ private fun SettingsSectionContent(
     diagnosticLog: List<DesktopDiagnosticLogEntry>,
     danmakuSettings: DanmakuDisplaySettings,
     onSaveDanmakuSettings: (DanmakuDisplaySettings) -> Unit,
+    dandanplayCacheEntries: List<DesktopDandanplayCommentCache>,
+    onRefreshDandanplayCacheEntries: () -> Unit,
+    onDeleteDandanplayCacheEntry: (String) -> Unit,
+    onCleanupExpiredDandanplayCaches: () -> Unit,
     onDesktopLanguageChange: (DesktopUiLanguage) -> Unit,
     dandanplaySettings: DandanplayProviderSettings,
     onSaveDandanplaySettings: (String, String?, String?, DandanplayAuthenticationMode, Int) -> Unit,
     onClearDandanplaySettings: () -> Unit,
     dandanplayConnectionTestStatus: SettingsConnectionTestStatus?,
     onTestDandanplayConnection: () -> Unit,
-    onCleanupExpiredDandanplayCaches: () -> Unit,
     externalAnimeProviderSettings: ExternalAnimeProviderSettings,
     onSaveExternalAnimeProviderSettings: (String?, String?, String?, String, String, String?) -> Unit,
     onStartMyAnimeListOAuth: (String?, String?) -> Unit,
@@ -8442,6 +8496,7 @@ private fun SettingsSectionContent(
     modifier: Modifier = Modifier,
 ) {
     var showServerDashboard by remember { mutableStateOf(false) }
+    var showDanmakuCacheManager by remember { mutableStateOf(false) }
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
         when (selectedSection) {
             DesktopSettingsSection.GENERAL -> {
@@ -8489,6 +8544,28 @@ private fun SettingsSectionContent(
                     settings = danmakuSettings,
                     onSave = onSaveDanmakuSettings,
                 )
+                SectionCard("Danmaku Cache") {
+                    Text(
+                        "Review persisted dandanplay comment caches, inspect selected entries, and clean stale rows using the configured cache age.",
+                        color = DanmakuColors.TextMuted,
+                    )
+                    MetadataRow("Cached episodes", dandanplayCacheEntries.size.toString())
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        LibraryActionButton(
+                            imageVector = Icons.Filled.Subtitles,
+                            label = "Open cache manager",
+                            onClick = {
+                                onRefreshDandanplayCacheEntries()
+                                showDanmakuCacheManager = true
+                            },
+                        )
+                        LibraryActionButton(
+                            imageVector = Icons.Filled.Refresh,
+                            label = "Refresh",
+                            onClick = onRefreshDandanplayCacheEntries,
+                        )
+                    }
+                }
             }
             DesktopSettingsSection.PROVIDERS -> {
                 DandanplayProviderCard(
@@ -8578,6 +8655,16 @@ private fun SettingsSectionContent(
             localServerConnectionTestStatus = localServerConnectionTestStatus,
             onTestLocalServerConnection = onTestLocalServerConnection,
             onDismiss = { showServerDashboard = false },
+        )
+    }
+    if (showDanmakuCacheManager) {
+        DanmakuCacheManagerDialog(
+            cacheEntries = dandanplayCacheEntries,
+            cacheMaxAgeDays = dandanplaySettings.cacheMaxAgeDays,
+            onRefresh = onRefreshDandanplayCacheEntries,
+            onDeleteEntry = onDeleteDandanplayCacheEntry,
+            onCleanupExpired = onCleanupExpiredDandanplayCaches,
+            onDismiss = { showDanmakuCacheManager = false },
         )
     }
 }
@@ -8966,6 +9053,208 @@ private fun ServerDashboardEventRow(event: LocalLibraryServerEvent) {
             modifier = Modifier.weight(1f),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+private fun DanmakuCacheManagerDialog(
+    cacheEntries: List<DesktopDandanplayCommentCache>,
+    cacheMaxAgeDays: Int,
+    onRefresh: () -> Unit,
+    onDeleteEntry: (String) -> Unit,
+    onCleanupExpired: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var selectedMediaId by remember(cacheEntries) {
+        mutableStateOf(cacheEntries.firstOrNull()?.mediaId)
+    }
+    var pendingDeleteEntry by remember { mutableStateOf<DesktopDandanplayCommentCache?>(null) }
+    var confirmCleanupExpired by remember { mutableStateOf(false) }
+    val selectedEntry = cacheEntries.firstOrNull { it.mediaId == selectedMediaId }
+        ?: cacheEntries.firstOrNull()
+    val staleCount = cacheEntries.count { it.isExpiredForCacheManager(cacheMaxAgeDays) }
+
+    AlertDialog(
+        modifier = Modifier.width(880.dp),
+        onDismissRequest = onDismiss,
+        title = { Text("Danmaku Cache Manager") },
+        text = {
+            Column(
+                modifier = Modifier.heightIn(max = 620.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    SummaryCard(
+                        title = "Cached",
+                        value = cacheEntries.size.toString(),
+                        caption = "episodes",
+                        modifier = Modifier.weight(1f),
+                    )
+                    SummaryCard(
+                        title = "Expired",
+                        value = staleCount.toString(),
+                        caption = "$cacheMaxAgeDays day rule",
+                        modifier = Modifier.weight(1f),
+                    )
+                    SummaryCard(
+                        title = "Comments",
+                        value = cacheEntries.sumOf { it.commentCountForCacheManager() }.toString(),
+                        caption = "cached events",
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    Column(
+                        modifier = Modifier.weight(1.1f),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text("Persisted entries", fontWeight = FontWeight.Bold)
+                        if (cacheEntries.isEmpty()) {
+                            Text("No dandanplay comment caches are persisted yet.", color = DanmakuColors.TextMuted)
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.heightIn(max = 360.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                items(cacheEntries, key = DesktopDandanplayCommentCache::mediaId) { entry ->
+                                    DanmakuCacheEntryRow(
+                                        entry = entry,
+                                        selected = selectedEntry?.mediaId == entry.mediaId,
+                                        cacheMaxAgeDays = cacheMaxAgeDays,
+                                        onSelect = { selectedMediaId = entry.mediaId },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text("Selected cache", fontWeight = FontWeight.Bold)
+                        if (selectedEntry == null) {
+                            Text(
+                                "Select an episode cache after preparing or refreshing danmaku.",
+                                color = DanmakuColors.TextMuted,
+                            )
+                        } else {
+                            DanmakuCacheEntryDetails(
+                                entry = selectedEntry,
+                                cacheMaxAgeDays = cacheMaxAgeDays,
+                                onDelete = { pendingDeleteEntry = selectedEntry },
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = onRefresh) {
+                Text("Refresh")
+            }
+        },
+        dismissButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(
+                    onClick = { confirmCleanupExpired = true },
+                    enabled = cacheEntries.isNotEmpty(),
+                ) {
+                    Text("Clean expired")
+                }
+                TextButton(onClick = onDismiss) {
+                    Text("Close")
+                }
+            }
+        },
+    )
+
+    pendingDeleteEntry?.let { entry ->
+        SettingsConfirmationDialog(
+            title = "Delete cached danmaku?",
+            text = "This removes the persisted dandanplay cache for ${entry.displayTitleForCacheManager()}. It does not remove the original media file.",
+            confirmLabel = "Delete cache",
+            onConfirm = { onDeleteEntry(entry.mediaId) },
+            onDismiss = { pendingDeleteEntry = null },
+        )
+    }
+    if (confirmCleanupExpired) {
+        SettingsConfirmationDialog(
+            title = "Clean expired danmaku caches?",
+            text = "This removes dandanplay comment caches older than $cacheMaxAgeDays days. Current valid caches remain available.",
+            confirmLabel = "Clean expired",
+            onConfirm = onCleanupExpired,
+            onDismiss = { confirmCleanupExpired = false },
+        )
+    }
+}
+
+@Composable
+private fun DanmakuCacheEntryRow(
+    entry: DesktopDandanplayCommentCache,
+    selected: Boolean,
+    cacheMaxAgeDays: Int,
+    onSelect: () -> Unit,
+) {
+    val isExpired = entry.isExpiredForCacheManager(cacheMaxAgeDays)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(6.dp))
+            .background(if (selected) DanmakuColors.AccentSoft else DanmakuColors.SurfaceRaised.copy(alpha = 0.56f))
+            .clickable(onClick = onSelect)
+            .padding(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        StatusPill(
+            text = if (isExpired) "Expired" else "Ready",
+            icon = if (isExpired) Icons.Filled.Warning else Icons.Filled.CheckCircle,
+            active = !isExpired,
+            color = if (isExpired) DanmakuColors.Warning else DanmakuColors.Good,
+        )
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                entry.displayTitleForCacheManager(),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                "${entry.commentCountForCacheManager()} comments - ${entry.fetchedAtEpochMs.formatEpochTime()} - ${entry.fileName}",
+                color = DanmakuColors.TextMuted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+@Composable
+private fun DanmakuCacheEntryDetails(
+    entry: DesktopDandanplayCommentCache,
+    cacheMaxAgeDays: Int,
+    onDelete: () -> Unit,
+) {
+    val isExpired = entry.isExpiredForCacheManager(cacheMaxAgeDays)
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        MetadataRow("Status", if (isExpired) "Expired" else "Ready", if (isExpired) DanmakuColors.Warning else DanmakuColors.Good)
+        MetadataRow("Anime", entry.animeTitle ?: "Unknown anime")
+        MetadataRow("Episode", entry.episodeTitle ?: entry.episodeId?.toString() ?: "Unknown episode")
+        MetadataRow("Media ID", entry.mediaId)
+        MetadataRow("File", entry.fileName)
+        MetadataRow("File size", entry.fileSizeBytes.formatLibrarySize())
+        MetadataRow("Comments", entry.commentCountForCacheManager().toString())
+        MetadataRow("Fetched", entry.fetchedAtEpochMs.formatEpochTime())
+        MetadataRow("Shift", entry.shiftSeconds?.let { "$it seconds" } ?: "None")
+        entry.renderedAssPath?.let { MetadataRow("ASS cache", it) }
+        LibraryActionButton(
+            imageVector = Icons.Filled.Delete,
+            label = "Delete cache",
+            onClick = onDelete,
         )
     }
 }
@@ -10570,6 +10859,20 @@ private fun Long.formatEpochTime(): String =
     DIAGNOSTIC_TIME_FORMATTER.format(
         Instant.ofEpochMilli(this).atZone(ZoneId.systemDefault()),
     )
+
+private fun DesktopDandanplayCommentCache.displayTitleForCacheManager(): String =
+    listOfNotNull(
+        animeTitle?.takeIf(String::isNotBlank),
+        episodeTitle?.takeIf(String::isNotBlank),
+    ).joinToString(" - ")
+        .ifBlank { fileName }
+
+private fun DesktopDandanplayCommentCache.commentCountForCacheManager(): Int =
+    runCatching { LocalDanmakuParser.parseNormalizedJson(commentsJson).size }
+        .getOrDefault(0)
+
+private fun DesktopDandanplayCommentCache.isExpiredForCacheManager(cacheMaxAgeDays: Int): Boolean =
+    System.currentTimeMillis() - fetchedAtEpochMs > cacheMaxAgeDays * 24L * 60L * 60L * 1_000L
 
 private fun Double.formatConfidence(): String =
     "${((coerceIn(0.0, 1.0) * 100.0) + 0.5).toInt()}%"

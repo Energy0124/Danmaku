@@ -405,6 +405,12 @@ class DesktopLibraryCatalogStore(
             .executeAsOneOrNull()
 
     @Synchronized
+    fun loadDandanplayCommentCaches(): List<DesktopDandanplayCommentCache> =
+        database.libraryCatalogQueries
+            .selectDandanplayCommentCaches(::desktopDandanplayCommentCache)
+            .executeAsList()
+
+    @Synchronized
     override fun saveDandanplayCommentCache(cache: DesktopDandanplayCommentCache) {
         database.libraryCatalogQueries.upsertDandanplayCommentCache(
             cache.mediaId,

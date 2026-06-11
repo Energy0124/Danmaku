@@ -387,6 +387,16 @@ class DesktopLibraryCatalogStoreTest {
                     fetchedAtEpochMs = 9999,
                 ),
             )
+            assertEquals(
+                listOf(
+                    cache.copy(
+                        mediaId = "newer-episode-id",
+                        fetchedAtEpochMs = 9999,
+                    ),
+                    cache,
+                ),
+                store.loadDandanplayCommentCaches(),
+            )
             store.deleteDandanplayCommentCachesOlderThan(2000)
             assertNull(store.loadDandanplayCommentCache(cache.mediaId))
             assertEquals(

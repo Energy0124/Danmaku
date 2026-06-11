@@ -349,6 +349,23 @@ SELECT
 FROM dandanplay_comment_cache
 WHERE media_id = ?;
 
+selectDandanplayCommentCaches:
+SELECT
+  media_id,
+  file_hash,
+  file_name,
+  file_size_bytes,
+  episode_id,
+  anime_id,
+  anime_title,
+  episode_title,
+  shift_seconds,
+  comments_json,
+  rendered_ass_path,
+  fetched_at_epoch_ms
+FROM dandanplay_comment_cache
+ORDER BY fetched_at_epoch_ms DESC, media_id ASC;
+
 upsertDandanplayCommentCache:
 INSERT OR REPLACE INTO dandanplay_comment_cache(
   media_id,

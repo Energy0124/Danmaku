@@ -248,8 +248,14 @@ Status legend:
     before showing real connected-client and bandwidth metrics.
 - `[ ]` Build Metadata Match dialog with candidate search, confidence, poster
   previews, provider IDs, manual override, and save mapping actions.
-- `[ ]` Build Danmaku Cache Manager with persisted cache state, cleanup rules,
+- `[~]` Build Danmaku Cache Manager with persisted cache state, cleanup rules,
   selected episode state, and confirmation for bulk deletes.
+  - Settings > Danmaku now opens a Danmaku Cache Manager backed by persisted
+    dandanplay cache rows, with cached/expired/comment summaries, selectable
+    entries, selected-entry details, refresh, per-entry delete confirmation,
+    and confirmed cleanup using the configured cache-age rule.
+  - Remaining: connect cache rows to richer library episode context and add
+    persistence/relaunch UI tests around cache readback.
 - `[ ]` Build Library Import panel for root management, ani-rss output import,
   scan progress, and scan result summary.
 - `[ ]` Standardize destructive, retry, confirmation, and error dialogs.
