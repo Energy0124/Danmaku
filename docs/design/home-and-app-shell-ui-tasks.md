@@ -135,7 +135,7 @@ Status legend:
 
 ## Android Mobile and Tablet Adaptation
 
-- `[~]` Add Android string resources for English and Traditional Chinese
+- `[x]` Add Android string resources for English and Traditional Chinese
   (`zh-TW`) before broad UI polish locks in hardcoded copy.
   - Android mobile now has English and `zh-TW` resource files for app label,
     primary navigation, Home/Library/Player/Downloads/Tracking/Settings chrome,
@@ -160,7 +160,7 @@ Status legend:
 
 ## Android TV Adaptation
 
-- `[~]` Add TV string resources for English and Traditional Chinese (`zh-TW`)
+- `[x]` Add TV string resources for English and Traditional Chinese (`zh-TW`)
   and verify translated labels in focused TV controls.
   - Android TV now has English and `zh-TW` resource files for app label, TV
     navigation, Home hero/rows, Library/Player empty states, operational status
@@ -200,5 +200,8 @@ Status legend:
   display.
 - `[ ]` Add Android TV focus tests for Home rail and status panel traversal.
 - `[x]` Run desktop compile/test after implementation changes.
-- `[ ]` Run Android mobile and TV compile/instrumentation-source checks after
+- `[x]` Run Android mobile and TV compile/instrumentation-source checks after
   platform UI changes.
+  - `:apps:android-mobile:compileDebugKotlin` and
+    `:apps:android-tv:compileDebugKotlin` passed after the mobile and TV
+    localization slices.
