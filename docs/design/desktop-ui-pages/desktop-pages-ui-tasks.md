@@ -21,7 +21,7 @@ Status legend:
 
 ## Shared Shell
 
-- `[ ]` Create or refine reusable desktop shell components for header,
+- `[~]` Create or refine reusable desktop shell components for header,
   navigation rail, page title/action row, status badges, icon buttons,
   tooltips, and page-level empty/error states.
 - `[ ]` Add a desktop localization resource structure with English and
@@ -35,8 +35,12 @@ Status legend:
   and Settings.
 - `[x]` Decide whether Tracking becomes a first-class `DesktopShellTab` instead
   of remaining only inside the Library workspace.
-- `[ ]` Add consistent keyboard shortcuts for global search, refresh/rescan,
+- `[~]` Add consistent keyboard shortcuts for global search, refresh/rescan,
   route navigation, and primary page action.
+  - Desktop shell now supports `Ctrl/Cmd+K` for global search focus,
+    `Ctrl/Cmd+R` for library rescan, and `Ctrl/Cmd+1..6` for Home, Library,
+    Downloads, Player, Tracking, and Settings routing.
+  - Remaining: define and wire a consistent primary page action shortcut.
 - `[ ]` Add visual QA screenshots for default, narrow, and wide desktop window
   sizes.
 

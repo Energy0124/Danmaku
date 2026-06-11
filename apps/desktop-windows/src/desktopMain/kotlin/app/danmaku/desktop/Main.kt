@@ -1126,6 +1126,10 @@ private fun DesktopShell(
     }
 
     var selectedTab by remember { mutableStateOf(DesktopShellTab.HOME) }
+    var globalSearchText by remember { mutableStateOf("") }
+    var librarySearchSeed by remember { mutableStateOf("") }
+    var librarySearchSeedVersion by remember { mutableStateOf(0) }
+    val globalSearchFocusRequester = remember { FocusRequester() }
     var pendingPlaybackRequest by remember { mutableStateOf<DesktopPlaybackRequest?>(null) }
     var activePlaybackLabel by remember { mutableStateOf<String?>(null) }
     var activeProgressMediaId by remember { mutableStateOf<String?>(null) }
@@ -1213,6 +1217,59 @@ private fun DesktopShell(
             },
         )
         selectedTab = DesktopShellTab.PLAYBACK
+    }
+
+    fun submitGlobalSearch() {
+        val query = globalSearchText.trim()
+        if (query.isBlank()) {
+            return
+        }
+        librarySearchSeed = query
+        librarySearchSeedVersion += 1
+        selectedTab = DesktopShellTab.MEDIA_LIBRARY
+        appendDiagnostic("shell", "Global search routed to Library: $query")
+    }
+
+    fun selectShellTabFromShortcut(tab: DesktopShellTab): Boolean {
+        selectedTab = tab
+        appendDiagnostic("shell", "Shortcut routed to ${tab.title}")
+        return true
+    }
+
+    fun handleDesktopShellShortcut(event: KeyEvent): Boolean {
+        if (event.type != KeyEventType.KeyDown) {
+            return false
+        }
+        val ctrlOrMetaPressed = event.isCtrlPressed || event.isMetaPressed
+        if (!ctrlOrMetaPressed || event.isAltPressed || event.isShiftPressed) {
+            return false
+        }
+        return when (event.key) {
+            Key.K -> {
+                if (!isFullscreen && selectedTab != DesktopShellTab.PLAYBACK) {
+                    globalSearchFocusRequester.requestFocus()
+                    true
+                } else {
+                    false
+                }
+            }
+            Key.R -> {
+                if (registeredRoots.isNotEmpty() && !isIndexing) {
+                    appendDiagnostic("shell", "Shortcut requested library rescan")
+                    rescanRegisteredRoots()
+                    true
+                } else {
+                    false
+                }
+            }
+            Key.One -> selectShellTabFromShortcut(DesktopShellTab.HOME)
+            Key.Two -> selectShellTabFromShortcut(DesktopShellTab.MEDIA_LIBRARY)
+            Key.Three -> selectShellTabFromShortcut(DesktopShellTab.DOWNLOADS)
+            Key.Four -> selectShellTabFromShortcut(DesktopShellTab.PLAYBACK)
+            Key.Five -> selectShellTabFromShortcut(DesktopShellTab.TRACKING)
+            Key.Six -> selectShellTabFromShortcut(DesktopShellTab.PROFILE)
+            else -> false
+        }
     }
 
     fun queueSmokePlayback(options: DesktopSmokePlaybackOptions) {
@@ -1904,7 +1961,9 @@ private fun DesktopShell(
 
     MaterialTheme(colors = DanmakuDarkColors) {
         Surface(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .onPreviewKeyEvent(::handleDesktopShellShortcut),
             color = DanmakuColors.Background,
         ) {
             Row(modifier = Modifier.fillMaxSize()) {
@@ -1923,6 +1982,10 @@ private fun DesktopShell(
                     if (showAppChrome) {
                         ShellHeader(
                             selectedTab = selectedTab,
+                            searchText = globalSearchText,
+                            onSearchTextChange = { globalSearchText = it },
+                            onSubmitSearch = ::submitGlobalSearch,
+                            searchFocusRequester = globalSearchFocusRequester,
                             onRefresh = ::rescanRegisteredRoots,
                             onShowSettings = { selectedTab = DesktopShellTab.PROFILE },
                             playerStatus = playbackSnapshot.status.name,
@@ -2127,6 +2190,8 @@ private fun DesktopShell(
                         DesktopShellTab.MEDIA_LIBRARY -> MediaLibraryTab(
                             registeredRoots = registeredRoots,
                             indexedLibrary = displayIndexedLibrary,
+                            searchSeed = librarySearchSeed,
+                            searchSeedVersion = librarySearchSeedVersion,
                             seriesPosterById = seriesPosterById,
                             externalAnimeMappings = externalAnimeMappings,
                             externalAnimeItemMappingsByMediaId = externalAnimeItemMappingsByMediaId,
@@ -2273,6 +2338,10 @@ private val DanmakuDarkColors = darkColors(
 @Composable
 private fun ShellHeader(
     selectedTab: DesktopShellTab,
+    searchText: String,
+    onSearchTextChange: (String) -> Unit,
+    onSubmitSearch: () -> Unit,
+    searchFocusRequester: FocusRequester,
     onRefresh: () -> Unit,
     onShowSettings: () -> Unit,
     playerStatus: String,
@@ -2292,11 +2361,21 @@ private fun ShellHeader(
             Text("Local anime library host", color = DanmakuColors.TextMuted, maxLines = 1)
         }
         OutlinedTextField(
-            value = "",
-            onValueChange = {},
-            label = { Text("Search anime, episodes, files") },
+            value = searchText,
+            onValueChange = onSearchTextChange,
+            label = { Text("Search anime, episodes, files (Ctrl+K)") },
             leadingIcon = { Icon(Icons.Filled.Search, contentDescription = "Search") },
-            modifier = Modifier.weight(1f),
+            modifier = Modifier
+                .weight(1f)
+                .focusRequester(searchFocusRequester)
+                .onPreviewKeyEvent { event ->
+                    if (event.type == KeyEventType.KeyDown && event.key == Key.Enter) {
+                        onSubmitSearch()
+                        true
+                    } else {
+                        false
+                    }
+                },
             singleLine = true,
         )
         StatusPill("Player $playerStatus", icon = Icons.Filled.PlayArrow, active = playerStatus == PlaybackStatus.PLAYING.name)
@@ -3973,6 +4052,8 @@ private fun Int.floorMod(size: Int): Int =
 private fun MediaLibraryTab(
     registeredRoots: List<DesktopLibraryRoot>,
     indexedLibrary: IndexedLocalLibrary?,
+    searchSeed: String,
+    searchSeedVersion: Int,
     seriesPosterById: Map<String, Path?>,
     externalAnimeMappings: List<ExternalAnimeMapping>,
     externalAnimeItemMappingsByMediaId: Map<String, List<DesktopExternalAnimeItemMapping>>,
@@ -4076,6 +4157,8 @@ private fun MediaLibraryTab(
         WindowsLibraryWorkspace(
             registeredRoots = registeredRoots,
             indexedLibrary = indexedLibrary,
+            searchSeed = searchSeed,
+            searchSeedVersion = searchSeedVersion,
             series = series,
             seriesPosterById = seriesPosterById,
             externalTrackingPlan = externalTrackingPlan,
@@ -4143,6 +4226,8 @@ private enum class WindowsLibraryView(
 private fun WindowsLibraryWorkspace(
     registeredRoots: List<DesktopLibraryRoot>,
     indexedLibrary: IndexedLocalLibrary?,
+    searchSeed: String,
+    searchSeedVersion: Int,
     series: List<LibrarySeries>,
     seriesPosterById: Map<String, Path?>,
     externalTrackingPlan: ExternalAnimeTrackingPlan?,
@@ -4195,6 +4280,13 @@ private fun WindowsLibraryWorkspace(
     var sort by remember { mutableStateOf(LibraryCatalogSort.TITLE) }
     var subtitleFilter by remember { mutableStateOf(LibrarySubtitleFilter.ANY) }
     var favoriteFilter by remember { mutableStateOf(LibraryFavoriteFilter.ANY) }
+    LaunchedEffect(searchSeed, searchSeedVersion) {
+        val query = searchSeed.trim()
+        if (query.isNotBlank()) {
+            selectedView = WindowsLibraryView.ALL_SERIES
+            searchText = query
+        }
+    }
     val catalog = indexedLibrary?.catalog
     val effectiveFavoriteFilter = if (selectedView == WindowsLibraryView.FAVORITES) {
         LibraryFavoriteFilter.FAVORITES_ONLY

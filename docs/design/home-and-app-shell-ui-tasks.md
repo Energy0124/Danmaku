@@ -29,6 +29,9 @@ Status legend:
 - `[~]` Align the desktop top header with the target shell: app identity, global
   search, refresh/rescan, diagnostics/notifications, help, settings, and local
   profile/device controls.
+  - Global search now accepts typed input, submits into the Library workspace,
+    and can be focused with `Ctrl/Cmd+K`; refresh/rescan is also available from
+    `Ctrl/Cmd+R`.
 - `[x]` Normalize the desktop left navigation rail around Home, Library,
   Downloads, Player, Tracking, and Settings.
 - `[~]` Add secondary library shortcuts in the rail or equivalent compact
