@@ -9,6 +9,7 @@
     <string name="home_recently_added">最近加入</string>
     <string name="home_recently_watched">最近觀看</string>
     <string name="home_operational_status">狀態</string>
+    <string name="home_recently_added_subtitle">來自已配對 Windows 媒體庫的最新檔案。</string>
     <string name="home_connect_library_subtitle">連線你的 Windows 媒體庫以填入首頁動態。</string>
     <string name="home_available_episodes">共有 %1$d 集可播放</string>
     <string name="home_library_status_title">媒體庫狀態</string>

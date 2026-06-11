@@ -406,6 +406,10 @@ private fun MobilePlayerScreen() {
                 },
                 onOpenPlayer = { selectedTab = MobileTab.Watch },
                 onOpenLibrary = { selectedTab = MobileTab.Library },
+                onShowLibraryItem = { item ->
+                    librarySearchText = item.seriesTitle
+                    selectedTab = MobileTab.Library
+                },
                 onConnect = { selectedTab = MobileTab.Connect },
             )
             MobileTab.Watch -> WatchPage(
@@ -568,11 +572,21 @@ internal fun HomePage(
     onPlayPause: () -> Unit,
     onOpenPlayer: () -> Unit,
     onOpenLibrary: () -> Unit,
+    onShowLibraryItem: (LibraryMediaItem) -> Unit,
     onConnect: () -> Unit,
 ) {
     val nextUpItems = catalog?.nextUpItems(playbackProgresses, limit = 5).orEmpty()
     val continueWatchingItems = catalog?.continueWatchingItems(playbackProgresses, limit = 5).orEmpty()
     val recentlyWatchedItems = catalog?.recentlyWatchedItems(playbackProgresses, limit = 5).orEmpty()
+    val recentlyAddedItems = catalog
+        ?.items
+        .orEmpty()
+        .sortedWith(
+            compareByDescending<LibraryMediaItem> { it.indexedAtEpochMs }
+                .thenBy { it.seriesTitle }
+                .thenBy { it.episodeTitle },
+        )
+        .take(5)
 
     PageColumn(contentPadding) {
         item(key = "home-page-header") {
@@ -624,6 +638,16 @@ internal fun HomePage(
                         items = continueWatchingItems,
                         posterEndpoint = posterEndpoint,
                         onShowDetails = { onOpenLibrary() },
+                        onPlay = onPlay,
+                    )
+                }
+            }
+            if (recentlyAddedItems.isNotEmpty()) {
+                item(key = "home-recently-added") {
+                    RecentlyAddedRail(
+                        items = recentlyAddedItems,
+                        posterEndpoint = posterEndpoint,
+                        onShowDetails = onShowLibraryItem,
                         onPlay = onPlay,
                     )
                 }
@@ -1332,6 +1356,108 @@ private fun PosterPill(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+    }
+}
+
+@Composable
+private fun RecentlyAddedRail(
+    items: List<LibraryMediaItem>,
+    posterEndpoint: LibraryPosterEndpoint?,
+    onShowDetails: (LibraryMediaItem) -> Unit,
+    onPlay: (LibraryMediaItem) -> Unit,
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("home-recently-added"),
+        shape = RoundedCornerShape(20.dp),
+        color = Color(0xFF15191D),
+        border = BorderStroke(1.dp, Color(0xFF2B3239)),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    stringResource(R.string.home_recently_added),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    stringResource(R.string.home_recently_added_subtitle),
+                    color = SubtleText,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                items(items, key = LibraryMediaItem::id) { item ->
+                    Surface(
+                        modifier = Modifier
+                            .width(240.dp)
+                            .clip(RoundedCornerShape(18.dp)),
+                        shape = RoundedCornerShape(18.dp),
+                        color = PanelColor,
+                        border = BorderStroke(1.dp, Color(0xFF2B3239)),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            LibraryPosterTile(
+                                item = item,
+                                title = item.seriesTitle,
+                                selected = false,
+                                posterEndpoint = posterEndpoint,
+                                progressLabel = item.mediaType,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(96.dp),
+                            )
+                            Text(
+                                item.seriesTitle,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                item.episodeTitle,
+                                color = SubtleText,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                item.formatSize(),
+                                color = AccentBlue,
+                                style = MaterialTheme.typography.bodySmall,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                OutlinedButton(
+                                    onClick = { onShowDetails(item) },
+                                    modifier = Modifier.testTag("recently-added-details:${item.id}"),
+                                ) {
+                                    Text(stringResource(R.string.action_details))
+                                }
+                                Button(
+                                    onClick = { onPlay(item) },
+                                    modifier = Modifier.testTag("recently-added-play:${item.id}"),
+                                ) {
+                                    Text(stringResource(R.string.action_play))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

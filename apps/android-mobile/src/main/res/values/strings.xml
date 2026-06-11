@@ -9,6 +9,7 @@
     <string name="home_recently_added">Recently Added</string>
     <string name="home_recently_watched">Recently Watched</string>
     <string name="home_operational_status">Status</string>
+    <string name="home_recently_added_subtitle">Newest files from your paired Windows library.</string>
     <string name="home_connect_library_subtitle">Connect your Windows library to fill this Home feed.</string>
     <string name="home_available_episodes">%1$d episodes available</string>
     <string name="home_library_status_title">Library status</string>
