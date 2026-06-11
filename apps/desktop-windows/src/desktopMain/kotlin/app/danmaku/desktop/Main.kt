@@ -119,6 +119,7 @@ import androidx.compose.ui.window.rememberWindowState
 import app.danmaku.domain.DanmakuDisplaySettings
 import app.danmaku.domain.ExternalAnimeId
 import app.danmaku.domain.ExternalAnimeInfo
+import app.danmaku.domain.ExternalAnimeMatchQuery
 import app.danmaku.domain.ExternalAnimeMapping
 import app.danmaku.domain.ExternalAnimeMappingSource
 import app.danmaku.domain.ExternalAnimeProvider
@@ -178,6 +179,7 @@ import kotlinx.coroutines.withContext
 import java.awt.Rectangle
 import java.awt.Desktop
 import java.awt.Window as AwtWindow
+import java.net.URI
 import kotlin.math.roundToInt
 import java.nio.file.Files
 import java.nio.file.Path
@@ -1852,6 +1854,71 @@ private fun DesktopShell(
         }
     }
 
+    fun testDandanplayConnection() {
+        scope.launch {
+            appendDiagnostic("settings", "Testing saved dandanplay connection...")
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    DandanplayDanmakuClient(dandanplayCredentialStore.loadConnection())
+                        .fetchAnimeDetails(1L)
+                }
+            }.onSuccess { anime ->
+                appendDiagnostic(
+                    "settings",
+                    "dandanplay connection OK: ${anime.titles.primary} (#${anime.id.value})",
+                )
+            }.onFailure {
+                appendDiagnostic("settings", "dandanplay connection test failed: ${it.readableMessage()}")
+            }
+        }
+    }
+
+    fun testMyAnimeListConnection() {
+        val clientId = externalAnimeProviderSettings.myAnimeListClientId
+        if (clientId.isNullOrBlank()) {
+            appendDiagnostic("settings", "MyAnimeList connection test needs a saved client ID")
+            return
+        }
+        scope.launch {
+            appendDiagnostic("settings", "Testing saved MyAnimeList connection...")
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    MyAnimeListAnimeSearchClient(MyAnimeListSearchConnection(clientId))
+                        .search(ExternalAnimeMatchQuery(title = "Frieren"), limit = 1)
+                }
+            }.onSuccess { results ->
+                appendDiagnostic(
+                    "settings",
+                    "MyAnimeList connection OK: ${results.firstOrNull()?.titles?.primary ?: "no anime returned"}",
+                )
+            }.onFailure {
+                appendDiagnostic("settings", "MyAnimeList connection test failed: ${it.readableMessage()}")
+            }
+        }
+    }
+
+    fun testBangumiConnection() {
+        val settings = externalAnimeProviderSettings
+        scope.launch {
+            appendDiagnostic("settings", "Testing saved Bangumi connection...")
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    BangumiAnimeSearchClient(
+                        baseUri = URI(settings.bangumiBaseUrl),
+                        userAgent = settings.bangumiUserAgent,
+                    ).search(ExternalAnimeMatchQuery(title = "Frieren"), limit = 1)
+                }
+            }.onSuccess { results ->
+                appendDiagnostic(
+                    "settings",
+                    "Bangumi connection OK: ${results.firstOrNull()?.titles?.primary ?: "no anime returned"}",
+                )
+            }.onFailure {
+                appendDiagnostic("settings", "Bangumi connection test failed: ${it.readableMessage()}")
+            }
+        }
+    }
+
     fun cleanupExpiredDandanplayCaches() {
         scope.launch {
             runCatching {
@@ -2348,10 +2415,13 @@ private fun DesktopShell(
                             dandanplaySettings = dandanplaySettings,
                             onSaveDandanplaySettings = ::saveDandanplaySettings,
                             onClearDandanplaySettings = ::clearDandanplaySettings,
+                            onTestDandanplayConnection = ::testDandanplayConnection,
                             onCleanupExpiredDandanplayCaches = ::cleanupExpiredDandanplayCaches,
                             externalAnimeProviderSettings = externalAnimeProviderSettings,
                             onSaveExternalAnimeProviderSettings = ::saveExternalAnimeProviderSettings,
                             onStartMyAnimeListOAuth = ::startMyAnimeListOAuth,
+                            onTestMyAnimeListConnection = ::testMyAnimeListConnection,
+                            onTestBangumiConnection = ::testBangumiConnection,
                             onClearMyAnimeListSettings = ::clearMyAnimeListSettings,
                             onClearBangumiSettings = ::clearBangumiSettings,
                         )
@@ -7702,10 +7772,13 @@ private fun ProfileTab(
     dandanplaySettings: DandanplayProviderSettings,
     onSaveDandanplaySettings: (String, String?, String?, DandanplayAuthenticationMode, Int) -> Unit,
     onClearDandanplaySettings: () -> Unit,
+    onTestDandanplayConnection: () -> Unit,
     onCleanupExpiredDandanplayCaches: () -> Unit,
     externalAnimeProviderSettings: ExternalAnimeProviderSettings,
     onSaveExternalAnimeProviderSettings: (String?, String?, String?, String, String, String?) -> Unit,
     onStartMyAnimeListOAuth: (String?, String?) -> Unit,
+    onTestMyAnimeListConnection: () -> Unit,
+    onTestBangumiConnection: () -> Unit,
     onClearMyAnimeListSettings: () -> Unit,
     onClearBangumiSettings: () -> Unit,
 ) {
@@ -7739,10 +7812,13 @@ private fun ProfileTab(
                         dandanplaySettings = dandanplaySettings,
                         onSaveDandanplaySettings = onSaveDandanplaySettings,
                         onClearDandanplaySettings = onClearDandanplaySettings,
+                        onTestDandanplayConnection = onTestDandanplayConnection,
                         onCleanupExpiredDandanplayCaches = onCleanupExpiredDandanplayCaches,
                         externalAnimeProviderSettings = externalAnimeProviderSettings,
                         onSaveExternalAnimeProviderSettings = onSaveExternalAnimeProviderSettings,
                         onStartMyAnimeListOAuth = onStartMyAnimeListOAuth,
+                        onTestMyAnimeListConnection = onTestMyAnimeListConnection,
+                        onTestBangumiConnection = onTestBangumiConnection,
                         onClearMyAnimeListSettings = onClearMyAnimeListSettings,
                         onClearBangumiSettings = onClearBangumiSettings,
                     )
@@ -7773,10 +7849,13 @@ private fun ProfileTab(
                         dandanplaySettings = dandanplaySettings,
                         onSaveDandanplaySettings = onSaveDandanplaySettings,
                         onClearDandanplaySettings = onClearDandanplaySettings,
+                        onTestDandanplayConnection = onTestDandanplayConnection,
                         onCleanupExpiredDandanplayCaches = onCleanupExpiredDandanplayCaches,
                         externalAnimeProviderSettings = externalAnimeProviderSettings,
                         onSaveExternalAnimeProviderSettings = onSaveExternalAnimeProviderSettings,
                         onStartMyAnimeListOAuth = onStartMyAnimeListOAuth,
+                        onTestMyAnimeListConnection = onTestMyAnimeListConnection,
+                        onTestBangumiConnection = onTestBangumiConnection,
                         onClearMyAnimeListSettings = onClearMyAnimeListSettings,
                         onClearBangumiSettings = onClearBangumiSettings,
                         modifier = Modifier.weight(1f),
@@ -7827,10 +7906,13 @@ private fun SettingsSectionContent(
     dandanplaySettings: DandanplayProviderSettings,
     onSaveDandanplaySettings: (String, String?, String?, DandanplayAuthenticationMode, Int) -> Unit,
     onClearDandanplaySettings: () -> Unit,
+    onTestDandanplayConnection: () -> Unit,
     onCleanupExpiredDandanplayCaches: () -> Unit,
     externalAnimeProviderSettings: ExternalAnimeProviderSettings,
     onSaveExternalAnimeProviderSettings: (String?, String?, String?, String, String, String?) -> Unit,
     onStartMyAnimeListOAuth: (String?, String?) -> Unit,
+    onTestMyAnimeListConnection: () -> Unit,
+    onTestBangumiConnection: () -> Unit,
     onClearMyAnimeListSettings: () -> Unit,
     onClearBangumiSettings: () -> Unit,
     modifier: Modifier = Modifier,
@@ -7888,12 +7970,15 @@ private fun SettingsSectionContent(
                     settings = dandanplaySettings,
                     onSave = onSaveDandanplaySettings,
                     onClear = onClearDandanplaySettings,
+                    onTestConnection = onTestDandanplayConnection,
                     onCleanupExpiredCaches = onCleanupExpiredDandanplayCaches,
                 )
                 ExternalAnimeProviderSettingsCard(
                     settings = externalAnimeProviderSettings,
                     onSave = onSaveExternalAnimeProviderSettings,
                     onStartMyAnimeListOAuth = onStartMyAnimeListOAuth,
+                    onTestMyAnimeListConnection = onTestMyAnimeListConnection,
+                    onTestBangumiConnection = onTestBangumiConnection,
                     onClearMyAnimeList = onClearMyAnimeListSettings,
                     onClearBangumi = onClearBangumiSettings,
                 )
@@ -8209,6 +8294,7 @@ private fun DandanplayProviderCard(
     settings: DandanplayProviderSettings,
     onSave: (String, String?, String?, DandanplayAuthenticationMode, Int) -> Unit,
     onClear: () -> Unit,
+    onTestConnection: () -> Unit,
     onCleanupExpiredCaches: () -> Unit,
 ) {
     var baseUrl by remember(settings) { mutableStateOf(settings.baseUrl) }
@@ -8316,6 +8402,13 @@ private fun DandanplayProviderCard(
                 Spacer(Modifier.width(6.dp))
                 Text("Save dandanplay settings")
             }
+            Button(onClick = onTestConnection) {
+                Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Test saved")
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = { showClearConfirm = true }) {
                 Text("Clear")
             }
@@ -8349,6 +8442,8 @@ private fun ExternalAnimeProviderSettingsCard(
     settings: ExternalAnimeProviderSettings,
     onSave: (String?, String?, String?, String, String, String?) -> Unit,
     onStartMyAnimeListOAuth: (String?, String?) -> Unit,
+    onTestMyAnimeListConnection: () -> Unit,
+    onTestBangumiConnection: () -> Unit,
     onClearMyAnimeList: () -> Unit,
     onClearBangumi: () -> Unit,
 ) {
@@ -8487,6 +8582,21 @@ private fun ExternalAnimeProviderSettingsCard(
             ) {
                 Text("Connect MAL")
             }
+            Button(
+                onClick = onTestMyAnimeListConnection,
+                enabled = settings.myAnimeListClientId != null,
+            ) {
+                Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Test MAL")
+            }
+            Button(onClick = onTestBangumiConnection) {
+                Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Test Bangumi")
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = { showClearMyAnimeListConfirm = true }) {
                 Text("Clear MAL")
             }
