@@ -4755,6 +4755,7 @@ private fun MediaLibraryTab(
             onRescanRegisteredRoots = onRescanRegisteredRoots,
             onSelectSeries = ::selectSeries,
             onShowDetails = ::showEpisodeDetails,
+            onInspectCachedDandanplay = onInspectCachedDandanplay,
             onSetFavorite = onSetFavorite,
             onSetAutoNextLocalPlayback = onSetAutoNextLocalPlayback,
             onRefreshDandanplay = onRefreshDandanplay,
@@ -4824,6 +4825,7 @@ private fun WindowsLibraryWorkspace(
     onRescanRegisteredRoots: () -> Unit,
     onSelectSeries: (LibrarySeries) -> Unit,
     onShowDetails: (LibraryMediaItem) -> Unit,
+    onInspectCachedDandanplay: (LibraryMediaItem) -> Unit,
     onSetFavorite: (LibraryMediaItem, Boolean) -> Unit,
     onSetAutoNextLocalPlayback: (Boolean) -> Unit,
     onRefreshDandanplay: (DesktopLocalPlaybackPreparation) -> Unit,
@@ -4894,6 +4896,9 @@ private fun WindowsLibraryWorkspace(
     val selectedInspectorItem = selectedEpisodeDetail?.mediaItem
         ?: selectedLocalPlaybackPreparation?.item
         ?: selectedSeries?.let { nextPlayableEpisode(it, watchStatusById) }
+    LaunchedEffect(selectedInspectorItem?.id) {
+        selectedInspectorItem?.let(onInspectCachedDandanplay)
+    }
     val selectedInspectorSeriesMappings = selectedInspectorSeries
         ?.let { series -> externalAnimeMappings.filter { mapping -> mapping.localSeriesId == series.id } }
         .orEmpty()
@@ -5030,6 +5035,7 @@ private fun WindowsLibraryWorkspace(
                 isPreparing = isPreparing,
                 compact = compactWorkspace,
                 onShowDetails = onShowDetails,
+                onInspectCachedDandanplay = onInspectCachedDandanplay,
                 onSetFavorite = onSetFavorite,
                 onSetAutoNextLocalPlayback = onSetAutoNextLocalPlayback,
                 onRefreshDandanplay = onRefreshDandanplay,
@@ -6192,6 +6198,7 @@ private fun LibraryInspectorPane(
     isPreparing: Boolean,
     compact: Boolean,
     onShowDetails: (LibraryMediaItem) -> Unit,
+    onInspectCachedDandanplay: (LibraryMediaItem) -> Unit,
     onSetFavorite: (LibraryMediaItem, Boolean) -> Unit,
     onSetAutoNextLocalPlayback: (Boolean) -> Unit,
     onRefreshDandanplay: (DesktopLocalPlaybackPreparation) -> Unit,
@@ -6292,6 +6299,12 @@ private fun LibraryInspectorPane(
                 imageVector = Icons.Filled.Subtitles,
                 contentDescription = "Show episode details",
                 onClick = { onShowDetails(selectedItem) },
+            )
+            PlayerIconButton(
+                imageVector = Icons.Filled.CheckCircle,
+                contentDescription = "Check cached danmaku",
+                active = status != null && !status.summary.isDandanplayWarningStatus(),
+                onClick = { onInspectCachedDandanplay(selectedItem) },
             )
             Box {
                 PlayerIconButton(
