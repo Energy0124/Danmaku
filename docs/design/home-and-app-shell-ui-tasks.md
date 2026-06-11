@@ -178,12 +178,17 @@ Status legend:
     diagnostic error prefixes now read from Android resources. Residual literals
     are brand text, animation debug labels, file/progress values, and
     domain-generated watch-status strings.
-- `[ ]` Map the Home shell into TV rails: hero/resume, Continue Watching,
+- `[x]` Map the Home shell into TV rails: hero/resume, Continue Watching,
   Recently Added, Library slices, and operational status.
-- `[ ]` Ensure each TV Home card has one obvious primary action and visible
+- `[~]` Ensure each TV Home card has one obvious primary action and visible
   focus state.
-- `[ ]` Move dense operational details into a focused status panel instead of
+- `[~]` Move dense operational details into a focused status panel instead of
   table-like desktop cards.
+  - TV Home now includes Next Up, Continue Watching, Recently Added, Recently
+    Watched, Library Slices, and a compact operational status panel with PC or
+    Library actions. Remaining TV Home work: visual/D-pad QA and fuller
+    metadata/download/tracking/cache status once those states are available on
+    TV.
 - `[ ]` Verify D-pad traversal between rail, hero, content rows, and status
   actions at 1080p and 4K.
 
