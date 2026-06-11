@@ -3299,6 +3299,24 @@ private enum class DesktopUiLanguage(
             mappedAction = "Mapped",
             posterLoadingLabel = "Loading",
             posterUnavailableLabel = "Poster unavailable",
+            danmakuDisplaySettingsTitle = "Danmaku Display",
+            danmakuDisplaySettingsDescription = "Controls generated ASS danmaku overlays for matched and manually attached comment tracks. Reload media or refresh cached danmaku to apply renderer changes.",
+            visibilityLabel = "Visibility",
+            fontScaleLabel = "Font scale",
+            displayAreaLabel = "Display area",
+            showDanmakuAction = "Show danmaku",
+            hideDanmakuAction = "Hide danmaku",
+            opacityPercentLabel = "Opacity %",
+            fontScalePercentLabel = "Font scale %",
+            speedPercentLabel = "Speed %",
+            densityPercentLabel = "Density %",
+            displayAreaPercentLabel = "Display area %",
+            offsetMsLabel = "Offset ms",
+            keywordFiltersLabel = "Keyword filters, one per line",
+            regexFiltersLabel = "Regex filters, one per line",
+            offsetMsValueLabel = { offsetMs -> "$offsetMs ms" },
+            saveDanmakuDisplayAction = "Save danmaku display",
+            resetDraftAction = "Reset draft",
             metadataMatchTitle = "Metadata Match",
             metadataMatchDescription = { title ->
                 "Search provider metadata for $title and save a series-level mapping."
@@ -3836,6 +3854,24 @@ private enum class DesktopUiLanguage(
             mappedAction = "已對應",
             posterLoadingLabel = "載入中",
             posterUnavailableLabel = "無法載入海報",
+            danmakuDisplaySettingsTitle = "彈幕顯示",
+            danmakuDisplaySettingsDescription = "控制符合或手動附加彈幕軌產生的 ASS 彈幕覆蓋。重新載入媒體或重新整理已快取彈幕後，播放器才會套用渲染變更。",
+            visibilityLabel = "可見性",
+            fontScaleLabel = "字型縮放",
+            displayAreaLabel = "顯示範圍",
+            showDanmakuAction = "顯示彈幕",
+            hideDanmakuAction = "隱藏彈幕",
+            opacityPercentLabel = "透明度 %",
+            fontScalePercentLabel = "字型縮放 %",
+            speedPercentLabel = "速度 %",
+            densityPercentLabel = "密度 %",
+            displayAreaPercentLabel = "顯示範圍 %",
+            offsetMsLabel = "時間偏移 ms",
+            keywordFiltersLabel = "關鍵字篩選，每行一個",
+            regexFiltersLabel = "Regex 篩選，每行一個",
+            offsetMsValueLabel = { offsetMs -> "$offsetMs ms" },
+            saveDanmakuDisplayAction = "儲存彈幕顯示",
+            resetDraftAction = "重設草稿",
             metadataMatchTitle = "中繼資料對應",
             metadataMatchDescription = { title ->
                 "搜尋「$title」的服務中繼資料，並儲存系列層級對應。"
@@ -4335,6 +4371,24 @@ private data class DesktopStrings(
     val mappedAction: String,
     val posterLoadingLabel: String,
     val posterUnavailableLabel: String,
+    val danmakuDisplaySettingsTitle: String,
+    val danmakuDisplaySettingsDescription: String,
+    val visibilityLabel: String,
+    val fontScaleLabel: String,
+    val displayAreaLabel: String,
+    val showDanmakuAction: String,
+    val hideDanmakuAction: String,
+    val opacityPercentLabel: String,
+    val fontScalePercentLabel: String,
+    val speedPercentLabel: String,
+    val densityPercentLabel: String,
+    val displayAreaPercentLabel: String,
+    val offsetMsLabel: String,
+    val keywordFiltersLabel: String,
+    val regexFiltersLabel: String,
+    val offsetMsValueLabel: (Long) -> String,
+    val saveDanmakuDisplayAction: String,
+    val resetDraftAction: String,
     val metadataMatchTitle: String,
     val metadataMatchDescription: (String) -> String,
     val metadataMatchSearchTitleLabel: String,
@@ -10849,6 +10903,7 @@ private fun SettingsSectionContent(
             }
             DesktopSettingsSection.DANMAKU -> {
                 DanmakuDisplaySettingsCard(
+                    strings = strings,
                     settings = danmakuSettings,
                     onSave = onSaveDanmakuSettings,
                 )
@@ -10983,6 +11038,7 @@ private fun SettingsSectionContent(
 
 @Composable
 private fun DanmakuDisplaySettingsCard(
+    strings: DesktopStrings,
     settings: DanmakuDisplaySettings,
     onSave: (DanmakuDisplaySettings) -> Unit,
 ) {
@@ -11025,37 +11081,37 @@ private fun DanmakuDisplaySettingsCard(
     }
     val isDirty = draftSettings != null && draftSettings != settings
 
-    SectionCard("Danmaku Display") {
+    SectionCard(strings.danmakuDisplaySettingsTitle) {
         Text(
-            "Controls generated ASS danmaku overlays for matched and manually attached comment tracks. Reload media or refresh cached danmaku to apply renderer changes.",
+            strings.danmakuDisplaySettingsDescription,
             color = DanmakuColors.TextMuted,
         )
-        MetadataRow("Visibility", if (settings.visible) "Shown" else "Hidden")
-        MetadataRow("Opacity", "${settings.opacityPercent}%")
-        MetadataRow("Font scale", "${settings.fontScalePercent}%")
-        MetadataRow("Speed", "${settings.speedPercent}%")
-        MetadataRow("Density", "${settings.densityPercent}%")
-        MetadataRow("Display area", "${settings.displayAreaPercent}%")
-        MetadataRow("Offset", "${settings.offsetMs} ms")
+        MetadataRow(strings.visibilityLabel, if (settings.visible) strings.shownLabel else strings.hiddenLabel)
+        MetadataRow(strings.opacityLabel, "${settings.opacityPercent}%")
+        MetadataRow(strings.fontScaleLabel, "${settings.fontScalePercent}%")
+        MetadataRow(strings.speedLabel, "${settings.speedPercent}%")
+        MetadataRow(strings.densityLabel, "${settings.densityPercent}%")
+        MetadataRow(strings.displayAreaLabel, "${settings.displayAreaPercent}%")
+        MetadataRow(strings.offsetLabel, strings.offsetMsValueLabel(settings.offsetMs))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
                 onClick = { visible = true },
                 enabled = !visible,
             ) {
-                Text("Show danmaku")
+                Text(strings.showDanmakuAction)
             }
             Button(
                 onClick = { visible = false },
                 enabled = visible,
             ) {
-                Text("Hide danmaku")
+                Text(strings.hideDanmakuAction)
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
                 value = opacityText,
                 onValueChange = { opacityText = it },
-                label = { Text("Opacity %") },
+                label = { Text(strings.opacityPercentLabel) },
                 isError = opacityError != null,
                 singleLine = true,
                 modifier = Modifier.weight(1f),
@@ -11063,7 +11119,7 @@ private fun DanmakuDisplaySettingsCard(
             OutlinedTextField(
                 value = fontScaleText,
                 onValueChange = { fontScaleText = it },
-                label = { Text("Font scale %") },
+                label = { Text(strings.fontScalePercentLabel) },
                 isError = fontScaleError != null,
                 singleLine = true,
                 modifier = Modifier.weight(1f),
@@ -11071,7 +11127,7 @@ private fun DanmakuDisplaySettingsCard(
             OutlinedTextField(
                 value = speedText,
                 onValueChange = { speedText = it },
-                label = { Text("Speed %") },
+                label = { Text(strings.speedPercentLabel) },
                 isError = speedError != null,
                 singleLine = true,
                 modifier = Modifier.weight(1f),
@@ -11082,7 +11138,7 @@ private fun DanmakuDisplaySettingsCard(
             OutlinedTextField(
                 value = densityText,
                 onValueChange = { densityText = it },
-                label = { Text("Density %") },
+                label = { Text(strings.densityPercentLabel) },
                 isError = densityError != null,
                 singleLine = true,
                 modifier = Modifier.weight(1f),
@@ -11090,7 +11146,7 @@ private fun DanmakuDisplaySettingsCard(
             OutlinedTextField(
                 value = displayAreaText,
                 onValueChange = { displayAreaText = it },
-                label = { Text("Display area %") },
+                label = { Text(strings.displayAreaPercentLabel) },
                 isError = displayAreaError != null,
                 singleLine = true,
                 modifier = Modifier.weight(1f),
@@ -11098,7 +11154,7 @@ private fun DanmakuDisplaySettingsCard(
             OutlinedTextField(
                 value = offsetText,
                 onValueChange = { offsetText = it },
-                label = { Text("Offset ms") },
+                label = { Text(strings.offsetMsLabel) },
                 isError = offsetError != null,
                 singleLine = true,
                 modifier = Modifier.weight(1f),
@@ -11109,13 +11165,13 @@ private fun DanmakuDisplaySettingsCard(
             OutlinedTextField(
                 value = keywordFiltersText,
                 onValueChange = { keywordFiltersText = it },
-                label = { Text("Keyword filters, one per line") },
+                label = { Text(strings.keywordFiltersLabel) },
                 modifier = Modifier.weight(1f),
             )
             OutlinedTextField(
                 value = regexFiltersText,
                 onValueChange = { regexFiltersText = it },
-                label = { Text("Regex filters, one per line") },
+                label = { Text(strings.regexFiltersLabel) },
                 modifier = Modifier.weight(1f),
             )
         }
@@ -11128,7 +11184,7 @@ private fun DanmakuDisplaySettingsCard(
             ) {
                 Icon(Icons.Filled.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Save danmaku display")
+                Text(strings.saveDanmakuDisplayAction)
             }
             Button(
                 onClick = {
@@ -11143,7 +11199,7 @@ private fun DanmakuDisplaySettingsCard(
                     regexFiltersText = ""
                 },
             ) {
-                Text("Reset draft")
+                Text(strings.resetDraftAction)
             }
         }
     }

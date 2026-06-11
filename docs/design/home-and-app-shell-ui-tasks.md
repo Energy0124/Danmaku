@@ -49,6 +49,9 @@ Status legend:
   - The Settings Local Server card, Server Dashboard dialog, copy actions,
     health/readiness rows, and shared connection-test status badges now use the
     same string layer.
+  - The Settings Danmaku Display card now uses the same string layer for
+    summaries, input labels, visibility controls, filters, and save/reset
+    actions.
   - Home main dashboard and app rail chrome now use the same desktop string
     layer for library slices, now-playing fallback, Continue Watching,
     Recently Added/Watched, My Library summaries, empty states, and Home-only
