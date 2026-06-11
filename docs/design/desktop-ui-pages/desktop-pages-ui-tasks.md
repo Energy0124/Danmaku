@@ -46,6 +46,9 @@ Status legend:
   - The Tracking provider cards, sync summary cards, table headers/actions,
     generated row status labels, selected-mapping inspector, and planned
     provider-readback controls now use the desktop string layer.
+  - The Home operational status column now uses the desktop string layer for
+    server, metadata/posters, external sync, downloads, and cached danmaku
+    card chrome.
   - Remaining: migrate page actions, status labels, dialogs, tooltips,
     inspector copy, and empty/error states.
 - `[ ]` Add UI review screenshots or checks for English and `zh-TW` labels in

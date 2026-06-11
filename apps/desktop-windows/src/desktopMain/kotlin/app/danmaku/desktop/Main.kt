@@ -2545,6 +2545,7 @@ private fun DesktopShell(
                     }
                     when (selectedTab) {
                         DesktopShellTab.HOME -> HomeTab(
+                            strings = desktopStrings,
                             playbackSnapshot = playbackSnapshot,
                             registeredRoots = registeredRoots,
                             indexedLibrary = displayIndexedLibrary,
@@ -2846,6 +2847,7 @@ private enum class DesktopUiLanguage(
             noFoldersLabel = "No folders yet",
             moreItemsLabel = { count -> "+$count more" },
             lastScanSummary = { reused, refreshed -> "Last scan: $reused unchanged, $refreshed refreshed" },
+            lastScanCountsSummary = { reused, refreshed -> "$reused unchanged, $refreshed refreshed" },
             inspectorResizeHandleLabel = "Resize details panel",
             resetInspectorWidthAction = "Reset details width",
             downloadFilterTitles = mapOf(
@@ -2903,6 +2905,32 @@ private enum class DesktopUiLanguage(
             retryAction = "Retry",
             cancelAction = "Cancel",
             downloadExecutionPlannedText = "Pause, resume, cancel, and retry will be enabled after authorized download source contracts and queue execution are implemented.",
+            homeServerStatusTitle = "Server Status",
+            attentionNeededLabel = "Attention needed",
+            onlineLabel = "Online",
+            noLanUrlDetectedLabel = "No LAN URL detected",
+            pairingLabel = "Pairing",
+            episodesLabel = "Episodes",
+            errorLabel = "Error",
+            metadataAndPostersTitle = "Metadata and Posters",
+            loadingLabel = "Loading",
+            partialLabel = "Partial",
+            waitingLabel = "Waiting",
+            postersReadySummary = { ready, total -> "$ready/$total posters ready" },
+            refreshAction = "Refresh",
+            refreshingAction = "Refreshing",
+            lastScanLabel = "Last scan",
+            groupsLabel = "Groups",
+            externalSyncTitle = "External Sync",
+            notMappedLabel = "Not mapped",
+            readyUpdatesLabel = { count -> "$count ready updates" },
+            openTrackingAction = "Open Tracking",
+            downloadQueueReadyLabel = "Queue ready",
+            downloadsImportDetail = "ani-rss output and imports",
+            openDownloadsAction = "Open Downloads",
+            cachedDanmakuTitle = "Cached Danmaku",
+            notCheckedLabel = "Not checked",
+            manageCacheAction = "Manage Cache",
             providerSettingsAction = "Provider settings",
             myAnimeListClientSavedLabel = "Client ID saved",
             trackingCredentialsNeededLabel = "Configure API credentials to search and sync",
@@ -3049,6 +3077,7 @@ private enum class DesktopUiLanguage(
             noFoldersLabel = "尚無資料夾",
             moreItemsLabel = { count -> "還有 $count 個" },
             lastScanSummary = { reused, refreshed -> "上次掃描：$reused 個未變更，$refreshed 個已更新" },
+            lastScanCountsSummary = { reused, refreshed -> "$reused 個未變更，$refreshed 個已更新" },
             inspectorResizeHandleLabel = "調整詳情面板寬度",
             resetInspectorWidthAction = "重設詳情寬度",
             downloadFilterTitles = mapOf(
@@ -3106,6 +3135,32 @@ private enum class DesktopUiLanguage(
             retryAction = "重試",
             cancelAction = "取消",
             downloadExecutionPlannedText = "暫停、繼續、取消與重試會在授權下載來源合約與佇列執行完成後啟用。",
+            homeServerStatusTitle = "伺服器狀態",
+            attentionNeededLabel = "需要處理",
+            onlineLabel = "線上",
+            noLanUrlDetectedLabel = "沒有偵測到 LAN 網址",
+            pairingLabel = "配對",
+            episodesLabel = "集數",
+            errorLabel = "錯誤",
+            metadataAndPostersTitle = "中繼資料與海報",
+            loadingLabel = "載入中",
+            partialLabel = "部分完成",
+            waitingLabel = "等待中",
+            postersReadySummary = { ready, total -> "$ready/$total 張海報就緒" },
+            refreshAction = "重新整理",
+            refreshingAction = "重新整理中",
+            lastScanLabel = "上次掃描",
+            groupsLabel = "群組",
+            externalSyncTitle = "外部同步",
+            notMappedLabel = "尚未對應",
+            readyUpdatesLabel = { count -> "$count 個更新可同步" },
+            openTrackingAction = "開啟追蹤",
+            downloadQueueReadyLabel = "佇列就緒",
+            downloadsImportDetail = "ani-rss 輸出與匯入",
+            openDownloadsAction = "開啟下載",
+            cachedDanmakuTitle = "已快取彈幕",
+            notCheckedLabel = "尚未檢查",
+            manageCacheAction = "管理快取",
             providerSettingsAction = "服務設定",
             myAnimeListClientSavedLabel = "Client ID 已儲存",
             trackingCredentialsNeededLabel = "設定 API 憑證後即可搜尋與同步",
@@ -3230,6 +3285,7 @@ private data class DesktopStrings(
     val noFoldersLabel: String,
     val moreItemsLabel: (Int) -> String,
     val lastScanSummary: (Int, Int) -> String,
+    val lastScanCountsSummary: (Int, Int) -> String,
     val inspectorResizeHandleLabel: String,
     val resetInspectorWidthAction: String,
     val downloadFilterTitles: Map<DownloadQueueFilter, String> = emptyMap(),
@@ -3279,6 +3335,32 @@ private data class DesktopStrings(
     val retryAction: String,
     val cancelAction: String,
     val downloadExecutionPlannedText: String,
+    val homeServerStatusTitle: String,
+    val attentionNeededLabel: String,
+    val onlineLabel: String,
+    val noLanUrlDetectedLabel: String,
+    val pairingLabel: String,
+    val episodesLabel: String,
+    val errorLabel: String,
+    val metadataAndPostersTitle: String,
+    val loadingLabel: String,
+    val partialLabel: String,
+    val waitingLabel: String,
+    val postersReadySummary: (Int, Int) -> String,
+    val refreshAction: String,
+    val refreshingAction: String,
+    val lastScanLabel: String,
+    val groupsLabel: String,
+    val externalSyncTitle: String,
+    val notMappedLabel: String,
+    val readyUpdatesLabel: (Int) -> String,
+    val openTrackingAction: String,
+    val downloadQueueReadyLabel: String,
+    val downloadsImportDetail: String,
+    val openDownloadsAction: String,
+    val cachedDanmakuTitle: String,
+    val notCheckedLabel: String,
+    val manageCacheAction: String,
     val providerSettingsAction: String,
     val myAnimeListClientSavedLabel: String,
     val trackingCredentialsNeededLabel: String,
@@ -3575,6 +3657,7 @@ private fun NowPlayingRailCard(
 
 @Composable
 private fun HomeTab(
+    strings: DesktopStrings,
     playbackSnapshot: PlaybackSnapshot,
     registeredRoots: List<DesktopLibraryRoot>,
     indexedLibrary: IndexedLocalLibrary?,
@@ -3662,6 +3745,7 @@ private fun HomeTab(
                         onPlayLocalPlayback = onPlayLocalPlayback,
                     )
                     HomeStatusColumn(
+                        strings = strings,
                         registeredRoots = registeredRoots,
                         episodeCount = episodeCount,
                         seriesCount = series.size,
@@ -3703,6 +3787,7 @@ private fun HomeTab(
                         modifier = Modifier.weight(1f),
                     )
                     HomeStatusColumn(
+                        strings = strings,
                         registeredRoots = registeredRoots,
                         episodeCount = episodeCount,
                         seriesCount = series.size,
@@ -4035,6 +4120,7 @@ private fun HomeSeriesSummaryRow(
 
 @Composable
 private fun HomeStatusColumn(
+    strings: DesktopStrings,
     registeredRoots: List<DesktopLibraryRoot>,
     episodeCount: Int,
     seriesCount: Int,
@@ -4060,80 +4146,80 @@ private fun HomeStatusColumn(
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         OperationalStatusCard(
             icon = Icons.Filled.Computer,
-            title = "Server Status",
+            title = strings.homeServerStatusTitle,
             value = when {
-                libraryError != null -> "Attention needed"
-                isIndexing -> "Indexing"
-                else -> "Online"
+                libraryError != null -> strings.attentionNeededLabel
+                isIndexing -> strings.indexingLabel
+                else -> strings.onlineLabel
             },
-            detail = networkUrls.firstOrNull() ?: "No LAN URL detected",
+            detail = networkUrls.firstOrNull() ?: strings.noLanUrlDetectedLabel,
             statusColor = when {
                 libraryError != null -> DanmakuColors.Warning
                 isIndexing -> DanmakuColors.Info
                 else -> DanmakuColors.Good
             },
-            actionLabel = "Open Library",
+            actionLabel = strings.openLibraryAction,
             onAction = onOpenLibrary,
         ) {
-            MetadataRow("Pairing", pairingToken)
-            MetadataRow("Folders", registeredRoots.size.toString())
-            MetadataRow("Episodes", episodeCount.toString())
-            libraryError?.let { MetadataRow("Error", it, DanmakuColors.Warning) }
+            MetadataRow(strings.pairingLabel, pairingToken)
+            MetadataRow(strings.foldersLabel, registeredRoots.size.toString())
+            MetadataRow(strings.episodesLabel, episodeCount.toString())
+            libraryError?.let { MetadataRow(strings.errorLabel, it, DanmakuColors.Warning) }
         }
         OperationalStatusCard(
             icon = Icons.Filled.GridView,
-            title = "Metadata and Posters",
+            title = strings.metadataAndPostersTitle,
             value = when {
-                isRefreshingSeriesPosters || metadataRefreshingCount > 0 -> "Loading"
-                posterReadyCount > 0 -> "Ready"
-                seriesCount > 0 -> "Partial"
-                else -> "Waiting"
+                isRefreshingSeriesPosters || metadataRefreshingCount > 0 -> strings.loadingLabel
+                posterReadyCount > 0 -> strings.readyStatusLabel
+                seriesCount > 0 -> strings.partialLabel
+                else -> strings.waitingLabel
             },
-            detail = "$posterReadyCount/$seriesCount posters ready",
+            detail = strings.postersReadySummary(posterReadyCount, seriesCount),
             statusColor = when {
                 isRefreshingSeriesPosters || metadataRefreshingCount > 0 -> DanmakuColors.Info
                 posterReadyCount > 0 -> DanmakuColors.Good
                 seriesCount > 0 -> DanmakuColors.Warning
                 else -> DanmakuColors.TextMuted
             },
-            actionLabel = if (isRefreshingSeriesPosters || metadataRefreshingCount > 0) "Refreshing" else "Refresh",
+            actionLabel = if (isRefreshingSeriesPosters || metadataRefreshingCount > 0) strings.refreshingAction else strings.refreshAction,
             actionEnabled = !isRefreshingSeriesPosters,
             onAction = onRefreshMetadata,
         ) {
             lastScanStats?.let {
-                MetadataRow("Last scan", "${it.reusedItemCount} unchanged, ${it.refreshedItemCount} refreshed")
+                MetadataRow(strings.lastScanLabel, strings.lastScanCountsSummary(it.reusedItemCount, it.refreshedItemCount))
             }
-            MetadataRow("Groups", seriesCount.toString())
+            MetadataRow(strings.groupsLabel, seriesCount.toString())
         }
         OperationalStatusCard(
             icon = Icons.Filled.Refresh,
-            title = "External Sync",
-            value = externalTrackingPlan?.summary?.label ?: "Not mapped",
-            detail = "${externalTrackingPlan?.summary?.updateCount ?: 0} ready updates",
+            title = strings.externalSyncTitle,
+            value = externalTrackingPlan?.summary?.label ?: strings.notMappedLabel,
+            detail = strings.readyUpdatesLabel(externalTrackingPlan?.summary?.updateCount ?: 0),
             statusColor = if ((externalTrackingPlan?.summary?.updateCount ?: 0) > 0) DanmakuColors.Info else DanmakuColors.TextMuted,
-            actionLabel = "Open Tracking",
+            actionLabel = strings.openTrackingAction,
             onAction = onOpenTracking,
         )
         OperationalStatusCard(
             icon = Icons.Filled.FolderOpen,
-            title = "Downloads",
-            value = "Queue ready",
-            detail = "ani-rss output and imports",
+            title = strings.tabTitle(DesktopShellTab.DOWNLOADS),
+            value = strings.downloadQueueReadyLabel,
+            detail = strings.downloadsImportDetail,
             statusColor = DanmakuColors.TextMuted,
-            actionLabel = "Open Downloads",
+            actionLabel = strings.openDownloadsAction,
             onAction = onOpenDownloads,
         )
         OperationalStatusCard(
             icon = if (dandanplayCacheStatus?.summary?.isDandanplayWarningStatus() == true) Icons.Filled.Warning else Icons.Filled.CheckCircle,
-            title = "Cached Danmaku",
-            value = dandanplayCacheStatus?.summary ?: "Not checked",
+            title = strings.cachedDanmakuTitle,
+            value = dandanplayCacheStatus?.summary ?: strings.notCheckedLabel,
             detail = overlayStatus,
             statusColor = when {
                 dandanplayCacheStatus == null -> DanmakuColors.TextMuted
                 dandanplayCacheStatus.summary.isDandanplayWarningStatus() -> DanmakuColors.Warning
                 else -> DanmakuColors.Good
             },
-            actionLabel = "Manage Cache",
+            actionLabel = strings.manageCacheAction,
             onAction = onOpenSettings,
         )
         DiagnosticsPanel(diagnosticLog, modifier = Modifier.heightIn(max = 280.dp))
