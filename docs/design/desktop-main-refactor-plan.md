@@ -163,8 +163,9 @@ Remaining structural hotspot:
 
 - `DesktopShell.kt` still owns dependency construction, long-lived state,
   effects, shell/window behavior, and playback-tab command callback wiring.
-  The next refactor should split shell lifecycle/player callback wiring if
-  needed to get below the 1,000-line target.
+  Stale imports from the original monolith have been trimmed; the file is now
+  close enough to the 1,000-line target that the next refactor should focus on
+  shell lifecycle/player callback wiring rather than more mechanical cleanup.
 
 Acceptance:
 

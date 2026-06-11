@@ -46,7 +46,7 @@ Status legend:
 - `[ ]` Reduce shell/lifecycle/player callback wiring in `DesktopShell.kt`; UI
   files, state holders, settings actions, playback actions, local
   playback/danmaku actions, library actions, and download actions are now
-  split.
+  split, and stale monolith imports have been trimmed.
 
 ## Next Engineering Work
 
