@@ -122,6 +122,7 @@ import androidx.compose.ui.window.rememberWindowState
 import app.danmaku.domain.DanmakuDisplaySettings
 import app.danmaku.domain.ExternalAnimeId
 import app.danmaku.domain.ExternalAnimeInfo
+import app.danmaku.domain.ExternalAnimeMatchCandidate
 import app.danmaku.domain.ExternalAnimeMatchQuery
 import app.danmaku.domain.ExternalAnimeMapping
 import app.danmaku.domain.ExternalAnimeMappingSource
@@ -1037,6 +1038,35 @@ private fun DesktopShell(
             appendDiagnostic("metadata", "Removed ${provider.displayName} episode link for ${item.episodeTitle}")
         }
     }
+
+    suspend fun searchExternalAnimeMatches(
+        query: ExternalAnimeMatchQuery,
+        providers: Set<ExternalAnimeProvider>,
+    ): Result<List<ExternalAnimeMatchCandidate>> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val clients = buildList {
+                    if (ExternalAnimeProvider.MY_ANIME_LIST in providers) {
+                        externalAnimeCredentialStore.loadMyAnimeListSearchConnection()
+                            ?.let { add(MyAnimeListAnimeSearchClient(it)) }
+                    }
+                    if (ExternalAnimeProvider.BANGUMI in providers) {
+                        add(externalAnimeCredentialStore.loadBangumiSearchClient())
+                    }
+                }
+                check(clients.isNotEmpty()) {
+                    "No external anime search providers are configured. Add a MyAnimeList client ID or enable Bangumi settings."
+                }
+                ExternalAnimeSearchService(
+                    clients = clients,
+                    catalogStore = catalogStore,
+                ).searchAndCache(
+                    query = query,
+                    providers = clients.mapTo(mutableSetOf(), ExternalAnimeSearchClient::provider),
+                    limitPerProvider = 8,
+                )
+            }
+        }
 
     LaunchedEffect(Unit) {
         cleanupLegacySeriesAnimeMappings()
@@ -2605,6 +2635,7 @@ private fun DesktopShell(
                             onDeleteExternalAnimeMapping = ::deleteManualExternalAnimeMapping,
                             onSaveExternalAnimeItemMapping = ::saveManualExternalAnimeItemMapping,
                             onDeleteExternalAnimeItemMapping = ::deleteManualExternalAnimeItemMapping,
+                            onSearchExternalAnimeMatches = ::searchExternalAnimeMatches,
                             onSyncExternalAnimePlan = ::syncExternalAnimePlan,
                             onLoadPreparedPlayback = { preparation ->
                                 appendDiagnostic(
@@ -5303,6 +5334,7 @@ private fun MediaLibraryTab(
     onDeleteExternalAnimeMapping: (LibrarySeries, ExternalAnimeProvider) -> Unit,
     onSaveExternalAnimeItemMapping: (LibraryMediaItem, ExternalAnimeProvider, String) -> Unit,
     onDeleteExternalAnimeItemMapping: (LibraryMediaItem, ExternalAnimeProvider) -> Unit,
+    onSearchExternalAnimeMatches: suspend (ExternalAnimeMatchQuery, Set<ExternalAnimeProvider>) -> Result<List<ExternalAnimeMatchCandidate>>,
     onSyncExternalAnimePlan: (ExternalAnimeTrackingPlan) -> Unit,
     onLoadPreparedPlayback: (DesktopLocalPlaybackPreparation) -> Unit,
     remoteBrowser: @Composable () -> Unit,
@@ -5417,6 +5449,7 @@ private fun MediaLibraryTab(
             onDeleteExternalAnimeMapping = onDeleteExternalAnimeMapping,
             onSaveExternalAnimeItemMapping = onSaveExternalAnimeItemMapping,
             onDeleteExternalAnimeItemMapping = onDeleteExternalAnimeItemMapping,
+            onSearchExternalAnimeMatches = onSearchExternalAnimeMatches,
             onSyncExternalAnimePlan = onSyncExternalAnimePlan,
             onLoadPreparedPlayback = onLoadPreparedPlayback,
             onPrepareLocalPlayback = onPrepareLocalPlayback,
@@ -5489,6 +5522,7 @@ private fun WindowsLibraryWorkspace(
     onDeleteExternalAnimeMapping: (LibrarySeries, ExternalAnimeProvider) -> Unit,
     onSaveExternalAnimeItemMapping: (LibraryMediaItem, ExternalAnimeProvider, String) -> Unit,
     onDeleteExternalAnimeItemMapping: (LibraryMediaItem, ExternalAnimeProvider) -> Unit,
+    onSearchExternalAnimeMatches: suspend (ExternalAnimeMatchQuery, Set<ExternalAnimeProvider>) -> Result<List<ExternalAnimeMatchCandidate>>,
     onSyncExternalAnimePlan: (ExternalAnimeTrackingPlan) -> Unit,
     onLoadPreparedPlayback: (DesktopLocalPlaybackPreparation) -> Unit,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
@@ -5700,6 +5734,7 @@ private fun WindowsLibraryWorkspace(
                 onDeleteExternalAnimeMapping = onDeleteExternalAnimeMapping,
                 onSaveExternalAnimeItemMapping = onSaveExternalAnimeItemMapping,
                 onDeleteExternalAnimeItemMapping = onDeleteExternalAnimeItemMapping,
+                onSearchExternalAnimeMatches = onSearchExternalAnimeMatches,
                 onLoadPreparedPlayback = onLoadPreparedPlayback,
                 onPrepareLocalPlayback = onPrepareLocalPlayback,
                 onPlayLocalPlayback = onPlayLocalPlayback,
@@ -7066,6 +7101,7 @@ private fun LibraryInspectorPane(
     onDeleteExternalAnimeMapping: (LibrarySeries, ExternalAnimeProvider) -> Unit,
     onSaveExternalAnimeItemMapping: (LibraryMediaItem, ExternalAnimeProvider, String) -> Unit,
     onDeleteExternalAnimeItemMapping: (LibraryMediaItem, ExternalAnimeProvider) -> Unit,
+    onSearchExternalAnimeMatches: suspend (ExternalAnimeMatchQuery, Set<ExternalAnimeProvider>) -> Result<List<ExternalAnimeMatchCandidate>>,
     onLoadPreparedPlayback: (DesktopLocalPlaybackPreparation) -> Unit,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
@@ -7293,6 +7329,7 @@ private fun LibraryInspectorPane(
             onDeleteExternalAnimeMapping = onDeleteExternalAnimeMapping,
             onSaveExternalAnimeItemMapping = onSaveExternalAnimeItemMapping,
             onDeleteExternalAnimeItemMapping = onDeleteExternalAnimeItemMapping,
+            onSearchExternalAnimeMatches = onSearchExternalAnimeMatches,
         )
         selectedEpisodeDetail?.let { detail ->
             MetadataRow("Season", detail.season.label)
@@ -7406,7 +7443,9 @@ private fun ExternalAnimeMappingPanel(
     onDeleteExternalAnimeMapping: (LibrarySeries, ExternalAnimeProvider) -> Unit,
     onSaveExternalAnimeItemMapping: (LibraryMediaItem, ExternalAnimeProvider, String) -> Unit,
     onDeleteExternalAnimeItemMapping: (LibraryMediaItem, ExternalAnimeProvider) -> Unit,
+    onSearchExternalAnimeMatches: suspend (ExternalAnimeMatchQuery, Set<ExternalAnimeProvider>) -> Result<List<ExternalAnimeMatchCandidate>>,
 ) {
+    var showMatchDialog by remember(selectedSeries.id) { mutableStateOf(false) }
     val malMapping = seriesMappings.firstOrNull { it.animeId.provider == ExternalAnimeProvider.MY_ANIME_LIST }
     val bangumiMapping = seriesMappings.firstOrNull { it.animeId.provider == ExternalAnimeProvider.BANGUMI }
     val dandanplayItemMapping = itemMappings.firstOrNull { it.animeId.provider == ExternalAnimeProvider.DANDANPLAY }
@@ -7417,7 +7456,14 @@ private fun ExternalAnimeMappingPanel(
             ?.value
 
     Divider(color = DanmakuColors.SurfaceRaised)
-    Text("External IDs", fontWeight = FontWeight.Bold)
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("External IDs", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+        LibraryActionButton(
+            imageVector = Icons.Filled.Search,
+            label = "Match",
+            onClick = { showMatchDialog = true },
+        )
+    }
     ExternalSeriesMappingRow(
         provider = ExternalAnimeProvider.MY_ANIME_LIST,
         mapping = malMapping,
@@ -7440,6 +7486,233 @@ private fun ExternalAnimeMappingPanel(
         onSave = onSaveExternalAnimeItemMapping,
         onDelete = onDeleteExternalAnimeItemMapping,
     )
+    if (showMatchDialog) {
+        MetadataMatchDialog(
+            selectedSeries = selectedSeries,
+            currentMappings = seriesMappings,
+            onSearchExternalAnimeMatches = onSearchExternalAnimeMatches,
+            onSaveExternalAnimeMapping = onSaveExternalAnimeMapping,
+            onDismiss = { showMatchDialog = false },
+        )
+    }
+}
+
+@Composable
+private fun MetadataMatchDialog(
+    selectedSeries: LibrarySeries,
+    currentMappings: List<ExternalAnimeMapping>,
+    onSearchExternalAnimeMatches: suspend (ExternalAnimeMatchQuery, Set<ExternalAnimeProvider>) -> Result<List<ExternalAnimeMatchCandidate>>,
+    onSaveExternalAnimeMapping: (LibrarySeries, ExternalAnimeProvider, String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    var queryText by remember(selectedSeries.id) { mutableStateOf(selectedSeries.title) }
+    var includeMyAnimeList by remember(selectedSeries.id) {
+        mutableStateOf(currentMappings.none { it.animeId.provider == ExternalAnimeProvider.MY_ANIME_LIST })
+    }
+    var includeBangumi by remember(selectedSeries.id) {
+        mutableStateOf(currentMappings.none { it.animeId.provider == ExternalAnimeProvider.BANGUMI })
+    }
+    var isSearching by remember { mutableStateOf(false) }
+    var searchError by remember { mutableStateOf<String?>(null) }
+    var candidates by remember(selectedSeries.id) { mutableStateOf<List<ExternalAnimeMatchCandidate>>(emptyList()) }
+
+    fun runSearch() {
+        val title = queryText.trim()
+        if (title.isBlank() || isSearching) return
+        val providers = buildSet {
+            if (includeMyAnimeList) add(ExternalAnimeProvider.MY_ANIME_LIST)
+            if (includeBangumi) add(ExternalAnimeProvider.BANGUMI)
+        }
+        if (providers.isEmpty()) {
+            searchError = "Select at least one provider to search."
+            candidates = emptyList()
+            return
+        }
+        isSearching = true
+        searchError = null
+        scope.launch {
+            val result = onSearchExternalAnimeMatches(
+                ExternalAnimeMatchQuery(
+                    title = title,
+                    episodeCount = selectedSeries.episodeCount.takeIf { it > 0 },
+                ),
+                providers,
+            )
+            result.onSuccess {
+                candidates = it
+                searchError = if (it.isEmpty()) "No provider candidates matched \"$title\"." else null
+            }.onFailure {
+                candidates = emptyList()
+                searchError = it.readableMessage()
+            }
+            isSearching = false
+        }
+    }
+
+    AlertDialog(
+        modifier = Modifier.width(860.dp),
+        onDismissRequest = onDismiss,
+        title = { Text("Metadata Match") },
+        text = {
+            Column(
+                modifier = Modifier.heightIn(max = 620.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(
+                    "Search provider metadata for ${selectedSeries.title} and save a series-level mapping.",
+                    color = DanmakuColors.TextMuted,
+                )
+                OutlinedTextField(
+                    value = queryText,
+                    onValueChange = { queryText = it },
+                    label = { Text("Search title") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    MetadataMatchProviderToggle(
+                        label = "MyAnimeList",
+                        selected = includeMyAnimeList,
+                        onToggle = { includeMyAnimeList = !includeMyAnimeList },
+                    )
+                    MetadataMatchProviderToggle(
+                        label = "Bangumi",
+                        selected = includeBangumi,
+                        onToggle = { includeBangumi = !includeBangumi },
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    LibraryActionButton(
+                        imageVector = Icons.Filled.Search,
+                        label = if (isSearching) "Searching..." else "Search",
+                        enabled = !isSearching && queryText.isNotBlank(),
+                        onClick = ::runSearch,
+                    )
+                }
+                currentMappings.takeIf { it.isNotEmpty() }?.let { mappings ->
+                    Text(
+                        "Current mappings: " + mappings.joinToString { "${it.animeId.provider.displayName} #${it.animeId.value}" },
+                        color = DanmakuColors.TextMuted,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                searchError?.let { error ->
+                    Text(error, color = DanmakuColors.Warning, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                }
+                Divider(color = DanmakuColors.SurfaceRaised)
+                if (candidates.isEmpty()) {
+                    EmptyState("Search MyAnimeList or Bangumi to review candidates and save a mapping.")
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.heightIn(max = 360.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        items(candidates, key = { "${it.anime.id.provider.name}:${it.anime.id.value}" }) { candidate ->
+                            MetadataMatchCandidateRow(
+                                candidate = candidate,
+                                alreadyMapped = currentMappings.any { it.animeId == candidate.anime.id },
+                                onUse = {
+                                    onSaveExternalAnimeMapping(
+                                        selectedSeries,
+                                        candidate.anime.id.provider,
+                                        candidate.anime.id.value.toString(),
+                                    )
+                                    onDismiss()
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = ::runSearch,
+                enabled = !isSearching && queryText.isNotBlank(),
+            ) {
+                Text(if (isSearching) "Searching..." else "Search")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close")
+            }
+        },
+    )
+}
+
+@Composable
+private fun MetadataMatchProviderToggle(
+    label: String,
+    selected: Boolean,
+    onToggle: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(if (selected) DanmakuColors.AccentSoft else DanmakuColors.SurfaceRaised)
+            .clickable(onClick = onToggle)
+            .padding(horizontal = 10.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Icon(
+            imageVector = if (selected) Icons.Filled.CheckCircle else Icons.Filled.Search,
+            contentDescription = label,
+            tint = if (selected) DanmakuColors.Good else DanmakuColors.TextMuted,
+            modifier = Modifier.size(16.dp),
+        )
+        Text(label, maxLines = 1)
+    }
+}
+
+@Composable
+private fun MetadataMatchCandidateRow(
+    candidate: ExternalAnimeMatchCandidate,
+    alreadyMapped: Boolean,
+    onUse: () -> Unit,
+) {
+    val anime = candidate.anime
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(DanmakuColors.SurfaceRaised.copy(alpha = 0.62f))
+            .padding(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        StatusPill(
+            text = candidate.confidence.formatConfidence(),
+            icon = Icons.Filled.CheckCircle,
+            active = candidate.confidence >= 0.7,
+            color = if (candidate.confidence >= 0.7) DanmakuColors.Good else DanmakuColors.Accent,
+        )
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(anime.titles.primary, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                buildList {
+                    add("${anime.id.provider.displayName} #${anime.id.value}")
+                    anime.episodeCount?.let { add("$it episodes") }
+                    anime.startYear?.let { add(it.toString()) }
+                    candidate.matchedTitle?.takeIf { it != anime.titles.primary }?.let { add("matched: $it") }
+                }.joinToString(" - "),
+                color = DanmakuColors.TextMuted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            anime.summary?.let {
+                Text(it, color = DanmakuColors.TextMuted, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        Button(
+            enabled = !alreadyMapped,
+            onClick = onUse,
+        ) {
+            Text(if (alreadyMapped) "Mapped" else "Use")
+        }
+    }
 }
 
 @Composable

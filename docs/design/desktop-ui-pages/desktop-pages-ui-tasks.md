@@ -246,8 +246,16 @@ Status legend:
     server events.
   - Remaining: instrument client identity/session state and byte counters
     before showing real connected-client and bandwidth metrics.
-- `[ ]` Build Metadata Match dialog with candidate search, confidence, poster
+- `[~]` Build Metadata Match dialog with candidate search, confidence, poster
   previews, provider IDs, manual override, and save mapping actions.
+  - Library inspector now opens a Metadata Match dialog for the selected
+    series, searches MyAnimeList and/or Bangumi through the existing provider
+    clients, caches returned provider metadata, ranks candidates by confidence,
+    shows provider IDs, matched titles, episode counts, years, summaries, and
+    saves the selected series-level mapping through the existing mapping store.
+  - Remaining: add poster previews, provider availability badges, richer manual
+    override controls, and episode-level dandanplay match search in the same
+    surface.
 - `[~]` Build Danmaku Cache Manager with persisted cache state, cleanup rules,
   selected episode state, and confirmation for bulk deletes.
   - Settings > Danmaku now opens a Danmaku Cache Manager backed by persisted
