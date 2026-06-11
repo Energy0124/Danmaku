@@ -32,6 +32,9 @@ Status legend:
   - Library metadata match dialog chrome, actions, empty/error states, poster
     labels, and candidate status copy now use the same English / `zh-TW`
     desktop string layer.
+  - Library secondary navigation, toolbar search/action copy, active filter
+    chips, source status labels, and details-pane resize affordance now use the
+    same desktop string layer.
 - `[~]` Align the desktop top header with the target shell: app identity, global
   search, refresh/rescan, diagnostics/notifications, help, settings, and local
   profile/device controls.
@@ -67,8 +70,10 @@ Status legend:
     mapping.
 - `[ ]` Verify selected media cards and table rows update details consistently
   across Home, Library, History, Downloads, and Tracking where applicable.
-- `[ ]` Keep the details side panel adjustable or responsive enough for long
+- `[x]` Keep the details side panel adjustable or responsive enough for long
   episode names and matched anime titles.
+  - The Library details pane has compact/default minimum widths, a visible
+    draggable resize handle, and a click-to-reset state after manual resize.
 
 ## Android Mobile and Tablet Adaptation
 

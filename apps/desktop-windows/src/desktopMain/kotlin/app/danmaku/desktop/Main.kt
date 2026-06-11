@@ -66,6 +66,7 @@ import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
@@ -2807,6 +2808,44 @@ private enum class DesktopUiLanguage(
             uiLanguagesValue = "English, Traditional Chinese",
             appLabel = "App",
             primaryTargetsLabel = "Primary targets",
+            libraryViewTitles = mapOf(
+                WindowsLibraryView.CONTINUE_WATCHING to "Continue",
+                WindowsLibraryView.NEXT_UP to "Next up",
+                WindowsLibraryView.ALL_SERIES to "All Series",
+                WindowsLibraryView.RECENTLY_WATCHED to "History",
+                WindowsLibraryView.FAVORITES to "Favorites",
+                WindowsLibraryView.FILES to "Files",
+                WindowsLibraryView.EXTERNAL_SYNC to "External Sync",
+                WindowsLibraryView.PAIRED to "Paired",
+            ),
+            libraryHostSubtitle = "Library host",
+            librarySearchLabel = "Search anime, episode, path",
+            libraryToolbarCompactDescription = "Search and filter without leaving context.",
+            libraryToolbarDescription = "Search, filter, and select media without leaving context.",
+            episodeCountSummary = { visible, total -> "$visible / $total episodes" },
+            favoriteCountSummary = { count -> "$count favorites" },
+            subtitlesOnlyLabel = "Subtitles only",
+            pathSortLabel = "Path sort",
+            requireSubtitlesAction = "Require subtitles",
+            showAllSubtitlesAction = "Show all subtitles",
+            favoritesOnlyAction = "Favorites only",
+            showAllFavoritesAction = "Show all favorites",
+            sortByPathAction = "Sort by path",
+            sortByTitleAction = "Sort by title",
+            openLibraryImportPanelAction = "Open library import panel",
+            rescanFoldersAction = "Rescan folders",
+            localPcLabel = "Local PC",
+            indexingLabel = "Indexing...",
+            externalListsLabel = "External lists",
+            noLibraryLabel = "No library",
+            pairedDevicesLabel = "Paired devices",
+            lanBrowserReadyLabel = "LAN browser ready",
+            foldersLabel = "Folders",
+            noFoldersLabel = "No folders yet",
+            moreItemsLabel = { count -> "+$count more" },
+            lastScanSummary = { reused, refreshed -> "Last scan: $reused unchanged, $refreshed refreshed" },
+            inspectorResizeHandleLabel = "Resize details panel",
+            resetInspectorWidthAction = "Reset details width",
             searchAction = "Search",
             searchingAction = "Searching...",
             closeAction = "Close",
@@ -2865,6 +2904,44 @@ private enum class DesktopUiLanguage(
             uiLanguagesValue = "英文、繁體中文",
             appLabel = "應用程式",
             primaryTargetsLabel = "主要平台",
+            libraryViewTitles = mapOf(
+                WindowsLibraryView.CONTINUE_WATCHING to "繼續觀看",
+                WindowsLibraryView.NEXT_UP to "接著看",
+                WindowsLibraryView.ALL_SERIES to "所有系列",
+                WindowsLibraryView.RECENTLY_WATCHED to "觀看紀錄",
+                WindowsLibraryView.FAVORITES to "收藏",
+                WindowsLibraryView.FILES to "檔案",
+                WindowsLibraryView.EXTERNAL_SYNC to "外部同步",
+                WindowsLibraryView.PAIRED to "已配對",
+            ),
+            libraryHostSubtitle = "媒體庫主機",
+            librarySearchLabel = "搜尋動畫、集數、路徑",
+            libraryToolbarCompactDescription = "在目前內容中搜尋與篩選。",
+            libraryToolbarDescription = "搜尋、篩選並選取媒體，不離開目前內容。",
+            episodeCountSummary = { visible, total -> "$visible / $total 集" },
+            favoriteCountSummary = { count -> "$count 個收藏" },
+            subtitlesOnlyLabel = "只顯示字幕",
+            pathSortLabel = "路徑排序",
+            requireSubtitlesAction = "只顯示有字幕",
+            showAllSubtitlesAction = "顯示所有字幕狀態",
+            favoritesOnlyAction = "只顯示收藏",
+            showAllFavoritesAction = "顯示所有收藏狀態",
+            sortByPathAction = "依路徑排序",
+            sortByTitleAction = "依標題排序",
+            openLibraryImportPanelAction = "開啟媒體庫匯入面板",
+            rescanFoldersAction = "重新掃描資料夾",
+            localPcLabel = "本機電腦",
+            indexingLabel = "索引中...",
+            externalListsLabel = "外部清單",
+            noLibraryLabel = "尚無媒體庫",
+            pairedDevicesLabel = "已配對裝置",
+            lanBrowserReadyLabel = "區網瀏覽已就緒",
+            foldersLabel = "資料夾",
+            noFoldersLabel = "尚無資料夾",
+            moreItemsLabel = { count -> "還有 $count 個" },
+            lastScanSummary = { reused, refreshed -> "上次掃描：$reused 個未變更，$refreshed 個已更新" },
+            inspectorResizeHandleLabel = "調整詳情面板寬度",
+            resetInspectorWidthAction = "重設詳情寬度",
             searchAction = "搜尋",
             searchingAction = "搜尋中...",
             closeAction = "關閉",
@@ -2910,6 +2987,35 @@ private data class DesktopStrings(
     val uiLanguagesValue: String,
     val appLabel: String,
     val primaryTargetsLabel: String,
+    val libraryViewTitles: Map<WindowsLibraryView, String> = emptyMap(),
+    val libraryHostSubtitle: String,
+    val librarySearchLabel: String,
+    val libraryToolbarCompactDescription: String,
+    val libraryToolbarDescription: String,
+    val episodeCountSummary: (Int, Int) -> String,
+    val favoriteCountSummary: (Int) -> String,
+    val subtitlesOnlyLabel: String,
+    val pathSortLabel: String,
+    val requireSubtitlesAction: String,
+    val showAllSubtitlesAction: String,
+    val favoritesOnlyAction: String,
+    val showAllFavoritesAction: String,
+    val sortByPathAction: String,
+    val sortByTitleAction: String,
+    val openLibraryImportPanelAction: String,
+    val rescanFoldersAction: String,
+    val localPcLabel: String,
+    val indexingLabel: String,
+    val externalListsLabel: String,
+    val noLibraryLabel: String,
+    val pairedDevicesLabel: String,
+    val lanBrowserReadyLabel: String,
+    val foldersLabel: String,
+    val noFoldersLabel: String,
+    val moreItemsLabel: (Int) -> String,
+    val lastScanSummary: (Int, Int) -> String,
+    val inspectorResizeHandleLabel: String,
+    val resetInspectorWidthAction: String,
     val searchAction: String,
     val searchingAction: String,
     val closeAction: String,
@@ -2931,6 +3037,7 @@ private data class DesktopStrings(
     fun tabTitle(tab: DesktopShellTab): String = tabTitles[tab] ?: tab.title
     fun settingsSectionTitle(section: DesktopSettingsSection): String =
         settingsSectionTitles[section] ?: section.title
+    fun libraryViewTitle(view: WindowsLibraryView): String = libraryViewTitles[view] ?: view.label
 }
 
 @Composable
@@ -5683,6 +5790,7 @@ private fun WindowsLibraryWorkspace(
             horizontalArrangement = Arrangement.spacedBy(panelGap),
         ) {
             LibraryWorkspaceRail(
+                strings = strings,
                 selectedView = selectedView,
                 registeredRoots = registeredRoots,
                 localEpisodeCount = catalog?.items?.size ?: 0,
@@ -5702,6 +5810,7 @@ private fun WindowsLibraryWorkspace(
                 modifier = Modifier.width(railWidth),
             )
             LibraryCenterWorkspace(
+                strings = strings,
                 selectedView = selectedView,
                 searchText = searchText,
                 onSearchTextChange = { searchText = it },
@@ -5759,12 +5868,12 @@ private fun WindowsLibraryWorkspace(
                 remoteBrowser = remoteBrowser,
                 modifier = Modifier.weight(1f),
             )
-            Box(
+            InspectorResizeHandle(
+                label = strings.inspectorResizeHandleLabel,
+                resetLabel = strings.resetInspectorWidthAction,
+                isCustomWidth = inspectorWidthOverride != null,
+                onReset = { inspectorWidthOverride = null },
                 modifier = Modifier
-                    .width(8.dp)
-                    .fillMaxHeight()
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(DanmakuColors.SurfaceRaised.copy(alpha = 0.74f))
                     .pointerInput(compactWorkspace, minInspectorWidth, maxInspectorWidth) {
                         detectHorizontalDragGestures { _, dragAmount ->
                             val deltaDp = with(density) { dragAmount.toDp().value }
@@ -5834,7 +5943,40 @@ private fun WindowsLibraryWorkspace(
 }
 
 @Composable
+private fun InspectorResizeHandle(
+    label: String,
+    resetLabel: String,
+    isCustomWidth: Boolean,
+    onReset: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val backgroundColor = if (isCustomWidth) {
+        DanmakuColors.AccentSoft.copy(alpha = 0.88f)
+    } else {
+        DanmakuColors.SurfaceRaised.copy(alpha = 0.74f)
+    }
+    val contentColor = if (isCustomWidth) DanmakuColors.Accent else DanmakuColors.TextMuted
+    Box(
+        modifier = modifier
+            .width(24.dp)
+            .fillMaxHeight()
+            .clip(RoundedCornerShape(999.dp))
+            .background(backgroundColor)
+            .clickable(enabled = isCustomWidth, onClick = onReset),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = Icons.Filled.MoreVert,
+            contentDescription = if (isCustomWidth) resetLabel else label,
+            tint = contentColor,
+            modifier = Modifier.size(18.dp),
+        )
+    }
+}
+
+@Composable
 private fun LibraryWorkspaceRail(
+    strings: DesktopStrings,
     selectedView: WindowsLibraryView,
     registeredRoots: List<DesktopLibraryRoot>,
     localEpisodeCount: Int,
@@ -5856,61 +5998,61 @@ private fun LibraryWorkspaceRail(
     WorkspacePanel(modifier = modifier.fillMaxHeight()) {
         Text("Danmaku", style = MaterialTheme.typography.h6, fontWeight = FontWeight.Bold)
         if (!compact) {
-            Text("Library host", color = DanmakuColors.TextMuted, maxLines = 1)
+            Text(strings.libraryHostSubtitle, color = DanmakuColors.TextMuted, maxLines = 1)
         }
         Spacer(modifier = Modifier.height(4.dp))
         LibraryRailNavigationItem(
             icon = Icons.Filled.History,
-            label = WindowsLibraryView.CONTINUE_WATCHING.label,
+            label = strings.libraryViewTitle(WindowsLibraryView.CONTINUE_WATCHING),
             count = continueWatchingCount,
             selected = selectedView == WindowsLibraryView.CONTINUE_WATCHING,
             onClick = { onSelectView(WindowsLibraryView.CONTINUE_WATCHING) },
         )
         LibraryRailNavigationItem(
             icon = Icons.Filled.PlayArrow,
-            label = WindowsLibraryView.NEXT_UP.label,
+            label = strings.libraryViewTitle(WindowsLibraryView.NEXT_UP),
             count = nextUpCount,
             selected = selectedView == WindowsLibraryView.NEXT_UP,
             onClick = { onSelectView(WindowsLibraryView.NEXT_UP) },
         )
         LibraryRailNavigationItem(
             icon = Icons.Filled.GridView,
-            label = WindowsLibraryView.ALL_SERIES.label,
+            label = strings.libraryViewTitle(WindowsLibraryView.ALL_SERIES),
             count = seriesCount,
             selected = selectedView == WindowsLibraryView.ALL_SERIES,
             onClick = { onSelectView(WindowsLibraryView.ALL_SERIES) },
         )
         LibraryRailNavigationItem(
             icon = Icons.Filled.History,
-            label = WindowsLibraryView.RECENTLY_WATCHED.label,
+            label = strings.libraryViewTitle(WindowsLibraryView.RECENTLY_WATCHED),
             count = recentlyWatchedCount,
             selected = selectedView == WindowsLibraryView.RECENTLY_WATCHED,
             onClick = { onSelectView(WindowsLibraryView.RECENTLY_WATCHED) },
         )
         LibraryRailNavigationItem(
             icon = Icons.Filled.Star,
-            label = WindowsLibraryView.FAVORITES.label,
+            label = strings.libraryViewTitle(WindowsLibraryView.FAVORITES),
             count = favoriteCount,
             selected = selectedView == WindowsLibraryView.FAVORITES,
             onClick = { onSelectView(WindowsLibraryView.FAVORITES) },
         )
         LibraryRailNavigationItem(
             icon = Icons.AutoMirrored.Filled.ViewList,
-            label = WindowsLibraryView.FILES.label,
+            label = strings.libraryViewTitle(WindowsLibraryView.FILES),
             count = localEpisodeCount,
             selected = selectedView == WindowsLibraryView.FILES,
             onClick = { onSelectView(WindowsLibraryView.FILES) },
         )
         LibraryRailNavigationItem(
             icon = Icons.Filled.Refresh,
-            label = WindowsLibraryView.EXTERNAL_SYNC.label,
+            label = strings.libraryViewTitle(WindowsLibraryView.EXTERNAL_SYNC),
             count = externalTrackingPlan?.summary?.updateCount ?: 0,
             selected = selectedView == WindowsLibraryView.EXTERNAL_SYNC,
             onClick = { onSelectView(WindowsLibraryView.EXTERNAL_SYNC) },
         )
         LibraryRailNavigationItem(
             icon = Icons.Filled.Devices,
-            label = WindowsLibraryView.PAIRED.label,
+            label = strings.libraryViewTitle(WindowsLibraryView.PAIRED),
             count = 0,
             selected = selectedView == WindowsLibraryView.PAIRED,
             onClick = { onSelectView(WindowsLibraryView.PAIRED) },
@@ -5919,27 +6061,27 @@ private fun LibraryWorkspaceRail(
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             PlayerIconButton(
                 imageVector = Icons.Filled.Add,
-                contentDescription = "Open library import panel",
+                contentDescription = strings.openLibraryImportPanelAction,
                 enabled = !isIndexing,
                 onClick = onOpenImportPanel,
             )
             PlayerIconButton(
                 imageVector = Icons.Filled.Refresh,
-                contentDescription = "Rescan folders",
+                contentDescription = strings.rescanFoldersAction,
                 enabled = registeredRoots.isNotEmpty() && !isIndexing,
                 onClick = onRescanRegisteredRoots,
             )
         }
         LibrarySourceStatus(
             icon = Icons.Filled.Computer,
-            label = "Local PC",
-            value = if (isIndexing) "Indexing..." else "$localEpisodeCount episodes",
+            label = strings.localPcLabel,
+            value = if (isIndexing) strings.indexingLabel else "$localEpisodeCount ${strings.episodesSuffix}",
             statusColor = if (libraryError == null) DanmakuColors.Good else DanmakuColors.Warning,
         )
         LibrarySourceStatus(
             icon = Icons.Filled.Refresh,
-            label = "External lists",
-            value = externalTrackingPlan?.summary?.label ?: "No library",
+            label = strings.externalListsLabel,
+            value = externalTrackingPlan?.summary?.label ?: strings.noLibraryLabel,
             statusColor = if ((externalTrackingPlan?.summary?.updateCount ?: 0) > 0) {
                 DanmakuColors.Good
             } else {
@@ -5949,8 +6091,8 @@ private fun LibraryWorkspaceRail(
         if (!compact) {
             LibrarySourceStatus(
                 icon = Icons.Filled.Devices,
-                label = "Paired devices",
-                value = "LAN browser ready",
+                label = strings.pairedDevicesLabel,
+                value = strings.lanBrowserReadyLabel,
                 statusColor = DanmakuColors.Accent,
             )
         }
@@ -5959,23 +6101,23 @@ private fun LibraryWorkspaceRail(
         }
         lastScanStats?.let { stats ->
             Text(
-                "Last scan: ${stats.reusedItemCount} unchanged, ${stats.refreshedItemCount} refreshed",
+                strings.lastScanSummary(stats.reusedItemCount, stats.refreshedItemCount),
                 color = DanmakuColors.TextMuted,
                 maxLines = if (compact) 1 else 2,
                 overflow = TextOverflow.Ellipsis,
             )
         }
         Divider(color = DanmakuColors.SurfaceRaised)
-        Text("Folders", color = DanmakuColors.TextMuted, fontWeight = FontWeight.Bold)
+        Text(strings.foldersLabel, color = DanmakuColors.TextMuted, fontWeight = FontWeight.Bold)
         if (registeredRoots.isEmpty()) {
-            Text("No folders yet", color = DanmakuColors.TextMuted)
+            Text(strings.noFoldersLabel, color = DanmakuColors.TextMuted)
         } else {
             val visibleRootCount = if (compact) 3 else 5
             registeredRoots.take(visibleRootCount).forEach { root ->
                 Text(root.displayName, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             if (registeredRoots.size > visibleRootCount) {
-                Text("+${registeredRoots.size - visibleRootCount} more", color = DanmakuColors.TextMuted)
+                Text(strings.moreItemsLabel(registeredRoots.size - visibleRootCount), color = DanmakuColors.TextMuted)
             }
         }
     }
@@ -6228,6 +6370,7 @@ private fun LibrarySourceStatus(
 
 @Composable
 private fun LibraryCenterWorkspace(
+    strings: DesktopStrings,
     selectedView: WindowsLibraryView,
     searchText: String,
     onSearchTextChange: (String) -> Unit,
@@ -6278,6 +6421,7 @@ private fun LibraryCenterWorkspace(
         }
 
         LibraryWorkspaceToolbar(
+            strings = strings,
             selectedView = selectedView,
             searchText = searchText,
             onSearchTextChange = onSearchTextChange,
@@ -6295,8 +6439,11 @@ private fun LibraryCenterWorkspace(
                 .horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            StatusPill("${filteredEpisodes.size} / ${catalog?.items?.size ?: 0} episodes", icon = Icons.AutoMirrored.Filled.ViewList)
-            StatusPill("${favoriteMediaIds.size} favorites", icon = Icons.Filled.Star)
+            StatusPill(
+                strings.episodeCountSummary(filteredEpisodes.size, catalog?.items?.size ?: 0),
+                icon = Icons.AutoMirrored.Filled.ViewList,
+            )
+            StatusPill(strings.favoriteCountSummary(favoriteMediaIds.size), icon = Icons.Filled.Star)
             externalTrackingPlan?.summary?.let { summary ->
                 StatusPill(
                     summary.label,
@@ -6305,13 +6452,13 @@ private fun LibraryCenterWorkspace(
                 )
             }
             if (subtitleFilter != LibrarySubtitleFilter.ANY) {
-                StatusPill("Subtitles only", icon = Icons.Filled.Subtitles, active = true)
+                StatusPill(strings.subtitlesOnlyLabel, icon = Icons.Filled.Subtitles, active = true)
             }
             if (selectedView == WindowsLibraryView.FAVORITES || favoriteFilter == LibraryFavoriteFilter.FAVORITES_ONLY) {
-                StatusPill("Favorites only", icon = Icons.Filled.Star, active = true)
+                StatusPill(strings.favoritesOnlyAction, icon = Icons.Filled.Star, active = true)
             }
             if (sort != LibraryCatalogSort.TITLE) {
-                StatusPill("Path sort", icon = Icons.Filled.FolderOpen, active = true)
+                StatusPill(strings.pathSortLabel, icon = Icons.Filled.FolderOpen, active = true)
             }
             if (!compact) {
                 selectedSeries?.let { StatusPill(it.title) }
@@ -6631,6 +6778,7 @@ private fun ExternalSyncUpdateRow(
 
 @Composable
 private fun LibraryWorkspaceToolbar(
+    strings: DesktopStrings,
     selectedView: WindowsLibraryView,
     searchText: String,
     onSearchTextChange: (String) -> Unit,
@@ -6648,9 +6796,9 @@ private fun LibraryWorkspaceToolbar(
             PlayerIconButton(
                 imageVector = Icons.Filled.FilterList,
                 contentDescription = if (subtitleFilter == LibrarySubtitleFilter.ANY) {
-                    "Require subtitles"
+                    strings.requireSubtitlesAction
                 } else {
-                    "Show all subtitles"
+                    strings.showAllSubtitlesAction
                 },
                 active = subtitleFilter != LibrarySubtitleFilter.ANY,
                 onClick = onToggleSubtitleFilter,
@@ -6658,16 +6806,16 @@ private fun LibraryWorkspaceToolbar(
             PlayerIconButton(
                 imageVector = Icons.Filled.Star,
                 contentDescription = if (favoriteFilter == LibraryFavoriteFilter.ANY) {
-                    "Favorites only"
+                    strings.favoritesOnlyAction
                 } else {
-                    "Show all favorites"
+                    strings.showAllFavoritesAction
                 },
                 active = selectedView == WindowsLibraryView.FAVORITES || favoriteFilter != LibraryFavoriteFilter.ANY,
                 onClick = onToggleFavoriteFilter,
             )
             PlayerIconButton(
                 imageVector = if (sort == LibraryCatalogSort.TITLE) Icons.Filled.GridView else Icons.AutoMirrored.Filled.ViewList,
-                contentDescription = if (sort == LibraryCatalogSort.TITLE) "Sort by path" else "Sort by title",
+                contentDescription = if (sort == LibraryCatalogSort.TITLE) strings.sortByPathAction else strings.sortByTitleAction,
                 active = sort != LibraryCatalogSort.TITLE,
                 onClick = {
                     onSortChange(
@@ -6687,8 +6835,8 @@ private fun LibraryWorkspaceToolbar(
         OutlinedTextField(
             value = searchText,
             onValueChange = onSearchTextChange,
-            label = { Text("Search anime, episode, path") },
-            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = "Search") },
+            label = { Text(strings.librarySearchLabel) },
+            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = strings.searchAction) },
             singleLine = true,
             modifier = modifier,
         )
@@ -6704,8 +6852,8 @@ private fun LibraryWorkspaceToolbar(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(selectedView.label, style = MaterialTheme.typography.h6, fontWeight = FontWeight.Bold)
-                        Text("Search and filter without leaving context.", color = DanmakuColors.TextMuted, maxLines = 1)
+                        Text(strings.libraryViewTitle(selectedView), style = MaterialTheme.typography.h6, fontWeight = FontWeight.Bold)
+                        Text(strings.libraryToolbarCompactDescription, color = DanmakuColors.TextMuted, maxLines = 1)
                     }
                     ToolbarActions()
                 }
@@ -6718,8 +6866,8 @@ private fun LibraryWorkspaceToolbar(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(selectedView.label, style = MaterialTheme.typography.h6, fontWeight = FontWeight.Bold)
-                    Text("Search, filter, and select media without leaving context.", color = DanmakuColors.TextMuted)
+                    Text(strings.libraryViewTitle(selectedView), style = MaterialTheme.typography.h6, fontWeight = FontWeight.Bold)
+                    Text(strings.libraryToolbarDescription, color = DanmakuColors.TextMuted)
                 }
                 LibrarySearchField(Modifier.width(360.dp))
                 ToolbarActions()

@@ -37,6 +37,9 @@ Status legend:
     English and `zh-TW` title, actions, empty/error states, poster labels, and
     candidate status copy while preserving provider/anime titles as source
     data.
+  - The Library secondary rail, workspace toolbar, search field, filter
+    actions, active filter chips, source status labels, and inspector resize
+    affordance now use the desktop string layer.
   - Remaining: migrate page actions, status labels, dialogs, tooltips,
     inspector copy, and empty/error states.
 - `[ ]` Add UI review screenshots or checks for English and `zh-TW` labels in
@@ -60,9 +63,12 @@ Status legend:
 
 ## Library Page
 
-- `[ ]` Refactor the Library page toward a stable three-pane layout: app rail,
+- `[~]` Refactor the Library page toward a stable three-pane layout: app rail,
   library subrail, center workspace, and resizable inspector.
-- `[ ]` Keep the inspector above a useful minimum width for long episode names.
+- `[x]` Keep the inspector above a useful minimum width for long episode names.
+  - Library now constrains the inspector to a compact/default minimum width,
+    exposes a visible drag handle between the workspace and details pane, and
+    lets a customized width reset back to the responsive default.
 - `[~]` Ensure selecting a series or episode always refreshes the details panel.
   - Library episode lists now pass the active selected media ID through the
     center workspace, keep the selected row highlighted across Continue
