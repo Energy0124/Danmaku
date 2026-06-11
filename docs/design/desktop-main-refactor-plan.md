@@ -81,10 +81,13 @@ Initial slice:
 - `DesktopShellLocalPlaybackActions` owns local playback preparation,
   dandanplay match/cache inspection, prepared danmaku overlay mutations, and
   manual danmaku attachment.
+- `DesktopShellLibraryActions` owns root scan/import/remove, published library
+  application, background poster refresh, metadata refresh, favorites,
+  external mapping/search, and external tracking sync actions.
 - `DesktopShell` delegates diagnostic/server-event actions and
   navigation/search/language actions to remembered state objects while
-  library root, metadata, external mapping/sync, and download actions remain
-  local.
+  download queue actions, shell/window effects, and player control callback
+  wiring remain local.
 
 Acceptance:
 
@@ -158,9 +161,10 @@ Completed shared/library follow-up split:
 Remaining structural hotspot:
 
 - `DesktopShell.kt` still owns dependency construction, long-lived state,
-  effects, metadata refresh, external mapping, root scanning, and download
-  actions. The next refactor should extract the remaining library action facade
-  and then move download queue actions behind a smaller action object.
+  effects, shell/window behavior, playback-tab command callback wiring, and
+  download queue actions. The next refactor should move download queue actions
+  behind a smaller action object, then split shell lifecycle/player callback
+  wiring if needed to get below the 1,000-line target.
 
 Acceptance:
 

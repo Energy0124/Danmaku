@@ -40,10 +40,12 @@ Status legend:
   extracted into a typed action object, and generic playback session/progress
   actions are in a playback action object. Local playback preparation and
   dandanplay overlay/cache actions are also split into a typed action object.
-- `[ ]` Extract typed library actions from `DesktopShell.kt`; UI files, state
-  holders, settings actions, generic playback session actions, and local
-  playback/danmaku actions are now split, leaving library root, metadata,
-  mapping/sync, and download orchestration as the dominant remaining hotspots.
+  Library root, metadata, favorite, external mapping/search, and tracking sync
+  actions are now split into a typed library action object.
+- `[ ]` Extract download queue actions and reduce shell/lifecycle/player
+  callback wiring in `DesktopShell.kt`; UI files, state holders, settings
+  actions, playback actions, local playback/danmaku actions, and library
+  actions are now split.
 
 ## Next Engineering Work
 
