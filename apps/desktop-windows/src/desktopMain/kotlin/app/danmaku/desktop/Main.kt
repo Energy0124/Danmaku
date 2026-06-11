@@ -2927,6 +2927,12 @@ private enum class DesktopUiLanguage(
             libraryToolbarDescription = "Search, filter, and select media without leaving context.",
             episodeCountSummary = { visible, total -> "$visible / $total episodes" },
             favoriteCountSummary = { count -> "$count favorites" },
+            favoriteEpisodesFilterEmptyText = "No favorite episodes match the current filters.",
+            episodesFilterEmptyText = "No episodes match the current filters.",
+            noIndexedSeriesText = "No indexed series yet. Add a folder and scan to build the cover library.",
+            noSeriesFilterMatchesText = "No series match the current filters.",
+            noInProgressLocalEpisodesText = "No in-progress local episodes yet.",
+            noNextUpItemText = "No next-up item yet. Start watching from All Series.",
             subtitlesOnlyLabel = "Subtitles only",
             pathSortLabel = "Path sort",
             requireSubtitlesAction = "Require subtitles",
@@ -3516,6 +3522,12 @@ private enum class DesktopUiLanguage(
             libraryToolbarDescription = "搜尋、篩選並選取媒體，不離開目前內容。",
             episodeCountSummary = { visible, total -> "$visible / $total 集" },
             favoriteCountSummary = { count -> "$count 個收藏" },
+            favoriteEpisodesFilterEmptyText = "沒有符合目前篩選的收藏集數。",
+            episodesFilterEmptyText = "沒有符合目前篩選的集數。",
+            noIndexedSeriesText = "尚無已索引系列。新增資料夾並掃描後即可建立海報媒體庫。",
+            noSeriesFilterMatchesText = "沒有符合目前篩選的系列。",
+            noInProgressLocalEpisodesText = "尚無進行中的本機集數。",
+            noNextUpItemText = "尚無接著看項目。請先從所有系列開始觀看。",
             subtitlesOnlyLabel = "只顯示字幕",
             pathSortLabel = "路徑排序",
             requireSubtitlesAction = "只顯示有字幕",
@@ -4083,6 +4095,12 @@ private data class DesktopStrings(
     val libraryToolbarDescription: String,
     val episodeCountSummary: (Int, Int) -> String,
     val favoriteCountSummary: (Int) -> String,
+    val favoriteEpisodesFilterEmptyText: String,
+    val episodesFilterEmptyText: String,
+    val noIndexedSeriesText: String,
+    val noSeriesFilterMatchesText: String,
+    val noInProgressLocalEpisodesText: String,
+    val noNextUpItemText: String,
     val subtitlesOnlyLabel: String,
     val pathSortLabel: String,
     val requireSubtitlesAction: String,
@@ -7944,8 +7962,8 @@ private fun LibraryCenterWorkspace(
 ) {
     WorkspacePanel(modifier = modifier.fillMaxHeight()) {
         if (selectedView == WindowsLibraryView.PAIRED) {
-            Text("Paired Library", style = MaterialTheme.typography.h6, fontWeight = FontWeight.Bold)
-            Text("Browse another trusted desktop server without leaving the library workspace.", color = DanmakuColors.TextMuted)
+            Text(strings.pairedLibraryTitle, style = MaterialTheme.typography.h6, fontWeight = FontWeight.Bold)
+            Text(strings.pairedLibraryDescription, color = DanmakuColors.TextMuted)
             Divider(color = DanmakuColors.SurfaceRaised)
             remoteBrowser()
             return@WorkspacePanel
@@ -8042,9 +8060,9 @@ private fun LibraryCenterWorkspace(
                 refreshingMetadataMediaIds = refreshingMetadataMediaIds,
                 isPreparing = isPreparing,
                 emptyText = if (selectedView == WindowsLibraryView.FAVORITES) {
-                    "No favorite episodes match the current filters."
+                    strings.favoriteEpisodesFilterEmptyText
                 } else {
-                    "No episodes match the current filters."
+                    strings.episodesFilterEmptyText
                 },
                 compact = compact,
                 onResetFilters = onResetFilters,
@@ -8445,12 +8463,12 @@ private fun AllSeriesView(
         onShowDetails = onShowDetails,
         onPlayLocalPlayback = onPlayLocalPlayback,
     )
-    Text("All Series", style = MaterialTheme.typography.h6, fontWeight = FontWeight.Bold)
+    Text(strings.libraryViewTitle(WindowsLibraryView.ALL_SERIES), style = MaterialTheme.typography.h6, fontWeight = FontWeight.Bold)
     when {
-        catalog == null || catalog.items.isEmpty() -> EmptyState("No indexed series yet. Add a folder and scan to build the cover library.")
+        catalog == null || catalog.items.isEmpty() -> EmptyState(strings.noIndexedSeriesText)
         visibleSeries.isEmpty() -> EmptyState(
-            text = "No series match the current filters.",
-            actionLabel = "Reset filters",
+            text = strings.noSeriesFilterMatchesText,
+            actionLabel = strings.resetFiltersAction,
             onAction = onResetFilters,
         )
         else -> LazyVerticalGrid(
@@ -8556,6 +8574,7 @@ private fun LibraryProgressOverview(
     ) {
         cards.forEach { card ->
             LibraryProgressCard(
+                strings = strings,
                 card = card,
                 isPreparing = isPreparing,
                 onShowDetails = onShowDetails,
@@ -8578,6 +8597,7 @@ private data class LibraryProgressCardModel(
 
 @Composable
 private fun LibraryProgressCard(
+    strings: DesktopStrings,
     card: LibraryProgressCardModel,
     isPreparing: Boolean,
     onShowDetails: (LibraryMediaItem) -> Unit,
@@ -8602,7 +8622,7 @@ private fun LibraryProgressCard(
             Text(card.detail, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
             LibraryActionButton(
                 imageVector = Icons.Filled.PlayArrow,
-                label = if (isPreparing) "Loading..." else card.actionLabel,
+                label = if (isPreparing) strings.loadingAction else card.actionLabel,
                 onClick = { onPlayLocalPlayback(card.mediaItem) },
                 enabled = !isPreparing,
             )
@@ -8623,7 +8643,7 @@ private fun ContinueWatchingList(
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
 ) {
     if (items.isEmpty()) {
-        EmptyState("No in-progress local episodes yet.")
+        EmptyState(strings.noInProgressLocalEpisodesText)
     } else {
         var selectedIndex by remember(items) { mutableStateOf(0) }
         val boundedSelectedIndex = selectedIndex.coerceIn(0, items.lastIndex)
@@ -8677,7 +8697,7 @@ private fun NextUpList(
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
 ) {
     if (items.isEmpty()) {
-        EmptyState("No next-up item yet. Start watching from All Series.")
+        EmptyState(strings.noNextUpItemText)
     } else {
         var selectedIndex by remember(items) { mutableStateOf(0) }
         val boundedSelectedIndex = selectedIndex.coerceIn(0, items.lastIndex)
@@ -10131,11 +10151,11 @@ private fun SeriesPosterCard(
                 enabled = !isPreparing && !isRefreshingMetadata,
                 modifier = Modifier.weight(0.46f),
             ) {
-                Icon(Icons.Filled.Refresh, contentDescription = "Refresh metadata", modifier = Modifier.size(16.dp))
+                Icon(Icons.Filled.Refresh, contentDescription = strings.refreshSeriesMetadataAction, modifier = Modifier.size(16.dp))
             }
             LibraryActionButton(
                 imageVector = Icons.Filled.PlayArrow,
-                label = if (isPreparing) "Loading..." else "Play",
+                label = if (isPreparing) strings.loadingAction else strings.playAction,
                 modifier = Modifier.weight(0.54f),
                 enabled = !isPreparing,
                 onClick = onPlay,

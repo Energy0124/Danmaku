@@ -75,6 +75,9 @@ Status legend:
   - Library inspector and local row actions now use the same string layer for
     empty/readiness copy, Details/Favorite, metadata refresh, playback prepare,
     Play/Resume, and advanced danmaku/cache actions.
+  - Library paired-browse heading, Favorites/Files/All Series/Next Up empty
+    states, All Series heading, and series-card refresh/play actions now use
+    the same string layer.
   - Library Import summary cards, folder/import/rescan actions, registered-root
     rows, empty state, and remove-folder confirmation now use the same string
     layer.

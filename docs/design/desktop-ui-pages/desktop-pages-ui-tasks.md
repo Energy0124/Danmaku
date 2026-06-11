@@ -74,6 +74,9 @@ Status legend:
   - Library inspector empty state, readiness headings, primary playback actions,
     episode action menu, compact row details/favorite/metadata buttons, and
     advanced danmaku/cache actions now use the desktop string layer.
+  - Library paired-browse heading, Favorites/Files/All Series/Next Up empty
+    states, All Series heading, and series-card refresh/play actions now use
+    the desktop string layer.
   - Paired remote-library browse chrome now uses the desktop string layer for
     connection fields, load/search/sort/filter actions, empty/error states,
     prepared playback details, and remote row playback actions.
