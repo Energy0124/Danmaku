@@ -1157,6 +1157,32 @@ private fun DesktopShell(
         }
     }
 
+    fun removeRegisteredRoot(root: DesktopLibraryRoot) {
+        scope.launch {
+            appendDiagnostic("library", "Removing library root: ${root.normalizedPath}")
+            isIndexing = true
+            try {
+                runCatching {
+                    withContext(Dispatchers.IO) {
+                        catalogStore.deleteLibraryRoot(root.id)
+                        catalogStore.loadRegisteredLibrary()
+                    }
+                }.onSuccess { library ->
+                    registeredRoots = rootRegistry.loadRoots()
+                    lastScanStats = null
+                    applyPublishedLibrary(library)
+                    appendDiagnostic("library", "Removed library root ${root.displayName}")
+                }.onFailure { error ->
+                    libraryError = error.message
+                    registeredRoots = rootRegistry.loadRoots()
+                    appendDiagnostic("library", "Failed to remove library root ${root.displayName}: ${error.message}")
+                }
+            } finally {
+                isIndexing = false
+            }
+        }
+    }
+
     var selectedTab by remember { mutableStateOf(DesktopShellTab.HOME) }
     var globalSearchText by remember { mutableStateOf("") }
     var librarySearchSeed by remember { mutableStateOf("") }
@@ -2554,7 +2580,13 @@ private fun DesktopShell(
                                     title = "Choose anime library folder",
                                 )?.let(::registerAndScanUserRoot)
                             },
+                            onImportAniRssOutputFolder = {
+                                selectLibraryDirectory(
+                                    title = "Choose ani-rss completed-media folder",
+                                )?.let(::importAndScanAniRssRoot)
+                            },
                             onRescanRegisteredRoots = ::rescanRegisteredRoots,
+                            onRemoveRegisteredRoot = ::removeRegisteredRoot,
                             onPrepareLocalPlayback = { item -> prepareLocalPlayback(item) },
                             onPlayLocalPlayback = { item ->
                                 prepareLocalPlayback(item, loadAfterPrepare = true)
@@ -5252,7 +5284,9 @@ private fun MediaLibraryTab(
     libraryError: String?,
     lastScanStats: LocalMediaLibraryScanStats?,
     onAddLibraryFolder: () -> Unit,
+    onImportAniRssOutputFolder: () -> Unit,
     onRescanRegisteredRoots: () -> Unit,
+    onRemoveRegisteredRoot: (DesktopLibraryRoot) -> Unit,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
     onInspectCachedDandanplay: (LibraryMediaItem) -> Unit,
@@ -5364,7 +5398,9 @@ private fun MediaLibraryTab(
             libraryError = libraryError,
             lastScanStats = lastScanStats,
             onAddLibraryFolder = onAddLibraryFolder,
+            onImportAniRssOutputFolder = onImportAniRssOutputFolder,
             onRescanRegisteredRoots = onRescanRegisteredRoots,
+            onRemoveRegisteredRoot = onRemoveRegisteredRoot,
             onSelectSeries = ::selectSeries,
             onShowDetails = ::showEpisodeDetails,
             onInspectCachedDandanplay = onInspectCachedDandanplay,
@@ -5434,7 +5470,9 @@ private fun WindowsLibraryWorkspace(
     libraryError: String?,
     lastScanStats: LocalMediaLibraryScanStats?,
     onAddLibraryFolder: () -> Unit,
+    onImportAniRssOutputFolder: () -> Unit,
     onRescanRegisteredRoots: () -> Unit,
+    onRemoveRegisteredRoot: (DesktopLibraryRoot) -> Unit,
     onSelectSeries: (LibrarySeries) -> Unit,
     onShowDetails: (LibraryMediaItem) -> Unit,
     onInspectCachedDandanplay: (LibraryMediaItem) -> Unit,
@@ -5458,6 +5496,7 @@ private fun WindowsLibraryWorkspace(
     remoteBrowser: @Composable () -> Unit,
 ) {
     var selectedView by remember { mutableStateOf(WindowsLibraryView.ALL_SERIES) }
+    var showLibraryImportPanel by remember { mutableStateOf(false) }
     var searchText by remember { mutableStateOf("") }
     var sort by remember { mutableStateOf(LibraryCatalogSort.TITLE) }
     var subtitleFilter by remember { mutableStateOf(LibrarySubtitleFilter.ANY) }
@@ -5552,7 +5591,7 @@ private fun WindowsLibraryWorkspace(
                 lastScanStats = lastScanStats,
                 compact = compactWorkspace,
                 onSelectView = { selectedView = it },
-                onAddLibraryFolder = onAddLibraryFolder,
+                onOpenImportPanel = { showLibraryImportPanel = true },
                 onRescanRegisteredRoots = onRescanRegisteredRoots,
                 modifier = Modifier.width(railWidth),
             )
@@ -5668,6 +5707,20 @@ private fun WindowsLibraryWorkspace(
             )
         }
     }
+    if (showLibraryImportPanel) {
+        LibraryImportPanelDialog(
+            registeredRoots = registeredRoots,
+            indexedLibrary = indexedLibrary,
+            isIndexing = isIndexing,
+            libraryError = libraryError,
+            lastScanStats = lastScanStats,
+            onAddLibraryFolder = onAddLibraryFolder,
+            onImportAniRssOutputFolder = onImportAniRssOutputFolder,
+            onRescanRegisteredRoots = onRescanRegisteredRoots,
+            onRemoveRegisteredRoot = onRemoveRegisteredRoot,
+            onDismiss = { showLibraryImportPanel = false },
+        )
+    }
 }
 
 @Composable
@@ -5686,7 +5739,7 @@ private fun LibraryWorkspaceRail(
     lastScanStats: LocalMediaLibraryScanStats?,
     compact: Boolean,
     onSelectView: (WindowsLibraryView) -> Unit,
-    onAddLibraryFolder: () -> Unit,
+    onOpenImportPanel: () -> Unit,
     onRescanRegisteredRoots: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -5756,9 +5809,9 @@ private fun LibraryWorkspaceRail(
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             PlayerIconButton(
                 imageVector = Icons.Filled.Add,
-                contentDescription = "Add library folder",
+                contentDescription = "Open library import panel",
                 enabled = !isIndexing,
-                onClick = onAddLibraryFolder,
+                onClick = onOpenImportPanel,
             )
             PlayerIconButton(
                 imageVector = Icons.Filled.Refresh,
@@ -5815,6 +5868,195 @@ private fun LibraryWorkspaceRail(
                 Text("+${registeredRoots.size - visibleRootCount} more", color = DanmakuColors.TextMuted)
             }
         }
+    }
+}
+
+@Composable
+private fun LibraryImportPanelDialog(
+    registeredRoots: List<DesktopLibraryRoot>,
+    indexedLibrary: IndexedLocalLibrary?,
+    isIndexing: Boolean,
+    libraryError: String?,
+    lastScanStats: LocalMediaLibraryScanStats?,
+    onAddLibraryFolder: () -> Unit,
+    onImportAniRssOutputFolder: () -> Unit,
+    onRescanRegisteredRoots: () -> Unit,
+    onRemoveRegisteredRoot: (DesktopLibraryRoot) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var pendingRemovalRoot by remember { mutableStateOf<DesktopLibraryRoot?>(null) }
+    val aniRssRootCount = registeredRoots.count {
+        it.provenance == DesktopLibraryRootProvenance.ANI_RSS_OUTPUT_FOLDER
+    }
+
+    AlertDialog(
+        modifier = Modifier.width(880.dp),
+        onDismissRequest = onDismiss,
+        title = { Text("Library Import") },
+        text = {
+            Column(
+                modifier = Modifier.heightIn(max = 620.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    SummaryCard(
+                        title = "Folders",
+                        value = registeredRoots.size.toString(),
+                        caption = "$aniRssRootCount ani-rss",
+                        modifier = Modifier.weight(1f),
+                    )
+                    SummaryCard(
+                        title = "Episodes",
+                        value = (indexedLibrary?.catalog?.items?.size ?: 0).toString(),
+                        caption = if (isIndexing) "scan running" else "published",
+                        modifier = Modifier.weight(1f),
+                    )
+                    SummaryCard(
+                        title = "Last scan",
+                        value = lastScanStats?.refreshedItemCount?.toString() ?: "-",
+                        caption = lastScanStats?.let { "${it.reusedItemCount} reused" } ?: "not run",
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    LibraryActionButton(
+                        imageVector = Icons.Filled.FolderOpen,
+                        label = "Add folder",
+                        enabled = !isIndexing,
+                        onClick = onAddLibraryFolder,
+                    )
+                    LibraryActionButton(
+                        imageVector = Icons.Filled.Refresh,
+                        label = "Import ani-rss output",
+                        enabled = !isIndexing,
+                        onClick = onImportAniRssOutputFolder,
+                    )
+                    LibraryActionButton(
+                        imageVector = Icons.Filled.Refresh,
+                        label = if (isIndexing) "Scanning..." else "Rescan all",
+                        enabled = registeredRoots.isNotEmpty() && !isIndexing,
+                        onClick = onRescanRegisteredRoots,
+                    )
+                }
+
+                libraryError?.let { error ->
+                    Text(error, color = DanmakuColors.Warning, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                }
+                if (isIndexing) {
+                    StatusPill(
+                        text = "Indexing library roots",
+                        icon = Icons.Filled.Refresh,
+                        active = true,
+                        color = DanmakuColors.Accent,
+                    )
+                }
+
+                Divider(color = DanmakuColors.SurfaceRaised)
+                Text("Registered roots", fontWeight = FontWeight.Bold)
+                if (registeredRoots.isEmpty()) {
+                    Text(
+                        "Add a local anime folder or import an ani-rss completed-media folder to build the library.",
+                        color = DanmakuColors.TextMuted,
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.heightIn(max = 330.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        items(registeredRoots, key = DesktopLibraryRoot::id) { root ->
+                            LibraryImportRootRow(
+                                root = root,
+                                enabled = !isIndexing,
+                                onRemove = { pendingRemovalRoot = root },
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onRescanRegisteredRoots,
+                enabled = registeredRoots.isNotEmpty() && !isIndexing,
+            ) {
+                Text(if (isIndexing) "Scanning..." else "Rescan")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close")
+            }
+        },
+    )
+
+    pendingRemovalRoot?.let { root ->
+        SettingsConfirmationDialog(
+            title = "Remove library folder?",
+            text = "This removes ${root.displayName} from Danmaku and drops its indexed episode rows. It does not delete files from disk.",
+            confirmLabel = "Remove folder",
+            onConfirm = { onRemoveRegisteredRoot(root) },
+            onDismiss = { pendingRemovalRoot = null },
+        )
+    }
+}
+
+@Composable
+private fun LibraryImportRootRow(
+    root: DesktopLibraryRoot,
+    enabled: Boolean,
+    onRemove: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(DanmakuColors.SurfaceRaised.copy(alpha = 0.58f))
+            .padding(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Icon(
+            imageVector = if (root.provenance == DesktopLibraryRootProvenance.ANI_RSS_OUTPUT_FOLDER) {
+                Icons.Filled.Refresh
+            } else {
+                Icons.Filled.FolderOpen
+            },
+            contentDescription = null,
+            tint = DanmakuColors.Accent,
+        )
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(root.displayName, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                StatusPill(
+                    text = root.state.name.lowercase().replaceFirstChar { it.titlecase() },
+                    icon = if (root.state == DesktopLibraryRootState.AVAILABLE) Icons.Filled.CheckCircle else Icons.Filled.Warning,
+                    active = root.state == DesktopLibraryRootState.AVAILABLE,
+                    color = if (root.state == DesktopLibraryRootState.AVAILABLE) DanmakuColors.Good else DanmakuColors.Warning,
+                )
+            }
+            Text(root.provenance.displayLabel(), color = DanmakuColors.TextMuted, maxLines = 1)
+            Text(
+                root.normalizedPath.toString(),
+                color = DanmakuColors.TextMuted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                root.lastScannedAtEpochMs?.let { "Last scanned ${it.formatEpochTime()}" } ?: "Not scanned yet",
+                color = DanmakuColors.TextMuted,
+                maxLines = 1,
+            )
+            root.lastError?.let { error ->
+                Text(error, color = DanmakuColors.Warning, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        LibraryActionButton(
+            imageVector = Icons.Filled.Delete,
+            label = "Remove",
+            enabled = enabled,
+            onClick = onRemove,
+        )
     }
 }
 
@@ -10873,6 +11115,12 @@ private fun DesktopDandanplayCommentCache.commentCountForCacheManager(): Int =
 
 private fun DesktopDandanplayCommentCache.isExpiredForCacheManager(cacheMaxAgeDays: Int): Boolean =
     System.currentTimeMillis() - fetchedAtEpochMs > cacheMaxAgeDays * 24L * 60L * 60L * 1_000L
+
+private fun DesktopLibraryRootProvenance.displayLabel(): String =
+    when (this) {
+        DesktopLibraryRootProvenance.USER_SELECTED -> "User selected folder"
+        DesktopLibraryRootProvenance.ANI_RSS_OUTPUT_FOLDER -> "ani-rss output folder"
+    }
 
 private fun Double.formatConfidence(): String =
     "${((coerceIn(0.0, 1.0) * 100.0) + 0.5).toInt()}%"

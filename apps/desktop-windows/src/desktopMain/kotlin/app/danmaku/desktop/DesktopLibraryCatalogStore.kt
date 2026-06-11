@@ -363,6 +363,7 @@ class DesktopLibraryCatalogStore(
 
     @Synchronized
     fun deleteLibraryRoot(id: String) {
+        database.libraryCatalogQueries.deleteRootItems(id)
         database.libraryCatalogQueries.deleteLibraryRoot(id)
     }
 

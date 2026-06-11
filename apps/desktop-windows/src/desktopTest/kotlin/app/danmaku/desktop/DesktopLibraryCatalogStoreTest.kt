@@ -68,6 +68,34 @@ class DesktopLibraryCatalogStoreTest {
     }
 
     @Test
+    fun deletingLibraryRootAlsoDeletesIndexedItems() {
+        val temp = createTempDirectory("danmaku-library-root-delete")
+        val root = temp.resolve("Anime").createDirectories()
+        root.resolve("Episode 01.mkv").writeBytes(byteArrayOf(1, 2, 3))
+        val databasePath = temp.resolve("catalog.db")
+
+        DesktopLibraryCatalogStore(databasePath).use { store ->
+            val libraryRoot = DesktopLibraryRoot(
+                id = "root-id",
+                path = root,
+                displayName = "Anime",
+                provenance = DesktopLibraryRootProvenance.USER_SELECTED,
+                state = DesktopLibraryRootState.AVAILABLE,
+                addedAtEpochMs = 100,
+            )
+            store.replace(libraryRoot, LocalMediaLibraryIndexer.index(root, idNamespace = libraryRoot.id))
+            assertEquals(1, store.loadRegisteredLibrary().catalog.items.size)
+
+            store.deleteLibraryRoot(libraryRoot.id)
+
+            assertNull(store.loadLibraryRoot(libraryRoot.id))
+            assertEquals(emptyList(), store.loadRegisteredLibrary().catalog.items)
+        }
+
+        temp.toFile().deleteRecursively()
+    }
+
+    @Test
     fun persistsPlaybackProgress() {
         val temp = createTempDirectory("danmaku-library-progress")
         val progress = PlaybackProgress(

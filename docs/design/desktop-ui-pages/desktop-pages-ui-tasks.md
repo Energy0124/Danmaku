@@ -256,8 +256,14 @@ Status legend:
     and confirmed cleanup using the configured cache-age rule.
   - Remaining: connect cache rows to richer library episode context and add
     persistence/relaunch UI tests around cache readback.
-- `[ ]` Build Library Import panel for root management, ani-rss output import,
+- `[~]` Build Library Import panel for root management, ani-rss output import,
   scan progress, and scan result summary.
+  - Library rail now opens a Library Import panel with registered-root
+    summaries, add-folder, ani-rss output import, rescan-all, scan status,
+    last-scan summary, per-root state/error details, and confirmed root removal
+    that drops indexed rows without deleting files from disk.
+  - Remaining: add per-root rescan, richer scan progress percentages, and
+    visual QA for compact/wide layouts.
 - `[ ]` Standardize destructive, retry, confirmation, and error dialogs.
 
 ## Tests and QA
