@@ -163,6 +163,12 @@ Status legend:
   - Android TV now has English and `zh-TW` resource files for app label, TV
     navigation, Home hero/rows, Library/Player empty states, operational status
     headings, and common remote-friendly actions.
+  - TV navigation rail, destination header, player controls, Home next-up
+    panel, Library rail/search/filter chrome, and Library empty states now read
+    from Android resources.
+  - Remaining TV localization work: PC connection form, episode-detail controls,
+    rail item-count labels, selected-track labels, and diagnostic error
+    prefixes.
 - `[ ]` Map the Home shell into TV rails: hero/resume, Continue Watching,
   Recently Added, Library slices, and operational status.
 - `[ ]` Ensure each TV Home card has one obvious primary action and visible

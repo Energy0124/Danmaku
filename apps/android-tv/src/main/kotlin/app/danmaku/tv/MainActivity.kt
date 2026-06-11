@@ -48,6 +48,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -133,13 +134,13 @@ private enum class PosterImageLoadState {
 }
 
 private enum class TvDestination(
-    val label: String,
+    val labelResId: Int,
 ) {
-    Home("Home"),
-    Library("Library"),
-    Search("Search"),
-    Favorites("Favorites"),
-    Pc("PC"),
+    Home(R.string.nav_home),
+    Library(R.string.nav_library),
+    Search(R.string.nav_search),
+    Favorites(R.string.nav_favorites),
+    Pc(R.string.nav_pc),
 }
 
 @Composable
@@ -487,17 +488,24 @@ private fun TvAppNavigationRail(
     ) {
         Text("Danmaku", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Text(
-            catalog?.rootName ?: "No PC connected",
+            catalog?.rootName ?: stringResource(R.string.pc_no_connected),
             color = TvMutedText,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
-        TvRailPill(if (catalog == null) "PC offline" else "PC ready", active = catalog != null)
-        TvRailPill("$favoriteCount favorites", active = favoriteCount > 0)
+        TvRailPill(
+            if (catalog == null) {
+                stringResource(R.string.pc_offline)
+            } else {
+                stringResource(R.string.pc_ready)
+            },
+            active = catalog != null,
+        )
+        TvRailPill(stringResource(R.string.favorites_count, favoriteCount), active = favoriteCount > 0)
         Spacer(modifier = Modifier.height(8.dp))
         TvDestination.entries.forEach { destination ->
             TvRailNavigationItem(
-                label = destination.label,
+                label = stringResource(destination.labelResId),
                 selected = destination == selectedDestination,
                 testTag = "tv-destination:${destination.name}",
                 onClick = { onSelectDestination(destination) },
@@ -521,15 +529,19 @@ private fun TvDestinationHeader(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(selectedDestination.label, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
             Text(
-                catalog?.rootName ?: "Connect to your Windows library from PC",
+                stringResource(selectedDestination.labelResId),
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                catalog?.rootName ?: stringResource(R.string.connect_library_from_pc),
                 color = TvMutedText,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        TvRailPill("Player ${snapshot.status}", active = snapshot.source != null)
+        TvRailPill(stringResource(R.string.player_status, snapshot.status.toString()), active = snapshot.source != null)
     }
 }
 
@@ -574,28 +586,28 @@ private fun TvPlayerPanel(
                 enabled = snapshot.source != null,
                 modifier = Modifier.tvFocusHalo(RoundedCornerShape(18.dp)),
             ) {
-                Text("Play")
+                Text(stringResource(R.string.action_play))
             }
             Button(
                 onClick = onPause,
                 enabled = snapshot.source != null,
                 modifier = Modifier.tvFocusHalo(RoundedCornerShape(18.dp)),
             ) {
-                Text("Pause")
+                Text(stringResource(R.string.action_pause))
             }
             Button(
                 onClick = onVolumeDown,
                 enabled = snapshot.source != null && snapshot.volumePercent > 0,
                 modifier = Modifier.tvFocusHalo(RoundedCornerShape(18.dp)),
             ) {
-                Text("Vol -")
+                Text(stringResource(R.string.action_volume_down))
             }
             Button(
                 onClick = onVolumeUp,
                 enabled = snapshot.source != null && snapshot.volumePercent < 100,
                 modifier = Modifier.tvFocusHalo(RoundedCornerShape(18.dp)),
             ) {
-                Text("Vol + ${snapshot.volumePercent}%")
+                Text(stringResource(R.string.action_volume_up_percent, snapshot.volumePercent))
             }
         }
     }
@@ -624,12 +636,16 @@ private fun TvHomePanel(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("Now Playing and Next Up", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text(
+                    stringResource(R.string.home_now_next_up),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                )
                 Text(
                     if (catalog == null) {
-                        "Connect a PC library to start browsing."
+                        stringResource(R.string.home_connect_pc_library)
                     } else {
-                        "${catalog.items.size} episodes available"
+                        stringResource(R.string.home_available_episodes, catalog.items.size)
                     },
                     color = TvMutedText,
                 )
@@ -638,7 +654,13 @@ private fun TvHomePanel(
                 onClick = if (catalog == null) onShowPc else onShowLibrary,
                 modifier = Modifier.tvFocusHalo(RoundedCornerShape(18.dp)),
             ) {
-                Text(if (catalog == null) "Open PC" else "Open Library")
+                Text(
+                    if (catalog == null) {
+                        stringResource(R.string.action_open_pc)
+                    } else {
+                        stringResource(R.string.action_open_library)
+                    },
+                )
             }
         }
         if (nextUpItems.isNotEmpty()) {
@@ -659,8 +681,11 @@ private fun TvSeekControls(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
-            "Position ${snapshot.position.positionMs.formatPlaybackTime()} / " +
-                (snapshot.position.durationMs?.formatPlaybackTime() ?: "--:--"),
+            stringResource(
+                R.string.player_position,
+                snapshot.position.positionMs.formatPlaybackTime(),
+                snapshot.position.durationMs?.formatPlaybackTime() ?: "--:--",
+            ),
         )
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             TvSeekButton("-30s", snapshot, onSeekTo, -30_000)
@@ -695,11 +720,11 @@ private fun TrackControls(
     val audioTracks = snapshot.tracks.filter { it.kind == PlaybackTrackKind.AUDIO }
     val subtitleTracks = snapshot.tracks.filter { it.kind == PlaybackTrackKind.SUBTITLE }
     if (audioTracks.isNotEmpty()) {
-        Text("Audio tracks")
+        Text(stringResource(R.string.audio_tracks_title))
         TrackButtons(audioTracks, onSelectAudio)
     }
     if (subtitleTracks.isNotEmpty()) {
-        Text("Subtitle tracks")
+        Text(stringResource(R.string.subtitle_tracks_title))
         LazyRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -709,7 +734,7 @@ private fun TrackControls(
                     onClick = { onSelectSubtitle(null) },
                     enabled = subtitleTracks.any(PlaybackTrack::selected),
                 ) {
-                    Text("Off")
+                    Text(stringResource(R.string.subtitle_off))
                 }
             }
             items(subtitleTracks, key = PlaybackTrack::id) { track ->
@@ -782,41 +807,60 @@ private fun TvLibraryNavigationRail(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Text("Library", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+        Text(stringResource(R.string.library_title), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
         Text(
-            catalog?.rootName ?: "No PC connected",
+            catalog?.rootName ?: stringResource(R.string.pc_no_connected),
             color = TvMutedText,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
-        TvRailPill(if (catalog == null) "PC offline" else "PC ready", active = catalog != null)
-        TvRailPill("$filteredCount / $totalCount episodes")
-        TvRailPill("$favoriteCount favorites", active = favoriteCount > 0)
+        TvRailPill(
+            if (catalog == null) {
+                stringResource(R.string.pc_offline)
+            } else {
+                stringResource(R.string.pc_ready)
+            },
+            active = catalog != null,
+        )
+        TvRailPill(stringResource(R.string.library_episode_count, filteredCount, totalCount))
+        TvRailPill(stringResource(R.string.favorites_count, favoriteCount), active = favoriteCount > 0)
         if (hasActiveFilters) {
-            TvRailPill("Filters active", active = true)
+            TvRailPill(stringResource(R.string.library_filters_active), active = true)
         }
         Spacer(modifier = Modifier.height(12.dp))
-        Text("Quick actions", color = TvMutedText, fontWeight = FontWeight.SemiBold)
+        Text(stringResource(R.string.library_quick_actions), color = TvMutedText, fontWeight = FontWeight.SemiBold)
         TvRailNavigationItem(
-            label = "All episodes",
+            label = stringResource(R.string.library_all_episodes),
             selected = !hasActiveFilters,
             testTag = "tv-rail-all",
             onClick = onResetFilters,
         )
         TvRailNavigationItem(
-            label = if (searchActive) "Search active" else "Search",
+            label = if (searchActive) {
+                stringResource(R.string.library_search_active)
+            } else {
+                stringResource(R.string.nav_search)
+            },
             selected = searchActive,
             testTag = "tv-rail-search",
             onClick = onFocusSearch,
         )
         TvRailNavigationItem(
-            label = if (favoritesActive) "Favorites only" else "Favorites",
+            label = if (favoritesActive) {
+                stringResource(R.string.library_favorites_only)
+            } else {
+                stringResource(R.string.nav_favorites)
+            },
             selected = favoritesActive,
             testTag = "tv-rail-favorites",
             onClick = onToggleFavorites,
         )
         TvRailNavigationItem(
-            label = if (subtitlesActive) "Subtitles only" else "Subtitles",
+            label = if (subtitlesActive) {
+                stringResource(R.string.library_subtitles_only)
+            } else {
+                stringResource(R.string.subtitle_tracks_title)
+            },
             selected = subtitlesActive,
             testTag = "tv-rail-subtitles",
             onClick = onToggleSubtitles,
@@ -1208,18 +1252,21 @@ internal fun LibraryItems(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        "PC Library",
+                        stringResource(R.string.library_pc_title),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold,
                     )
                     Text(
-                        catalog?.rootName ?: "Connect to a Windows library server",
+                        catalog?.rootName ?: stringResource(R.string.library_connect_server),
                         color = TvMutedText,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                TvRailPill("${filteredItems.size} / ${totalItems.size} episodes", active = totalItems.isNotEmpty())
+                TvRailPill(
+                    stringResource(R.string.library_episode_count, filteredItems.size, totalItems.size),
+                    active = totalItems.isNotEmpty(),
+                )
             }
             BasicTextField(
                 value = searchText,
@@ -1236,7 +1283,7 @@ internal fun LibraryItems(
                     .testTag("library-search-field"),
                 decorationBox = { innerTextField ->
                     if (searchText.isBlank()) {
-                        Text("Search library", color = TvMutedText)
+                        Text(stringResource(R.string.library_search_hint), color = TvMutedText)
                     }
                     innerTextField()
                 },
@@ -1253,7 +1300,13 @@ internal fun LibraryItems(
                         },
                         modifier = Modifier.testTag("library-favorites-filter"),
                     ) {
-                        Text(if (favoriteFilter == LibraryFavoriteFilter.ANY) "Favorites" else "All episodes")
+                        Text(
+                            if (favoriteFilter == LibraryFavoriteFilter.ANY) {
+                                stringResource(R.string.nav_favorites)
+                            } else {
+                                stringResource(R.string.library_all_episodes)
+                            },
+                        )
                     }
                 }
                 item {
@@ -1261,7 +1314,7 @@ internal fun LibraryItems(
                         onClick = { sort = LibraryCatalogSort.TITLE },
                         enabled = sort != LibraryCatalogSort.TITLE,
                     ) {
-                        Text("Sort title")
+                        Text(stringResource(R.string.library_sort_title))
                     }
                 }
                 item {
@@ -1269,7 +1322,7 @@ internal fun LibraryItems(
                         onClick = { sort = LibraryCatalogSort.PATH },
                         enabled = sort != LibraryCatalogSort.PATH,
                     ) {
-                        Text("Sort path")
+                        Text(stringResource(R.string.library_sort_path))
                     }
                 }
                 item {
@@ -1282,7 +1335,13 @@ internal fun LibraryItems(
                             }
                         },
                     ) {
-                        Text(if (subtitleFilter == LibrarySubtitleFilter.ANY) "Subtitles" else "All")
+                        Text(
+                            if (subtitleFilter == LibrarySubtitleFilter.ANY) {
+                                stringResource(R.string.subtitle_tracks_title)
+                            } else {
+                                stringResource(R.string.library_all)
+                            },
+                        )
                     }
                 }
             }
@@ -1297,7 +1356,7 @@ internal fun LibraryItems(
             }
             if (continueWatchingItems.isNotEmpty()) {
                 TvProgressRail(
-                    title = "Continue Watching",
+                    title = stringResource(R.string.home_continue_watching),
                     tag = "library-continue-watching",
                     itemTagPrefix = "continue-watching",
                     items = continueWatchingItems,
@@ -1308,7 +1367,7 @@ internal fun LibraryItems(
             }
             if (recentlyWatchedItems.isNotEmpty()) {
                 TvProgressRail(
-                    title = "Recently Watched",
+                    title = stringResource(R.string.home_recently_watched),
                     tag = "library-recently-watched",
                     itemTagPrefix = "recently-watched",
                     items = recentlyWatchedItems,
@@ -1330,7 +1389,7 @@ internal fun LibraryItems(
                                 .tvFocusHalo(RoundedCornerShape(18.dp))
                                 .testTag("series:all"),
                         ) {
-                            Text("All series")
+                            Text(stringResource(R.string.library_all_series))
                         }
                     }
                     items(series, key = { it.id }) { summary ->
@@ -1391,15 +1450,15 @@ internal fun LibraryItems(
             when {
                 catalog == null || totalItems.isEmpty() -> {
                     TvLibraryEmptyPanel(
-                        title = "No PC library connected",
-                        body = "Discover or pair with a Windows library server to browse episodes on TV.",
+                        title = stringResource(R.string.library_no_pc_title),
+                        body = stringResource(R.string.library_no_pc_body),
                     )
                 }
                 filteredItems.isEmpty() -> {
                     TvLibraryEmptyPanel(
-                        title = "No matching episodes",
-                        body = "Reset search, favorites, and subtitle filters to return to the full library.",
-                        actionLabel = "Reset filters",
+                        title = stringResource(R.string.library_no_results_title),
+                        body = stringResource(R.string.library_no_results_body),
+                        actionLabel = stringResource(R.string.action_reset_filters),
                         onAction = {
                             searchText = ""
                             sort = LibraryCatalogSort.TITLE
