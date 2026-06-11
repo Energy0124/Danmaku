@@ -28,7 +28,9 @@ trusted-LAN clients.
   areas. Shared desktop UI models, theme constants, localization strings,
   common formatting helpers, file dialogs, library presentation helpers, and
   playback presentation constants/helpers have been split out of the original
-  shell file.
+  shell file. The `Main.kt` decomposition is now tracked in
+  `docs/design/desktop-main-refactor-plan.md`, with feature tab files being
+  separated before the shell state/action boundary is introduced.
 - Multi-root local anime library indexing, incremental rescanning, ani-rss
   output-folder import, and persistent SQLDelight/SQLite storage.
 - Trusted-LAN library server with pairing token, JSON catalog, byte-range media

@@ -30,6 +30,8 @@ Status legend:
   and focus behavior affect everyday use.
 - `[~]` Continue decomposing desktop `Main.kt` into focused shell, tab,
   settings, player, library, and shared UI modules while preserving behavior.
+- `[~]` Introduce a desktop shell state/action boundary so orchestration moves
+  out of feature rendering after the first file-ownership split.
 
 ## Next Engineering Work
 
@@ -47,10 +49,11 @@ Status legend:
 - `[ ]` Add release checklist automation for Android APKs and Windows portable
   archives.
 - `[~]` Move the remaining desktop player surface out of `Main.kt`; playback
-  constants and cycling helpers are split, but player composables remain.
-- `[ ]` Move the desktop library workspace and shared library row/card
+  constants and cycling helpers are split, and player composables are being
+  moved into a dedicated desktop playback tab file.
+- `[~]` Move the desktop library workspace and shared library row/card
   composables out of `Main.kt`.
-- `[ ]` Move desktop settings, server dashboard, and cache-management surfaces
+- `[~]` Move desktop settings, server dashboard, and cache-management surfaces
   out of `Main.kt`.
 
 ## Design Workstreams
