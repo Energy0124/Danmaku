@@ -14,11 +14,16 @@ Status legend:
 - `[x]` Save the mockup under `docs/design/home-and-app-shell-mockup.png`.
 - `[x]` Write the target design document for header, navigation, home content,
   operational status, platform adaptation, and QA expectations.
+- `[x]` Generate desktop destination mockups for Library, Player, Downloads,
+  Tracking, Settings, and secondary surfaces.
+- `[x]` Write a page-level desktop UI behavior spec and task log.
 - `[x]` Link the new design stream from the documentation index and canonical
   task backlog.
 
 ## Desktop Implementation
 
+- `[ ]` Use [Desktop pages UI tasks](desktop-ui-pages/desktop-pages-ui-tasks.md)
+  as the detailed implementation backlog for non-Home desktop pages.
 - `[ ]` Align the desktop top header with the target shell: app identity, global
   search, refresh/rescan, diagnostics/notifications, help, settings, and local
   profile/device controls.

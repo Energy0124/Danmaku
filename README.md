@@ -70,6 +70,7 @@ docs/
 Active design/task tracks:
 
 - [Home and app shell UI tasks](docs/design/home-and-app-shell-ui-tasks.md)
+- [Desktop UI page mockups and specs](docs/design/desktop-ui-pages/README.md)
 - [Android mobile and TV library UI tasks](docs/design/android-mobile-tv-library-ui-tasks.md)
 - [External anime mapping and tracking tasks](docs/design/external-anime-tracking-tasks.md)
 

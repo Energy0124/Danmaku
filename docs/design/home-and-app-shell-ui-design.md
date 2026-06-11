@@ -12,10 +12,13 @@ allowing Android mobile/tablet and Android TV to use platform-specific layouts.
 Mockup:
 
 - [Home and app shell mockup](home-and-app-shell-mockup.png)
+- [Desktop UI page mockups](desktop-ui-pages/README.md)
 
 Related work:
 
 - [Home and app shell tasks](home-and-app-shell-ui-tasks.md)
+- [Desktop pages UI spec](desktop-ui-pages/desktop-pages-ui-spec.md)
+- [Desktop pages UI tasks](desktop-ui-pages/desktop-pages-ui-tasks.md)
 - [Android mobile and TV library UI review](android-mobile-tv-library-ui-review.md)
 - [Android mobile and TV library UI tasks](android-mobile-tv-library-ui-tasks.md)
 - [External anime mapping and tracking tasks](external-anime-tracking-tasks.md)
