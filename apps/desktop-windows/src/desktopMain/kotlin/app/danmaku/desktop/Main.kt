@@ -4983,6 +4983,7 @@ private fun WindowsLibraryWorkspace(
                 onSelectSeries = onSelectSeries,
                 onShowDetails = onShowDetails,
                 onSetFavorite = onSetFavorite,
+                onRefreshEpisodeMetadata = onRefreshEpisodeMetadata,
                 onRefreshSeriesMetadata = onRefreshSeriesMetadata,
                 onPrepareLocalPlayback = onPrepareLocalPlayback,
                 onPlayLocalPlayback = onPlayLocalPlayback,
@@ -5288,6 +5289,7 @@ private fun LibraryCenterWorkspace(
     onSelectSeries: (LibrarySeries) -> Unit,
     onShowDetails: (LibraryMediaItem) -> Unit,
     onSetFavorite: (LibraryMediaItem, Boolean) -> Unit,
+    onRefreshEpisodeMetadata: (LibraryMediaItem) -> Unit,
     onRefreshSeriesMetadata: (LibrarySeries) -> Unit,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
@@ -5390,6 +5392,7 @@ private fun LibraryCenterWorkspace(
                 onResetFilters = onResetFilters,
                 onShowDetails = onShowDetails,
                 onSetFavorite = onSetFavorite,
+                onRefreshEpisodeMetadata = onRefreshEpisodeMetadata,
                 onPrepareLocalPlayback = onPrepareLocalPlayback,
                 onPlayLocalPlayback = onPlayLocalPlayback,
             )
@@ -6098,6 +6101,7 @@ private fun EpisodeListView(
     onResetFilters: () -> Unit,
     onShowDetails: (LibraryMediaItem) -> Unit,
     onSetFavorite: (LibraryMediaItem, Boolean) -> Unit,
+    onRefreshEpisodeMetadata: (LibraryMediaItem) -> Unit,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
 ) {
@@ -6141,6 +6145,7 @@ private fun EpisodeListView(
                         onShowDetails(it)
                     },
                     onSetFavorite = onSetFavorite,
+                    onRefreshEpisodeMetadata = onRefreshEpisodeMetadata,
                     onPrepareLocalPlayback = onPrepareLocalPlayback,
                     onPlayLocalPlayback = onPlayLocalPlayback,
                 )
@@ -8998,6 +9003,7 @@ private fun EpisodeRow(
     compact: Boolean,
     onShowDetails: (LibraryMediaItem) -> Unit,
     onSetFavorite: (LibraryMediaItem, Boolean) -> Unit,
+    onRefreshEpisodeMetadata: (LibraryMediaItem) -> Unit,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
 ) {
@@ -9070,6 +9076,17 @@ private fun EpisodeRow(
                     onClick = { onSetFavorite(item, !isFavorite) },
                 )
             }
+            PlayerIconButton(
+                imageVector = Icons.Filled.Refresh,
+                contentDescription = if (isRefreshingMetadata) {
+                    "Refreshing episode metadata"
+                } else {
+                    "Refresh episode metadata"
+                },
+                enabled = !isPreparing && !isRefreshingMetadata,
+                active = isRefreshingMetadata,
+                onClick = { onRefreshEpisodeMetadata(item) },
+            )
             LibraryActionButton(
                 imageVector = Icons.Filled.Refresh,
                 label = if (isPreparing) "Preparing..." else if (compact) "Prep" else "Prepare",

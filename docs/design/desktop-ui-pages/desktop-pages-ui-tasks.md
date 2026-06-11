@@ -75,8 +75,14 @@ Status legend:
     cards, file/favorite rows, and compact inspector episode list.
   - Remaining: add a real freshness/stale signal once metadata cache age or
     provider revision data is available.
-- `[ ]` Add manual refresh metadata/poster actions at both series and episode
+- `[~]` Add manual refresh metadata/poster actions at both series and episode
   scope.
+  - Series cards and the inspector expose series metadata refresh; the
+    inspector and Files/Favorites episode rows now expose scoped episode
+    metadata refresh without requiring playback preparation.
+  - Remaining: add the same row-level episode refresh affordance to Continue
+    Watching, Next Up, and History rows if those views keep separate row
+    components.
 - `[ ]` Ensure episode-level mapping updates only the selected episode.
 - `[ ]` Add cache-state readback when an episode is selected.
 - `[ ]` Add tests for selection propagation, metadata refresh action routing,
