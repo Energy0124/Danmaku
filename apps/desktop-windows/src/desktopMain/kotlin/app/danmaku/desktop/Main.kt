@@ -2811,6 +2811,9 @@ private enum class DesktopUiLanguage(
             uiLanguagesValue = "English, Traditional Chinese",
             appLabel = "App",
             primaryTargetsLabel = "Primary targets",
+            supportedLabel = "Supported",
+            privacyTitle = "Privacy",
+            credentialsPrivacyText = "Credentials are stored in local protected settings where supported and omitted from diagnostics.",
             libraryViewTitles = mapOf(
                 WindowsLibraryView.CONTINUE_WATCHING to "Continue",
                 WindowsLibraryView.NEXT_UP to "Next up",
@@ -2905,6 +2908,50 @@ private enum class DesktopUiLanguage(
             retryAction = "Retry",
             cancelAction = "Cancel",
             downloadExecutionPlannedText = "Pause, resume, cancel, and retry will be enabled after authorized download source contracts and queue execution are implemented.",
+            dandanplayProvidersTitle = "Danmaku Providers",
+            dandanplayProvidersDescription = "dandanplay-compatible API settings for auto-match and fetched danmaku tracks.",
+            cacheExpiryLabel = "Cache expiry",
+            lastTestLabel = "Last test",
+            apiBaseUrlLabel = "API base URL",
+            appIdOptionalLabel = "AppId (optional)",
+            appSecretKeepLabel = "AppSecret (leave blank to keep saved secret)",
+            appSecretOptionalLabel = "AppSecret (optional)",
+            cacheMaxAgeDaysLabel = "Cache max age days",
+            signedAuthAction = "Signed auth",
+            credentialAuthAction = "Credential auth",
+            currentAuthLabel = { mode -> "Current: $mode" },
+            saveDandanplaySettingsAction = "Save dandanplay settings",
+            testSavedAction = "Test saved",
+            clearAction = "Clear",
+            cleanExpiredCacheAction = "Clean expired cache",
+            clearDandanplayTitle = "Clear dandanplay settings?",
+            clearDandanplayText = "This removes saved dandanplay credentials from local protected settings. API URL and cache defaults can be entered again later.",
+            cleanExpiredDandanplayTitle = "Clean expired dandanplay cache?",
+            cleanExpiredDandanplayText = "Expired cached danmaku entries will be removed according to the current cache age setting. Fresh valid entries are kept.",
+            externalAnimeListsTitle = "External Anime Lists",
+            externalAnimeListsDescription = "MyAnimeList and Bangumi settings for anime search, manual mapping, and future progress sync.",
+            myAnimeListTestLabel = "MAL test",
+            bangumiTestLabel = "Bangumi test",
+            myAnimeListClientIdLabel = "MyAnimeList client ID",
+            myAnimeListAccessTokenKeepLabel = "MyAnimeList access token (leave blank to keep saved token)",
+            myAnimeListAccessTokenOptionalLabel = "MyAnimeList access token (optional)",
+            myAnimeListClientSecretKeepLabel = "MyAnimeList client secret (leave blank to keep saved secret)",
+            myAnimeListClientSecretOptionalLabel = "MyAnimeList client secret (optional for OAuth)",
+            bangumiApiBaseUrlLabel = "Bangumi API base URL",
+            bangumiUserAgentLabel = "Bangumi User-Agent",
+            bangumiUserAgentRequiredError = "Bangumi User-Agent is required.",
+            bangumiAccessTokenKeepLabel = "Bangumi access token (leave blank to keep saved token)",
+            bangumiAccessTokenOptionalLabel = "Bangumi access token (optional)",
+            saveExternalListsAction = "Save external lists",
+            connectMyAnimeListAction = "Connect MAL",
+            testMyAnimeListAction = "Test MAL",
+            testBangumiAction = "Test Bangumi",
+            clearMyAnimeListAction = "Clear MAL",
+            clearBangumiAction = "Clear Bangumi",
+            clearMyAnimeListTitle = "Clear MyAnimeList credentials?",
+            clearMyAnimeListText = "This removes the saved MyAnimeList client secret and access token from local protected settings. Existing local anime mappings are not removed.",
+            clearBangumiTitle = "Clear Bangumi credentials?",
+            clearBangumiText = "This removes the saved Bangumi access token from local protected settings. Existing local anime mappings are not removed.",
             homeServerStatusTitle = "Server Status",
             attentionNeededLabel = "Attention needed",
             onlineLabel = "Online",
@@ -3041,6 +3088,9 @@ private enum class DesktopUiLanguage(
             uiLanguagesValue = "英文、繁體中文",
             appLabel = "應用程式",
             primaryTargetsLabel = "主要平台",
+            supportedLabel = "支援",
+            privacyTitle = "隱私",
+            credentialsPrivacyText = "憑證會盡可能儲存在本機受保護設定中，並且不會寫入診斷資訊。",
             libraryViewTitles = mapOf(
                 WindowsLibraryView.CONTINUE_WATCHING to "繼續觀看",
                 WindowsLibraryView.NEXT_UP to "接著看",
@@ -3135,6 +3185,50 @@ private enum class DesktopUiLanguage(
             retryAction = "重試",
             cancelAction = "取消",
             downloadExecutionPlannedText = "暫停、繼續、取消與重試會在授權下載來源合約與佇列執行完成後啟用。",
+            dandanplayProvidersTitle = "彈幕服務",
+            dandanplayProvidersDescription = "用於自動對應與抓取彈幕軌的 dandanplay 相容 API 設定。",
+            cacheExpiryLabel = "快取期限",
+            lastTestLabel = "上次測試",
+            apiBaseUrlLabel = "API 基礎網址",
+            appIdOptionalLabel = "AppId（選填）",
+            appSecretKeepLabel = "AppSecret（留空以保留已儲存密鑰）",
+            appSecretOptionalLabel = "AppSecret（選填）",
+            cacheMaxAgeDaysLabel = "快取最長天數",
+            signedAuthAction = "簽章驗證",
+            credentialAuthAction = "帳密驗證",
+            currentAuthLabel = { mode -> "目前：$mode" },
+            saveDandanplaySettingsAction = "儲存 dandanplay 設定",
+            testSavedAction = "測試已儲存設定",
+            clearAction = "清除",
+            cleanExpiredCacheAction = "清除過期快取",
+            clearDandanplayTitle = "清除 dandanplay 設定？",
+            clearDandanplayText = "這會從本機受保護設定中移除已儲存的 dandanplay 憑證。之後仍可重新輸入 API 網址與快取預設值。",
+            cleanExpiredDandanplayTitle = "清除過期 dandanplay 快取？",
+            cleanExpiredDandanplayText = "會依目前快取期限移除過期彈幕快取；仍有效的新鮮快取會保留。",
+            externalAnimeListsTitle = "外部動畫清單",
+            externalAnimeListsDescription = "MyAnimeList 與 Bangumi 設定，用於動畫搜尋、手動對應與未來進度同步。",
+            myAnimeListTestLabel = "MAL 測試",
+            bangumiTestLabel = "Bangumi 測試",
+            myAnimeListClientIdLabel = "MyAnimeList Client ID",
+            myAnimeListAccessTokenKeepLabel = "MyAnimeList 存取權杖（留空以保留已儲存權杖）",
+            myAnimeListAccessTokenOptionalLabel = "MyAnimeList 存取權杖（選填）",
+            myAnimeListClientSecretKeepLabel = "MyAnimeList Client Secret（留空以保留已儲存密鑰）",
+            myAnimeListClientSecretOptionalLabel = "MyAnimeList Client Secret（OAuth 選填）",
+            bangumiApiBaseUrlLabel = "Bangumi API 基礎網址",
+            bangumiUserAgentLabel = "Bangumi User-Agent",
+            bangumiUserAgentRequiredError = "Bangumi User-Agent 為必填。",
+            bangumiAccessTokenKeepLabel = "Bangumi 存取權杖（留空以保留已儲存權杖）",
+            bangumiAccessTokenOptionalLabel = "Bangumi 存取權杖（選填）",
+            saveExternalListsAction = "儲存外部清單",
+            connectMyAnimeListAction = "連線 MAL",
+            testMyAnimeListAction = "測試 MAL",
+            testBangumiAction = "測試 Bangumi",
+            clearMyAnimeListAction = "清除 MAL",
+            clearBangumiAction = "清除 Bangumi",
+            clearMyAnimeListTitle = "清除 MyAnimeList 憑證？",
+            clearMyAnimeListText = "這會從本機受保護設定中移除已儲存的 MyAnimeList client secret 與存取權杖。既有本機動畫對應不會被移除。",
+            clearBangumiTitle = "清除 Bangumi 憑證？",
+            clearBangumiText = "這會從本機受保護設定中移除已儲存的 Bangumi 存取權杖。既有本機動畫對應不會被移除。",
             homeServerStatusTitle = "伺服器狀態",
             attentionNeededLabel = "需要處理",
             onlineLabel = "線上",
@@ -3258,6 +3352,9 @@ private data class DesktopStrings(
     val uiLanguagesValue: String,
     val appLabel: String,
     val primaryTargetsLabel: String,
+    val supportedLabel: String,
+    val privacyTitle: String,
+    val credentialsPrivacyText: String,
     val libraryViewTitles: Map<WindowsLibraryView, String> = emptyMap(),
     val libraryHostSubtitle: String,
     val librarySearchLabel: String,
@@ -3335,6 +3432,50 @@ private data class DesktopStrings(
     val retryAction: String,
     val cancelAction: String,
     val downloadExecutionPlannedText: String,
+    val dandanplayProvidersTitle: String,
+    val dandanplayProvidersDescription: String,
+    val cacheExpiryLabel: String,
+    val lastTestLabel: String,
+    val apiBaseUrlLabel: String,
+    val appIdOptionalLabel: String,
+    val appSecretKeepLabel: String,
+    val appSecretOptionalLabel: String,
+    val cacheMaxAgeDaysLabel: String,
+    val signedAuthAction: String,
+    val credentialAuthAction: String,
+    val currentAuthLabel: (String) -> String,
+    val saveDandanplaySettingsAction: String,
+    val testSavedAction: String,
+    val clearAction: String,
+    val cleanExpiredCacheAction: String,
+    val clearDandanplayTitle: String,
+    val clearDandanplayText: String,
+    val cleanExpiredDandanplayTitle: String,
+    val cleanExpiredDandanplayText: String,
+    val externalAnimeListsTitle: String,
+    val externalAnimeListsDescription: String,
+    val myAnimeListTestLabel: String,
+    val bangumiTestLabel: String,
+    val myAnimeListClientIdLabel: String,
+    val myAnimeListAccessTokenKeepLabel: String,
+    val myAnimeListAccessTokenOptionalLabel: String,
+    val myAnimeListClientSecretKeepLabel: String,
+    val myAnimeListClientSecretOptionalLabel: String,
+    val bangumiApiBaseUrlLabel: String,
+    val bangumiUserAgentLabel: String,
+    val bangumiUserAgentRequiredError: String,
+    val bangumiAccessTokenKeepLabel: String,
+    val bangumiAccessTokenOptionalLabel: String,
+    val saveExternalListsAction: String,
+    val connectMyAnimeListAction: String,
+    val testMyAnimeListAction: String,
+    val testBangumiAction: String,
+    val clearMyAnimeListAction: String,
+    val clearBangumiAction: String,
+    val clearMyAnimeListTitle: String,
+    val clearMyAnimeListText: String,
+    val clearBangumiTitle: String,
+    val clearBangumiText: String,
     val homeServerStatusTitle: String,
     val attentionNeededLabel: String,
     val onlineLabel: String,
@@ -9820,16 +9961,16 @@ private fun SettingsSectionContent(
                     MetadataRow(strings.appLabel, "Danmaku desktop")
                     MetadataRow(strings.primaryTargetsLabel, "Windows desktop, Android mobile/tablet, Android TV")
                     MetadataRow(strings.uiLanguageLabel, desktopLanguage.displayName)
-                    MetadataRow("Supported", strings.uiLanguagesValue)
+                    MetadataRow(strings.supportedLabel, strings.uiLanguagesValue)
                 }
                 DesktopLanguageSettingsCard(
                     selectedLanguage = desktopLanguage,
                     strings = strings,
                     onLanguageSelected = onDesktopLanguageChange,
                 )
-                SectionCard("Privacy") {
+                SectionCard(strings.privacyTitle) {
                     Text(
-                        "Credentials are stored in local protected settings where supported and omitted from diagnostics.",
+                        strings.credentialsPrivacyText,
                         color = DanmakuColors.TextMuted,
                     )
                     MetadataRow("MyAnimeList", externalAnimeProviderSettings.myAnimeListStatusText)
@@ -9885,6 +10026,7 @@ private fun SettingsSectionContent(
             }
             DesktopSettingsSection.PROVIDERS -> {
                 DandanplayProviderCard(
+                    strings = strings,
                     settings = dandanplaySettings,
                     onSave = onSaveDandanplaySettings,
                     onClear = onClearDandanplaySettings,
@@ -9893,6 +10035,7 @@ private fun SettingsSectionContent(
                     onCleanupExpiredCaches = onCleanupExpiredDandanplayCaches,
                 )
                 ExternalAnimeProviderSettingsCard(
+                    strings = strings,
                     settings = externalAnimeProviderSettings,
                     onSave = onSaveExternalAnimeProviderSettings,
                     onStartMyAnimeListOAuth = onStartMyAnimeListOAuth,
@@ -10580,6 +10723,7 @@ private fun SettingsConfirmationDialog(
     title: String,
     text: String,
     confirmLabel: String,
+    cancelLabel: String = "Cancel",
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -10599,7 +10743,7 @@ private fun SettingsConfirmationDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(cancelLabel)
             }
         },
     )
@@ -10653,6 +10797,7 @@ private fun httpUrlError(
 
 @Composable
 private fun DandanplayProviderCard(
+    strings: DesktopStrings,
     settings: DandanplayProviderSettings,
     onSave: (String, String?, String?, DandanplayAuthenticationMode, Int) -> Unit,
     onClear: () -> Unit,
@@ -10667,7 +10812,7 @@ private fun DandanplayProviderCard(
     var cacheMaxAgeDaysText by remember(settings) { mutableStateOf(settings.cacheMaxAgeDays.toString()) }
     var showClearConfirm by remember { mutableStateOf(false) }
     var showCleanupConfirm by remember { mutableStateOf(false) }
-    val baseUrlError = httpUrlError(baseUrl, "API base URL")
+    val baseUrlError = httpUrlError(baseUrl, strings.apiBaseUrlLabel)
     val cacheMaxAgeDaysError = integerRangeError(cacheMaxAgeDaysText, 1..3650, "days")
     val normalizedAppId = appId.trim().ifEmpty { null }
     val parsedCacheMaxAgeDays = cacheMaxAgeDaysText.toIntOrNull()
@@ -10678,22 +10823,22 @@ private fun DandanplayProviderCard(
         parsedCacheMaxAgeDays != settings.cacheMaxAgeDays
     val canSave = isDirty && baseUrlError == null && cacheMaxAgeDaysError == null
 
-    SectionCard("Danmaku Providers") {
+    SectionCard(strings.dandanplayProvidersTitle) {
         Text(
-            "dandanplay-compatible API settings for auto-match and fetched danmaku tracks.",
+            strings.dandanplayProvidersDescription,
             color = DanmakuColors.TextMuted,
         )
         Spacer(modifier = Modifier.height(10.dp))
         MetadataRow("dandanplay", settings.statusText)
-        MetadataRow("Cache expiry", "${settings.cacheMaxAgeDays} days")
+        MetadataRow(strings.cacheExpiryLabel, "${settings.cacheMaxAgeDays} days")
         connectionTestStatus?.let {
-            SettingsConnectionTestStatusRow("Last test", it)
+            SettingsConnectionTestStatusRow(strings.lastTestLabel, it)
         }
         Spacer(modifier = Modifier.height(8.dp))
         OutlinedTextField(
             value = baseUrl,
             onValueChange = { baseUrl = it },
-            label = { Text("API base URL") },
+            label = { Text(strings.apiBaseUrlLabel) },
             modifier = Modifier.fillMaxWidth(),
             isError = baseUrlError != null,
             singleLine = true,
@@ -10702,7 +10847,7 @@ private fun DandanplayProviderCard(
         OutlinedTextField(
             value = appId,
             onValueChange = { appId = it },
-            label = { Text("AppId (optional)") },
+            label = { Text(strings.appIdOptionalLabel) },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
         )
@@ -10712,9 +10857,9 @@ private fun DandanplayProviderCard(
             label = {
                 Text(
                     if (settings.hasAppSecret) {
-                        "AppSecret (leave blank to keep saved secret)"
+                        strings.appSecretKeepLabel
                     } else {
-                        "AppSecret (optional)"
+                        strings.appSecretOptionalLabel
                     },
                 )
             },
@@ -10725,7 +10870,7 @@ private fun DandanplayProviderCard(
         OutlinedTextField(
             value = cacheMaxAgeDaysText,
             onValueChange = { cacheMaxAgeDaysText = it },
-            label = { Text("Cache max age days") },
+            label = { Text(strings.cacheMaxAgeDaysLabel) },
             modifier = Modifier.fillMaxWidth(),
             isError = cacheMaxAgeDaysError != null,
             singleLine = true,
@@ -10736,16 +10881,16 @@ private fun DandanplayProviderCard(
                 onClick = { authenticationMode = DandanplayAuthenticationMode.SIGNED },
                 enabled = authenticationMode != DandanplayAuthenticationMode.SIGNED,
             ) {
-                Text("Signed auth")
+                Text(strings.signedAuthAction)
             }
             Button(
                 onClick = { authenticationMode = DandanplayAuthenticationMode.CREDENTIAL },
                 enabled = authenticationMode != DandanplayAuthenticationMode.CREDENTIAL,
             ) {
-                Text("Credential auth")
+                Text(strings.credentialAuthAction)
             }
             Text(
-                "Current: ${authenticationMode.name.lowercase()}",
+                strings.currentAuthLabel(authenticationMode.name.lowercase()),
                 color = DanmakuColors.TextMuted,
                 modifier = Modifier.align(Alignment.CenterVertically),
             )
@@ -10766,37 +10911,39 @@ private fun DandanplayProviderCard(
             ) {
                 Icon(Icons.Filled.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Save dandanplay settings")
+                Text(strings.saveDandanplaySettingsAction)
             }
             Button(onClick = onTestConnection) {
                 Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Test saved")
+                Text(strings.testSavedAction)
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = { showClearConfirm = true }) {
-                Text("Clear")
+                Text(strings.clearAction)
             }
             Button(onClick = { showCleanupConfirm = true }) {
-                Text("Clean expired cache")
+                Text(strings.cleanExpiredCacheAction)
             }
         }
     }
     if (showClearConfirm) {
         SettingsConfirmationDialog(
-            title = "Clear dandanplay settings?",
-            text = "This removes saved dandanplay credentials from local protected settings. API URL and cache defaults can be entered again later.",
-            confirmLabel = "Clear",
+            title = strings.clearDandanplayTitle,
+            text = strings.clearDandanplayText,
+            confirmLabel = strings.clearAction,
+            cancelLabel = strings.cancelAction,
             onConfirm = onClear,
             onDismiss = { showClearConfirm = false },
         )
     }
     if (showCleanupConfirm) {
         SettingsConfirmationDialog(
-            title = "Clean expired dandanplay cache?",
-            text = "Expired cached danmaku entries will be removed according to the current cache age setting. Fresh valid entries are kept.",
-            confirmLabel = "Clean cache",
+            title = strings.cleanExpiredDandanplayTitle,
+            text = strings.cleanExpiredDandanplayText,
+            confirmLabel = strings.cleanExpiredCacheAction,
+            cancelLabel = strings.cancelAction,
             onConfirm = onCleanupExpiredCaches,
             onDismiss = { showCleanupConfirm = false },
         )
@@ -10805,6 +10952,7 @@ private fun DandanplayProviderCard(
 
 @Composable
 private fun ExternalAnimeProviderSettingsCard(
+    strings: DesktopStrings,
     settings: ExternalAnimeProviderSettings,
     onSave: (String?, String?, String?, String, String, String?) -> Unit,
     onStartMyAnimeListOAuth: (String?, String?) -> Unit,
@@ -10823,9 +10971,9 @@ private fun ExternalAnimeProviderSettingsCard(
     var bangumiAccessToken by remember(settings) { mutableStateOf("") }
     var showClearMyAnimeListConfirm by remember { mutableStateOf(false) }
     var showClearBangumiConfirm by remember { mutableStateOf(false) }
-    val bangumiBaseUrlError = httpUrlError(bangumiBaseUrl, "Bangumi API base URL")
+    val bangumiBaseUrlError = httpUrlError(bangumiBaseUrl, strings.bangumiApiBaseUrlLabel)
     val bangumiUserAgentError = if (bangumiUserAgent.isBlank()) {
-        "Bangumi User-Agent is required."
+        strings.bangumiUserAgentRequiredError
     } else {
         null
     }
@@ -10838,24 +10986,24 @@ private fun ExternalAnimeProviderSettingsCard(
         bangumiAccessToken.isNotBlank()
     val canSave = isDirty && bangumiBaseUrlError == null && bangumiUserAgentError == null
 
-    SectionCard("External Anime Lists") {
+    SectionCard(strings.externalAnimeListsTitle) {
         Text(
-            "MyAnimeList and Bangumi settings for anime search, manual mapping, and future progress sync.",
+            strings.externalAnimeListsDescription,
             color = DanmakuColors.TextMuted,
         )
         MetadataRow("MyAnimeList", settings.myAnimeListStatusText)
         MetadataRow("Bangumi", settings.bangumiStatusText)
         myAnimeListConnectionTestStatus?.let {
-            SettingsConnectionTestStatusRow("MAL test", it)
+            SettingsConnectionTestStatusRow(strings.myAnimeListTestLabel, it)
         }
         bangumiConnectionTestStatus?.let {
-            SettingsConnectionTestStatusRow("Bangumi test", it)
+            SettingsConnectionTestStatusRow(strings.bangumiTestLabel, it)
         }
         Spacer(modifier = Modifier.height(8.dp))
         OutlinedTextField(
             value = myAnimeListClientId,
             onValueChange = { myAnimeListClientId = it },
-            label = { Text("MyAnimeList client ID") },
+            label = { Text(strings.myAnimeListClientIdLabel) },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
         )
@@ -10865,9 +11013,9 @@ private fun ExternalAnimeProviderSettingsCard(
             label = {
                 Text(
                     if (settings.hasMyAnimeListAccessToken) {
-                        "MyAnimeList access token (leave blank to keep saved token)"
+                        strings.myAnimeListAccessTokenKeepLabel
                     } else {
-                        "MyAnimeList access token (optional)"
+                        strings.myAnimeListAccessTokenOptionalLabel
                     },
                 )
             },
@@ -10881,9 +11029,9 @@ private fun ExternalAnimeProviderSettingsCard(
             label = {
                 Text(
                     if (settings.hasMyAnimeListClientSecret) {
-                        "MyAnimeList client secret (leave blank to keep saved secret)"
+                        strings.myAnimeListClientSecretKeepLabel
                     } else {
-                        "MyAnimeList client secret (optional for OAuth)"
+                        strings.myAnimeListClientSecretOptionalLabel
                     },
                 )
             },
@@ -10895,7 +11043,7 @@ private fun ExternalAnimeProviderSettingsCard(
             OutlinedTextField(
                 value = bangumiBaseUrl,
                 onValueChange = { bangumiBaseUrl = it },
-                label = { Text("Bangumi API base URL") },
+                label = { Text(strings.bangumiApiBaseUrlLabel) },
                 modifier = Modifier.weight(1f),
                 isError = bangumiBaseUrlError != null,
                 singleLine = true,
@@ -10903,7 +11051,7 @@ private fun ExternalAnimeProviderSettingsCard(
             OutlinedTextField(
                 value = bangumiUserAgent,
                 onValueChange = { bangumiUserAgent = it },
-                label = { Text("Bangumi User-Agent") },
+                label = { Text(strings.bangumiUserAgentLabel) },
                 modifier = Modifier.weight(1f),
                 isError = bangumiUserAgentError != null,
                 singleLine = true,
@@ -10916,9 +11064,9 @@ private fun ExternalAnimeProviderSettingsCard(
             label = {
                 Text(
                     if (settings.hasBangumiAccessToken) {
-                        "Bangumi access token (leave blank to keep saved token)"
+                        strings.bangumiAccessTokenKeepLabel
                     } else {
-                        "Bangumi access token (optional)"
+                        strings.bangumiAccessTokenOptionalLabel
                     },
                 )
             },
@@ -10945,7 +11093,7 @@ private fun ExternalAnimeProviderSettingsCard(
             ) {
                 Icon(Icons.Filled.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Save external lists")
+                Text(strings.saveExternalListsAction)
             }
             Button(
                 onClick = {
@@ -10954,7 +11102,7 @@ private fun ExternalAnimeProviderSettingsCard(
                 },
                 enabled = myAnimeListClientId.isNotBlank(),
             ) {
-                Text("Connect MAL")
+                Text(strings.connectMyAnimeListAction)
             }
             Button(
                 onClick = onTestMyAnimeListConnection,
@@ -10962,37 +11110,39 @@ private fun ExternalAnimeProviderSettingsCard(
             ) {
                 Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Test MAL")
+                Text(strings.testMyAnimeListAction)
             }
             Button(onClick = onTestBangumiConnection) {
                 Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Test Bangumi")
+                Text(strings.testBangumiAction)
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = { showClearMyAnimeListConfirm = true }) {
-                Text("Clear MAL")
+                Text(strings.clearMyAnimeListAction)
             }
             Button(onClick = { showClearBangumiConfirm = true }) {
-                Text("Clear Bangumi")
+                Text(strings.clearBangumiAction)
             }
         }
     }
     if (showClearMyAnimeListConfirm) {
         SettingsConfirmationDialog(
-            title = "Clear MyAnimeList credentials?",
-            text = "This removes the saved MyAnimeList client secret and access token from local protected settings. Existing local anime mappings are not removed.",
-            confirmLabel = "Clear MAL",
+            title = strings.clearMyAnimeListTitle,
+            text = strings.clearMyAnimeListText,
+            confirmLabel = strings.clearMyAnimeListAction,
+            cancelLabel = strings.cancelAction,
             onConfirm = onClearMyAnimeList,
             onDismiss = { showClearMyAnimeListConfirm = false },
         )
     }
     if (showClearBangumiConfirm) {
         SettingsConfirmationDialog(
-            title = "Clear Bangumi credentials?",
-            text = "This removes the saved Bangumi access token from local protected settings. Existing local anime mappings are not removed.",
-            confirmLabel = "Clear Bangumi",
+            title = strings.clearBangumiTitle,
+            text = strings.clearBangumiText,
+            confirmLabel = strings.clearBangumiAction,
+            cancelLabel = strings.cancelAction,
             onConfirm = onClearBangumi,
             onDismiss = { showClearBangumiConfirm = false },
         )

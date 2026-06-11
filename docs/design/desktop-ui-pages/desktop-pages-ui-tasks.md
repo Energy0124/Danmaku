@@ -49,6 +49,9 @@ Status legend:
   - The Home operational status column now uses the desktop string layer for
     server, metadata/posters, external sync, downloads, and cached danmaku
     card chrome.
+  - Settings General privacy chrome and the real dandanplay/MyAnimeList/Bangumi
+    provider forms now use the desktop string layer for labels, actions,
+    validation copy, and clear/cleanup confirmation text.
   - Remaining: migrate page actions, status labels, dialogs, tooltips,
     inspector copy, and empty/error states.
 - `[ ]` Add UI review screenshots or checks for English and `zh-TW` labels in
@@ -257,6 +260,10 @@ Status legend:
     failed badges with the last result detail in the Settings cards.
 - `[~]` Ensure credentials are masked, stored only in approved local stores, and
   omitted from diagnostics.
+  - Settings provider form labels, saved-secret helper text, clear-credential
+    confirmation dialogs, and the General privacy copy now route through the
+    English / `zh-TW` desktop string layer without changing local protected
+    storage behavior.
 - `[~]` Add confirmation dialogs for clearing credentials and destructive cache
   or mapping actions.
   - Settings now confirms dandanplay credential clearing, dandanplay expired
