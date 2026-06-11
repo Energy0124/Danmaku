@@ -931,7 +931,7 @@ private fun EpisodeDetailPanel(
                     )
                     detail.mediaItem.animeMetadata?.let { metadata ->
                         Text(
-                            "Matched anime: ${metadata.displayTitle}",
+                            stringResource(R.string.matched_anime, metadata.displayTitle),
                             color = AccentBlue,
                             style = MaterialTheme.typography.bodySmall,
                             maxLines = 1,
@@ -945,12 +945,18 @@ private fun EpisodeDetailPanel(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 AssistChip(onClick = {}, label = { Text(detail.mediaItem.formatSize()) })
-                AssistChip(onClick = {}, label = { Text("${detail.mediaItem.subtitles.size} subtitles") })
+                AssistChip(
+                    onClick = {},
+                    label = { Text(stringResource(R.string.subtitle_count, detail.mediaItem.subtitles.size)) },
+                )
                 AssistChip(onClick = {}, label = { Text(detail.mediaItem.mediaType) })
                 detail.mediaItem.posterPath?.let {
-                    AssistChip(onClick = {}, label = { Text("Poster ready") })
+                    AssistChip(onClick = {}, label = { Text(stringResource(R.string.poster_ready)) })
                 }
-                detail.mediaItem.metadataStatusLabel()?.let { label ->
+                detail.mediaItem.metadataStatusLabel(
+                    loadingLabel = stringResource(R.string.metadata_loading),
+                    failedLabel = stringResource(R.string.metadata_failed),
+                )?.let { label ->
                     AssistChip(onClick = {}, label = { Text(label) })
                 }
             }
@@ -972,7 +978,7 @@ private fun EpisodeDetailPanel(
                         modifier = Modifier.size(18.dp),
                     )
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Play")
+                    Text(stringResource(R.string.action_play))
                 }
                 OutlinedButton(
                     onClick = { onSetFavorite(!isFavorite) },
@@ -984,7 +990,13 @@ private fun EpisodeDetailPanel(
                         modifier = Modifier.size(18.dp),
                     )
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text(if (isFavorite) "Unfavorite" else "Favorite")
+                    Text(
+                        if (isFavorite) {
+                            stringResource(R.string.action_unfavorite)
+                        } else {
+                            stringResource(R.string.action_favorite)
+                        },
+                    )
                 }
                 OutlinedButton(
                     onClick = { detail.previousItem?.let(onSelectEpisode) },
@@ -996,7 +1008,7 @@ private fun EpisodeDetailPanel(
                         modifier = Modifier.size(18.dp),
                     )
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Previous")
+                    Text(stringResource(R.string.action_previous))
                 }
                 OutlinedButton(
                     onClick = { detail.nextItem?.let(onSelectEpisode) },
@@ -1008,7 +1020,7 @@ private fun EpisodeDetailPanel(
                         modifier = Modifier.size(18.dp),
                     )
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Next")
+                    Text(stringResource(R.string.action_next))
                 }
             }
         }
@@ -1036,12 +1048,12 @@ private fun NextUpPanel(
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    "Next Up",
+                    stringResource(R.string.library_next_up_title),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    "Resume or continue from your Windows library progress.",
+                    stringResource(R.string.library_next_up_subtitle),
                     color = SubtleText,
                     style = MaterialTheme.typography.bodySmall,
                 )
@@ -1119,7 +1131,7 @@ private fun NextUpChip(
                     onClick = onShowDetails,
                     modifier = Modifier.testTag("next-up-details:${item.mediaItem.id}"),
                 ) {
-                    Text("Details")
+                    Text(stringResource(R.string.action_details))
                 }
                 Button(
                     onClick = onPlay,
@@ -1151,7 +1163,7 @@ private fun LibraryPosterTile(
         if (posterImage.bitmap != null) {
             Image(
                 bitmap = posterImage.bitmap,
-                contentDescription = "Poster for $title",
+                contentDescription = stringResource(R.string.poster_content_description, title),
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,
             )
@@ -1316,13 +1328,13 @@ private fun ProgressChip(
                     onClick = onShowDetails,
                     modifier = Modifier.testTag(detailTag),
                 ) {
-                    Text("Details")
+                    Text(stringResource(R.string.action_details))
                 }
                 Button(
                     onClick = onPlay,
                     modifier = Modifier.testTag(playTag),
                 ) {
-                    Text("Play")
+                    Text(stringResource(R.string.action_play))
                 }
             }
         }
@@ -1358,12 +1370,12 @@ private fun SeriesRail(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        "Series",
+                        stringResource(R.string.library_series_title),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                     )
                     Text(
-                        "${series.size} most common titles",
+                        stringResource(R.string.library_series_count, series.size),
                         color = SubtleText,
                         style = MaterialTheme.typography.bodySmall,
                     )
@@ -1372,7 +1384,7 @@ private fun SeriesRail(
                     onClick = onClearSearch,
                     enabled = searchText.isNotBlank(),
                 ) {
-                    Text("Clear")
+                    Text(stringResource(R.string.action_clear))
                 }
             }
             LazyRow(
@@ -1488,7 +1500,10 @@ private fun SeriesDetailPanel(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                AssistChip(onClick = {}, label = { Text("${series.subtitleTrackCount} subtitles") })
+                AssistChip(
+                    onClick = {},
+                    label = { Text(stringResource(R.string.subtitle_count, series.subtitleTrackCount)) },
+                )
                 AssistChip(onClick = {}, label = { Text(watchSummary.progressLabel()) })
                 AssistChip(onClick = {}, label = { Text(series.totalSizeBytes.formatSize()) })
                 AssistChip(onClick = {}, label = { Text(series.latestIndexedItem.episodeTitle) })
@@ -1915,7 +1930,7 @@ private fun NowPlayingPanel(
                 onSelectSubtitle = onSelectSubtitle,
             )
             playbackError?.let {
-                ErrorText("Playback connection error: $it")
+                ErrorText(stringResource(R.string.playback_error_prefix, it))
             }
         }
     }
@@ -2200,7 +2215,7 @@ internal fun ConnectionPanel(
             }
 
             libraryError?.let {
-                ErrorText("Library error: $it")
+                ErrorText(stringResource(R.string.library_error_prefix, it))
             }
         }
     }
@@ -2373,11 +2388,19 @@ private fun TrackControls(
     if (audioTracks.isNotEmpty() || subtitleTracks.isNotEmpty()) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (audioTracks.isNotEmpty()) {
-                Text("Audio", color = SubtleText, style = MaterialTheme.typography.labelMedium)
+                Text(
+                    stringResource(R.string.audio_tracks_title),
+                    color = SubtleText,
+                    style = MaterialTheme.typography.labelMedium,
+                )
                 TrackButtons(audioTracks, onSelectAudio)
             }
             if (subtitleTracks.isNotEmpty()) {
-                Text("Subtitles", color = SubtleText, style = MaterialTheme.typography.labelMedium)
+                Text(
+                    stringResource(R.string.subtitle_tracks_title),
+                    color = SubtleText,
+                    style = MaterialTheme.typography.labelMedium,
+                )
                 LazyRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -2387,7 +2410,7 @@ private fun TrackControls(
                             selected = subtitleTracks.none(PlaybackTrack::selected),
                             onClick = { onSelectSubtitle(null) },
                             enabled = subtitleTracks.any(PlaybackTrack::selected),
-                            label = { Text("Off") },
+                            label = { Text(stringResource(R.string.subtitle_off)) },
                         )
                     }
                     items(subtitleTracks, key = PlaybackTrack::id) { track ->
@@ -2438,14 +2461,17 @@ private fun EpisodeRow(
     val metadata = buildList {
         add(watchStatus.statusLabel())
         add(item.formatSize())
-        add("${item.subtitles.size} subtitle tracks")
-        item.animeMetadata?.let { add("Matched: ${it.displayTitle}") }
+        add(stringResource(R.string.subtitle_track_count, item.subtitles.size))
+        item.animeMetadata?.let { add(stringResource(R.string.matched_anime_short, it.displayTitle)) }
         if (item.posterPath != null) {
-            add("Poster ready")
+            add(stringResource(R.string.poster_ready))
         }
-        item.metadataStatusLabel()?.let(::add)
+        item.metadataStatusLabel(
+            loadingLabel = stringResource(R.string.metadata_loading),
+            failedLabel = stringResource(R.string.metadata_failed),
+        )?.let(::add)
         if (isFavorite) {
-            add("Favorite")
+            add(stringResource(R.string.action_favorite))
         }
     }.joinToString(" · ")
 
@@ -2510,7 +2536,13 @@ private fun EpisodeRow(
                     modifier = Modifier.size(18.dp),
                 )
                 Spacer(modifier = Modifier.width(6.dp))
-                Text(if (isFavorite) "Unfavorite" else "Favorite")
+                Text(
+                    if (isFavorite) {
+                        stringResource(R.string.action_unfavorite)
+                    } else {
+                        stringResource(R.string.action_favorite)
+                    },
+                )
             }
             TextButton(
                 onClick = onPlay,
@@ -2522,16 +2554,19 @@ private fun EpisodeRow(
                     modifier = Modifier.size(18.dp),
                 )
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Play")
+                Text(stringResource(R.string.action_play))
             }
         }
     }
 }
 
-private fun LibraryMediaItem.metadataStatusLabel(): String? =
+private fun LibraryMediaItem.metadataStatusLabel(
+    loadingLabel: String,
+    failedLabel: String,
+): String? =
     when (metadataStatus) {
-        LibraryItemMetadataStatus.LOADING -> "Poster/metadata loading"
-        LibraryItemMetadataStatus.FAILED -> "Metadata refresh failed"
+        LibraryItemMetadataStatus.LOADING -> loadingLabel
+        LibraryItemMetadataStatus.FAILED -> failedLabel
         LibraryItemMetadataStatus.READY -> null
         LibraryItemMetadataStatus.NOT_AVAILABLE -> null
     }

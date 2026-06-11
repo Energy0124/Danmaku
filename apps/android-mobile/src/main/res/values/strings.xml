@@ -15,6 +15,8 @@
     <string name="library_episode_count">%1$d of %2$d episodes</string>
     <string name="library_continue_watching_subtitle">Resume episodes with enough saved progress.</string>
     <string name="library_recently_watched_subtitle">Recent activity from your paired Windows library.</string>
+    <string name="library_next_up_title">Next Up</string>
+    <string name="library_next_up_subtitle">Resume or continue from your Windows library progress.</string>
     <string name="library_no_connected_title">No library connected</string>
     <string name="library_no_connected_body">Connect to the Windows library server to keep episode details visible here.</string>
     <string name="library_select_episode_title">Select an episode</string>
@@ -33,6 +35,16 @@
     <string name="library_no_results_body">Try a different search, sort order, subtitle filter, or favorites filter.</string>
     <string name="library_empty_connect_title">Connect to your Windows library</string>
     <string name="library_empty_connect_body">Use discovery when the desktop app is open, then refresh the catalog.</string>
+    <string name="library_series_title">Series</string>
+    <string name="library_series_count">%1$d most common titles</string>
+    <string name="matched_anime">Matched anime: %1$s</string>
+    <string name="matched_anime_short">Matched: %1$s</string>
+    <string name="subtitle_count">%1$d subtitles</string>
+    <string name="subtitle_track_count">%1$d subtitle tracks</string>
+    <string name="poster_ready">Poster ready</string>
+    <string name="metadata_loading">Poster/metadata loading</string>
+    <string name="metadata_failed">Metadata refresh failed</string>
+    <string name="poster_content_description">Poster for %1$s</string>
     <string name="player_title">Player</string>
     <string name="player_empty">Select an episode to start playback.</string>
     <string name="player_ready_title">Ready to play</string>
@@ -66,6 +78,12 @@
     <string name="action_connect">Connect</string>
     <string name="action_reconnect">Reconnect</string>
     <string name="action_retry">Retry</string>
+    <string name="action_details">Details</string>
+    <string name="action_previous">Previous</string>
+    <string name="action_next">Next</string>
+    <string name="action_favorite">Favorite</string>
+    <string name="action_unfavorite">Unfavorite</string>
+    <string name="action_clear">Clear</string>
     <string name="action_browse">Browse</string>
     <string name="action_open_video">Open video</string>
     <string name="action_connect_library">Connect library</string>
@@ -80,4 +98,9 @@
     <string name="status_offline">Offline</string>
     <string name="status_ready">Ready</string>
     <string name="status_selected">Selected</string>
+    <string name="audio_tracks_title">Audio</string>
+    <string name="subtitle_tracks_title">Subtitles</string>
+    <string name="subtitle_off">Off</string>
+    <string name="playback_error_prefix">Playback connection error: %1$s</string>
+    <string name="library_error_prefix">Library error: %1$s</string>
 </resources>

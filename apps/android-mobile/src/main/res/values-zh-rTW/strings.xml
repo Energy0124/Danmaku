@@ -15,6 +15,8 @@
     <string name="library_episode_count">%1$d / %2$d 集</string>
     <string name="library_continue_watching_subtitle">從已儲存進度的集數繼續播放。</string>
     <string name="library_recently_watched_subtitle">來自已配對 Windows 媒體庫的最近活動。</string>
+    <string name="library_next_up_title">下一集</string>
+    <string name="library_next_up_subtitle">從 Windows 媒體庫進度繼續或接續播放。</string>
     <string name="library_no_connected_title">尚未連線媒體庫</string>
     <string name="library_no_connected_body">連線 Windows 媒體庫伺服器後，集數詳細資料會固定顯示在這裡。</string>
     <string name="library_select_episode_title">選取集數</string>
@@ -33,6 +35,16 @@
     <string name="library_no_results_body">請嘗試不同搜尋、排序、字幕篩選或收藏篩選。</string>
     <string name="library_empty_connect_title">連線你的 Windows 媒體庫</string>
     <string name="library_empty_connect_body">桌面 App 開啟時使用探索，然後重新整理目錄。</string>
+    <string name="library_series_title">系列</string>
+    <string name="library_series_count">%1$d 個常見標題</string>
+    <string name="matched_anime">已匹配動畫：%1$s</string>
+    <string name="matched_anime_short">匹配：%1$s</string>
+    <string name="subtitle_count">%1$d 個字幕</string>
+    <string name="subtitle_track_count">%1$d 個字幕軌</string>
+    <string name="poster_ready">海報就緒</string>
+    <string name="metadata_loading">海報/中繼資料載入中</string>
+    <string name="metadata_failed">中繼資料重新整理失敗</string>
+    <string name="poster_content_description">%1$s 的海報</string>
     <string name="player_title">播放器</string>
     <string name="player_empty">選取集數以開始播放。</string>
     <string name="player_ready_title">準備播放</string>
@@ -66,6 +78,12 @@
     <string name="action_connect">連線</string>
     <string name="action_reconnect">重新連線</string>
     <string name="action_retry">重試</string>
+    <string name="action_details">詳細資料</string>
+    <string name="action_previous">上一集</string>
+    <string name="action_next">下一集</string>
+    <string name="action_favorite">收藏</string>
+    <string name="action_unfavorite">取消收藏</string>
+    <string name="action_clear">清除</string>
     <string name="action_browse">瀏覽</string>
     <string name="action_open_video">開啟影片</string>
     <string name="action_connect_library">連線媒體庫</string>
@@ -80,4 +98,9 @@
     <string name="status_offline">離線</string>
     <string name="status_ready">就緒</string>
     <string name="status_selected">已選取</string>
+    <string name="audio_tracks_title">音訊</string>
+    <string name="subtitle_tracks_title">字幕</string>
+    <string name="subtitle_off">關閉</string>
+    <string name="playback_error_prefix">播放連線錯誤：%1$s</string>
+    <string name="library_error_prefix">媒體庫錯誤：%1$s</string>
 </resources>

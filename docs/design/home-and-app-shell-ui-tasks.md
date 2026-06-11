@@ -143,8 +143,10 @@ Status legend:
   - Mobile bottom navigation, Watch/Library/Connect headers, library filter
     chrome, connection setup labels, player empty state, and common empty
     panels now read from Android resources.
-  - Remaining mobile localization work: episode-detail controls, track labels,
-    poster metadata badges, and diagnostic error prefixes.
+  - Mobile episode-detail controls, track labels, poster metadata badges,
+    next-up/series rails, and diagnostic error prefixes now read from Android
+    resources. Residual literals are numeric controls and domain-generated
+    status/progress labels.
 - `[ ]` Map Home, Library, Downloads, Tracking, and Settings into mobile
   navigation without copying the desktop rail directly.
 - `[ ]` Add mobile Home sections for Continue Watching, Recently Added, and key
