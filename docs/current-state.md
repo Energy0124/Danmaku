@@ -25,8 +25,10 @@ trusted-LAN clients.
 ### Windows Desktop
 
 - Compose desktop shell with Home, Playback, Library, Downloads, and Profile
-  areas. Shared desktop UI models, theme constants, localization strings, and
-  common formatting helpers have been split out of the original shell file.
+  areas. Shared desktop UI models, theme constants, localization strings,
+  common formatting helpers, file dialogs, library presentation helpers, and
+  playback presentation constants/helpers have been split out of the original
+  shell file.
 - Multi-root local anime library indexing, incremental rescanning, ani-rss
   output-folder import, and persistent SQLDelight/SQLite storage.
 - Trusted-LAN library server with pairing token, JSON catalog, byte-range media
@@ -96,8 +98,9 @@ trusted-LAN clients.
   composition and release packaging are not first-class yet.
 - Download queue storage exists; a full authorized download engine is not
   implemented.
-- The desktop shell still has large feature/tab composables in `Main.kt`;
-  ongoing refactoring is decomposing it by surface without changing behavior.
+- The desktop shell still has large feature/tab composables and orchestration in
+  `Main.kt`; ongoing refactoring is decomposing it by surface without changing
+  behavior.
 
 ## Not Implemented
 
