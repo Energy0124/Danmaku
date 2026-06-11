@@ -2219,6 +2219,8 @@ private fun DesktopShell(
                             overlayStatus = overlayStatus,
                             danmakuSettings = danmakuSettings,
                             dandanplayCacheStatus = dandanplayCacheStatus,
+                            isPreparingLocalPlayback = isPreparingLocalPlayback,
+                            libraryError = libraryError,
                             onWindowIdChanged = { windowId ->
                                 if (mpvVideoWindowId != windowId) {
                                     appendDiagnostic(
@@ -4011,6 +4013,8 @@ private fun PlaybackTab(
     overlayStatus: String,
     danmakuSettings: DanmakuDisplaySettings,
     dandanplayCacheStatus: DandanplayPlaybackUiStatus?,
+    isPreparingLocalPlayback: Boolean,
+    libraryError: String?,
     onWindowIdChanged: (Long?) -> Unit,
     onMpvPointerMove: (x: Int, y: Int, width: Int, height: Int) -> Unit,
     onMpvPrimaryClick: (x: Int, y: Int, width: Int, height: Int) -> Unit,
@@ -4261,16 +4265,6 @@ private fun PlaybackTab(
                     videoHostStatus = videoHostStatus,
                     onOpenMediaFile = onOpenMediaFile,
                 )
-                playbackSnapshot.errorMessage?.let { error ->
-                    Text(
-                        text = error,
-                        color = DanmakuColors.Warning,
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .background(Color.Black.copy(alpha = 0.7f), RoundedCornerShape(8.dp))
-                            .padding(horizontal = 16.dp, vertical = 10.dp),
-                    )
-                }
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -4316,6 +4310,23 @@ private fun PlaybackTab(
                             .revealControlsOnPointerInput(),
                     )
                 }
+            }
+            if (
+                controlsVisible &&
+                !isFocusMode &&
+                (isPreparingLocalPlayback || playbackSnapshot.errorMessage != null || libraryError != null)
+            ) {
+                PlayerPreparationStatusOverlay(
+                    isPreparingLocalPlayback = isPreparingLocalPlayback,
+                    playbackError = playbackSnapshot.errorMessage,
+                    libraryError = libraryError,
+                    dandanplayCacheStatus = dandanplayCacheStatus,
+                    modifier = Modifier
+                        .align(if (hasMedia) Alignment.TopCenter else Alignment.Center)
+                        .padding(top = if (hasMedia) 84.dp else 0.dp)
+                        .width(420.dp)
+                        .revealControlsOnPointerInput(),
+                )
             }
             if (hasMedia && controlsVisible && !isFocusMode && !isFullscreen && rightPanelVisible) {
                 PlayerRightPanel(
@@ -4706,6 +4717,96 @@ private fun PlayerBottomOverlay(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun PlayerPreparationStatusOverlay(
+    isPreparingLocalPlayback: Boolean,
+    playbackError: String?,
+    libraryError: String?,
+    dandanplayCacheStatus: DandanplayPlaybackUiStatus?,
+    modifier: Modifier = Modifier,
+) {
+    val hasError = playbackError != null || libraryError != null
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color.Black.copy(alpha = 0.82f))
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(
+                imageVector = if (hasError) Icons.Filled.Warning else Icons.Filled.Refresh,
+                contentDescription = null,
+                tint = if (hasError) DanmakuColors.Warning else DanmakuColors.Info,
+            )
+            Text(
+                text = if (hasError) "Playback needs attention" else "Preparing playback",
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        if (isPreparingLocalPlayback) {
+            PlayerPreparationStepRow(
+                label = "Library",
+                value = "Preparing media, subtitles, metadata, and danmaku...",
+                color = DanmakuColors.Info,
+                icon = Icons.Filled.Refresh,
+            )
+        }
+        playbackError?.let { error ->
+            PlayerPreparationStepRow(
+                label = "Player runtime",
+                value = error,
+                color = DanmakuColors.Warning,
+                icon = Icons.Filled.Warning,
+            )
+        }
+        libraryError?.let { error ->
+            PlayerPreparationStepRow(
+                label = "Library preparation",
+                value = error,
+                color = DanmakuColors.Warning,
+                icon = Icons.Filled.Warning,
+            )
+        }
+        dandanplayCacheStatus?.let { status ->
+            PlayerPreparationStepRow(
+                label = "Danmaku",
+                value = status.summary,
+                color = if (status.summary.isDandanplayWarningStatus()) DanmakuColors.Warning else DanmakuColors.Good,
+                icon = if (status.summary.isDandanplayWarningStatus()) Icons.Filled.Warning else Icons.Filled.CheckCircle,
+            )
+        }
+    }
+}
+
+@Composable
+private fun PlayerPreparationStepRow(
+    label: String,
+    value: String,
+    color: Color,
+    icon: ImageVector,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(16.dp))
+        Text(label, color = color, maxLines = 1, modifier = Modifier.width(118.dp))
+        Text(
+            value,
+            color = DanmakuColors.TextMuted,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
     }
 }
 

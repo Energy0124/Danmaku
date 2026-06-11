@@ -136,7 +136,12 @@ Status legend:
     preference path.
   - Remaining: lane behavior and filter preset editing.
 - `[ ]` Show cached danmaku state after media selection and after relaunch.
-- `[ ]` Add preparing and error states that identify the failed step.
+- `[~]` Add preparing and error states that identify the failed step.
+  - Player now shows a structured preparation/status overlay using the
+    existing local preparation flag, player runtime error, library preparation
+    error, and dandanplay cache status so failures point at the affected step.
+  - Remaining: add visual QA around overlapping overlays and step-specific
+    retry actions.
 - `[ ]` Run fullscreen, resize, aspect, hardware decode, and 4K playback QA.
 
 ## Downloads Page
