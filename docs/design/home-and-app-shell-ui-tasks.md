@@ -52,6 +52,9 @@ Status legend:
   - The Settings Danmaku Display card now uses the same string layer for
     summaries, input labels, visibility controls, filters, and save/reset
     actions.
+  - Settings utility cards for Library, Playback Runtime, Storage, Privacy, and
+    Diagnostics now use the same string layer for titles, descriptions, and
+    metadata labels.
   - Home main dashboard and app rail chrome now use the same desktop string
     layer for library slices, now-playing fallback, Continue Watching,
     Recently Added/Watched, My Library summaries, empty states, and Home-only

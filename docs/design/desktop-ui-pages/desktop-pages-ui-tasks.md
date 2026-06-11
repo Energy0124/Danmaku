@@ -58,6 +58,9 @@ Status legend:
   - The Settings Danmaku Display card now uses the desktop string layer for
     overlay summaries, field labels, visibility toggles, filter inputs, and
     save/reset actions.
+  - Settings utility cards for Library, Playback Runtime, Storage, Privacy, and
+    Diagnostics now use the desktop string layer for titles, descriptions, and
+    metadata labels while preserving runtime values and provider names.
   - Home main dashboard and app rail chrome now use the desktop string layer
     for library slices, now-playing fallback, Continue Watching, Recently
     Added/Watched, My Library summaries, empty states, and Home-only

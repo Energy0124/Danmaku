@@ -2814,6 +2814,23 @@ private enum class DesktopUiLanguage(
             appLabel = "App",
             primaryTargetsLabel = "Primary targets",
             supportedLabel = "Supported",
+            librarySettingsDescription = "Library folders, imports, metadata refresh, mapping, and episode preparation are managed from the Library page.",
+            metadataLabel = "Metadata",
+            metadataRefreshLibraryDetailsText = "Series and episode refresh actions are available in Library details.",
+            importsLabel = "Imports",
+            aniRssImportsManagedDownloadsText = "ani-rss output folders are managed from Downloads.",
+            playbackRuntimeTitle = "Playback Runtime",
+            mpvExecutorLabel = "mpv executor",
+            rendererLabel = "Renderer",
+            mpvRendererDescription = "mpv video output with generated ASS danmaku overlay",
+            focusModeLabel = "Focus mode",
+            playerFocusModeDescription = "Player can hide non-video chrome with H",
+            storageCleanupDescription = "Cache cleanup is available from provider settings. Download destination controls will be enabled when source contracts are implemented.",
+            appLogLabel = "App log",
+            mpvLogLabel = "mpv log",
+            privacyCredentialsTitle = "Privacy and Credentials",
+            privacyCredentialsDescription = "Secrets are masked in forms and diagnostics. Clearing provider settings removes saved provider credentials.",
+            desktopRuntimeTitle = "Desktop Runtime",
             privacyTitle = "Privacy",
             credentialsPrivacyText = "Credentials are stored in local protected settings where supported and omitted from diagnostics.",
             playbackNeedsAttentionTitle = "Playback needs attention",
@@ -3369,6 +3386,23 @@ private enum class DesktopUiLanguage(
             appLabel = "應用程式",
             primaryTargetsLabel = "主要平台",
             supportedLabel = "支援",
+            librarySettingsDescription = "媒體庫資料夾、匯入、中繼資料重新整理、對應與集數準備都在媒體庫頁面管理。",
+            metadataLabel = "中繼資料",
+            metadataRefreshLibraryDetailsText = "系列與集數重新整理動作可在媒體庫詳情中使用。",
+            importsLabel = "匯入",
+            aniRssImportsManagedDownloadsText = "ani-rss 輸出資料夾由下載頁面管理。",
+            playbackRuntimeTitle = "播放執行階段",
+            mpvExecutorLabel = "mpv 執行器",
+            rendererLabel = "渲染器",
+            mpvRendererDescription = "mpv 視訊輸出搭配產生的 ASS 彈幕覆蓋",
+            focusModeLabel = "專注模式",
+            playerFocusModeDescription = "播放器可用 H 隱藏非視訊介面",
+            storageCleanupDescription = "快取清理可從服務設定執行。下載目的地控制會在來源合約實作後啟用。",
+            appLogLabel = "應用程式紀錄",
+            mpvLogLabel = "mpv 紀錄",
+            privacyCredentialsTitle = "隱私與憑證",
+            privacyCredentialsDescription = "表單與診斷會遮蔽秘密資訊。清除服務設定會移除已儲存的服務憑證。",
+            desktopRuntimeTitle = "桌面執行階段",
             privacyTitle = "隱私",
             credentialsPrivacyText = "憑證會盡可能儲存在本機受保護設定中，並且不會寫入診斷資訊。",
             playbackNeedsAttentionTitle = "播放需要處理",
@@ -3911,6 +3945,23 @@ private data class DesktopStrings(
     val appLabel: String,
     val primaryTargetsLabel: String,
     val supportedLabel: String,
+    val librarySettingsDescription: String,
+    val metadataLabel: String,
+    val metadataRefreshLibraryDetailsText: String,
+    val importsLabel: String,
+    val aniRssImportsManagedDownloadsText: String,
+    val playbackRuntimeTitle: String,
+    val mpvExecutorLabel: String,
+    val rendererLabel: String,
+    val mpvRendererDescription: String,
+    val focusModeLabel: String,
+    val playerFocusModeDescription: String,
+    val storageCleanupDescription: String,
+    val appLogLabel: String,
+    val mpvLogLabel: String,
+    val privacyCredentialsTitle: String,
+    val privacyCredentialsDescription: String,
+    val desktopRuntimeTitle: String,
     val privacyTitle: String,
     val credentialsPrivacyText: String,
     val playbackNeedsAttentionTitle: String,
@@ -10884,21 +10935,21 @@ private fun SettingsSectionContent(
                 }
             }
             DesktopSettingsSection.LIBRARY -> {
-                SectionCard("Library") {
+                SectionCard(strings.settingsSectionTitle(DesktopSettingsSection.LIBRARY)) {
                     Text(
-                        "Library folders, imports, metadata refresh, mapping, and episode preparation are managed from the Library page.",
+                        strings.librarySettingsDescription,
                         color = DanmakuColors.TextMuted,
                     )
-                    MetadataRow("Metadata", "Series and episode refresh actions are available in Library details.")
-                    MetadataRow("Imports", "ani-rss output folders are managed from Downloads.")
+                    MetadataRow(strings.metadataLabel, strings.metadataRefreshLibraryDetailsText)
+                    MetadataRow(strings.importsLabel, strings.aniRssImportsManagedDownloadsText)
                 }
             }
             DesktopSettingsSection.PLAYBACK -> {
-                SectionCard("Playback Runtime") {
-                    MetadataRow("mpv executor", mpvRuntimeStatus)
-                    MetadataRow("Video host", videoHostStatus)
-                    MetadataRow("Renderer", "mpv video output with generated ASS danmaku overlay")
-                    MetadataRow("Focus mode", "Player can hide non-video chrome with H")
+                SectionCard(strings.playbackRuntimeTitle) {
+                    MetadataRow(strings.mpvExecutorLabel, mpvRuntimeStatus)
+                    MetadataRow(strings.videoHostLabel, videoHostStatus)
+                    MetadataRow(strings.rendererLabel, strings.mpvRendererDescription)
+                    MetadataRow(strings.focusModeLabel, strings.playerFocusModeDescription)
                 }
             }
             DesktopSettingsSection.DANMAKU -> {
@@ -10980,19 +11031,19 @@ private fun SettingsSectionContent(
                 }
             }
             DesktopSettingsSection.STORAGE -> {
-                SectionCard("Storage") {
-                    MetadataRow("App log", appLogPath.toString())
-                    MetadataRow("mpv log", mpvLogPath.toString())
+                SectionCard(strings.settingsSectionTitle(DesktopSettingsSection.STORAGE)) {
+                    MetadataRow(strings.appLogLabel, appLogPath.toString())
+                    MetadataRow(strings.mpvLogLabel, mpvLogPath.toString())
                     Text(
-                        "Cache cleanup is available from provider settings. Download destination controls will be enabled when source contracts are implemented.",
+                        strings.storageCleanupDescription,
                         color = DanmakuColors.TextMuted,
                     )
                 }
             }
             DesktopSettingsSection.PRIVACY -> {
-                SectionCard("Privacy and Credentials") {
+                SectionCard(strings.privacyCredentialsTitle) {
                     Text(
-                        "Secrets are masked in forms and diagnostics. Clearing provider settings removes saved provider credentials.",
+                        strings.privacyCredentialsDescription,
                         color = DanmakuColors.TextMuted,
                     )
                     MetadataRow("MyAnimeList", externalAnimeProviderSettings.myAnimeListStatusText)
@@ -11001,11 +11052,11 @@ private fun SettingsSectionContent(
                 }
             }
             DesktopSettingsSection.DIAGNOSTICS -> {
-                SectionCard("Desktop Runtime") {
-                    MetadataRow("mpv executor", mpvRuntimeStatus)
-                    MetadataRow("Video host", videoHostStatus)
-                    MetadataRow("App log", appLogPath.toString())
-                    MetadataRow("mpv log", mpvLogPath.toString())
+                SectionCard(strings.desktopRuntimeTitle) {
+                    MetadataRow(strings.mpvExecutorLabel, mpvRuntimeStatus)
+                    MetadataRow(strings.videoHostLabel, videoHostStatus)
+                    MetadataRow(strings.appLogLabel, appLogPath.toString())
+                    MetadataRow(strings.mpvLogLabel, mpvLogPath.toString())
                 }
                 DiagnosticsPanel(diagnosticLog)
             }
