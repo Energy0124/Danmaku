@@ -68,6 +68,10 @@ class DesktopPlayerShortcutTest {
             resolveDesktopPlayerShortcut(DesktopPlayerShortcutInput(DesktopPlayerShortcutKey.V)),
         )
         assertEquals(
+            DesktopPlayerShortcut.TOGGLE_FOCUS_MODE,
+            resolveDesktopPlayerShortcut(DesktopPlayerShortcutInput(DesktopPlayerShortcutKey.H)),
+        )
+        assertEquals(
             DesktopPlayerShortcut.TOGGLE_FULLSCREEN,
             resolveDesktopPlayerShortcut(DesktopPlayerShortcutInput(DesktopPlayerShortcutKey.F)),
         )

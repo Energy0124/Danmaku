@@ -146,6 +146,7 @@ controls discoverable.
   open; they fade when playback is active and idle.
 - Player focus mode hides both sidebars and keeps playback controls available
   through hover, keyboard shortcuts, and a small restore-sidebar affordance.
+- `H` toggles Player focus mode in the desktop player.
 - Sidebar visibility should persist for the current player session and should
   not unexpectedly affect non-player pages.
 - Keyboard shortcuts remain available: play/pause, seek, volume, rate, track

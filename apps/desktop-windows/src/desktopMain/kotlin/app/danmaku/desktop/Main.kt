@@ -2363,6 +2363,7 @@ private fun PlaybackTab(
 ) {
     var controlsVisible by remember { mutableStateOf(true) }
     var controlsInteractionSerial by remember { mutableStateOf(0L) }
+    var isFocusMode by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
     val hasMedia = playbackSnapshot.source != null
     val shouldAutoHide = hasMedia && playbackSnapshot.status == PlaybackStatus.PLAYING
@@ -2382,32 +2383,64 @@ private fun PlaybackTab(
         }
 
     fun handleShortcut(shortcut: DesktopPlayerShortcut): Boolean {
-        if (!hasMedia) return false
         revealControls()
         when (shortcut) {
+            DesktopPlayerShortcut.TOGGLE_FOCUS_MODE -> {
+                isFocusMode = !isFocusMode
+            }
             DesktopPlayerShortcut.TOGGLE_PLAY_PAUSE -> {
+                if (!hasMedia) return false
                 if (playbackSnapshot.status == PlaybackStatus.PLAYING) {
                     onPause()
                 } else {
                     onPlay()
                 }
             }
-            DesktopPlayerShortcut.SEEK_BACKWARD -> onSeekBackward()
-            DesktopPlayerShortcut.SEEK_BACKWARD_LARGE -> onSeekBackwardLarge()
-            DesktopPlayerShortcut.SEEK_FORWARD -> onSeekForward()
-            DesktopPlayerShortcut.SEEK_FORWARD_LARGE -> onSeekForwardLarge()
-            DesktopPlayerShortcut.VOLUME_UP -> onSetVolume((playbackSnapshot.volumePercent + 5).coerceIn(0, 100))
-            DesktopPlayerShortcut.VOLUME_DOWN -> onSetVolume((playbackSnapshot.volumePercent - 5).coerceIn(0, 100))
-            DesktopPlayerShortcut.CYCLE_PLAYBACK_RATE -> onSetPlaybackRate(playbackSnapshot.playbackRate.nextPlaybackRate())
+            DesktopPlayerShortcut.SEEK_BACKWARD -> {
+                if (!hasMedia) return false
+                onSeekBackward()
+            }
+            DesktopPlayerShortcut.SEEK_BACKWARD_LARGE -> {
+                if (!hasMedia) return false
+                onSeekBackwardLarge()
+            }
+            DesktopPlayerShortcut.SEEK_FORWARD -> {
+                if (!hasMedia) return false
+                onSeekForward()
+            }
+            DesktopPlayerShortcut.SEEK_FORWARD_LARGE -> {
+                if (!hasMedia) return false
+                onSeekForwardLarge()
+            }
+            DesktopPlayerShortcut.VOLUME_UP -> {
+                if (!hasMedia) return false
+                onSetVolume((playbackSnapshot.volumePercent + 5).coerceIn(0, 100))
+            }
+            DesktopPlayerShortcut.VOLUME_DOWN -> {
+                if (!hasMedia) return false
+                onSetVolume((playbackSnapshot.volumePercent - 5).coerceIn(0, 100))
+            }
+            DesktopPlayerShortcut.CYCLE_PLAYBACK_RATE -> {
+                if (!hasMedia) return false
+                onSetPlaybackRate(playbackSnapshot.playbackRate.nextPlaybackRate())
+            }
             DesktopPlayerShortcut.CYCLE_AUDIO_TRACK -> {
+                if (!hasMedia) return false
                 playbackSnapshot.nextTrackId(PlaybackTrackKind.AUDIO)?.let(onSelectAudioTrack) ?: return false
             }
             DesktopPlayerShortcut.CYCLE_SUBTITLE_TRACK -> {
+                if (!hasMedia) return false
                 if (playbackSnapshot.tracks.none { it.kind == PlaybackTrackKind.SUBTITLE }) return false
                 onSelectSubtitleTrack(playbackSnapshot.nextSubtitleTrackId())
             }
-            DesktopPlayerShortcut.CYCLE_ASPECT_MODE -> onSetVideoAspectMode(videoAspectMode.nextAspectMode())
-            DesktopPlayerShortcut.TOGGLE_FULLSCREEN -> onSetFullscreen(!isFullscreen)
+            DesktopPlayerShortcut.CYCLE_ASPECT_MODE -> {
+                if (!hasMedia) return false
+                onSetVideoAspectMode(videoAspectMode.nextAspectMode())
+            }
+            DesktopPlayerShortcut.TOGGLE_FULLSCREEN -> {
+                if (!hasMedia) return false
+                onSetFullscreen(!isFullscreen)
+            }
         }
         return true
     }
@@ -2481,13 +2514,18 @@ private fun PlaybackTab(
     }
 
     Column(modifier = playbackModifier) {
-        if (hasMedia && !isFullscreen) {
+        if (hasMedia && !isFullscreen && !isFocusMode) {
             PlaybackWindowNavigationHeader(
                 title = playbackLabel ?: playbackSnapshot.source?.toString()?.redactToken() ?: "Playing",
                 status = playbackSnapshot.status.name,
                 overlayStatus = overlayStatus,
+                isFocusMode = isFocusMode,
                 onShowHome = onShowHome,
                 onShowLibrary = onShowLibrary,
+                onToggleFocusMode = {
+                    isFocusMode = !isFocusMode
+                    revealControls()
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(PLAYER_WINDOW_NAVIGATION_HEIGHT_DP.dp)
@@ -2510,24 +2548,31 @@ private fun PlaybackTab(
                 modifier = Modifier.fillMaxSize(),
             )
             if (!hasMedia) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(PLAYER_TOP_CONTROLS_HEIGHT_DP.dp)
-                        .align(Alignment.TopCenter)
-                        .revealControlsOnPointerInput(),
-                ) {
-                    PlayerTopOverlay(
-                        title = playbackLabel ?: playbackSnapshot.source?.toString()?.redactToken() ?: "No media loaded",
-                        status = playbackSnapshot.status.name,
-                        overlayStatus = overlayStatus,
-                        isFullscreen = isFullscreen,
-                        onShowHome = onShowHome,
-                        onShowLibrary = onShowLibrary,
+                if (!isFocusMode) {
+                    Box(
                         modifier = Modifier
-                            .fillMaxSize()
+                            .fillMaxWidth()
+                            .height(PLAYER_TOP_CONTROLS_HEIGHT_DP.dp)
+                            .align(Alignment.TopCenter)
                             .revealControlsOnPointerInput(),
-                    )
+                    ) {
+                        PlayerTopOverlay(
+                            title = playbackLabel ?: playbackSnapshot.source?.toString()?.redactToken() ?: "No media loaded",
+                            status = playbackSnapshot.status.name,
+                            overlayStatus = overlayStatus,
+                            isFullscreen = isFullscreen,
+                            isFocusMode = isFocusMode,
+                            onShowHome = onShowHome,
+                            onShowLibrary = onShowLibrary,
+                            onToggleFocusMode = {
+                                isFocusMode = !isFocusMode
+                                revealControls()
+                            },
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .revealControlsOnPointerInput(),
+                        )
+                    }
                 }
                 PlayerEmptyOverlay(
                     canOpenMedia = canOpenMedia,
@@ -2570,12 +2615,29 @@ private fun PlaybackTab(
                         onSelectSubtitleTrack = onSelectSubtitleTrack,
                         onSetFullscreen = onSetFullscreen,
                         onSetVideoAspectMode = onSetVideoAspectMode,
+                        isFocusMode = isFocusMode,
+                        onToggleFocusMode = {
+                            isFocusMode = !isFocusMode
+                            revealControls()
+                        },
                         canOpenMedia = canOpenMedia,
                         modifier = Modifier
                             .fillMaxSize()
                             .revealControlsOnPointerInput(),
                     )
                 }
+            }
+            if (isFocusMode && controlsVisible && !isFullscreen) {
+                PlayerFocusRestoreButton(
+                    onClick = {
+                        isFocusMode = false
+                        revealControls()
+                    },
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(16.dp)
+                        .revealControlsOnPointerInput(),
+                )
             }
         }
     }
@@ -2595,6 +2657,7 @@ private fun KeyEvent.toDesktopPlayerShortcutInput(): DesktopPlayerShortcutInput?
         Key.A -> DesktopPlayerShortcutKey.A
         Key.S -> DesktopPlayerShortcutKey.S
         Key.V -> DesktopPlayerShortcutKey.V
+        Key.H -> DesktopPlayerShortcutKey.H
         Key.F -> DesktopPlayerShortcutKey.F
         else -> return null
     }
@@ -2642,8 +2705,10 @@ private fun PlaybackWindowNavigationHeader(
     title: String,
     status: String,
     overlayStatus: String,
+    isFocusMode: Boolean,
     onShowHome: () -> Unit,
     onShowLibrary: () -> Unit,
+    onToggleFocusMode: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -2655,6 +2720,12 @@ private fun PlaybackWindowNavigationHeader(
     ) {
         PlayerIconButton(Icons.Filled.Home, "Home", onClick = onShowHome)
         PlayerIconButton(Icons.AutoMirrored.Filled.LibraryBooks, "Library", onClick = onShowLibrary)
+        PlayerIconButton(
+            imageVector = if (isFocusMode) Icons.Filled.FullscreenExit else Icons.Filled.Fullscreen,
+            contentDescription = if (isFocusMode) "Show player chrome (H)" else "Hide player chrome (H)",
+            active = isFocusMode,
+            onClick = onToggleFocusMode,
+        )
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
@@ -2687,8 +2758,10 @@ private fun PlayerTopOverlay(
     status: String,
     overlayStatus: String,
     isFullscreen: Boolean,
+    isFocusMode: Boolean,
     onShowHome: () -> Unit,
     onShowLibrary: () -> Unit,
+    onToggleFocusMode: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -2701,6 +2774,12 @@ private fun PlayerTopOverlay(
     ) {
         PlayerIconButton(Icons.Filled.Home, "Home", onClick = onShowHome)
         PlayerIconButton(Icons.AutoMirrored.Filled.LibraryBooks, "Library", onClick = onShowLibrary)
+        PlayerIconButton(
+            imageVector = if (isFocusMode) Icons.Filled.FullscreenExit else Icons.Filled.Fullscreen,
+            contentDescription = if (isFocusMode) "Show player chrome (H)" else "Hide player chrome (H)",
+            active = isFocusMode,
+            onClick = onToggleFocusMode,
+        )
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
@@ -2741,6 +2820,8 @@ private fun PlayerBottomOverlay(
     onSelectSubtitleTrack: (String?) -> Unit,
     onSetFullscreen: (Boolean) -> Unit,
     onSetVideoAspectMode: (DesktopVideoAspectMode) -> Unit,
+    isFocusMode: Boolean,
+    onToggleFocusMode: () -> Unit,
     canOpenMedia: Boolean,
     modifier: Modifier = Modifier,
 ) {
@@ -2878,6 +2959,13 @@ private fun PlayerBottomOverlay(
                 }
                 Spacer(modifier = Modifier.weight(1f))
                 PlayerIconButton(
+                    imageVector = if (isFocusMode) Icons.Filled.FullscreenExit else Icons.Filled.Fullscreen,
+                    contentDescription = if (isFocusMode) "Show player chrome (H)" else "Hide player chrome (H)",
+                    enabled = true,
+                    active = isFocusMode,
+                    onClick = onToggleFocusMode,
+                )
+                PlayerIconButton(
                     imageVector = if (isFullscreen) Icons.Filled.FullscreenExit else Icons.Filled.Fullscreen,
                     contentDescription = if (isFullscreen) "Exit fullscreen" else "Enter fullscreen",
                     enabled = hasMedia,
@@ -2885,6 +2973,33 @@ private fun PlayerBottomOverlay(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun PlayerFocusRestoreButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .background(Color.Black.copy(alpha = 0.62f), RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(
+            imageVector = Icons.Filled.FullscreenExit,
+            contentDescription = null,
+            tint = Color.White,
+        )
+        Text(
+            text = "Show chrome (H)",
+            color = Color.White,
+            style = MaterialTheme.typography.body2,
+            maxLines = 1,
+        )
     }
 }
 

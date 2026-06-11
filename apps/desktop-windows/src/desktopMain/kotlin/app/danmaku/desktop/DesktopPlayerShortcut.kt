@@ -12,6 +12,7 @@ internal enum class DesktopPlayerShortcut {
     CYCLE_AUDIO_TRACK,
     CYCLE_SUBTITLE_TRACK,
     CYCLE_ASPECT_MODE,
+    TOGGLE_FOCUS_MODE,
     TOGGLE_FULLSCREEN,
 }
 
@@ -26,6 +27,7 @@ internal enum class DesktopPlayerShortcutKey {
     A,
     S,
     V,
+    H,
     F,
 }
 
@@ -59,6 +61,7 @@ internal fun resolveDesktopPlayerShortcut(input: DesktopPlayerShortcutInput): De
         DesktopPlayerShortcutKey.A -> DesktopPlayerShortcut.CYCLE_AUDIO_TRACK
         DesktopPlayerShortcutKey.S -> DesktopPlayerShortcut.CYCLE_SUBTITLE_TRACK
         DesktopPlayerShortcutKey.V -> DesktopPlayerShortcut.CYCLE_ASPECT_MODE
+        DesktopPlayerShortcutKey.H -> DesktopPlayerShortcut.TOGGLE_FOCUS_MODE
         DesktopPlayerShortcutKey.F -> DesktopPlayerShortcut.TOGGLE_FULLSCREEN
     }
 }
