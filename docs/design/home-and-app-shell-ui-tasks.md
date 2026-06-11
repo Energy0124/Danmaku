@@ -55,6 +55,8 @@ Status legend:
     track fallbacks, sliders, and preparation step labels.
   - Player empty state, top navigation chrome, and bottom transport
     labels/tooltips now use the same desktop string layer.
+  - Home and Library file-group labels plus Library metadata readiness badges
+    now use the same English / `zh-TW` desktop string layer.
 - `[~]` Align the desktop top header with the target shell: app identity, global
   search, refresh/rescan, diagnostics/notifications, help, settings, and local
   profile/device controls.
@@ -88,6 +90,8 @@ Status legend:
   - Desktop Home episode and resume cards now prefer matched anime display
     titles, keep the local file group visible when it differs, and use matched
     titles for poster fallback text.
+  - The local file-group label is now localized through the desktop string
+    layer on Home cards and Library rows.
   - Library metadata search results now show provider poster previews from the
     cached candidate image URL before the user saves a MyAnimeList or Bangumi
     mapping.

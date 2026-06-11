@@ -3042,6 +3042,27 @@ private enum class DesktopUiLanguage(
             loadingLabel = "Loading",
             partialLabel = "Partial",
             waitingLabel = "Waiting",
+            metadataLoadingLabel = "Metadata loading",
+            metadataFailedLabel = "Metadata failed",
+            metadataReadyLabel = "Metadata ready",
+            metadataPartialLabel = "Metadata partial",
+            metadataNeededLabel = "Metadata needed",
+            metadataFailedShortLabel = "Failed",
+            metadataReadyShortLabel = "Ready",
+            metadataNeededShortLabel = "Needed",
+            metadataLoadingDetail = "Poster and anime match are refreshing",
+            metadataFailedDetail = "Refresh episode metadata to retry matching",
+            metadataReadyDetail = "Matched anime title and poster are available",
+            metadataPartialMatchedNoPosterDetail = "Matched anime title is ready; poster is missing",
+            metadataPartialPosterNoTitleDetail = "Poster is cached; anime title is missing",
+            metadataPartialGenericDetail = "Some metadata is cached; refresh to complete the match",
+            metadataNeededDetail = "Refresh metadata to match anime title and poster",
+            seriesMetadataLoadingDetail = "Series poster and episode metadata are refreshing",
+            seriesMetadataFailedDetail = "One or more episode metadata matches failed",
+            seriesMetadataReadyDetail = "Series poster and episode metadata are available",
+            seriesMetadataPartialDetail = "Some poster or episode metadata is available",
+            seriesMetadataNeededDetail = "Refresh metadata to match this series",
+            fileGroupLabel = { title -> "File group: $title" },
             postersReadySummary = { ready, total -> "$ready/$total posters ready" },
             refreshAction = "Refresh",
             refreshingAction = "Refreshing",
@@ -3397,6 +3418,27 @@ private enum class DesktopUiLanguage(
             loadingLabel = "載入中",
             partialLabel = "部分完成",
             waitingLabel = "等待中",
+            metadataLoadingLabel = "中繼資料載入中",
+            metadataFailedLabel = "中繼資料失敗",
+            metadataReadyLabel = "中繼資料就緒",
+            metadataPartialLabel = "中繼資料部分完成",
+            metadataNeededLabel = "需要中繼資料",
+            metadataFailedShortLabel = "失敗",
+            metadataReadyShortLabel = "就緒",
+            metadataNeededShortLabel = "需要",
+            metadataLoadingDetail = "正在重新整理海報與動畫對應",
+            metadataFailedDetail = "重新整理單集資料以重試對應",
+            metadataReadyDetail = "已取得符合的動畫標題與海報",
+            metadataPartialMatchedNoPosterDetail = "動畫標題已符合；缺少海報",
+            metadataPartialPosterNoTitleDetail = "海報已快取；缺少動畫標題",
+            metadataPartialGenericDetail = "已快取部分中繼資料；重新整理可完成對應",
+            metadataNeededDetail = "重新整理中繼資料以對應動畫標題與海報",
+            seriesMetadataLoadingDetail = "正在重新整理系列海報與單集中繼資料",
+            seriesMetadataFailedDetail = "一或多個單集中繼資料對應失敗",
+            seriesMetadataReadyDetail = "系列海報與單集中繼資料已就緒",
+            seriesMetadataPartialDetail = "已有部分海報或單集中繼資料",
+            seriesMetadataNeededDetail = "重新整理中繼資料以對應此系列",
+            fileGroupLabel = { title -> "檔案群組：$title" },
             postersReadySummary = { ready, total -> "$ready/$total 張海報就緒" },
             refreshAction = "重新整理",
             refreshingAction = "重新整理中",
@@ -3722,6 +3764,27 @@ private data class DesktopStrings(
     val loadingLabel: String,
     val partialLabel: String,
     val waitingLabel: String,
+    val metadataLoadingLabel: String,
+    val metadataFailedLabel: String,
+    val metadataReadyLabel: String,
+    val metadataPartialLabel: String,
+    val metadataNeededLabel: String,
+    val metadataFailedShortLabel: String,
+    val metadataReadyShortLabel: String,
+    val metadataNeededShortLabel: String,
+    val metadataLoadingDetail: String,
+    val metadataFailedDetail: String,
+    val metadataReadyDetail: String,
+    val metadataPartialMatchedNoPosterDetail: String,
+    val metadataPartialPosterNoTitleDetail: String,
+    val metadataPartialGenericDetail: String,
+    val metadataNeededDetail: String,
+    val seriesMetadataLoadingDetail: String,
+    val seriesMetadataFailedDetail: String,
+    val seriesMetadataReadyDetail: String,
+    val seriesMetadataPartialDetail: String,
+    val seriesMetadataNeededDetail: String,
+    val fileGroupLabel: (String) -> String,
     val postersReadySummary: (Int, Int) -> String,
     val refreshAction: String,
     val refreshingAction: String,
@@ -4243,6 +4306,7 @@ private fun HomeMainColumn(
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 recentlyAddedItems.take(4).forEach { mediaItem ->
                     HomeEpisodeCard(
+                        strings = strings,
                         mediaItem = mediaItem,
                         coverPath = seriesByMediaId[mediaItem.id]?.let { seriesPosterById[it.id] },
                         progressPercent = null,
@@ -4269,6 +4333,7 @@ private fun HomeMainColumn(
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 recentlyWatchedItems.take(4).forEach { item ->
                     HomeEpisodeCard(
+                        strings = strings,
                         mediaItem = item.mediaItem,
                         coverPath = seriesByMediaId[item.mediaItem.id]?.let { seriesPosterById[it.id] },
                         progressPercent = item.progress.progressPercent(),
@@ -4370,6 +4435,7 @@ private fun HomeHeroCard(
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             resumeCards.forEach { card ->
                 HomeResumeCard(
+                    strings = strings,
                     card = card,
                     coverPath = seriesByMediaId[card.mediaItem.id]?.let { seriesPosterById[it.id] },
                     isPreparing = isPreparingLocalPlayback,
@@ -4393,6 +4459,7 @@ private data class HomeResumeCardModel(
 
 @Composable
 private fun HomeResumeCard(
+    strings: DesktopStrings,
     card: HomeResumeCardModel,
     coverPath: Path?,
     isPreparing: Boolean,
@@ -4428,7 +4495,7 @@ private fun HomeResumeCard(
         }
         Text(card.mediaItem.displaySeriesTitle(), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(card.mediaItem.episodeTitle, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        card.mediaItem.localSeriesLabel()?.let { label ->
+        card.mediaItem.localSeriesLabel(strings)?.let { label ->
             Text(label, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         MiniProgressBar(percent = card.progressPercent)
@@ -4438,6 +4505,7 @@ private fun HomeResumeCard(
 
 @Composable
 private fun HomeEpisodeCard(
+    strings: DesktopStrings,
     mediaItem: LibraryMediaItem,
     coverPath: Path?,
     progressPercent: Int?,
@@ -4464,7 +4532,7 @@ private fun HomeEpisodeCard(
         )
         Text(mediaItem.displaySeriesTitle(), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(mediaItem.episodeTitle, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        mediaItem.localSeriesLabel()?.let { label ->
+        mediaItem.localSeriesLabel(strings)?.let { label ->
             Text(label, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         MiniProgressBar(percent = progressPercent)
@@ -7291,6 +7359,7 @@ private fun LibraryCenterWorkspace(
         }
         when (selectedView) {
             WindowsLibraryView.CONTINUE_WATCHING -> ContinueWatchingList(
+                strings = strings,
                 items = continueWatchingItems,
                 selectedMediaId = selectedMediaId,
                 refreshingMetadataMediaIds = refreshingMetadataMediaIds,
@@ -7301,6 +7370,7 @@ private fun LibraryCenterWorkspace(
                 onPlayLocalPlayback = onPlayLocalPlayback,
             )
             WindowsLibraryView.NEXT_UP -> NextUpList(
+                strings = strings,
                 items = nextUpItems,
                 selectedMediaId = selectedMediaId,
                 refreshingMetadataMediaIds = refreshingMetadataMediaIds,
@@ -7312,6 +7382,7 @@ private fun LibraryCenterWorkspace(
                 onPlayLocalPlayback = onPlayLocalPlayback,
             )
             WindowsLibraryView.RECENTLY_WATCHED -> RecentlyWatchedList(
+                strings = strings,
                 items = recentlyWatchedItems,
                 selectedMediaId = selectedMediaId,
                 refreshingMetadataMediaIds = refreshingMetadataMediaIds,
@@ -7324,6 +7395,7 @@ private fun LibraryCenterWorkspace(
             )
             WindowsLibraryView.FAVORITES,
             WindowsLibraryView.FILES -> EpisodeListView(
+                strings = strings,
                 episodes = filteredEpisodes,
                 selectedMediaId = selectedMediaId,
                 watchStatusById = watchStatusById,
@@ -7351,6 +7423,7 @@ private fun LibraryCenterWorkspace(
             )
             WindowsLibraryView.ALL_SERIES,
             WindowsLibraryView.PAIRED -> AllSeriesView(
+                strings = strings,
                 catalog = catalog,
                 visibleSeries = visibleSeries,
                 selectedSeries = selectedSeries,
@@ -7703,6 +7776,7 @@ private fun LibraryWorkspaceToolbar(
 
 @Composable
 private fun AllSeriesView(
+    strings: DesktopStrings,
     catalog: LibraryCatalog?,
     visibleSeries: List<LibrarySeries>,
     selectedSeries: LibrarySeries?,
@@ -7721,6 +7795,7 @@ private fun AllSeriesView(
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
 ) {
     LibraryProgressOverview(
+        strings = strings,
         continueWatchingItems = continueWatchingItems,
         nextUpItems = nextUpItems,
         isPreparing = isPreparing,
@@ -7769,6 +7844,7 @@ private fun AllSeriesView(
         ) {
             items(visibleSeries, key = { it.id }) { librarySeries ->
                 SeriesPosterCard(
+                    strings = strings,
                     series = librarySeries,
                     coverPath = coverBySeriesId[librarySeries.id],
                     watchSummary = seriesWatchSummaryById[librarySeries.id],
@@ -7793,6 +7869,7 @@ private fun AllSeriesView(
 
 @Composable
 private fun LibraryProgressOverview(
+    strings: DesktopStrings,
     continueWatchingItems: List<LibraryPlaybackProgressItem>,
     nextUpItems: List<LibraryNextUpItem>,
     isPreparing: Boolean,
@@ -7806,7 +7883,7 @@ private fun LibraryProgressOverview(
                 LibraryProgressCardModel(
                     title = item.mediaItem.displaySeriesTitle(),
                     subtitle = item.mediaItem.episodeTitle,
-                    fileGroupLabel = item.mediaItem.localSeriesLabel(),
+                    fileGroupLabel = item.mediaItem.localSeriesLabel(strings),
                     detail = "Resume at ${item.progress.positionMs.formatPlaybackTime()}",
                     progressPercent = item.progress.progressPercent(),
                     actionLabel = "Resume",
@@ -7819,7 +7896,7 @@ private fun LibraryProgressOverview(
                 LibraryProgressCardModel(
                     title = item.mediaItem.displaySeriesTitle(),
                     subtitle = item.mediaItem.episodeTitle,
-                    fileGroupLabel = item.mediaItem.localSeriesLabel(),
+                    fileGroupLabel = item.mediaItem.localSeriesLabel(strings),
                     detail = item.nextUpLabel(),
                     progressPercent = item.progress?.progressPercent(),
                     actionLabel = item.nextUpActionLabel(),
@@ -7893,6 +7970,7 @@ private fun LibraryProgressCard(
 
 @Composable
 private fun ContinueWatchingList(
+    strings: DesktopStrings,
     items: List<LibraryPlaybackProgressItem>,
     selectedMediaId: String?,
     refreshingMetadataMediaIds: Set<String>,
@@ -7925,6 +8003,7 @@ private fun ContinueWatchingList(
         ) {
             itemsIndexed(items, key = { _, item -> item.mediaItem.id }) { rowIndex, item ->
                 ContinueWatchingRow(
+                    strings = strings,
                     item = item,
                     selected = item.mediaItem.id == selectedMediaId || (selectedMediaId == null && rowIndex == boundedSelectedIndex),
                     isRefreshingMetadata = item.mediaItem.id in refreshingMetadataMediaIds,
@@ -7944,6 +8023,7 @@ private fun ContinueWatchingList(
 
 @Composable
 private fun NextUpList(
+    strings: DesktopStrings,
     items: List<LibraryNextUpItem>,
     selectedMediaId: String?,
     refreshingMetadataMediaIds: Set<String>,
@@ -7977,6 +8057,7 @@ private fun NextUpList(
         ) {
             itemsIndexed(items, key = { _, item -> item.mediaItem.id }) { rowIndex, item ->
                 NextUpRow(
+                    strings = strings,
                     item = item,
                     selected = item.mediaItem.id == selectedMediaId || (selectedMediaId == null && rowIndex == boundedSelectedIndex),
                     isRefreshingMetadata = item.mediaItem.id in refreshingMetadataMediaIds,
@@ -7997,6 +8078,7 @@ private fun NextUpList(
 
 @Composable
 private fun RecentlyWatchedList(
+    strings: DesktopStrings,
     items: List<LibraryPlaybackProgressItem>,
     selectedMediaId: String?,
     refreshingMetadataMediaIds: Set<String>,
@@ -8030,6 +8112,7 @@ private fun RecentlyWatchedList(
         ) {
             itemsIndexed(items, key = { _, item -> item.mediaItem.id }) { rowIndex, item ->
                 RecentlyWatchedRow(
+                    strings = strings,
                     item = item,
                     selected = item.mediaItem.id == selectedMediaId || (selectedMediaId == null && rowIndex == boundedSelectedIndex),
                     isRefreshingMetadata = item.mediaItem.id in refreshingMetadataMediaIds,
@@ -8050,6 +8133,7 @@ private fun RecentlyWatchedList(
 
 @Composable
 private fun EpisodeListView(
+    strings: DesktopStrings,
     episodes: List<LibraryMediaItem>,
     selectedMediaId: String?,
     watchStatusById: Map<String, LibraryWatchStatus>,
@@ -8093,6 +8177,7 @@ private fun EpisodeListView(
         ) {
             itemsIndexed(episodes, key = { _, item -> item.id }) { rowIndex, item ->
                 EpisodeRow(
+                    strings = strings,
                     item = item,
                     selected = item.id == selectedMediaId || (selectedMediaId == null && rowIndex == boundedSelectedIndex),
                     watchStatus = watchStatusById[item.id],
@@ -8171,6 +8256,7 @@ private fun LibraryInspectorPane(
         val isRefreshingEpisodeMetadata = selectedItem.id in refreshingMetadataMediaIds
         val isRefreshingSeriesMetadata = selectedSeries.id in refreshingMetadataSeriesIds
         val metadataReadiness = selectedItem.metadataReadiness(
+            strings = strings,
             isRefreshing = isRefreshingEpisodeMetadata || isRefreshingSeriesMetadata,
             hasPoster = coverPath != null || selectedItem.posterPath != null,
         )
@@ -8209,7 +8295,7 @@ private fun LibraryInspectorPane(
         originalSeriesTitle
             ?.takeIf { it.isNotBlank() && it != selectedItem.seriesTitle }
             ?.let { fileGroup ->
-                Text("File group: $fileGroup", color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(strings.fileGroupLabel(fileGroup), color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         MiniProgressBar(percent = watchStatusById[selectedItem.id]?.progress?.progressPercent())
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -8399,6 +8485,7 @@ private fun LibraryInspectorPane(
                 }
                 items(season.items, key = { it.id }) { item ->
                     CompactInspectorEpisodeRow(
+                        strings = strings,
                         item = item,
                         selected = item.id == selectedItem.id,
                         watchStatus = watchStatusById[item.id],
@@ -9011,6 +9098,7 @@ private fun InspectorStatusRow(
 
 @Composable
 private fun CompactInspectorEpisodeRow(
+    strings: DesktopStrings,
     item: LibraryMediaItem,
     selected: Boolean,
     watchStatus: LibraryWatchStatus?,
@@ -9018,7 +9106,7 @@ private fun CompactInspectorEpisodeRow(
     isRefreshingMetadata: Boolean,
     onClick: () -> Unit,
 ) {
-    val metadataReadiness = item.metadataReadiness(isRefreshing = isRefreshingMetadata)
+    val metadataReadiness = item.metadataReadiness(strings = strings, isRefreshing = isRefreshingMetadata)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -9033,7 +9121,7 @@ private fun CompactInspectorEpisodeRow(
             Text(item.episodeTitle, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
             originalSeriesTitle
                 ?.takeIf { it.isNotBlank() && it != item.seriesTitle }
-                ?.let { Text("File group: $it", color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                ?.let { Text(strings.fileGroupLabel(it), color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis) }
         }
         Column(horizontalAlignment = Alignment.End) {
             Text(watchStatus.statusLabel(), color = DanmakuColors.TextMuted, maxLines = 1)
@@ -9194,11 +9282,11 @@ private fun LibraryMediaItem.primaryPlaybackActionLabel(watchStatus: LibraryWatc
 private fun LibraryMediaItem.displaySeriesTitle(): String =
     animeMetadata?.displayTitle?.takeIf { it.isNotBlank() } ?: seriesTitle
 
-private fun LibraryMediaItem.localSeriesLabel(): String? {
+private fun LibraryMediaItem.localSeriesLabel(strings: DesktopStrings): String? {
     val displayTitle = displaySeriesTitle()
     return seriesTitle
         .takeIf { it.isNotBlank() && it != displayTitle }
-        ?.let { "File group: $it" }
+        ?.let(strings.fileGroupLabel)
 }
 
 private fun LibraryMediaItem.recentlyAddedDetail(strings: DesktopStrings): String =
@@ -9217,47 +9305,48 @@ private data class LibraryMetadataReadiness(
 )
 
 private fun LibraryMediaItem.metadataReadiness(
+    strings: DesktopStrings,
     isRefreshing: Boolean,
     hasPoster: Boolean = posterPath != null,
 ): LibraryMetadataReadiness {
     val hasMatchedTitle = animeMetadata != null
     return when {
         isRefreshing || metadataStatus == LibraryItemMetadataStatus.LOADING -> LibraryMetadataReadiness(
-            label = "Metadata loading",
-            shortLabel = "Loading",
-            detail = "Poster and anime match are refreshing",
+            label = strings.metadataLoadingLabel,
+            shortLabel = strings.loadingLabel,
+            detail = strings.metadataLoadingDetail,
             color = DanmakuColors.Accent,
             icon = Icons.Filled.Refresh,
         )
         metadataStatus == LibraryItemMetadataStatus.FAILED -> LibraryMetadataReadiness(
-            label = "Metadata failed",
-            shortLabel = "Failed",
-            detail = "Refresh episode metadata to retry matching",
+            label = strings.metadataFailedLabel,
+            shortLabel = strings.metadataFailedShortLabel,
+            detail = strings.metadataFailedDetail,
             color = DanmakuColors.Warning,
             icon = Icons.Filled.Warning,
         )
         hasMatchedTitle && hasPoster -> LibraryMetadataReadiness(
-            label = "Metadata ready",
-            shortLabel = "Ready",
-            detail = "Matched anime title and poster are available",
+            label = strings.metadataReadyLabel,
+            shortLabel = strings.metadataReadyShortLabel,
+            detail = strings.metadataReadyDetail,
             color = DanmakuColors.Good,
             icon = Icons.Filled.CheckCircle,
         )
         hasMatchedTitle || hasPoster || metadataStatus == LibraryItemMetadataStatus.READY -> LibraryMetadataReadiness(
-            label = "Metadata partial",
-            shortLabel = "Partial",
+            label = strings.metadataPartialLabel,
+            shortLabel = strings.partialLabel,
             detail = when {
-                hasMatchedTitle && !hasPoster -> "Matched anime title is ready; poster is missing"
-                hasPoster && !hasMatchedTitle -> "Poster is cached; anime title is missing"
-                else -> "Some metadata is cached; refresh to complete the match"
+                hasMatchedTitle && !hasPoster -> strings.metadataPartialMatchedNoPosterDetail
+                hasPoster && !hasMatchedTitle -> strings.metadataPartialPosterNoTitleDetail
+                else -> strings.metadataPartialGenericDetail
             },
             color = DanmakuColors.Info,
             icon = Icons.Filled.Refresh,
         )
         else -> LibraryMetadataReadiness(
-            label = "Metadata needed",
-            shortLabel = "Needed",
-            detail = "Refresh metadata to match anime title and poster",
+            label = strings.metadataNeededLabel,
+            shortLabel = strings.metadataNeededShortLabel,
+            detail = strings.metadataNeededDetail,
             color = DanmakuColors.TextMuted,
             icon = Icons.Filled.Refresh,
         )
@@ -9265,6 +9354,7 @@ private fun LibraryMediaItem.metadataReadiness(
 }
 
 private fun LibrarySeries.metadataReadiness(
+    strings: DesktopStrings,
     isRefreshing: Boolean,
     hasPoster: Boolean,
 ): LibraryMetadataReadiness {
@@ -9276,37 +9366,37 @@ private fun LibrarySeries.metadataReadiness(
     }
     return when {
         isRefreshing || items.any { it.metadataStatus == LibraryItemMetadataStatus.LOADING } -> LibraryMetadataReadiness(
-            label = "Metadata loading",
-            shortLabel = "Loading",
-            detail = "Series poster and episode metadata are refreshing",
+            label = strings.metadataLoadingLabel,
+            shortLabel = strings.loadingLabel,
+            detail = strings.seriesMetadataLoadingDetail,
             color = DanmakuColors.Accent,
             icon = Icons.Filled.Refresh,
         )
         hasAnyFailed -> LibraryMetadataReadiness(
-            label = "Metadata failed",
-            shortLabel = "Failed",
-            detail = "One or more episode metadata matches failed",
+            label = strings.metadataFailedLabel,
+            shortLabel = strings.metadataFailedShortLabel,
+            detail = strings.seriesMetadataFailedDetail,
             color = DanmakuColors.Warning,
             icon = Icons.Filled.Warning,
         )
         hasPoster && allItemsMatched -> LibraryMetadataReadiness(
-            label = "Metadata ready",
-            shortLabel = "Ready",
-            detail = "Series poster and episode metadata are available",
+            label = strings.metadataReadyLabel,
+            shortLabel = strings.metadataReadyShortLabel,
+            detail = strings.seriesMetadataReadyDetail,
             color = DanmakuColors.Good,
             icon = Icons.Filled.CheckCircle,
         )
         hasPoster || hasAnyMatchedTitle -> LibraryMetadataReadiness(
-            label = "Metadata partial",
-            shortLabel = "Partial",
-            detail = "Some poster or episode metadata is available",
+            label = strings.metadataPartialLabel,
+            shortLabel = strings.partialLabel,
+            detail = strings.seriesMetadataPartialDetail,
             color = DanmakuColors.Info,
             icon = Icons.Filled.Refresh,
         )
         else -> LibraryMetadataReadiness(
-            label = "Metadata needed",
-            shortLabel = "Needed",
-            detail = "Refresh metadata to match this series",
+            label = strings.metadataNeededLabel,
+            shortLabel = strings.metadataNeededShortLabel,
+            detail = strings.seriesMetadataNeededDetail,
             color = DanmakuColors.TextMuted,
             icon = Icons.Filled.Refresh,
         )
@@ -9315,6 +9405,7 @@ private fun LibrarySeries.metadataReadiness(
 
 @Composable
 private fun SeriesPosterCard(
+    strings: DesktopStrings,
     series: LibrarySeries,
     coverPath: Path?,
     watchSummary: LibrarySeriesWatchSummary?,
@@ -9326,6 +9417,7 @@ private fun SeriesPosterCard(
     onPlay: () -> Unit,
 ) {
     val metadataReadiness = series.metadataReadiness(
+        strings = strings,
         isRefreshing = isRefreshingMetadata,
         hasPoster = coverPath != null,
     )
@@ -11740,6 +11832,7 @@ private fun LibrarySeriesWatchSummary?.progressLabel(): String =
 
 @Composable
 private fun NextUpRow(
+    strings: DesktopStrings,
     item: LibraryNextUpItem,
     selected: Boolean,
     isRefreshingMetadata: Boolean,
@@ -11750,7 +11843,7 @@ private fun NextUpRow(
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
 ) {
-    val metadataReadiness = item.mediaItem.metadataReadiness(isRefreshing = isRefreshingMetadata)
+    val metadataReadiness = item.mediaItem.metadataReadiness(strings = strings, isRefreshing = isRefreshingMetadata)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -11764,7 +11857,7 @@ private fun NextUpRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(item.mediaItem.displaySeriesTitle(), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(item.mediaItem.episodeTitle, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            item.mediaItem.localSeriesLabel()?.let { label ->
+            item.mediaItem.localSeriesLabel(strings)?.let { label ->
                 Text(label, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Text(
@@ -11817,6 +11910,7 @@ private fun NextUpRow(
 
 @Composable
 private fun ContinueWatchingRow(
+    strings: DesktopStrings,
     item: LibraryPlaybackProgressItem,
     selected: Boolean,
     isRefreshingMetadata: Boolean,
@@ -11826,7 +11920,7 @@ private fun ContinueWatchingRow(
     onRefreshEpisodeMetadata: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
 ) {
-    val metadataReadiness = item.mediaItem.metadataReadiness(isRefreshing = isRefreshingMetadata)
+    val metadataReadiness = item.mediaItem.metadataReadiness(strings = strings, isRefreshing = isRefreshingMetadata)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -11840,7 +11934,7 @@ private fun ContinueWatchingRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(item.mediaItem.displaySeriesTitle(), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(item.mediaItem.episodeTitle, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            item.mediaItem.localSeriesLabel()?.let { label ->
+            item.mediaItem.localSeriesLabel(strings)?.let { label ->
                 Text(label, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Text(
@@ -11889,6 +11983,7 @@ private fun ContinueWatchingRow(
 
 @Composable
 private fun RecentlyWatchedRow(
+    strings: DesktopStrings,
     item: LibraryPlaybackProgressItem,
     selected: Boolean,
     isRefreshingMetadata: Boolean,
@@ -11899,7 +11994,7 @@ private fun RecentlyWatchedRow(
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
 ) {
-    val metadataReadiness = item.mediaItem.metadataReadiness(isRefreshing = isRefreshingMetadata)
+    val metadataReadiness = item.mediaItem.metadataReadiness(strings = strings, isRefreshing = isRefreshingMetadata)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -11913,7 +12008,7 @@ private fun RecentlyWatchedRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(item.mediaItem.displaySeriesTitle(), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(item.mediaItem.episodeTitle, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            item.mediaItem.localSeriesLabel()?.let { label ->
+            item.mediaItem.localSeriesLabel(strings)?.let { label ->
                 Text(label, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Text(
@@ -11969,6 +12064,7 @@ private fun RecentlyWatchedRow(
 
 @Composable
 private fun EpisodeRow(
+    strings: DesktopStrings,
     item: LibraryMediaItem,
     selected: Boolean,
     watchStatus: LibraryWatchStatus?,
@@ -11983,7 +12079,7 @@ private fun EpisodeRow(
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
 ) {
-    val metadataReadiness = item.metadataReadiness(isRefreshing = isRefreshingMetadata)
+    val metadataReadiness = item.metadataReadiness(strings = strings, isRefreshing = isRefreshingMetadata)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -12006,9 +12102,9 @@ private fun EpisodeRow(
                 Text(metadataReadiness.shortLabel, color = metadataReadiness.color, maxLines = 1)
             }
             Text(item.episodeTitle, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            (item.localSeriesLabel() ?: originalSeriesTitle
+            (item.localSeriesLabel(strings) ?: originalSeriesTitle
                 ?.takeIf { it.isNotBlank() && it != item.displaySeriesTitle() }
-                ?.let { "File group: $it" })
+                ?.let(strings.fileGroupLabel))
                 ?.let { label ->
                     Text(
                         label,

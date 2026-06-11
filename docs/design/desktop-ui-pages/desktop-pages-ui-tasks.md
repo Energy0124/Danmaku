@@ -53,6 +53,9 @@ Status legend:
     for library slices, now-playing fallback, Continue Watching, Recently
     Added/Watched, My Library summaries, empty states, and Home-only
     resume/next-up labels.
+  - Library metadata readiness badges/details and local file-group labels now
+    use the desktop string layer across Home cards, Library poster cards,
+    Library episode rows, and the inspector compact episode list.
   - Settings General privacy chrome and the real dandanplay/MyAnimeList/Bangumi
     provider forms now use the desktop string layer for labels, actions,
     validation copy, and clear/cleanup confirmation text.
@@ -104,11 +107,16 @@ Status legend:
   and episode title together without ambiguity.
   - Home cards and Library episode rows now prefer matched anime display
     titles while preserving the local file group label when it differs.
+  - Local file-group labels now share the English / `zh-TW` desktop string
+    layer instead of being assembled by row-level hardcoded copy.
 - `[~]` Add explicit metadata/poster loading, stale, partial, failed, and ready
   states in the inspector and browse cards.
   - Desktop Library now uses shared readiness labels for metadata loading,
     failed, partial, ready, and needed states in the inspector, series poster
     cards, file/favorite rows, and compact inspector episode list.
+  - Metadata readiness detail copy now distinguishes episode-level and
+    series-level loading, failed, partial, ready, and needed states through the
+    desktop English / `zh-TW` resources.
   - The metadata match dialog now loads provider candidate poster thumbnails
     through the existing HTTPS poster cache and labels loading/unavailable
     preview states directly in each search result.
