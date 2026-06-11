@@ -28,6 +28,8 @@ Status legend:
   relaunch behavior, and external list state.
 - `[~]` Continue library UI polish where details, title clarity, poster states,
   and focus behavior affect everyday use.
+- `[~]` Continue decomposing desktop `Main.kt` into focused shell, tab,
+  settings, player, library, and shared UI modules while preserving behavior.
 
 ## Next Engineering Work
 
@@ -44,6 +46,12 @@ Status legend:
   dense desktop, mobile, and TV surfaces.
 - `[ ]` Add release checklist automation for Android APKs and Windows portable
   archives.
+- `[ ]` Move the remaining desktop player surface out of `Main.kt` after the
+  shared model/theme/string extraction.
+- `[ ]` Move the desktop library workspace and shared library row/card
+  composables out of `Main.kt`.
+- `[ ]` Move desktop settings, server dashboard, and cache-management surfaces
+  out of `Main.kt`.
 
 ## Design Workstreams
 
