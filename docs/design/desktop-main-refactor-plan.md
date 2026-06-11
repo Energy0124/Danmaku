@@ -94,6 +94,17 @@ Completed library split:
 - `DesktopLibraryUiHelpers.kt` owns shared library keyboard, poster,
   metadata-readiness, and progress/download helper functions.
 
+Completed settings split:
+
+- `DesktopSettingsTab.kt` now owns the settings rail, profile tab, language
+  card, and section routing.
+- `DesktopSettingsDanmaku.kt` owns danmaku display controls and shared settings
+  validation/status rows.
+- `DesktopSettingsDialogs.kt` owns server dashboard, cache manager,
+  confirmation dialog, and range/URL validation helpers.
+- `DesktopSettingsProviders.kt` owns dandanplay, MyAnimeList, and Bangumi
+  provider cards.
+
 Acceptance:
 
 - Prefer files below roughly 700 lines unless a single cohesive surface

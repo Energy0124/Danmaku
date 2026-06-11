@@ -32,7 +32,9 @@ trusted-LAN clients.
   `docs/design/desktop-main-refactor-plan.md`, with feature tab files being
   separated and the first remembered diagnostics/server-event state object
   extracted from the shell. Library UI has also been split into focused tab,
-  workspace, list/progress, inspector/mapping, and helper files.
+  workspace, list/progress, inspector/mapping, and helper files. Settings UI
+  is split into routing/profile, danmaku controls, dialogs/cache/server, and
+  provider-card files.
 - Multi-root local anime library indexing, incremental rescanning, ani-rss
   output-folder import, and persistent SQLDelight/SQLite storage.
 - Trusted-LAN library server with pairing token, JSON catalog, byte-range media
