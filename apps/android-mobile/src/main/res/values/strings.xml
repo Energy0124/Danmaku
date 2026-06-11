@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Danmaku</string>
+    <string name="nav_home">Home</string>
     <string name="nav_watch">Watch</string>
     <string name="nav_library">Library</string>
     <string name="nav_connect">Connect</string>
@@ -8,6 +9,11 @@
     <string name="home_recently_added">Recently Added</string>
     <string name="home_recently_watched">Recently Watched</string>
     <string name="home_operational_status">Status</string>
+    <string name="home_connect_library_subtitle">Connect your Windows library to fill this Home feed.</string>
+    <string name="home_available_episodes">%1$d episodes available</string>
+    <string name="home_library_status_title">Library status</string>
+    <string name="home_library_status_connected">Connected to %1$s. Continue watching and recently watched rows are synced from desktop progress.</string>
+    <string name="home_library_status_empty">Pair with the desktop library to enable Home rows and resume playback.</string>
     <string name="library_title">Library</string>
     <string name="library_search_hint">Search anime, episodes, or paths</string>
     <string name="library_empty">Pair with a desktop library to browse episodes.</string>
@@ -86,6 +92,7 @@
     <string name="action_clear">Clear</string>
     <string name="action_browse">Browse</string>
     <string name="action_open_video">Open video</string>
+    <string name="action_open_library">Open Library</string>
     <string name="action_connect_library">Connect library</string>
     <string name="action_discover_pc">Discover PC</string>
     <string name="action_connect_current">Connect current</string>

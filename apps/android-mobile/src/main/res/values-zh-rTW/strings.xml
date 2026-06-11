@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Danmaku</string>
+    <string name="nav_home">首頁</string>
     <string name="nav_watch">觀看</string>
     <string name="nav_library">媒體庫</string>
     <string name="nav_connect">連線</string>
@@ -8,6 +9,11 @@
     <string name="home_recently_added">最近加入</string>
     <string name="home_recently_watched">最近觀看</string>
     <string name="home_operational_status">狀態</string>
+    <string name="home_connect_library_subtitle">連線你的 Windows 媒體庫以填入首頁動態。</string>
+    <string name="home_available_episodes">共有 %1$d 集可播放</string>
+    <string name="home_library_status_title">媒體庫狀態</string>
+    <string name="home_library_status_connected">已連線到 %1$s。繼續觀看與最近觀看列會從桌面進度同步。</string>
+    <string name="home_library_status_empty">配對桌面媒體庫後即可啟用首頁列與續播。</string>
     <string name="library_title">媒體庫</string>
     <string name="library_search_hint">搜尋動畫、集數或路徑</string>
     <string name="library_empty">配對桌面媒體庫後即可瀏覽集數。</string>
@@ -86,6 +92,7 @@
     <string name="action_clear">清除</string>
     <string name="action_browse">瀏覽</string>
     <string name="action_open_video">開啟影片</string>
+    <string name="action_open_library">開啟媒體庫</string>
     <string name="action_connect_library">連線媒體庫</string>
     <string name="action_discover_pc">探索 PC</string>
     <string name="action_connect_current">連線目前設定</string>

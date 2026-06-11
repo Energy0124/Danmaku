@@ -39,6 +39,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeDown
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
@@ -170,6 +171,7 @@ private enum class MobileTab(
     val labelResId: Int,
     val icon: ImageVector,
 ) {
+    Home(R.string.nav_home, Icons.Filled.Home),
     Watch(R.string.nav_watch, Icons.Filled.PlayArrow),
     Library(R.string.nav_library, Icons.Filled.VideoLibrary),
     Connect(R.string.nav_connect, Icons.Filled.Settings),
@@ -235,7 +237,7 @@ private fun MobilePlayerScreen() {
     var libraryFavoriteFilter by remember { mutableStateOf(LibraryFavoriteFilter.ANY) }
     var favoriteMediaIds by remember { mutableStateOf(favoriteStore.loadFavoriteMediaIds()) }
     var nowPlaying by remember { mutableStateOf<LibraryMediaItem?>(null) }
-    var selectedTab by remember { mutableStateOf(MobileTab.Watch) }
+    var selectedTab by remember { mutableStateOf(MobileTab.Home) }
     val totalItems = catalog?.items.orEmpty()
     val filteredItems = catalog
         ?.filteredItems(
@@ -387,6 +389,25 @@ private fun MobilePlayerScreen() {
         },
     ) { innerPadding ->
         when (selectedTab) {
+            MobileTab.Home -> HomePage(
+                contentPadding = innerPadding,
+                catalog = catalog,
+                posterEndpoint = posterEndpoint,
+                playbackProgresses = playbackProgresses,
+                snapshot = snapshot,
+                nowPlaying = nowPlaying,
+                onPlay = playEpisode,
+                onPlayPause = {
+                    if (snapshot.status == PlaybackStatus.PLAYING) {
+                        controller?.dispatch(PlaybackCommand.Pause)
+                    } else {
+                        controller?.dispatch(PlaybackCommand.Play)
+                    }
+                },
+                onOpenPlayer = { selectedTab = MobileTab.Watch },
+                onOpenLibrary = { selectedTab = MobileTab.Library },
+                onConnect = { selectedTab = MobileTab.Connect },
+            )
             MobileTab.Watch -> WatchPage(
                 contentPadding = innerPadding,
                 controller = controller,
@@ -533,6 +554,104 @@ private fun PageColumn(
         verticalArrangement = Arrangement.spacedBy(16.dp),
         content = content,
     )
+}
+
+@Composable
+internal fun HomePage(
+    contentPadding: PaddingValues,
+    catalog: LibraryCatalog?,
+    posterEndpoint: LibraryPosterEndpoint? = null,
+    playbackProgresses: List<PlaybackProgress>,
+    snapshot: PlaybackSnapshot,
+    nowPlaying: LibraryMediaItem?,
+    onPlay: (LibraryMediaItem) -> Unit,
+    onPlayPause: () -> Unit,
+    onOpenPlayer: () -> Unit,
+    onOpenLibrary: () -> Unit,
+    onConnect: () -> Unit,
+) {
+    val nextUpItems = catalog?.nextUpItems(playbackProgresses, limit = 5).orEmpty()
+    val continueWatchingItems = catalog?.continueWatchingItems(playbackProgresses, limit = 5).orEmpty()
+    val recentlyWatchedItems = catalog?.recentlyWatchedItems(playbackProgresses, limit = 5).orEmpty()
+
+    PageColumn(contentPadding) {
+        item(key = "home-page-header") {
+            PageHeader(
+                icon = Icons.Filled.Home,
+                title = stringResource(R.string.nav_home),
+                subtitle = catalog?.let {
+                    stringResource(R.string.home_available_episodes, it.items.size)
+                } ?: stringResource(R.string.home_connect_library_subtitle),
+            )
+        }
+        if (snapshot.source != null) {
+            item(key = "home-mini-player") {
+                MiniPlayerBar(
+                    snapshot = snapshot,
+                    nowPlaying = nowPlaying,
+                    onPlayPause = onPlayPause,
+                    onOpenPlayer = onOpenPlayer,
+                )
+            }
+        }
+        if (catalog == null) {
+            item(key = "home-empty-library") {
+                EmptyPanel(
+                    title = stringResource(R.string.library_empty_connect_title),
+                    body = stringResource(R.string.home_library_status_empty),
+                    actionLabel = stringResource(R.string.action_connect_library),
+                    onAction = onConnect,
+                )
+            }
+        } else {
+            if (nextUpItems.isNotEmpty()) {
+                item(key = "home-next-up") {
+                    NextUpPanel(
+                        items = nextUpItems,
+                        posterEndpoint = posterEndpoint,
+                        onShowDetails = { onOpenLibrary() },
+                        onPlay = onPlay,
+                    )
+                }
+            }
+            if (continueWatchingItems.isNotEmpty()) {
+                item(key = "home-continue-watching") {
+                    ProgressRail(
+                        title = stringResource(R.string.home_continue_watching),
+                        subtitle = stringResource(R.string.library_continue_watching_subtitle),
+                        tag = "home-continue-watching",
+                        itemTagPrefix = "home-continue",
+                        items = continueWatchingItems,
+                        posterEndpoint = posterEndpoint,
+                        onShowDetails = { onOpenLibrary() },
+                        onPlay = onPlay,
+                    )
+                }
+            }
+            if (recentlyWatchedItems.isNotEmpty()) {
+                item(key = "home-recently-watched") {
+                    ProgressRail(
+                        title = stringResource(R.string.home_recently_watched),
+                        subtitle = stringResource(R.string.library_recently_watched_subtitle),
+                        tag = "home-recently-watched",
+                        itemTagPrefix = "home-recent",
+                        items = recentlyWatchedItems,
+                        posterEndpoint = posterEndpoint,
+                        onShowDetails = { onOpenLibrary() },
+                        onPlay = onPlay,
+                    )
+                }
+            }
+            item(key = "home-library-status") {
+                EmptyPanel(
+                    title = stringResource(R.string.home_library_status_title),
+                    body = stringResource(R.string.home_library_status_connected, catalog.rootName),
+                    actionLabel = stringResource(R.string.action_open_library),
+                    onAction = onOpenLibrary,
+                )
+            }
+        }
+    }
 }
 
 @Composable

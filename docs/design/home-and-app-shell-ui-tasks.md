@@ -147,12 +147,16 @@ Status legend:
     next-up/series rails, and diagnostic error prefixes now read from Android
     resources. Residual literals are numeric controls and domain-generated
     status/progress labels.
-- `[ ]` Map Home, Library, Downloads, Tracking, and Settings into mobile
+- `[~]` Map Home, Library, Downloads, Tracking, and Settings into mobile
   navigation without copying the desktop rail directly.
-- `[ ]` Add mobile Home sections for Continue Watching, Recently Added, and key
+- `[~]` Add mobile Home sections for Continue Watching, Recently Added, and key
   operational status.
-- `[ ]` Use a compact status strip or lower feed cards for server, metadata,
+- `[~]` Use a compact status strip or lower feed cards for server, metadata,
   downloads, tracking, and danmaku cache state.
+  - Mobile now starts on a Home tab with Next Up, Continue Watching, Recently
+    Watched, a mini-player, and a compact library connection/status card.
+    Remaining mobile navigation/feed work: Downloads, Tracking, Settings,
+    Recently Added, and richer server/metadata/download/tracking/cache status.
 - `[ ]` Add tablet two-pane behavior where width allows persistent browse and
   detail areas.
 - `[ ]` Capture phone and tablet screenshots for loading, empty, populated, and
