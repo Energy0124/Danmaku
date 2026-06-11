@@ -41,8 +41,6 @@ import androidx.compose.material.MaterialTheme
 import androidx.compose.material.OutlinedTextField
 import androidx.compose.material.Slider
 import androidx.compose.material.Surface
-import androidx.compose.material.Tab
-import androidx.compose.material.TabRow
 import androidx.compose.material.Text
 import androidx.compose.material.darkColors
 import androidx.compose.material.icons.Icons
@@ -1908,26 +1906,40 @@ private fun DesktopShell(
             modifier = Modifier.fillMaxSize(),
             color = DanmakuColors.Background,
         ) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                if (!isFullscreen && selectedTab != DesktopShellTab.PLAYBACK) {
-                    ShellHeader(
+            Row(modifier = Modifier.fillMaxSize()) {
+                val showAppChrome = !isFullscreen && selectedTab != DesktopShellTab.PLAYBACK
+                if (showAppChrome) {
+                    AppNavigationRail(
                         selectedTab = selectedTab,
                         onTabSelected = { selectedTab = it },
-                        playerStatus = playbackSnapshot.status.name,
+                        playbackLabel = activePlaybackLabel,
+                        playbackStatus = playbackSnapshot.status,
                         episodeCount = indexedLibrary?.catalog?.items?.size ?: 0,
+                        modifier = Modifier.width(224.dp),
                     )
                 }
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(
-                            if (isFullscreen || selectedTab == DesktopShellTab.PLAYBACK) {
-                                0.dp
-                            } else {
-                                24.dp
-                            },
-                        ),
-                ) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    if (showAppChrome) {
+                        ShellHeader(
+                            selectedTab = selectedTab,
+                            onRefresh = ::rescanRegisteredRoots,
+                            onShowSettings = { selectedTab = DesktopShellTab.PROFILE },
+                            playerStatus = playbackSnapshot.status.name,
+                            episodeCount = indexedLibrary?.catalog?.items?.size ?: 0,
+                            isRefreshEnabled = registeredRoots.isNotEmpty() && !isIndexing,
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(
+                                if (isFullscreen || selectedTab == DesktopShellTab.PLAYBACK) {
+                                    0.dp
+                                } else {
+                                    18.dp
+                                },
+                            ),
+                    ) {
                     if (selectedTab == DesktopShellTab.PLAYBACK) {
                         PlaybackTab(
                             playbackLabel = activePlaybackLabel,
@@ -2069,6 +2081,18 @@ private fun DesktopShell(
                         DesktopShellTab.HOME -> HomeTab(
                             playbackSnapshot = playbackSnapshot,
                             registeredRoots = registeredRoots,
+                            indexedLibrary = displayIndexedLibrary,
+                            seriesPosterById = seriesPosterById,
+                            playbackProgresses = playbackProgresses,
+                            favoriteMediaIds = favoriteMediaIds,
+                            externalAnimeMappings = externalAnimeMappings,
+                            externalAnimeSyncFailures = externalAnimeSyncFailures,
+                            isIndexing = isIndexing,
+                            isPreparingLocalPlayback = isPreparingLocalPlayback,
+                            isRefreshingSeriesPosters = isRefreshingSeriesPosters,
+                            refreshingMetadataMediaIds = refreshingMetadataMediaIds,
+                            refreshingMetadataSeriesIds = refreshingMetadataSeriesIds,
+                            dandanplayCacheStatus = dandanplayCacheStatus,
                             episodeCount = indexedLibrary?.catalog?.items?.size ?: 0,
                             networkUrls = networkUrls,
                             pairingToken = server.pairingToken,
@@ -2076,6 +2100,15 @@ private fun DesktopShell(
                             libraryError = libraryError,
                             lastScanStats = lastScanStats,
                             diagnosticLog = diagnosticLog,
+                            onOpenLibrary = { selectedTab = DesktopShellTab.MEDIA_LIBRARY },
+                            onOpenDownloads = { selectedTab = DesktopShellTab.DOWNLOADS },
+                            onOpenSettings = { selectedTab = DesktopShellTab.PROFILE },
+                            onRefreshMetadata = {
+                                displayIndexedLibrary?.let(::refreshMissingSeriesPosters)
+                            },
+                            onPlayLocalPlayback = { item ->
+                                prepareLocalPlayback(item, loadAfterPrepare = true)
+                            },
                         )
                         DesktopShellTab.PLAYBACK -> Unit
                         DesktopShellTab.MEDIA_LIBRARY -> MediaLibraryTab(
@@ -2183,26 +2216,28 @@ private fun DesktopShell(
         }
     }
 }
+}
 
 private enum class DesktopShellTab(
     val title: String,
 ) {
     HOME("Home"),
     PLAYBACK("Playback"),
-    MEDIA_LIBRARY("Media Library"),
+    MEDIA_LIBRARY("Library"),
     DOWNLOADS("Downloads"),
-    PROFILE("Profile"),
+    PROFILE("Settings"),
 }
 
 private object DanmakuColors {
-    val Background = Color(0xFF151515)
-    val Surface = Color(0xFF202020)
-    val SurfaceRaised = Color(0xFF2A2A2A)
-    val Accent = Color(0xFFFF2D63)
-    val AccentSoft = Color(0xFF6D2140)
-    val TextMuted = Color(0xFFB8B8B8)
+    val Background = Color(0xFF121316)
+    val Surface = Color(0xFF1B1E23)
+    val SurfaceRaised = Color(0xFF282D34)
+    val Accent = Color(0xFFFFB547)
+    val AccentSoft = Color(0xFF4B3420)
+    val TextMuted = Color(0xFFB7C0CB)
     val Good = Color(0xFF5CE0A3)
     val Warning = Color(0xFFFFC857)
+    val Info = Color(0xFF6BA9FF)
 }
 
 private val DanmakuDarkColors = darkColors(
@@ -2220,55 +2255,201 @@ private val DanmakuDarkColors = darkColors(
 @Composable
 private fun ShellHeader(
     selectedTab: DesktopShellTab,
-    onTabSelected: (DesktopShellTab) -> Unit,
+    onRefresh: () -> Unit,
+    onShowSettings: () -> Unit,
     playerStatus: String,
     episodeCount: Int,
+    isRefreshEnabled: Boolean,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(DanmakuColors.Surface)
+            .padding(horizontal = 18.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Column(modifier = Modifier.width(180.dp)) {
+            Text(selectedTab.title, style = MaterialTheme.typography.h6, fontWeight = FontWeight.Bold)
+            Text("Local anime library host", color = DanmakuColors.TextMuted, maxLines = 1)
+        }
+        OutlinedTextField(
+            value = "",
+            onValueChange = {},
+            label = { Text("Search anime, episodes, files") },
+            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = "Search") },
+            modifier = Modifier.weight(1f),
+            singleLine = true,
+        )
+        StatusPill("Player $playerStatus", icon = Icons.Filled.PlayArrow, active = playerStatus == PlaybackStatus.PLAYING.name)
+        StatusPill("$episodeCount episodes", icon = Icons.AutoMirrored.Filled.LibraryBooks)
+        PlayerIconButton(
+            imageVector = Icons.Filled.Refresh,
+            contentDescription = "Rescan library",
+            enabled = isRefreshEnabled,
+            onClick = onRefresh,
+        )
+        PlayerIconButton(
+            imageVector = Icons.Filled.MoreHoriz,
+            contentDescription = "Settings",
+            onClick = onShowSettings,
+        )
+    }
+}
+
+@Composable
+private fun AppNavigationRail(
+    selectedTab: DesktopShellTab,
+    onTabSelected: (DesktopShellTab) -> Unit,
+    playbackLabel: String?,
+    playbackStatus: PlaybackStatus,
+    episodeCount: Int,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxHeight()
+            .background(DanmakuColors.Surface)
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(DanmakuColors.Accent),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("D", color = Color.Black, fontWeight = FontWeight.Bold)
+            }
+            Column {
+                Text("Danmaku", style = MaterialTheme.typography.h6, fontWeight = FontWeight.Bold)
+                Text("Media hub", color = DanmakuColors.TextMuted, maxLines = 1)
+            }
+        }
+        Divider(color = DanmakuColors.SurfaceRaised)
+        AppRailItem(
+            icon = Icons.Filled.Home,
+            label = DesktopShellTab.HOME.title,
+            selected = selectedTab == DesktopShellTab.HOME,
+            onClick = { onTabSelected(DesktopShellTab.HOME) },
+        )
+        AppRailItem(
+            icon = Icons.AutoMirrored.Filled.LibraryBooks,
+            label = DesktopShellTab.MEDIA_LIBRARY.title,
+            count = episodeCount,
+            selected = selectedTab == DesktopShellTab.MEDIA_LIBRARY,
+            onClick = { onTabSelected(DesktopShellTab.MEDIA_LIBRARY) },
+        )
+        AppRailItem(
+            icon = Icons.Filled.FolderOpen,
+            label = DesktopShellTab.DOWNLOADS.title,
+            selected = selectedTab == DesktopShellTab.DOWNLOADS,
+            onClick = { onTabSelected(DesktopShellTab.DOWNLOADS) },
+        )
+        AppRailItem(
+            icon = Icons.Filled.Refresh,
+            label = "Tracking",
+            selected = false,
+            onClick = { onTabSelected(DesktopShellTab.MEDIA_LIBRARY) },
+        )
+        AppRailItem(
+            icon = Icons.Filled.PlayArrow,
+            label = DesktopShellTab.PLAYBACK.title,
+            selected = selectedTab == DesktopShellTab.PLAYBACK,
+            onClick = { onTabSelected(DesktopShellTab.PLAYBACK) },
+        )
+        AppRailItem(
+            icon = Icons.Filled.MoreHoriz,
+            label = DesktopShellTab.PROFILE.title,
+            selected = selectedTab == DesktopShellTab.PROFILE,
+            onClick = { onTabSelected(DesktopShellTab.PROFILE) },
+        )
+        Divider(color = DanmakuColors.SurfaceRaised)
+        Text("Library slices", color = DanmakuColors.TextMuted, fontWeight = FontWeight.Bold)
+        listOf("Anime Series", "Movies", "OVAs / Specials", "All Episodes", "Favorites").forEach { label ->
+            Text(
+                text = label,
+                color = DanmakuColors.TextMuted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(6.dp))
+                    .clickable { onTabSelected(DesktopShellTab.MEDIA_LIBRARY) }
+                    .padding(horizontal = 8.dp, vertical = 5.dp),
+            )
+        }
+        Spacer(modifier = Modifier.weight(1f))
+        NowPlayingRailCard(
+            playbackLabel = playbackLabel,
+            playbackStatus = playbackStatus,
+            onOpenPlayer = { onTabSelected(DesktopShellTab.PLAYBACK) },
+        )
+    }
+}
+
+@Composable
+private fun AppRailItem(
+    icon: ImageVector,
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    count: Int? = null,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (selected) DanmakuColors.AccentSoft else Color.Transparent)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Icon(icon, contentDescription = label, tint = if (selected) DanmakuColors.Accent else DanmakuColors.TextMuted)
+        Text(label, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+        count?.takeIf { it > 0 }?.let {
+            Text(
+                text = it.toString(),
+                color = if (selected) Color.White else DanmakuColors.TextMuted,
+                maxLines = 1,
+                modifier = Modifier
+                    .background(DanmakuColors.SurfaceRaised, RoundedCornerShape(999.dp))
+                    .padding(horizontal = 7.dp, vertical = 2.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun NowPlayingRailCard(
+    playbackLabel: String?,
+    playbackStatus: PlaybackStatus,
+    onOpenPlayer: () -> Unit,
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(DanmakuColors.Surface)
-            .padding(horizontal = 24.dp, vertical = 18.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+            .clip(RoundedCornerShape(8.dp))
+            .background(DanmakuColors.SurfaceRaised.copy(alpha = 0.72f))
+            .clickable(onClick = onOpenPlayer)
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column {
-                Text(
-                    text = "Danmaku",
-                    style = MaterialTheme.typography.h4,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    text = "Local anime library, LAN streaming, and danmaku playback",
-                    color = DanmakuColors.TextMuted,
-                )
-            }
-            Spacer(modifier = Modifier.weight(1f))
-            StatusPill("Player $playerStatus")
-            Spacer(modifier = Modifier.width(8.dp))
-            StatusPill("$episodeCount episodes")
-        }
-        TabRow(
-            selectedTabIndex = DesktopShellTab.entries.indexOf(selectedTab),
-            backgroundColor = DanmakuColors.Surface,
-            contentColor = DanmakuColors.Accent,
-        ) {
-            DesktopShellTab.entries.forEach { tab ->
-                Tab(
-                    selected = selectedTab == tab,
-                    onClick = { onTabSelected(tab) },
-                    text = {
-                        Text(
-                            text = tab.title,
-                            fontWeight = if (selectedTab == tab) FontWeight.Bold else FontWeight.Normal,
-                        )
-                    },
-                )
-            }
-        }
+        Text("Now Playing", color = DanmakuColors.TextMuted, fontWeight = FontWeight.Bold)
+        Text(
+            playbackLabel ?: "No media loaded",
+            color = Color.White,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        StatusPill(
+            text = playbackStatus.name.lowercase().replaceFirstChar { it.uppercase() },
+            icon = Icons.Filled.PlayArrow,
+            active = playbackStatus == PlaybackStatus.PLAYING,
+        )
     }
 }
 
@@ -2276,6 +2457,18 @@ private fun ShellHeader(
 private fun HomeTab(
     playbackSnapshot: PlaybackSnapshot,
     registeredRoots: List<DesktopLibraryRoot>,
+    indexedLibrary: IndexedLocalLibrary?,
+    seriesPosterById: Map<String, Path?>,
+    playbackProgresses: List<PlaybackProgress>,
+    favoriteMediaIds: Set<String>,
+    externalAnimeMappings: List<ExternalAnimeMapping>,
+    externalAnimeSyncFailures: List<ExternalAnimeSyncFailure>,
+    isIndexing: Boolean,
+    isPreparingLocalPlayback: Boolean,
+    isRefreshingSeriesPosters: Boolean,
+    refreshingMetadataMediaIds: Set<String>,
+    refreshingMetadataSeriesIds: Set<String>,
+    dandanplayCacheStatus: DandanplayPlaybackUiStatus?,
     episodeCount: Int,
     networkUrls: List<String>,
     pairingToken: String,
@@ -2283,48 +2476,548 @@ private fun HomeTab(
     libraryError: String?,
     lastScanStats: LocalMediaLibraryScanStats?,
     diagnosticLog: List<DesktopDiagnosticLogEntry>,
+    onOpenLibrary: () -> Unit,
+    onOpenDownloads: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onRefreshMetadata: () -> Unit,
+    onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
 ) {
+    val catalog = indexedLibrary?.catalog
+    val series = remember(catalog) { catalog?.groupedSeries().orEmpty() }
+    val seriesByMediaId = remember(series) {
+        series
+            .flatMap { librarySeries -> librarySeries.seasons.flatMap { season -> season.items.map { it.id to librarySeries } } }
+            .toMap()
+    }
+    val seriesWatchSummaryById = remember(catalog, playbackProgresses) {
+        catalog?.seriesWatchSummaryById(playbackProgresses).orEmpty()
+    }
+    val continueWatchingItems = remember(catalog, playbackProgresses) {
+        catalog?.continueWatchingItems(playbackProgresses).orEmpty()
+    }
+    val nextUpItems = remember(catalog, playbackProgresses) {
+        catalog?.nextUpItems(playbackProgresses).orEmpty()
+    }
+    val recentlyWatchedItems = remember(catalog, playbackProgresses) {
+        catalog?.recentlyWatchedItems(playbackProgresses).orEmpty()
+    }
+    val externalTrackingPlan = remember(catalog, externalAnimeMappings, playbackProgresses, externalAnimeSyncFailures) {
+        catalog?.externalAnimeTrackingPlan(
+            mappings = externalAnimeMappings,
+            progresses = playbackProgresses,
+            failures = externalAnimeSyncFailures,
+        )
+    }
+    val metadataRefreshingCount = refreshingMetadataMediaIds.size + refreshingMetadataSeriesIds.size
+    val posterReadyCount = seriesPosterById.values.count { it != null }
+
     TabScaffold {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            SummaryCard(
-                title = "Library",
-                value = "$episodeCount",
-                caption = "indexed episodes",
-                modifier = Modifier.weight(1f),
-            )
-            SummaryCard(
-                title = "Folders",
-                value = "${registeredRoots.size}",
-                caption = "registered roots",
-                modifier = Modifier.weight(1f),
-            )
-            SummaryCard(
-                title = "Pairing",
-                value = pairingToken,
-                caption = "LAN code",
-                modifier = Modifier.weight(1f),
-            )
-        }
-        SectionCard("Current Playback") {
-            MetadataRow("State", playbackSnapshot.status.name)
-            MetadataRow("Source", playbackSnapshot.source?.toString()?.redactToken() ?: "No media loaded")
-            MetadataRow("Overlay", overlayStatus)
-            playbackSnapshot.errorMessage?.let { MetadataRow("Error", it, valueColor = DanmakuColors.Warning) }
-        }
-        SectionCard("Server") {
-            networkUrls.ifEmpty { listOf("No LAN URL detected") }.forEach { url ->
-                MetadataRow("Library URL", url)
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            val compact = maxWidth < 1120.dp
+            if (compact) {
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    HomeMainColumn(
+                        playbackSnapshot = playbackSnapshot,
+                        continueWatchingItems = continueWatchingItems,
+                        nextUpItems = nextUpItems,
+                        recentlyWatchedItems = recentlyWatchedItems,
+                        series = series,
+                        seriesByMediaId = seriesByMediaId,
+                        seriesPosterById = seriesPosterById,
+                        seriesWatchSummaryById = seriesWatchSummaryById,
+                        favoriteMediaIds = favoriteMediaIds,
+                        isPreparingLocalPlayback = isPreparingLocalPlayback,
+                        onOpenLibrary = onOpenLibrary,
+                        onPlayLocalPlayback = onPlayLocalPlayback,
+                    )
+                    HomeStatusColumn(
+                        registeredRoots = registeredRoots,
+                        episodeCount = episodeCount,
+                        seriesCount = series.size,
+                        networkUrls = networkUrls,
+                        pairingToken = pairingToken,
+                        overlayStatus = overlayStatus,
+                        libraryError = libraryError,
+                        lastScanStats = lastScanStats,
+                        isIndexing = isIndexing,
+                        isRefreshingSeriesPosters = isRefreshingSeriesPosters,
+                        metadataRefreshingCount = metadataRefreshingCount,
+                        posterReadyCount = posterReadyCount,
+                        externalTrackingPlan = externalTrackingPlan,
+                        dandanplayCacheStatus = dandanplayCacheStatus,
+                        diagnosticLog = diagnosticLog,
+                        onOpenLibrary = onOpenLibrary,
+                        onOpenDownloads = onOpenDownloads,
+                        onOpenSettings = onOpenSettings,
+                        onRefreshMetadata = onRefreshMetadata,
+                    )
+                }
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    HomeMainColumn(
+                        playbackSnapshot = playbackSnapshot,
+                        continueWatchingItems = continueWatchingItems,
+                        nextUpItems = nextUpItems,
+                        recentlyWatchedItems = recentlyWatchedItems,
+                        series = series,
+                        seriesByMediaId = seriesByMediaId,
+                        seriesPosterById = seriesPosterById,
+                        seriesWatchSummaryById = seriesWatchSummaryById,
+                        favoriteMediaIds = favoriteMediaIds,
+                        isPreparingLocalPlayback = isPreparingLocalPlayback,
+                        onOpenLibrary = onOpenLibrary,
+                        onPlayLocalPlayback = onPlayLocalPlayback,
+                        modifier = Modifier.weight(1f),
+                    )
+                    HomeStatusColumn(
+                        registeredRoots = registeredRoots,
+                        episodeCount = episodeCount,
+                        seriesCount = series.size,
+                        networkUrls = networkUrls,
+                        pairingToken = pairingToken,
+                        overlayStatus = overlayStatus,
+                        libraryError = libraryError,
+                        lastScanStats = lastScanStats,
+                        isIndexing = isIndexing,
+                        isRefreshingSeriesPosters = isRefreshingSeriesPosters,
+                        metadataRefreshingCount = metadataRefreshingCount,
+                        posterReadyCount = posterReadyCount,
+                        externalTrackingPlan = externalTrackingPlan,
+                        dandanplayCacheStatus = dandanplayCacheStatus,
+                        diagnosticLog = diagnosticLog,
+                        onOpenLibrary = onOpenLibrary,
+                        onOpenDownloads = onOpenDownloads,
+                        onOpenSettings = onOpenSettings,
+                        onRefreshMetadata = onRefreshMetadata,
+                        modifier = Modifier.width(332.dp),
+                    )
+                }
             }
-            MetadataRow("Registered folders", registeredRoots.joinToString { it.displayName }.ifBlank { "None yet" })
+        }
+    }
+}
+
+@Composable
+private fun HomeMainColumn(
+    playbackSnapshot: PlaybackSnapshot,
+    continueWatchingItems: List<LibraryPlaybackProgressItem>,
+    nextUpItems: List<LibraryNextUpItem>,
+    recentlyWatchedItems: List<LibraryPlaybackProgressItem>,
+    series: List<LibrarySeries>,
+    seriesByMediaId: Map<String, LibrarySeries>,
+    seriesPosterById: Map<String, Path?>,
+    seriesWatchSummaryById: Map<String, LibrarySeriesWatchSummary>,
+    favoriteMediaIds: Set<String>,
+    isPreparingLocalPlayback: Boolean,
+    onOpenLibrary: () -> Unit,
+    onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        HomeHeroCard(
+            playbackSnapshot = playbackSnapshot,
+            continueWatchingItems = continueWatchingItems,
+            nextUpItems = nextUpItems,
+            seriesByMediaId = seriesByMediaId,
+            seriesPosterById = seriesPosterById,
+            isPreparingLocalPlayback = isPreparingLocalPlayback,
+            onOpenLibrary = onOpenLibrary,
+            onPlayLocalPlayback = onPlayLocalPlayback,
+        )
+        HomeSectionHeader(
+            title = "Recently Watched",
+            actionLabel = "Open library",
+            onAction = onOpenLibrary,
+        )
+        if (recentlyWatchedItems.isEmpty()) {
+            EmptyState("Recent playback will appear here after you watch local episodes.")
+        } else {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                recentlyWatchedItems.take(4).forEach { item ->
+                    HomeEpisodeCard(
+                        mediaItem = item.mediaItem,
+                        coverPath = seriesByMediaId[item.mediaItem.id]?.let { seriesPosterById[it.id] },
+                        progressPercent = item.progress.progressPercent(),
+                        detail = "Watched ${item.progress.positionMs.formatPlaybackTime()}",
+                        isPreparing = isPreparingLocalPlayback,
+                        onPlay = { onPlayLocalPlayback(item.mediaItem) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                repeat((4 - recentlyWatchedItems.take(4).size).coerceAtLeast(0)) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+        }
+        HomeSectionHeader(
+            title = "My Library",
+            actionLabel = "Browse all",
+            onAction = onOpenLibrary,
+        )
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            SummaryCard(
+                title = "Series",
+                value = series.size.toString(),
+                caption = "matched groups",
+                modifier = Modifier.weight(1f),
+            )
+            SummaryCard(
+                title = "Favorites",
+                value = favoriteMediaIds.size.toString(),
+                caption = "saved episodes",
+                modifier = Modifier.weight(1f),
+            )
+            SummaryCard(
+                title = "Watching",
+                value = continueWatchingItems.size.toString(),
+                caption = "in progress",
+                modifier = Modifier.weight(1f),
+            )
+        }
+        if (series.isEmpty()) {
+            EmptyState("Add a local anime folder to build your Home dashboard.", "Open Library", onOpenLibrary)
+        } else {
+            SectionCard("Library Snapshot") {
+                series.take(6).forEach { librarySeries ->
+                    HomeSeriesSummaryRow(
+                        series = librarySeries,
+                        coverPath = seriesPosterById[librarySeries.id],
+                        watchSummary = seriesWatchSummaryById[librarySeries.id],
+                        onClick = onOpenLibrary,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeHeroCard(
+    playbackSnapshot: PlaybackSnapshot,
+    continueWatchingItems: List<LibraryPlaybackProgressItem>,
+    nextUpItems: List<LibraryNextUpItem>,
+    seriesByMediaId: Map<String, LibrarySeries>,
+    seriesPosterById: Map<String, Path?>,
+    isPreparingLocalPlayback: Boolean,
+    onOpenLibrary: () -> Unit,
+    onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
+) {
+    val resumeCards = buildList {
+        continueWatchingItems.take(3).forEach { item ->
+            add(
+                HomeResumeCardModel(
+                    mediaItem = item.mediaItem,
+                    detail = "Resume at ${item.progress.positionMs.formatPlaybackTime()}",
+                    progressPercent = item.progress.progressPercent(),
+                    actionLabel = "Resume",
+                ),
+            )
+        }
+        nextUpItems.take(3).forEach { item ->
+            add(
+                HomeResumeCardModel(
+                    mediaItem = item.mediaItem,
+                    detail = item.nextUpLabel(),
+                    progressPercent = item.progress?.progressPercent(),
+                    actionLabel = item.nextUpActionLabel(),
+                ),
+            )
+        }
+    }.distinctBy { it.mediaItem.id }.take(3)
+
+    SectionCard("Continue Watching") {
+        if (resumeCards.isEmpty()) {
+            EmptyState("No resume queue yet. Browse the library to start playback.", "Open Library", onOpenLibrary)
+            return@SectionCard
+        }
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            resumeCards.forEach { card ->
+                HomeResumeCard(
+                    card = card,
+                    coverPath = seriesByMediaId[card.mediaItem.id]?.let { seriesPosterById[it.id] },
+                    isPreparing = isPreparingLocalPlayback,
+                    onPlay = { onPlayLocalPlayback(card.mediaItem) },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+        playbackSnapshot.source?.let { source ->
+            MetadataRow("Loaded now", source.toString().redactToken())
+        }
+    }
+}
+
+private data class HomeResumeCardModel(
+    val mediaItem: LibraryMediaItem,
+    val detail: String,
+    val progressPercent: Int?,
+    val actionLabel: String,
+)
+
+@Composable
+private fun HomeResumeCard(
+    card: HomeResumeCardModel,
+    coverPath: Path?,
+    isPreparing: Boolean,
+    onPlay: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(DanmakuColors.SurfaceRaised.copy(alpha = 0.74f))
+            .padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(1.55f)
+                .clip(RoundedCornerShape(6.dp))
+                .background(DanmakuColors.AccentSoft),
+        ) {
+            SeriesPosterImage(
+                coverPath = coverPath,
+                title = card.mediaItem.seriesTitle,
+                modifier = Modifier.fillMaxSize(),
+            )
+            PlayerIconButton(
+                imageVector = Icons.Filled.PlayArrow,
+                contentDescription = card.actionLabel,
+                enabled = !isPreparing,
+                onClick = onPlay,
+                modifier = Modifier.align(Alignment.Center),
+            )
+        }
+        Text(card.mediaItem.seriesTitle, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(card.mediaItem.episodeTitle, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        MiniProgressBar(percent = card.progressPercent)
+        Text(card.detail, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+@Composable
+private fun HomeEpisodeCard(
+    mediaItem: LibraryMediaItem,
+    coverPath: Path?,
+    progressPercent: Int?,
+    detail: String,
+    isPreparing: Boolean,
+    onPlay: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(DanmakuColors.Surface)
+            .padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp),
+    ) {
+        SeriesPosterImage(
+            coverPath = coverPath,
+            title = mediaItem.seriesTitle,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(112.dp)
+                .clip(RoundedCornerShape(6.dp)),
+        )
+        Text(mediaItem.seriesTitle, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(mediaItem.episodeTitle, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        MiniProgressBar(percent = progressPercent)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(detail, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            PlayerIconButton(
+                imageVector = Icons.Filled.PlayArrow,
+                contentDescription = "Play",
+                enabled = !isPreparing,
+                onClick = onPlay,
+            )
+        }
+    }
+}
+
+@Composable
+private fun HomeSeriesSummaryRow(
+    series: LibrarySeries,
+    coverPath: Path?,
+    watchSummary: LibrarySeriesWatchSummary?,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        SeriesPosterImage(
+            coverPath = coverPath,
+            title = series.title,
+            modifier = Modifier
+                .size(48.dp)
+                .clip(RoundedCornerShape(6.dp)),
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(series.title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(watchSummary.progressLabel(), color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        StatusPill("${series.episodeCount} eps")
+    }
+}
+
+@Composable
+private fun HomeStatusColumn(
+    registeredRoots: List<DesktopLibraryRoot>,
+    episodeCount: Int,
+    seriesCount: Int,
+    networkUrls: List<String>,
+    pairingToken: String,
+    overlayStatus: String,
+    libraryError: String?,
+    lastScanStats: LocalMediaLibraryScanStats?,
+    isIndexing: Boolean,
+    isRefreshingSeriesPosters: Boolean,
+    metadataRefreshingCount: Int,
+    posterReadyCount: Int,
+    externalTrackingPlan: ExternalAnimeTrackingPlan?,
+    dandanplayCacheStatus: DandanplayPlaybackUiStatus?,
+    diagnosticLog: List<DesktopDiagnosticLogEntry>,
+    onOpenLibrary: () -> Unit,
+    onOpenDownloads: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onRefreshMetadata: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        OperationalStatusCard(
+            icon = Icons.Filled.Computer,
+            title = "Server Status",
+            value = when {
+                libraryError != null -> "Attention needed"
+                isIndexing -> "Indexing"
+                else -> "Online"
+            },
+            detail = networkUrls.firstOrNull() ?: "No LAN URL detected",
+            statusColor = when {
+                libraryError != null -> DanmakuColors.Warning
+                isIndexing -> DanmakuColors.Info
+                else -> DanmakuColors.Good
+            },
+            actionLabel = "Open Library",
+            onAction = onOpenLibrary,
+        ) {
+            MetadataRow("Pairing", pairingToken)
+            MetadataRow("Folders", registeredRoots.size.toString())
+            MetadataRow("Episodes", episodeCount.toString())
+            libraryError?.let { MetadataRow("Error", it, DanmakuColors.Warning) }
+        }
+        OperationalStatusCard(
+            icon = Icons.Filled.GridView,
+            title = "Metadata and Posters",
+            value = when {
+                isRefreshingSeriesPosters || metadataRefreshingCount > 0 -> "Loading"
+                posterReadyCount > 0 -> "Ready"
+                seriesCount > 0 -> "Partial"
+                else -> "Waiting"
+            },
+            detail = "$posterReadyCount/$seriesCount posters ready",
+            statusColor = when {
+                isRefreshingSeriesPosters || metadataRefreshingCount > 0 -> DanmakuColors.Info
+                posterReadyCount > 0 -> DanmakuColors.Good
+                seriesCount > 0 -> DanmakuColors.Warning
+                else -> DanmakuColors.TextMuted
+            },
+            actionLabel = if (isRefreshingSeriesPosters || metadataRefreshingCount > 0) "Refreshing" else "Refresh",
+            actionEnabled = !isRefreshingSeriesPosters,
+            onAction = onRefreshMetadata,
+        ) {
             lastScanStats?.let {
                 MetadataRow("Last scan", "${it.reusedItemCount} unchanged, ${it.refreshedItemCount} refreshed")
             }
-            libraryError?.let { MetadataRow("Library error", it, valueColor = DanmakuColors.Warning) }
+            MetadataRow("Groups", seriesCount.toString())
         }
-        DiagnosticsPanel(diagnosticLog)
+        OperationalStatusCard(
+            icon = Icons.Filled.Refresh,
+            title = "External Sync",
+            value = externalTrackingPlan?.summary?.label ?: "Not mapped",
+            detail = "${externalTrackingPlan?.summary?.updateCount ?: 0} ready updates",
+            statusColor = if ((externalTrackingPlan?.summary?.updateCount ?: 0) > 0) DanmakuColors.Info else DanmakuColors.TextMuted,
+            actionLabel = "Open Tracking",
+            onAction = onOpenLibrary,
+        )
+        OperationalStatusCard(
+            icon = Icons.Filled.FolderOpen,
+            title = "Downloads",
+            value = "Queue ready",
+            detail = "ani-rss output and imports",
+            statusColor = DanmakuColors.TextMuted,
+            actionLabel = "Open Downloads",
+            onAction = onOpenDownloads,
+        )
+        OperationalStatusCard(
+            icon = if (dandanplayCacheStatus?.summary?.isDandanplayWarningStatus() == true) Icons.Filled.Warning else Icons.Filled.CheckCircle,
+            title = "Cached Danmaku",
+            value = dandanplayCacheStatus?.summary ?: "Not checked",
+            detail = overlayStatus,
+            statusColor = when {
+                dandanplayCacheStatus == null -> DanmakuColors.TextMuted
+                dandanplayCacheStatus.summary.isDandanplayWarningStatus() -> DanmakuColors.Warning
+                else -> DanmakuColors.Good
+            },
+            actionLabel = "Manage Cache",
+            onAction = onOpenSettings,
+        )
+        DiagnosticsPanel(diagnosticLog, modifier = Modifier.heightIn(max = 280.dp))
+    }
+}
+
+@Composable
+private fun OperationalStatusCard(
+    icon: ImageVector,
+    title: String,
+    value: String,
+    detail: String,
+    statusColor: Color,
+    actionLabel: String,
+    actionEnabled: Boolean = true,
+    onAction: () -> Unit,
+    content: @Composable ColumnScope.() -> Unit = {},
+) {
+    SectionCard(title) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Icon(icon, contentDescription = null, tint = statusColor, modifier = Modifier.size(20.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(value, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(detail, color = DanmakuColors.TextMuted, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        content()
+        LibraryActionButton(
+            imageVector = Icons.Filled.PlayArrow,
+            label = actionLabel,
+            enabled = actionEnabled,
+            modifier = Modifier.fillMaxWidth(),
+            onClick = onAction,
+        )
+    }
+}
+
+@Composable
+private fun HomeSectionHeader(
+    title: String,
+    actionLabel: String,
+    onAction: () -> Unit,
+) {
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(title, style = MaterialTheme.typography.h6, fontWeight = FontWeight.Bold)
+        Spacer(modifier = Modifier.weight(1f))
+        LibraryActionButton(
+            imageVector = Icons.AutoMirrored.Filled.ViewList,
+            label = actionLabel,
+            onClick = onAction,
+        )
     }
 }
 
@@ -6029,7 +6722,7 @@ private fun SectionCard(
         modifier = modifier.fillMaxWidth(),
         backgroundColor = DanmakuColors.Surface,
         elevation = 8.dp,
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(8.dp),
     ) {
         Column(
             modifier = Modifier.padding(18.dp),
@@ -6053,7 +6746,7 @@ private fun SummaryCard(
         modifier = modifier.heightIn(min = 112.dp),
         backgroundColor = DanmakuColors.Surface,
         elevation = 8.dp,
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(8.dp),
     ) {
         Column(
             modifier = Modifier.padding(18.dp),

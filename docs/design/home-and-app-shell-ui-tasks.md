@@ -26,21 +26,21 @@ Status legend:
   as the detailed implementation backlog for non-Home desktop pages.
 - `[ ]` Add localization support for English and Traditional Chinese (`zh-TW`)
   across the desktop shell and shared page chrome.
-- `[ ]` Align the desktop top header with the target shell: app identity, global
+- `[~]` Align the desktop top header with the target shell: app identity, global
   search, refresh/rescan, diagnostics/notifications, help, settings, and local
   profile/device controls.
-- `[ ]` Normalize the desktop left navigation rail around Home, Library,
+- `[~]` Normalize the desktop left navigation rail around Home, Library,
   Downloads, Player, Tracking, and Settings.
-- `[ ]` Add secondary library shortcuts in the rail or equivalent compact
+- `[~]` Add secondary library shortcuts in the rail or equivalent compact
   surface for Anime Series, Movies, OVAs / Specials, All Episodes,
   Collections, Favorites, Watch Later, and Completed.
-- `[ ]` Add a home dashboard layout with Continue Watching, Recently Added, My
+- `[x]` Add a home dashboard layout with Continue Watching, Recently Added, My
   Library, and compact now-playing sections.
-- `[ ]` Add a right-side operational status column on desktop Home for server,
+- `[x]` Add a right-side operational status column on desktop Home for server,
   metadata/posters, external sync, downloads, and cached danmaku.
-- `[ ]` Make status cards actionable with Open Dashboard, Refresh Metadata, Open
+- `[~]` Make status cards actionable with Open Dashboard, Refresh Metadata, Open
   Tracking / Sync Ready Updates, Open Downloads, and Manage Cache.
-- `[ ]` Add explicit in-progress, stale, partial, failed, and ready states for
+- `[~]` Add explicit in-progress, stale, partial, failed, and ready states for
   metadata/poster, external sync, download, and danmaku cache cards.
 - `[ ]` Ensure poster fallback art and matched metadata are consistently used on
   Home, Library, Tracking, History, and details surfaces.
@@ -79,9 +79,9 @@ Status legend:
 
 ## Visual System
 
-- `[ ]` Consolidate shared colors, spacing, card radius, status colors, and icon
+- `[~]` Consolidate shared colors, spacing, card radius, status colors, and icon
   sizing for the desktop shell.
-- `[ ]` Prefer icon buttons with tooltips for compact commands.
+- `[~]` Prefer icon buttons with tooltips for compact commands.
 - `[ ]` Audit text sizes so dashboard cards, tables, side panels, and buttons do
   not use hero-scale type.
 - `[ ]` Add screenshots or visual QA notes for default, narrow, and wide desktop
@@ -94,6 +94,6 @@ Status legend:
 - `[ ]` Add Android mobile Compose tests for Home navigation and status state
   display.
 - `[ ]` Add Android TV focus tests for Home rail and status panel traversal.
-- `[ ]` Run desktop compile/test after implementation changes.
+- `[x]` Run desktop compile/test after implementation changes.
 - `[ ]` Run Android mobile and TV compile/instrumentation-source checks after
   platform UI changes.
