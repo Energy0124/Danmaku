@@ -65,6 +65,9 @@ Status legend:
   - Settings General privacy chrome and the real dandanplay/MyAnimeList/Bangumi
     provider forms now use the desktop string layer for labels, actions,
     validation copy, and clear/cleanup confirmation text.
+  - The Library Import dialog now uses the desktop string layer for summary
+    cards, import/rescan actions, root state/provenance rows, empty state copy,
+    and remove-folder confirmation text.
   - Player preparation/status overlay and the right danmaku/details panel now
     use the desktop string layer for panel labels, visibility actions, cache
     rows, track fallbacks, sliders, and preparation/error step labels.

@@ -2931,6 +2931,32 @@ private enum class DesktopUiLanguage(
             moreItemsLabel = { count -> "+$count more" },
             lastScanSummary = { reused, refreshed -> "Last scan: $reused unchanged, $refreshed refreshed" },
             lastScanCountsSummary = { reused, refreshed -> "$reused unchanged, $refreshed refreshed" },
+            libraryImportTitle = "Library Import",
+            aniRssRootCountLabel = { count -> "$count ani-rss" },
+            scanRunningLabel = "scan running",
+            publishedLabel = "published",
+            lastScanTitle = "Last scan",
+            reusedCountLabel = { count -> "$count reused" },
+            notRunLabel = "not run",
+            addFolderAction = "Add folder",
+            importAniRssOutputAction = "Import ani-rss output",
+            rescanAllAction = "Rescan all",
+            rescanAction = "Rescan",
+            scanningAction = "Scanning...",
+            indexingLibraryRootsLabel = "Indexing library roots",
+            registeredRootsTitle = "Registered roots",
+            libraryImportEmptyText = "Add a local anime folder or import an ani-rss completed-media folder to build the library.",
+            removeLibraryFolderTitle = "Remove library folder?",
+            removeLibraryFolderText = { name ->
+                "This removes $name from Danmaku and drops its indexed episode rows. It does not delete files from disk."
+            },
+            removeFolderAction = "Remove folder",
+            userSelectedFolderLabel = "User selected folder",
+            aniRssOutputFolderLabel = "ani-rss output folder",
+            libraryRootAvailableLabel = "Available",
+            libraryRootMissingLabel = "Missing",
+            lastScannedAtLabel = { epochMs -> "Last scanned ${epochMs.formatEpochTime()}" },
+            notScannedYetLabel = "Not scanned yet",
             inspectorResizeHandleLabel = "Resize details panel",
             resetInspectorWidthAction = "Reset details width",
             inspectorTitle = "Inspector",
@@ -3377,6 +3403,32 @@ private enum class DesktopUiLanguage(
             moreItemsLabel = { count -> "還有 $count 個" },
             lastScanSummary = { reused, refreshed -> "上次掃描：$reused 個未變更，$refreshed 個已更新" },
             lastScanCountsSummary = { reused, refreshed -> "$reused 個未變更，$refreshed 個已更新" },
+            libraryImportTitle = "媒體庫匯入",
+            aniRssRootCountLabel = { count -> "$count 個 ani-rss" },
+            scanRunningLabel = "掃描中",
+            publishedLabel = "已發佈",
+            lastScanTitle = "上次掃描",
+            reusedCountLabel = { count -> "$count 個已重用" },
+            notRunLabel = "尚未執行",
+            addFolderAction = "新增資料夾",
+            importAniRssOutputAction = "匯入 ani-rss 輸出",
+            rescanAllAction = "重新掃描全部",
+            rescanAction = "重新掃描",
+            scanningAction = "掃描中...",
+            indexingLibraryRootsLabel = "正在索引媒體庫根目錄",
+            registeredRootsTitle = "已註冊根目錄",
+            libraryImportEmptyText = "新增本機動畫資料夾，或匯入 ani-rss 已完成媒體資料夾以建立媒體庫。",
+            removeLibraryFolderTitle = "要移除媒體庫資料夾嗎？",
+            removeLibraryFolderText = { name ->
+                "這會從 Danmaku 移除 $name 並刪除已索引的集數資料列，不會刪除磁碟上的檔案。"
+            },
+            removeFolderAction = "移除資料夾",
+            userSelectedFolderLabel = "使用者選取的資料夾",
+            aniRssOutputFolderLabel = "ani-rss 輸出資料夾",
+            libraryRootAvailableLabel = "可用",
+            libraryRootMissingLabel = "遺失",
+            lastScannedAtLabel = { epochMs -> "上次掃描 ${epochMs.formatEpochTime()}" },
+            notScannedYetLabel = "尚未掃描",
             inspectorResizeHandleLabel = "調整詳情面板寬度",
             resetInspectorWidthAction = "重設詳情寬度",
             inspectorTitle = "檢視器",
@@ -3801,6 +3853,30 @@ private data class DesktopStrings(
     val moreItemsLabel: (Int) -> String,
     val lastScanSummary: (Int, Int) -> String,
     val lastScanCountsSummary: (Int, Int) -> String,
+    val libraryImportTitle: String,
+    val aniRssRootCountLabel: (Int) -> String,
+    val scanRunningLabel: String,
+    val publishedLabel: String,
+    val lastScanTitle: String,
+    val reusedCountLabel: (Int) -> String,
+    val notRunLabel: String,
+    val addFolderAction: String,
+    val importAniRssOutputAction: String,
+    val rescanAllAction: String,
+    val rescanAction: String,
+    val scanningAction: String,
+    val indexingLibraryRootsLabel: String,
+    val registeredRootsTitle: String,
+    val libraryImportEmptyText: String,
+    val removeLibraryFolderTitle: String,
+    val removeLibraryFolderText: (String) -> String,
+    val removeFolderAction: String,
+    val userSelectedFolderLabel: String,
+    val aniRssOutputFolderLabel: String,
+    val libraryRootAvailableLabel: String,
+    val libraryRootMissingLabel: String,
+    val lastScannedAtLabel: (Long) -> String,
+    val notScannedYetLabel: String,
     val inspectorResizeHandleLabel: String,
     val resetInspectorWidthAction: String,
     val inspectorTitle: String,
@@ -7032,6 +7108,7 @@ private fun WindowsLibraryWorkspace(
     }
     if (showLibraryImportPanel) {
         LibraryImportPanelDialog(
+            strings = strings,
             registeredRoots = registeredRoots,
             indexedLibrary = indexedLibrary,
             isIndexing = isIndexing,
@@ -7229,6 +7306,7 @@ private fun LibraryWorkspaceRail(
 
 @Composable
 private fun LibraryImportPanelDialog(
+    strings: DesktopStrings,
     registeredRoots: List<DesktopLibraryRoot>,
     indexedLibrary: IndexedLocalLibrary?,
     isIndexing: Boolean,
@@ -7248,7 +7326,7 @@ private fun LibraryImportPanelDialog(
     AlertDialog(
         modifier = Modifier.width(880.dp),
         onDismissRequest = onDismiss,
-        title = { Text("Library Import") },
+        title = { Text(strings.libraryImportTitle) },
         text = {
             Column(
                 modifier = Modifier.heightIn(max = 620.dp),
@@ -7256,21 +7334,23 @@ private fun LibraryImportPanelDialog(
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     SummaryCard(
-                        title = "Folders",
+                        title = strings.foldersLabel,
                         value = registeredRoots.size.toString(),
-                        caption = "$aniRssRootCount ani-rss",
+                        caption = strings.aniRssRootCountLabel(aniRssRootCount),
                         modifier = Modifier.weight(1f),
                     )
                     SummaryCard(
-                        title = "Episodes",
+                        title = strings.episodesLabel,
                         value = (indexedLibrary?.catalog?.items?.size ?: 0).toString(),
-                        caption = if (isIndexing) "scan running" else "published",
+                        caption = if (isIndexing) strings.scanRunningLabel else strings.publishedLabel,
                         modifier = Modifier.weight(1f),
                     )
                     SummaryCard(
-                        title = "Last scan",
+                        title = strings.lastScanTitle,
                         value = lastScanStats?.refreshedItemCount?.toString() ?: "-",
-                        caption = lastScanStats?.let { "${it.reusedItemCount} reused" } ?: "not run",
+                        caption = lastScanStats?.let {
+                            strings.reusedCountLabel(it.reusedItemCount)
+                        } ?: strings.notRunLabel,
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -7278,19 +7358,19 @@ private fun LibraryImportPanelDialog(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     LibraryActionButton(
                         imageVector = Icons.Filled.FolderOpen,
-                        label = "Add folder",
+                        label = strings.addFolderAction,
                         enabled = !isIndexing,
                         onClick = onAddLibraryFolder,
                     )
                     LibraryActionButton(
                         imageVector = Icons.Filled.Refresh,
-                        label = "Import ani-rss output",
+                        label = strings.importAniRssOutputAction,
                         enabled = !isIndexing,
                         onClick = onImportAniRssOutputFolder,
                     )
                     LibraryActionButton(
                         imageVector = Icons.Filled.Refresh,
-                        label = if (isIndexing) "Scanning..." else "Rescan all",
+                        label = if (isIndexing) strings.scanningAction else strings.rescanAllAction,
                         enabled = registeredRoots.isNotEmpty() && !isIndexing,
                         onClick = onRescanRegisteredRoots,
                     )
@@ -7301,7 +7381,7 @@ private fun LibraryImportPanelDialog(
                 }
                 if (isIndexing) {
                     StatusPill(
-                        text = "Indexing library roots",
+                        text = strings.indexingLibraryRootsLabel,
                         icon = Icons.Filled.Refresh,
                         active = true,
                         color = DanmakuColors.Accent,
@@ -7309,10 +7389,10 @@ private fun LibraryImportPanelDialog(
                 }
 
                 Divider(color = DanmakuColors.SurfaceRaised)
-                Text("Registered roots", fontWeight = FontWeight.Bold)
+                Text(strings.registeredRootsTitle, fontWeight = FontWeight.Bold)
                 if (registeredRoots.isEmpty()) {
                     Text(
-                        "Add a local anime folder or import an ani-rss completed-media folder to build the library.",
+                        strings.libraryImportEmptyText,
                         color = DanmakuColors.TextMuted,
                     )
                 } else {
@@ -7322,6 +7402,7 @@ private fun LibraryImportPanelDialog(
                     ) {
                         items(registeredRoots, key = DesktopLibraryRoot::id) { root ->
                             LibraryImportRootRow(
+                                strings = strings,
                                 root = root,
                                 enabled = !isIndexing,
                                 onRemove = { pendingRemovalRoot = root },
@@ -7336,21 +7417,21 @@ private fun LibraryImportPanelDialog(
                 onClick = onRescanRegisteredRoots,
                 enabled = registeredRoots.isNotEmpty() && !isIndexing,
             ) {
-                Text(if (isIndexing) "Scanning..." else "Rescan")
+                Text(if (isIndexing) strings.scanningAction else strings.rescanAction)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Close")
+                Text(strings.closeAction)
             }
         },
     )
 
     pendingRemovalRoot?.let { root ->
         SettingsConfirmationDialog(
-            title = "Remove library folder?",
-            text = "This removes ${root.displayName} from Danmaku and drops its indexed episode rows. It does not delete files from disk.",
-            confirmLabel = "Remove folder",
+            title = strings.removeLibraryFolderTitle,
+            text = strings.removeLibraryFolderText(root.displayName),
+            confirmLabel = strings.removeFolderAction,
             onConfirm = { onRemoveRegisteredRoot(root) },
             onDismiss = { pendingRemovalRoot = null },
         )
@@ -7359,6 +7440,7 @@ private fun LibraryImportPanelDialog(
 
 @Composable
 private fun LibraryImportRootRow(
+    strings: DesktopStrings,
     root: DesktopLibraryRoot,
     enabled: Boolean,
     onRemove: () -> Unit,
@@ -7385,13 +7467,13 @@ private fun LibraryImportRootRow(
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(root.displayName, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 StatusPill(
-                    text = root.state.name.lowercase().replaceFirstChar { it.titlecase() },
+                    text = root.state.displayLabel(strings),
                     icon = if (root.state == DesktopLibraryRootState.AVAILABLE) Icons.Filled.CheckCircle else Icons.Filled.Warning,
                     active = root.state == DesktopLibraryRootState.AVAILABLE,
                     color = if (root.state == DesktopLibraryRootState.AVAILABLE) DanmakuColors.Good else DanmakuColors.Warning,
                 )
             }
-            Text(root.provenance.displayLabel(), color = DanmakuColors.TextMuted, maxLines = 1)
+            Text(root.provenance.displayLabel(strings), color = DanmakuColors.TextMuted, maxLines = 1)
             Text(
                 root.normalizedPath.toString(),
                 color = DanmakuColors.TextMuted,
@@ -7399,7 +7481,7 @@ private fun LibraryImportRootRow(
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                root.lastScannedAtEpochMs?.let { "Last scanned ${it.formatEpochTime()}" } ?: "Not scanned yet",
+                root.lastScannedAtEpochMs?.let(strings.lastScannedAtLabel) ?: strings.notScannedYetLabel,
                 color = DanmakuColors.TextMuted,
                 maxLines = 1,
             )
@@ -7409,7 +7491,7 @@ private fun LibraryImportRootRow(
         }
         LibraryActionButton(
             imageVector = Icons.Filled.Delete,
-            label = "Remove",
+            label = strings.removeAction,
             enabled = enabled,
             onClick = onRemove,
         )
@@ -12931,10 +13013,16 @@ private fun DesktopDandanplayCommentCache.commentCountForCacheManager(): Int =
 private fun DesktopDandanplayCommentCache.isExpiredForCacheManager(cacheMaxAgeDays: Int): Boolean =
     System.currentTimeMillis() - fetchedAtEpochMs > cacheMaxAgeDays * 24L * 60L * 60L * 1_000L
 
-private fun DesktopLibraryRootProvenance.displayLabel(): String =
+private fun DesktopLibraryRootProvenance.displayLabel(strings: DesktopStrings): String =
     when (this) {
-        DesktopLibraryRootProvenance.USER_SELECTED -> "User selected folder"
-        DesktopLibraryRootProvenance.ANI_RSS_OUTPUT_FOLDER -> "ani-rss output folder"
+        DesktopLibraryRootProvenance.USER_SELECTED -> strings.userSelectedFolderLabel
+        DesktopLibraryRootProvenance.ANI_RSS_OUTPUT_FOLDER -> strings.aniRssOutputFolderLabel
+    }
+
+private fun DesktopLibraryRootState.displayLabel(strings: DesktopStrings): String =
+    when (this) {
+        DesktopLibraryRootState.AVAILABLE -> strings.libraryRootAvailableLabel
+        DesktopLibraryRootState.MISSING -> strings.libraryRootMissingLabel
     }
 
 private fun Double.formatConfidence(): String =

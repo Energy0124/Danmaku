@@ -60,6 +60,9 @@ Status legend:
   - Library inspector and local row actions now use the same string layer for
     empty/readiness copy, Details/Favorite, metadata refresh, playback prepare,
     Play/Resume, and advanced danmaku/cache actions.
+  - Library Import summary cards, folder/import/rescan actions, registered-root
+    rows, empty state, and remove-folder confirmation now use the same string
+    layer.
   - Paired remote-library browse chrome now uses the same string layer for
     connection, search/filter, empty/error, prepared playback, and row actions.
 - `[~]` Align the desktop top header with the target shell: app identity, global
