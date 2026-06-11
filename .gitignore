@@ -3,6 +3,7 @@
 .kotlin/
 .android-sdk/
 .antigravitycli/
+.codebase-memory/
 .codex-remote-attachments/
 .npm-cache/
 **/.npm-cache/
