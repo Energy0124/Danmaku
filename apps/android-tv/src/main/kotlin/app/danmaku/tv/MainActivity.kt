@@ -574,7 +574,9 @@ private fun TvPlayerPanel(
                 .height(300.dp),
         )
         TvSeekControls(snapshot = snapshot, onSeekTo = onSeekTo)
-        playbackError?.let { Text("Playback connection error: $it", color = Color(0xFFFCA5A5)) }
+        playbackError?.let {
+            Text(stringResource(R.string.playback_error_prefix, it), color = Color(0xFFFCA5A5))
+        }
         TrackControls(
             snapshot = snapshot,
             onSelectAudio = onSelectAudio,
@@ -769,8 +771,9 @@ private fun TrackButtons(
     }
 }
 
+@Composable
 private fun PlaybackTrack.buttonLabel(): String =
-    if (selected) "$label (selected)" else label
+    if (selected) stringResource(R.string.selected_suffix, label) else label
 
 private fun Long.formatPlaybackTime(): String {
     val totalSeconds = this.coerceAtLeast(0) / 1_000
@@ -926,7 +929,7 @@ private fun TvPosterTile(
         if (posterImage.bitmap != null) {
             Image(
                 bitmap = posterImage.bitmap,
-                contentDescription = "Poster for $title",
+                contentDescription = stringResource(R.string.poster_content_description, title),
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,
             )
@@ -940,7 +943,7 @@ private fun TvPosterTile(
         }
         if (posterImage.state == PosterImageLoadState.LOADING) {
             TvPosterPill(
-                label = "Loading",
+                label = stringResource(R.string.poster_loading),
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .padding(10.dp),
@@ -1002,10 +1005,21 @@ private fun TvPcConnectionPanel(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("PC Connection", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Text("Discover, pair, and save the Windows library server.", color = TvMutedText)
+                Text(
+                    stringResource(R.string.pc_connection_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(stringResource(R.string.pc_connection_body), color = TvMutedText)
             }
-            TvRailPill(if (serverUrl.isBlank()) "No server" else "Server set", active = serverUrl.isNotBlank())
+            TvRailPill(
+                if (serverUrl.isBlank()) {
+                    stringResource(R.string.pc_no_server)
+                } else {
+                    stringResource(R.string.pc_server_set)
+                },
+                active = serverUrl.isNotBlank(),
+            )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Button(
@@ -1017,7 +1031,7 @@ private fun TvPcConnectionPanel(
                     }
                     .tvFocusHalo(RoundedCornerShape(18.dp)),
             ) {
-                Text("Refresh PC library")
+                Text(stringResource(R.string.action_refresh_pc_library))
             }
             Button(
                 onClick = onDiscover,
@@ -1028,13 +1042,13 @@ private fun TvPcConnectionPanel(
                     }
                     .tvFocusHalo(RoundedCornerShape(18.dp)),
             ) {
-                Text("Discover PC")
+                Text(stringResource(R.string.action_discover_pc))
             }
             Button(
                 onClick = onSave,
                 modifier = Modifier.tvFocusHalo(RoundedCornerShape(18.dp)),
             ) {
-                Text("Save")
+                Text(stringResource(R.string.action_save))
             }
         }
         Row(
@@ -1044,18 +1058,22 @@ private fun TvPcConnectionPanel(
             TvTextInput(
                 value = serverUrl,
                 onValueChange = onServerUrlChange,
-                placeholder = "PC server URL",
+                placeholder = stringResource(R.string.pc_server_url_placeholder),
                 modifier = Modifier.weight(1f),
             )
             TvTextInput(
                 value = pairingToken,
                 onValueChange = onPairingTokenChange,
-                placeholder = "Pairing token",
+                placeholder = stringResource(R.string.pairing_token_placeholder),
                 modifier = Modifier.weight(1f),
             )
         }
         if (savedConnections.isNotEmpty()) {
-            Text("Saved PCs", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(
+                stringResource(R.string.saved_pcs_title),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
             LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(savedConnections, key = { it.id }) { connection ->
                     TvSavedConnectionCard(
@@ -1068,7 +1086,7 @@ private fun TvPcConnectionPanel(
             }
         }
         libraryError?.let {
-            Text("Library error: $it", color = Color(0xFFFCA5A5))
+            Text(stringResource(R.string.library_error_prefix, it), color = Color(0xFFFCA5A5))
         }
     }
 }
@@ -1128,7 +1146,13 @@ private fun TvSavedConnectionCard(
                     .tvFocusHalo(RoundedCornerShape(16.dp))
                     .testTag("saved-connection:${connection.id}"),
             ) {
-                Text(if (isSelected) "Selected" else "Use")
+                Text(
+                    if (isSelected) {
+                        stringResource(R.string.status_selected)
+                    } else {
+                        stringResource(R.string.action_open)
+                    },
+                )
             }
             Button(
                 onClick = onForget,
@@ -1136,7 +1160,7 @@ private fun TvSavedConnectionCard(
                     .tvFocusHalo(RoundedCornerShape(16.dp))
                     .testTag("saved-connection-forget:${connection.id}"),
             ) {
-                Text("Forget")
+                Text(stringResource(R.string.action_forget))
             }
         }
     }
@@ -1568,13 +1592,16 @@ private fun TvEpisodeDetail(
                 Text("${detail.series.title} / ${detail.season.label} / ${detail.watchStatus.statusLabel()}")
                 detail.mediaItem.animeMetadata?.let { metadata ->
                     Text(
-                        "Matched anime: ${metadata.displayTitle}",
+                        stringResource(R.string.matched_anime, metadata.displayTitle),
                         color = TvAccentBlue,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                detail.mediaItem.metadataStatusLabel()?.let { label ->
+                detail.mediaItem.metadataStatusLabel(
+                    loadingLabel = stringResource(R.string.metadata_loading),
+                    failedLabel = stringResource(R.string.metadata_failed),
+                )?.let { label ->
                     Text(
                         label,
                         color = TvAccentBlue,
@@ -1586,33 +1613,39 @@ private fun TvEpisodeDetail(
             }
             Text(
                 if (detail.mediaItem.posterPath == null) {
-                    "${detail.mediaItem.subtitles.size} subtitles"
+                    stringResource(R.string.subtitle_count, detail.mediaItem.subtitles.size)
                 } else {
-                    "${detail.mediaItem.subtitles.size} subtitles / poster"
+                    stringResource(R.string.subtitle_count_with_poster, detail.mediaItem.subtitles.size)
                 },
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Button(onClick = { onPlay(detail.mediaItem) }) {
-                Text("Play")
+                Text(stringResource(R.string.action_play))
             }
             Button(
                 onClick = { onSetFavorite(!isFavorite) },
                 modifier = Modifier.testTag("episode-detail-favorite:${detail.mediaItem.id}"),
             ) {
-                Text(if (isFavorite) "Unfavorite" else "Favorite")
+                Text(
+                    if (isFavorite) {
+                        stringResource(R.string.action_unfavorite)
+                    } else {
+                        stringResource(R.string.action_favorite)
+                    },
+                )
             }
             Button(
                 onClick = { detail.previousItem?.let(onSelectEpisode) },
                 enabled = detail.previousItem != null,
             ) {
-                Text("Previous")
+                Text(stringResource(R.string.action_previous))
             }
             Button(
                 onClick = { detail.nextItem?.let(onSelectEpisode) },
                 enabled = detail.nextItem != null,
             ) {
-                Text("Next")
+                Text(stringResource(R.string.action_next))
             }
         }
     }
@@ -1647,7 +1680,7 @@ private fun TvProgressRail(
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
             )
-            Text("${items.size} episodes")
+            Text(stringResource(R.string.episode_count, items.size))
         }
         LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             items(items, key = { it.mediaItem.id }) { item ->
@@ -1681,7 +1714,7 @@ private fun TvProgressRail(
                                 item = item.mediaItem,
                                 title = item.mediaItem.seriesTitle,
                                 posterEndpoint = posterEndpoint,
-                                label = "Resume",
+                                label = stringResource(R.string.action_resume),
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(120.dp),
@@ -1708,7 +1741,7 @@ private fun TvProgressRail(
                             .tvFocusHalo(RoundedCornerShape(16.dp))
                             .testTag("$itemTagPrefix:${item.mediaItem.id}"),
                     ) {
-                        Text("Play")
+                        Text(stringResource(R.string.action_play))
                     }
                 }
             }
@@ -1738,12 +1771,12 @@ private fun TvNextUpRail(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                "Next Up",
+                stringResource(R.string.next_up_title),
                 modifier = Modifier.weight(1f),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
             )
-            Text("${items.size} picks")
+            Text(stringResource(R.string.picks_count, items.size))
         }
         LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             val firstItemId = items.firstOrNull()?.mediaItem?.id
@@ -1820,19 +1853,24 @@ private fun TvNextUpRail(
     }
 }
 
+@Composable
 private fun LibraryNextUpItem.nextUpActionLabel(): String =
     when (reason) {
-        LibraryNextUpReason.RESUME -> "Resume"
+        LibraryNextUpReason.RESUME -> stringResource(R.string.action_resume)
         LibraryNextUpReason.NEXT_EPISODE,
-        LibraryNextUpReason.START -> "Play"
+        LibraryNextUpReason.START -> stringResource(R.string.action_play)
     }
 
+@Composable
 private fun LibraryNextUpItem.nextUpLabel(): String =
     when (reason) {
         LibraryNextUpReason.RESUME ->
-            "Resume at ${progress?.positionMs?.formatPlaybackTime() ?: "saved position"}"
-        LibraryNextUpReason.NEXT_EPISODE -> "Next episode"
-        LibraryNextUpReason.START -> "Start watching"
+            stringResource(
+                R.string.resume_at,
+                progress?.positionMs?.formatPlaybackTime() ?: stringResource(R.string.saved_position),
+            )
+        LibraryNextUpReason.NEXT_EPISODE -> stringResource(R.string.next_episode)
+        LibraryNextUpReason.START -> stringResource(R.string.start_watching)
     }
 
 private fun String.initials(): String {
@@ -1872,10 +1910,10 @@ private fun TvSeriesDetail(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Text("${series.episodeLabel()} across ${series.seasons.size} seasons")
+                Text(stringResource(R.string.series_across_seasons, series.episodeLabel(), series.seasons.size))
                 Text(watchSummary.progressLabel())
             }
-            Text("${series.subtitleTrackCount} subtitle tracks")
+            Text(stringResource(R.string.subtitle_track_count, series.subtitleTrackCount))
         }
         LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             items(series.seasons, key = { it.id }) { season ->
@@ -1885,7 +1923,10 @@ private fun TvSeriesDetail(
                         .testTag("series-season:${season.label}"),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text("${season.label} (${season.items.size})", fontWeight = FontWeight.SemiBold)
+                    Text(
+                        stringResource(R.string.season_item_count, season.label, season.items.size),
+                        fontWeight = FontWeight.SemiBold,
+                    )
                     season.items.take(3).forEach { item ->
                         Button(
                             onClick = { onPlay(item) },
@@ -1898,7 +1939,7 @@ private fun TvSeriesDetail(
                         }
                     }
                     if (season.items.size > 3) {
-                        Text("${season.items.size - 3} more episodes")
+                        Text(stringResource(R.string.more_episode_count, season.items.size - 3))
                     }
                 }
             }
@@ -1959,7 +2000,7 @@ private fun TvEpisodeButton(
                     )
                 }
                 Spacer(modifier = Modifier.width(20.dp))
-                Text("${item.subtitles.size} subs")
+                Text(stringResource(R.string.subtitle_short_count, item.subtitles.size))
             }
         }
         Button(
@@ -1968,7 +2009,7 @@ private fun TvEpisodeButton(
                 .tvFocusHalo(RoundedCornerShape(18.dp))
                 .testTag("episode-play:${item.id}"),
         ) {
-            Text("Play")
+            Text(stringResource(R.string.action_play))
         }
         Button(
             onClick = { onSetFavorite(!isFavorite) },
@@ -1976,7 +2017,13 @@ private fun TvEpisodeButton(
                 .tvFocusHalo(RoundedCornerShape(18.dp))
                 .testTag("episode-favorite:${item.id}"),
         ) {
-            Text(if (isFavorite) "Unfavorite" else "Favorite")
+            Text(
+                if (isFavorite) {
+                    stringResource(R.string.action_unfavorite)
+                } else {
+                    stringResource(R.string.action_favorite)
+                },
+            )
         }
     }
 }
@@ -2047,26 +2094,33 @@ private fun LibrarySeriesWatchSummary?.progressLabel(): String =
         "$watchedCount watched, $inProgressCount watching, $newCount new"
     }
 
+@Composable
 private fun LibraryMediaItem.tvMetadataLabel(
     watchStatus: LibraryWatchStatus?,
     isFavorite: Boolean,
 ): String =
     buildList {
         add(watchStatus.statusLabel())
-        animeMetadata?.let { add("Matched: ${it.displayTitle}") }
+        animeMetadata?.let { add(stringResource(R.string.matched_anime, it.displayTitle)) }
         if (posterPath != null) {
-            add("Poster")
+            add(stringResource(R.string.poster_label))
         }
-        metadataStatusLabel()?.let(::add)
+        metadataStatusLabel(
+            loadingLabel = stringResource(R.string.metadata_loading),
+            failedLabel = stringResource(R.string.metadata_failed),
+        )?.let(::add)
         if (isFavorite) {
-            add("Favorite")
+            add(stringResource(R.string.action_favorite))
         }
     }.joinToString(" / ")
 
-private fun LibraryMediaItem.metadataStatusLabel(): String? =
+private fun LibraryMediaItem.metadataStatusLabel(
+    loadingLabel: String,
+    failedLabel: String,
+): String? =
     when (metadataStatus) {
-        LibraryItemMetadataStatus.LOADING -> "Poster/metadata loading"
-        LibraryItemMetadataStatus.FAILED -> "Metadata refresh failed"
+        LibraryItemMetadataStatus.LOADING -> loadingLabel
+        LibraryItemMetadataStatus.FAILED -> failedLabel
         LibraryItemMetadataStatus.READY -> null
         LibraryItemMetadataStatus.NOT_AVAILABLE -> null
     }

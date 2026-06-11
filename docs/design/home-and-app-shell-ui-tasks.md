@@ -168,9 +168,11 @@ Status legend:
   - TV navigation rail, destination header, player controls, Home next-up
     panel, Library rail/search/filter chrome, and Library empty states now read
     from Android resources.
-  - Remaining TV localization work: PC connection form, episode-detail controls,
-    rail item-count labels, selected-track labels, and diagnostic error
-    prefixes.
+  - TV PC connection form, saved-PC actions, episode-detail controls, progress
+    rail item counts, selected-track labels, poster/loading labels, and
+    diagnostic error prefixes now read from Android resources. Residual literals
+    are brand text, animation debug labels, file/progress values, and
+    domain-generated watch-status strings.
 - `[ ]` Map the Home shell into TV rails: hero/resume, Continue Watching,
   Recently Added, Library slices, and operational status.
 - `[ ]` Ensure each TV Home card has one obvious primary action and visible
