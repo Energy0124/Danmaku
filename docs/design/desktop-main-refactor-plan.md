@@ -68,10 +68,14 @@ Initial slice:
 - `DesktopShellSettingsState` owns playback/danmaku preferences, provider
   settings, provider connection test status, and dandanplay cache-manager
   entries.
+- `DesktopShellLibraryState` owns registered roots, indexed library state,
+  metadata refresh version, progress/favorites/download snapshots, selected
+  local playback preparation, indexing/refresh flags, dandanplay cache status,
+  and external sync status.
 - `DesktopShell` delegates diagnostic/server-event actions and
   navigation/search/language actions to remembered state objects while playback
-  command handling, library, settings save/test, and provider actions remain
-  local.
+  command handling, library actions, settings save/test, and provider actions
+  remain local.
 
 Acceptance:
 
@@ -146,8 +150,8 @@ Remaining structural hotspot:
 
 - `DesktopShell.kt` still owns dependency construction, long-lived state,
   effects, and most playback/library/settings action implementations. The next
-  refactor should extract library state and a typed action facade around the
-  remaining command handlers rather than adding more UI-only files.
+  refactor should introduce a typed action facade around the remaining command
+  handlers rather than adding more UI-only files.
 
 Acceptance:
 

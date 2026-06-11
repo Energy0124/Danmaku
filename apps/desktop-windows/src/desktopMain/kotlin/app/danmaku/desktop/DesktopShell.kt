@@ -433,7 +433,7 @@ internal fun DesktopShell(
         )
     }
     val legacySelectedLibraryRoot = remember { selectionStore.load() }
-    var registeredRoots by remember { mutableStateOf(rootRegistry.loadRoots()) }
+    val libraryState = rememberDesktopShellLibraryState(rootRegistry, catalogStore, legacySelectedLibraryRoot)
     var playbackSnapshot by remember(playbackController) { mutableStateOf(playbackController.snapshot()) }
     val isFullscreen = windowState.placement == WindowPlacement.Fullscreen
     var floatingWindowBounds by remember { mutableStateOf(Rectangle(awtWindow.bounds)) }
@@ -497,55 +497,29 @@ internal fun DesktopShell(
         }
     }
     var videoAspectMode by remember(playbackController) { mutableStateOf(playbackController.videoAspectMode) }
-    var indexedLibrary by remember {
-        mutableStateOf(
-            if (registeredRoots.isNotEmpty()) {
-                catalogStore.loadRegisteredLibrary()
-            } else {
-                legacySelectedLibraryRoot?.let(catalogStore::load)
-            },
-        )
+    val displayIndexedLibrary = remember(libraryState.indexedLibrary, libraryState.libraryMetadataVersion, animeMetadataResolver) {
+        libraryState.indexedLibrary?.withExternalAnimeMetadata(animeMetadataResolver)
     }
-    var libraryMetadataVersion by remember { mutableStateOf(0) }
-    val displayIndexedLibrary = remember(indexedLibrary, libraryMetadataVersion, animeMetadataResolver) {
-        indexedLibrary?.withExternalAnimeMetadata(animeMetadataResolver)
+    val originalSeriesTitleByMediaId = remember(libraryState.indexedLibrary) {
+        libraryState.indexedLibrary?.catalog?.items?.associate { item -> item.id to item.seriesTitle }.orEmpty()
     }
-    val originalSeriesTitleByMediaId = remember(indexedLibrary) {
-        indexedLibrary?.catalog?.items?.associate { item -> item.id to item.seriesTitle }.orEmpty()
-    }
-    val seriesPosterById = remember(displayIndexedLibrary, libraryMetadataVersion, animeMetadataResolver) {
+    val seriesPosterById = remember(displayIndexedLibrary, libraryState.libraryMetadataVersion, animeMetadataResolver) {
         loadSeriesPosterById(displayIndexedLibrary, animeMetadataResolver)
     }
-    val externalAnimeMappings = remember(displayIndexedLibrary, libraryMetadataVersion, catalogStore) {
+    val externalAnimeMappings = remember(displayIndexedLibrary, libraryState.libraryMetadataVersion, catalogStore) {
         displayIndexedLibrary
             ?.catalog
             ?.groupedSeries()
             ?.flatMap { series -> catalogStore.loadExternalAnimeMappings(series.id) }
             .orEmpty()
     }
-    val externalAnimeItemMappingsByMediaId = remember(displayIndexedLibrary, libraryMetadataVersion, catalogStore) {
+    val externalAnimeItemMappingsByMediaId = remember(displayIndexedLibrary, libraryState.libraryMetadataVersion, catalogStore) {
         displayIndexedLibrary
             ?.catalog
             ?.items
             ?.associate { item -> item.id to catalogStore.loadExternalAnimeItemMappings(item.id) }
             .orEmpty()
     }
-    var playbackProgresses by remember { mutableStateOf(catalogStore.loadPlaybackProgress()) }
-    var favoriteMediaIds by remember { mutableStateOf(catalogStore.loadFavoriteMediaIds()) }
-    var downloadQueueItems by remember { mutableStateOf(catalogStore.loadDownloads()) }
-    var selectedLocalPlaybackPreparation by remember {
-        mutableStateOf<DesktopLocalPlaybackPreparation?>(null)
-    }
-    var libraryError by remember { mutableStateOf<String?>(null) }
-    var isIndexing by remember { mutableStateOf(false) }
-    var isPreparingLocalPlayback by remember { mutableStateOf(false) }
-    var lastScanStats by remember { mutableStateOf<LocalMediaLibraryScanStats?>(null) }
-    var dandanplayCacheStatus by remember { mutableStateOf<DandanplayPlaybackUiStatus?>(null) }
-    var isRefreshingSeriesPosters by remember { mutableStateOf(false) }
-    var refreshingMetadataMediaIds by remember { mutableStateOf<Set<String>>(emptySet()) }
-    var refreshingMetadataSeriesIds by remember { mutableStateOf<Set<String>>(emptySet()) }
-    var externalAnimeSyncFailures by remember { mutableStateOf<List<ExternalAnimeSyncFailure>>(emptyList()) }
-    var isExternalAnimeSyncing by remember { mutableStateOf(false) }
     val serverRuntime = remember(catalogStore, rootScanner, animeMetadataResolver, scope) {
         DesktopLibraryServerRuntime.start(
             catalogStore = catalogStore,
@@ -554,11 +528,11 @@ internal fun DesktopShell(
             aniRssWebhookToken = aniRssCredentialStore.loadOrCreateWebhookToken(),
             onLibraryPublished = { library ->
                 scope.launch {
-                    indexedLibrary = library
-                    libraryMetadataVersion += 1
-                    registeredRoots = rootRegistry.loadRoots()
-                    selectedLocalPlaybackPreparation = null
-                    libraryError = null
+                    libraryState.indexedLibrary = library
+                    libraryState.libraryMetadataVersion += 1
+                    libraryState.registeredRoots = rootRegistry.loadRoots()
+                    libraryState.selectedLocalPlaybackPreparation = null
+                    libraryState.libraryError = null
                     appendDiagnostic("library", "Published updated library from server runtime: ${library.catalog.items.size} items")
                 }
             },
@@ -617,7 +591,7 @@ internal fun DesktopShell(
     }
 
     fun refreshMissingSeriesPosters(library: IndexedLocalLibrary) {
-        if (isRefreshingSeriesPosters) return
+        if (libraryState.isRefreshingSeriesPosters) return
         if (!settingsState.dandanplaySettings.isFetchEnabled) {
             appendDiagnostic("metadata", "Skipping poster refresh; dandanplay provider is not configured")
             return
@@ -632,7 +606,7 @@ internal fun DesktopShell(
         if (missingSeries.isEmpty()) return
 
         scope.launch {
-            isRefreshingSeriesPosters = true
+            libraryState.isRefreshingSeriesPosters = true
             try {
                 appendDiagnostic("metadata", "Refreshing posters for ${missingSeries.size} local series")
                 val failures = mutableListOf<String>()
@@ -650,7 +624,7 @@ internal fun DesktopShell(
                         result.getOrNull() != null
                     }
                 }
-                libraryMetadataVersion += 1
+                libraryState.libraryMetadataVersion += 1
                 failures.take(3).forEach { failure ->
                     appendDiagnostic("metadata", "Poster refresh failed for $failure")
                 }
@@ -663,7 +637,7 @@ internal fun DesktopShell(
                     "Poster refresh complete: $refreshedCount/${missingSeries.size} series updated",
                 )
             } finally {
-                isRefreshingSeriesPosters = false
+                libraryState.isRefreshingSeriesPosters = false
             }
         }
     }
@@ -685,13 +659,13 @@ internal fun DesktopShell(
     }
 
     fun syncExternalAnimePlan(plan: ExternalAnimeTrackingPlan) {
-        if (isExternalAnimeSyncing || plan.updates.isEmpty()) {
+        if (libraryState.isExternalAnimeSyncing || plan.updates.isEmpty()) {
             return
         }
-        isExternalAnimeSyncing = true
+        libraryState.isExternalAnimeSyncing = true
         scope.launch {
             try {
-                val previousFailures = externalAnimeSyncFailures.associateBy(ExternalAnimeSyncFailure::animeId)
+                val previousFailures = libraryState.externalAnimeSyncFailures.associateBy(ExternalAnimeSyncFailure::animeId)
                 val result = withContext(Dispatchers.IO) {
                     val clients = buildMap {
                         externalAnimeCredentialStore.loadMyAnimeListTrackingClient()
@@ -729,31 +703,31 @@ internal fun DesktopShell(
                     successCount to failures
                 }
                 val (successCount, failures) = result
-                externalAnimeSyncFailures = failures
+                libraryState.externalAnimeSyncFailures = failures
                 appendDiagnostic(
                     "external-sync",
                     "External list sync complete: $successCount succeeded, ${failures.size} failed",
                 )
             } finally {
-                isExternalAnimeSyncing = false
+                libraryState.isExternalAnimeSyncing = false
             }
         }
     }
 
-    LaunchedEffect(indexedLibrary, settingsState.dandanplaySettings.isFetchEnabled) {
-        indexedLibrary?.let(::refreshMissingSeriesPosters)
+    LaunchedEffect(libraryState.indexedLibrary, settingsState.dandanplaySettings.isFetchEnabled) {
+        libraryState.indexedLibrary?.let(::refreshMissingSeriesPosters)
     }
 
     fun applyPublishedLibrary(library: IndexedLocalLibrary) {
         appendDiagnostic("library", "Publishing library: ${library.catalog.items.size} items")
         server.publish(library.toPublishedLibrary(animeMetadataResolver))
-        indexedLibrary = library
-        libraryMetadataVersion += 1
-        playbackProgresses = catalogStore.loadPlaybackProgress()
-        favoriteMediaIds = catalogStore.loadFavoriteMediaIds()
-        registeredRoots = rootRegistry.loadRoots()
-        selectedLocalPlaybackPreparation = null
-        libraryError = null
+        libraryState.indexedLibrary = library
+        libraryState.libraryMetadataVersion += 1
+        libraryState.playbackProgresses = catalogStore.loadPlaybackProgress()
+        libraryState.favoriteMediaIds = catalogStore.loadFavoriteMediaIds()
+        libraryState.registeredRoots = rootRegistry.loadRoots()
+        libraryState.selectedLocalPlaybackPreparation = null
+        libraryState.libraryError = null
         refreshMissingSeriesPosters(library)
     }
 
@@ -770,7 +744,7 @@ internal fun DesktopShell(
     }
 
     fun refreshEpisodeAnimeMetadata(item: LibraryMediaItem, forceRefresh: Boolean = true) {
-        val library = indexedLibrary
+        val library = libraryState.indexedLibrary
         if (library == null) {
             appendDiagnostic("metadata", "Cannot refresh metadata; library is not indexed")
             return
@@ -779,11 +753,11 @@ internal fun DesktopShell(
             appendDiagnostic("metadata", "Cannot refresh metadata; dandanplay provider is not configured")
             return
         }
-        if (item.id in refreshingMetadataMediaIds) return
+        if (item.id in libraryState.refreshingMetadataMediaIds) return
 
         scope.launch {
-            refreshingMetadataMediaIds = refreshingMetadataMediaIds + item.id
-            dandanplayCacheStatus = dandanplayStatusMessage(
+            libraryState.refreshingMetadataMediaIds = libraryState.refreshingMetadataMediaIds + item.id
+            libraryState.dandanplayCacheStatus = dandanplayStatusMessage(
                 mediaId = item.id,
                 summary = "refreshing anime metadata and poster...",
                 details = item.dandanplayStatusContext(settingsState.dandanplaySettings),
@@ -808,7 +782,7 @@ internal fun DesktopShell(
                 }
             }
             result.onSuccess {
-                libraryMetadataVersion += 1
+                libraryState.libraryMetadataVersion += 1
                 appendDiagnostic("metadata", "Refreshed anime metadata/poster for ${item.episodeTitle}")
             }.onFailure { error ->
                 appendDiagnostic(
@@ -816,12 +790,12 @@ internal fun DesktopShell(
                     "Anime metadata refresh failed for ${item.episodeTitle}: ${error.message ?: error::class.simpleName}",
                 )
             }
-            refreshingMetadataMediaIds = refreshingMetadataMediaIds - item.id
+            libraryState.refreshingMetadataMediaIds = libraryState.refreshingMetadataMediaIds - item.id
         }
     }
 
     fun refreshSeriesAnimeMetadata(series: LibrarySeries) {
-        val library = indexedLibrary
+        val library = libraryState.indexedLibrary
         if (library == null) {
             appendDiagnostic("metadata", "Cannot refresh series metadata; library is not indexed")
             return
@@ -830,12 +804,12 @@ internal fun DesktopShell(
             appendDiagnostic("metadata", "Cannot refresh series metadata; dandanplay provider is not configured")
             return
         }
-        if (series.id in refreshingMetadataSeriesIds) return
+        if (series.id in libraryState.refreshingMetadataSeriesIds) return
 
         val items = series.seasons.flatMap { it.items }
         scope.launch {
-            refreshingMetadataSeriesIds = refreshingMetadataSeriesIds + series.id
-            refreshingMetadataMediaIds = refreshingMetadataMediaIds + items.mapTo(mutableSetOf()) { it.id }
+            libraryState.refreshingMetadataSeriesIds = libraryState.refreshingMetadataSeriesIds + series.id
+            libraryState.refreshingMetadataMediaIds = libraryState.refreshingMetadataMediaIds + items.mapTo(mutableSetOf()) { it.id }
             appendDiagnostic("metadata", "Refreshing anime metadata/posters for ${series.title}")
             val result = withContext(Dispatchers.IO) {
                 runCatching {
@@ -858,7 +832,7 @@ internal fun DesktopShell(
                 }
             }
             result.onSuccess { refreshedCount ->
-                libraryMetadataVersion += 1
+                libraryState.libraryMetadataVersion += 1
                 appendDiagnostic("metadata", "Series metadata refresh complete: $refreshedCount/${items.size} episodes updated")
             }.onFailure { error ->
                 appendDiagnostic(
@@ -866,8 +840,8 @@ internal fun DesktopShell(
                     "Series metadata refresh failed for ${series.title}: ${error.message ?: error::class.simpleName}",
                 )
             }
-            refreshingMetadataSeriesIds = refreshingMetadataSeriesIds - series.id
-            refreshingMetadataMediaIds = refreshingMetadataMediaIds - items.mapTo(mutableSetOf()) { it.id }
+            libraryState.refreshingMetadataSeriesIds = libraryState.refreshingMetadataSeriesIds - series.id
+            libraryState.refreshingMetadataMediaIds = libraryState.refreshingMetadataMediaIds - items.mapTo(mutableSetOf()) { it.id }
         }
     }
 
@@ -893,7 +867,7 @@ internal fun DesktopShell(
                     ),
                 )
             }
-            libraryMetadataVersion += 1
+            libraryState.libraryMetadataVersion += 1
             appendDiagnostic("metadata", "Linked ${series.title} to ${provider.displayName} #$animeId")
         }
     }
@@ -903,7 +877,7 @@ internal fun DesktopShell(
             withContext(Dispatchers.IO) {
                 catalogStore.deleteExternalAnimeMapping(series.id, provider)
             }
-            libraryMetadataVersion += 1
+            libraryState.libraryMetadataVersion += 1
             appendDiagnostic("metadata", "Removed ${provider.displayName} link for ${series.title}")
         }
     }
@@ -939,7 +913,7 @@ internal fun DesktopShell(
                 }
             }
             result.onSuccess {
-                libraryMetadataVersion += 1
+                libraryState.libraryMetadataVersion += 1
                 appendDiagnostic("metadata", "Linked ${item.episodeTitle} to ${provider.displayName} #$animeId")
             }.onFailure { error ->
                 appendDiagnostic(
@@ -955,7 +929,7 @@ internal fun DesktopShell(
             withContext(Dispatchers.IO) {
                 catalogStore.deleteExternalAnimeItemMapping(item.id, provider)
             }
-            libraryMetadataVersion += 1
+            libraryState.libraryMetadataVersion += 1
             appendDiagnostic("metadata", "Removed ${provider.displayName} episode link for ${item.episodeTitle}")
         }
     }
@@ -1000,15 +974,15 @@ internal fun DesktopShell(
 
     fun setFavorite(item: LibraryMediaItem, isFavorite: Boolean) {
         val updatedFavorites = if (isFavorite) {
-            favoriteMediaIds + item.id
+            libraryState.favoriteMediaIds + item.id
         } else {
-            favoriteMediaIds - item.id
+            libraryState.favoriteMediaIds - item.id
         }
         runCatching {
             catalogStore.saveFavoriteMediaIds(updatedFavorites)
             catalogStore.loadFavoriteMediaIds()
         }.onSuccess { loadedFavorites ->
-            favoriteMediaIds = loadedFavorites
+            libraryState.favoriteMediaIds = loadedFavorites
             appendDiagnostic(
                 "library",
                 if (isFavorite) {
@@ -1018,7 +992,7 @@ internal fun DesktopShell(
                 },
             )
         }.onFailure { error ->
-            libraryError = error.message
+            libraryState.libraryError = error.message
             appendDiagnostic("library", "Failed to update favorite ${item.id}: ${error.message}")
         }
     }
@@ -1026,7 +1000,7 @@ internal fun DesktopShell(
     fun registerAndScanUserRoot(root: Path) {
         scope.launch {
             appendDiagnostic("library", "Scanning user library root: $root")
-            isIndexing = true
+            libraryState.isIndexing = true
             try {
                 runCatching {
                     withContext(Dispatchers.IO) {
@@ -1035,19 +1009,19 @@ internal fun DesktopShell(
                         }
                     }
                 }.onSuccess { result ->
-                    lastScanStats = result.indexedLibrary?.scanStats
+                    libraryState.lastScanStats = result.indexedLibrary?.scanStats
                     applyPublishedLibrary(result.publishedLibrary)
                     appendDiagnostic(
                         "library",
                         "Scan complete: ${result.publishedLibrary.catalog.items.size} published items",
                     )
                 }.onFailure { error ->
-                    libraryError = error.message
-                    registeredRoots = rootRegistry.loadRoots()
+                    libraryState.libraryError = error.message
+                    libraryState.registeredRoots = rootRegistry.loadRoots()
                     appendDiagnostic("library", "Scan failed: ${error.message}")
                 }
             } finally {
-                isIndexing = false
+                libraryState.isIndexing = false
             }
         }
     }
@@ -1055,41 +1029,41 @@ internal fun DesktopShell(
     fun importAndScanAniRssRoot(root: Path) {
         scope.launch {
             appendDiagnostic("downloads", "Importing ani-rss output root: $root")
-            isIndexing = true
+            libraryState.isIndexing = true
             try {
                 runCatching {
                     withContext(Dispatchers.IO) {
                         rootScanner.importAniRssOutputRoot(root)
                     }
                 }.onSuccess { result ->
-                    lastScanStats = result.indexedLibrary?.scanStats
+                    libraryState.lastScanStats = result.indexedLibrary?.scanStats
                     applyPublishedLibrary(result.publishedLibrary)
                     appendDiagnostic(
                         "downloads",
                         "ani-rss root scan complete: ${result.publishedLibrary.catalog.items.size} published items",
                     )
                 }.onFailure { error ->
-                    libraryError = error.message
-                    registeredRoots = rootRegistry.loadRoots()
+                    libraryState.libraryError = error.message
+                    libraryState.registeredRoots = rootRegistry.loadRoots()
                     appendDiagnostic("downloads", "ani-rss root scan failed: ${error.message}")
                 }
             } finally {
-                isIndexing = false
+                libraryState.isIndexing = false
             }
         }
     }
 
     fun rescanRegisteredRoots() {
         scope.launch {
-            appendDiagnostic("library", "Rescanning ${registeredRoots.size} registered folders")
-            isIndexing = true
+            appendDiagnostic("library", "Rescanning ${libraryState.registeredRoots.size} registered folders")
+            libraryState.isIndexing = true
             try {
                 runCatching {
                     withContext(Dispatchers.IO) {
                         rootScanner.scanAll()
                     }
                 }.onSuccess { batch ->
-                    lastScanStats = LocalMediaLibraryScanStats(
+                    libraryState.lastScanStats = LocalMediaLibraryScanStats(
                         reusedItemCount = batch.results.sumOf {
                             it.indexedLibrary?.scanStats?.reusedItemCount ?: 0
                         },
@@ -1103,12 +1077,12 @@ internal fun DesktopShell(
                         "Rescan complete: ${batch.publishedLibrary.catalog.items.size} published items",
                     )
                 }.onFailure { error ->
-                    libraryError = error.message
-                    registeredRoots = rootRegistry.loadRoots()
+                    libraryState.libraryError = error.message
+                    libraryState.registeredRoots = rootRegistry.loadRoots()
                     appendDiagnostic("library", "Rescan failed: ${error.message}")
                 }
             } finally {
-                isIndexing = false
+                libraryState.isIndexing = false
             }
         }
     }
@@ -1116,7 +1090,7 @@ internal fun DesktopShell(
     fun removeRegisteredRoot(root: DesktopLibraryRoot) {
         scope.launch {
             appendDiagnostic("library", "Removing library root: ${root.normalizedPath}")
-            isIndexing = true
+            libraryState.isIndexing = true
             try {
                 runCatching {
                     withContext(Dispatchers.IO) {
@@ -1124,17 +1098,17 @@ internal fun DesktopShell(
                         catalogStore.loadRegisteredLibrary()
                     }
                 }.onSuccess { library ->
-                    registeredRoots = rootRegistry.loadRoots()
-                    lastScanStats = null
+                    libraryState.registeredRoots = rootRegistry.loadRoots()
+                    libraryState.lastScanStats = null
                     applyPublishedLibrary(library)
                     appendDiagnostic("library", "Removed library root ${root.displayName}")
                 }.onFailure { error ->
-                    libraryError = error.message
-                    registeredRoots = rootRegistry.loadRoots()
+                    libraryState.libraryError = error.message
+                    libraryState.registeredRoots = rootRegistry.loadRoots()
                     appendDiagnostic("library", "Failed to remove library root ${root.displayName}: ${error.message}")
                 }
             } finally {
-                isIndexing = false
+                libraryState.isIndexing = false
             }
         }
     }
@@ -1182,7 +1156,7 @@ internal fun DesktopShell(
                 }
             }.onSuccess { updatedProgresses ->
                 updatedProgresses?.let {
-                    playbackProgresses = it
+                    libraryState.playbackProgresses = it
                 }
                 val destination = if (target == null) "local catalog" else "paired LAN server"
                 appendDiagnostic(
@@ -1219,7 +1193,7 @@ internal fun DesktopShell(
         return when (navigationState.selectedTab) {
             DesktopShellTab.HOME,
             DesktopShellTab.MEDIA_LIBRARY -> {
-                if (registeredRoots.isEmpty() || isIndexing) {
+                if (libraryState.registeredRoots.isEmpty() || libraryState.isIndexing) {
                     false
                 } else {
                     appendDiagnostic("shell", "Primary shortcut requested library rescan from ${navigationState.desktopStrings.tabTitle(navigationState.selectedTab)}")
@@ -1228,7 +1202,7 @@ internal fun DesktopShell(
                 }
             }
             DesktopShellTab.DOWNLOADS -> {
-                downloadQueueItems = catalogStore.loadDownloads()
+                libraryState.downloadQueueItems = catalogStore.loadDownloads()
                 appendDiagnostic("downloads", "Primary shortcut refreshed download queue")
                 true
             }
@@ -1249,15 +1223,15 @@ internal fun DesktopShell(
                 }
             }
             DesktopShellTab.TRACKING -> {
-                val plan = indexedLibrary
+                val plan = libraryState.indexedLibrary
                     ?.catalog
                     ?.externalAnimeTrackingPlan(
                         mappings = externalAnimeMappings,
-                        progresses = playbackProgresses,
-                        failures = externalAnimeSyncFailures,
+                        progresses = libraryState.playbackProgresses,
+                        failures = libraryState.externalAnimeSyncFailures,
                     )
                     ?: return false
-                if (isExternalAnimeSyncing || plan.updates.isEmpty()) {
+                if (libraryState.isExternalAnimeSyncing || plan.updates.isEmpty()) {
                     false
                 } else {
                     appendDiagnostic("external-sync", "Primary shortcut started ${plan.updates.size} tracking update(s)")
@@ -1288,7 +1262,7 @@ internal fun DesktopShell(
             }
             Key.Enter -> triggerPrimaryPageAction()
             Key.R -> {
-                if (registeredRoots.isNotEmpty() && !isIndexing) {
+                if (libraryState.registeredRoots.isNotEmpty() && !libraryState.isIndexing) {
                     appendDiagnostic("shell", "Shortcut requested library rescan")
                     rescanRegisteredRoots()
                     true
@@ -1330,21 +1304,21 @@ internal fun DesktopShell(
         refreshDandanplay: Boolean = false,
         preferredDandanplayEpisodeId: Long? = null,
     ) {
-        val library = indexedLibrary
+        val library = libraryState.indexedLibrary
         if (library == null) {
-            dandanplayCacheStatus = dandanplayStatusMessage(
+            libraryState.dandanplayCacheStatus = dandanplayStatusMessage(
                 mediaId = item.id,
                 summary = "library is not indexed; cannot check danmaku",
                 details = item.dandanplayStatusContext(settingsState.dandanplaySettings),
             )
-            libraryError = "Index or scan a local library before preparing playback."
+            libraryState.libraryError = "Index or scan a local library before preparing playback."
             appendDiagnostic("playback", "Cannot prepare local playback; library is not indexed")
             return
         }
         scope.launch {
             appendDiagnostic("playback", "Preparing local library playback: ${item.id}")
-            isPreparingLocalPlayback = true
-            dandanplayCacheStatus = dandanplayStatusMessage(
+            libraryState.isPreparingLocalPlayback = true
+            libraryState.dandanplayCacheStatus = dandanplayStatusMessage(
                 mediaId = item.id,
                 summary = when {
                     preferredDandanplayEpisodeId != null -> "loading selected dandanplay match..."
@@ -1393,8 +1367,8 @@ internal fun DesktopShell(
                     }
                 }
             }.onSuccess { result ->
-                selectedLocalPlaybackPreparation = result.preparation
-                libraryError = null
+                libraryState.selectedLocalPlaybackPreparation = result.preparation
+                libraryState.libraryError = null
                 result.dandanplayResolution?.match?.animeId?.let { animeId ->
                     scope.launch {
                         val metadataRefreshResult = withContext(Dispatchers.IO) {
@@ -1418,7 +1392,7 @@ internal fun DesktopShell(
                                     "Refreshed dandanplay poster metadata for ${item.seriesTitle}",
                                 )
                             }
-                            libraryMetadataVersion += 1
+                            libraryState.libraryMetadataVersion += 1
                         }.onFailure { error ->
                             appendDiagnostic(
                                 "metadata",
@@ -1451,7 +1425,7 @@ internal fun DesktopShell(
                     else ->
                         appendDiagnostic("danmaku", "dandanplay found no match for ${item.id}")
                 }
-                dandanplayCacheStatus = when {
+                libraryState.dandanplayCacheStatus = when {
                     !settingsState.dandanplaySettings.isFetchEnabled ->
                         dandanplayStatusMessage(
                             mediaId = item.id,
@@ -1501,8 +1475,8 @@ internal fun DesktopShell(
                     queuePlaybackUntilHostReady(result.preparation.toPlaybackRequest())
                 }
             }.onFailure {
-                libraryError = it.message
-                dandanplayCacheStatus = dandanplayStatusMessage(
+                libraryState.libraryError = it.message
+                libraryState.dandanplayCacheStatus = dandanplayStatusMessage(
                     mediaId = item.id,
                     summary = "prepare failed before danmaku could load",
                     details = item.dandanplayStatusContext(settingsState.dandanplaySettings) +
@@ -1510,22 +1484,22 @@ internal fun DesktopShell(
                 )
                 appendDiagnostic("playback", "Prepare local playback failed: ${it.message}")
             }
-            isPreparingLocalPlayback = false
+            libraryState.isPreparingLocalPlayback = false
         }
     }
 
     fun inspectCachedDandanplay(item: LibraryMediaItem) {
-        val library = indexedLibrary
+        val library = libraryState.indexedLibrary
         if (library == null) {
-            dandanplayCacheStatus = dandanplayStatusMessage(
+            libraryState.dandanplayCacheStatus = dandanplayStatusMessage(
                 mediaId = item.id,
                 summary = "library is not indexed; cannot check cached danmaku",
                 details = item.dandanplayStatusContext(settingsState.dandanplaySettings),
             )
             return
         }
-        val existingStatus = dandanplayCacheStatus
-        val hasPreparedOverlay = selectedLocalPlaybackPreparation
+        val existingStatus = libraryState.dandanplayCacheStatus
+        val hasPreparedOverlay = libraryState.selectedLocalPlaybackPreparation
             ?.takeIf { it.item.id == item.id }
             ?.subtitles
             ?.any(DesktopPlaybackSubtitle::isDanmakuOverlay) == true
@@ -1534,7 +1508,7 @@ internal fun DesktopShell(
         }
 
         scope.launch {
-            dandanplayCacheStatus = dandanplayStatusMessage(
+            libraryState.dandanplayCacheStatus = dandanplayStatusMessage(
                 mediaId = item.id,
                 summary = "checking cached danmaku...",
                 details = item.dandanplayStatusContext(settingsState.dandanplaySettings),
@@ -1547,7 +1521,7 @@ internal fun DesktopShell(
                 }
             }
             result.onSuccess { resolution ->
-                dandanplayCacheStatus = if (resolution == null) {
+                libraryState.dandanplayCacheStatus = if (resolution == null) {
                     dandanplayStatusMessage(
                         mediaId = item.id,
                         summary = "no valid cached danmaku",
@@ -1564,7 +1538,7 @@ internal fun DesktopShell(
                     )
                 }
             }.onFailure { error ->
-                dandanplayCacheStatus = dandanplayStatusMessage(
+                libraryState.dandanplayCacheStatus = dandanplayStatusMessage(
                     mediaId = item.id,
                     summary = "cached danmaku check failed",
                     details = item.dandanplayStatusContext(settingsState.dandanplaySettings) +
@@ -1574,12 +1548,12 @@ internal fun DesktopShell(
         }
     }
 
-    LaunchedEffect(playbackState.activeProgressMediaId, playbackState.activeProgressTarget, indexedLibrary?.catalog) {
+    LaunchedEffect(playbackState.activeProgressMediaId, playbackState.activeProgressTarget, libraryState.indexedLibrary?.catalog) {
         val mediaId = playbackState.activeProgressMediaId ?: return@LaunchedEffect
         if (playbackState.activeProgressTarget != null) {
             return@LaunchedEffect
         }
-        val activeItem = indexedLibrary
+        val activeItem = libraryState.indexedLibrary
             ?.catalog
             ?.items
             ?.firstOrNull { item -> item.id == mediaId }
@@ -1589,7 +1563,7 @@ internal fun DesktopShell(
 
     fun refreshPreparedDandanplay(preparation: DesktopLocalPlaybackPreparation) {
         if (!settingsState.dandanplaySettings.isFetchEnabled) {
-            dandanplayCacheStatus = dandanplayStatusMessage(
+            libraryState.dandanplayCacheStatus = dandanplayStatusMessage(
                 mediaId = preparation.item.id,
                 summary = "dandanplay fetching is not configured",
                 details = preparation.item.dandanplayStatusContext(settingsState.dandanplaySettings) +
@@ -1627,8 +1601,8 @@ internal fun DesktopShell(
                     dandanplayDanmakuResolver.clearCache(preparation.item.id)
                 }
             }.onSuccess {
-                selectedLocalPlaybackPreparation = preparation.withoutDanmakuOverlays()
-                dandanplayCacheStatus = dandanplayStatusMessage(
+                libraryState.selectedLocalPlaybackPreparation = preparation.withoutDanmakuOverlays()
+                libraryState.dandanplayCacheStatus = dandanplayStatusMessage(
                     mediaId = preparation.item.id,
                     summary = "dandanplay cache cleared",
                     details = preparation.item.dandanplayStatusContext(settingsState.dandanplaySettings),
@@ -1641,8 +1615,8 @@ internal fun DesktopShell(
     }
 
     fun clearPreparedDanmakuOverlay(preparation: DesktopLocalPlaybackPreparation) {
-        selectedLocalPlaybackPreparation = preparation.withoutDanmakuOverlays()
-        dandanplayCacheStatus = dandanplayStatusMessage(
+        libraryState.selectedLocalPlaybackPreparation = preparation.withoutDanmakuOverlays()
+        libraryState.dandanplayCacheStatus = dandanplayStatusMessage(
             mediaId = preparation.item.id,
             summary = "prepared danmaku overlay removed",
             details = preparation.item.dandanplayStatusContext(settingsState.dandanplaySettings),
@@ -1662,8 +1636,8 @@ internal fun DesktopShell(
                     )
                 }
             }.onSuccess { overlay ->
-                selectedLocalPlaybackPreparation = preparation.withManualDanmakuOverlay(overlay)
-                dandanplayCacheStatus = dandanplayStatusMessage(
+                libraryState.selectedLocalPlaybackPreparation = preparation.withManualDanmakuOverlay(overlay)
+                libraryState.dandanplayCacheStatus = dandanplayStatusMessage(
                     mediaId = preparation.item.id,
                     summary = "manual danmaku: attached ${overlay.eventCount} comments",
                     details = preparation.item.dandanplayStatusContext(settingsState.dandanplaySettings) +
@@ -2047,8 +2021,8 @@ internal fun DesktopShell(
                 }
             }.onSuccess { updatedEntries ->
                 settingsState.dandanplayCacheEntries = updatedEntries
-                if (dandanplayCacheStatus?.mediaId == mediaId) {
-                    dandanplayCacheStatus = dandanplayStatusMessage(
+                if (libraryState.dandanplayCacheStatus?.mediaId == mediaId) {
+                    libraryState.dandanplayCacheStatus = dandanplayStatusMessage(
                         mediaId = mediaId,
                         summary = "dandanplay cache cleared",
                     )
@@ -2077,8 +2051,8 @@ internal fun DesktopShell(
     }
 
     LaunchedEffect(Unit) {
-        indexedLibrary?.toPublishedLibrary(animeMetadataResolver)?.let(server::publish)
-        if (registeredRoots.isNotEmpty()) {
+        libraryState.indexedLibrary?.toPublishedLibrary(animeMetadataResolver)?.let(server::publish)
+        if (libraryState.registeredRoots.isNotEmpty()) {
             rescanRegisteredRoots()
         } else {
             legacySelectedLibraryRoot?.let(::registerAndScanUserRoot)
@@ -2135,7 +2109,7 @@ internal fun DesktopShell(
                 playbackState.activeProgressTarget == null &&
                 playbackState.lastAutoNextMediaId != mediaId
             ) {
-                val nextItem = indexedLibrary?.catalog?.nextItem(mediaId)
+                val nextItem = libraryState.indexedLibrary?.catalog?.nextItem(mediaId)
                 playbackState.lastAutoNextMediaId = mediaId
                 if (nextItem == null) {
                     appendDiagnostic("playback", "Auto-next reached end of local catalog at $mediaId")
@@ -2203,7 +2177,7 @@ internal fun DesktopShell(
                         onTabSelected = { navigationState.selectedTab = it },
                         playbackLabel = playbackState.activePlaybackLabel,
                         playbackStatus = playbackSnapshot.status,
-                        episodeCount = indexedLibrary?.catalog?.items?.size ?: 0,
+                        episodeCount = libraryState.indexedLibrary?.catalog?.items?.size ?: 0,
                         modifier = Modifier.width(224.dp),
                     )
                 }
@@ -2219,8 +2193,8 @@ internal fun DesktopShell(
                             onRefresh = ::rescanRegisteredRoots,
                             onShowSettings = { navigationState.selectedTab = DesktopShellTab.PROFILE },
                             playerStatus = playbackSnapshot.status.name,
-                            episodeCount = indexedLibrary?.catalog?.items?.size ?: 0,
-                            isRefreshEnabled = registeredRoots.isNotEmpty() && !isIndexing,
+                            episodeCount = libraryState.indexedLibrary?.catalog?.items?.size ?: 0,
+                            isRefreshEnabled = libraryState.registeredRoots.isNotEmpty() && !libraryState.isIndexing,
                         )
                     }
                     Box(
@@ -2237,9 +2211,9 @@ internal fun DesktopShell(
                     if (navigationState.selectedTab == DesktopShellTab.PLAYBACK) {
                         val activeLocalMediaId = playbackState.activeProgressMediaId.takeIf { playbackState.activeProgressTarget == null }
                         val previousLocalPlaybackItem = activeLocalMediaId
-                            ?.let { mediaId -> indexedLibrary?.catalog?.previousItem(mediaId) }
+                            ?.let { mediaId -> libraryState.indexedLibrary?.catalog?.previousItem(mediaId) }
                         val nextLocalPlaybackItem = activeLocalMediaId
-                            ?.let { mediaId -> indexedLibrary?.catalog?.nextItem(mediaId) }
+                            ?.let { mediaId -> libraryState.indexedLibrary?.catalog?.nextItem(mediaId) }
                         PlaybackTab(
                             strings = navigationState.desktopStrings,
                             playbackLabel = playbackState.activePlaybackLabel,
@@ -2248,9 +2222,9 @@ internal fun DesktopShell(
                             videoHostStatus = videoHostStatus,
                             overlayStatus = overlayStatus,
                             danmakuSettings = settingsState.danmakuSettings,
-                            dandanplayCacheStatus = dandanplayCacheStatus,
-                            isPreparingLocalPlayback = isPreparingLocalPlayback,
-                            libraryError = libraryError,
+                            dandanplayCacheStatus = libraryState.dandanplayCacheStatus,
+                            isPreparingLocalPlayback = libraryState.isPreparingLocalPlayback,
+                            libraryError = libraryState.libraryError,
                             onWindowIdChanged = { windowId ->
                                 if (mpvVideoWindowId != windowId) {
                                     appendDiagnostic(
@@ -2400,25 +2374,25 @@ internal fun DesktopShell(
                         DesktopShellTab.HOME -> HomeTab(
                             strings = navigationState.desktopStrings,
                             playbackSnapshot = playbackSnapshot,
-                            registeredRoots = registeredRoots,
+                            registeredRoots = libraryState.registeredRoots,
                             indexedLibrary = displayIndexedLibrary,
                             seriesPosterById = seriesPosterById,
-                            playbackProgresses = playbackProgresses,
-                            favoriteMediaIds = favoriteMediaIds,
+                            playbackProgresses = libraryState.playbackProgresses,
+                            favoriteMediaIds = libraryState.favoriteMediaIds,
                             externalAnimeMappings = externalAnimeMappings,
-                            externalAnimeSyncFailures = externalAnimeSyncFailures,
-                            isIndexing = isIndexing,
-                            isPreparingLocalPlayback = isPreparingLocalPlayback,
-                            isRefreshingSeriesPosters = isRefreshingSeriesPosters,
-                            refreshingMetadataMediaIds = refreshingMetadataMediaIds,
-                            refreshingMetadataSeriesIds = refreshingMetadataSeriesIds,
-                            dandanplayCacheStatus = dandanplayCacheStatus,
-                            episodeCount = indexedLibrary?.catalog?.items?.size ?: 0,
+                            externalAnimeSyncFailures = libraryState.externalAnimeSyncFailures,
+                            isIndexing = libraryState.isIndexing,
+                            isPreparingLocalPlayback = libraryState.isPreparingLocalPlayback,
+                            isRefreshingSeriesPosters = libraryState.isRefreshingSeriesPosters,
+                            refreshingMetadataMediaIds = libraryState.refreshingMetadataMediaIds,
+                            refreshingMetadataSeriesIds = libraryState.refreshingMetadataSeriesIds,
+                            dandanplayCacheStatus = libraryState.dandanplayCacheStatus,
+                            episodeCount = libraryState.indexedLibrary?.catalog?.items?.size ?: 0,
                             networkUrls = networkUrls,
                             pairingToken = server.pairingToken,
                             overlayStatus = overlayStatus,
-                            libraryError = libraryError,
-                            lastScanStats = lastScanStats,
+                            libraryError = libraryState.libraryError,
+                            lastScanStats = libraryState.lastScanStats,
                             diagnosticLog = diagnosticLog,
                             onOpenLibrary = { navigationState.selectedTab = DesktopShellTab.MEDIA_LIBRARY },
                             onOpenDownloads = { navigationState.selectedTab = DesktopShellTab.DOWNLOADS },
@@ -2436,9 +2410,9 @@ internal fun DesktopShell(
                             strings = navigationState.desktopStrings,
                             indexedLibrary = displayIndexedLibrary,
                             externalAnimeMappings = externalAnimeMappings,
-                            playbackProgresses = playbackProgresses,
-                            externalAnimeSyncFailures = externalAnimeSyncFailures,
-                            isExternalAnimeSyncing = isExternalAnimeSyncing,
+                            playbackProgresses = libraryState.playbackProgresses,
+                            externalAnimeSyncFailures = libraryState.externalAnimeSyncFailures,
+                            isExternalAnimeSyncing = libraryState.isExternalAnimeSyncing,
                             externalAnimeProviderSettings = settingsState.externalAnimeProviderSettings,
                             onSyncExternalAnimePlan = ::syncExternalAnimePlan,
                             onOpenSettings = { navigationState.selectedTab = DesktopShellTab.PROFILE },
@@ -2446,7 +2420,7 @@ internal fun DesktopShell(
                         )
                         DesktopShellTab.MEDIA_LIBRARY -> MediaLibraryTab(
                             strings = navigationState.desktopStrings,
-                            registeredRoots = registeredRoots,
+                            registeredRoots = libraryState.registeredRoots,
                             indexedLibrary = displayIndexedLibrary,
                             searchSeed = navigationState.librarySearchSeed,
                             searchSeedVersion = navigationState.librarySearchSeedVersion,
@@ -2455,19 +2429,19 @@ internal fun DesktopShell(
                             externalAnimeItemMappingsByMediaId = externalAnimeItemMappingsByMediaId,
                             externalAnimeProviderSettings = settingsState.externalAnimeProviderSettings,
                             originalSeriesTitleByMediaId = originalSeriesTitleByMediaId,
-                            refreshingMetadataMediaIds = refreshingMetadataMediaIds,
-                            refreshingMetadataSeriesIds = refreshingMetadataSeriesIds,
-                            playbackProgresses = playbackProgresses,
-                            favoriteMediaIds = favoriteMediaIds,
-                            externalAnimeSyncFailures = externalAnimeSyncFailures,
-                            isExternalAnimeSyncing = isExternalAnimeSyncing,
-                            isIndexing = isIndexing,
-                            isPreparingLocalPlayback = isPreparingLocalPlayback,
-                            selectedLocalPlaybackPreparation = selectedLocalPlaybackPreparation,
-                            dandanplayCacheStatus = dandanplayCacheStatus,
+                            refreshingMetadataMediaIds = libraryState.refreshingMetadataMediaIds,
+                            refreshingMetadataSeriesIds = libraryState.refreshingMetadataSeriesIds,
+                            playbackProgresses = libraryState.playbackProgresses,
+                            favoriteMediaIds = libraryState.favoriteMediaIds,
+                            externalAnimeSyncFailures = libraryState.externalAnimeSyncFailures,
+                            isExternalAnimeSyncing = libraryState.isExternalAnimeSyncing,
+                            isIndexing = libraryState.isIndexing,
+                            isPreparingLocalPlayback = libraryState.isPreparingLocalPlayback,
+                            selectedLocalPlaybackPreparation = libraryState.selectedLocalPlaybackPreparation,
+                            dandanplayCacheStatus = libraryState.dandanplayCacheStatus,
                             autoNextLocalPlayback = playbackState.autoNextLocalPlayback,
-                            libraryError = libraryError,
-                            lastScanStats = lastScanStats,
+                            libraryError = libraryState.libraryError,
+                            lastScanStats = libraryState.lastScanStats,
                             onAddLibraryFolder = {
                                 selectLibraryDirectory(
                                     title = navigationState.desktopStrings.chooseAnimeLibraryFolderTitle,
@@ -2526,18 +2500,18 @@ internal fun DesktopShell(
                         )
                         DesktopShellTab.DOWNLOADS -> DownloadsTab(
                             strings = navigationState.desktopStrings,
-                            isIndexing = isIndexing,
+                            isIndexing = libraryState.isIndexing,
                             webhookUrls = serverRuntime.aniRssWebhookUrls(),
                             webhookToken = serverRuntime.aniRssWebhookToken,
-                            registeredRoots = registeredRoots,
-                            downloadQueueItems = downloadQueueItems,
+                            registeredRoots = libraryState.registeredRoots,
+                            downloadQueueItems = libraryState.downloadQueueItems,
                             onAddAniRssOutputFolder = {
                                 selectLibraryDirectory(
                                     title = navigationState.desktopStrings.chooseAniRssCompletedMediaFolderTitle,
                                 )?.let(::importAndScanAniRssRoot)
                             },
                             onRefreshQueue = {
-                                downloadQueueItems = catalogStore.loadDownloads()
+                                libraryState.downloadQueueItems = catalogStore.loadDownloads()
                             },
                             onRemoveQueueItem = { item ->
                                 scope.launch {
@@ -2546,7 +2520,7 @@ internal fun DesktopShell(
                                             catalogStore.deleteDownload(item.id)
                                         }
                                     }.onSuccess {
-                                        downloadQueueItems = catalogStore.loadDownloads()
+                                        libraryState.downloadQueueItems = catalogStore.loadDownloads()
                                         appendDiagnostic("downloads", "Removed download queue item ${item.id}")
                                     }.onFailure { error ->
                                         appendDiagnostic("downloads", "Failed to remove download queue item ${item.id}: ${error.message}")
