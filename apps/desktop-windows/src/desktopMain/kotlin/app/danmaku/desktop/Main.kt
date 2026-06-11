@@ -1130,6 +1130,14 @@ private fun DesktopShell(
     var librarySearchSeed by remember { mutableStateOf("") }
     var librarySearchSeedVersion by remember { mutableStateOf(0) }
     val globalSearchFocusRequester = remember { FocusRequester() }
+    var desktopLanguage by remember(catalogStore) {
+        mutableStateOf(
+            DesktopUiLanguage.fromStorageValue(
+                catalogStore.loadSetting(DESKTOP_UI_LANGUAGE_SETTING_KEY)?.value,
+            ),
+        )
+    }
+    val desktopStrings = remember(desktopLanguage) { desktopLanguage.strings }
     var pendingPlaybackRequest by remember { mutableStateOf<DesktopPlaybackRequest?>(null) }
     var activePlaybackLabel by remember { mutableStateOf<String?>(null) }
     var activeProgressMediaId by remember { mutableStateOf<String?>(null) }
@@ -1232,8 +1240,32 @@ private fun DesktopShell(
 
     fun selectShellTabFromShortcut(tab: DesktopShellTab): Boolean {
         selectedTab = tab
-        appendDiagnostic("shell", "Shortcut routed to ${tab.title}")
+        appendDiagnostic("shell", "Shortcut routed to ${desktopStrings.tabTitle(tab)}")
         return true
+    }
+
+    fun setDesktopLanguage(language: DesktopUiLanguage) {
+        if (desktopLanguage == language) {
+            return
+        }
+        desktopLanguage = language
+        scope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    catalogStore.saveSetting(
+                        DesktopAppSetting(
+                            key = DESKTOP_UI_LANGUAGE_SETTING_KEY,
+                            value = language.storageValue,
+                            updatedAtEpochMs = System.currentTimeMillis(),
+                        ),
+                    )
+                }
+            }.onSuccess {
+                appendDiagnostic("settings", "Desktop language set to ${language.displayName}")
+            }.onFailure {
+                appendDiagnostic("settings", "Failed to save desktop language: ${it.message}")
+            }
+        }
     }
 
     fun handleDesktopShellShortcut(event: KeyEvent): Boolean {
@@ -1971,6 +2003,7 @@ private fun DesktopShell(
                 if (showAppChrome) {
                     AppNavigationRail(
                         selectedTab = selectedTab,
+                        strings = desktopStrings,
                         onTabSelected = { selectedTab = it },
                         playbackLabel = activePlaybackLabel,
                         playbackStatus = playbackSnapshot.status,
@@ -1982,6 +2015,7 @@ private fun DesktopShell(
                     if (showAppChrome) {
                         ShellHeader(
                             selectedTab = selectedTab,
+                            strings = desktopStrings,
                             searchText = globalSearchText,
                             onSearchTextChange = { globalSearchText = it },
                             onSubmitSearch = ::submitGlobalSearch,
@@ -2272,6 +2306,8 @@ private fun DesktopShell(
                             },
                         )
                         DesktopShellTab.PROFILE -> ProfileTab(
+                            desktopLanguage = desktopLanguage,
+                            strings = desktopStrings,
                             mpvRuntimeStatus = mpvRuntime.statusMessage,
                             videoHostStatus = videoHostStatus,
                             serverBaseUrl = server.baseUrl(),
@@ -2282,6 +2318,7 @@ private fun DesktopShell(
                             diagnosticLog = diagnosticLog,
                             danmakuSettings = danmakuSettings,
                             onSaveDanmakuSettings = ::saveDanmakuSettings,
+                            onDesktopLanguageChange = ::setDesktopLanguage,
                             dandanplaySettings = dandanplaySettings,
                             onSaveDandanplaySettings = ::saveDandanplaySettings,
                             onClearDandanplaySettings = ::clearDandanplaySettings,
@@ -2335,9 +2372,104 @@ private val DanmakuDarkColors = darkColors(
     onSurface = Color.White,
 )
 
+private enum class DesktopUiLanguage(
+    val storageValue: String,
+    val displayName: String,
+    val strings: DesktopStrings,
+) {
+    ENGLISH(
+        storageValue = "en",
+        displayName = "English",
+        strings = DesktopStrings(
+            mediaHub = "Media hub",
+            shellSubtitle = "Local anime library host",
+            searchLabel = "Search anime, episodes, files (Ctrl+K)",
+            playerStatusPrefix = "Player",
+            episodesSuffix = "episodes",
+            rescanLibrary = "Rescan library",
+            settingsTitle = "Settings",
+            settingsDescription = "App, providers, playback, and diagnostics",
+            languageTitle = "Language",
+            languageDescription = "Choose the desktop shell language. Page content localization will expand from this shared string layer.",
+            uiLanguageLabel = "UI language",
+            uiLanguagesValue = "English, Traditional Chinese",
+            appLabel = "App",
+            primaryTargetsLabel = "Primary targets",
+        ),
+    ),
+    ZH_TW(
+        storageValue = "zh-TW",
+        displayName = "繁體中文",
+        strings = DesktopStrings(
+            tabTitles = mapOf(
+                DesktopShellTab.HOME to "首頁",
+                DesktopShellTab.PLAYBACK to "播放",
+                DesktopShellTab.MEDIA_LIBRARY to "媒體庫",
+                DesktopShellTab.DOWNLOADS to "下載",
+                DesktopShellTab.TRACKING to "追蹤",
+                DesktopShellTab.PROFILE to "設定",
+            ),
+            settingsSectionTitles = mapOf(
+                DesktopSettingsSection.GENERAL to "一般",
+                DesktopSettingsSection.LIBRARY to "媒體庫",
+                DesktopSettingsSection.PLAYBACK to "播放",
+                DesktopSettingsSection.DANMAKU to "彈幕",
+                DesktopSettingsSection.PROVIDERS to "服務",
+                DesktopSettingsSection.SERVER to "伺服器",
+                DesktopSettingsSection.STORAGE to "儲存空間",
+                DesktopSettingsSection.PRIVACY to "隱私",
+                DesktopSettingsSection.DIAGNOSTICS to "診斷",
+            ),
+            mediaHub = "媒體中心",
+            shellSubtitle = "本機動畫媒體庫主機",
+            searchLabel = "搜尋動畫、集數、檔案 (Ctrl+K)",
+            playerStatusPrefix = "播放器",
+            episodesSuffix = "集",
+            rescanLibrary = "重新掃描媒體庫",
+            settingsTitle = "設定",
+            settingsDescription = "應用程式、服務、播放與診斷",
+            languageTitle = "語言",
+            languageDescription = "選擇桌面介面語言。頁面內容會沿著這個共用字串層逐步在地化。",
+            uiLanguageLabel = "介面語言",
+            uiLanguagesValue = "英文、繁體中文",
+            appLabel = "應用程式",
+            primaryTargetsLabel = "主要平台",
+        ),
+    );
+
+    companion object {
+        fun fromStorageValue(value: String?): DesktopUiLanguage =
+            entries.firstOrNull { it.storageValue == value } ?: ENGLISH
+    }
+}
+
+private data class DesktopStrings(
+    val tabTitles: Map<DesktopShellTab, String> = emptyMap(),
+    val settingsSectionTitles: Map<DesktopSettingsSection, String> = emptyMap(),
+    val mediaHub: String,
+    val shellSubtitle: String,
+    val searchLabel: String,
+    val playerStatusPrefix: String,
+    val episodesSuffix: String,
+    val rescanLibrary: String,
+    val settingsTitle: String,
+    val settingsDescription: String,
+    val languageTitle: String,
+    val languageDescription: String,
+    val uiLanguageLabel: String,
+    val uiLanguagesValue: String,
+    val appLabel: String,
+    val primaryTargetsLabel: String,
+) {
+    fun tabTitle(tab: DesktopShellTab): String = tabTitles[tab] ?: tab.title
+    fun settingsSectionTitle(section: DesktopSettingsSection): String =
+        settingsSectionTitles[section] ?: section.title
+}
+
 @Composable
 private fun ShellHeader(
     selectedTab: DesktopShellTab,
+    strings: DesktopStrings,
     searchText: String,
     onSearchTextChange: (String) -> Unit,
     onSubmitSearch: () -> Unit,
@@ -2357,13 +2489,13 @@ private fun ShellHeader(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Column(modifier = Modifier.width(180.dp)) {
-            Text(selectedTab.title, style = MaterialTheme.typography.h6, fontWeight = FontWeight.Bold)
-            Text("Local anime library host", color = DanmakuColors.TextMuted, maxLines = 1)
+            Text(strings.tabTitle(selectedTab), style = MaterialTheme.typography.h6, fontWeight = FontWeight.Bold)
+            Text(strings.shellSubtitle, color = DanmakuColors.TextMuted, maxLines = 1)
         }
         OutlinedTextField(
             value = searchText,
             onValueChange = onSearchTextChange,
-            label = { Text("Search anime, episodes, files (Ctrl+K)") },
+            label = { Text(strings.searchLabel) },
             leadingIcon = { Icon(Icons.Filled.Search, contentDescription = "Search") },
             modifier = Modifier
                 .weight(1f)
@@ -2378,11 +2510,11 @@ private fun ShellHeader(
                 },
             singleLine = true,
         )
-        StatusPill("Player $playerStatus", icon = Icons.Filled.PlayArrow, active = playerStatus == PlaybackStatus.PLAYING.name)
-        StatusPill("$episodeCount episodes", icon = Icons.AutoMirrored.Filled.LibraryBooks)
+        StatusPill("${strings.playerStatusPrefix} $playerStatus", icon = Icons.Filled.PlayArrow, active = playerStatus == PlaybackStatus.PLAYING.name)
+        StatusPill("$episodeCount ${strings.episodesSuffix}", icon = Icons.AutoMirrored.Filled.LibraryBooks)
         PlayerIconButton(
             imageVector = Icons.Filled.Refresh,
-            contentDescription = "Rescan library",
+            contentDescription = strings.rescanLibrary,
             enabled = isRefreshEnabled,
             onClick = onRefresh,
         )
@@ -2397,6 +2529,7 @@ private fun ShellHeader(
 @Composable
 private fun AppNavigationRail(
     selectedTab: DesktopShellTab,
+    strings: DesktopStrings,
     onTabSelected: (DesktopShellTab) -> Unit,
     playbackLabel: String?,
     playbackStatus: PlaybackStatus,
@@ -2422,44 +2555,44 @@ private fun AppNavigationRail(
             }
             Column {
                 Text("Danmaku", style = MaterialTheme.typography.h6, fontWeight = FontWeight.Bold)
-                Text("Media hub", color = DanmakuColors.TextMuted, maxLines = 1)
+                Text(strings.mediaHub, color = DanmakuColors.TextMuted, maxLines = 1)
             }
         }
         Divider(color = DanmakuColors.SurfaceRaised)
         AppRailItem(
             icon = Icons.Filled.Home,
-            label = DesktopShellTab.HOME.title,
+            label = strings.tabTitle(DesktopShellTab.HOME),
             selected = selectedTab == DesktopShellTab.HOME,
             onClick = { onTabSelected(DesktopShellTab.HOME) },
         )
         AppRailItem(
             icon = Icons.AutoMirrored.Filled.LibraryBooks,
-            label = DesktopShellTab.MEDIA_LIBRARY.title,
+            label = strings.tabTitle(DesktopShellTab.MEDIA_LIBRARY),
             count = episodeCount,
             selected = selectedTab == DesktopShellTab.MEDIA_LIBRARY,
             onClick = { onTabSelected(DesktopShellTab.MEDIA_LIBRARY) },
         )
         AppRailItem(
             icon = Icons.Filled.FolderOpen,
-            label = DesktopShellTab.DOWNLOADS.title,
+            label = strings.tabTitle(DesktopShellTab.DOWNLOADS),
             selected = selectedTab == DesktopShellTab.DOWNLOADS,
             onClick = { onTabSelected(DesktopShellTab.DOWNLOADS) },
         )
         AppRailItem(
             icon = Icons.Filled.Refresh,
-            label = DesktopShellTab.TRACKING.title,
+            label = strings.tabTitle(DesktopShellTab.TRACKING),
             selected = selectedTab == DesktopShellTab.TRACKING,
             onClick = { onTabSelected(DesktopShellTab.TRACKING) },
         )
         AppRailItem(
             icon = Icons.Filled.PlayArrow,
-            label = DesktopShellTab.PLAYBACK.title,
+            label = strings.tabTitle(DesktopShellTab.PLAYBACK),
             selected = selectedTab == DesktopShellTab.PLAYBACK,
             onClick = { onTabSelected(DesktopShellTab.PLAYBACK) },
         )
         AppRailItem(
             icon = Icons.Filled.MoreHoriz,
-            label = DesktopShellTab.PROFILE.title,
+            label = strings.tabTitle(DesktopShellTab.PROFILE),
             selected = selectedTab == DesktopShellTab.PROFILE,
             onClick = { onTabSelected(DesktopShellTab.PROFILE) },
         )
@@ -6649,6 +6782,7 @@ private fun DownloadQueueRow(item: DesktopDownloadQueueItem) {
 @Composable
 private fun SettingsSectionRail(
     selectedSection: DesktopSettingsSection,
+    strings: DesktopStrings,
     onSectionSelected: (DesktopSettingsSection) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -6659,13 +6793,13 @@ private fun SettingsSectionRail(
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text("Settings", style = MaterialTheme.typography.h6, fontWeight = FontWeight.Bold)
-        Text("App, providers, playback, and diagnostics", color = DanmakuColors.TextMuted, maxLines = 2)
+        Text(strings.settingsTitle, style = MaterialTheme.typography.h6, fontWeight = FontWeight.Bold)
+        Text(strings.settingsDescription, color = DanmakuColors.TextMuted, maxLines = 2)
         Divider(color = DanmakuColors.SurfaceRaised)
         DesktopSettingsSection.entries.forEach { section ->
             AppRailItem(
                 icon = section.icon,
-                label = section.title,
+                label = strings.settingsSectionTitle(section),
                 selected = selectedSection == section,
                 onClick = { onSectionSelected(section) },
             )
@@ -6690,6 +6824,8 @@ private enum class DesktopSettingsSection(
 
 @Composable
 private fun ProfileTab(
+    desktopLanguage: DesktopUiLanguage,
+    strings: DesktopStrings,
     mpvRuntimeStatus: String,
     videoHostStatus: String,
     serverBaseUrl: String,
@@ -6700,6 +6836,7 @@ private fun ProfileTab(
     diagnosticLog: List<DesktopDiagnosticLogEntry>,
     danmakuSettings: DanmakuDisplaySettings,
     onSaveDanmakuSettings: (DanmakuDisplaySettings) -> Unit,
+    onDesktopLanguageChange: (DesktopUiLanguage) -> Unit,
     dandanplaySettings: DandanplayProviderSettings,
     onSaveDandanplaySettings: (String, String?, String?, DandanplayAuthenticationMode, Int) -> Unit,
     onClearDandanplaySettings: () -> Unit,
@@ -6718,11 +6855,14 @@ private fun ProfileTab(
                 Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     SettingsSectionRail(
                         selectedSection = selectedSection,
+                        strings = strings,
                         onSectionSelected = { selectedSection = it },
                         modifier = Modifier.fillMaxWidth(),
                     )
                     SettingsSectionContent(
                         selectedSection = selectedSection,
+                        desktopLanguage = desktopLanguage,
+                        strings = strings,
                         mpvRuntimeStatus = mpvRuntimeStatus,
                         videoHostStatus = videoHostStatus,
                         serverBaseUrl = serverBaseUrl,
@@ -6733,6 +6873,7 @@ private fun ProfileTab(
                         diagnosticLog = diagnosticLog,
                         danmakuSettings = danmakuSettings,
                         onSaveDanmakuSettings = onSaveDanmakuSettings,
+                        onDesktopLanguageChange = onDesktopLanguageChange,
                         dandanplaySettings = dandanplaySettings,
                         onSaveDandanplaySettings = onSaveDandanplaySettings,
                         onClearDandanplaySettings = onClearDandanplaySettings,
@@ -6748,11 +6889,14 @@ private fun ProfileTab(
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     SettingsSectionRail(
                         selectedSection = selectedSection,
+                        strings = strings,
                         onSectionSelected = { selectedSection = it },
                         modifier = Modifier.width(238.dp),
                     )
                     SettingsSectionContent(
                         selectedSection = selectedSection,
+                        desktopLanguage = desktopLanguage,
+                        strings = strings,
                         mpvRuntimeStatus = mpvRuntimeStatus,
                         videoHostStatus = videoHostStatus,
                         serverBaseUrl = serverBaseUrl,
@@ -6763,6 +6907,7 @@ private fun ProfileTab(
                         diagnosticLog = diagnosticLog,
                         danmakuSettings = danmakuSettings,
                         onSaveDanmakuSettings = onSaveDanmakuSettings,
+                        onDesktopLanguageChange = onDesktopLanguageChange,
                         dandanplaySettings = dandanplaySettings,
                         onSaveDandanplaySettings = onSaveDandanplaySettings,
                         onClearDandanplaySettings = onClearDandanplaySettings,
@@ -6781,8 +6926,31 @@ private fun ProfileTab(
 }
 
 @Composable
+private fun DesktopLanguageSettingsCard(
+    selectedLanguage: DesktopUiLanguage,
+    strings: DesktopStrings,
+    onLanguageSelected: (DesktopUiLanguage) -> Unit,
+) {
+    SectionCard(strings.languageTitle) {
+        Text(strings.languageDescription, color = DanmakuColors.TextMuted)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            DesktopUiLanguage.entries.forEach { language ->
+                Button(
+                    onClick = { onLanguageSelected(language) },
+                    enabled = selectedLanguage != language,
+                ) {
+                    Text(language.displayName, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun SettingsSectionContent(
     selectedSection: DesktopSettingsSection,
+    desktopLanguage: DesktopUiLanguage,
+    strings: DesktopStrings,
     mpvRuntimeStatus: String,
     videoHostStatus: String,
     serverBaseUrl: String,
@@ -6793,6 +6961,7 @@ private fun SettingsSectionContent(
     diagnosticLog: List<DesktopDiagnosticLogEntry>,
     danmakuSettings: DanmakuDisplaySettings,
     onSaveDanmakuSettings: (DanmakuDisplaySettings) -> Unit,
+    onDesktopLanguageChange: (DesktopUiLanguage) -> Unit,
     dandanplaySettings: DandanplayProviderSettings,
     onSaveDandanplaySettings: (String, String?, String?, DandanplayAuthenticationMode, Int) -> Unit,
     onClearDandanplaySettings: () -> Unit,
@@ -6807,11 +6976,17 @@ private fun SettingsSectionContent(
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
         when (selectedSection) {
             DesktopSettingsSection.GENERAL -> {
-                SectionCard("General") {
-                    MetadataRow("App", "Danmaku desktop")
-                    MetadataRow("Primary targets", "Windows desktop, Android mobile/tablet, Android TV")
-                    MetadataRow("UI languages", "English, Traditional Chinese planned")
+                SectionCard(strings.settingsSectionTitle(DesktopSettingsSection.GENERAL)) {
+                    MetadataRow(strings.appLabel, "Danmaku desktop")
+                    MetadataRow(strings.primaryTargetsLabel, "Windows desktop, Android mobile/tablet, Android TV")
+                    MetadataRow(strings.uiLanguageLabel, desktopLanguage.displayName)
+                    MetadataRow("Supported", strings.uiLanguagesValue)
                 }
+                DesktopLanguageSettingsCard(
+                    selectedLanguage = desktopLanguage,
+                    strings = strings,
+                    onLanguageSelected = onDesktopLanguageChange,
+                )
                 SectionCard("Privacy") {
                     Text(
                         "Credentials are stored in local protected settings where supported and omitted from diagnostics.",
@@ -8460,6 +8635,8 @@ private const val MAX_DIAGNOSTIC_LOG_ENTRIES = 200
 private const val MAX_BACKGROUND_POSTER_REFRESH_SERIES = 32
 
 private const val LOCAL_AUTO_NEXT_SETTING_KEY = "playback.local_auto_next"
+
+private const val DESKTOP_UI_LANGUAGE_SETTING_KEY = "desktop.ui_language"
 
 private const val MPV_OSC_FULLSCREEN_REQUEST_PROPERTY = "user-data/danmaku-osc/fullscreen-toggle-request"
 

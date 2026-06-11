@@ -24,11 +24,17 @@ Status legend:
 - `[~]` Create or refine reusable desktop shell components for header,
   navigation rail, page title/action row, status badges, icon buttons,
   tooltips, and page-level empty/error states.
-- `[ ]` Add a desktop localization resource structure with English and
+- `[~]` Add a desktop localization resource structure with English and
   Traditional Chinese (`zh-TW`) strings for shell navigation, page actions,
   status labels, dialogs, tooltips, and empty/error states.
-- `[ ]` Replace hardcoded user-facing desktop UI chrome with localized string
+- `[~]` Replace hardcoded user-facing desktop UI chrome with localized string
   lookups while keeping provider/content titles unchanged.
+  - Desktop now has a persisted English / `zh-TW` language setting under
+    Settings > General.
+  - The shared shell rail, compact header, Settings section rail, and General
+    language card use the first desktop string layer.
+  - Remaining: migrate page actions, status labels, dialogs, tooltips,
+    inspector copy, and empty/error states.
 - `[ ]` Add UI review screenshots or checks for English and `zh-TW` labels in
   dense surfaces such as the rail, toolbar, inspector, and settings forms.
 - `[x]` Normalize route labels to Home, Library, Downloads, Player, Tracking,

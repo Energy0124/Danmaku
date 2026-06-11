@@ -24,8 +24,11 @@ Status legend:
 
 - `[ ]` Use [Desktop pages UI tasks](desktop-ui-pages/desktop-pages-ui-tasks.md)
   as the detailed implementation backlog for non-Home desktop pages.
-- `[ ]` Add localization support for English and Traditional Chinese (`zh-TW`)
+- `[~]` Add localization support for English and Traditional Chinese (`zh-TW`)
   across the desktop shell and shared page chrome.
+  - Desktop shell language is now selectable and persisted from Settings >
+    General, with English and `zh-TW` strings for the app rail, compact header,
+    settings rail, and language card.
 - `[~]` Align the desktop top header with the target shell: app identity, global
   search, refresh/rescan, diagnostics/notifications, help, settings, and local
   profile/device controls.
