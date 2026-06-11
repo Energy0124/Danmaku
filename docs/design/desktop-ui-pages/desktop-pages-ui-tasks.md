@@ -94,14 +94,24 @@ Status legend:
 
 - `[ ]` Define authorized download source contracts before implementing queue
   execution.
-- `[~]` Implement queue dashboard sections for active, queued, completed, and
+- `[x]` Implement queue dashboard sections for active, queued, completed, and
   failed downloads.
-- `[ ]` Add per-item pause, resume, cancel, retry, remove, and open-folder
+- `[~]` Add per-item pause, resume, cancel, retry, remove, and open-folder
   actions.
+  - Download rows and the selected inspector now support real open-output-folder
+    and persisted queue-row removal with confirmation.
+  - Pause, resume, cancel, and retry remain disabled/planned until authorized
+    download source contracts and queue execution exist.
 - `[~]` Add bandwidth limit, schedule, destination, storage warning, and source
   authorization UI.
-- `[ ]` Add selected-download inspector with metadata, path, progress, checksum
+- `[~]` Add selected-download inspector with metadata, path, progress, checksum
   or cache state, logs, and retry history.
+  - Downloads now has selectable queue rows, active/queued/completed/failed
+    filters, a selected-item inspector with redacted source URL, output path,
+    progress, created/updated times, state, failure message, open-folder, and
+    remove actions.
+  - Remaining: checksum/cache state, execution logs, and retry history once
+    download execution is implemented.
 - `[x]` Ensure UI copy never implies unsupported scraping, torrent search, DRM
   circumvention, or unauthorized access.
 

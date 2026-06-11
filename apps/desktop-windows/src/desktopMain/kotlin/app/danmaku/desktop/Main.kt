@@ -52,6 +52,7 @@ import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Computer
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material.icons.filled.FastRewind
@@ -2305,6 +2306,29 @@ private fun DesktopShell(
                             },
                             onRefreshQueue = {
                                 downloadQueueItems = catalogStore.loadDownloads()
+                            },
+                            onRemoveQueueItem = { item ->
+                                scope.launch {
+                                    runCatching {
+                                        withContext(Dispatchers.IO) {
+                                            catalogStore.deleteDownload(item.id)
+                                        }
+                                    }.onSuccess {
+                                        downloadQueueItems = catalogStore.loadDownloads()
+                                        appendDiagnostic("downloads", "Removed download queue item ${item.id}")
+                                    }.onFailure { error ->
+                                        appendDiagnostic("downloads", "Failed to remove download queue item ${item.id}: ${error.message}")
+                                    }
+                                }
+                            },
+                            onOpenOutputFolder = { item ->
+                                openDownloadOutputFolder(item)
+                                    .onSuccess {
+                                        appendDiagnostic("downloads", "Opened download output folder for ${item.id}")
+                                    }
+                                    .onFailure { error ->
+                                        appendDiagnostic("downloads", "Failed to open download output folder for ${item.id}: ${error.message}")
+                                    }
                             },
                         )
                         DesktopShellTab.PROFILE -> ProfileTab(
@@ -6700,6 +6724,41 @@ private fun DesktopDownloadQueueItem.downloadProgressLabel(): String =
         ?.let { total -> "${positionBytes.formatLibrarySize()} / ${total.formatLibrarySize()}" }
         ?: positionBytes.formatLibrarySize()
 
+private fun DesktopDownloadQueueItem.isActiveDownload(): Boolean =
+    state.equals("active", ignoreCase = true) || state.equals("running", ignoreCase = true)
+
+private fun DesktopDownloadQueueItem.isQueuedDownload(): Boolean =
+    state.equals("queued", ignoreCase = true) || state.equals("pending", ignoreCase = true)
+
+private fun DesktopDownloadQueueItem.isCompletedDownload(): Boolean =
+    state.equals("completed", ignoreCase = true) || state.equals("done", ignoreCase = true)
+
+private fun DesktopDownloadQueueItem.isFailedDownload(): Boolean =
+    failureMessage != null || state.equals("failed", ignoreCase = true)
+
+private fun DesktopDownloadQueueItem.downloadStateColor(): Color =
+    when {
+        isFailedDownload() -> DanmakuColors.Warning
+        isCompletedDownload() -> DanmakuColors.Good
+        isActiveDownload() -> DanmakuColors.Accent
+        else -> DanmakuColors.TextMuted
+    }
+
+private fun openDownloadOutputFolder(item: DesktopDownloadQueueItem): Result<Unit> =
+    runCatching {
+        require(Desktop.isDesktopSupported()) { "Desktop open is not supported on this system." }
+        val desktop = Desktop.getDesktop()
+        require(desktop.isSupported(Desktop.Action.OPEN)) { "Desktop open action is not supported on this system." }
+        val outputPath = Path.of(item.outputPath)
+        val folder = if (Files.isDirectory(outputPath)) {
+            outputPath
+        } else {
+            outputPath.parent ?: outputPath
+        }
+        require(Files.exists(folder)) { "Output folder does not exist: $folder" }
+        desktop.open(folder.toFile())
+    }
+
 private fun LibraryMediaItem.primaryPlaybackActionLabel(watchStatus: LibraryWatchStatus?): String =
     if (watchStatus?.state == LibraryWatchState.IN_PROGRESS) {
         "Resume"
@@ -6964,15 +7023,27 @@ private fun DownloadsTab(
     downloadQueueItems: List<DesktopDownloadQueueItem>,
     onAddAniRssOutputFolder: () -> Unit,
     onRefreshQueue: () -> Unit,
+    onRemoveQueueItem: (DesktopDownloadQueueItem) -> Unit,
+    onOpenOutputFolder: (DesktopDownloadQueueItem) -> Unit,
 ) {
     TabScaffold {
         val aniRssRoots = registeredRoots.filter {
             it.provenance == DesktopLibraryRootProvenance.ANI_RSS_OUTPUT_FOLDER
         }
-        val activeDownloads = downloadQueueItems.count { it.state.equals("active", ignoreCase = true) || it.state.equals("running", ignoreCase = true) }
-        val queuedDownloads = downloadQueueItems.count { it.state.equals("queued", ignoreCase = true) || it.state.equals("pending", ignoreCase = true) }
-        val completedDownloads = downloadQueueItems.count { it.state.equals("completed", ignoreCase = true) || it.state.equals("done", ignoreCase = true) }
-        val failedDownloads = downloadQueueItems.count { it.failureMessage != null || it.state.equals("failed", ignoreCase = true) }
+        val activeDownloads = downloadQueueItems.count(DesktopDownloadQueueItem::isActiveDownload)
+        val queuedDownloads = downloadQueueItems.count(DesktopDownloadQueueItem::isQueuedDownload)
+        val completedDownloads = downloadQueueItems.count(DesktopDownloadQueueItem::isCompletedDownload)
+        val failedDownloads = downloadQueueItems.count(DesktopDownloadQueueItem::isFailedDownload)
+        var selectedFilter by remember { mutableStateOf(DownloadQueueFilter.ALL) }
+        val filteredDownloadQueueItems = remember(downloadQueueItems, selectedFilter) {
+            downloadQueueItems.filter(selectedFilter::matches)
+        }
+        var selectedDownloadId by remember(downloadQueueItems) {
+            mutableStateOf(downloadQueueItems.firstOrNull()?.id)
+        }
+        val selectedDownload = filteredDownloadQueueItems.firstOrNull { it.id == selectedDownloadId }
+            ?: filteredDownloadQueueItems.firstOrNull()
+            ?: downloadQueueItems.firstOrNull()
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             SummaryCard(
                 title = "Active",
@@ -7003,7 +7074,22 @@ private fun DownloadsTab(
             val compact = maxWidth < 1180.dp
             if (compact) {
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    DownloadsQueuePanel(downloadQueueItems, onRefreshQueue)
+                    DownloadsQueuePanel(
+                        downloadQueueItems = filteredDownloadQueueItems,
+                        totalItemCount = downloadQueueItems.size,
+                        selectedFilter = selectedFilter,
+                        selectedItem = selectedDownload,
+                        onFilterChange = { selectedFilter = it },
+                        onSelectItem = { selectedDownloadId = it.id },
+                        onRefreshQueue = onRefreshQueue,
+                        onRemoveQueueItem = onRemoveQueueItem,
+                        onOpenOutputFolder = onOpenOutputFolder,
+                    )
+                    DownloadInspectorPanel(
+                        selectedItem = selectedDownload,
+                        onRemoveQueueItem = onRemoveQueueItem,
+                        onOpenOutputFolder = onOpenOutputFolder,
+                    )
                     DownloadsSetupPanel(
                         isIndexing = isIndexing,
                         webhookUrls = webhookUrls,
@@ -7015,42 +7101,99 @@ private fun DownloadsTab(
             } else {
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     DownloadsQueuePanel(
-                        downloadQueueItems = downloadQueueItems,
+                        downloadQueueItems = filteredDownloadQueueItems,
+                        totalItemCount = downloadQueueItems.size,
+                        selectedFilter = selectedFilter,
+                        selectedItem = selectedDownload,
+                        onFilterChange = { selectedFilter = it },
+                        onSelectItem = { selectedDownloadId = it.id },
                         onRefreshQueue = onRefreshQueue,
+                        onRemoveQueueItem = onRemoveQueueItem,
+                        onOpenOutputFolder = onOpenOutputFolder,
                         modifier = Modifier.weight(1f),
                     )
-                    DownloadsSetupPanel(
-                        isIndexing = isIndexing,
-                        webhookUrls = webhookUrls,
-                        webhookToken = webhookToken,
-                        aniRssRoots = aniRssRoots,
-                        onAddAniRssOutputFolder = onAddAniRssOutputFolder,
+                    Column(
                         modifier = Modifier.width(360.dp),
-                    )
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        DownloadInspectorPanel(
+                            selectedItem = selectedDownload,
+                            onRemoveQueueItem = onRemoveQueueItem,
+                            onOpenOutputFolder = onOpenOutputFolder,
+                        )
+                        DownloadsSetupPanel(
+                            isIndexing = isIndexing,
+                            webhookUrls = webhookUrls,
+                            webhookToken = webhookToken,
+                            aniRssRoots = aniRssRoots,
+                            onAddAniRssOutputFolder = onAddAniRssOutputFolder,
+                        )
+                    }
                 }
             }
         }
     }
 }
 
+private enum class DownloadQueueFilter(
+    val label: String,
+) {
+    ALL("All"),
+    ACTIVE("Active"),
+    QUEUED("Queued"),
+    COMPLETED("Completed"),
+    FAILED("Failed"),
+    ;
+
+    fun matches(item: DesktopDownloadQueueItem): Boolean =
+        when (this) {
+            ALL -> true
+            ACTIVE -> item.isActiveDownload()
+            QUEUED -> item.isQueuedDownload()
+            COMPLETED -> item.isCompletedDownload()
+            FAILED -> item.isFailedDownload()
+        }
+}
+
 @Composable
 private fun DownloadsQueuePanel(
     downloadQueueItems: List<DesktopDownloadQueueItem>,
+    totalItemCount: Int,
+    selectedFilter: DownloadQueueFilter,
+    selectedItem: DesktopDownloadQueueItem?,
+    onFilterChange: (DownloadQueueFilter) -> Unit,
+    onSelectItem: (DesktopDownloadQueueItem) -> Unit,
     onRefreshQueue: () -> Unit,
+    onRemoveQueueItem: (DesktopDownloadQueueItem) -> Unit,
+    onOpenOutputFolder: (DesktopDownloadQueueItem) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var pendingRemoval by remember { mutableStateOf<DesktopDownloadQueueItem?>(null) }
     SectionCard("Download Queue", modifier = modifier) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            LibraryActionButton(
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                DownloadQueueFilter.entries.forEach { filter ->
+                    Button(
+                        onClick = { onFilterChange(filter) },
+                        enabled = selectedFilter != filter,
+                    ) {
+                        Text(filter.label)
+                    }
+                }
+            }
+            PlayerIconButton(
                 imageVector = Icons.Filled.Refresh,
-                label = "Refresh",
+                contentDescription = "Refresh download queue",
                 onClick = onRefreshQueue,
-            )
-            LibraryActionButton(
-                imageVector = Icons.Filled.Add,
-                label = "Add source",
-                enabled = false,
-                onClick = {},
             )
         }
         Text(
@@ -7058,17 +7201,38 @@ private fun DownloadsQueuePanel(
             color = DanmakuColors.TextMuted,
         )
         if (downloadQueueItems.isEmpty()) {
-            EmptyState("No persisted queue items yet. Completed ani-rss downloads can be imported from a trusted output folder.")
+            EmptyState(
+                if (totalItemCount == 0) {
+                    "No persisted queue items yet. Completed ani-rss downloads can be imported from a trusted output folder."
+                } else {
+                    "No ${selectedFilter.label.lowercase()} queue items match this filter."
+                },
+            )
         } else {
             LazyColumn(
                 modifier = Modifier.heightIn(max = 520.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 items(downloadQueueItems, key = DesktopDownloadQueueItem::id) { item ->
-                    DownloadQueueRow(item)
+                    DownloadQueueRow(
+                        item = item,
+                        selected = selectedItem?.id == item.id,
+                        onSelect = { onSelectItem(item) },
+                        onOpenOutputFolder = { onOpenOutputFolder(item) },
+                        onRemoveQueueItem = { pendingRemoval = item },
+                    )
                 }
             }
         }
+    }
+    pendingRemoval?.let { item ->
+        SettingsConfirmationDialog(
+            title = "Remove download queue item?",
+            text = "This removes the persisted queue row for ${item.outputPath}. It does not delete downloaded files from disk.",
+            confirmLabel = "Remove",
+            onConfirm = { onRemoveQueueItem(item) },
+            onDismiss = { pendingRemoval = null },
+        )
     }
 }
 
@@ -7117,12 +7281,19 @@ private fun DownloadsSetupPanel(
 }
 
 @Composable
-private fun DownloadQueueRow(item: DesktopDownloadQueueItem) {
+private fun DownloadQueueRow(
+    item: DesktopDownloadQueueItem,
+    selected: Boolean,
+    onSelect: () -> Unit,
+    onOpenOutputFolder: () -> Unit,
+    onRemoveQueueItem: () -> Unit,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
-            .background(DanmakuColors.SurfaceRaised)
+            .background(if (selected) DanmakuColors.AccentSoft else DanmakuColors.SurfaceRaised)
+            .clickable(onClick = onSelect)
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -7141,9 +7312,98 @@ private fun DownloadQueueRow(item: DesktopDownloadQueueItem) {
             MiniProgressBar(percent = item.downloadProgressPercent())
         }
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            StatusPill(item.state)
+            StatusPill(item.state, color = item.downloadStateColor())
             Text(item.downloadProgressLabel(), color = DanmakuColors.TextMuted, maxLines = 1)
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                PlayerIconButton(
+                    imageVector = Icons.Filled.FolderOpen,
+                    contentDescription = "Open output folder",
+                    onClick = onOpenOutputFolder,
+                )
+                PlayerIconButton(
+                    imageVector = Icons.Filled.Delete,
+                    contentDescription = "Remove queue item",
+                    onClick = onRemoveQueueItem,
+                )
+            }
         }
+    }
+}
+
+@Composable
+private fun DownloadInspectorPanel(
+    selectedItem: DesktopDownloadQueueItem?,
+    onRemoveQueueItem: (DesktopDownloadQueueItem) -> Unit,
+    onOpenOutputFolder: (DesktopDownloadQueueItem) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var pendingRemoval by remember { mutableStateOf<DesktopDownloadQueueItem?>(null) }
+    SectionCard("Download Inspector", modifier = modifier) {
+        if (selectedItem == null) {
+            EmptyState("Select a queue item to inspect source, output path, progress, and available actions.")
+            return@SectionCard
+        }
+        Text(selectedItem.sourceUri.redactToken(), fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        MetadataRow("State", selectedItem.state, selectedItem.downloadStateColor())
+        MetadataRow("Progress", selectedItem.downloadProgressLabel())
+        MetadataRow("Created", selectedItem.createdAtEpochMs.formatEpochTime())
+        MetadataRow("Updated", selectedItem.updatedAtEpochMs.formatEpochTime())
+        MetadataRow("Output", selectedItem.outputPath)
+        MetadataRow("Source", selectedItem.sourceUri.redactToken())
+        selectedItem.failureMessage?.let { failure ->
+            MetadataRow("Failure", failure, DanmakuColors.Warning)
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            LibraryActionButton(
+                imageVector = Icons.Filled.FolderOpen,
+                label = "Open folder",
+                onClick = { onOpenOutputFolder(selectedItem) },
+            )
+            LibraryActionButton(
+                imageVector = Icons.Filled.Delete,
+                label = "Remove",
+                onClick = { pendingRemoval = selectedItem },
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            LibraryActionButton(
+                imageVector = Icons.Filled.Pause,
+                label = "Pause",
+                enabled = false,
+                onClick = {},
+            )
+            LibraryActionButton(
+                imageVector = Icons.Filled.PlayArrow,
+                label = "Resume",
+                enabled = false,
+                onClick = {},
+            )
+            LibraryActionButton(
+                imageVector = Icons.Filled.Refresh,
+                label = "Retry",
+                enabled = false,
+                onClick = {},
+            )
+            LibraryActionButton(
+                imageVector = Icons.Filled.Delete,
+                label = "Cancel",
+                enabled = false,
+                onClick = {},
+            )
+        }
+        Text(
+            "Pause, resume, cancel, and retry will be enabled after authorized download source contracts and queue execution are implemented.",
+            color = DanmakuColors.TextMuted,
+        )
+    }
+    pendingRemoval?.let { item ->
+        SettingsConfirmationDialog(
+            title = "Remove download queue item?",
+            text = "This removes the persisted queue row for ${item.outputPath}. It does not delete downloaded files from disk.",
+            confirmLabel = "Remove",
+            onConfirm = { onRemoveQueueItem(item) },
+            onDismiss = { pendingRemoval = null },
+        )
     }
 }
 
