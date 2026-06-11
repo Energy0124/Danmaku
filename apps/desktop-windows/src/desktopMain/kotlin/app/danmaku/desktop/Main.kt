@@ -1290,6 +1290,60 @@ private fun DesktopShell(
         }
     }
 
+    fun triggerPrimaryPageAction(): Boolean {
+        return when (selectedTab) {
+            DesktopShellTab.HOME,
+            DesktopShellTab.MEDIA_LIBRARY -> {
+                if (registeredRoots.isEmpty() || isIndexing) {
+                    false
+                } else {
+                    appendDiagnostic("shell", "Primary shortcut requested library rescan from ${desktopStrings.tabTitle(selectedTab)}")
+                    rescanRegisteredRoots()
+                    true
+                }
+            }
+            DesktopShellTab.DOWNLOADS -> {
+                downloadQueueItems = catalogStore.loadDownloads()
+                appendDiagnostic("downloads", "Primary shortcut refreshed download queue")
+                true
+            }
+            DesktopShellTab.PLAYBACK -> {
+                if (playbackSnapshot.source == null || playbackSnapshot.status == PlaybackStatus.LOADING) {
+                    false
+                } else if (playbackSnapshot.status == PlaybackStatus.PLAYING) {
+                    appendDiagnostic("playback", "Primary shortcut paused playback")
+                    playbackController.dispatch(PlaybackCommand.Pause)
+                    playbackSnapshot = playbackController.snapshot()
+                    persistActivePlaybackProgress(playbackSnapshot, force = true)
+                    true
+                } else {
+                    appendDiagnostic("playback", "Primary shortcut started playback")
+                    playbackController.dispatch(PlaybackCommand.Play)
+                    playbackSnapshot = playbackController.snapshot()
+                    true
+                }
+            }
+            DesktopShellTab.TRACKING -> {
+                val plan = indexedLibrary
+                    ?.catalog
+                    ?.externalAnimeTrackingPlan(
+                        mappings = externalAnimeMappings,
+                        progresses = playbackProgresses,
+                        failures = externalAnimeSyncFailures,
+                    )
+                    ?: return false
+                if (isExternalAnimeSyncing || plan.updates.isEmpty()) {
+                    false
+                } else {
+                    appendDiagnostic("external-sync", "Primary shortcut started ${plan.updates.size} tracking update(s)")
+                    syncExternalAnimePlan(plan)
+                    true
+                }
+            }
+            DesktopShellTab.PROFILE -> false
+        }
+    }
+
     fun handleDesktopShellShortcut(event: KeyEvent): Boolean {
         if (event.type != KeyEventType.KeyDown) {
             return false
@@ -1307,6 +1361,7 @@ private fun DesktopShell(
                     false
                 }
             }
+            Key.Enter -> triggerPrimaryPageAction()
             Key.R -> {
                 if (registeredRoots.isNotEmpty() && !isIndexing) {
                     appendDiagnostic("shell", "Shortcut requested library rescan")

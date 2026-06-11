@@ -46,7 +46,11 @@ Status legend:
   - Desktop shell now supports `Ctrl/Cmd+K` for global search focus,
     `Ctrl/Cmd+R` for library rescan, and `Ctrl/Cmd+1..6` for Home, Library,
     Downloads, Player, Tracking, and Settings routing.
-  - Remaining: define and wire a consistent primary page action shortcut.
+  - Desktop shell now supports `Ctrl/Cmd+Enter` as a page primary action where
+    the action is real and enabled: rescan from Home/Library, refresh Downloads,
+    play/pause in Player, and sync ready Tracking updates.
+  - Remaining: define Settings/profile primary actions once editable sections
+    have a single safe save/submit surface.
 - `[ ]` Add visual QA screenshots for default, narrow, and wide desktop window
   sizes.
 
