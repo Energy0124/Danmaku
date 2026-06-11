@@ -114,6 +114,12 @@ Completed playback split:
 - `DesktopPlaybackPanels.kt` owns the right panel, danmaku controls, focus
   restore button, and shared playback action buttons.
 
+Completed shell chrome split:
+
+- `DesktopShellChrome.kt` owns the app header, navigation rail, rail item, and
+  now-playing rail card.
+- `DesktopHomeTab.kt` now owns Home content only.
+
 Acceptance:
 
 - Prefer files below roughly 700 lines unless a single cohesive surface

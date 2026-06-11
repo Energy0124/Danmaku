@@ -35,7 +35,8 @@ trusted-LAN clients.
   workspace, list/progress, inspector/mapping, and helper files. Settings UI
   is split into routing/profile, danmaku controls, dialogs/cache/server, and
   provider-card files. Playback UI is split into tab composition, shortcuts,
-  overlays, panels, and presentation helpers.
+  overlays, panels, and presentation helpers. Shell chrome is separated from
+  Home content.
 - Multi-root local anime library indexing, incremental rescanning, ani-rss
   output-folder import, and persistent SQLDelight/SQLite storage.
 - Trusted-LAN library server with pairing token, JSON catalog, byte-range media
