@@ -2669,6 +2669,7 @@ private fun DesktopShell(
                             },
                         )
                         DesktopShellTab.DOWNLOADS -> DownloadsTab(
+                            strings = desktopStrings,
                             isIndexing = isIndexing,
                             webhookUrls = serverRuntime.aniRssWebhookUrls(),
                             webhookToken = serverRuntime.aniRssWebhookToken,
@@ -2846,6 +2847,61 @@ private enum class DesktopUiLanguage(
             lastScanSummary = { reused, refreshed -> "Last scan: $reused unchanged, $refreshed refreshed" },
             inspectorResizeHandleLabel = "Resize details panel",
             resetInspectorWidthAction = "Reset details width",
+            downloadFilterTitles = mapOf(
+                DownloadQueueFilter.ALL to "All",
+                DownloadQueueFilter.ACTIVE to "Active",
+                DownloadQueueFilter.QUEUED to "Queued",
+                DownloadQueueFilter.COMPLETED to "Completed",
+                DownloadQueueFilter.FAILED to "Failed",
+            ),
+            downloadsActiveTitle = "Active",
+            downloadsActiveCaption = "currently running",
+            downloadsQueuedTitle = "Queued",
+            downloadsQueuedCaption = "waiting",
+            downloadsCompletedTitle = "Completed",
+            downloadsCompletedCaption = "ready to import",
+            downloadsFailedTitle = "Failed",
+            downloadsFailedCaption = "needs attention",
+            downloadQueueTitle = "Download Queue",
+            refreshDownloadQueueAction = "Refresh download queue",
+            downloadQueuePolicyText = "Queue execution is reserved for authorized source contracts. ani-rss completed-media imports are available today.",
+            downloadQueueEmptyText = "No persisted queue items yet. Completed ani-rss downloads can be imported from a trusted output folder.",
+            downloadQueueFilterEmptyText = { filter -> "No ${filter.lowercase()} queue items match this filter." },
+            openOutputFolderAction = "Open output folder",
+            removeQueueItemAction = "Remove queue item",
+            removeDownloadTitle = "Remove download queue item?",
+            removeDownloadText = { outputPath ->
+                "This removes the persisted queue row for $outputPath. It does not delete downloaded files from disk."
+            },
+            removeAction = "Remove",
+            downloadSetupAuthorizedSourcesTitle = "Authorized Sources",
+            downloadSetupAuthorizedSourcesText = "Use providers you are authorized to access. Danmaku imports completed media and does not bypass DRM or service rules.",
+            authorizedImportsOnlyLabel = "Authorized imports only",
+            queueExecutionPlannedLabel = "Queue execution planned",
+            importRootCountLabel = { count -> "$count import roots" },
+            addAniRssOutputFolderAction = "Add ani-rss output folder",
+            aniRssWebhookTitle = "ani-rss Webhook",
+            noWebhookUrlText = "No webhook URL is available yet.",
+            webhookUrlLabel = "DOWNLOAD_END URL",
+            webhookHeaderLabel = "Header",
+            webhookTokenLabel = "Token",
+            importRootsTitle = "Import Roots",
+            noAniRssRootsText = "No ani-rss output folders registered.",
+            downloadInspectorTitle = "Download Inspector",
+            downloadInspectorEmptyText = "Select a queue item to inspect source, output path, progress, and available actions.",
+            stateLabel = "State",
+            progressLabel = "Progress",
+            createdLabel = "Created",
+            updatedLabel = "Updated",
+            outputLabel = "Output",
+            sourceLabel = "Source",
+            failureLabel = "Failure",
+            openFolderAction = "Open folder",
+            pauseAction = "Pause",
+            resumeAction = "Resume",
+            retryAction = "Retry",
+            cancelAction = "Cancel",
+            downloadExecutionPlannedText = "Pause, resume, cancel, and retry will be enabled after authorized download source contracts and queue execution are implemented.",
             searchAction = "Search",
             searchingAction = "Searching...",
             closeAction = "Close",
@@ -2942,6 +2998,61 @@ private enum class DesktopUiLanguage(
             lastScanSummary = { reused, refreshed -> "上次掃描：$reused 個未變更，$refreshed 個已更新" },
             inspectorResizeHandleLabel = "調整詳情面板寬度",
             resetInspectorWidthAction = "重設詳情寬度",
+            downloadFilterTitles = mapOf(
+                DownloadQueueFilter.ALL to "全部",
+                DownloadQueueFilter.ACTIVE to "進行中",
+                DownloadQueueFilter.QUEUED to "佇列",
+                DownloadQueueFilter.COMPLETED to "已完成",
+                DownloadQueueFilter.FAILED to "失敗",
+            ),
+            downloadsActiveTitle = "進行中",
+            downloadsActiveCaption = "目前執行",
+            downloadsQueuedTitle = "佇列",
+            downloadsQueuedCaption = "等待中",
+            downloadsCompletedTitle = "已完成",
+            downloadsCompletedCaption = "可匯入",
+            downloadsFailedTitle = "失敗",
+            downloadsFailedCaption = "需要處理",
+            downloadQueueTitle = "下載佇列",
+            refreshDownloadQueueAction = "重新整理下載佇列",
+            downloadQueuePolicyText = "佇列執行會等授權來源合約完成後再啟用。目前可匯入 ani-rss 已完成媒體。",
+            downloadQueueEmptyText = "尚無已儲存的佇列項目。可以從信任的輸出資料夾匯入 ani-rss 已完成下載。",
+            downloadQueueFilterEmptyText = { filter -> "沒有符合「$filter」篩選的佇列項目。" },
+            openOutputFolderAction = "開啟輸出資料夾",
+            removeQueueItemAction = "移除佇列項目",
+            removeDownloadTitle = "要移除下載佇列項目嗎？",
+            removeDownloadText = { outputPath ->
+                "這只會移除 $outputPath 的已儲存佇列資料列，不會刪除磁碟上的下載檔案。"
+            },
+            removeAction = "移除",
+            downloadSetupAuthorizedSourcesTitle = "授權來源",
+            downloadSetupAuthorizedSourcesText = "請使用你已授權存取的服務。Danmaku 只匯入已完成媒體，不會繞過 DRM 或服務規則。",
+            authorizedImportsOnlyLabel = "僅限授權匯入",
+            queueExecutionPlannedLabel = "佇列執行規劃中",
+            importRootCountLabel = { count -> "$count 個匯入根目錄" },
+            addAniRssOutputFolderAction = "新增 ani-rss 輸出資料夾",
+            aniRssWebhookTitle = "ani-rss Webhook",
+            noWebhookUrlText = "目前沒有可用的 webhook URL。",
+            webhookUrlLabel = "DOWNLOAD_END URL",
+            webhookHeaderLabel = "Header",
+            webhookTokenLabel = "Token",
+            importRootsTitle = "匯入根目錄",
+            noAniRssRootsText = "尚未註冊 ani-rss 輸出資料夾。",
+            downloadInspectorTitle = "下載檢視",
+            downloadInspectorEmptyText = "選取佇列項目以檢視來源、輸出路徑、進度與可用動作。",
+            stateLabel = "狀態",
+            progressLabel = "進度",
+            createdLabel = "建立時間",
+            updatedLabel = "更新時間",
+            outputLabel = "輸出",
+            sourceLabel = "來源",
+            failureLabel = "失敗原因",
+            openFolderAction = "開啟資料夾",
+            pauseAction = "暫停",
+            resumeAction = "繼續",
+            retryAction = "重試",
+            cancelAction = "取消",
+            downloadExecutionPlannedText = "暫停、繼續、取消與重試會在授權下載來源合約與佇列執行完成後啟用。",
             searchAction = "搜尋",
             searchingAction = "搜尋中...",
             closeAction = "關閉",
@@ -3016,6 +3127,53 @@ private data class DesktopStrings(
     val lastScanSummary: (Int, Int) -> String,
     val inspectorResizeHandleLabel: String,
     val resetInspectorWidthAction: String,
+    val downloadFilterTitles: Map<DownloadQueueFilter, String> = emptyMap(),
+    val downloadsActiveTitle: String,
+    val downloadsActiveCaption: String,
+    val downloadsQueuedTitle: String,
+    val downloadsQueuedCaption: String,
+    val downloadsCompletedTitle: String,
+    val downloadsCompletedCaption: String,
+    val downloadsFailedTitle: String,
+    val downloadsFailedCaption: String,
+    val downloadQueueTitle: String,
+    val refreshDownloadQueueAction: String,
+    val downloadQueuePolicyText: String,
+    val downloadQueueEmptyText: String,
+    val downloadQueueFilterEmptyText: (String) -> String,
+    val openOutputFolderAction: String,
+    val removeQueueItemAction: String,
+    val removeDownloadTitle: String,
+    val removeDownloadText: (String) -> String,
+    val removeAction: String,
+    val downloadSetupAuthorizedSourcesTitle: String,
+    val downloadSetupAuthorizedSourcesText: String,
+    val authorizedImportsOnlyLabel: String,
+    val queueExecutionPlannedLabel: String,
+    val importRootCountLabel: (Int) -> String,
+    val addAniRssOutputFolderAction: String,
+    val aniRssWebhookTitle: String,
+    val noWebhookUrlText: String,
+    val webhookUrlLabel: String,
+    val webhookHeaderLabel: String,
+    val webhookTokenLabel: String,
+    val importRootsTitle: String,
+    val noAniRssRootsText: String,
+    val downloadInspectorTitle: String,
+    val downloadInspectorEmptyText: String,
+    val stateLabel: String,
+    val progressLabel: String,
+    val createdLabel: String,
+    val updatedLabel: String,
+    val outputLabel: String,
+    val sourceLabel: String,
+    val failureLabel: String,
+    val openFolderAction: String,
+    val pauseAction: String,
+    val resumeAction: String,
+    val retryAction: String,
+    val cancelAction: String,
+    val downloadExecutionPlannedText: String,
     val searchAction: String,
     val searchingAction: String,
     val closeAction: String,
@@ -3038,6 +3196,7 @@ private data class DesktopStrings(
     fun settingsSectionTitle(section: DesktopSettingsSection): String =
         settingsSectionTitles[section] ?: section.title
     fun libraryViewTitle(view: WindowsLibraryView): String = libraryViewTitles[view] ?: view.label
+    fun downloadFilterTitle(filter: DownloadQueueFilter): String = downloadFilterTitles[filter] ?: filter.label
 }
 
 @Composable
@@ -8740,6 +8899,7 @@ private fun String.initialsForPoster(): String =
 
 @Composable
 private fun DownloadsTab(
+    strings: DesktopStrings,
     isIndexing: Boolean,
     webhookUrls: List<String>,
     webhookToken: String,
@@ -8770,27 +8930,27 @@ private fun DownloadsTab(
             ?: downloadQueueItems.firstOrNull()
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             SummaryCard(
-                title = "Active",
+                title = strings.downloadsActiveTitle,
                 value = activeDownloads.toString(),
-                caption = "currently running",
+                caption = strings.downloadsActiveCaption,
                 modifier = Modifier.weight(1f),
             )
             SummaryCard(
-                title = "Queued",
+                title = strings.downloadsQueuedTitle,
                 value = queuedDownloads.toString(),
-                caption = "waiting",
+                caption = strings.downloadsQueuedCaption,
                 modifier = Modifier.weight(1f),
             )
             SummaryCard(
-                title = "Completed",
+                title = strings.downloadsCompletedTitle,
                 value = completedDownloads.toString(),
-                caption = "ready to import",
+                caption = strings.downloadsCompletedCaption,
                 modifier = Modifier.weight(1f),
             )
             SummaryCard(
-                title = "Failed",
+                title = strings.downloadsFailedTitle,
                 value = failedDownloads.toString(),
-                caption = "needs attention",
+                caption = strings.downloadsFailedCaption,
                 modifier = Modifier.weight(1f),
             )
         }
@@ -8799,6 +8959,7 @@ private fun DownloadsTab(
             if (compact) {
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     DownloadsQueuePanel(
+                        strings = strings,
                         downloadQueueItems = filteredDownloadQueueItems,
                         totalItemCount = downloadQueueItems.size,
                         selectedFilter = selectedFilter,
@@ -8810,11 +8971,13 @@ private fun DownloadsTab(
                         onOpenOutputFolder = onOpenOutputFolder,
                     )
                     DownloadInspectorPanel(
+                        strings = strings,
                         selectedItem = selectedDownload,
                         onRemoveQueueItem = onRemoveQueueItem,
                         onOpenOutputFolder = onOpenOutputFolder,
                     )
                     DownloadsSetupPanel(
+                        strings = strings,
                         isIndexing = isIndexing,
                         webhookUrls = webhookUrls,
                         webhookToken = webhookToken,
@@ -8825,6 +8988,7 @@ private fun DownloadsTab(
             } else {
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     DownloadsQueuePanel(
+                        strings = strings,
                         downloadQueueItems = filteredDownloadQueueItems,
                         totalItemCount = downloadQueueItems.size,
                         selectedFilter = selectedFilter,
@@ -8841,11 +9005,13 @@ private fun DownloadsTab(
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
                         DownloadInspectorPanel(
+                            strings = strings,
                             selectedItem = selectedDownload,
                             onRemoveQueueItem = onRemoveQueueItem,
                             onOpenOutputFolder = onOpenOutputFolder,
                         )
                         DownloadsSetupPanel(
+                            strings = strings,
                             isIndexing = isIndexing,
                             webhookUrls = webhookUrls,
                             webhookToken = webhookToken,
@@ -8881,6 +9047,7 @@ private enum class DownloadQueueFilter(
 
 @Composable
 private fun DownloadsQueuePanel(
+    strings: DesktopStrings,
     downloadQueueItems: List<DesktopDownloadQueueItem>,
     totalItemCount: Int,
     selectedFilter: DownloadQueueFilter,
@@ -8893,7 +9060,7 @@ private fun DownloadsQueuePanel(
     modifier: Modifier = Modifier,
 ) {
     var pendingRemoval by remember { mutableStateOf<DesktopDownloadQueueItem?>(null) }
-    SectionCard("Download Queue", modifier = modifier) {
+    SectionCard(strings.downloadQueueTitle, modifier = modifier) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -8910,26 +9077,26 @@ private fun DownloadsQueuePanel(
                         onClick = { onFilterChange(filter) },
                         enabled = selectedFilter != filter,
                     ) {
-                        Text(filter.label)
+                        Text(strings.downloadFilterTitle(filter))
                     }
                 }
             }
             PlayerIconButton(
                 imageVector = Icons.Filled.Refresh,
-                contentDescription = "Refresh download queue",
+                contentDescription = strings.refreshDownloadQueueAction,
                 onClick = onRefreshQueue,
             )
         }
         Text(
-            "Queue execution is reserved for authorized source contracts. ani-rss completed-media imports are available today.",
+            strings.downloadQueuePolicyText,
             color = DanmakuColors.TextMuted,
         )
         if (downloadQueueItems.isEmpty()) {
             EmptyState(
                 if (totalItemCount == 0) {
-                    "No persisted queue items yet. Completed ani-rss downloads can be imported from a trusted output folder."
+                    strings.downloadQueueEmptyText
                 } else {
-                    "No ${selectedFilter.label.lowercase()} queue items match this filter."
+                    strings.downloadQueueFilterEmptyText(strings.downloadFilterTitle(selectedFilter))
                 },
             )
         } else {
@@ -8939,6 +9106,7 @@ private fun DownloadsQueuePanel(
             ) {
                 items(downloadQueueItems, key = DesktopDownloadQueueItem::id) { item ->
                     DownloadQueueRow(
+                        strings = strings,
                         item = item,
                         selected = selectedItem?.id == item.id,
                         onSelect = { onSelectItem(item) },
@@ -8951,9 +9119,9 @@ private fun DownloadsQueuePanel(
     }
     pendingRemoval?.let { item ->
         SettingsConfirmationDialog(
-            title = "Remove download queue item?",
-            text = "This removes the persisted queue row for ${item.outputPath}. It does not delete downloaded files from disk.",
-            confirmLabel = "Remove",
+            title = strings.removeDownloadTitle,
+            text = strings.removeDownloadText(item.outputPath),
+            confirmLabel = strings.removeAction,
             onConfirm = { onRemoveQueueItem(item) },
             onDismiss = { pendingRemoval = null },
         )
@@ -8962,6 +9130,7 @@ private fun DownloadsQueuePanel(
 
 @Composable
 private fun DownloadsSetupPanel(
+    strings: DesktopStrings,
     isIndexing: Boolean,
     webhookUrls: List<String>,
     webhookToken: String,
@@ -8970,33 +9139,43 @@ private fun DownloadsSetupPanel(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        SectionCard("Authorized Sources") {
+        SectionCard(strings.downloadSetupAuthorizedSourcesTitle) {
             Text(
-                "Use providers you are authorized to access. Danmaku imports completed media and does not bypass DRM or service rules.",
+                strings.downloadSetupAuthorizedSourcesText,
                 color = DanmakuColors.TextMuted,
             )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                StatusPill(strings.authorizedImportsOnlyLabel, icon = Icons.Filled.CheckCircle, active = true, color = DanmakuColors.Good)
+                StatusPill(strings.queueExecutionPlannedLabel, icon = Icons.Filled.Warning, color = DanmakuColors.Warning)
+                StatusPill(strings.importRootCountLabel(aniRssRoots.size), icon = Icons.Filled.FolderOpen)
+            }
             LibraryActionButton(
                 imageVector = Icons.Filled.FolderOpen,
-                label = "Add ani-rss output folder",
+                label = strings.addAniRssOutputFolderAction,
                 enabled = !isIndexing,
                 modifier = Modifier.fillMaxWidth(),
                 onClick = onAddAniRssOutputFolder,
             )
         }
-        SectionCard("ani-rss Webhook") {
+        SectionCard(strings.aniRssWebhookTitle) {
             if (webhookUrls.isEmpty()) {
-                EmptyState("No webhook URL is available yet.")
+                EmptyState(strings.noWebhookUrlText)
             } else {
                 webhookUrls.forEach { url ->
-                    MetadataRow("DOWNLOAD_END URL", url)
+                    MetadataRow(strings.webhookUrlLabel, url)
                 }
             }
-            MetadataRow("Header", "X-Danmaku-Webhook-Token")
-            MetadataRow("Token", webhookToken)
+            MetadataRow(strings.webhookHeaderLabel, "X-Danmaku-Webhook-Token")
+            MetadataRow(strings.webhookTokenLabel, webhookToken)
         }
-        SectionCard("Import Roots") {
+        SectionCard(strings.importRootsTitle) {
             if (aniRssRoots.isEmpty()) {
-                EmptyState("No ani-rss output folders registered.")
+                EmptyState(strings.noAniRssRootsText)
             } else {
                 aniRssRoots.forEach { root -> MediaRootRow(root) }
             }
@@ -9006,6 +9185,7 @@ private fun DownloadsSetupPanel(
 
 @Composable
 private fun DownloadQueueRow(
+    strings: DesktopStrings,
     item: DesktopDownloadQueueItem,
     selected: Boolean,
     onSelect: () -> Unit,
@@ -9041,12 +9221,12 @@ private fun DownloadQueueRow(
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 PlayerIconButton(
                     imageVector = Icons.Filled.FolderOpen,
-                    contentDescription = "Open output folder",
+                    contentDescription = strings.openOutputFolderAction,
                     onClick = onOpenOutputFolder,
                 )
                 PlayerIconButton(
                     imageVector = Icons.Filled.Delete,
-                    contentDescription = "Remove queue item",
+                    contentDescription = strings.removeQueueItemAction,
                     onClick = onRemoveQueueItem,
                 )
             }
@@ -9056,75 +9236,76 @@ private fun DownloadQueueRow(
 
 @Composable
 private fun DownloadInspectorPanel(
+    strings: DesktopStrings,
     selectedItem: DesktopDownloadQueueItem?,
     onRemoveQueueItem: (DesktopDownloadQueueItem) -> Unit,
     onOpenOutputFolder: (DesktopDownloadQueueItem) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var pendingRemoval by remember { mutableStateOf<DesktopDownloadQueueItem?>(null) }
-    SectionCard("Download Inspector", modifier = modifier) {
+    SectionCard(strings.downloadInspectorTitle, modifier = modifier) {
         if (selectedItem == null) {
-            EmptyState("Select a queue item to inspect source, output path, progress, and available actions.")
+            EmptyState(strings.downloadInspectorEmptyText)
             return@SectionCard
         }
         Text(selectedItem.sourceUri.redactToken(), fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        MetadataRow("State", selectedItem.state, selectedItem.downloadStateColor())
-        MetadataRow("Progress", selectedItem.downloadProgressLabel())
-        MetadataRow("Created", selectedItem.createdAtEpochMs.formatEpochTime())
-        MetadataRow("Updated", selectedItem.updatedAtEpochMs.formatEpochTime())
-        MetadataRow("Output", selectedItem.outputPath)
-        MetadataRow("Source", selectedItem.sourceUri.redactToken())
+        MetadataRow(strings.stateLabel, selectedItem.state, selectedItem.downloadStateColor())
+        MetadataRow(strings.progressLabel, selectedItem.downloadProgressLabel())
+        MetadataRow(strings.createdLabel, selectedItem.createdAtEpochMs.formatEpochTime())
+        MetadataRow(strings.updatedLabel, selectedItem.updatedAtEpochMs.formatEpochTime())
+        MetadataRow(strings.outputLabel, selectedItem.outputPath)
+        MetadataRow(strings.sourceLabel, selectedItem.sourceUri.redactToken())
         selectedItem.failureMessage?.let { failure ->
-            MetadataRow("Failure", failure, DanmakuColors.Warning)
+            MetadataRow(strings.failureLabel, failure, DanmakuColors.Warning)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             LibraryActionButton(
                 imageVector = Icons.Filled.FolderOpen,
-                label = "Open folder",
+                label = strings.openFolderAction,
                 onClick = { onOpenOutputFolder(selectedItem) },
             )
             LibraryActionButton(
                 imageVector = Icons.Filled.Delete,
-                label = "Remove",
+                label = strings.removeAction,
                 onClick = { pendingRemoval = selectedItem },
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             LibraryActionButton(
                 imageVector = Icons.Filled.Pause,
-                label = "Pause",
+                label = strings.pauseAction,
                 enabled = false,
                 onClick = {},
             )
             LibraryActionButton(
                 imageVector = Icons.Filled.PlayArrow,
-                label = "Resume",
+                label = strings.resumeAction,
                 enabled = false,
                 onClick = {},
             )
             LibraryActionButton(
                 imageVector = Icons.Filled.Refresh,
-                label = "Retry",
+                label = strings.retryAction,
                 enabled = false,
                 onClick = {},
             )
             LibraryActionButton(
                 imageVector = Icons.Filled.Delete,
-                label = "Cancel",
+                label = strings.cancelAction,
                 enabled = false,
                 onClick = {},
             )
         }
         Text(
-            "Pause, resume, cancel, and retry will be enabled after authorized download source contracts and queue execution are implemented.",
+            strings.downloadExecutionPlannedText,
             color = DanmakuColors.TextMuted,
         )
     }
     pendingRemoval?.let { item ->
         SettingsConfirmationDialog(
-            title = "Remove download queue item?",
-            text = "This removes the persisted queue row for ${item.outputPath}. It does not delete downloaded files from disk.",
-            confirmLabel = "Remove",
+            title = strings.removeDownloadTitle,
+            text = strings.removeDownloadText(item.outputPath),
+            confirmLabel = strings.removeAction,
             onConfirm = { onRemoveQueueItem(item) },
             onDismiss = { pendingRemoval = null },
         )

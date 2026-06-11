@@ -40,6 +40,9 @@ Status legend:
   - The Library secondary rail, workspace toolbar, search field, filter
     actions, active filter chips, source status labels, and inspector resize
     affordance now use the desktop string layer.
+  - The Downloads dashboard, queue panel, filters, setup panel, selected-item
+    inspector, confirmation copy, and planned queue-execution labels now use
+    the desktop string layer.
   - Remaining: migrate page actions, status labels, dialogs, tooltips,
     inspector copy, and empty/error states.
 - `[ ]` Add UI review screenshots or checks for English and `zh-TW` labels in
@@ -180,6 +183,9 @@ Status legend:
     download source contracts and queue execution exist.
 - `[~]` Add bandwidth limit, schedule, destination, storage warning, and source
   authorization UI.
+  - Downloads now explicitly labels authorized imports only, planned queue
+    execution, and current ani-rss import-root count in the setup panel without
+    enabling unsupported queue execution.
 - `[~]` Add selected-download inspector with metadata, path, progress, checksum
   or cache state, logs, and retry history.
   - Downloads now has selectable queue rows, active/queued/completed/failed
