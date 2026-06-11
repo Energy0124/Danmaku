@@ -113,14 +113,14 @@ Status legend:
 
 ## Settings Page
 
-- `[ ]` Split settings into General, Library, Playback, Danmaku, Providers,
+- `[x]` Split settings into General, Library, Playback, Danmaku, Providers,
   Server, Storage, Privacy, and Diagnostics groups.
 - `[ ]` Add dirty-state tracking and disable Save Changes until values change.
 - `[ ]` Add inline validation for provider URLs, local paths, ports, cache days,
   and numeric playback/danmaku values.
 - `[ ]` Add Test Connection actions for dandanplay, MyAnimeList, Bangumi, and
   server settings where applicable.
-- `[ ]` Ensure credentials are masked, stored only in approved local stores, and
+- `[~]` Ensure credentials are masked, stored only in approved local stores, and
   omitted from diagnostics.
 - `[ ]` Add confirmation dialogs for clearing credentials and destructive cache
   or mapping actions.

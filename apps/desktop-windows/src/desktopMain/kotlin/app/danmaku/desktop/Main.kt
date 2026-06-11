@@ -6555,6 +6555,48 @@ private fun DownloadQueueRow(item: DesktopDownloadQueueItem) {
 }
 
 @Composable
+private fun SettingsSectionRail(
+    selectedSection: DesktopSettingsSection,
+    onSectionSelected: (DesktopSettingsSection) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxHeight()
+            .background(DanmakuColors.Surface, RoundedCornerShape(8.dp))
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text("Settings", style = MaterialTheme.typography.h6, fontWeight = FontWeight.Bold)
+        Text("App, providers, playback, and diagnostics", color = DanmakuColors.TextMuted, maxLines = 2)
+        Divider(color = DanmakuColors.SurfaceRaised)
+        DesktopSettingsSection.entries.forEach { section ->
+            AppRailItem(
+                icon = section.icon,
+                label = section.title,
+                selected = selectedSection == section,
+                onClick = { onSectionSelected(section) },
+            )
+        }
+    }
+}
+
+private enum class DesktopSettingsSection(
+    val title: String,
+    val icon: ImageVector,
+) {
+    GENERAL("General", Icons.Filled.MoreHoriz),
+    LIBRARY("Library", Icons.AutoMirrored.Filled.LibraryBooks),
+    PLAYBACK("Playback", Icons.Filled.PlayArrow),
+    DANMAKU("Danmaku", Icons.Filled.Subtitles),
+    PROVIDERS("Providers", Icons.Filled.Refresh),
+    SERVER("Server", Icons.Filled.Devices),
+    STORAGE("Storage", Icons.Filled.FolderOpen),
+    PRIVACY("Privacy", Icons.Filled.Warning),
+    DIAGNOSTICS("Diagnostics", Icons.Filled.Computer),
+}
+
+@Composable
 private fun ProfileTab(
     mpvRuntimeStatus: String,
     videoHostStatus: String,
@@ -6576,41 +6618,199 @@ private fun ProfileTab(
     onClearMyAnimeListSettings: () -> Unit,
     onClearBangumiSettings: () -> Unit,
 ) {
+    var selectedSection by remember { mutableStateOf(DesktopSettingsSection.GENERAL) }
     TabScaffold {
-        SectionCard("Local Server") {
-            MetadataRow("Base URL", serverBaseUrl)
-            MetadataRow("Pairing code", pairingToken)
-            networkUrls.forEach { MetadataRow("LAN URL", it) }
-            MetadataRow(
-                "Discovery",
-                "UDP ${app.danmaku.domain.LanLibraryServerAnnouncement.DEFAULT_DISCOVERY_PORT}",
-            )
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            val compact = maxWidth < 1120.dp
+            if (compact) {
+                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    SettingsSectionRail(
+                        selectedSection = selectedSection,
+                        onSectionSelected = { selectedSection = it },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    SettingsSectionContent(
+                        selectedSection = selectedSection,
+                        mpvRuntimeStatus = mpvRuntimeStatus,
+                        videoHostStatus = videoHostStatus,
+                        serverBaseUrl = serverBaseUrl,
+                        networkUrls = networkUrls,
+                        pairingToken = pairingToken,
+                        appLogPath = appLogPath,
+                        mpvLogPath = mpvLogPath,
+                        diagnosticLog = diagnosticLog,
+                        danmakuSettings = danmakuSettings,
+                        onSaveDanmakuSettings = onSaveDanmakuSettings,
+                        dandanplaySettings = dandanplaySettings,
+                        onSaveDandanplaySettings = onSaveDandanplaySettings,
+                        onClearDandanplaySettings = onClearDandanplaySettings,
+                        onCleanupExpiredDandanplayCaches = onCleanupExpiredDandanplayCaches,
+                        externalAnimeProviderSettings = externalAnimeProviderSettings,
+                        onSaveExternalAnimeProviderSettings = onSaveExternalAnimeProviderSettings,
+                        onStartMyAnimeListOAuth = onStartMyAnimeListOAuth,
+                        onClearMyAnimeListSettings = onClearMyAnimeListSettings,
+                        onClearBangumiSettings = onClearBangumiSettings,
+                    )
+                }
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    SettingsSectionRail(
+                        selectedSection = selectedSection,
+                        onSectionSelected = { selectedSection = it },
+                        modifier = Modifier.width(238.dp),
+                    )
+                    SettingsSectionContent(
+                        selectedSection = selectedSection,
+                        mpvRuntimeStatus = mpvRuntimeStatus,
+                        videoHostStatus = videoHostStatus,
+                        serverBaseUrl = serverBaseUrl,
+                        networkUrls = networkUrls,
+                        pairingToken = pairingToken,
+                        appLogPath = appLogPath,
+                        mpvLogPath = mpvLogPath,
+                        diagnosticLog = diagnosticLog,
+                        danmakuSettings = danmakuSettings,
+                        onSaveDanmakuSettings = onSaveDanmakuSettings,
+                        dandanplaySettings = dandanplaySettings,
+                        onSaveDandanplaySettings = onSaveDandanplaySettings,
+                        onClearDandanplaySettings = onClearDandanplaySettings,
+                        onCleanupExpiredDandanplayCaches = onCleanupExpiredDandanplayCaches,
+                        externalAnimeProviderSettings = externalAnimeProviderSettings,
+                        onSaveExternalAnimeProviderSettings = onSaveExternalAnimeProviderSettings,
+                        onStartMyAnimeListOAuth = onStartMyAnimeListOAuth,
+                        onClearMyAnimeListSettings = onClearMyAnimeListSettings,
+                        onClearBangumiSettings = onClearBangumiSettings,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
         }
-        SectionCard("Desktop Runtime") {
-            MetadataRow("mpv executor", mpvRuntimeStatus)
-            MetadataRow("Video host", videoHostStatus)
-            MetadataRow("Renderer", "mpv video output with generated ASS danmaku overlay")
-            MetadataRow("App log", appLogPath.toString())
-            MetadataRow("mpv log", mpvLogPath.toString())
+    }
+}
+
+@Composable
+private fun SettingsSectionContent(
+    selectedSection: DesktopSettingsSection,
+    mpvRuntimeStatus: String,
+    videoHostStatus: String,
+    serverBaseUrl: String,
+    networkUrls: List<String>,
+    pairingToken: String,
+    appLogPath: Path,
+    mpvLogPath: Path,
+    diagnosticLog: List<DesktopDiagnosticLogEntry>,
+    danmakuSettings: DanmakuDisplaySettings,
+    onSaveDanmakuSettings: (DanmakuDisplaySettings) -> Unit,
+    dandanplaySettings: DandanplayProviderSettings,
+    onSaveDandanplaySettings: (String, String?, String?, DandanplayAuthenticationMode, Int) -> Unit,
+    onClearDandanplaySettings: () -> Unit,
+    onCleanupExpiredDandanplayCaches: () -> Unit,
+    externalAnimeProviderSettings: ExternalAnimeProviderSettings,
+    onSaveExternalAnimeProviderSettings: (String?, String?, String?, String, String, String?) -> Unit,
+    onStartMyAnimeListOAuth: (String?, String?) -> Unit,
+    onClearMyAnimeListSettings: () -> Unit,
+    onClearBangumiSettings: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        when (selectedSection) {
+            DesktopSettingsSection.GENERAL -> {
+                SectionCard("General") {
+                    MetadataRow("App", "Danmaku desktop")
+                    MetadataRow("Primary targets", "Windows desktop, Android mobile/tablet, Android TV")
+                    MetadataRow("UI languages", "English, Traditional Chinese planned")
+                }
+                SectionCard("Privacy") {
+                    Text(
+                        "Credentials are stored in local protected settings where supported and omitted from diagnostics.",
+                        color = DanmakuColors.TextMuted,
+                    )
+                    MetadataRow("MyAnimeList", externalAnimeProviderSettings.myAnimeListStatusText)
+                    MetadataRow("Bangumi", externalAnimeProviderSettings.bangumiStatusText)
+                    MetadataRow("dandanplay", dandanplaySettings.statusText)
+                }
+            }
+            DesktopSettingsSection.LIBRARY -> {
+                SectionCard("Library") {
+                    Text(
+                        "Library folders, imports, metadata refresh, mapping, and episode preparation are managed from the Library page.",
+                        color = DanmakuColors.TextMuted,
+                    )
+                    MetadataRow("Metadata", "Series and episode refresh actions are available in Library details.")
+                    MetadataRow("Imports", "ani-rss output folders are managed from Downloads.")
+                }
+            }
+            DesktopSettingsSection.PLAYBACK -> {
+                SectionCard("Playback Runtime") {
+                    MetadataRow("mpv executor", mpvRuntimeStatus)
+                    MetadataRow("Video host", videoHostStatus)
+                    MetadataRow("Renderer", "mpv video output with generated ASS danmaku overlay")
+                    MetadataRow("Focus mode", "Player can hide non-video chrome with H")
+                }
+            }
+            DesktopSettingsSection.DANMAKU -> {
+                DanmakuDisplaySettingsCard(
+                    settings = danmakuSettings,
+                    onSave = onSaveDanmakuSettings,
+                )
+            }
+            DesktopSettingsSection.PROVIDERS -> {
+                DandanplayProviderCard(
+                    settings = dandanplaySettings,
+                    onSave = onSaveDandanplaySettings,
+                    onClear = onClearDandanplaySettings,
+                    onCleanupExpiredCaches = onCleanupExpiredDandanplayCaches,
+                )
+                ExternalAnimeProviderSettingsCard(
+                    settings = externalAnimeProviderSettings,
+                    onSave = onSaveExternalAnimeProviderSettings,
+                    onStartMyAnimeListOAuth = onStartMyAnimeListOAuth,
+                    onClearMyAnimeList = onClearMyAnimeListSettings,
+                    onClearBangumi = onClearBangumiSettings,
+                )
+            }
+            DesktopSettingsSection.SERVER -> {
+                SectionCard("Local Server") {
+                    MetadataRow("Base URL", serverBaseUrl)
+                    MetadataRow("Pairing code", pairingToken)
+                    networkUrls.forEach { MetadataRow("LAN URL", it) }
+                    MetadataRow(
+                        "Discovery",
+                        "UDP ${app.danmaku.domain.LanLibraryServerAnnouncement.DEFAULT_DISCOVERY_PORT}",
+                    )
+                }
+            }
+            DesktopSettingsSection.STORAGE -> {
+                SectionCard("Storage") {
+                    MetadataRow("App log", appLogPath.toString())
+                    MetadataRow("mpv log", mpvLogPath.toString())
+                    Text(
+                        "Cache cleanup is available from provider settings. Download destination controls will be enabled when source contracts are implemented.",
+                        color = DanmakuColors.TextMuted,
+                    )
+                }
+            }
+            DesktopSettingsSection.PRIVACY -> {
+                SectionCard("Privacy and Credentials") {
+                    Text(
+                        "Secrets are masked in forms and diagnostics. Clearing provider settings removes saved provider credentials.",
+                        color = DanmakuColors.TextMuted,
+                    )
+                    MetadataRow("MyAnimeList", externalAnimeProviderSettings.myAnimeListStatusText)
+                    MetadataRow("Bangumi", externalAnimeProviderSettings.bangumiStatusText)
+                    MetadataRow("dandanplay", dandanplaySettings.statusText)
+                }
+            }
+            DesktopSettingsSection.DIAGNOSTICS -> {
+                SectionCard("Desktop Runtime") {
+                    MetadataRow("mpv executor", mpvRuntimeStatus)
+                    MetadataRow("Video host", videoHostStatus)
+                    MetadataRow("App log", appLogPath.toString())
+                    MetadataRow("mpv log", mpvLogPath.toString())
+                }
+                DiagnosticsPanel(diagnosticLog)
+            }
         }
-        DanmakuDisplaySettingsCard(
-            settings = danmakuSettings,
-            onSave = onSaveDanmakuSettings,
-        )
-        DandanplayProviderCard(
-            settings = dandanplaySettings,
-            onSave = onSaveDandanplaySettings,
-            onClear = onClearDandanplaySettings,
-            onCleanupExpiredCaches = onCleanupExpiredDandanplayCaches,
-        )
-        ExternalAnimeProviderSettingsCard(
-            settings = externalAnimeProviderSettings,
-            onSave = onSaveExternalAnimeProviderSettings,
-            onStartMyAnimeListOAuth = onStartMyAnimeListOAuth,
-            onClearMyAnimeList = onClearMyAnimeListSettings,
-            onClearBangumi = onClearBangumiSettings,
-        )
-        DiagnosticsPanel(diagnosticLog)
     }
 }
 
