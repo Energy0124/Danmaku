@@ -78,7 +78,8 @@ Initial slice:
 - `DesktopShellPlaybackActions` owns queued playback loading, smoke playback
   queuing, local/LAN progress persistence, auto-next persistence, and playback
   preference persistence, and playback-tab command callbacks for play/pause,
-  seeking, rate, volume, track selection, and aspect mode.
+  seeking, rate, volume, track selection, aspect mode, direct-file playback,
+  and prepared local/remote playback loading.
 - `DesktopShellLocalPlaybackActions` owns local playback preparation,
   dandanplay match/cache inspection, prepared danmaku overlay mutations, and
   manual danmaku attachment.
@@ -97,6 +98,8 @@ Acceptance:
 - Feature tabs receive data plus callbacks rather than reaching into stores or
   runtimes.
 - `DesktopShell.kt` drops below 1,000 lines after the full state/action pass.
+  Met on 2026-06-11; the file is 993 lines after the playback loading and mpv
+  OSC forwarding extraction.
 
 ## Phase 3: Feature File Follow-Up
 
@@ -163,10 +166,9 @@ Completed shared/library follow-up split:
 Remaining structural hotspot:
 
 - `DesktopShell.kt` still owns dependency construction, long-lived state,
-  effects, shell/window behavior, and tab assembly. Stale imports from the
-  original monolith have been trimmed, and playback command wiring now lives in
-  `DesktopShellPlaybackActions`; the next refactor should focus on shell
-  lifecycle/window wiring to get below the 1,000-line target.
+  effects, shell/window behavior, and tab assembly. The sub-1,000-line target
+  is met; the next refactor should focus on reducing lifecycle/window coupling
+  rather than chasing line count alone.
 
 Acceptance:
 

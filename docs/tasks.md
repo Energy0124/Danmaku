@@ -43,11 +43,12 @@ Status legend:
   Library root, metadata, favorite, external mapping/search, and tracking sync
   actions are now split into a typed library action object. Download queue
   refresh/remove/open actions are also split into a typed action object.
-- `[ ]` Reduce shell/lifecycle/window wiring in `DesktopShell.kt`; UI
+- `[~]` Reduce shell/lifecycle/window wiring in `DesktopShell.kt`; UI
   files, state holders, settings actions, playback actions, local
   playback/danmaku actions, library actions, and download actions are now
   split, playback command callbacks are delegated, and stale monolith imports
-  have been trimmed.
+  have been trimmed. `DesktopShell.kt` is now below the 1,000-line milestone;
+  remaining work is about coupling, not only file length.
 
 ## Next Engineering Work
 

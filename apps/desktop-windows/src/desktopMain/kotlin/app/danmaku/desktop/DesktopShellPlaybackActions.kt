@@ -5,12 +5,14 @@ import app.danmaku.domain.PlaybackController
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.toPlaybackProgress
+import app.danmaku.library.LanPlaybackPreparation
 import app.danmaku.library.LanPlaybackProgressSync
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.nio.file.Files
+import java.nio.file.Path
 
 internal class DesktopShellPlaybackActions(
     private val scope: CoroutineScope,
@@ -24,6 +26,7 @@ internal class DesktopShellPlaybackActions(
     private val playbackController: PlaybackController,
     private val hostDisplayName: String,
     private val requiresNativeVideoHost: Boolean,
+    private val selectMediaFile: (String) -> Path?,
     private val getPlaybackSnapshot: () -> PlaybackSnapshot,
     private val setPlaybackSnapshot: (PlaybackSnapshot) -> Unit,
     private val updateVideoAspectMode: (DesktopVideoAspectMode) -> Unit,
@@ -101,6 +104,30 @@ internal class DesktopShellPlaybackActions(
                 label = "Smoke playback - ${mediaPath.fileName ?: mediaPath}",
             ),
         )
+    }
+
+    fun openDirectMediaFile(title: String) {
+        appendDiagnostic("playback", "Opening direct media file picker")
+        selectMediaFile(title)?.let { mediaFile ->
+            appendDiagnostic("playback", "Loading direct media file: $mediaFile")
+            loadPlaybackRequest(mediaFile.toDirectLocalPlaybackRequest())
+        }
+    }
+
+    fun loadPreparedLocalPlayback(preparation: DesktopLocalPlaybackPreparation) {
+        appendDiagnostic(
+            "playback",
+            "Loading prepared local playback: ${preparation.item.id}; source=${preparation.source.path}",
+        )
+        queuePlaybackUntilHostReady(preparation.toPlaybackRequest())
+    }
+
+    fun loadPreparedRemotePlayback(preparation: LanPlaybackPreparation) {
+        appendDiagnostic(
+            "playback",
+            "Loading remote stream into $hostDisplayName controller: ${preparation.item.id}; source=${preparation.source.url}",
+        )
+        queuePlaybackUntilHostReady(preparation.toDesktopPlaybackRequest())
     }
 
     fun setAutoNextLocalPlayback(enabled: Boolean) {

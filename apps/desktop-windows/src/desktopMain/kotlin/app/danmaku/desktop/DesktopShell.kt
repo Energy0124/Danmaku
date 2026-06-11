@@ -222,51 +222,12 @@ internal fun DesktopShell(
         appendDiagnostic("diagnostics", "App log: ${diagnosticFileLog.appLogPath}")
         appendDiagnostic("diagnostics", "mpv log: ${diagnosticFileLog.mpvLogPath}")
     }
-    fun forwardMpvOscBinding(
-        bindingName: String,
-        x: Int? = null,
-        y: Int? = null,
-        sourceWidth: Int? = null,
-        sourceHeight: Int? = null,
-    ) {
-        if (hostPlatform != DesktopHostPlatform.WINDOWS) {
-            return
-        }
-        val args = buildList {
-            add("script-binding")
-            add("danmaku_osc/$bindingName")
-            if (x != null && y != null) {
-                add(
-                    listOfNotNull(
-                        x.coerceAtLeast(0),
-                        y.coerceAtLeast(0),
-                        sourceWidth?.coerceAtLeast(1),
-                        sourceHeight?.coerceAtLeast(1),
-                    ).joinToString(separator = ","),
-                )
-            }
-        }
-        runCatching {
-            mpvRuntime.executor.execute(DesktopMpvCommand(args))
-        }.onFailure { error ->
-            appendDiagnostic("mpv", "Custom OSC input forward failed: ${error.message ?: error::class.simpleName}")
-        }
-    }
-    fun forwardMpvOscWheel(
-        x: Int,
-        y: Int,
-        sourceWidth: Int,
-        sourceHeight: Int,
-        rotation: Int,
-    ) {
-        val bindingName = if (rotation < 0) {
-            "danmaku-osc-wheel-up"
-        } else {
-            "danmaku-osc-wheel-down"
-        }
-        repeat(kotlin.math.abs(rotation).coerceIn(1, 5)) {
-            forwardMpvOscBinding(bindingName, x, y, sourceWidth, sourceHeight)
-        }
+    val mpvOscActions = remember(hostPlatform, mpvRuntime) {
+        DesktopShellMpvOscActions(
+            hostPlatform = hostPlatform,
+            executor = mpvRuntime.executor,
+            appendDiagnostic = ::appendDiagnostic,
+        )
     }
     var overlayStatus by remember { mutableStateOf("Danmaku overlay: waiting for matched comments") }
     val playbackSession = remember(playbackController, mpvRuntime) {
@@ -517,6 +478,7 @@ internal fun DesktopShell(
             playbackController = playbackController,
             hostDisplayName = hostPlatform.displayName,
             requiresNativeVideoHost = requiresNativeVideoHost,
+            selectMediaFile = ::selectMediaFile,
             getPlaybackSnapshot = { playbackSnapshot },
             setPlaybackSnapshot = { playbackSnapshot = it },
             updateVideoAspectMode = { videoAspectMode = it },
@@ -823,13 +785,13 @@ internal fun DesktopShell(
                                 mpvVideoWindowId = windowId
                             },
                             onMpvPointerMove = { x, y, width, height ->
-                                forwardMpvOscBinding("danmaku-osc-mouse-move", x, y, width, height)
+                                mpvOscActions.forwardBinding("danmaku-osc-mouse-move", x, y, width, height)
                             },
                             onMpvPrimaryClick = { x, y, width, height ->
-                                forwardMpvOscBinding("danmaku-osc-left-click", x, y, width, height)
+                                mpvOscActions.forwardBinding("danmaku-osc-left-click", x, y, width, height)
                             },
                             onMpvWheel = { x, y, width, height, rotation ->
-                                forwardMpvOscWheel(x, y, width, height, rotation)
+                                mpvOscActions.forwardWheel(x, y, width, height, rotation)
                             },
                             previousEpisodeLabel = previousLocalPlaybackItem?.episodeTitle,
                             nextEpisodeLabel = nextLocalPlaybackItem?.episodeTitle,
@@ -846,13 +808,9 @@ internal fun DesktopShell(
                                 }
                             },
                             onOpenMediaFile = {
-                                appendDiagnostic("playback", "Opening direct media file picker")
-                                selectMediaFile(
+                                playbackActions.openDirectMediaFile(
                                     title = navigationState.desktopStrings.chooseMediaFileTitle(hostPlatform.displayName),
-                                )?.let { mediaFile ->
-                                    appendDiagnostic("playback", "Loading direct media file: $mediaFile")
-                                    playbackActions.loadPlaybackRequest(mediaFile.toDirectLocalPlaybackRequest())
-                                }
+                                )
                             },
                             onPlay = playbackActions::dispatchPlay,
                             onPause = playbackActions::dispatchPause,
@@ -981,26 +939,14 @@ internal fun DesktopShell(
                             onSearchExternalAnimeMatches = libraryActions::searchExternalAnimeMatches,
                             onFetchMetadataMatchPoster = libraryActions::fetchMetadataMatchPoster,
                             onSyncExternalAnimePlan = libraryActions::syncExternalAnimePlan,
-                            onLoadPreparedPlayback = { preparation ->
-                                appendDiagnostic(
-                                    "playback",
-                                    "Loading prepared local playback: ${preparation.item.id}; source=${preparation.source.path}",
-                                )
-                                playbackActions.queuePlaybackUntilHostReady(preparation.toPlaybackRequest())
-                            },
+                            onLoadPreparedPlayback = playbackActions::loadPreparedLocalPlayback,
                             remoteBrowser = {
                                 RemoteLibraryBrowser(
                                     strings = navigationState.desktopStrings,
                                     defaultServerUrl = server.baseUrl(),
                                     defaultPairingToken = server.pairingToken,
                                     appendDiagnostic = ::appendDiagnostic,
-                                    onLoadPreparedPlayback = { preparation ->
-                                        appendDiagnostic(
-                                            "playback",
-                                            "Loading remote stream into ${hostPlatform.displayName} controller: ${preparation.item.id}; source=${preparation.source.url}",
-                                        )
-                                        playbackActions.queuePlaybackUntilHostReady(preparation.toDesktopPlaybackRequest())
-                                    },
+                                    onLoadPreparedPlayback = playbackActions::loadPreparedRemotePlayback,
                                 )
                             },
                         )
