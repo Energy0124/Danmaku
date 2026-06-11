@@ -36,7 +36,9 @@ trusted-LAN clients.
   is split into routing/profile, danmaku controls, dialogs/cache/server, and
   provider-card files. Playback UI is split into tab composition, shortcuts,
   overlays, panels, and presentation helpers. Shell chrome is separated from
-  Home content.
+  Home content. Shared primitives, local/remote library rows, library
+  workspace, and library inspector surfaces are further split into focused
+  files; `DesktopShell.kt` remains the main orchestration hotspot.
 - Multi-root local anime library indexing, incremental rescanning, ani-rss
   output-folder import, and persistent SQLDelight/SQLite storage.
 - Trusted-LAN library server with pairing token, JSON catalog, byte-range media

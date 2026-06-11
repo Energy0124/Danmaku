@@ -120,6 +120,24 @@ Completed shell chrome split:
   now-playing rail card.
 - `DesktopHomeTab.kt` now owns Home content only.
 
+Completed shared/library follow-up split:
+
+- `DesktopSharedPrimitives.kt` owns generic scaffold/card/status primitives.
+- `DesktopLibraryRows.kt` owns local library row components.
+- `DesktopRemoteLibraryBrowser.kt` owns paired-LAN browsing and remote rows.
+- `DesktopUiHelpers.kt` owns cross-surface string/root/window helpers.
+- Library workspace is split into root composition, rail/import/source status,
+  and center/sync/toolbar content files.
+- Library inspector is split into inspector body, mapping/match surfaces, and
+  compact row/keyboard helpers.
+
+Remaining structural hotspot:
+
+- `DesktopShell.kt` still owns dependency construction, long-lived state,
+  effects, and most action implementations. The next refactor should extract
+  remembered library/playback/settings state objects and a typed action facade
+  rather than adding more UI-only files.
+
 Acceptance:
 
 - Prefer files below roughly 700 lines unless a single cohesive surface
