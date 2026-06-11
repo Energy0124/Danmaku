@@ -59,6 +59,9 @@ Status legend:
   - Desktop Home episode and resume cards now prefer matched anime display
     titles, keep the local file group visible when it differs, and use matched
     titles for poster fallback text.
+  - Library metadata search results now show provider poster previews from the
+    cached candidate image URL before the user saves a MyAnimeList or Bangumi
+    mapping.
 - `[ ]` Verify selected media cards and table rows update details consistently
   across Home, Library, History, Downloads, and Tracking where applicable.
 - `[ ]` Keep the details side panel adjustable or responsive enough for long

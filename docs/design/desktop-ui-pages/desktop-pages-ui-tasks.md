@@ -77,6 +77,9 @@ Status legend:
   - Desktop Library now uses shared readiness labels for metadata loading,
     failed, partial, ready, and needed states in the inspector, series poster
     cards, file/favorite rows, and compact inspector episode list.
+  - The metadata match dialog now loads provider candidate poster thumbnails
+    through the existing HTTPS poster cache and labels loading/unavailable
+    preview states directly in each search result.
   - Remaining: add a real freshness/stale signal once metadata cache age or
     provider revision data is available.
 - `[~]` Add manual refresh metadata/poster actions at both series and episode

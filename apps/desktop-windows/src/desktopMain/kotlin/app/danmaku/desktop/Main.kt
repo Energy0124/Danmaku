@@ -1068,6 +1068,11 @@ private fun DesktopShell(
             }
         }
 
+    suspend fun fetchMetadataMatchPoster(imageUrl: String?): Path? =
+        withContext(Dispatchers.IO) {
+            posterCache.fetch(imageUrl)
+        }
+
     LaunchedEffect(Unit) {
         cleanupLegacySeriesAnimeMappings()
     }
@@ -2637,6 +2642,7 @@ private fun DesktopShell(
                             onSaveExternalAnimeItemMapping = ::saveManualExternalAnimeItemMapping,
                             onDeleteExternalAnimeItemMapping = ::deleteManualExternalAnimeItemMapping,
                             onSearchExternalAnimeMatches = ::searchExternalAnimeMatches,
+                            onFetchMetadataMatchPoster = ::fetchMetadataMatchPoster,
                             onSyncExternalAnimePlan = ::syncExternalAnimePlan,
                             onLoadPreparedPlayback = { preparation ->
                                 appendDiagnostic(
@@ -5337,6 +5343,7 @@ private fun MediaLibraryTab(
     onSaveExternalAnimeItemMapping: (LibraryMediaItem, ExternalAnimeProvider, String) -> Unit,
     onDeleteExternalAnimeItemMapping: (LibraryMediaItem, ExternalAnimeProvider) -> Unit,
     onSearchExternalAnimeMatches: suspend (ExternalAnimeMatchQuery, Set<ExternalAnimeProvider>) -> Result<List<ExternalAnimeMatchCandidate>>,
+    onFetchMetadataMatchPoster: suspend (String?) -> Path?,
     onSyncExternalAnimePlan: (ExternalAnimeTrackingPlan) -> Unit,
     onLoadPreparedPlayback: (DesktopLocalPlaybackPreparation) -> Unit,
     remoteBrowser: @Composable () -> Unit,
@@ -5453,6 +5460,7 @@ private fun MediaLibraryTab(
             onSaveExternalAnimeItemMapping = onSaveExternalAnimeItemMapping,
             onDeleteExternalAnimeItemMapping = onDeleteExternalAnimeItemMapping,
             onSearchExternalAnimeMatches = onSearchExternalAnimeMatches,
+            onFetchMetadataMatchPoster = onFetchMetadataMatchPoster,
             onSyncExternalAnimePlan = onSyncExternalAnimePlan,
             onLoadPreparedPlayback = onLoadPreparedPlayback,
             onPrepareLocalPlayback = onPrepareLocalPlayback,
@@ -5527,6 +5535,7 @@ private fun WindowsLibraryWorkspace(
     onSaveExternalAnimeItemMapping: (LibraryMediaItem, ExternalAnimeProvider, String) -> Unit,
     onDeleteExternalAnimeItemMapping: (LibraryMediaItem, ExternalAnimeProvider) -> Unit,
     onSearchExternalAnimeMatches: suspend (ExternalAnimeMatchQuery, Set<ExternalAnimeProvider>) -> Result<List<ExternalAnimeMatchCandidate>>,
+    onFetchMetadataMatchPoster: suspend (String?) -> Path?,
     onSyncExternalAnimePlan: (ExternalAnimeTrackingPlan) -> Unit,
     onLoadPreparedPlayback: (DesktopLocalPlaybackPreparation) -> Unit,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
@@ -5740,6 +5749,7 @@ private fun WindowsLibraryWorkspace(
                 onSaveExternalAnimeItemMapping = onSaveExternalAnimeItemMapping,
                 onDeleteExternalAnimeItemMapping = onDeleteExternalAnimeItemMapping,
                 onSearchExternalAnimeMatches = onSearchExternalAnimeMatches,
+                onFetchMetadataMatchPoster = onFetchMetadataMatchPoster,
                 onLoadPreparedPlayback = onLoadPreparedPlayback,
                 onPrepareLocalPlayback = onPrepareLocalPlayback,
                 onPlayLocalPlayback = onPlayLocalPlayback,
@@ -7108,6 +7118,7 @@ private fun LibraryInspectorPane(
     onSaveExternalAnimeItemMapping: (LibraryMediaItem, ExternalAnimeProvider, String) -> Unit,
     onDeleteExternalAnimeItemMapping: (LibraryMediaItem, ExternalAnimeProvider) -> Unit,
     onSearchExternalAnimeMatches: suspend (ExternalAnimeMatchQuery, Set<ExternalAnimeProvider>) -> Result<List<ExternalAnimeMatchCandidate>>,
+    onFetchMetadataMatchPoster: suspend (String?) -> Path?,
     onLoadPreparedPlayback: (DesktopLocalPlaybackPreparation) -> Unit,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
@@ -7337,6 +7348,7 @@ private fun LibraryInspectorPane(
             onSaveExternalAnimeItemMapping = onSaveExternalAnimeItemMapping,
             onDeleteExternalAnimeItemMapping = onDeleteExternalAnimeItemMapping,
             onSearchExternalAnimeMatches = onSearchExternalAnimeMatches,
+            onFetchMetadataMatchPoster = onFetchMetadataMatchPoster,
         )
         selectedEpisodeDetail?.let { detail ->
             MetadataRow("Season", detail.season.label)
@@ -7452,6 +7464,7 @@ private fun ExternalAnimeMappingPanel(
     onSaveExternalAnimeItemMapping: (LibraryMediaItem, ExternalAnimeProvider, String) -> Unit,
     onDeleteExternalAnimeItemMapping: (LibraryMediaItem, ExternalAnimeProvider) -> Unit,
     onSearchExternalAnimeMatches: suspend (ExternalAnimeMatchQuery, Set<ExternalAnimeProvider>) -> Result<List<ExternalAnimeMatchCandidate>>,
+    onFetchMetadataMatchPoster: suspend (String?) -> Path?,
 ) {
     var showMatchDialog by remember(selectedSeries.id) { mutableStateOf(false) }
     val malMapping = seriesMappings.firstOrNull { it.animeId.provider == ExternalAnimeProvider.MY_ANIME_LIST }
@@ -7500,6 +7513,7 @@ private fun ExternalAnimeMappingPanel(
             currentMappings = seriesMappings,
             externalAnimeProviderSettings = externalAnimeProviderSettings,
             onSearchExternalAnimeMatches = onSearchExternalAnimeMatches,
+            onFetchMetadataMatchPoster = onFetchMetadataMatchPoster,
             onSaveExternalAnimeMapping = onSaveExternalAnimeMapping,
             onDismiss = { showMatchDialog = false },
         )
@@ -7512,6 +7526,7 @@ private fun MetadataMatchDialog(
     currentMappings: List<ExternalAnimeMapping>,
     externalAnimeProviderSettings: ExternalAnimeProviderSettings,
     onSearchExternalAnimeMatches: suspend (ExternalAnimeMatchQuery, Set<ExternalAnimeProvider>) -> Result<List<ExternalAnimeMatchCandidate>>,
+    onFetchMetadataMatchPoster: suspend (String?) -> Path?,
     onSaveExternalAnimeMapping: (LibrarySeries, ExternalAnimeProvider, String) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -7648,6 +7663,7 @@ private fun MetadataMatchDialog(
                             MetadataMatchCandidateRow(
                                 candidate = candidate,
                                 alreadyMapped = currentMappings.any { it.animeId == candidate.anime.id },
+                                onFetchPoster = onFetchMetadataMatchPoster,
                                 onUse = {
                                     onSaveExternalAnimeMapping(
                                         selectedSeries,
@@ -7726,9 +7742,23 @@ private fun MetadataMatchProviderToggle(
 private fun MetadataMatchCandidateRow(
     candidate: ExternalAnimeMatchCandidate,
     alreadyMapped: Boolean,
+    onFetchPoster: suspend (String?) -> Path?,
     onUse: () -> Unit,
 ) {
     val anime = candidate.anime
+    var posterPath by remember(anime.id, anime.imageUrl) { mutableStateOf<Path?>(null) }
+    var isPosterLoading by remember(anime.id, anime.imageUrl) { mutableStateOf(!anime.imageUrl.isNullOrBlank()) }
+
+    LaunchedEffect(anime.id, anime.imageUrl) {
+        val imageUrl = anime.imageUrl
+        posterPath = null
+        isPosterLoading = !imageUrl.isNullOrBlank()
+        if (!imageUrl.isNullOrBlank()) {
+            posterPath = runCatching { onFetchPoster(imageUrl) }.getOrNull()
+            isPosterLoading = false
+        }
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -7738,11 +7768,10 @@ private fun MetadataMatchCandidateRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        StatusPill(
-            text = candidate.confidence.formatConfidence(),
-            icon = Icons.Filled.CheckCircle,
-            active = candidate.confidence >= 0.7,
-            color = if (candidate.confidence >= 0.7) DanmakuColors.Good else DanmakuColors.Accent,
+        MetadataMatchPosterPreview(
+            posterPath = posterPath,
+            title = anime.titles.primary,
+            isLoading = isPosterLoading,
         )
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(anime.titles.primary, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -7752,6 +7781,9 @@ private fun MetadataMatchCandidateRow(
                     anime.episodeCount?.let { add("$it episodes") }
                     anime.startYear?.let { add(it.toString()) }
                     candidate.matchedTitle?.takeIf { it != anime.titles.primary }?.let { add("matched: $it") }
+                    if (anime.imageUrl != null && posterPath == null) {
+                        add(if (isPosterLoading) "poster loading" else "poster unavailable")
+                    }
                 }.joinToString(" - "),
                 color = DanmakuColors.TextMuted,
                 maxLines = 1,
@@ -7761,11 +7793,67 @@ private fun MetadataMatchCandidateRow(
                 Text(it, color = DanmakuColors.TextMuted, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
         }
+        StatusPill(
+            text = candidate.confidence.formatConfidence(),
+            icon = Icons.Filled.CheckCircle,
+            active = candidate.confidence >= 0.7,
+            color = if (candidate.confidence >= 0.7) DanmakuColors.Good else DanmakuColors.Accent,
+        )
         Button(
             enabled = !alreadyMapped,
             onClick = onUse,
         ) {
             Text(if (alreadyMapped) "Mapped" else "Use")
+        }
+    }
+}
+
+@Composable
+private fun MetadataMatchPosterPreview(
+    posterPath: Path?,
+    title: String,
+    isLoading: Boolean,
+) {
+    val bitmap = rememberLocalImageBitmap(posterPath)
+    Box(
+        modifier = Modifier
+            .width(54.dp)
+            .height(76.dp)
+            .clip(RoundedCornerShape(6.dp))
+            .background(DanmakuColors.AccentSoft),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (bitmap != null) {
+            Image(
+                bitmap = bitmap,
+                contentDescription = title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        } else {
+            Text(
+                text = title.initialsForPoster(),
+                color = Color.White,
+                style = MaterialTheme.typography.subtitle2,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+            )
+        }
+        if (isLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.56f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = "Loading",
+                    color = Color.White,
+                    style = MaterialTheme.typography.caption,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }
