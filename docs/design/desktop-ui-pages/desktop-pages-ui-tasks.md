@@ -59,6 +59,9 @@ Status legend:
   - Library inspector empty state, readiness headings, primary playback actions,
     episode action menu, compact row details/favorite/metadata buttons, and
     advanced danmaku/cache actions now use the desktop string layer.
+  - Paired remote-library browse chrome now uses the desktop string layer for
+    connection fields, load/search/sort/filter actions, empty/error states,
+    prepared playback details, and remote row playback actions.
   - Settings General privacy chrome and the real dandanplay/MyAnimeList/Bangumi
     provider forms now use the desktop string layer for labels, actions,
     validation copy, and clear/cleanup confirmation text.

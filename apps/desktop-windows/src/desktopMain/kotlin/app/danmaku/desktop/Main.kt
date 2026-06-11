@@ -2658,6 +2658,7 @@ private fun DesktopShell(
                             },
                             remoteBrowser = {
                                 RemoteLibraryBrowser(
+                                    strings = desktopStrings,
                                     defaultServerUrl = server.baseUrl(),
                                     defaultPairingToken = server.pairingToken,
                                     appendDiagnostic = ::appendDiagnostic,
@@ -2971,6 +2972,37 @@ private enum class DesktopUiLanguage(
             episodesTitle = "Episodes",
             advancedTitle = "Advanced",
             favoriteStatusLabel = "Favorite",
+            pairedLibraryTitle = "Desktop paired library client",
+            pairedLibraryDescription = "Defaults to this app's embedded same-machine server. Enter another desktop URL to browse remotely.",
+            pairedLibraryServerUrlLabel = "Library server URL",
+            pairingCodeLabel = "Pairing code",
+            loadPairedCatalogAction = "Load paired server catalog",
+            pairedLibraryErrorLabel = { message -> "Paired library error: $message" },
+            pairedEpisodesLabel = { count -> "Paired episodes: $count" },
+            pairedProgressLabel = "Paired progress",
+            savedRowsLabel = { count -> "$count saved rows" },
+            pairedNextUpTitle = "Paired Next Up",
+            pairedNextUpEmptyText = "No paired next-up item yet.",
+            pairedContinueWatchingTitle = "Paired Continue Watching",
+            pairedContinueWatchingEmptyText = "No in-progress paired episodes yet.",
+            searchPairedEpisodesLabel = "Search paired episodes",
+            sortTitleAction = "Sort title",
+            sortPathAction = "Sort path",
+            showingLabel = "Showing",
+            pairedEpisodesCountLabel = { visible, total -> "$visible / $total paired episodes" },
+            pairedCatalogEmptyText = "Load a paired server catalog to browse remote episodes.",
+            pairedServerEmptyText = "The paired server did not publish any episodes.",
+            pairedFilterEmptyText = "No paired episodes match the current filters.",
+            resetFiltersAction = "Reset filters",
+            preparedDesktopPlaybackLabel = { series, episode -> "Prepared desktop playback: $series - $episode" },
+            sourceValueLabel = { value -> "Source: $value" },
+            resumeValueText = { value -> "Resume: $value" },
+            startFromBeginningLabel = "start from beginning",
+            loadIntoDesktopControllerAction = "Load into desktop controller",
+            unknownMediaLabel = "unknown media",
+            unknownDurationLabel = "unknown",
+            noSubtitlesLabel = "no subtitles",
+            subtitleCountLabel = { count -> "$count subtitles" },
             downloadFilterTitles = mapOf(
                 DownloadQueueFilter.ALL to "All",
                 DownloadQueueFilter.ACTIVE to "Active",
@@ -3386,6 +3418,37 @@ private enum class DesktopUiLanguage(
             episodesTitle = "集數",
             advancedTitle = "進階",
             favoriteStatusLabel = "已收藏",
+            pairedLibraryTitle = "桌面配對媒體庫用戶端",
+            pairedLibraryDescription = "預設連到此應用程式內建的同機伺服器。輸入其他桌面 URL 可遠端瀏覽。",
+            pairedLibraryServerUrlLabel = "媒體庫伺服器 URL",
+            pairingCodeLabel = "配對碼",
+            loadPairedCatalogAction = "載入配對伺服器目錄",
+            pairedLibraryErrorLabel = { message -> "配對媒體庫錯誤：$message" },
+            pairedEpisodesLabel = { count -> "配對集數：$count" },
+            pairedProgressLabel = "配對進度",
+            savedRowsLabel = { count -> "$count 筆已儲存" },
+            pairedNextUpTitle = "配對下一集",
+            pairedNextUpEmptyText = "尚無配對下一集項目。",
+            pairedContinueWatchingTitle = "配對繼續觀看",
+            pairedContinueWatchingEmptyText = "尚無進行中的配對集數。",
+            searchPairedEpisodesLabel = "搜尋配對集數",
+            sortTitleAction = "依標題排序",
+            sortPathAction = "依路徑排序",
+            showingLabel = "顯示",
+            pairedEpisodesCountLabel = { visible, total -> "$visible / $total 個配對集數" },
+            pairedCatalogEmptyText = "載入配對伺服器目錄以瀏覽遠端集數。",
+            pairedServerEmptyText = "配對伺服器未發佈任何集數。",
+            pairedFilterEmptyText = "沒有符合目前篩選的配對集數。",
+            resetFiltersAction = "重設篩選",
+            preparedDesktopPlaybackLabel = { series, episode -> "已準備桌面播放：$series - $episode" },
+            sourceValueLabel = { value -> "來源：$value" },
+            resumeValueText = { value -> "續播：$value" },
+            startFromBeginningLabel = "從頭開始",
+            loadIntoDesktopControllerAction = "載入桌面控制器",
+            unknownMediaLabel = "未知媒體",
+            unknownDurationLabel = "未知",
+            noSubtitlesLabel = "無字幕",
+            subtitleCountLabel = { count -> "$count 個字幕" },
             downloadFilterTitles = mapOf(
                 DownloadQueueFilter.ALL to "全部",
                 DownloadQueueFilter.ACTIVE to "進行中",
@@ -3779,6 +3842,37 @@ private data class DesktopStrings(
     val episodesTitle: String,
     val advancedTitle: String,
     val favoriteStatusLabel: String,
+    val pairedLibraryTitle: String,
+    val pairedLibraryDescription: String,
+    val pairedLibraryServerUrlLabel: String,
+    val pairingCodeLabel: String,
+    val loadPairedCatalogAction: String,
+    val pairedLibraryErrorLabel: (String) -> String,
+    val pairedEpisodesLabel: (Int) -> String,
+    val pairedProgressLabel: String,
+    val savedRowsLabel: (Int) -> String,
+    val pairedNextUpTitle: String,
+    val pairedNextUpEmptyText: String,
+    val pairedContinueWatchingTitle: String,
+    val pairedContinueWatchingEmptyText: String,
+    val searchPairedEpisodesLabel: String,
+    val sortTitleAction: String,
+    val sortPathAction: String,
+    val showingLabel: String,
+    val pairedEpisodesCountLabel: (Int, Int) -> String,
+    val pairedCatalogEmptyText: String,
+    val pairedServerEmptyText: String,
+    val pairedFilterEmptyText: String,
+    val resetFiltersAction: String,
+    val preparedDesktopPlaybackLabel: (String, String) -> String,
+    val sourceValueLabel: (String) -> String,
+    val resumeValueText: (String) -> String,
+    val startFromBeginningLabel: String,
+    val loadIntoDesktopControllerAction: String,
+    val unknownMediaLabel: String,
+    val unknownDurationLabel: String,
+    val noSubtitlesLabel: String,
+    val subtitleCountLabel: (Int) -> String,
     val downloadFilterTitles: Map<DownloadQueueFilter, String> = emptyMap(),
     val downloadsActiveTitle: String,
     val downloadsActiveCaption: String,
@@ -12319,6 +12413,7 @@ private fun LibraryWatchStatus?.statusLabel(): String =
 
 @Composable
 private fun RemoteLibraryBrowser(
+    strings: DesktopStrings,
     defaultServerUrl: String,
     defaultPairingToken: String,
     appendDiagnostic: (String, String) -> Unit,
@@ -12429,15 +12524,15 @@ private fun RemoteLibraryBrowser(
         }
     }
 
-    Text("Desktop paired library client")
-    Text("Defaults to this app's embedded same-machine server. Enter another desktop URL to browse remotely.")
+    Text(strings.pairedLibraryTitle)
+    Text(strings.pairedLibraryDescription)
     OutlinedTextField(
         value = serverUrl,
         onValueChange = {
             serverUrl = it
             selectedPlaybackPreparation = null
         },
-        label = { Text("Library server URL") },
+        label = { Text(strings.pairedLibraryServerUrlLabel) },
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
     )
@@ -12447,7 +12542,7 @@ private fun RemoteLibraryBrowser(
             pairingToken = it
             selectedPlaybackPreparation = null
         },
-        label = { Text("Pairing code") },
+        label = { Text(strings.pairingCodeLabel) },
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
     )
@@ -12455,24 +12550,25 @@ private fun RemoteLibraryBrowser(
         onClick = ::refreshCatalog,
         enabled = !isLoading,
     ) {
-        Text(if (isLoading) "Loading..." else "Load paired server catalog")
+        Text(if (isLoading) strings.loadingAction else strings.loadPairedCatalogAction)
     }
-    libraryError?.let { Text("Paired library error: $it") }
-    Text("Paired episodes: ${totalItems.size}")
-    MetadataRow("Paired progress", "${playbackProgresses.size} saved rows")
+    libraryError?.let { Text(strings.pairedLibraryErrorLabel(it)) }
+    Text(strings.pairedEpisodesLabel(totalItems.size))
+    MetadataRow(strings.pairedProgressLabel, strings.savedRowsLabel(playbackProgresses.size))
     if (catalog != null) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("Paired Next Up", fontWeight = FontWeight.Bold)
+                Text(strings.pairedNextUpTitle, fontWeight = FontWeight.Bold)
                 if (nextUpItems.isEmpty()) {
-                    EmptyState("No paired next-up item yet.")
+                    EmptyState(strings.pairedNextUpEmptyText)
                 } else {
                     LazyColumn(modifier = Modifier.heightIn(max = 180.dp)) {
                         items(nextUpItems, key = { it.mediaItem.id }) { item ->
                             RemoteNextUpRow(
+                                strings = strings,
                                 item = item,
                                 isPreparing = isPreparingPlayback,
                                 onPrepareRemotePlayback = {
@@ -12487,13 +12583,14 @@ private fun RemoteLibraryBrowser(
                 }
             }
             Column(modifier = Modifier.weight(1f)) {
-                Text("Paired Continue Watching", fontWeight = FontWeight.Bold)
+                Text(strings.pairedContinueWatchingTitle, fontWeight = FontWeight.Bold)
                 if (continueWatchingItems.isEmpty()) {
-                    EmptyState("No in-progress paired episodes yet.")
+                    EmptyState(strings.pairedContinueWatchingEmptyText)
                 } else {
                     LazyColumn(modifier = Modifier.heightIn(max = 180.dp)) {
                         items(continueWatchingItems, key = { it.mediaItem.id }) { item ->
                             RemoteContinueWatchingRow(
+                                strings = strings,
                                 item = item,
                                 isPreparing = isPreparingPlayback,
                                 onPlayRemotePlayback = {
@@ -12509,7 +12606,7 @@ private fun RemoteLibraryBrowser(
     OutlinedTextField(
         value = searchText,
         onValueChange = { searchText = it },
-        label = { Text("Search paired episodes") },
+        label = { Text(strings.searchPairedEpisodesLabel) },
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
     )
@@ -12518,13 +12615,13 @@ private fun RemoteLibraryBrowser(
             onClick = { sort = LibraryCatalogSort.TITLE },
             enabled = sort != LibraryCatalogSort.TITLE,
         ) {
-            Text("Sort title")
+            Text(strings.sortTitleAction)
         }
         Button(
             onClick = { sort = LibraryCatalogSort.PATH },
             enabled = sort != LibraryCatalogSort.PATH,
         ) {
-            Text("Sort path")
+            Text(strings.sortPathAction)
         }
         Button(
             onClick = {
@@ -12535,16 +12632,16 @@ private fun RemoteLibraryBrowser(
                 }
             },
         ) {
-            Text(if (subtitleFilter == LibrarySubtitleFilter.ANY) "Require subtitles" else "All episodes")
+            Text(if (subtitleFilter == LibrarySubtitleFilter.ANY) strings.requireSubtitlesAction else strings.allEpisodesSliceLabel)
         }
     }
-    MetadataRow("Showing", "${filteredItems.size} / ${totalItems.size} paired episodes")
+    MetadataRow(strings.showingLabel, strings.pairedEpisodesCountLabel(filteredItems.size, totalItems.size))
     when {
-        catalog == null -> EmptyState("Load a paired server catalog to browse remote episodes.")
-        totalItems.isEmpty() -> EmptyState("The paired server did not publish any episodes.")
+        catalog == null -> EmptyState(strings.pairedCatalogEmptyText)
+        totalItems.isEmpty() -> EmptyState(strings.pairedServerEmptyText)
         filteredItems.isEmpty() -> EmptyState(
-            text = "No paired episodes match the current filters.",
-            actionLabel = "Reset filters",
+            text = strings.pairedFilterEmptyText,
+            actionLabel = strings.resetFiltersAction,
             onAction = {
                 searchText = ""
                 sort = LibraryCatalogSort.TITLE
@@ -12554,6 +12651,7 @@ private fun RemoteLibraryBrowser(
         else -> LazyColumn(modifier = Modifier.height(180.dp)) {
             items(filteredItems, key = { it.id }) { item ->
                 RemoteEpisodeRow(
+                    strings = strings,
                     item = item,
                     watchStatus = watchStatusById[item.id],
                     isPreparing = isPreparingPlayback,
@@ -12564,21 +12662,22 @@ private fun RemoteLibraryBrowser(
         }
     }
     selectedPlaybackPreparation?.let { preparation ->
-        Text("Prepared desktop playback: ${preparation.item.seriesTitle} - ${preparation.item.episodeTitle}")
-        Text("Source: ${preparation.source.url.redactToken()}")
-        Text("Resume: ${preparation.resumePositionMs?.let { "$it ms" } ?: "start from beginning"}")
+        Text(strings.preparedDesktopPlaybackLabel(preparation.item.seriesTitle, preparation.item.episodeTitle))
+        Text(strings.sourceValueLabel(preparation.source.url.redactToken()))
+        Text(strings.resumeValueText(preparation.resumePositionMs?.let { "$it ms" } ?: strings.startFromBeginningLabel))
         Button(
             onClick = {
                 onLoadPreparedPlayback(preparation)
             },
         ) {
-            Text("Load into desktop controller")
+            Text(strings.loadIntoDesktopControllerAction)
         }
     }
 }
 
 @Composable
 private fun RemoteNextUpRow(
+    strings: DesktopStrings,
     item: LibraryNextUpItem,
     isPreparing: Boolean,
     onPrepareRemotePlayback: () -> Unit,
@@ -12594,18 +12693,18 @@ private fun RemoteNextUpRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(item.mediaItem.seriesTitle, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(item.mediaItem.episodeTitle, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(item.nextUpLabel(), color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(item.nextUpLabel(strings), color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             LibraryActionButton(
                 imageVector = Icons.Filled.Refresh,
-                label = if (isPreparing) "Preparing..." else "Prepare",
+                label = if (isPreparing) strings.preparingAction else strings.prepareAction,
                 enabled = !isPreparing,
                 onClick = onPrepareRemotePlayback,
             )
             LibraryActionButton(
                 imageVector = Icons.Filled.PlayArrow,
-                label = if (isPreparing) "Loading..." else item.nextUpActionLabel(),
+                label = if (isPreparing) strings.loadingAction else item.nextUpActionLabel(strings),
                 enabled = !isPreparing,
                 onClick = onPlayRemotePlayback,
             )
@@ -12615,6 +12714,7 @@ private fun RemoteNextUpRow(
 
 @Composable
 private fun RemoteContinueWatchingRow(
+    strings: DesktopStrings,
     item: LibraryPlaybackProgressItem,
     isPreparing: Boolean,
     onPlayRemotePlayback: () -> Unit,
@@ -12630,8 +12730,8 @@ private fun RemoteContinueWatchingRow(
             Text(item.mediaItem.seriesTitle, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(item.mediaItem.episodeTitle, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
-                "Resume at ${item.progress.positionMs.formatPlaybackTime()} / " +
-                    (item.progress.durationMs?.formatPlaybackTime() ?: "unknown"),
+                "${strings.resumeAtLabel(item.progress.positionMs)} / " +
+                    (item.progress.durationMs?.formatPlaybackTime() ?: strings.unknownDurationLabel),
                 color = DanmakuColors.TextMuted,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -12639,7 +12739,7 @@ private fun RemoteContinueWatchingRow(
         }
         LibraryActionButton(
             imageVector = Icons.Filled.PlayArrow,
-            label = if (isPreparing) "Loading..." else "Resume",
+            label = if (isPreparing) strings.loadingAction else strings.resumeAction,
             enabled = !isPreparing,
             onClick = onPlayRemotePlayback,
         )
@@ -12648,6 +12748,7 @@ private fun RemoteContinueWatchingRow(
 
 @Composable
 private fun RemoteEpisodeRow(
+    strings: DesktopStrings,
     item: LibraryMediaItem,
     watchStatus: LibraryWatchStatus?,
     isPreparing: Boolean,
@@ -12667,9 +12768,9 @@ private fun RemoteEpisodeRow(
             Text(
                 listOf(
                     watchStatus.statusLabel(),
-                    item.mediaType.ifBlank { "unknown media" },
+                    item.mediaType.ifBlank { strings.unknownMediaLabel },
                     item.sizeBytes.formatLibrarySize(),
-                    if (item.subtitles.isEmpty()) "no subtitles" else "${item.subtitles.size} subtitles",
+                    if (item.subtitles.isEmpty()) strings.noSubtitlesLabel else strings.subtitleCountLabel(item.subtitles.size),
                 ).joinToString(separator = " - "),
                 color = DanmakuColors.TextMuted,
                 maxLines = 1,
@@ -12680,13 +12781,13 @@ private fun RemoteEpisodeRow(
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             LibraryActionButton(
                 imageVector = Icons.Filled.Refresh,
-                label = if (isPreparing) "Preparing..." else "Prepare",
+                label = if (isPreparing) strings.preparingAction else strings.prepareAction,
                 enabled = !isPreparing,
                 onClick = onPrepareRemotePlayback,
             )
             LibraryActionButton(
                 imageVector = Icons.Filled.PlayArrow,
-                label = if (isPreparing) "Loading..." else "Play",
+                label = if (isPreparing) strings.loadingAction else strings.playAction,
                 enabled = !isPreparing,
                 onClick = onPlayRemotePlayback,
             )
@@ -12868,25 +12969,11 @@ private fun LibraryNextUpItem.nextUpLabel(strings: DesktopStrings): String =
         LibraryNextUpReason.START -> strings.startWatchingLibraryLabel
     }
 
-private fun LibraryNextUpItem.nextUpLabel(): String =
-    when (reason) {
-        LibraryNextUpReason.RESUME -> "Resume at ${progress?.positionMs?.formatPlaybackTime() ?: "saved position"}"
-        LibraryNextUpReason.NEXT_EPISODE -> "Next after ${sourceProgress?.positionMs?.formatPlaybackTime() ?: "last watched"}"
-        LibraryNextUpReason.START -> "Start watching this library"
-    }
-
 private fun LibraryNextUpItem.nextUpActionLabel(strings: DesktopStrings): String =
     when (reason) {
         LibraryNextUpReason.RESUME -> strings.resumeAction
         LibraryNextUpReason.NEXT_EPISODE,
         LibraryNextUpReason.START -> strings.playAction
-    }
-
-private fun LibraryNextUpItem.nextUpActionLabel(): String =
-    when (reason) {
-        LibraryNextUpReason.RESUME -> "Resume"
-        LibraryNextUpReason.NEXT_EPISODE,
-        LibraryNextUpReason.START -> "Play"
     }
 
 private fun AwtWindow.scaledRestoreBounds(bounds: Rectangle): Rectangle {
