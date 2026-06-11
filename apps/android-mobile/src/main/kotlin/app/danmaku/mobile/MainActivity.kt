@@ -81,6 +81,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -166,12 +167,12 @@ private enum class PosterImageLoadState {
 }
 
 private enum class MobileTab(
-    val label: String,
+    val labelResId: Int,
     val icon: ImageVector,
 ) {
-    Watch("Watch", Icons.Filled.PlayArrow),
-    Library("Library", Icons.Filled.VideoLibrary),
-    Connect("Connect", Icons.Filled.Settings),
+    Watch(R.string.nav_watch, Icons.Filled.PlayArrow),
+    Library(R.string.nav_library, Icons.Filled.VideoLibrary),
+    Connect(R.string.nav_connect, Icons.Filled.Settings),
 }
 
 class MainActivity : ComponentActivity() {
@@ -505,12 +506,13 @@ private fun MobileBottomBar(
                 selected = selectedTab == tab,
                 onClick = { onTabSelected(tab) },
                 icon = {
+                    val tabLabel = stringResource(tab.labelResId)
                     Icon(
                         imageVector = tab.icon,
-                        contentDescription = tab.label,
+                        contentDescription = tabLabel,
                     )
                 },
-                label = { Text(tab.label) },
+                label = { Text(stringResource(tab.labelResId)) },
             )
         }
     }
@@ -577,15 +579,18 @@ internal fun WatchPage(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Library playback", fontWeight = FontWeight.SemiBold)
                         Text(
-                            "Pick episodes from your PC catalog without leaving the player.",
+                            stringResource(R.string.watch_library_playback_title),
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            stringResource(R.string.watch_library_playback_body),
                             color = SubtleText,
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
                     OutlinedButton(onClick = onBrowseLibrary) {
-                        Text("Browse")
+                        Text(stringResource(R.string.action_browse))
                     }
                 }
             }
@@ -641,11 +646,11 @@ internal fun LibraryPage(
         item(key = "library-page-header") {
             PageHeader(
                 icon = Icons.Filled.VideoLibrary,
-                title = "Library",
+                title = stringResource(R.string.library_title),
                 subtitle = if (catalog == null) {
-                    "Connect a Windows library to browse episodes"
+                    stringResource(R.string.library_connect_browse_subtitle)
                 } else {
-                    "${filteredItems.size} of $totalCount episodes"
+                    stringResource(R.string.library_episode_count, filteredItems.size, totalCount)
                 },
             )
         }
@@ -690,8 +695,8 @@ internal fun LibraryPage(
             if (continueWatchingItems.isNotEmpty()) {
                 item(key = "library-continue-watching") {
                     ProgressRail(
-                        title = "Continue Watching",
-                        subtitle = "Resume episodes with enough saved progress.",
+                        title = stringResource(R.string.home_continue_watching),
+                        subtitle = stringResource(R.string.library_continue_watching_subtitle),
                         tag = "library-continue-watching",
                         itemTagPrefix = "continue-watching",
                         items = continueWatchingItems,
@@ -704,8 +709,8 @@ internal fun LibraryPage(
             if (recentlyWatchedItems.isNotEmpty()) {
                 item(key = "library-recently-watched") {
                     ProgressRail(
-                        title = "Recently Watched",
-                        subtitle = "Recent activity from your paired Windows library.",
+                        title = stringResource(R.string.home_recently_watched),
+                        subtitle = stringResource(R.string.library_recently_watched_subtitle),
                         tag = "library-recently-watched",
                         itemTagPrefix = "recently-watched",
                         items = recentlyWatchedItems,
@@ -849,15 +854,19 @@ private fun TabletDetailPlaceholder(catalog: LibraryCatalog?) {
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
-                if (catalog == null) "No library connected" else "Select an episode",
+                if (catalog == null) {
+                    stringResource(R.string.library_no_connected_title)
+                } else {
+                    stringResource(R.string.library_select_episode_title)
+                },
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
                 if (catalog == null) {
-                    "Connect to the Windows library server to keep episode details visible here."
+                    stringResource(R.string.library_no_connected_body)
                 } else {
-                    "Episode artwork, status, subtitles, and navigation stay pinned in this pane."
+                    stringResource(R.string.library_select_episode_body)
                 },
                 color = SubtleText,
                 style = MaterialTheme.typography.bodyMedium,
@@ -1532,11 +1541,11 @@ private fun ConnectPage(
         item(key = "connect-page-header") {
             PageHeader(
                 icon = Icons.Filled.Settings,
-                title = "Connect",
+                title = stringResource(R.string.nav_connect),
                 subtitle = if (catalog == null) {
-                    "Pair this phone with the Windows library server"
+                    stringResource(R.string.connect_page_pair_subtitle)
                 } else {
-                    "Connected to ${catalog.rootName}"
+                    stringResource(R.string.connect_page_connected_to, catalog.rootName)
                 },
             )
         }
@@ -1569,8 +1578,8 @@ private fun ConnectPage(
         }
         item(key = "connect-help") {
             EmptyPanel(
-                title = "Pair once, watch anywhere",
-                body = "Open the Windows app on the same network, use Discover PC, then enter the pairing code shown on desktop.",
+                title = stringResource(R.string.connect_help_title),
+                body = stringResource(R.string.connect_help_body),
             )
         }
     }
@@ -1754,12 +1763,12 @@ private fun PlayerHome(
                     modifier = Modifier.padding(24.dp),
                 ) {
                     Text(
-                        "Ready to play",
+                        stringResource(R.string.player_ready_title),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold,
                     )
                     Text(
-                        "Open a video or choose an episode from your PC library.",
+                        stringResource(R.string.player_ready_body),
                         color = SubtleText,
                         style = MaterialTheme.typography.bodyMedium,
                     )
@@ -1807,14 +1816,14 @@ private fun NowPlayingPanel(
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    nowPlaying?.seriesTitle ?: "No episode selected",
+                    nowPlaying?.seriesTitle ?: stringResource(R.string.now_playing_empty_title),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    nowPlaying?.episodeTitle ?: "Local files and LAN streams appear here while playing.",
+                    nowPlaying?.episodeTitle ?: stringResource(R.string.now_playing_empty_body),
                     color = SubtleText,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
@@ -1847,7 +1856,11 @@ private fun NowPlayingPanel(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        if (snapshot.status == PlaybackStatus.PLAYING) "Pause" else "Play",
+                        if (snapshot.status == PlaybackStatus.PLAYING) {
+                            stringResource(R.string.action_pause)
+                        } else {
+                            stringResource(R.string.action_play)
+                        },
                         fontWeight = FontWeight.SemiBold,
                     )
                 }
@@ -1861,7 +1874,7 @@ private fun NowPlayingPanel(
                         modifier = Modifier.size(18.dp),
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Open video")
+                    Text(stringResource(R.string.action_open_video))
                 }
                 OutlinedButton(
                     onClick = { onSetVolume((snapshot.volumePercent - 10).coerceAtLeast(0)) },
@@ -1892,7 +1905,7 @@ private fun NowPlayingPanel(
             }
 
             Text(
-                "Volume ${snapshot.volumePercent}%",
+                stringResource(R.string.volume_percent, snapshot.volumePercent),
                 color = SubtleText,
                 style = MaterialTheme.typography.bodySmall,
             )
@@ -1940,39 +1953,45 @@ private fun LibraryHeader(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        "Episodes",
+                        stringResource(R.string.library_episodes_title),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold,
                     )
                     Text(
-                        catalog?.rootName ?: "Connect a Windows library to browse episodes",
+                        catalog?.rootName ?: stringResource(R.string.library_connect_browse_subtitle),
                         color = SubtleText,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                AssistChip(onClick = {}, label = { Text("${favoriteMediaIds.size} favorites") })
+                AssistChip(
+                    onClick = {},
+                    label = { Text(stringResource(R.string.library_favorites_count, favoriteMediaIds.size)) },
+                )
             }
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                AssistChip(onClick = {}, label = { Text("$filteredCount of $totalCount episodes") })
+                AssistChip(
+                    onClick = {},
+                    label = { Text(stringResource(R.string.library_episode_count, filteredCount, totalCount)) },
+                )
                 if (favoriteFilter == LibraryFavoriteFilter.FAVORITES_ONLY) {
-                    AssistChip(onClick = {}, label = { Text("Favorites only") })
+                    AssistChip(onClick = {}, label = { Text(stringResource(R.string.library_favorites_only)) })
                 }
                 if (subtitleFilter == LibrarySubtitleFilter.WITH_SUBTITLES) {
-                    AssistChip(onClick = {}, label = { Text("Subtitles only") })
+                    AssistChip(onClick = {}, label = { Text(stringResource(R.string.library_subtitles_only)) })
                 }
                 if (sort == LibraryCatalogSort.PATH) {
-                    AssistChip(onClick = {}, label = { Text("Path sort") })
+                    AssistChip(onClick = {}, label = { Text(stringResource(R.string.library_path_sort)) })
                 }
             }
 
             OutlinedTextField(
                 value = searchText,
                 onValueChange = onSearchTextChange,
-                label = { Text("Search episodes") },
+                label = { Text(stringResource(R.string.library_search_episodes)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -1993,7 +2012,7 @@ private fun LibraryHeader(
                         )
                     },
                     modifier = Modifier.testTag("library-favorites-filter"),
-                    label = { Text("Favorites") },
+                    label = { Text(stringResource(R.string.library_filter_favorites)) },
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Filled.Star,
@@ -2005,7 +2024,7 @@ private fun LibraryHeader(
                 FilterChip(
                     selected = sort == LibraryCatalogSort.TITLE,
                     onClick = { onSortChange(LibraryCatalogSort.TITLE) },
-                    label = { Text("Title") },
+                    label = { Text(stringResource(R.string.library_filter_title)) },
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Filled.SortByAlpha,
@@ -2017,7 +2036,7 @@ private fun LibraryHeader(
                 FilterChip(
                     selected = sort == LibraryCatalogSort.PATH,
                     onClick = { onSortChange(LibraryCatalogSort.PATH) },
-                    label = { Text("Path") },
+                    label = { Text(stringResource(R.string.library_filter_path)) },
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Filled.FolderOpen,
@@ -2037,7 +2056,7 @@ private fun LibraryHeader(
                             },
                         )
                     },
-                    label = { Text("Subtitles") },
+                    label = { Text(stringResource(R.string.library_filter_subtitles)) },
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Filled.Subtitles,
@@ -2050,7 +2069,7 @@ private fun LibraryHeader(
 
             if (catalog == null) {
                 OutlinedButton(onClick = onConnect) {
-                    Text("Connect library")
+                    Text(stringResource(R.string.action_connect_library))
                 }
             }
         }
@@ -2093,7 +2112,7 @@ internal fun ConnectionPanel(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        "Windows PC",
+                        stringResource(R.string.connect_windows_pc),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold,
                     )
@@ -2104,18 +2123,24 @@ internal fun ConnectionPanel(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                StatusPill(if (catalog == null) "Offline" else "Ready")
+                StatusPill(
+                    if (catalog == null) {
+                        stringResource(R.string.status_offline)
+                    } else {
+                        stringResource(R.string.status_ready)
+                    },
+                )
             }
 
             if (savedConnections.isNotEmpty()) {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
-                        "Saved PCs",
+                        stringResource(R.string.connect_saved_pcs_title),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                     )
                     Text(
-                        "Connect to a remembered Windows library or edit the manual pairing details.",
+                        stringResource(R.string.connect_saved_pcs_body),
                         color = SubtleText,
                         style = MaterialTheme.typography.bodySmall,
                     )
@@ -2140,14 +2165,14 @@ internal fun ConnectionPanel(
                 OutlinedTextField(
                     value = serverUrl,
                     onValueChange = onServerUrlChange,
-                    label = { Text("Server URL") },
+                    label = { Text(stringResource(R.string.connect_server_url_label)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
                     value = pairingToken,
                     onValueChange = onPairingTokenChange,
-                    label = { Text("Pairing code") },
+                    label = { Text(stringResource(R.string.connect_pairing_code_label)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -2158,18 +2183,18 @@ internal fun ConnectionPanel(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Button(onClick = onDiscover) {
-                    Text("Discover PC")
+                    Text(stringResource(R.string.action_discover_pc))
                 }
                 if (showManualFields) {
                     OutlinedButton(onClick = onRefresh) {
-                        Text("Connect current")
+                        Text(stringResource(R.string.action_connect_current))
                     }
                     OutlinedButton(onClick = onSaveConnection) {
-                        Text("Save current")
+                        Text(stringResource(R.string.action_save_current))
                     }
                 } else {
                     OutlinedButton(onClick = { showManualFields = true }) {
-                        Text("Manual setup")
+                        Text(stringResource(R.string.action_manual_setup))
                     }
                 }
             }
@@ -2219,7 +2244,7 @@ private fun SavedConnectionRow(
                     )
                 }
                 if (isSelected) {
-                    StatusPill("Selected")
+                    StatusPill(stringResource(R.string.status_selected))
                 }
             }
 
@@ -2231,19 +2256,25 @@ private fun SavedConnectionRow(
                     onClick = onSelect,
                     modifier = Modifier.testTag("saved-connection:${connection.id}"),
                 ) {
-                    Text(if (isSelected) "Reconnect" else "Connect")
+                    Text(
+                        if (isSelected) {
+                            stringResource(R.string.action_reconnect)
+                        } else {
+                            stringResource(R.string.action_connect)
+                        },
+                    )
                 }
                 OutlinedButton(
                     onClick = onEdit,
                     modifier = Modifier.testTag("saved-connection-edit:${connection.id}"),
                 ) {
-                    Text("Edit")
+                    Text(stringResource(R.string.action_edit))
                 }
                 TextButton(
                     onClick = onForget,
                     modifier = Modifier.testTag("saved-connection-forget:${connection.id}"),
                 ) {
-                    Text("Forget")
+                    Text(stringResource(R.string.action_forget))
                 }
             }
         }
@@ -2519,13 +2550,16 @@ private fun EmptyLibraryState(
             modifier = Modifier.padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("Connect to your Windows library", fontWeight = FontWeight.SemiBold)
             Text(
-                "Use discovery when the desktop app is open, then refresh the catalog.",
+                stringResource(R.string.library_empty_connect_title),
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                stringResource(R.string.library_empty_connect_body),
                 color = SubtleText,
             )
             OutlinedButton(onClick = onConnect) {
-                Text("Open Connect")
+                Text(stringResource(R.string.action_open_connect))
             }
         }
     }
@@ -2534,9 +2568,9 @@ private fun EmptyLibraryState(
 @Composable
 private fun EmptyResultsState(onResetFilters: () -> Unit) {
     EmptyPanel(
-        title = "No matching episodes",
-        body = "Try a different search, sort order, subtitle filter, or favorites filter.",
-        actionLabel = "Reset filters",
+        title = stringResource(R.string.library_no_results_title),
+        body = stringResource(R.string.library_no_results_body),
+        actionLabel = stringResource(R.string.action_reset_filters),
         onAction = onResetFilters,
     )
 }
