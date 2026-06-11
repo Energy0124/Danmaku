@@ -1594,6 +1594,19 @@ private fun DesktopShell(
         }
     }
 
+    LaunchedEffect(activeProgressMediaId, activeProgressTarget, indexedLibrary?.catalog) {
+        val mediaId = activeProgressMediaId ?: return@LaunchedEffect
+        if (activeProgressTarget != null) {
+            return@LaunchedEffect
+        }
+        val activeItem = indexedLibrary
+            ?.catalog
+            ?.items
+            ?.firstOrNull { item -> item.id == mediaId }
+            ?: return@LaunchedEffect
+        inspectCachedDandanplay(activeItem)
+    }
+
     fun refreshPreparedDandanplay(preparation: DesktopLocalPlaybackPreparation) {
         if (!dandanplaySettings.isFetchEnabled) {
             dandanplayCacheStatus = dandanplayStatusMessage(

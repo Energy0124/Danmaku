@@ -135,7 +135,12 @@ Status legend:
     scale, speed, display area, and offset through the persisted danmaku
     preference path.
   - Remaining: lane behavior and filter preset editing.
-- `[ ]` Show cached danmaku state after media selection and after relaunch.
+- `[~]` Show cached danmaku state after media selection and after relaunch.
+  - Player now inspects persisted dandanplay cache state when the active local
+    catalog episode changes, so the right panel and preparation overlay can
+    show cached/no-cache/error state without requiring a fresh Prepare action.
+  - Remaining: add relaunch/session-restoration coverage and broader cache
+    manager UI for persisted entries.
 - `[~]` Add preparing and error states that identify the failed step.
   - Player now shows a structured preparation/status overlay using the
     existing local preparation flag, player runtime error, library preparation
