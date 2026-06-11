@@ -52,6 +52,9 @@ Status legend:
   - The Settings Danmaku cache card and Danmaku Cache Manager dialog now use
     the desktop string layer for cache summaries, persisted-entry rows, detail
     labels, empty states, and destructive cleanup confirmations.
+  - The Settings Local Server card, Server Dashboard dialog, copy actions,
+    health/readiness rows, and shared connection-test status badges now use
+    the desktop string layer.
   - Home main dashboard and app rail chrome now use the desktop string layer
     for library slices, now-playing fallback, Continue Watching, Recently
     Added/Watched, My Library summaries, empty states, and Home-only

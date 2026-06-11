@@ -3128,6 +3128,30 @@ private enum class DesktopUiLanguage(
             clearMyAnimeListText = "This removes the saved MyAnimeList client secret and access token from local protected settings. Existing local anime mappings are not removed.",
             clearBangumiTitle = "Clear Bangumi credentials?",
             clearBangumiText = "This removes the saved Bangumi access token from local protected settings. Existing local anime mappings are not removed.",
+            localServerTitle = "Local Server",
+            serverBaseUrlLabel = "Base URL",
+            lanUrlLabel = "LAN URL",
+            lanUrlsLabel = "LAN URLs",
+            lanUrlNumberedLabel = { index -> "LAN URL $index" },
+            discoveryLabel = "Discovery",
+            openServerDashboardAction = "Open dashboard",
+            testLocalServerAction = "Test local server",
+            serverDashboardTitle = "Server Dashboard",
+            pairingAndLanAccessTitle = "Pairing and LAN access",
+            healthTitle = "Health",
+            notCheckedThisSessionLabel = "Not checked this session",
+            recentRequestsLabel = "Recent requests",
+            connectedClientsLabel = "Connected clients",
+            connectedClientsPlannedText = "Planned: client identity is not instrumented yet",
+            bandwidthLabel = "Bandwidth",
+            bandwidthPlannedText = "Planned: byte counters are not instrumented yet",
+            recentServerRequestsTitle = "Recent server requests",
+            noServerRequestsText = "No server requests recorded this session.",
+            testServerAction = "Test server",
+            copyAction = "Copy",
+            testingStatusLabel = "Testing",
+            okStatusLabel = "OK",
+            failedStatusLabel = "Failed",
             homeServerStatusTitle = "Server Status",
             attentionNeededLabel = "Attention needed",
             onlineLabel = "Online",
@@ -3641,6 +3665,30 @@ private enum class DesktopUiLanguage(
             clearMyAnimeListText = "這會從本機受保護設定中移除已儲存的 MyAnimeList client secret 與存取權杖。既有本機動畫對應不會被移除。",
             clearBangumiTitle = "清除 Bangumi 憑證？",
             clearBangumiText = "這會從本機受保護設定中移除已儲存的 Bangumi 存取權杖。既有本機動畫對應不會被移除。",
+            localServerTitle = "本機伺服器",
+            serverBaseUrlLabel = "Base URL",
+            lanUrlLabel = "LAN URL",
+            lanUrlsLabel = "LAN URLs",
+            lanUrlNumberedLabel = { index -> "LAN URL $index" },
+            discoveryLabel = "探索",
+            openServerDashboardAction = "開啟儀表板",
+            testLocalServerAction = "測試本機伺服器",
+            serverDashboardTitle = "伺服器儀表板",
+            pairingAndLanAccessTitle = "配對與 LAN 存取",
+            healthTitle = "健康狀態",
+            notCheckedThisSessionLabel = "此工作階段尚未檢查",
+            recentRequestsLabel = "最近請求",
+            connectedClientsLabel = "已連線用戶端",
+            connectedClientsPlannedText = "規劃中：尚未記錄用戶端身分",
+            bandwidthLabel = "頻寬",
+            bandwidthPlannedText = "規劃中：尚未記錄位元組計數",
+            recentServerRequestsTitle = "最近伺服器請求",
+            noServerRequestsText = "此工作階段尚無伺服器請求紀錄。",
+            testServerAction = "測試伺服器",
+            copyAction = "複製",
+            testingStatusLabel = "測試中",
+            okStatusLabel = "正常",
+            failedStatusLabel = "失敗",
             homeServerStatusTitle = "伺服器狀態",
             attentionNeededLabel = "需要處理",
             onlineLabel = "線上",
@@ -4122,6 +4170,30 @@ private data class DesktopStrings(
     val clearMyAnimeListText: String,
     val clearBangumiTitle: String,
     val clearBangumiText: String,
+    val localServerTitle: String,
+    val serverBaseUrlLabel: String,
+    val lanUrlLabel: String,
+    val lanUrlsLabel: String,
+    val lanUrlNumberedLabel: (Int) -> String,
+    val discoveryLabel: String,
+    val openServerDashboardAction: String,
+    val testLocalServerAction: String,
+    val serverDashboardTitle: String,
+    val pairingAndLanAccessTitle: String,
+    val healthTitle: String,
+    val notCheckedThisSessionLabel: String,
+    val recentRequestsLabel: String,
+    val connectedClientsLabel: String,
+    val connectedClientsPlannedText: String,
+    val bandwidthLabel: String,
+    val bandwidthPlannedText: String,
+    val recentServerRequestsTitle: String,
+    val noServerRequestsText: String,
+    val testServerAction: String,
+    val copyAction: String,
+    val testingStatusLabel: String,
+    val okStatusLabel: String,
+    val failedStatusLabel: String,
     val homeServerStatusTitle: String,
     val attentionNeededLabel: String,
     val onlineLabel: String,
@@ -10827,26 +10899,26 @@ private fun SettingsSectionContent(
                 )
             }
             DesktopSettingsSection.SERVER -> {
-                SectionCard("Local Server") {
-                    MetadataRow("Base URL", serverBaseUrl)
-                    MetadataRow("Pairing code", pairingToken)
-                    networkUrls.forEach { MetadataRow("LAN URL", it) }
+                SectionCard(strings.localServerTitle) {
+                    MetadataRow(strings.serverBaseUrlLabel, serverBaseUrl)
+                    MetadataRow(strings.pairingCodeLabel, pairingToken)
+                    networkUrls.forEach { MetadataRow(strings.lanUrlLabel, it) }
                     MetadataRow(
-                        "Discovery",
+                        strings.discoveryLabel,
                         "UDP ${app.danmaku.domain.LanLibraryServerAnnouncement.DEFAULT_DISCOVERY_PORT}",
                     )
                     localServerConnectionTestStatus?.let {
-                        SettingsConnectionTestStatusRow("Last test", it)
+                        SettingsConnectionTestStatusRow(strings = strings, label = strings.lastTestLabel, status = it)
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         LibraryActionButton(
                             imageVector = Icons.Filled.Devices,
-                            label = "Open dashboard",
+                            label = strings.openServerDashboardAction,
                             onClick = { showServerDashboard = true },
                         )
                         LibraryActionButton(
                             imageVector = Icons.Filled.Refresh,
-                            label = "Test local server",
+                            label = strings.testLocalServerAction,
                             onClick = onTestLocalServerConnection,
                         )
                     }
@@ -10886,6 +10958,7 @@ private fun SettingsSectionContent(
     }
     if (showServerDashboard) {
         ServerDashboardDialog(
+            strings = strings,
             serverBaseUrl = serverBaseUrl,
             networkUrls = networkUrls,
             pairingToken = pairingToken,
@@ -11095,13 +11168,14 @@ private fun SettingsValidationText(errors: List<String>) {
 
 @Composable
 private fun SettingsConnectionTestStatusRow(
+    strings: DesktopStrings,
     label: String,
     status: SettingsConnectionTestStatus,
 ) {
     val statusLabel = when (status.outcome) {
-        SettingsConnectionTestOutcome.TESTING -> "Testing"
-        SettingsConnectionTestOutcome.SUCCESS -> "OK"
-        SettingsConnectionTestOutcome.FAILURE -> "Failed"
+        SettingsConnectionTestOutcome.TESTING -> strings.testingStatusLabel
+        SettingsConnectionTestOutcome.SUCCESS -> strings.okStatusLabel
+        SettingsConnectionTestOutcome.FAILURE -> strings.failedStatusLabel
     }
     val color = when (status.outcome) {
         SettingsConnectionTestOutcome.TESTING -> DanmakuColors.Info
@@ -11142,6 +11216,7 @@ private fun SettingsConnectionTestStatusRow(
 
 @Composable
 private fun ServerDashboardDialog(
+    strings: DesktopStrings,
     serverBaseUrl: String,
     networkUrls: List<String>,
     pairingToken: String,
@@ -11158,7 +11233,7 @@ private fun ServerDashboardDialog(
     AlertDialog(
         modifier = Modifier.width(760.dp),
         onDismissRequest = onDismiss,
-        title = { Text("Server Dashboard") },
+        title = { Text(strings.serverDashboardTitle) },
         text = {
             Column(
                 modifier = Modifier
@@ -11167,30 +11242,33 @@ private fun ServerDashboardDialog(
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Pairing and LAN access", fontWeight = FontWeight.Bold)
+                    Text(strings.pairingAndLanAccessTitle, fontWeight = FontWeight.Bold)
                     ServerDashboardCopyRow(
-                        label = "Base URL",
+                        strings = strings,
+                        label = strings.serverBaseUrlLabel,
                         value = serverBaseUrl,
                         onCopy = { copyToClipboard(serverBaseUrl) },
                     )
                     ServerDashboardCopyRow(
-                        label = "Pairing code",
+                        strings = strings,
+                        label = strings.pairingCodeLabel,
                         value = pairingToken,
                         onCopy = { copyToClipboard(pairingToken) },
                     )
                     if (networkUrls.isEmpty()) {
-                        MetadataRow("LAN URLs", "No LAN address detected", DanmakuColors.TextMuted)
+                        MetadataRow(strings.lanUrlsLabel, strings.noLanUrlDetectedLabel, DanmakuColors.TextMuted)
                     } else {
                         networkUrls.forEachIndexed { index, url ->
                             ServerDashboardCopyRow(
-                                label = "LAN URL ${index + 1}",
+                                strings = strings,
+                                label = strings.lanUrlNumberedLabel(index + 1),
                                 value = url,
                                 onCopy = { copyToClipboard(url) },
                             )
                         }
                     }
                     MetadataRow(
-                        "Discovery",
+                        strings.discoveryLabel,
                         "UDP ${app.danmaku.domain.LanLibraryServerAnnouncement.DEFAULT_DISCOVERY_PORT}",
                     )
                 }
@@ -11198,21 +11276,21 @@ private fun ServerDashboardDialog(
                 Divider(color = DanmakuColors.SurfaceRaised)
 
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Health", fontWeight = FontWeight.Bold)
+                    Text(strings.healthTitle, fontWeight = FontWeight.Bold)
                     localServerConnectionTestStatus?.let {
-                        SettingsConnectionTestStatusRow("Last test", it)
-                    } ?: MetadataRow("Last test", "Not checked this session", DanmakuColors.TextMuted)
-                    MetadataRow("Recent requests", recentServerEvents.size.toString())
-                    MetadataRow("Connected clients", "Planned: client identity is not instrumented yet", DanmakuColors.TextMuted)
-                    MetadataRow("Bandwidth", "Planned: byte counters are not instrumented yet", DanmakuColors.TextMuted)
+                        SettingsConnectionTestStatusRow(strings = strings, label = strings.lastTestLabel, status = it)
+                    } ?: MetadataRow(strings.lastTestLabel, strings.notCheckedThisSessionLabel, DanmakuColors.TextMuted)
+                    MetadataRow(strings.recentRequestsLabel, recentServerEvents.size.toString())
+                    MetadataRow(strings.connectedClientsLabel, strings.connectedClientsPlannedText, DanmakuColors.TextMuted)
+                    MetadataRow(strings.bandwidthLabel, strings.bandwidthPlannedText, DanmakuColors.TextMuted)
                 }
 
                 Divider(color = DanmakuColors.SurfaceRaised)
 
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Recent server requests", fontWeight = FontWeight.Bold)
+                    Text(strings.recentServerRequestsTitle, fontWeight = FontWeight.Bold)
                     if (recentEvents.isEmpty()) {
-                        Text("No server requests recorded this session.", color = DanmakuColors.TextMuted)
+                        Text(strings.noServerRequestsText, color = DanmakuColors.TextMuted)
                     } else {
                         recentEvents.forEach { event ->
                             ServerDashboardEventRow(event)
@@ -11223,12 +11301,12 @@ private fun ServerDashboardDialog(
         },
         confirmButton = {
             Button(onClick = onTestLocalServerConnection) {
-                Text("Test server")
+                Text(strings.testServerAction)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Close")
+                Text(strings.closeAction)
             }
         },
     )
@@ -11236,6 +11314,7 @@ private fun ServerDashboardDialog(
 
 @Composable
 private fun ServerDashboardCopyRow(
+    strings: DesktopStrings,
     label: String,
     value: String,
     onCopy: () -> Unit,
@@ -11254,7 +11333,7 @@ private fun ServerDashboardCopyRow(
         )
         LibraryActionButton(
             imageVector = Icons.Filled.ContentCopy,
-            label = "Copy",
+            label = strings.copyAction,
             onClick = onCopy,
         )
     }
@@ -11627,7 +11706,7 @@ private fun DandanplayProviderCard(
         MetadataRow("dandanplay", settings.statusText)
         MetadataRow(strings.cacheExpiryLabel, "${settings.cacheMaxAgeDays} days")
         connectionTestStatus?.let {
-            SettingsConnectionTestStatusRow(strings.lastTestLabel, it)
+            SettingsConnectionTestStatusRow(strings = strings, label = strings.lastTestLabel, status = it)
         }
         Spacer(modifier = Modifier.height(8.dp))
         OutlinedTextField(
@@ -11789,10 +11868,10 @@ private fun ExternalAnimeProviderSettingsCard(
         MetadataRow("MyAnimeList", settings.myAnimeListStatusText)
         MetadataRow("Bangumi", settings.bangumiStatusText)
         myAnimeListConnectionTestStatus?.let {
-            SettingsConnectionTestStatusRow(strings.myAnimeListTestLabel, it)
+            SettingsConnectionTestStatusRow(strings = strings, label = strings.myAnimeListTestLabel, status = it)
         }
         bangumiConnectionTestStatus?.let {
-            SettingsConnectionTestStatusRow(strings.bangumiTestLabel, it)
+            SettingsConnectionTestStatusRow(strings = strings, label = strings.bangumiTestLabel, status = it)
         }
         Spacer(modifier = Modifier.height(8.dp))
         OutlinedTextField(
