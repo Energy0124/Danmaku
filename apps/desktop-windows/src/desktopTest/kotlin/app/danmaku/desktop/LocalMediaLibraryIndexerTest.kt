@@ -62,6 +62,8 @@ class LocalMediaLibraryIndexerTest {
         val episode = series.resolve("Episode 01.mkv")
         episode.writeBytes(byteArrayOf(1, 2, 3))
         val first = LocalMediaLibraryIndexer.index(root)
+        val firstIndexedAtEpochMs = first.catalog.items.single().indexedAtEpochMs
+        assertTrue(firstIndexedAtEpochMs > 0)
 
         val unchanged = LocalMediaLibraryIndexer.index(
             root = root,
@@ -69,6 +71,7 @@ class LocalMediaLibraryIndexerTest {
         )
         assertEquals(1, unchanged.scanStats.reusedItemCount)
         assertEquals(0, unchanged.scanStats.refreshedItemCount)
+        assertEquals(firstIndexedAtEpochMs, unchanged.catalog.items.single().indexedAtEpochMs)
 
         episode.writeText("changed content")
         val changed = LocalMediaLibraryIndexer.index(
@@ -77,6 +80,7 @@ class LocalMediaLibraryIndexerTest {
         )
         assertEquals(0, changed.scanStats.reusedItemCount)
         assertEquals(1, changed.scanStats.refreshedItemCount)
+        assertTrue(changed.catalog.items.single().indexedAtEpochMs > 0)
 
         root.toFile().deleteRecursively()
     }

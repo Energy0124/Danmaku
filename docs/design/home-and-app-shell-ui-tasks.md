@@ -40,12 +40,14 @@ Status legend:
 - `[~]` Add secondary library shortcuts in the rail or equivalent compact
   surface for Anime Series, Movies, OVAs / Specials, All Episodes,
   Collections, Favorites, Watch Later, and Completed.
-- `[~]` Add a home dashboard layout with Continue Watching, Recently Added,
+- `[x]` Add a home dashboard layout with Continue Watching, Recently Added,
   My Library, and compact now-playing sections.
-  - Desktop Home now shows Continue Watching, Recently Indexed, Recently
-    Watched, My Library, operational status, and compact now-playing context.
-  - Remaining: persist per-item indexed/added timestamps so the rail can sort
-    by true Recently Added instead of current catalog order.
+  - Desktop Home now shows Continue Watching, timestamp-backed Recently Added,
+    Recently Watched, My Library, operational status, and compact now-playing
+    context.
+  - Existing local DB rows without the new timestamp fall back to file modified
+    time during migration/load; new and unchanged scanned items preserve their
+    first indexed time.
 - `[x]` Add a right-side operational status column on desktop Home for server,
   metadata/posters, external sync, downloads, and cached danmaku.
 - `[x]` Make status cards actionable with Open Dashboard, Refresh Metadata, Open

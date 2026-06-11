@@ -40,6 +40,7 @@ object LocalMediaLibraryIndexer {
         val subtitleFilesById = linkedMapOf<String, Path>()
         val fileMetadataByRelativePath = linkedMapOf<String, CachedLocalMediaItem>()
         var reusedItemCount = 0
+        val scanStartedAtEpochMs = System.currentTimeMillis()
 
         val items = Files.walk(normalizedRoot).use { paths ->
             paths
@@ -60,12 +61,18 @@ object LocalMediaLibraryIndexer {
                         idNamespace = idNamespace,
                     )
                     val item = cachedItem?.item
-                        ?.copy(subtitles = subtitles.map(LibrarySubtitleFile::track))
+                        ?.copy(
+                            indexedAtEpochMs = cachedItem.item.indexedAtEpochMs
+                                .takeIf { it > 0 }
+                                ?: lastModifiedEpochMs,
+                            subtitles = subtitles.map(LibrarySubtitleFile::track),
+                        )
                         ?: indexedItem(
                             root = normalizedRoot,
                             path = path,
                             relativePath = relativePath,
                             sizeBytes = sizeBytes,
+                            indexedAtEpochMs = scanStartedAtEpochMs,
                             idNamespace = idNamespace,
                             subtitles = subtitles.map(LibrarySubtitleFile::track),
                         )
@@ -87,7 +94,7 @@ object LocalMediaLibraryIndexer {
         return IndexedLocalLibrary(
             catalog = LibraryCatalog(
                 rootName = normalizedRoot.fileName?.toString() ?: normalizedRoot.toString(),
-                indexedAtEpochMs = System.currentTimeMillis(),
+                indexedAtEpochMs = scanStartedAtEpochMs,
                 items = items,
             ),
             filesById = filesById,
@@ -105,6 +112,7 @@ object LocalMediaLibraryIndexer {
         path: Path,
         relativePath: String,
         sizeBytes: Long,
+        indexedAtEpochMs: Long,
         idNamespace: String?,
         subtitles: List<LibrarySubtitleTrack>,
     ): LibraryMediaItem {
@@ -117,6 +125,7 @@ object LocalMediaLibraryIndexer {
             sizeBytes = sizeBytes,
             mediaType = mediaType(path.extension),
             streamPath = "/media/$id",
+            indexedAtEpochMs = indexedAtEpochMs,
             subtitles = subtitles,
         )
     }

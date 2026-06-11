@@ -30,6 +30,7 @@ class LibraryCatalogTest {
         )
 
         assertEquals(emptyList(), catalog.items.single().subtitles)
+        assertEquals(0, catalog.items.single().indexedAtEpochMs)
     }
 
     @Test

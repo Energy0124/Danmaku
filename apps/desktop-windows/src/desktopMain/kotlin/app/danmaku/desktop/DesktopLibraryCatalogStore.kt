@@ -77,6 +77,8 @@ class DesktopLibraryCatalogStore(
         )
         addColumnIfMissing("local_media_item", "subtitles_json", "TEXT NOT NULL DEFAULT '[]'")
         addColumnIfMissing("library_root_media_item", "subtitles_json", "TEXT NOT NULL DEFAULT '[]'")
+        addColumnIfMissing("local_media_item", "indexed_at_epoch_ms", "INTEGER NOT NULL DEFAULT 0")
+        addColumnIfMissing("library_root_media_item", "indexed_at_epoch_ms", "INTEGER NOT NULL DEFAULT 0")
         database = DesktopLibraryDatabase(driver)
     }
 
@@ -143,6 +145,7 @@ class DesktopLibraryCatalogStore(
                     item.episodeTitle,
                     item.sizeBytes,
                     cachedItem.lastModifiedEpochMs,
+                    item.indexedAtEpochMs,
                     item.mediaType,
                     item.streamPath,
                     Json.encodeToString(item.subtitles),
@@ -246,6 +249,7 @@ class DesktopLibraryCatalogStore(
                     item.episodeTitle,
                     item.sizeBytes,
                     cachedItem.lastModifiedEpochMs,
+                    item.indexedAtEpochMs,
                     item.mediaType,
                     item.streamPath,
                     Json.encodeToString(item.subtitles),
@@ -666,6 +670,7 @@ companion object {
             episodeTitle: String,
             sizeBytes: Long,
             lastModifiedEpochMs: Long,
+            indexedAtEpochMs: Long,
             mediaType: String,
             streamPath: String,
             subtitlesJson: String,
@@ -679,6 +684,7 @@ companion object {
                     sizeBytes = sizeBytes,
                     mediaType = mediaType,
                     streamPath = streamPath,
+                    indexedAtEpochMs = indexedAtEpochMs.takeIf { it > 0 } ?: lastModifiedEpochMs,
                     subtitles = Json.decodeFromString<List<LibrarySubtitleTrack>>(subtitlesJson),
                 ),
                 lastModifiedEpochMs = lastModifiedEpochMs,

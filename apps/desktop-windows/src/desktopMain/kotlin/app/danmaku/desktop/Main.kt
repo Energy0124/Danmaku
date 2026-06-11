@@ -2758,8 +2758,14 @@ private fun HomeTab(
     val recentlyWatchedItems = remember(catalog, playbackProgresses) {
         catalog?.recentlyWatchedItems(playbackProgresses).orEmpty()
     }
-    val recentlyIndexedItems = remember(catalog) {
-        catalog?.items.orEmpty().asReversed()
+    val recentlyAddedItems = remember(catalog) {
+        catalog
+            ?.items
+            .orEmpty()
+            .sortedWith(
+                compareByDescending<LibraryMediaItem> { it.indexedAtEpochMs }
+                    .thenByDescending { it.relativePath },
+            )
     }
     val externalTrackingPlan = remember(catalog, externalAnimeMappings, playbackProgresses, externalAnimeSyncFailures) {
         catalog?.externalAnimeTrackingPlan(
@@ -2781,7 +2787,7 @@ private fun HomeTab(
                         continueWatchingItems = continueWatchingItems,
                         nextUpItems = nextUpItems,
                         recentlyWatchedItems = recentlyWatchedItems,
-                        recentlyIndexedItems = recentlyIndexedItems,
+                        recentlyAddedItems = recentlyAddedItems,
                         series = series,
                         seriesByMediaId = seriesByMediaId,
                         seriesPosterById = seriesPosterById,
@@ -2821,7 +2827,7 @@ private fun HomeTab(
                         continueWatchingItems = continueWatchingItems,
                         nextUpItems = nextUpItems,
                         recentlyWatchedItems = recentlyWatchedItems,
-                        recentlyIndexedItems = recentlyIndexedItems,
+                        recentlyAddedItems = recentlyAddedItems,
                         series = series,
                         seriesByMediaId = seriesByMediaId,
                         seriesPosterById = seriesPosterById,
@@ -2867,7 +2873,7 @@ private fun HomeMainColumn(
     continueWatchingItems: List<LibraryPlaybackProgressItem>,
     nextUpItems: List<LibraryNextUpItem>,
     recentlyWatchedItems: List<LibraryPlaybackProgressItem>,
-    recentlyIndexedItems: List<LibraryMediaItem>,
+    recentlyAddedItems: List<LibraryMediaItem>,
     series: List<LibrarySeries>,
     seriesByMediaId: Map<String, LibrarySeries>,
     seriesPosterById: Map<String, Path?>,
@@ -2890,26 +2896,26 @@ private fun HomeMainColumn(
             onPlayLocalPlayback = onPlayLocalPlayback,
         )
         HomeSectionHeader(
-            title = "Recently Indexed",
+            title = "Recently Added",
             actionLabel = "Browse all",
             onAction = onOpenLibrary,
         )
-        if (recentlyIndexedItems.isEmpty()) {
-            EmptyState("Newly indexed episodes will appear here after a library scan.")
+        if (recentlyAddedItems.isEmpty()) {
+            EmptyState("Newly added episodes will appear here after a library scan.")
         } else {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                recentlyIndexedItems.take(4).forEach { mediaItem ->
+                recentlyAddedItems.take(4).forEach { mediaItem ->
                     HomeEpisodeCard(
                         mediaItem = mediaItem,
                         coverPath = seriesByMediaId[mediaItem.id]?.let { seriesPosterById[it.id] },
                         progressPercent = null,
-                        detail = "${mediaItem.mediaType.uppercase()} - ${mediaItem.sizeBytes.formatLibrarySize()}",
+                        detail = mediaItem.recentlyAddedDetail(),
                         isPreparing = isPreparingLocalPlayback,
                         onPlay = { onPlayLocalPlayback(mediaItem) },
                         modifier = Modifier.weight(1f),
                     )
                 }
-                repeat((4 - recentlyIndexedItems.take(4).size).coerceAtLeast(0)) {
+                repeat((4 - recentlyAddedItems.take(4).size).coerceAtLeast(0)) {
                     Spacer(modifier = Modifier.weight(1f))
                 }
             }
@@ -6812,6 +6818,13 @@ private fun LibraryMediaItem.localSeriesLabel(): String? {
         .takeIf { it.isNotBlank() && it != displayTitle }
         ?.let { "File group: $it" }
 }
+
+private fun LibraryMediaItem.recentlyAddedDetail(): String =
+    if (indexedAtEpochMs > 0) {
+        "Added ${indexedAtEpochMs.formatEpochTime()} - ${sizeBytes.formatLibrarySize()}"
+    } else {
+        "${mediaType.uppercase()} - ${sizeBytes.formatLibrarySize()}"
+    }
 
 @Composable
 private fun SeriesPosterCard(

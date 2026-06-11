@@ -53,6 +53,7 @@ data class LibraryMediaItem(
     val sizeBytes: Long,
     val mediaType: String,
     val streamPath: String,
+    val indexedAtEpochMs: Long = 0,
     val subtitles: List<LibrarySubtitleTrack> = emptyList(),
     val posterPath: String? = null,
     val animeMetadata: LibraryAnimeMetadata? = null,
@@ -66,6 +67,7 @@ data class LibraryMediaItem(
         require(sizeBytes >= 0) { "sizeBytes must not be negative" }
         require(mediaType.isNotBlank()) { "mediaType must not be blank" }
         require(streamPath.startsWith("/")) { "streamPath must be absolute" }
+        require(indexedAtEpochMs >= 0) { "indexedAtEpochMs must not be negative" }
         require(posterPath == null || posterPath.startsWith("/")) { "posterPath must be absolute" }
         require(subtitles.map(LibrarySubtitleTrack::id).distinct().size == subtitles.size) {
             "subtitle IDs must be unique"
