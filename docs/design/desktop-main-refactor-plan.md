@@ -75,9 +75,12 @@ Initial slice:
 - `DesktopShellSettingsActions` owns provider settings save/clear/test flows,
   MyAnimeList OAuth launch, local server connection testing, dandanplay cache
   manager actions, and danmaku display settings persistence.
+- `DesktopShellPlaybackActions` owns queued playback loading, smoke playback
+  queuing, local/LAN progress persistence, auto-next persistence, and playback
+  preference persistence.
 - `DesktopShell` delegates diagnostic/server-event actions and
-  navigation/search/language actions to remembered state objects while playback
-  command handling and library actions remain local.
+  navigation/search/language actions to remembered state objects while
+  dandanplay playback preparation and library actions remain local.
 
 Acceptance:
 
@@ -151,9 +154,10 @@ Completed shared/library follow-up split:
 Remaining structural hotspot:
 
 - `DesktopShell.kt` still owns dependency construction, long-lived state,
-  effects, and most playback/library action implementations. The next refactor
-  should introduce typed playback and library action facades around the
-  remaining command handlers rather than adding more UI-only files.
+  effects, dandanplay playback preparation, metadata refresh, external mapping,
+  root scanning, and download actions. The next refactor should extract the
+  remaining library action facade and then split dandanplay playback
+  preparation from generic playback session actions.
 
 Acceptance:
 

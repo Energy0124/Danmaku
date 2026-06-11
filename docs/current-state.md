@@ -45,8 +45,11 @@ trusted-LAN clients.
   Library roots/catalog/progress/favorites/download and refresh/sync flags are
   also in a shell library state object. Provider settings, connection tests,
   dandanplay cache-manager actions, and danmaku settings persistence are in a
-  settings action object. `DesktopShell.kt` remains the main orchestration
-  hotspot for playback commands and library actions.
+  settings action object. Queued playback loading, smoke playback, progress
+  persistence, auto-next persistence, and playback preference persistence are
+  in a playback action object. `DesktopShell.kt` remains the main orchestration
+  hotspot for dandanplay playback preparation, metadata refresh, root scanning,
+  external mapping/sync, and download actions.
 - Multi-root local anime library indexing, incremental rescanning, ani-rss
   output-folder import, and persistent SQLDelight/SQLite storage.
 - Trusted-LAN library server with pairing token, JSON catalog, byte-range media
@@ -116,9 +119,9 @@ trusted-LAN clients.
   composition and release packaging are not first-class yet.
 - Download queue storage exists; a full authorized download engine is not
   implemented.
-- The desktop shell still has large feature/tab composables and orchestration in
-  `Main.kt`; ongoing refactoring is decomposing it by surface without changing
-  behavior.
+- The desktop shell still has large orchestration blocks for library actions
+  and dandanplay playback preparation; ongoing refactoring is moving them
+  behind typed action boundaries without changing behavior.
 
 ## Not Implemented
 

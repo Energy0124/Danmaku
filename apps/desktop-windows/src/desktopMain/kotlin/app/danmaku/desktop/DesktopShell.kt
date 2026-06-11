@@ -1132,78 +1132,24 @@ internal fun DesktopShell(
 
     val navigationState = rememberDesktopShellNavigationState(catalogStore, scope, ::appendDiagnostic)
     val playbackState = rememberDesktopShellPlaybackState(catalogStore)
-
-    fun shouldPersistPlaybackProgress(
-        progress: PlaybackProgress,
-        force: Boolean,
-    ): Boolean {
-        if (progress.positionMs <= 0) {
-            return false
-        }
-        val lastSaved = playbackState.lastSavedPlaybackProgress
-        return force ||
-            lastSaved == null ||
-            lastSaved.mediaId != progress.mediaId ||
-            progress.positionMs - lastSaved.positionMs >= WINDOWS_PROGRESS_SAVE_INTERVAL_MS ||
-            lastSaved.positionMs - progress.positionMs >= WINDOWS_PROGRESS_SAVE_INTERVAL_MS ||
-            progress.durationMs != lastSaved.durationMs
-    }
-
-    fun persistActivePlaybackProgress(
-        snapshot: PlaybackSnapshot,
-        force: Boolean = false,
-    ) {
-        val mediaId = playbackState.activeProgressMediaId ?: return
-        val progress = snapshot.toPlaybackProgress(mediaId, System.currentTimeMillis()) ?: return
-        if (!shouldPersistPlaybackProgress(progress, force)) {
-            return
-        }
-        playbackState.lastSavedPlaybackProgress = progress
-        val target = playbackState.activeProgressTarget
-        scope.launch {
-            runCatching {
-                withContext(Dispatchers.IO) {
-                    if (target == null) {
-                        catalogStore.saveProgress(progress)
-                        catalogStore.loadPlaybackProgress()
-                    } else {
-                        lanProgressSync.saveProgress(target, snapshot)
-                        null
-                    }
-                }
-            }.onSuccess { updatedProgresses ->
-                updatedProgresses?.let {
-                    libraryState.playbackProgresses = it
-                }
-                val destination = if (target == null) "local catalog" else "paired LAN server"
-                appendDiagnostic(
-                    "progress",
-                    "Saved $destination progress for $mediaId at ${progress.positionMs}ms/${progress.durationMs ?: "unknown"}",
-                )
-            }.onFailure { error ->
-                appendDiagnostic("progress", "Save progress failed for $mediaId: ${error.message}")
-            }
-        }
-    }
-
-    fun loadPlaybackRequest(request: DesktopPlaybackRequest): PlaybackSnapshot {
-        playbackState.markPlaybackLoaded(request)
-        return playbackSession.load(request).also {
-            playbackSnapshot = it
-        }
-    }
-
-    fun queuePlaybackUntilHostReady(request: DesktopPlaybackRequest) {
-        playbackState.pendingPlaybackRequest = request
-        appendDiagnostic(
-            "playback",
-            if (requiresNativeVideoHost) {
-                "Queued playback until native video host attaches: ${request.label}; source=${request.source.toString().redactToken()}"
-            } else {
-                "Queued playback for ${hostPlatform.displayName} mpv output: ${request.label}; source=${request.source.toString().redactToken()}"
-            },
+    val playbackActions = remember(playbackController, playbackSession, navigationState, playbackState, settingsState, libraryState) {
+        DesktopShellPlaybackActions(
+            scope = scope,
+            catalogStore = catalogStore,
+            playbackPreferencesStore = playbackPreferencesStore,
+            lanProgressSync = lanProgressSync,
+            settingsState = settingsState,
+            libraryState = libraryState,
+            playbackState = playbackState,
+            playbackSession = playbackSession,
+            playbackController = playbackController,
+            hostDisplayName = hostPlatform.displayName,
+            requiresNativeVideoHost = requiresNativeVideoHost,
+            getPlaybackSnapshot = { playbackSnapshot },
+            setPlaybackSnapshot = { playbackSnapshot = it },
+            selectPlaybackTab = { navigationState.selectedTab = DesktopShellTab.PLAYBACK },
+            appendDiagnostic = ::appendDiagnostic,
         )
-        navigationState.selectedTab = DesktopShellTab.PLAYBACK
     }
 
     fun triggerPrimaryPageAction(): Boolean {
@@ -1227,15 +1173,10 @@ internal fun DesktopShell(
                 if (playbackSnapshot.source == null || playbackSnapshot.status == PlaybackStatus.LOADING) {
                     false
                 } else if (playbackSnapshot.status == PlaybackStatus.PLAYING) {
-                    appendDiagnostic("playback", "Primary shortcut paused playback")
-                    playbackController.dispatch(PlaybackCommand.Pause)
-                    playbackSnapshot = playbackController.snapshot()
-                    persistActivePlaybackProgress(playbackSnapshot, force = true)
+                    playbackActions.pauseActivePlaybackAndPersist()
                     true
                 } else {
-                    appendDiagnostic("playback", "Primary shortcut started playback")
-                    playbackController.dispatch(PlaybackCommand.Play)
-                    playbackSnapshot = playbackController.snapshot()
+                    playbackActions.playActivePlayback()
                     true
                 }
             }
@@ -1295,24 +1236,6 @@ internal fun DesktopShell(
             Key.Six -> navigationState.selectTabFromShortcut(DesktopShellTab.PROFILE)
             else -> false
         }
-    }
-
-    fun queueSmokePlayback(options: DesktopSmokePlaybackOptions) {
-        val mediaPath = options.mediaPath.toAbsolutePath().normalize()
-        if (!Files.isRegularFile(mediaPath)) {
-            appendDiagnostic("smoke", "Smoke playback media does not exist: $mediaPath")
-            return
-        }
-        appendDiagnostic(
-            "smoke",
-            "Queueing smoke playback: media=$mediaPath; duration=${options.playbackDuration.inWholeSeconds}s; " +
-                "autoExit=${options.autoExit}",
-        )
-        queuePlaybackUntilHostReady(
-            mediaPath.toDirectLocalPlaybackRequest().copy(
-                label = "Smoke playback - ${mediaPath.fileName ?: mediaPath}",
-            ),
-        )
     }
 
     fun prepareLocalPlayback(
@@ -1489,7 +1412,7 @@ internal fun DesktopShell(
                 }
                 if (loadAfterPrepare) {
                     appendDiagnostic("playback", "Auto-loading prepared local playback: ${item.id}")
-                    queuePlaybackUntilHostReady(result.preparation.toPlaybackRequest())
+                    playbackActions.queuePlaybackUntilHostReady(result.preparation.toPlaybackRequest())
                 }
             }.onFailure {
                 libraryState.libraryError = it.message
@@ -1673,46 +1596,6 @@ internal fun DesktopShell(
         }
     }
 
-    fun setAutoNextLocalPlayback(enabled: Boolean) {
-        playbackState.autoNextLocalPlayback = enabled
-        scope.launch {
-            runCatching {
-                withContext(Dispatchers.IO) {
-                    catalogStore.saveSetting(
-                        DesktopAppSetting(
-                            key = LOCAL_AUTO_NEXT_SETTING_KEY,
-                            value = enabled.toString(),
-                            updatedAtEpochMs = System.currentTimeMillis(),
-                        ),
-                    )
-                }
-            }.onSuccess {
-                appendDiagnostic("settings", "Local auto-next ${if (enabled) "enabled" else "disabled"}")
-            }.onFailure {
-                appendDiagnostic("settings", "Failed to save local auto-next setting: ${it.message}")
-            }
-        }
-    }
-
-    fun savePlaybackPreference(
-        label: String,
-        save: DesktopPlaybackPreferencesStore.() -> Unit,
-    ) {
-        scope.launch {
-            runCatching {
-                withContext(Dispatchers.IO) {
-                    playbackPreferencesStore.save()
-                    playbackPreferencesStore.load()
-                }
-            }.onSuccess { updatedPreferences ->
-                settingsState.updatePlaybackPreferences(updatedPreferences)
-                appendDiagnostic("settings", "Saved $label playback preference")
-            }.onFailure {
-                appendDiagnostic("settings", "Failed to save $label playback preference: ${it.message}")
-            }
-        }
-    }
-
     LaunchedEffect(Unit) {
         libraryState.indexedLibrary?.toPublishedLibrary(animeMetadataResolver)?.let(server::publish)
         if (libraryState.registeredRoots.isNotEmpty()) {
@@ -1728,7 +1611,7 @@ internal fun DesktopShell(
             return@LaunchedEffect
         }
         playbackState.smokePlaybackQueued = true
-        queueSmokePlayback(smokePlayback)
+        playbackActions.queueSmokePlayback(smokePlayback)
     }
 
     LaunchedEffect(navigationState.selectedTab, nativeVideoHostReady, playbackState.pendingPlaybackRequest, playbackSession) {
@@ -1752,7 +1635,7 @@ internal fun DesktopShell(
             return@LaunchedEffect
         }
         appendDiagnostic("playback", "Loading queued playback after host settle: ${request.label}")
-        loadPlaybackRequest(request)
+        playbackActions.loadPlaybackRequest(request)
         playbackState.pendingPlaybackRequest = null
     }
 
@@ -1763,7 +1646,7 @@ internal fun DesktopShell(
             if (nextSnapshot != playbackSnapshot) {
                 playbackSnapshot = nextSnapshot
             }
-            persistActivePlaybackProgress(nextSnapshot)
+            playbackActions.persistActivePlaybackProgress(nextSnapshot)
             val mediaId = playbackState.activeProgressMediaId
             if (
                 playbackState.autoNextLocalPlayback &&
@@ -1928,7 +1811,7 @@ internal fun DesktopShell(
                                     title = navigationState.desktopStrings.chooseMediaFileTitle(hostPlatform.displayName),
                                 )?.let { mediaFile ->
                                     appendDiagnostic("playback", "Loading direct media file: $mediaFile")
-                                    loadPlaybackRequest(mediaFile.toDirectLocalPlaybackRequest())
+                                    playbackActions.loadPlaybackRequest(mediaFile.toDirectLocalPlaybackRequest())
                                 }
                             },
                             onPlay = {
@@ -1940,7 +1823,7 @@ internal fun DesktopShell(
                                 appendDiagnostic("playback", "Dispatch Pause")
                                 playbackController.dispatch(PlaybackCommand.Pause)
                                 playbackSnapshot = playbackController.snapshot()
-                                persistActivePlaybackProgress(playbackSnapshot, force = true)
+                                playbackActions.persistActivePlaybackProgress(playbackSnapshot, force = true)
                             },
                             onSeekBackward = {
                                 appendDiagnostic("playback", "Dispatch Seek -10s")
@@ -1950,7 +1833,7 @@ internal fun DesktopShell(
                                     ),
                                 )
                                 playbackSnapshot = playbackController.snapshot()
-                                persistActivePlaybackProgress(playbackSnapshot, force = true)
+                                playbackActions.persistActivePlaybackProgress(playbackSnapshot, force = true)
                             },
                             onSeekBackwardLarge = {
                                 appendDiagnostic("playback", "Dispatch Seek -30s")
@@ -1960,7 +1843,7 @@ internal fun DesktopShell(
                                     ),
                                 )
                                 playbackSnapshot = playbackController.snapshot()
-                                persistActivePlaybackProgress(playbackSnapshot, force = true)
+                                playbackActions.persistActivePlaybackProgress(playbackSnapshot, force = true)
                             },
                             onSeekForward = {
                                 appendDiagnostic("playback", "Dispatch Seek +10s")
@@ -1970,7 +1853,7 @@ internal fun DesktopShell(
                                     ),
                                 )
                                 playbackSnapshot = playbackController.snapshot()
-                                persistActivePlaybackProgress(playbackSnapshot, force = true)
+                                playbackActions.persistActivePlaybackProgress(playbackSnapshot, force = true)
                             },
                             onSeekForwardLarge = {
                                 appendDiagnostic("playback", "Dispatch Seek +30s")
@@ -1980,19 +1863,19 @@ internal fun DesktopShell(
                                     ),
                                 )
                                 playbackSnapshot = playbackController.snapshot()
-                                persistActivePlaybackProgress(playbackSnapshot, force = true)
+                                playbackActions.persistActivePlaybackProgress(playbackSnapshot, force = true)
                             },
                             onSeekTo = { positionMs ->
                                 appendDiagnostic("playback", "Dispatch Seek ${positionMs}ms")
                                 playbackController.dispatch(PlaybackCommand.SeekTo(positionMs))
                                 playbackSnapshot = playbackController.snapshot()
-                                persistActivePlaybackProgress(playbackSnapshot, force = true)
+                                playbackActions.persistActivePlaybackProgress(playbackSnapshot, force = true)
                             },
                             onSetPlaybackRate = { rate ->
                                 appendDiagnostic("playback", "Dispatch playback rate ${rate}x")
                                 playbackController.dispatch(PlaybackCommand.SetPlaybackRate(rate))
                                 playbackSnapshot = playbackController.snapshot()
-                                savePlaybackPreference("rate") {
+                                playbackActions.savePlaybackPreference("rate") {
                                     savePlaybackRate(rate)
                                 }
                             },
@@ -2000,7 +1883,7 @@ internal fun DesktopShell(
                                 appendDiagnostic("playback", "Dispatch volume $volumePercent%")
                                 playbackController.dispatch(PlaybackCommand.SetVolume(volumePercent))
                                 playbackSnapshot = playbackController.snapshot()
-                                savePlaybackPreference("volume") {
+                                playbackActions.savePlaybackPreference("volume") {
                                     saveVolumePercent(volumePercent)
                                 }
                             },
@@ -2022,7 +1905,7 @@ internal fun DesktopShell(
                                 playbackController.setVideoAspectMode(mode)
                                 videoAspectMode = playbackController.videoAspectMode
                                 playbackSnapshot = playbackController.snapshot()
-                                savePlaybackPreference("aspect") {
+                                playbackActions.savePlaybackPreference("aspect") {
                                     saveVideoAspectMode(mode)
                                 }
                             },
@@ -2123,7 +2006,7 @@ internal fun DesktopShell(
                             },
                             onInspectCachedDandanplay = ::inspectCachedDandanplay,
                             onSetFavorite = ::setFavorite,
-                            onSetAutoNextLocalPlayback = ::setAutoNextLocalPlayback,
+                            onSetAutoNextLocalPlayback = playbackActions::setAutoNextLocalPlayback,
                             onRefreshDandanplay = ::refreshPreparedDandanplay,
                             onSelectDandanplayMatch = ::selectPreparedDandanplayMatch,
                             onClearDandanplayCache = ::clearPreparedDandanplayCache,
@@ -2143,7 +2026,7 @@ internal fun DesktopShell(
                                     "playback",
                                     "Loading prepared local playback: ${preparation.item.id}; source=${preparation.source.path}",
                                 )
-                                queuePlaybackUntilHostReady(preparation.toPlaybackRequest())
+                                playbackActions.queuePlaybackUntilHostReady(preparation.toPlaybackRequest())
                             },
                             remoteBrowser = {
                                 RemoteLibraryBrowser(
@@ -2156,7 +2039,7 @@ internal fun DesktopShell(
                                             "playback",
                                             "Loading remote stream into ${hostPlatform.displayName} controller: ${preparation.item.id}; source=${preparation.source.url}",
                                         )
-                                        queuePlaybackUntilHostReady(preparation.toDesktopPlaybackRequest())
+                                        playbackActions.queuePlaybackUntilHostReady(preparation.toDesktopPlaybackRequest())
                                     },
                                 )
                             },
