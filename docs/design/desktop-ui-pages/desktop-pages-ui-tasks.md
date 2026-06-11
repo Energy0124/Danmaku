@@ -68,8 +68,13 @@ Status legend:
   and episode title together without ambiguity.
   - Home cards and Library episode rows now prefer matched anime display
     titles while preserving the local file group label when it differs.
-- `[ ]` Add explicit metadata/poster loading, stale, partial, failed, and ready
+- `[~]` Add explicit metadata/poster loading, stale, partial, failed, and ready
   states in the inspector and browse cards.
+  - Desktop Library now uses shared readiness labels for metadata loading,
+    failed, partial, ready, and needed states in the inspector, series poster
+    cards, file/favorite rows, and compact inspector episode list.
+  - Remaining: add a real freshness/stale signal once metadata cache age or
+    provider revision data is available.
 - `[ ]` Add manual refresh metadata/poster actions at both series and episode
   scope.
 - `[ ]` Ensure episode-level mapping updates only the selected episode.

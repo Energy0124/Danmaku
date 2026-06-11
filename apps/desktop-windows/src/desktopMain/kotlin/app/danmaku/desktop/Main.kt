@@ -6199,6 +6199,10 @@ private fun LibraryInspectorPane(
         val hasDanmakuOverlay = activePreparation?.subtitles?.any(DesktopPlaybackSubtitle::isDanmakuOverlay) == true
         val isRefreshingEpisodeMetadata = selectedItem.id in refreshingMetadataMediaIds
         val isRefreshingSeriesMetadata = selectedSeries.id in refreshingMetadataSeriesIds
+        val metadataReadiness = selectedItem.metadataReadiness(
+            isRefreshing = isRefreshingEpisodeMetadata || isRefreshingSeriesMetadata,
+            hasPoster = coverPath != null || selectedItem.posterPath != null,
+        )
         val originalSeriesTitle = originalSeriesTitleByMediaId[selectedItem.id]
         var episodeActionsExpanded by remember(selectedItem.id, activePreparation?.item?.id) { mutableStateOf(false) }
 
@@ -6379,19 +6383,10 @@ private fun LibraryInspectorPane(
             },
         )
         InspectorStatusRow(
-            icon = Icons.Filled.Refresh,
-            label = "Metadata",
-            value = when {
-                isRefreshingEpisodeMetadata -> "Refreshing episode poster and anime title"
-                isRefreshingSeriesMetadata -> "Refreshing series posters and anime titles"
-                coverPath != null -> "Poster cached"
-                else -> "No poster cached yet"
-            },
-            color = when {
-                isRefreshingEpisodeMetadata || isRefreshingSeriesMetadata -> DanmakuColors.Accent
-                coverPath != null -> DanmakuColors.Good
-                else -> DanmakuColors.TextMuted
-            },
+            icon = metadataReadiness.icon,
+            label = metadataReadiness.label,
+            value = metadataReadiness.detail,
+            color = metadataReadiness.color,
         )
         InspectorStatusRow(
             icon = Icons.Filled.Subtitles,
@@ -6672,6 +6667,7 @@ private fun CompactInspectorEpisodeRow(
     isRefreshingMetadata: Boolean,
     onClick: () -> Unit,
 ) {
+    val metadataReadiness = item.metadataReadiness(isRefreshing = isRefreshingMetadata)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -6688,11 +6684,10 @@ private fun CompactInspectorEpisodeRow(
                 ?.takeIf { it.isNotBlank() && it != item.seriesTitle }
                 ?.let { Text("File group: $it", color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis) }
         }
-        Text(
-            if (isRefreshingMetadata) "Metadata..." else watchStatus.statusLabel(),
-            color = if (isRefreshingMetadata) DanmakuColors.Accent else DanmakuColors.TextMuted,
-            maxLines = 1,
-        )
+        Column(horizontalAlignment = Alignment.End) {
+            Text(watchStatus.statusLabel(), color = DanmakuColors.TextMuted, maxLines = 1)
+            Text(metadataReadiness.shortLabel, color = metadataReadiness.color, maxLines = 1)
+        }
     }
 }
 
@@ -6862,6 +6857,111 @@ private fun LibraryMediaItem.recentlyAddedDetail(): String =
         "${mediaType.uppercase()} - ${sizeBytes.formatLibrarySize()}"
     }
 
+private data class LibraryMetadataReadiness(
+    val label: String,
+    val shortLabel: String,
+    val detail: String,
+    val color: Color,
+    val icon: ImageVector,
+)
+
+private fun LibraryMediaItem.metadataReadiness(
+    isRefreshing: Boolean,
+    hasPoster: Boolean = posterPath != null,
+): LibraryMetadataReadiness {
+    val hasMatchedTitle = animeMetadata != null
+    return when {
+        isRefreshing || metadataStatus == LibraryItemMetadataStatus.LOADING -> LibraryMetadataReadiness(
+            label = "Metadata loading",
+            shortLabel = "Loading",
+            detail = "Poster and anime match are refreshing",
+            color = DanmakuColors.Accent,
+            icon = Icons.Filled.Refresh,
+        )
+        metadataStatus == LibraryItemMetadataStatus.FAILED -> LibraryMetadataReadiness(
+            label = "Metadata failed",
+            shortLabel = "Failed",
+            detail = "Refresh episode metadata to retry matching",
+            color = DanmakuColors.Warning,
+            icon = Icons.Filled.Warning,
+        )
+        hasMatchedTitle && hasPoster -> LibraryMetadataReadiness(
+            label = "Metadata ready",
+            shortLabel = "Ready",
+            detail = "Matched anime title and poster are available",
+            color = DanmakuColors.Good,
+            icon = Icons.Filled.CheckCircle,
+        )
+        hasMatchedTitle || hasPoster || metadataStatus == LibraryItemMetadataStatus.READY -> LibraryMetadataReadiness(
+            label = "Metadata partial",
+            shortLabel = "Partial",
+            detail = when {
+                hasMatchedTitle && !hasPoster -> "Matched anime title is ready; poster is missing"
+                hasPoster && !hasMatchedTitle -> "Poster is cached; anime title is missing"
+                else -> "Some metadata is cached; refresh to complete the match"
+            },
+            color = DanmakuColors.Info,
+            icon = Icons.Filled.Refresh,
+        )
+        else -> LibraryMetadataReadiness(
+            label = "Metadata needed",
+            shortLabel = "Needed",
+            detail = "Refresh metadata to match anime title and poster",
+            color = DanmakuColors.TextMuted,
+            icon = Icons.Filled.Refresh,
+        )
+    }
+}
+
+private fun LibrarySeries.metadataReadiness(
+    isRefreshing: Boolean,
+    hasPoster: Boolean,
+): LibraryMetadataReadiness {
+    val items = seasons.flatMap { season -> season.items }
+    val hasAnyMatchedTitle = items.any { it.animeMetadata != null }
+    val hasAnyFailed = items.any { it.metadataStatus == LibraryItemMetadataStatus.FAILED }
+    val allItemsMatched = items.isNotEmpty() && items.all { item ->
+        item.animeMetadata != null || item.metadataStatus == LibraryItemMetadataStatus.READY
+    }
+    return when {
+        isRefreshing || items.any { it.metadataStatus == LibraryItemMetadataStatus.LOADING } -> LibraryMetadataReadiness(
+            label = "Metadata loading",
+            shortLabel = "Loading",
+            detail = "Series poster and episode metadata are refreshing",
+            color = DanmakuColors.Accent,
+            icon = Icons.Filled.Refresh,
+        )
+        hasAnyFailed -> LibraryMetadataReadiness(
+            label = "Metadata failed",
+            shortLabel = "Failed",
+            detail = "One or more episode metadata matches failed",
+            color = DanmakuColors.Warning,
+            icon = Icons.Filled.Warning,
+        )
+        hasPoster && allItemsMatched -> LibraryMetadataReadiness(
+            label = "Metadata ready",
+            shortLabel = "Ready",
+            detail = "Series poster and episode metadata are available",
+            color = DanmakuColors.Good,
+            icon = Icons.Filled.CheckCircle,
+        )
+        hasPoster || hasAnyMatchedTitle -> LibraryMetadataReadiness(
+            label = "Metadata partial",
+            shortLabel = "Partial",
+            detail = "Some poster or episode metadata is available",
+            color = DanmakuColors.Info,
+            icon = Icons.Filled.Refresh,
+        )
+        else -> LibraryMetadataReadiness(
+            label = "Metadata needed",
+            shortLabel = "Needed",
+            detail = "Refresh metadata to match this series",
+            color = DanmakuColors.TextMuted,
+            icon = Icons.Filled.Refresh,
+        )
+    }
+}
+
 @Composable
 private fun SeriesPosterCard(
     series: LibrarySeries,
@@ -6874,6 +6974,10 @@ private fun SeriesPosterCard(
     onRefreshMetadata: () -> Unit,
     onPlay: () -> Unit,
 ) {
+    val metadataReadiness = series.metadataReadiness(
+        isRefreshing = isRefreshingMetadata,
+        hasPoster = coverPath != null,
+    )
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -6904,17 +7008,15 @@ private fun SeriesPosterCard(
                     .padding(horizontal = 6.dp, vertical = 3.dp),
                 maxLines = 1,
             )
-            if (isRefreshingMetadata) {
-                Text(
-                    text = "Metadata...",
-                    color = Color.White,
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .background(Color.Black.copy(alpha = 0.72f), RoundedCornerShape(bottomEnd = 4.dp))
-                        .padding(horizontal = 6.dp, vertical = 3.dp),
-                    maxLines = 1,
-                )
-            }
+            Text(
+                text = metadataReadiness.shortLabel,
+                color = Color.White,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .background(metadataReadiness.color.copy(alpha = 0.86f), RoundedCornerShape(bottomEnd = 4.dp))
+                    .padding(horizontal = 6.dp, vertical = 3.dp),
+                maxLines = 1,
+            )
         }
         Text(
             text = series.title,
@@ -6924,7 +7026,7 @@ private fun SeriesPosterCard(
             overflow = TextOverflow.Ellipsis,
         )
         Text(
-            text = watchSummary.progressLabel(),
+            text = "${watchSummary.progressLabel()} - ${metadataReadiness.label}",
             color = DanmakuColors.TextMuted,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -8708,6 +8810,7 @@ private fun NextUpRow(
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
 ) {
+    val metadataReadiness = item.mediaItem.metadataReadiness(isRefreshing = false)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -8725,7 +8828,7 @@ private fun NextUpRow(
                 Text(label, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Text(
-                item.nextUpLabel(),
+                "${item.nextUpLabel()} - ${metadataReadiness.label}",
                 color = DanmakuColors.TextMuted,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -8898,6 +9001,7 @@ private fun EpisodeRow(
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
 ) {
+    val metadataReadiness = item.metadataReadiness(isRefreshing = isRefreshingMetadata)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -8917,9 +9021,7 @@ private fun EpisodeRow(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
-                if (isRefreshingMetadata) {
-                    Text("Metadata...", color = DanmakuColors.Accent, maxLines = 1)
-                }
+                Text(metadataReadiness.shortLabel, color = metadataReadiness.color, maxLines = 1)
             }
             Text(item.episodeTitle, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
             (item.localSeriesLabel() ?: originalSeriesTitle
@@ -8937,7 +9039,7 @@ private fun EpisodeRow(
                 listOfNotNull(
                     watchStatus.statusLabel(),
                     "Favorite".takeIf { isFavorite },
-                    "Refreshing metadata".takeIf { isRefreshingMetadata },
+                    metadataReadiness.label,
                 ).joinToString(separator = " - "),
                 color = DanmakuColors.TextMuted,
                 maxLines = 1,
