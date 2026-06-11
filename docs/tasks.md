@@ -38,11 +38,12 @@ Status legend:
   a remembered state object, and library/catalog/progress/indexing/sync flags
   are in a remembered state object. Settings/provider/cache actions are also
   extracted into a typed action object, and generic playback session/progress
-  actions are in a playback action object.
-- `[ ]` Extract typed library actions and dandanplay playback preparation from
-  `DesktopShell.kt`; UI files, state holders, settings actions, and generic
-  playback session actions are now split, leaving library/dandanplay
-  orchestration as the dominant remaining hotspot.
+  actions are in a playback action object. Local playback preparation and
+  dandanplay overlay/cache actions are also split into a typed action object.
+- `[ ]` Extract typed library actions from `DesktopShell.kt`; UI files, state
+  holders, settings actions, generic playback session actions, and local
+  playback/danmaku actions are now split, leaving library root, metadata,
+  mapping/sync, and download orchestration as the dominant remaining hotspots.
 
 ## Next Engineering Work
 
