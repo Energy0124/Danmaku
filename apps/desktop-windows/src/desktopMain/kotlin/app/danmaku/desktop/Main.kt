@@ -214,6 +214,17 @@ private data class DesktopDiagnosticLogEntry(
     val message: String,
 )
 
+private enum class SettingsConnectionTestOutcome {
+    TESTING,
+    SUCCESS,
+    FAILURE,
+}
+
+private data class SettingsConnectionTestStatus(
+    val outcome: SettingsConnectionTestOutcome,
+    val detail: String,
+)
+
 private data class PreparedLocalPlaybackResult(
     val preparation: DesktopLocalPlaybackPreparation,
     val dandanplayResolution: DesktopDandanplayDanmakuResolution?,
@@ -266,6 +277,10 @@ private fun DesktopShell(
     var externalAnimeProviderSettings by remember(externalAnimeCredentialStore) {
         mutableStateOf(externalAnimeCredentialStore.loadSettings())
     }
+    var dandanplayConnectionTestStatus by remember { mutableStateOf<SettingsConnectionTestStatus?>(null) }
+    var myAnimeListConnectionTestStatus by remember { mutableStateOf<SettingsConnectionTestStatus?>(null) }
+    var bangumiConnectionTestStatus by remember { mutableStateOf<SettingsConnectionTestStatus?>(null) }
+    var localServerConnectionTestStatus by remember { mutableStateOf<SettingsConnectionTestStatus?>(null) }
     val myAnimeListOAuthService = remember(externalAnimeCredentialStore) {
         MyAnimeListOAuthService(externalAnimeCredentialStore)
     }
@@ -1855,6 +1870,10 @@ private fun DesktopShell(
     }
 
     fun testDandanplayConnection() {
+        dandanplayConnectionTestStatus = SettingsConnectionTestStatus(
+            outcome = SettingsConnectionTestOutcome.TESTING,
+            detail = "Checking saved dandanplay settings...",
+        )
         scope.launch {
             appendDiagnostic("settings", "Testing saved dandanplay connection...")
             runCatching {
@@ -1867,8 +1886,17 @@ private fun DesktopShell(
                     "settings",
                     "dandanplay connection OK: ${anime.titles.primary} (#${anime.id.value})",
                 )
+                dandanplayConnectionTestStatus = SettingsConnectionTestStatus(
+                    outcome = SettingsConnectionTestOutcome.SUCCESS,
+                    detail = "${anime.titles.primary} (#${anime.id.value})",
+                )
             }.onFailure {
-                appendDiagnostic("settings", "dandanplay connection test failed: ${it.readableMessage()}")
+                val message = it.readableMessage()
+                appendDiagnostic("settings", "dandanplay connection test failed: $message")
+                dandanplayConnectionTestStatus = SettingsConnectionTestStatus(
+                    outcome = SettingsConnectionTestOutcome.FAILURE,
+                    detail = message,
+                )
             }
         }
     }
@@ -1877,8 +1905,16 @@ private fun DesktopShell(
         val clientId = externalAnimeProviderSettings.myAnimeListClientId
         if (clientId.isNullOrBlank()) {
             appendDiagnostic("settings", "MyAnimeList connection test needs a saved client ID")
+            myAnimeListConnectionTestStatus = SettingsConnectionTestStatus(
+                outcome = SettingsConnectionTestOutcome.FAILURE,
+                detail = "Save a MyAnimeList client ID first.",
+            )
             return
         }
+        myAnimeListConnectionTestStatus = SettingsConnectionTestStatus(
+            outcome = SettingsConnectionTestOutcome.TESTING,
+            detail = "Searching MyAnimeList with the saved client ID...",
+        )
         scope.launch {
             appendDiagnostic("settings", "Testing saved MyAnimeList connection...")
             runCatching {
@@ -1891,14 +1927,27 @@ private fun DesktopShell(
                     "settings",
                     "MyAnimeList connection OK: ${results.firstOrNull()?.titles?.primary ?: "no anime returned"}",
                 )
+                myAnimeListConnectionTestStatus = SettingsConnectionTestStatus(
+                    outcome = SettingsConnectionTestOutcome.SUCCESS,
+                    detail = results.firstOrNull()?.titles?.primary ?: "No anime returned.",
+                )
             }.onFailure {
-                appendDiagnostic("settings", "MyAnimeList connection test failed: ${it.readableMessage()}")
+                val message = it.readableMessage()
+                appendDiagnostic("settings", "MyAnimeList connection test failed: $message")
+                myAnimeListConnectionTestStatus = SettingsConnectionTestStatus(
+                    outcome = SettingsConnectionTestOutcome.FAILURE,
+                    detail = message,
+                )
             }
         }
     }
 
     fun testBangumiConnection() {
         val settings = externalAnimeProviderSettings
+        bangumiConnectionTestStatus = SettingsConnectionTestStatus(
+            outcome = SettingsConnectionTestOutcome.TESTING,
+            detail = "Searching Bangumi with the saved base URL and User-Agent...",
+        )
         scope.launch {
             appendDiagnostic("settings", "Testing saved Bangumi connection...")
             runCatching {
@@ -1913,8 +1962,17 @@ private fun DesktopShell(
                     "settings",
                     "Bangumi connection OK: ${results.firstOrNull()?.titles?.primary ?: "no anime returned"}",
                 )
+                bangumiConnectionTestStatus = SettingsConnectionTestStatus(
+                    outcome = SettingsConnectionTestOutcome.SUCCESS,
+                    detail = results.firstOrNull()?.titles?.primary ?: "No anime returned.",
+                )
             }.onFailure {
-                appendDiagnostic("settings", "Bangumi connection test failed: ${it.readableMessage()}")
+                val message = it.readableMessage()
+                appendDiagnostic("settings", "Bangumi connection test failed: $message")
+                bangumiConnectionTestStatus = SettingsConnectionTestStatus(
+                    outcome = SettingsConnectionTestOutcome.FAILURE,
+                    detail = message,
+                )
             }
         }
     }
@@ -1922,6 +1980,10 @@ private fun DesktopShell(
     fun testLocalServerConnection() {
         val baseUrl = server.baseUrl()
         val pairingToken = server.pairingToken
+        localServerConnectionTestStatus = SettingsConnectionTestStatus(
+            outcome = SettingsConnectionTestOutcome.TESTING,
+            detail = "Checking status and pairing-token catalog access...",
+        )
         scope.launch {
             appendDiagnostic("settings", "Testing local server at $baseUrl...")
             runCatching {
@@ -1937,8 +1999,17 @@ private fun DesktopShell(
                     "settings",
                     "Local server OK: API ${status.apiVersion}, streaming=${status.mediaStreaming}, items=$itemCount",
                 )
+                localServerConnectionTestStatus = SettingsConnectionTestStatus(
+                    outcome = SettingsConnectionTestOutcome.SUCCESS,
+                    detail = "API ${status.apiVersion}, streaming=${status.mediaStreaming}, $itemCount items",
+                )
             }.onFailure {
-                appendDiagnostic("settings", "Local server test failed: ${it.readableMessage()}")
+                val message = it.readableMessage()
+                appendDiagnostic("settings", "Local server test failed: $message")
+                localServerConnectionTestStatus = SettingsConnectionTestStatus(
+                    outcome = SettingsConnectionTestOutcome.FAILURE,
+                    detail = message,
+                )
             }
         }
     }
@@ -2439,15 +2510,19 @@ private fun DesktopShell(
                             dandanplaySettings = dandanplaySettings,
                             onSaveDandanplaySettings = ::saveDandanplaySettings,
                             onClearDandanplaySettings = ::clearDandanplaySettings,
+                            dandanplayConnectionTestStatus = dandanplayConnectionTestStatus,
                             onTestDandanplayConnection = ::testDandanplayConnection,
                             onCleanupExpiredDandanplayCaches = ::cleanupExpiredDandanplayCaches,
                             externalAnimeProviderSettings = externalAnimeProviderSettings,
                             onSaveExternalAnimeProviderSettings = ::saveExternalAnimeProviderSettings,
                             onStartMyAnimeListOAuth = ::startMyAnimeListOAuth,
+                            myAnimeListConnectionTestStatus = myAnimeListConnectionTestStatus,
+                            bangumiConnectionTestStatus = bangumiConnectionTestStatus,
                             onTestMyAnimeListConnection = ::testMyAnimeListConnection,
                             onTestBangumiConnection = ::testBangumiConnection,
                             onClearMyAnimeListSettings = ::clearMyAnimeListSettings,
                             onClearBangumiSettings = ::clearBangumiSettings,
+                            localServerConnectionTestStatus = localServerConnectionTestStatus,
                             onTestLocalServerConnection = ::testLocalServerConnection,
                         )
                     }
@@ -7797,15 +7872,19 @@ private fun ProfileTab(
     dandanplaySettings: DandanplayProviderSettings,
     onSaveDandanplaySettings: (String, String?, String?, DandanplayAuthenticationMode, Int) -> Unit,
     onClearDandanplaySettings: () -> Unit,
+    dandanplayConnectionTestStatus: SettingsConnectionTestStatus?,
     onTestDandanplayConnection: () -> Unit,
     onCleanupExpiredDandanplayCaches: () -> Unit,
     externalAnimeProviderSettings: ExternalAnimeProviderSettings,
     onSaveExternalAnimeProviderSettings: (String?, String?, String?, String, String, String?) -> Unit,
     onStartMyAnimeListOAuth: (String?, String?) -> Unit,
+    myAnimeListConnectionTestStatus: SettingsConnectionTestStatus?,
+    bangumiConnectionTestStatus: SettingsConnectionTestStatus?,
     onTestMyAnimeListConnection: () -> Unit,
     onTestBangumiConnection: () -> Unit,
     onClearMyAnimeListSettings: () -> Unit,
     onClearBangumiSettings: () -> Unit,
+    localServerConnectionTestStatus: SettingsConnectionTestStatus?,
     onTestLocalServerConnection: () -> Unit,
 ) {
     var selectedSection by remember { mutableStateOf(DesktopSettingsSection.GENERAL) }
@@ -7838,15 +7917,19 @@ private fun ProfileTab(
                         dandanplaySettings = dandanplaySettings,
                         onSaveDandanplaySettings = onSaveDandanplaySettings,
                         onClearDandanplaySettings = onClearDandanplaySettings,
+                        dandanplayConnectionTestStatus = dandanplayConnectionTestStatus,
                         onTestDandanplayConnection = onTestDandanplayConnection,
                         onCleanupExpiredDandanplayCaches = onCleanupExpiredDandanplayCaches,
                         externalAnimeProviderSettings = externalAnimeProviderSettings,
                         onSaveExternalAnimeProviderSettings = onSaveExternalAnimeProviderSettings,
                         onStartMyAnimeListOAuth = onStartMyAnimeListOAuth,
+                        myAnimeListConnectionTestStatus = myAnimeListConnectionTestStatus,
+                        bangumiConnectionTestStatus = bangumiConnectionTestStatus,
                         onTestMyAnimeListConnection = onTestMyAnimeListConnection,
                         onTestBangumiConnection = onTestBangumiConnection,
                         onClearMyAnimeListSettings = onClearMyAnimeListSettings,
                         onClearBangumiSettings = onClearBangumiSettings,
+                        localServerConnectionTestStatus = localServerConnectionTestStatus,
                         onTestLocalServerConnection = onTestLocalServerConnection,
                     )
                 }
@@ -7876,15 +7959,19 @@ private fun ProfileTab(
                         dandanplaySettings = dandanplaySettings,
                         onSaveDandanplaySettings = onSaveDandanplaySettings,
                         onClearDandanplaySettings = onClearDandanplaySettings,
+                        dandanplayConnectionTestStatus = dandanplayConnectionTestStatus,
                         onTestDandanplayConnection = onTestDandanplayConnection,
                         onCleanupExpiredDandanplayCaches = onCleanupExpiredDandanplayCaches,
                         externalAnimeProviderSettings = externalAnimeProviderSettings,
                         onSaveExternalAnimeProviderSettings = onSaveExternalAnimeProviderSettings,
                         onStartMyAnimeListOAuth = onStartMyAnimeListOAuth,
+                        myAnimeListConnectionTestStatus = myAnimeListConnectionTestStatus,
+                        bangumiConnectionTestStatus = bangumiConnectionTestStatus,
                         onTestMyAnimeListConnection = onTestMyAnimeListConnection,
                         onTestBangumiConnection = onTestBangumiConnection,
                         onClearMyAnimeListSettings = onClearMyAnimeListSettings,
                         onClearBangumiSettings = onClearBangumiSettings,
+                        localServerConnectionTestStatus = localServerConnectionTestStatus,
                         onTestLocalServerConnection = onTestLocalServerConnection,
                         modifier = Modifier.weight(1f),
                     )
@@ -7934,15 +8021,19 @@ private fun SettingsSectionContent(
     dandanplaySettings: DandanplayProviderSettings,
     onSaveDandanplaySettings: (String, String?, String?, DandanplayAuthenticationMode, Int) -> Unit,
     onClearDandanplaySettings: () -> Unit,
+    dandanplayConnectionTestStatus: SettingsConnectionTestStatus?,
     onTestDandanplayConnection: () -> Unit,
     onCleanupExpiredDandanplayCaches: () -> Unit,
     externalAnimeProviderSettings: ExternalAnimeProviderSettings,
     onSaveExternalAnimeProviderSettings: (String?, String?, String?, String, String, String?) -> Unit,
     onStartMyAnimeListOAuth: (String?, String?) -> Unit,
+    myAnimeListConnectionTestStatus: SettingsConnectionTestStatus?,
+    bangumiConnectionTestStatus: SettingsConnectionTestStatus?,
     onTestMyAnimeListConnection: () -> Unit,
     onTestBangumiConnection: () -> Unit,
     onClearMyAnimeListSettings: () -> Unit,
     onClearBangumiSettings: () -> Unit,
+    localServerConnectionTestStatus: SettingsConnectionTestStatus?,
     onTestLocalServerConnection: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -7999,6 +8090,7 @@ private fun SettingsSectionContent(
                     settings = dandanplaySettings,
                     onSave = onSaveDandanplaySettings,
                     onClear = onClearDandanplaySettings,
+                    connectionTestStatus = dandanplayConnectionTestStatus,
                     onTestConnection = onTestDandanplayConnection,
                     onCleanupExpiredCaches = onCleanupExpiredDandanplayCaches,
                 )
@@ -8006,6 +8098,8 @@ private fun SettingsSectionContent(
                     settings = externalAnimeProviderSettings,
                     onSave = onSaveExternalAnimeProviderSettings,
                     onStartMyAnimeListOAuth = onStartMyAnimeListOAuth,
+                    myAnimeListConnectionTestStatus = myAnimeListConnectionTestStatus,
+                    bangumiConnectionTestStatus = bangumiConnectionTestStatus,
                     onTestMyAnimeListConnection = onTestMyAnimeListConnection,
                     onTestBangumiConnection = onTestBangumiConnection,
                     onClearMyAnimeList = onClearMyAnimeListSettings,
@@ -8021,6 +8115,9 @@ private fun SettingsSectionContent(
                         "Discovery",
                         "UDP ${app.danmaku.domain.LanLibraryServerAnnouncement.DEFAULT_DISCOVERY_PORT}",
                     )
+                    localServerConnectionTestStatus?.let {
+                        SettingsConnectionTestStatusRow("Last test", it)
+                    }
                     LibraryActionButton(
                         imageVector = Icons.Filled.Refresh,
                         label = "Test local server",
@@ -8248,6 +8345,53 @@ private fun SettingsValidationText(errors: List<String>) {
 }
 
 @Composable
+private fun SettingsConnectionTestStatusRow(
+    label: String,
+    status: SettingsConnectionTestStatus,
+) {
+    val statusLabel = when (status.outcome) {
+        SettingsConnectionTestOutcome.TESTING -> "Testing"
+        SettingsConnectionTestOutcome.SUCCESS -> "OK"
+        SettingsConnectionTestOutcome.FAILURE -> "Failed"
+    }
+    val color = when (status.outcome) {
+        SettingsConnectionTestOutcome.TESTING -> DanmakuColors.Info
+        SettingsConnectionTestOutcome.SUCCESS -> DanmakuColors.Good
+        SettingsConnectionTestOutcome.FAILURE -> DanmakuColors.Warning
+    }
+    val icon = when (status.outcome) {
+        SettingsConnectionTestOutcome.TESTING -> Icons.Filled.Refresh
+        SettingsConnectionTestOutcome.SUCCESS -> Icons.Filled.CheckCircle
+        SettingsConnectionTestOutcome.FAILURE -> Icons.Filled.Warning
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            text = label,
+            color = DanmakuColors.TextMuted,
+            modifier = Modifier.width(140.dp),
+            maxLines = 1,
+        )
+        StatusPill(
+            text = statusLabel,
+            icon = icon,
+            active = status.outcome != SettingsConnectionTestOutcome.FAILURE,
+            color = color,
+        )
+        Text(
+            text = status.detail,
+            color = DanmakuColors.TextMuted,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+@Composable
 private fun SettingsConfirmationDialog(
     title: String,
     text: String,
@@ -8328,6 +8472,7 @@ private fun DandanplayProviderCard(
     settings: DandanplayProviderSettings,
     onSave: (String, String?, String?, DandanplayAuthenticationMode, Int) -> Unit,
     onClear: () -> Unit,
+    connectionTestStatus: SettingsConnectionTestStatus?,
     onTestConnection: () -> Unit,
     onCleanupExpiredCaches: () -> Unit,
 ) {
@@ -8357,6 +8502,9 @@ private fun DandanplayProviderCard(
         Spacer(modifier = Modifier.height(10.dp))
         MetadataRow("dandanplay", settings.statusText)
         MetadataRow("Cache expiry", "${settings.cacheMaxAgeDays} days")
+        connectionTestStatus?.let {
+            SettingsConnectionTestStatusRow("Last test", it)
+        }
         Spacer(modifier = Modifier.height(8.dp))
         OutlinedTextField(
             value = baseUrl,
@@ -8476,6 +8624,8 @@ private fun ExternalAnimeProviderSettingsCard(
     settings: ExternalAnimeProviderSettings,
     onSave: (String?, String?, String?, String, String, String?) -> Unit,
     onStartMyAnimeListOAuth: (String?, String?) -> Unit,
+    myAnimeListConnectionTestStatus: SettingsConnectionTestStatus?,
+    bangumiConnectionTestStatus: SettingsConnectionTestStatus?,
     onTestMyAnimeListConnection: () -> Unit,
     onTestBangumiConnection: () -> Unit,
     onClearMyAnimeList: () -> Unit,
@@ -8511,6 +8661,12 @@ private fun ExternalAnimeProviderSettingsCard(
         )
         MetadataRow("MyAnimeList", settings.myAnimeListStatusText)
         MetadataRow("Bangumi", settings.bangumiStatusText)
+        myAnimeListConnectionTestStatus?.let {
+            SettingsConnectionTestStatusRow("MAL test", it)
+        }
+        bangumiConnectionTestStatus?.let {
+            SettingsConnectionTestStatusRow("Bangumi test", it)
+        }
         Spacer(modifier = Modifier.height(8.dp))
         OutlinedTextField(
             value = myAnimeListClientId,

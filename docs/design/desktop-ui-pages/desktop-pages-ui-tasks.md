@@ -185,7 +185,7 @@ Status legend:
     invalid saves.
   - Remaining: local paths, ports, playback values, and download/cache storage
     values once those settings are editable in the desktop UI.
-- `[~]` Add Test Connection actions for dandanplay, MyAnimeList, Bangumi, and
+- `[x]` Add Test Connection actions for dandanplay, MyAnimeList, Bangumi, and
   server settings where applicable.
   - Provider settings now expose saved-configuration test actions for
     dandanplay, MyAnimeList, and Bangumi, using existing clients and writing
@@ -193,7 +193,8 @@ Status legend:
   - Settings > Server now exposes a local server health test that validates
     server status and the pairing-token catalog path, writing API version,
     streaming support, and catalog item count to diagnostics.
-  - Remaining: add inline result badges.
+  - Provider and local server test actions now show inline testing, OK, and
+    failed badges with the last result detail in the Settings cards.
 - `[~]` Ensure credentials are masked, stored only in approved local stores, and
   omitted from diagnostics.
 - `[~]` Add confirmation dialogs for clearing credentials and destructive cache
