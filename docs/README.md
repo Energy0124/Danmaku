@@ -18,6 +18,9 @@ priorities change.
 
 ## Active Design Work
 
+- [Home and app shell UI design](design/home-and-app-shell-ui-design.md)
+- [Home and app shell UI tasks](design/home-and-app-shell-ui-tasks.md)
+- [Home and app shell mockup](design/home-and-app-shell-mockup.png)
 - [Android mobile and TV library UI review](design/android-mobile-tv-library-ui-review.md)
 - [Android mobile and TV library UI tasks](design/android-mobile-tv-library-ui-tasks.md)
 - [External anime mapping and tracking tasks](design/external-anime-tracking-tasks.md)

@@ -11,6 +11,8 @@ Status legend:
 
 ## Active Priorities
 
+- `[~]` Align the desktop Home page and shared app shell with the new
+  header/navigation/status-column design direction.
 - `[~]` Finish desktop playback QA for fullscreen, resize, aspect, 4K media,
   hardware decoding, and multi-display behavior.
 - `[~]` Complete Android mobile/tablet library viewport QA at phone and tablet
@@ -37,6 +39,7 @@ Status legend:
 
 ## Design Workstreams
 
+- [Home and app shell UI tasks](design/home-and-app-shell-ui-tasks.md)
 - [Android mobile and TV library UI tasks](design/android-mobile-tv-library-ui-tasks.md)
 - [External anime mapping and tracking tasks](design/external-anime-tracking-tasks.md)
 
