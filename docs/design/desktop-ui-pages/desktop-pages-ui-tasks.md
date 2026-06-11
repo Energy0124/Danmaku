@@ -46,6 +46,9 @@ Status legend:
   - The Tracking provider cards, sync summary cards, table headers/actions,
     generated row status labels, selected-mapping inspector, and planned
     provider-readback controls now use the desktop string layer.
+  - The Tracking/Library External Sync preview now uses the desktop string
+    layer for summary captions, sync actions, empty states, conflict/failure
+    rows, skipped overflow copy, and local/external progress labels.
   - The Home operational status column now uses the desktop string layer for
     server, metadata/posters, external sync, downloads, and cached danmaku
     card chrome.

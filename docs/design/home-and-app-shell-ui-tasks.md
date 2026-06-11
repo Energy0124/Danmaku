@@ -40,6 +40,9 @@ Status legend:
   - Tracking provider cards, summary cards, table headers/actions, generated
     row labels, selected-mapping inspector, and planned provider controls now
     use the same desktop string layer.
+  - Tracking/Library External Sync preview summaries, actions, empty states,
+    conflict/failure rows, skipped overflow copy, and local/external progress
+    labels now use the same string layer.
   - Home operational status cards now use the same desktop string layer for
     server, metadata/posters, external sync, downloads, and cached danmaku
     labels/actions while keeping runtime values as source data.

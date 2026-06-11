@@ -3270,6 +3270,23 @@ private enum class DesktopUiLanguage(
             failuresSummaryCaption = "retry tracked",
             trackingSyncPreviewTitle = "Tracking Sync Preview",
             openLibraryAction = "Open Library",
+            noExternalSyncLibraryText = "No indexed library is available for external sync preview.",
+            providerUpdatesCaption = "provider updates",
+            externalAheadCaption = "external ahead",
+            mappingChecksCaption = "mapping checks",
+            syncingUpdatesAction = "Syncing updates",
+            syncReadyUpdatesAction = "Sync ready updates",
+            noProviderWritesReadyText = "No provider writes are ready.",
+            writesReadyUpdatesText = { count -> "Writes $count ready updates to connected external lists." },
+            dryRunUpdatesTitle = "Dry-run updates",
+            noExternalProgressUpdatesText = "No external progress updates are ready.",
+            noExternalProgressConflictsText = "No external progress conflicts are detected.",
+            syncFailuresTitle = "Sync failures",
+            noSyncFailuresText = "No sync failures recorded.",
+            moreSkippedLabel = { count -> "+$count more skipped" },
+            localWatchedEpisodesLabel = { count -> "Local $count" },
+            externalWatchedEpisodesLabel = { count -> "External $count" },
+            syncAttemptLabel = { attempt -> "Attempt $attempt" },
             trackingNoLibraryText = "Index a local library before reviewing external progress sync.",
             trackingTableTitle = "Tracking Table",
             trackingTableDescription = "Local and provider progress",
@@ -3842,6 +3859,23 @@ private enum class DesktopUiLanguage(
             failuresSummaryCaption = "已追蹤重試",
             trackingSyncPreviewTitle = "追蹤同步預覽",
             openLibraryAction = "開啟媒體庫",
+            noExternalSyncLibraryText = "沒有可用於外部同步預覽的已索引媒體庫。",
+            providerUpdatesCaption = "服務更新",
+            externalAheadCaption = "外部進度較新",
+            mappingChecksCaption = "對應檢查",
+            syncingUpdatesAction = "正在同步更新",
+            syncReadyUpdatesAction = "同步可寫入更新",
+            noProviderWritesReadyText = "目前沒有可寫入服務的更新。",
+            writesReadyUpdatesText = { count -> "會將 $count 個可同步更新寫入已連線外部清單。" },
+            dryRunUpdatesTitle = "試算更新",
+            noExternalProgressUpdatesText = "目前沒有可同步的外部進度更新。",
+            noExternalProgressConflictsText = "沒有偵測到外部進度衝突。",
+            syncFailuresTitle = "同步失敗",
+            noSyncFailuresText = "尚無同步失敗紀錄。",
+            moreSkippedLabel = { count -> "另有 $count 個已略過" },
+            localWatchedEpisodesLabel = { count -> "本機 $count" },
+            externalWatchedEpisodesLabel = { count -> "外部 $count" },
+            syncAttemptLabel = { attempt -> "嘗試 $attempt" },
             trackingNoLibraryText = "先建立本機媒體庫索引，再檢視外部進度同步。",
             trackingTableTitle = "追蹤表格",
             trackingTableDescription = "本機與服務進度",
@@ -4376,6 +4410,23 @@ private data class DesktopStrings(
     val failuresSummaryCaption: String,
     val trackingSyncPreviewTitle: String,
     val openLibraryAction: String,
+    val noExternalSyncLibraryText: String,
+    val providerUpdatesCaption: String,
+    val externalAheadCaption: String,
+    val mappingChecksCaption: String,
+    val syncingUpdatesAction: String,
+    val syncReadyUpdatesAction: String,
+    val noProviderWritesReadyText: String,
+    val writesReadyUpdatesText: (Int) -> String,
+    val dryRunUpdatesTitle: String,
+    val noExternalProgressUpdatesText: String,
+    val noExternalProgressConflictsText: String,
+    val syncFailuresTitle: String,
+    val noSyncFailuresText: String,
+    val moreSkippedLabel: (Int) -> String,
+    val localWatchedEpisodesLabel: (Int) -> String,
+    val externalWatchedEpisodesLabel: (Int) -> String,
+    val syncAttemptLabel: (Int) -> String,
     val trackingNoLibraryText: String,
     val trackingTableTitle: String,
     val trackingTableDescription: String,
@@ -5586,7 +5637,7 @@ private fun TrackingWorkspace(
                     isSyncing = isSyncing,
                     onSync = onSync,
                 )
-                ExternalSyncPreviewView(plan = plan, isSyncing = isSyncing, onSync = onSync)
+                ExternalSyncPreviewView(strings = strings, plan = plan, isSyncing = isSyncing, onSync = onSync)
             }
         } else {
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -5603,7 +5654,7 @@ private fun TrackingWorkspace(
                         onSelectRow = onSelectRow,
                         onSync = onSync,
                     )
-                    ExternalSyncPreviewView(plan = plan, isSyncing = isSyncing, onSync = onSync)
+                    ExternalSyncPreviewView(strings = strings, plan = plan, isSyncing = isSyncing, onSync = onSync)
                 }
                 TrackingInspectorPanel(
                     strings = strings,
@@ -8004,6 +8055,7 @@ private fun LibraryCenterWorkspace(
                 onPlayLocalPlayback = onPlayLocalPlayback,
             )
             WindowsLibraryView.EXTERNAL_SYNC -> ExternalSyncPreviewView(
+                strings = strings,
                 plan = externalTrackingPlan,
                 isSyncing = isExternalAnimeSyncing,
                 onSync = onSyncExternalAnimePlan,
@@ -8034,32 +8086,33 @@ private fun LibraryCenterWorkspace(
 
 @Composable
 private fun ExternalSyncPreviewView(
+    strings: DesktopStrings,
     plan: ExternalAnimeTrackingPlan?,
     isSyncing: Boolean,
     onSync: (ExternalAnimeTrackingPlan) -> Unit,
 ) {
     if (plan == null) {
-        EmptyState("No indexed library is available for external sync preview.")
+        EmptyState(strings.noExternalSyncLibraryText)
         return
     }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             SummaryCard(
-                title = "Ready",
+                title = strings.readySummaryTitle,
                 value = plan.summary.updateCount.toString(),
-                caption = "provider updates",
+                caption = strings.providerUpdatesCaption,
                 modifier = Modifier.weight(1f),
             )
             SummaryCard(
-                title = "Conflicts",
+                title = strings.conflictsSummaryTitle,
                 value = plan.summary.conflictCount.toString(),
-                caption = "external ahead",
+                caption = strings.externalAheadCaption,
                 modifier = Modifier.weight(1f),
             )
             SummaryCard(
-                title = "Skipped",
+                title = strings.skippedLabel,
                 value = plan.summary.skippedCount.toString(),
-                caption = "mapping checks",
+                caption = strings.mappingChecksCaption,
                 modifier = Modifier.weight(1f),
             )
         }
@@ -8074,13 +8127,13 @@ private fun ExternalSyncPreviewView(
             ) {
                 Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
-                Text(if (isSyncing) "Syncing updates" else "Sync ready updates")
+                Text(if (isSyncing) strings.syncingUpdatesAction else strings.syncReadyUpdatesAction)
             }
             Text(
                 if (plan.updates.isEmpty()) {
-                    "No provider writes are ready."
+                    strings.noProviderWritesReadyText
                 } else {
-                    "Writes ${plan.updates.size} ready updates to connected external lists."
+                    strings.writesReadyUpdatesText(plan.updates.size)
                 },
                 color = DanmakuColors.TextMuted,
                 maxLines = 2,
@@ -8099,9 +8152,9 @@ private fun ExternalSyncPreviewView(
                 }
             }
         }
-        Text("Dry-run updates", fontWeight = FontWeight.Bold)
+        Text(strings.dryRunUpdatesTitle, fontWeight = FontWeight.Bold)
         if (plan.updates.isEmpty()) {
-            EmptyState("No external progress updates are ready.")
+            EmptyState(strings.noExternalProgressUpdatesText)
         } else {
             LazyColumn(
                 modifier = Modifier.heightIn(max = 320.dp),
@@ -8112,34 +8165,34 @@ private fun ExternalSyncPreviewView(
                 }
             }
         }
-        Text("Conflicts", fontWeight = FontWeight.Bold)
+        Text(strings.conflictsSummaryTitle, fontWeight = FontWeight.Bold)
         if (plan.conflicts.isEmpty()) {
-            EmptyState("No external progress conflicts are detected.")
+            EmptyState(strings.noExternalProgressConflictsText)
         } else {
             LazyColumn(
                 modifier = Modifier.heightIn(max = 220.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 items(plan.conflicts, key = { conflict -> "${conflict.mapping.localSeriesId}-${conflict.mapping.animeId.provider}" }) { conflict ->
-                    ExternalSyncConflictRow(conflict)
+                    ExternalSyncConflictRow(strings = strings, conflict = conflict)
                 }
             }
         }
-        Text("Sync failures", fontWeight = FontWeight.Bold)
+        Text(strings.syncFailuresTitle, fontWeight = FontWeight.Bold)
         if (plan.failures.isEmpty()) {
-            EmptyState("No sync failures recorded.")
+            EmptyState(strings.noSyncFailuresText)
         } else {
             LazyColumn(
                 modifier = Modifier.heightIn(max = 180.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 items(plan.failures, key = { failure -> "${failure.animeId.provider}-${failure.animeId.value}" }) { failure ->
-                    ExternalSyncFailureRow(failure)
+                    ExternalSyncFailureRow(strings = strings, failure = failure)
                 }
             }
         }
         if (plan.skipped.isNotEmpty()) {
-            Text("Skipped", fontWeight = FontWeight.Bold)
+            Text(strings.skippedLabel, fontWeight = FontWeight.Bold)
             LazyColumn(
                 modifier = Modifier.heightIn(max = 220.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -8155,7 +8208,7 @@ private fun ExternalSyncPreviewView(
                     ) {
                         Icon(Icons.Filled.Warning, contentDescription = null, tint = DanmakuColors.TextMuted)
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(skip.provider?.displayName ?: "External provider", color = Color.White, maxLines = 1)
+                            Text(skip.provider?.displayName ?: strings.externalProviderLabel, color = Color.White, maxLines = 1)
                             Text(skip.reason.displayName, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text(skip.localSeriesId, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
@@ -8163,7 +8216,7 @@ private fun ExternalSyncPreviewView(
                 }
             }
             if (plan.skipped.size > 40) {
-                Text("+${plan.skipped.size - 40} more skipped", color = DanmakuColors.TextMuted)
+                Text(strings.moreSkippedLabel(plan.skipped.size - 40), color = DanmakuColors.TextMuted)
             }
         }
     }
@@ -8171,6 +8224,7 @@ private fun ExternalSyncPreviewView(
 
 @Composable
 private fun ExternalSyncConflictRow(
+    strings: DesktopStrings,
     conflict: app.danmaku.domain.ExternalAnimeTrackingPlanConflict,
 ) {
     Row(
@@ -8193,14 +8247,15 @@ private fun ExternalSyncConflictRow(
             Text(conflict.reason.displayName, color = DanmakuColors.Warning, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Column(horizontalAlignment = Alignment.End) {
-            Text("Local ${conflict.localUpdate.watchedEpisodes ?: 0}", color = DanmakuColors.TextMuted, maxLines = 1)
-            Text("External ${conflict.externalEntry.watchedEpisodes ?: 0}", color = DanmakuColors.Warning, maxLines = 1)
+            Text(strings.localWatchedEpisodesLabel(conflict.localUpdate.watchedEpisodes ?: 0), color = DanmakuColors.TextMuted, maxLines = 1)
+            Text(strings.externalWatchedEpisodesLabel(conflict.externalEntry.watchedEpisodes ?: 0), color = DanmakuColors.Warning, maxLines = 1)
         }
     }
 }
 
 @Composable
 private fun ExternalSyncFailureRow(
+    strings: DesktopStrings,
     failure: app.danmaku.domain.ExternalAnimeSyncFailure,
 ) {
     Row(
@@ -8222,8 +8277,8 @@ private fun ExternalSyncFailureRow(
             Text(failure.message, color = DanmakuColors.Warning, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Column(horizontalAlignment = Alignment.End) {
-            Text("Attempt ${failure.attemptCount}", color = DanmakuColors.TextMuted, maxLines = 1)
-            Text("Retry ${failure.retryAfterEpochMs.formatEpochTime()}", color = DanmakuColors.TextMuted, maxLines = 1)
+            Text(strings.syncAttemptLabel(failure.attemptCount), color = DanmakuColors.TextMuted, maxLines = 1)
+            Text(strings.retryAtLabel(failure.retryAfterEpochMs), color = DanmakuColors.TextMuted, maxLines = 1)
         }
     }
 }
