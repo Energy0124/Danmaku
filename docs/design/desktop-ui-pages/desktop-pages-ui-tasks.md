@@ -120,8 +120,15 @@ Status legend:
 - `[~]` Keep video dominant in embedded and fullscreen modes.
   - Focus/fullscreen paths hide the right panel and non-video chrome; remaining
     work is visual QA on default, narrow, wide, fullscreen, and 4K content.
-- `[ ]` Add or verify controls for previous/next episode, skip, volume, rate,
+- `[~]` Add or verify controls for previous/next episode, skip, volume, rate,
   audio track, subtitle track, aspect, fullscreen, and danmaku visibility.
+  - Player transport now includes local-library previous/next episode actions,
+    10s/30s skip, play/pause, seek bar, volume, rate, audio/subtitle cycling,
+    aspect, fullscreen, focus mode, and danmaku panel visibility. Previous/next
+    actions are enabled only when the active playback item belongs to the local
+    indexed catalog.
+  - Remaining: visual and behavioral QA for every control across compact,
+    default, fullscreen, and direct-file/remote playback contexts.
 - `[~]` Add right-panel controls for danmaku opacity, density, font size, lane
   behavior, offset, and filter presets.
   - Right player panel now controls danmaku visibility, opacity, density, font

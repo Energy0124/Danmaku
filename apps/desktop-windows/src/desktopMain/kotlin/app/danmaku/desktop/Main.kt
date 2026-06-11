@@ -70,6 +70,8 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Replay10
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Subtitles
 import androidx.compose.material.icons.filled.Warning
@@ -2204,6 +2206,11 @@ private fun DesktopShell(
                             ),
                     ) {
                     if (selectedTab == DesktopShellTab.PLAYBACK) {
+                        val activeLocalMediaId = activeProgressMediaId.takeIf { activeProgressTarget == null }
+                        val previousLocalPlaybackItem = activeLocalMediaId
+                            ?.let { mediaId -> indexedLibrary?.catalog?.previousItem(mediaId) }
+                        val nextLocalPlaybackItem = activeLocalMediaId
+                            ?.let { mediaId -> indexedLibrary?.catalog?.nextItem(mediaId) }
                         PlaybackTab(
                             playbackLabel = activePlaybackLabel,
                             playbackSnapshot = playbackSnapshot,
@@ -2231,6 +2238,20 @@ private fun DesktopShell(
                             },
                             onMpvWheel = { x, y, width, height, rotation ->
                                 forwardMpvOscWheel(x, y, width, height, rotation)
+                            },
+                            previousEpisodeLabel = previousLocalPlaybackItem?.episodeTitle,
+                            nextEpisodeLabel = nextLocalPlaybackItem?.episodeTitle,
+                            onPlayPreviousEpisode = previousLocalPlaybackItem?.let { item ->
+                                {
+                                    appendDiagnostic("playback", "Preparing previous local episode ${item.id}")
+                                    prepareLocalPlayback(item, loadAfterPrepare = true)
+                                }
+                            },
+                            onPlayNextEpisode = nextLocalPlaybackItem?.let { item ->
+                                {
+                                    appendDiagnostic("playback", "Preparing next local episode ${item.id}")
+                                    prepareLocalPlayback(item, loadAfterPrepare = true)
+                                }
                             },
                             onOpenMediaFile = {
                                 appendDiagnostic("playback", "Opening direct media file picker")
@@ -3994,6 +4015,10 @@ private fun PlaybackTab(
     onMpvPointerMove: (x: Int, y: Int, width: Int, height: Int) -> Unit,
     onMpvPrimaryClick: (x: Int, y: Int, width: Int, height: Int) -> Unit,
     onMpvWheel: (x: Int, y: Int, width: Int, height: Int, rotation: Int) -> Unit,
+    previousEpisodeLabel: String?,
+    nextEpisodeLabel: String?,
+    onPlayPreviousEpisode: (() -> Unit)?,
+    onPlayNextEpisode: (() -> Unit)?,
     onOpenMediaFile: () -> Unit,
     onPlay: () -> Unit,
     onPause: () -> Unit,
@@ -4257,6 +4282,10 @@ private fun PlaybackTab(
                         playbackSnapshot = playbackSnapshot,
                         isFullscreen = isFullscreen,
                         videoAspectMode = videoAspectMode,
+                        previousEpisodeLabel = previousEpisodeLabel,
+                        nextEpisodeLabel = nextEpisodeLabel,
+                        onPlayPreviousEpisode = onPlayPreviousEpisode,
+                        onPlayNextEpisode = onPlayNextEpisode,
                         onOpenMediaFile = onOpenMediaFile,
                         onPlay = onPlay,
                         onPause = onPause,
@@ -4481,6 +4510,10 @@ private fun PlayerBottomOverlay(
     playbackSnapshot: PlaybackSnapshot,
     isFullscreen: Boolean,
     videoAspectMode: DesktopVideoAspectMode,
+    previousEpisodeLabel: String?,
+    nextEpisodeLabel: String?,
+    onPlayPreviousEpisode: (() -> Unit)?,
+    onPlayNextEpisode: (() -> Unit)?,
     onOpenMediaFile: () -> Unit,
     onPlay: () -> Unit,
     onPause: () -> Unit,
@@ -4570,6 +4603,12 @@ private fun PlayerBottomOverlay(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 PlayerIconButton(Icons.Filled.FolderOpen, "Open media file", enabled = canOpenMedia, onClick = onOpenMediaFile)
+                PlayerIconButton(
+                    imageVector = Icons.Filled.SkipPrevious,
+                    contentDescription = previousEpisodeLabel?.let { "Previous episode: $it" } ?: "Previous episode",
+                    enabled = hasMedia && onPlayPreviousEpisode != null,
+                    onClick = { onPlayPreviousEpisode?.invoke() },
+                )
                 if (!isNarrow) {
                     PlayerIconButton(Icons.Filled.FastRewind, "Back 30 seconds", enabled = hasMedia, onClick = onSeekBackwardLarge)
                 }
@@ -4588,6 +4627,12 @@ private fun PlayerBottomOverlay(
                 if (!isNarrow) {
                     PlayerIconButton(Icons.Filled.FastForward, "Forward 30 seconds", enabled = hasMedia, onClick = onSeekForwardLarge)
                 }
+                PlayerIconButton(
+                    imageVector = Icons.Filled.SkipNext,
+                    contentDescription = nextEpisodeLabel?.let { "Next episode: $it" } ?: "Next episode",
+                    enabled = hasMedia && onPlayNextEpisode != null,
+                    onClick = { onPlayNextEpisode?.invoke() },
+                )
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.VolumeUp,
                     contentDescription = "Volume",
