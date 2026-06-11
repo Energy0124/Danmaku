@@ -55,11 +55,19 @@ Status legend:
 - `[ ]` Refactor the Library page toward a stable three-pane layout: app rail,
   library subrail, center workspace, and resizable inspector.
 - `[ ]` Keep the inspector above a useful minimum width for long episode names.
-- `[ ]` Ensure selecting a series or episode always refreshes the details panel.
-- `[ ]` Make rows/cards selectable in Continue Watching, Next Up, Recently
+- `[~]` Ensure selecting a series or episode always refreshes the details panel.
+  - Library episode lists now pass the active selected media ID through the
+    center workspace, keep the selected row highlighted across Continue
+    Watching, Next Up, History, Favorites, and Files, and update the inspector
+    as keyboard selection moves.
+- `[~]` Make rows/cards selectable in Continue Watching, Next Up, Recently
   Watched, Favorites, Files, History-style surfaces, and Paired views.
-- `[ ]` Show matched anime title, local series title, local file/folder title,
+  - Continue Watching, Next Up, History, Favorites, and Files rows now use the
+    shared selected-media highlight; Paired remote rows remain separate.
+- `[~]` Show matched anime title, local series title, local file/folder title,
   and episode title together without ambiguity.
+  - Home cards and Library episode rows now prefer matched anime display
+    titles while preserving the local file group label when it differs.
 - `[ ]` Add explicit metadata/poster loading, stale, partial, failed, and ready
   states in the inspector and browse cards.
 - `[ ]` Add manual refresh metadata/poster actions at both series and episode

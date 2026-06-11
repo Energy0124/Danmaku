@@ -4965,6 +4965,7 @@ private fun WindowsLibraryWorkspace(
                 visibleSeries = visibleSeries,
                 selectedSeries = selectedSeries,
                 filteredEpisodes = filteredEpisodes,
+                selectedMediaId = selectedInspectorItem?.id,
                 coverBySeriesId = seriesPosterById,
                 originalSeriesTitleByMediaId = originalSeriesTitleByMediaId,
                 refreshingMetadataMediaIds = refreshingMetadataMediaIds,
@@ -5269,6 +5270,7 @@ private fun LibraryCenterWorkspace(
     visibleSeries: List<LibrarySeries>,
     selectedSeries: LibrarySeries?,
     filteredEpisodes: List<LibraryMediaItem>,
+    selectedMediaId: String?,
     coverBySeriesId: Map<String, Path?>,
     originalSeriesTitleByMediaId: Map<String, String>,
     refreshingMetadataMediaIds: Set<String>,
@@ -5346,6 +5348,7 @@ private fun LibraryCenterWorkspace(
         when (selectedView) {
             WindowsLibraryView.CONTINUE_WATCHING -> ContinueWatchingList(
                 items = continueWatchingItems,
+                selectedMediaId = selectedMediaId,
                 isPreparing = isPreparing,
                 compact = compact,
                 onShowDetails = onShowDetails,
@@ -5353,6 +5356,7 @@ private fun LibraryCenterWorkspace(
             )
             WindowsLibraryView.NEXT_UP -> NextUpList(
                 items = nextUpItems,
+                selectedMediaId = selectedMediaId,
                 isPreparing = isPreparing,
                 compact = compact,
                 onShowDetails = onShowDetails,
@@ -5361,6 +5365,7 @@ private fun LibraryCenterWorkspace(
             )
             WindowsLibraryView.RECENTLY_WATCHED -> RecentlyWatchedList(
                 items = recentlyWatchedItems,
+                selectedMediaId = selectedMediaId,
                 isPreparing = isPreparing,
                 compact = compact,
                 onShowDetails = onShowDetails,
@@ -5370,6 +5375,7 @@ private fun LibraryCenterWorkspace(
             WindowsLibraryView.FAVORITES,
             WindowsLibraryView.FILES -> EpisodeListView(
                 episodes = filteredEpisodes,
+                selectedMediaId = selectedMediaId,
                 watchStatusById = watchStatusById,
                 favoriteMediaIds = favoriteMediaIds,
                 originalSeriesTitleByMediaId = originalSeriesTitleByMediaId,
@@ -5846,8 +5852,9 @@ private fun LibraryProgressOverview(
         continueWatchingItems.take(2).forEach { item ->
             add(
                 LibraryProgressCardModel(
-                    title = item.mediaItem.seriesTitle,
+                    title = item.mediaItem.displaySeriesTitle(),
                     subtitle = item.mediaItem.episodeTitle,
+                    fileGroupLabel = item.mediaItem.localSeriesLabel(),
                     detail = "Resume at ${item.progress.positionMs.formatPlaybackTime()}",
                     progressPercent = item.progress.progressPercent(),
                     actionLabel = "Resume",
@@ -5858,8 +5865,9 @@ private fun LibraryProgressOverview(
         nextUpItems.take(2).forEach { item ->
             add(
                 LibraryProgressCardModel(
-                    title = item.mediaItem.seriesTitle,
+                    title = item.mediaItem.displaySeriesTitle(),
                     subtitle = item.mediaItem.episodeTitle,
+                    fileGroupLabel = item.mediaItem.localSeriesLabel(),
                     detail = item.nextUpLabel(),
                     progressPercent = item.progress?.progressPercent(),
                     actionLabel = item.nextUpActionLabel(),
@@ -5890,6 +5898,7 @@ private fun LibraryProgressOverview(
 private data class LibraryProgressCardModel(
     val title: String,
     val subtitle: String,
+    val fileGroupLabel: String?,
     val detail: String,
     val progressPercent: Int?,
     val actionLabel: String,
@@ -5914,6 +5923,9 @@ private fun LibraryProgressCard(
     ) {
         Text(card.title, color = Color.White, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(card.subtitle, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        card.fileGroupLabel?.let { label ->
+            Text(label, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
         MiniProgressBar(percent = card.progressPercent)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(card.detail, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
@@ -5930,6 +5942,7 @@ private fun LibraryProgressCard(
 @Composable
 private fun ContinueWatchingList(
     items: List<LibraryPlaybackProgressItem>,
+    selectedMediaId: String?,
     isPreparing: Boolean,
     compact: Boolean,
     onShowDetails: (LibraryMediaItem) -> Unit,
@@ -5940,21 +5953,26 @@ private fun ContinueWatchingList(
     } else {
         var selectedIndex by remember(items) { mutableStateOf(0) }
         val boundedSelectedIndex = selectedIndex.coerceIn(0, items.lastIndex)
+        val selectedMediaIndex = items.indexOfFirst { it.mediaItem.id == selectedMediaId }
+        val activeIndex = selectedMediaIndex.takeIf { it >= 0 } ?: boundedSelectedIndex
         LazyColumn(
             modifier = Modifier
                 .height(560.dp)
                 .libraryCollectionKeyboard(
                     itemCount = items.size,
-                    selectedIndex = boundedSelectedIndex,
-                    onSelectedIndexChange = { selectedIndex = it },
-                    onOpenSelected = { items.getOrNull(boundedSelectedIndex)?.mediaItem?.let(onShowDetails) },
-                    onPlaySelected = { items.getOrNull(boundedSelectedIndex)?.mediaItem?.let(onPlayLocalPlayback) },
+                    selectedIndex = activeIndex,
+                    onSelectedIndexChange = { index ->
+                        selectedIndex = index
+                        items.getOrNull(index)?.mediaItem?.let(onShowDetails)
+                    },
+                    onOpenSelected = { items.getOrNull(activeIndex)?.mediaItem?.let(onShowDetails) },
+                    onPlaySelected = { items.getOrNull(activeIndex)?.mediaItem?.let(onPlayLocalPlayback) },
                 ),
         ) {
             itemsIndexed(items, key = { _, item -> item.mediaItem.id }) { rowIndex, item ->
                 ContinueWatchingRow(
                     item = item,
-                    selected = rowIndex == boundedSelectedIndex,
+                    selected = item.mediaItem.id == selectedMediaId || (selectedMediaId == null && rowIndex == boundedSelectedIndex),
                     isPreparing = isPreparing,
                     compact = compact,
                     onShowDetails = {
@@ -5971,6 +5989,7 @@ private fun ContinueWatchingList(
 @Composable
 private fun NextUpList(
     items: List<LibraryNextUpItem>,
+    selectedMediaId: String?,
     isPreparing: Boolean,
     compact: Boolean,
     onShowDetails: (LibraryMediaItem) -> Unit,
@@ -5982,21 +6001,26 @@ private fun NextUpList(
     } else {
         var selectedIndex by remember(items) { mutableStateOf(0) }
         val boundedSelectedIndex = selectedIndex.coerceIn(0, items.lastIndex)
+        val selectedMediaIndex = items.indexOfFirst { it.mediaItem.id == selectedMediaId }
+        val activeIndex = selectedMediaIndex.takeIf { it >= 0 } ?: boundedSelectedIndex
         LazyColumn(
             modifier = Modifier
                 .height(560.dp)
                 .libraryCollectionKeyboard(
                     itemCount = items.size,
-                    selectedIndex = boundedSelectedIndex,
-                    onSelectedIndexChange = { selectedIndex = it },
-                    onOpenSelected = { items.getOrNull(boundedSelectedIndex)?.mediaItem?.let(onShowDetails) },
-                    onPlaySelected = { items.getOrNull(boundedSelectedIndex)?.mediaItem?.let(onPlayLocalPlayback) },
+                    selectedIndex = activeIndex,
+                    onSelectedIndexChange = { index ->
+                        selectedIndex = index
+                        items.getOrNull(index)?.mediaItem?.let(onShowDetails)
+                    },
+                    onOpenSelected = { items.getOrNull(activeIndex)?.mediaItem?.let(onShowDetails) },
+                    onPlaySelected = { items.getOrNull(activeIndex)?.mediaItem?.let(onPlayLocalPlayback) },
                 ),
         ) {
             itemsIndexed(items, key = { _, item -> item.mediaItem.id }) { rowIndex, item ->
                 NextUpRow(
                     item = item,
-                    selected = rowIndex == boundedSelectedIndex,
+                    selected = item.mediaItem.id == selectedMediaId || (selectedMediaId == null && rowIndex == boundedSelectedIndex),
                     isPreparing = isPreparing,
                     compact = compact,
                     onShowDetails = {
@@ -6014,6 +6038,7 @@ private fun NextUpList(
 @Composable
 private fun RecentlyWatchedList(
     items: List<LibraryPlaybackProgressItem>,
+    selectedMediaId: String?,
     isPreparing: Boolean,
     compact: Boolean,
     onShowDetails: (LibraryMediaItem) -> Unit,
@@ -6025,21 +6050,26 @@ private fun RecentlyWatchedList(
     } else {
         var selectedIndex by remember(items) { mutableStateOf(0) }
         val boundedSelectedIndex = selectedIndex.coerceIn(0, items.lastIndex)
+        val selectedMediaIndex = items.indexOfFirst { it.mediaItem.id == selectedMediaId }
+        val activeIndex = selectedMediaIndex.takeIf { it >= 0 } ?: boundedSelectedIndex
         LazyColumn(
             modifier = Modifier
                 .height(560.dp)
                 .libraryCollectionKeyboard(
                     itemCount = items.size,
-                    selectedIndex = boundedSelectedIndex,
-                    onSelectedIndexChange = { selectedIndex = it },
-                    onOpenSelected = { items.getOrNull(boundedSelectedIndex)?.mediaItem?.let(onShowDetails) },
-                    onPlaySelected = { items.getOrNull(boundedSelectedIndex)?.mediaItem?.let(onPlayLocalPlayback) },
+                    selectedIndex = activeIndex,
+                    onSelectedIndexChange = { index ->
+                        selectedIndex = index
+                        items.getOrNull(index)?.mediaItem?.let(onShowDetails)
+                    },
+                    onOpenSelected = { items.getOrNull(activeIndex)?.mediaItem?.let(onShowDetails) },
+                    onPlaySelected = { items.getOrNull(activeIndex)?.mediaItem?.let(onPlayLocalPlayback) },
                 ),
         ) {
             itemsIndexed(items, key = { _, item -> item.mediaItem.id }) { rowIndex, item ->
                 RecentlyWatchedRow(
                     item = item,
-                    selected = rowIndex == boundedSelectedIndex,
+                    selected = item.mediaItem.id == selectedMediaId || (selectedMediaId == null && rowIndex == boundedSelectedIndex),
                     isPreparing = isPreparing,
                     compact = compact,
                     onShowDetails = {
@@ -6057,6 +6087,7 @@ private fun RecentlyWatchedList(
 @Composable
 private fun EpisodeListView(
     episodes: List<LibraryMediaItem>,
+    selectedMediaId: String?,
     watchStatusById: Map<String, LibraryWatchStatus>,
     favoriteMediaIds: Set<String>,
     originalSeriesTitleByMediaId: Map<String, String>,
@@ -6079,21 +6110,26 @@ private fun EpisodeListView(
     } else {
         var selectedIndex by remember(episodes) { mutableStateOf(0) }
         val boundedSelectedIndex = selectedIndex.coerceIn(0, episodes.lastIndex)
+        val selectedMediaIndex = episodes.indexOfFirst { it.id == selectedMediaId }
+        val activeIndex = selectedMediaIndex.takeIf { it >= 0 } ?: boundedSelectedIndex
         LazyColumn(
             modifier = Modifier
                 .height(560.dp)
                 .libraryCollectionKeyboard(
                     itemCount = episodes.size,
-                    selectedIndex = boundedSelectedIndex,
-                    onSelectedIndexChange = { selectedIndex = it },
-                    onOpenSelected = { episodes.getOrNull(boundedSelectedIndex)?.let(onShowDetails) },
-                    onPlaySelected = { episodes.getOrNull(boundedSelectedIndex)?.let(onPlayLocalPlayback) },
+                    selectedIndex = activeIndex,
+                    onSelectedIndexChange = { index ->
+                        selectedIndex = index
+                        episodes.getOrNull(index)?.let(onShowDetails)
+                    },
+                    onOpenSelected = { episodes.getOrNull(activeIndex)?.let(onShowDetails) },
+                    onPlaySelected = { episodes.getOrNull(activeIndex)?.let(onPlayLocalPlayback) },
                 ),
         ) {
             itemsIndexed(episodes, key = { _, item -> item.id }) { rowIndex, item ->
                 EpisodeRow(
                     item = item,
-                    selected = rowIndex == boundedSelectedIndex,
+                    selected = item.id == selectedMediaId || (selectedMediaId == null && rowIndex == boundedSelectedIndex),
                     watchStatus = watchStatusById[item.id],
                     isFavorite = item.id in favoriteMediaIds,
                     originalSeriesTitle = originalSeriesTitleByMediaId[item.id],
@@ -8683,8 +8719,11 @@ private fun NextUpRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(item.mediaItem.seriesTitle, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(item.mediaItem.displaySeriesTitle(), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(item.mediaItem.episodeTitle, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            item.mediaItem.localSeriesLabel()?.let { label ->
+                Text(label, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
             Text(
                 item.nextUpLabel(),
                 color = DanmakuColors.TextMuted,
@@ -8742,8 +8781,11 @@ private fun ContinueWatchingRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(item.mediaItem.seriesTitle, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(item.mediaItem.displaySeriesTitle(), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(item.mediaItem.episodeTitle, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            item.mediaItem.localSeriesLabel()?.let { label ->
+                Text(label, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
             Text(
                 "Resume at ${item.progress.positionMs.formatPlaybackTime()} / " +
                     (item.progress.durationMs?.formatPlaybackTime() ?: "unknown"),
@@ -8797,8 +8839,11 @@ private fun RecentlyWatchedRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(item.mediaItem.seriesTitle, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(item.mediaItem.displaySeriesTitle(), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(item.mediaItem.episodeTitle, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            item.mediaItem.localSeriesLabel()?.let { label ->
+                Text(label, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
             Text(
                 "Last seen ${item.progress.updatedAtEpochMs.toDiagnosticTime()} at " +
                     "${item.progress.positionMs.formatPlaybackTime()} / " +
@@ -8866,7 +8911,7 @@ private fun EpisodeRow(
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    item.seriesTitle,
+                    item.displaySeriesTitle(),
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -8877,11 +8922,12 @@ private fun EpisodeRow(
                 }
             }
             Text(item.episodeTitle, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            originalSeriesTitle
-                ?.takeIf { it.isNotBlank() && it != item.seriesTitle }
-                ?.let { originalTitle ->
+            (item.localSeriesLabel() ?: originalSeriesTitle
+                ?.takeIf { it.isNotBlank() && it != item.displaySeriesTitle() }
+                ?.let { "File group: $it" })
+                ?.let { label ->
                     Text(
-                        "File group: $originalTitle",
+                        label,
                         color = DanmakuColors.TextMuted,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
