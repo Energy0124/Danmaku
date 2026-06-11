@@ -238,8 +238,14 @@ Status legend:
 
 ## Secondary Surfaces
 
-- `[ ]` Build Server Dashboard modal/panel with LAN URL, pairing code,
+- `[~]` Build Server Dashboard modal/panel with LAN URL, pairing code,
   connected clients, bandwidth, recent requests, and copy actions.
+  - Settings > Server now opens a Server Dashboard dialog with copy actions
+    for the base URL, pairing code, and LAN URLs, the local-server health test
+    status/action, discovery port, and a bounded live recent-request log from
+    server events.
+  - Remaining: instrument client identity/session state and byte counters
+    before showing real connected-client and bandwidth metrics.
 - `[ ]` Build Metadata Match dialog with candidate search, confidence, poster
   previews, provider IDs, manual override, and save mapping actions.
 - `[ ]` Build Danmaku Cache Manager with persisted cache state, cleanup rules,

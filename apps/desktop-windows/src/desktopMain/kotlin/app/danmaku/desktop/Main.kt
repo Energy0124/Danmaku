@@ -51,6 +51,7 @@ import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Devices
@@ -180,7 +181,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.awt.Rectangle
 import java.awt.Desktop
+import java.awt.Toolkit
 import java.awt.Window as AwtWindow
+import java.awt.datatransfer.StringSelection
 import java.net.URI
 import kotlin.math.roundToInt
 import java.nio.file.Files
@@ -306,6 +309,7 @@ private fun DesktopShell(
     val scope = rememberCoroutineScope()
     val mpvCommandLog = remember { mutableStateListOf<DesktopMpvCommand>() }
     val diagnosticLog = remember { mutableStateListOf<DesktopDiagnosticLogEntry>() }
+    val serverEvents = remember { mutableStateListOf<LocalLibraryServerEvent>() }
     val diagnosticFileLog = remember { DesktopDiagnosticFileLog.createDefault() }
     fun appendDiagnostic(category: String, message: String) {
         val entry = DesktopDiagnosticLogEntry(
@@ -320,6 +324,10 @@ private fun DesktopShell(
         }
     }
     fun appendServerEvent(event: LocalLibraryServerEvent) {
+        serverEvents += event
+        while (serverEvents.size > MAX_SERVER_DASHBOARD_EVENTS) {
+            serverEvents.removeAt(0)
+        }
         val entry = DesktopDiagnosticLogEntry(
             occurredAtEpochMs = event.occurredAtEpochMs,
             category = "server:${event.category}",
@@ -2595,6 +2603,7 @@ private fun DesktopShell(
                             serverBaseUrl = server.baseUrl(),
                             networkUrls = networkUrls,
                             pairingToken = server.pairingToken,
+                            recentServerEvents = serverEvents,
                             appLogPath = diagnosticFileLog.appLogPath,
                             mpvLogPath = diagnosticFileLog.mpvLogPath,
                             diagnosticLog = diagnosticLog,
@@ -8254,6 +8263,7 @@ private fun ProfileTab(
     serverBaseUrl: String,
     networkUrls: List<String>,
     pairingToken: String,
+    recentServerEvents: List<LocalLibraryServerEvent>,
     appLogPath: Path,
     mpvLogPath: Path,
     diagnosticLog: List<DesktopDiagnosticLogEntry>,
@@ -8299,6 +8309,7 @@ private fun ProfileTab(
                         serverBaseUrl = serverBaseUrl,
                         networkUrls = networkUrls,
                         pairingToken = pairingToken,
+                        recentServerEvents = recentServerEvents,
                         appLogPath = appLogPath,
                         mpvLogPath = mpvLogPath,
                         diagnosticLog = diagnosticLog,
@@ -8341,6 +8352,7 @@ private fun ProfileTab(
                         serverBaseUrl = serverBaseUrl,
                         networkUrls = networkUrls,
                         pairingToken = pairingToken,
+                        recentServerEvents = recentServerEvents,
                         appLogPath = appLogPath,
                         mpvLogPath = mpvLogPath,
                         diagnosticLog = diagnosticLog,
@@ -8403,6 +8415,7 @@ private fun SettingsSectionContent(
     serverBaseUrl: String,
     networkUrls: List<String>,
     pairingToken: String,
+    recentServerEvents: List<LocalLibraryServerEvent>,
     appLogPath: Path,
     mpvLogPath: Path,
     diagnosticLog: List<DesktopDiagnosticLogEntry>,
@@ -8428,6 +8441,7 @@ private fun SettingsSectionContent(
     onTestLocalServerConnection: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var showServerDashboard by remember { mutableStateOf(false) }
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
         when (selectedSection) {
             DesktopSettingsSection.GENERAL -> {
@@ -8509,11 +8523,18 @@ private fun SettingsSectionContent(
                     localServerConnectionTestStatus?.let {
                         SettingsConnectionTestStatusRow("Last test", it)
                     }
-                    LibraryActionButton(
-                        imageVector = Icons.Filled.Refresh,
-                        label = "Test local server",
-                        onClick = onTestLocalServerConnection,
-                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        LibraryActionButton(
+                            imageVector = Icons.Filled.Devices,
+                            label = "Open dashboard",
+                            onClick = { showServerDashboard = true },
+                        )
+                        LibraryActionButton(
+                            imageVector = Icons.Filled.Refresh,
+                            label = "Test local server",
+                            onClick = onTestLocalServerConnection,
+                        )
+                    }
                 }
             }
             DesktopSettingsSection.STORAGE -> {
@@ -8547,6 +8568,17 @@ private fun SettingsSectionContent(
                 DiagnosticsPanel(diagnosticLog)
             }
         }
+    }
+    if (showServerDashboard) {
+        ServerDashboardDialog(
+            serverBaseUrl = serverBaseUrl,
+            networkUrls = networkUrls,
+            pairingToken = pairingToken,
+            recentServerEvents = recentServerEvents,
+            localServerConnectionTestStatus = localServerConnectionTestStatus,
+            onTestLocalServerConnection = onTestLocalServerConnection,
+            onDismiss = { showServerDashboard = false },
+        )
     }
 }
 
@@ -8778,6 +8810,162 @@ private fun SettingsConnectionTestStatusRow(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+@Composable
+private fun ServerDashboardDialog(
+    serverBaseUrl: String,
+    networkUrls: List<String>,
+    pairingToken: String,
+    recentServerEvents: List<LocalLibraryServerEvent>,
+    localServerConnectionTestStatus: SettingsConnectionTestStatus?,
+    onTestLocalServerConnection: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    fun copyToClipboard(value: String) {
+        Toolkit.getDefaultToolkit().systemClipboard.setContents(StringSelection(value), null)
+    }
+    val recentEvents = recentServerEvents.takeLast(10).asReversed()
+
+    AlertDialog(
+        modifier = Modifier.width(760.dp),
+        onDismissRequest = onDismiss,
+        title = { Text("Server Dashboard") },
+        text = {
+            Column(
+                modifier = Modifier
+                    .heightIn(max = 560.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Pairing and LAN access", fontWeight = FontWeight.Bold)
+                    ServerDashboardCopyRow(
+                        label = "Base URL",
+                        value = serverBaseUrl,
+                        onCopy = { copyToClipboard(serverBaseUrl) },
+                    )
+                    ServerDashboardCopyRow(
+                        label = "Pairing code",
+                        value = pairingToken,
+                        onCopy = { copyToClipboard(pairingToken) },
+                    )
+                    if (networkUrls.isEmpty()) {
+                        MetadataRow("LAN URLs", "No LAN address detected", DanmakuColors.TextMuted)
+                    } else {
+                        networkUrls.forEachIndexed { index, url ->
+                            ServerDashboardCopyRow(
+                                label = "LAN URL ${index + 1}",
+                                value = url,
+                                onCopy = { copyToClipboard(url) },
+                            )
+                        }
+                    }
+                    MetadataRow(
+                        "Discovery",
+                        "UDP ${app.danmaku.domain.LanLibraryServerAnnouncement.DEFAULT_DISCOVERY_PORT}",
+                    )
+                }
+
+                Divider(color = DanmakuColors.SurfaceRaised)
+
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Health", fontWeight = FontWeight.Bold)
+                    localServerConnectionTestStatus?.let {
+                        SettingsConnectionTestStatusRow("Last test", it)
+                    } ?: MetadataRow("Last test", "Not checked this session", DanmakuColors.TextMuted)
+                    MetadataRow("Recent requests", recentServerEvents.size.toString())
+                    MetadataRow("Connected clients", "Planned: client identity is not instrumented yet", DanmakuColors.TextMuted)
+                    MetadataRow("Bandwidth", "Planned: byte counters are not instrumented yet", DanmakuColors.TextMuted)
+                }
+
+                Divider(color = DanmakuColors.SurfaceRaised)
+
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Recent server requests", fontWeight = FontWeight.Bold)
+                    if (recentEvents.isEmpty()) {
+                        Text("No server requests recorded this session.", color = DanmakuColors.TextMuted)
+                    } else {
+                        recentEvents.forEach { event ->
+                            ServerDashboardEventRow(event)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = onTestLocalServerConnection) {
+                Text("Test server")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close")
+            }
+        },
+    )
+}
+
+@Composable
+private fun ServerDashboardCopyRow(
+    label: String,
+    value: String,
+    onCopy: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(label, color = DanmakuColors.TextMuted, modifier = Modifier.width(110.dp), maxLines = 1)
+        Text(
+            value,
+            modifier = Modifier.weight(1f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        LibraryActionButton(
+            imageVector = Icons.Filled.ContentCopy,
+            label = "Copy",
+            onClick = onCopy,
+        )
+    }
+}
+
+@Composable
+private fun ServerDashboardEventRow(event: LocalLibraryServerEvent) {
+    val isHealthyStatus = event.status in 200..399
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            event.occurredAtEpochMs.formatEpochTime(),
+            color = DanmakuColors.TextMuted,
+            modifier = Modifier.width(118.dp),
+            maxLines = 1,
+        )
+        StatusPill(
+            text = event.status.toString(),
+            icon = if (isHealthyStatus) Icons.Filled.CheckCircle else Icons.Filled.Warning,
+            active = isHealthyStatus,
+            color = if (isHealthyStatus) DanmakuColors.Good else DanmakuColors.Warning,
+        )
+        Text(
+            "${event.method} ${event.path}",
+            modifier = Modifier.weight(1.15f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            event.detail.redactToken(),
+            color = DanmakuColors.TextMuted,
+            modifier = Modifier.weight(1f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
@@ -10441,6 +10629,8 @@ private const val PLAYBACK_SNAPSHOT_POLL_INTERVAL_MS = 500L
 private const val WINDOWS_PROGRESS_SAVE_INTERVAL_MS = 5_000L
 
 private const val MAX_DIAGNOSTIC_LOG_ENTRIES = 200
+
+private const val MAX_SERVER_DASHBOARD_EVENTS = 80
 
 private const val MAX_BACKGROUND_POSTER_REFRESH_SERIES = 32
 
