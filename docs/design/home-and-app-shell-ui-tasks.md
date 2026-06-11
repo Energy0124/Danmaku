@@ -52,8 +52,11 @@ Status legend:
   Tracking / Sync Ready Updates, Open Downloads, and Manage Cache.
 - `[~]` Add explicit in-progress, stale, partial, failed, and ready states for
   metadata/poster, external sync, download, and danmaku cache cards.
-- `[ ]` Ensure poster fallback art and matched metadata are consistently used on
+- `[~]` Ensure poster fallback art and matched metadata are consistently used on
   Home, Library, Tracking, History, and details surfaces.
+  - Desktop Home episode and resume cards now prefer matched anime display
+    titles, keep the local file group visible when it differs, and use matched
+    titles for poster fallback text.
 - `[ ]` Verify selected media cards and table rows update details consistently
   across Home, Library, History, Downloads, and Tracking where applicable.
 - `[ ]` Keep the details side panel adjustable or responsive enough for long

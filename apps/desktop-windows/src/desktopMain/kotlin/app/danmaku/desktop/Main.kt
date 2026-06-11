@@ -3068,7 +3068,7 @@ private fun HomeResumeCard(
         ) {
             SeriesPosterImage(
                 coverPath = coverPath,
-                title = card.mediaItem.seriesTitle,
+                title = card.mediaItem.displaySeriesTitle(),
                 modifier = Modifier.fillMaxSize(),
             )
             PlayerIconButton(
@@ -3079,8 +3079,11 @@ private fun HomeResumeCard(
                 modifier = Modifier.align(Alignment.Center),
             )
         }
-        Text(card.mediaItem.seriesTitle, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(card.mediaItem.displaySeriesTitle(), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(card.mediaItem.episodeTitle, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        card.mediaItem.localSeriesLabel()?.let { label ->
+            Text(label, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
         MiniProgressBar(percent = card.progressPercent)
         Text(card.detail, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
@@ -3105,14 +3108,17 @@ private fun HomeEpisodeCard(
     ) {
         SeriesPosterImage(
             coverPath = coverPath,
-            title = mediaItem.seriesTitle,
+            title = mediaItem.displaySeriesTitle(),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(112.dp)
                 .clip(RoundedCornerShape(6.dp)),
         )
-        Text(mediaItem.seriesTitle, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(mediaItem.displaySeriesTitle(), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(mediaItem.episodeTitle, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        mediaItem.localSeriesLabel()?.let { label ->
+            Text(label, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
         MiniProgressBar(percent = progressPercent)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(detail, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
@@ -6796,6 +6802,16 @@ private fun LibraryMediaItem.primaryPlaybackActionLabel(watchStatus: LibraryWatc
     } else {
         "Play"
     }
+
+private fun LibraryMediaItem.displaySeriesTitle(): String =
+    animeMetadata?.displayTitle?.takeIf { it.isNotBlank() } ?: seriesTitle
+
+private fun LibraryMediaItem.localSeriesLabel(): String? {
+    val displayTitle = displaySeriesTitle()
+    return seriesTitle
+        .takeIf { it.isNotBlank() && it != displayTitle }
+        ?.let { "File group: $it" }
+}
 
 @Composable
 private fun SeriesPosterCard(
