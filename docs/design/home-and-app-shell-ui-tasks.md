@@ -57,6 +57,9 @@ Status legend:
     labels/tooltips now use the same desktop string layer.
   - Home and Library file-group labels plus Library metadata readiness badges
     now use the same English / `zh-TW` desktop string layer.
+  - Library inspector and local row actions now use the same string layer for
+    empty/readiness copy, Details/Favorite, metadata refresh, playback prepare,
+    Play/Resume, and advanced danmaku/cache actions.
 - `[~]` Align the desktop top header with the target shell: app identity, global
   search, refresh/rescan, diagnostics/notifications, help, settings, and local
   profile/device controls.

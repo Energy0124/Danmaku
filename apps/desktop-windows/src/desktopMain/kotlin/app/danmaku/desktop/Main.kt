@@ -2932,6 +2932,45 @@ private enum class DesktopUiLanguage(
             lastScanCountsSummary = { reused, refreshed -> "$reused unchanged, $refreshed refreshed" },
             inspectorResizeHandleLabel = "Resize details panel",
             resetInspectorWidthAction = "Reset details width",
+            inspectorTitle = "Inspector",
+            inspectorEmptyText = "Select a series or episode to inspect playback, subtitles, and danmaku readiness.",
+            nextPlayableLabel = { title -> "Next playable: $title" },
+            loadingAction = "Loading...",
+            preparingAction = "Preparing...",
+            prepareAction = "Prepare",
+            prepareShortAction = "Prep",
+            detailsAction = "Details",
+            favoriteAction = "Favorite",
+            unfavoriteAction = "Unfavorite",
+            showEpisodeDetailsAction = "Show episode details",
+            checkCachedDanmakuAction = "Check cached danmaku",
+            moreEpisodeActionsAction = "More episode actions",
+            preparePlaybackAction = "Prepare playback",
+            refreshEpisodeMetadataAction = "Refresh episode metadata",
+            refreshingEpisodeMetadataAction = "Refreshing episode metadata",
+            refreshSeriesMetadataAction = "Refresh series metadata",
+            refreshingSeriesMetadataAction = "Refreshing series metadata",
+            loadIntoPlayerAction = "Load into player",
+            refreshDanmakuAction = "Refresh danmaku",
+            attachLocalDanmakuAction = "Attach local danmaku",
+            attachLocalDanmakuShortAction = "Attach local",
+            removeOverlayAction = "Remove overlay",
+            clearDanmakuCacheAction = "Clear danmaku cache",
+            clearCacheAction = "Clear cache",
+            enableAutoNextAction = "Enable auto-next",
+            disableAutoNextAction = "Disable auto-next",
+            autoNextOnLabel = "Auto-next on",
+            autoNextOffLabel = "Auto-next off",
+            readinessTitle = "Readiness",
+            preparedPlaybackLabel = "Prepared playback",
+            prepareToInspectTracksLabel = "Prepare to inspect tracks",
+            notPreparedLabel = "Not prepared",
+            resumeValueLabel = { positionMs -> "Resume ${positionMs.formatPlaybackTime()}" },
+            notCheckedYetLabel = "Not checked yet",
+            subtitlesIndexedLabel = { count -> "$count indexed" },
+            episodesTitle = "Episodes",
+            advancedTitle = "Advanced",
+            favoriteStatusLabel = "Favorite",
             downloadFilterTitles = mapOf(
                 DownloadQueueFilter.ALL to "All",
                 DownloadQueueFilter.ACTIVE to "Active",
@@ -3308,6 +3347,45 @@ private enum class DesktopUiLanguage(
             lastScanCountsSummary = { reused, refreshed -> "$reused 個未變更，$refreshed 個已更新" },
             inspectorResizeHandleLabel = "調整詳情面板寬度",
             resetInspectorWidthAction = "重設詳情寬度",
+            inspectorTitle = "檢視器",
+            inspectorEmptyText = "選取系列或集數以檢視播放、字幕與彈幕準備狀態。",
+            nextPlayableLabel = { title -> "下一個可播放：$title" },
+            loadingAction = "載入中...",
+            preparingAction = "準備中...",
+            prepareAction = "準備",
+            prepareShortAction = "準備",
+            detailsAction = "詳情",
+            favoriteAction = "收藏",
+            unfavoriteAction = "取消收藏",
+            showEpisodeDetailsAction = "顯示集數詳情",
+            checkCachedDanmakuAction = "檢查彈幕快取",
+            moreEpisodeActionsAction = "更多集數動作",
+            preparePlaybackAction = "準備播放",
+            refreshEpisodeMetadataAction = "重新整理集數中繼資料",
+            refreshingEpisodeMetadataAction = "正在重新整理集數中繼資料",
+            refreshSeriesMetadataAction = "重新整理系列中繼資料",
+            refreshingSeriesMetadataAction = "正在重新整理系列中繼資料",
+            loadIntoPlayerAction = "載入播放器",
+            refreshDanmakuAction = "重新整理彈幕",
+            attachLocalDanmakuAction = "附加本機彈幕",
+            attachLocalDanmakuShortAction = "附加本機",
+            removeOverlayAction = "移除覆蓋",
+            clearDanmakuCacheAction = "清除彈幕快取",
+            clearCacheAction = "清除快取",
+            enableAutoNextAction = "啟用自動下一集",
+            disableAutoNextAction = "停用自動下一集",
+            autoNextOnLabel = "自動下一集開啟",
+            autoNextOffLabel = "自動下一集關閉",
+            readinessTitle = "準備狀態",
+            preparedPlaybackLabel = "播放已準備",
+            prepareToInspectTracksLabel = "準備後檢視軌道",
+            notPreparedLabel = "尚未準備",
+            resumeValueLabel = { positionMs -> "續播 ${positionMs.formatPlaybackTime()}" },
+            notCheckedYetLabel = "尚未檢查",
+            subtitlesIndexedLabel = { count -> "已索引 $count 筆" },
+            episodesTitle = "集數",
+            advancedTitle = "進階",
+            favoriteStatusLabel = "已收藏",
             downloadFilterTitles = mapOf(
                 DownloadQueueFilter.ALL to "全部",
                 DownloadQueueFilter.ACTIVE to "進行中",
@@ -3662,6 +3740,45 @@ private data class DesktopStrings(
     val lastScanCountsSummary: (Int, Int) -> String,
     val inspectorResizeHandleLabel: String,
     val resetInspectorWidthAction: String,
+    val inspectorTitle: String,
+    val inspectorEmptyText: String,
+    val nextPlayableLabel: (String) -> String,
+    val loadingAction: String,
+    val preparingAction: String,
+    val prepareAction: String,
+    val prepareShortAction: String,
+    val detailsAction: String,
+    val favoriteAction: String,
+    val unfavoriteAction: String,
+    val showEpisodeDetailsAction: String,
+    val checkCachedDanmakuAction: String,
+    val moreEpisodeActionsAction: String,
+    val preparePlaybackAction: String,
+    val refreshEpisodeMetadataAction: String,
+    val refreshingEpisodeMetadataAction: String,
+    val refreshSeriesMetadataAction: String,
+    val refreshingSeriesMetadataAction: String,
+    val loadIntoPlayerAction: String,
+    val refreshDanmakuAction: String,
+    val attachLocalDanmakuAction: String,
+    val attachLocalDanmakuShortAction: String,
+    val removeOverlayAction: String,
+    val clearDanmakuCacheAction: String,
+    val clearCacheAction: String,
+    val enableAutoNextAction: String,
+    val disableAutoNextAction: String,
+    val autoNextOnLabel: String,
+    val autoNextOffLabel: String,
+    val readinessTitle: String,
+    val preparedPlaybackLabel: String,
+    val prepareToInspectTracksLabel: String,
+    val notPreparedLabel: String,
+    val resumeValueLabel: (Long) -> String,
+    val notCheckedYetLabel: String,
+    val subtitlesIndexedLabel: (Int) -> String,
+    val episodesTitle: String,
+    val advancedTitle: String,
+    val favoriteStatusLabel: String,
     val downloadFilterTitles: Map<DownloadQueueFilter, String> = emptyMap(),
     val downloadsActiveTitle: String,
     val downloadsActiveCaption: String,
@@ -7884,9 +8001,9 @@ private fun LibraryProgressOverview(
                     title = item.mediaItem.displaySeriesTitle(),
                     subtitle = item.mediaItem.episodeTitle,
                     fileGroupLabel = item.mediaItem.localSeriesLabel(strings),
-                    detail = "Resume at ${item.progress.positionMs.formatPlaybackTime()}",
+                    detail = strings.resumeAtLabel(item.progress.positionMs),
                     progressPercent = item.progress.progressPercent(),
-                    actionLabel = "Resume",
+                    actionLabel = strings.resumeAction,
                     mediaItem = item.mediaItem,
                 ),
             )
@@ -7897,9 +8014,9 @@ private fun LibraryProgressOverview(
                     title = item.mediaItem.displaySeriesTitle(),
                     subtitle = item.mediaItem.episodeTitle,
                     fileGroupLabel = item.mediaItem.localSeriesLabel(strings),
-                    detail = item.nextUpLabel(),
+                    detail = item.nextUpLabel(strings),
                     progressPercent = item.progress?.progressPercent(),
-                    actionLabel = item.nextUpActionLabel(),
+                    actionLabel = item.nextUpActionLabel(strings),
                     mediaItem = item.mediaItem,
                 ),
             )
@@ -7907,7 +8024,7 @@ private fun LibraryProgressOverview(
     }.distinctBy { it.mediaItem.id }.take(if (compact) 3 else 4)
     if (cards.isEmpty()) return
 
-    Text("Continue Watching", style = MaterialTheme.typography.h6, fontWeight = FontWeight.Bold)
+    Text(strings.continueWatchingTitle, style = MaterialTheme.typography.h6, fontWeight = FontWeight.Bold)
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -8245,8 +8362,8 @@ private fun LibraryInspectorPane(
 ) {
     WorkspacePanel(modifier = modifier.fillMaxHeight()) {
         if (selectedSeries == null || selectedItem == null) {
-            Text("Inspector", style = MaterialTheme.typography.h6, fontWeight = FontWeight.Bold)
-            EmptyState("Select a series or episode to inspect playback, subtitles, and danmaku readiness.")
+            Text(strings.inspectorTitle, style = MaterialTheme.typography.h6, fontWeight = FontWeight.Bold)
+            EmptyState(strings.inspectorEmptyText)
             return@WorkspacePanel
         }
         val activePreparation = selectedLocalPlaybackPreparation?.takeIf { it.item.id == selectedItem.id }
@@ -8287,7 +8404,7 @@ private fun LibraryInspectorPane(
         }
         Text(selectedSeries.title, style = MaterialTheme.typography.h6, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
         Text(
-            selectedEpisodeDetail?.mediaItem?.episodeTitle ?: "Next playable: ${selectedItem.episodeTitle}",
+            selectedEpisodeDetail?.mediaItem?.episodeTitle ?: strings.nextPlayableLabel(selectedItem.episodeTitle),
             color = DanmakuColors.TextMuted,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
@@ -8304,13 +8421,19 @@ private fun LibraryInspectorPane(
                 enabled = !isPreparing,
                 modifier = Modifier.weight(1f),
             ) {
-                Icon(Icons.Filled.PlayArrow, contentDescription = "Play", modifier = Modifier.size(18.dp))
+                Icon(Icons.Filled.PlayArrow, contentDescription = strings.playAction, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(6.dp))
-                Text(if (isPreparing) "Loading..." else selectedItem.primaryPlaybackActionLabel(watchStatusById[selectedItem.id]))
+                Text(
+                    if (isPreparing) {
+                        strings.loadingAction
+                    } else {
+                        selectedItem.primaryPlaybackActionLabel(watchStatusById[selectedItem.id], strings)
+                    },
+                )
             }
             LibraryActionButton(
                 imageVector = Icons.Filled.Refresh,
-                label = if (isPreparing) "Preparing..." else if (compact) "Prep" else "Prepare",
+                label = if (isPreparing) strings.preparingAction else if (compact) strings.prepareShortAction else strings.prepareAction,
                 modifier = Modifier.weight(1f),
                 enabled = !isPreparing,
                 onClick = { onPrepareLocalPlayback(selectedItem) },
@@ -8319,24 +8442,24 @@ private fun LibraryInspectorPane(
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             PlayerIconButton(
                 imageVector = Icons.Filled.Star,
-                contentDescription = if (isFavorite) "Unfavorite" else "Favorite",
+                contentDescription = if (isFavorite) strings.unfavoriteAction else strings.favoriteAction,
                 onClick = { onSetFavorite(selectedItem, !isFavorite) },
             )
             PlayerIconButton(
                 imageVector = Icons.Filled.Subtitles,
-                contentDescription = "Show episode details",
+                contentDescription = strings.showEpisodeDetailsAction,
                 onClick = { onShowDetails(selectedItem) },
             )
             PlayerIconButton(
                 imageVector = Icons.Filled.CheckCircle,
-                contentDescription = "Check cached danmaku",
+                contentDescription = strings.checkCachedDanmakuAction,
                 active = status != null && !status.summary.isDandanplayWarningStatus(),
                 onClick = { onInspectCachedDandanplay(selectedItem) },
             )
             Box {
                 PlayerIconButton(
                     imageVector = Icons.Filled.MoreHoriz,
-                    contentDescription = "More episode actions",
+                    contentDescription = strings.moreEpisodeActionsAction,
                     onClick = { episodeActionsExpanded = true },
                 )
                 DropdownMenu(
@@ -8350,7 +8473,7 @@ private fun LibraryInspectorPane(
                             onPrepareLocalPlayback(selectedItem)
                         },
                     ) {
-                        Text("Prepare playback")
+                        Text(strings.preparePlaybackAction)
                     }
                     DropdownMenuItem(
                         enabled = !isPreparing && !isRefreshingEpisodeMetadata,
@@ -8359,7 +8482,7 @@ private fun LibraryInspectorPane(
                             onRefreshEpisodeMetadata(selectedItem)
                         },
                     ) {
-                        Text("Refresh episode metadata")
+                        Text(strings.refreshEpisodeMetadataAction)
                     }
                     DropdownMenuItem(
                         enabled = !isPreparing && !isRefreshingSeriesMetadata,
@@ -8368,7 +8491,7 @@ private fun LibraryInspectorPane(
                             onRefreshSeriesMetadata(selectedSeries)
                         },
                     ) {
-                        Text("Refresh series metadata")
+                        Text(strings.refreshSeriesMetadataAction)
                     }
                     activePreparation?.let { preparation ->
                         DropdownMenuItem(
@@ -8377,7 +8500,7 @@ private fun LibraryInspectorPane(
                                 onLoadPreparedPlayback(preparation)
                             },
                         ) {
-                            Text("Load into player")
+                            Text(strings.loadIntoPlayerAction)
                         }
                         DropdownMenuItem(
                             enabled = !isPreparing,
@@ -8386,7 +8509,7 @@ private fun LibraryInspectorPane(
                                 onRefreshDandanplay(preparation)
                             },
                         ) {
-                            Text("Refresh danmaku")
+                            Text(strings.refreshDanmakuAction)
                         }
                         DropdownMenuItem(
                             enabled = !isPreparing,
@@ -8395,7 +8518,7 @@ private fun LibraryInspectorPane(
                                 onAttachManualDanmaku(preparation)
                             },
                         ) {
-                            Text("Attach local danmaku")
+                            Text(strings.attachLocalDanmakuAction)
                         }
                         DropdownMenuItem(
                             enabled = hasDanmakuOverlay && !isPreparing,
@@ -8404,7 +8527,7 @@ private fun LibraryInspectorPane(
                                 onClearDanmakuOverlay(preparation)
                             },
                         ) {
-                            Text("Remove overlay")
+                            Text(strings.removeOverlayAction)
                         }
                         DropdownMenuItem(
                             enabled = !isPreparing,
@@ -8413,7 +8536,7 @@ private fun LibraryInspectorPane(
                                 onClearDandanplayCache(preparation)
                             },
                         ) {
-                            Text("Clear danmaku cache")
+                            Text(strings.clearDanmakuCacheAction)
                         }
                     }
                     DropdownMenuItem(
@@ -8422,23 +8545,23 @@ private fun LibraryInspectorPane(
                             onSetAutoNextLocalPlayback(!autoNextLocalPlayback)
                         },
                     ) {
-                        Text(if (autoNextLocalPlayback) "Disable auto-next" else "Enable auto-next")
+                        Text(if (autoNextLocalPlayback) strings.disableAutoNextAction else strings.enableAutoNextAction)
                     }
                 }
             }
         }
         Divider(color = DanmakuColors.SurfaceRaised)
-        Text("Readiness", fontWeight = FontWeight.Bold)
+        Text(strings.readinessTitle, fontWeight = FontWeight.Bold)
         InspectorStatusRow(
             icon = if (activePreparation != null) Icons.Filled.CheckCircle else Icons.Filled.Warning,
-            label = if (activePreparation != null) "Prepared playback" else "Prepare to inspect tracks",
-            value = activePreparation?.resumePositionMs?.let { "Resume ${it.formatPlaybackTime()}" } ?: "Not prepared",
+            label = if (activePreparation != null) strings.preparedPlaybackLabel else strings.prepareToInspectTracksLabel,
+            value = activePreparation?.resumePositionMs?.let(strings.resumeValueLabel) ?: strings.notPreparedLabel,
             color = if (activePreparation != null) DanmakuColors.Good else DanmakuColors.TextMuted,
         )
         InspectorStatusRow(
             icon = if (status?.summary?.isDandanplayWarningStatus() == true) Icons.Filled.Warning else Icons.Filled.CheckCircle,
-            label = "Danmaku",
-            value = status?.summary ?: "Not checked yet",
+            label = strings.danmakuTitle,
+            value = status?.summary ?: strings.notCheckedYetLabel,
             color = when {
                 status == null -> DanmakuColors.TextMuted
                 status.summary.isDandanplayWarningStatus() -> DanmakuColors.Warning
@@ -8453,8 +8576,8 @@ private fun LibraryInspectorPane(
         )
         InspectorStatusRow(
             icon = Icons.Filled.Subtitles,
-            label = "Subtitles",
-            value = "${selectedItem.subtitles.size} indexed",
+            label = strings.subtitleLabel,
+            value = strings.subtitlesIndexedLabel(selectedItem.subtitles.size),
             color = if (selectedItem.subtitles.isNotEmpty()) DanmakuColors.Good else DanmakuColors.TextMuted,
         )
         ExternalAnimeMappingPanel(
@@ -8477,7 +8600,7 @@ private fun LibraryInspectorPane(
             MetadataRow("Size", detail.mediaItem.sizeBytes.formatLibrarySize())
         }
         Divider(color = DanmakuColors.SurfaceRaised)
-        Text("Episodes", fontWeight = FontWeight.Bold)
+        Text(strings.episodesTitle, fontWeight = FontWeight.Bold)
         LazyColumn(modifier = Modifier.heightIn(max = 220.dp)) {
             selectedSeries.seasons.forEach { season ->
                 item(key = season.id) {
@@ -8498,24 +8621,24 @@ private fun LibraryInspectorPane(
         }
         activePreparation?.let { preparation ->
             Divider(color = DanmakuColors.SurfaceRaised)
-            Text("Advanced", fontWeight = FontWeight.Bold)
+            Text(strings.advancedTitle, fontWeight = FontWeight.Bold)
             LibraryActionButton(
                 imageVector = Icons.Filled.PlayArrow,
-                label = "Load into player",
+                label = strings.loadIntoPlayerAction,
                 modifier = Modifier.fillMaxWidth(),
                 onClick = { onLoadPreparedPlayback(preparation) },
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 LibraryActionButton(
                     imageVector = Icons.Filled.Refresh,
-                    label = "Refresh danmaku",
+                    label = strings.refreshDanmakuAction,
                     modifier = Modifier.weight(1f),
                     enabled = !isPreparing,
                     onClick = { onRefreshDandanplay(preparation) },
                 )
                 LibraryActionButton(
                     imageVector = Icons.Filled.Subtitles,
-                    label = "Attach local",
+                    label = strings.attachLocalDanmakuShortAction,
                     modifier = Modifier.weight(1f),
                     enabled = !isPreparing,
                     onClick = { onAttachManualDanmaku(preparation) },
@@ -8524,14 +8647,14 @@ private fun LibraryInspectorPane(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 LibraryActionButton(
                     imageVector = Icons.Filled.Refresh,
-                    label = if (isRefreshingEpisodeMetadata) "Metadata..." else "Episode meta",
+                    label = if (isRefreshingEpisodeMetadata) strings.metadataLoadingLabel else strings.refreshEpisodeMetadataAction,
                     modifier = Modifier.weight(1f),
                     enabled = !isPreparing && !isRefreshingEpisodeMetadata,
                     onClick = { onRefreshEpisodeMetadata(selectedItem) },
                 )
                 LibraryActionButton(
                     imageVector = Icons.Filled.Refresh,
-                    label = if (isRefreshingSeriesMetadata) "Series..." else "Series meta",
+                    label = if (isRefreshingSeriesMetadata) strings.metadataLoadingLabel else strings.refreshSeriesMetadataAction,
                     modifier = Modifier.weight(1f),
                     enabled = !isPreparing && !isRefreshingSeriesMetadata,
                     onClick = { onRefreshSeriesMetadata(selectedSeries) },
@@ -8540,14 +8663,14 @@ private fun LibraryInspectorPane(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 LibraryActionButton(
                     imageVector = Icons.Filled.Subtitles,
-                    label = "Remove overlay",
+                    label = strings.removeOverlayAction,
                     modifier = Modifier.weight(1f),
                     enabled = hasDanmakuOverlay && !isPreparing,
                     onClick = { onClearDanmakuOverlay(preparation) },
                 )
                 LibraryActionButton(
                     imageVector = Icons.Filled.Refresh,
-                    label = "Clear cache",
+                    label = strings.clearCacheAction,
                     modifier = Modifier.weight(1f),
                     enabled = !isPreparing,
                     onClick = { onClearDandanplayCache(preparation) },
@@ -8555,7 +8678,7 @@ private fun LibraryInspectorPane(
             }
             LibraryActionButton(
                 imageVector = Icons.Filled.FastForward,
-                label = if (autoNextLocalPlayback) "Auto-next on" else "Auto-next off",
+                label = if (autoNextLocalPlayback) strings.autoNextOnLabel else strings.autoNextOffLabel,
                 modifier = Modifier.fillMaxWidth(),
                 onClick = { onSetAutoNextLocalPlayback(!autoNextLocalPlayback) },
             )
@@ -9272,11 +9395,14 @@ private fun openDownloadOutputFolder(item: DesktopDownloadQueueItem): Result<Uni
         desktop.open(folder.toFile())
     }
 
-private fun LibraryMediaItem.primaryPlaybackActionLabel(watchStatus: LibraryWatchStatus?): String =
+private fun LibraryMediaItem.primaryPlaybackActionLabel(
+    watchStatus: LibraryWatchStatus?,
+    strings: DesktopStrings,
+): String =
     if (watchStatus?.state == LibraryWatchState.IN_PROGRESS) {
-        "Resume"
+        strings.resumeAction
     } else {
-        "Play"
+        strings.playAction
     }
 
 private fun LibraryMediaItem.displaySeriesTitle(): String =
@@ -11861,7 +11987,7 @@ private fun NextUpRow(
                 Text(label, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Text(
-                "${item.nextUpLabel()} - ${metadataReadiness.label}",
+                "${item.nextUpLabel(strings)} - ${metadataReadiness.label}",
                 color = DanmakuColors.TextMuted,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -11871,22 +11997,22 @@ private fun NextUpRow(
             if (compact) {
                 PlayerIconButton(
                     imageVector = Icons.Filled.Subtitles,
-                    contentDescription = "Details",
+                    contentDescription = strings.detailsAction,
                     onClick = { onShowDetails(item.mediaItem) },
                 )
             } else {
                 LibraryActionButton(
                     imageVector = Icons.Filled.Subtitles,
-                    label = "Details",
+                    label = strings.detailsAction,
                     onClick = { onShowDetails(item.mediaItem) },
                 )
             }
             PlayerIconButton(
                 imageVector = Icons.Filled.Refresh,
                 contentDescription = if (isRefreshingMetadata) {
-                    "Refreshing episode metadata"
+                    strings.refreshingEpisodeMetadataAction
                 } else {
-                    "Refresh episode metadata"
+                    strings.refreshEpisodeMetadataAction
                 },
                 enabled = !isPreparing && !isRefreshingMetadata,
                 active = isRefreshingMetadata,
@@ -11894,13 +12020,13 @@ private fun NextUpRow(
             )
             LibraryActionButton(
                 imageVector = Icons.Filled.Refresh,
-                label = if (isPreparing) "Preparing..." else if (compact) "Prep" else "Prepare",
+                label = if (isPreparing) strings.preparingAction else if (compact) strings.prepareShortAction else strings.prepareAction,
                 enabled = !isPreparing,
                 onClick = { onPrepareLocalPlayback(item.mediaItem) },
             )
             LibraryActionButton(
                 imageVector = Icons.Filled.PlayArrow,
-                label = if (isPreparing) "Loading..." else item.nextUpActionLabel(),
+                label = if (isPreparing) strings.loadingAction else item.nextUpActionLabel(strings),
                 enabled = !isPreparing,
                 onClick = { onPlayLocalPlayback(item.mediaItem) },
             )
@@ -11950,22 +12076,22 @@ private fun ContinueWatchingRow(
             if (compact) {
                 PlayerIconButton(
                     imageVector = Icons.Filled.Subtitles,
-                    contentDescription = "Details",
+                    contentDescription = strings.detailsAction,
                     onClick = { onShowDetails(item.mediaItem) },
                 )
             } else {
                 LibraryActionButton(
                     imageVector = Icons.Filled.Subtitles,
-                    label = "Details",
+                    label = strings.detailsAction,
                     onClick = { onShowDetails(item.mediaItem) },
                 )
             }
             PlayerIconButton(
                 imageVector = Icons.Filled.Refresh,
                 contentDescription = if (isRefreshingMetadata) {
-                    "Refreshing episode metadata"
+                    strings.refreshingEpisodeMetadataAction
                 } else {
-                    "Refresh episode metadata"
+                    strings.refreshEpisodeMetadataAction
                 },
                 enabled = !isPreparing && !isRefreshingMetadata,
                 active = isRefreshingMetadata,
@@ -11973,7 +12099,7 @@ private fun ContinueWatchingRow(
             )
             LibraryActionButton(
                 imageVector = Icons.Filled.PlayArrow,
-                label = if (isPreparing) "Loading..." else "Resume",
+                label = if (isPreparing) strings.loadingAction else strings.resumeAction,
                 enabled = !isPreparing,
                 onClick = { onPlayLocalPlayback(item.mediaItem) },
             )
@@ -12025,22 +12151,22 @@ private fun RecentlyWatchedRow(
             if (compact) {
                 PlayerIconButton(
                     imageVector = Icons.Filled.Subtitles,
-                    contentDescription = "Details",
+                    contentDescription = strings.detailsAction,
                     onClick = { onShowDetails(item.mediaItem) },
                 )
             } else {
                 LibraryActionButton(
                     imageVector = Icons.Filled.Subtitles,
-                    label = "Details",
+                    label = strings.detailsAction,
                     onClick = { onShowDetails(item.mediaItem) },
                 )
             }
             PlayerIconButton(
                 imageVector = Icons.Filled.Refresh,
                 contentDescription = if (isRefreshingMetadata) {
-                    "Refreshing episode metadata"
+                    strings.refreshingEpisodeMetadataAction
                 } else {
-                    "Refresh episode metadata"
+                    strings.refreshEpisodeMetadataAction
                 },
                 enabled = !isPreparing && !isRefreshingMetadata,
                 active = isRefreshingMetadata,
@@ -12048,13 +12174,13 @@ private fun RecentlyWatchedRow(
             )
             LibraryActionButton(
                 imageVector = Icons.Filled.Refresh,
-                label = if (isPreparing) "Preparing..." else if (compact) "Prep" else "Prepare",
+                label = if (isPreparing) strings.preparingAction else if (compact) strings.prepareShortAction else strings.prepareAction,
                 enabled = !isPreparing,
                 onClick = { onPrepareLocalPlayback(item.mediaItem) },
             )
             LibraryActionButton(
                 imageVector = Icons.Filled.PlayArrow,
-                label = if (isPreparing) "Loading..." else "Play",
+                label = if (isPreparing) strings.loadingAction else strings.playAction,
                 enabled = !isPreparing,
                 onClick = { onPlayLocalPlayback(item.mediaItem) },
             )
@@ -12116,7 +12242,7 @@ private fun EpisodeRow(
             Text(
                 listOfNotNull(
                     watchStatus.statusLabel(),
-                    "Favorite".takeIf { isFavorite },
+                    strings.favoriteStatusLabel.takeIf { isFavorite },
                     metadataReadiness.label,
                 ).joinToString(separator = " - "),
                 color = DanmakuColors.TextMuted,
@@ -12128,32 +12254,32 @@ private fun EpisodeRow(
             if (compact) {
                 PlayerIconButton(
                     imageVector = Icons.Filled.Subtitles,
-                    contentDescription = "Details",
+                    contentDescription = strings.detailsAction,
                     onClick = { onShowDetails(item) },
                 )
                 PlayerIconButton(
                     imageVector = Icons.Filled.Star,
-                    contentDescription = if (isFavorite) "Unfavorite" else "Favorite",
+                    contentDescription = if (isFavorite) strings.unfavoriteAction else strings.favoriteAction,
                     onClick = { onSetFavorite(item, !isFavorite) },
                 )
             } else {
                 LibraryActionButton(
                     imageVector = Icons.Filled.Subtitles,
-                    label = "Details",
+                    label = strings.detailsAction,
                     onClick = { onShowDetails(item) },
                 )
                 LibraryActionButton(
                     imageVector = Icons.Filled.Star,
-                    label = if (isFavorite) "Unfavorite" else "Favorite",
+                    label = if (isFavorite) strings.unfavoriteAction else strings.favoriteAction,
                     onClick = { onSetFavorite(item, !isFavorite) },
                 )
             }
             PlayerIconButton(
                 imageVector = Icons.Filled.Refresh,
                 contentDescription = if (isRefreshingMetadata) {
-                    "Refreshing episode metadata"
+                    strings.refreshingEpisodeMetadataAction
                 } else {
-                    "Refresh episode metadata"
+                    strings.refreshEpisodeMetadataAction
                 },
                 enabled = !isPreparing && !isRefreshingMetadata,
                 active = isRefreshingMetadata,
@@ -12161,13 +12287,13 @@ private fun EpisodeRow(
             )
             LibraryActionButton(
                 imageVector = Icons.Filled.Refresh,
-                label = if (isPreparing) "Preparing..." else if (compact) "Prep" else "Prepare",
+                label = if (isPreparing) strings.preparingAction else if (compact) strings.prepareShortAction else strings.prepareAction,
                 enabled = !isPreparing,
                 onClick = { onPrepareLocalPlayback(item) },
             )
             LibraryActionButton(
                 imageVector = Icons.Filled.PlayArrow,
-                label = if (isPreparing) "Loading..." else "Play",
+                label = if (isPreparing) strings.loadingAction else strings.playAction,
                 enabled = !isPreparing,
                 onClick = { onPlayLocalPlayback(item) },
             )

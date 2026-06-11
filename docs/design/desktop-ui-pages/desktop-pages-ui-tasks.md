@@ -56,6 +56,9 @@ Status legend:
   - Library metadata readiness badges/details and local file-group labels now
     use the desktop string layer across Home cards, Library poster cards,
     Library episode rows, and the inspector compact episode list.
+  - Library inspector empty state, readiness headings, primary playback actions,
+    episode action menu, compact row details/favorite/metadata buttons, and
+    advanced danmaku/cache actions now use the desktop string layer.
   - Settings General privacy chrome and the real dandanplay/MyAnimeList/Bangumi
     provider forms now use the desktop string layer for labels, actions,
     validation copy, and clear/cleanup confirmation text.
@@ -103,6 +106,8 @@ Status legend:
   Watched, Favorites, Files, History-style surfaces, and Paired views.
   - Continue Watching, Next Up, History, Favorites, and Files rows now use the
     shared selected-media highlight; Paired remote rows remain separate.
+  - Local Library row action labels/tooltips now share English / `zh-TW`
+    strings for Details, Favorite, metadata refresh, Prepare, Play, and Resume.
 - `[~]` Show matched anime title, local series title, local file/folder title,
   and episode title together without ambiguity.
   - Home cards and Library episode rows now prefer matched anime display
@@ -140,6 +145,9 @@ Status legend:
     the selected inspector episode changes, including default next-playable
     selections and prepared playback selections, and exposes a compact manual
     check-cache action on the selected episode.
+  - The selected-episode inspector labels cached-danmaku checks, advanced
+    cache clear, manual attach, and overlay removal through the desktop string
+    layer.
   - Remaining: add persistence/relaunch coverage and broader cache manager UI.
 - `[~]` Add tests for selection propagation, metadata refresh action routing,
   and episode-only mapping updates.
