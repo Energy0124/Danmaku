@@ -3175,6 +3175,47 @@ private enum class DesktopUiLanguage(
             cachedDanmakuTitle = "Cached Danmaku",
             notCheckedLabel = "Not checked",
             manageCacheAction = "Manage Cache",
+            danmakuCacheSettingsTitle = "Danmaku Cache",
+            danmakuCacheSettingsDescription = "Review persisted dandanplay comment caches, inspect selected entries, and clean stale rows using the configured cache age.",
+            cachedEpisodesLabel = "Cached episodes",
+            openCacheManagerAction = "Open cache manager",
+            danmakuCacheManagerTitle = "Danmaku Cache Manager",
+            cachedSummaryTitle = "Cached",
+            expiredSummaryTitle = "Expired",
+            commentsSummaryTitle = "Comments",
+            cachedEventsCaption = "cached events",
+            cacheDayRuleCaption = { days -> "$days day rule" },
+            persistedEntriesTitle = "Persisted entries",
+            noDandanplayCachesText = "No dandanplay comment caches are persisted yet.",
+            selectedCacheTitle = "Selected cache",
+            selectCachePromptText = "Select an episode cache after preparing or refreshing danmaku.",
+            expiredStatusLabel = "Expired",
+            cacheEntryCommentSummary = { count, fetchedAtEpochMs, fileName ->
+                "$count comments - ${fetchedAtEpochMs.formatEpochTime()} - $fileName"
+            },
+            animeLabel = "Anime",
+            episodeLabel = "Episode",
+            mediaIdLabel = "Media ID",
+            fileLabel = "File",
+            fileSizeLabel = "File size",
+            commentsLabel = "Comments",
+            fetchedLabel = "Fetched",
+            shiftLabel = "Shift",
+            unknownAnimeLabel = "Unknown anime",
+            unknownEpisodeLabel = "Unknown episode",
+            noneLabel = "None",
+            shiftSecondsLabel = { seconds -> "$seconds seconds" },
+            assCacheLabel = "ASS cache",
+            deleteCachedDanmakuTitle = "Delete cached danmaku?",
+            deleteCachedDanmakuText = { title ->
+                "This removes the persisted dandanplay cache for $title. It does not remove the original media file."
+            },
+            deleteCacheAction = "Delete cache",
+            cleanExpiredDanmakuCachesTitle = "Clean expired danmaku caches?",
+            cleanExpiredDanmakuCachesText = { days ->
+                "This removes dandanplay comment caches older than $days days. Current valid caches remain available."
+            },
+            cleanExpiredAction = "Clean expired",
             providerSettingsAction = "Provider settings",
             myAnimeListClientSavedLabel = "Client ID saved",
             trackingCredentialsNeededLabel = "Configure API credentials to search and sync",
@@ -3647,6 +3688,47 @@ private enum class DesktopUiLanguage(
             cachedDanmakuTitle = "已快取彈幕",
             notCheckedLabel = "尚未檢查",
             manageCacheAction = "管理快取",
+            danmakuCacheSettingsTitle = "彈幕快取",
+            danmakuCacheSettingsDescription = "檢視已儲存的 dandanplay 彈幕快取、檢查所選項目，並依目前快取期限清理過期資料。",
+            cachedEpisodesLabel = "已快取集數",
+            openCacheManagerAction = "開啟快取管理",
+            danmakuCacheManagerTitle = "彈幕快取管理",
+            cachedSummaryTitle = "已快取",
+            expiredSummaryTitle = "已過期",
+            commentsSummaryTitle = "彈幕",
+            cachedEventsCaption = "已快取事件",
+            cacheDayRuleCaption = { days -> "$days 天規則" },
+            persistedEntriesTitle = "已儲存項目",
+            noDandanplayCachesText = "目前沒有已儲存的 dandanplay 彈幕快取。",
+            selectedCacheTitle = "所選快取",
+            selectCachePromptText = "準備或重新整理彈幕後，選取一個集數快取檢視內容。",
+            expiredStatusLabel = "已過期",
+            cacheEntryCommentSummary = { count, fetchedAtEpochMs, fileName ->
+                "$count 則彈幕 - ${fetchedAtEpochMs.formatEpochTime()} - $fileName"
+            },
+            animeLabel = "動畫",
+            episodeLabel = "集數",
+            mediaIdLabel = "媒體 ID",
+            fileLabel = "檔案",
+            fileSizeLabel = "檔案大小",
+            commentsLabel = "彈幕",
+            fetchedLabel = "取得時間",
+            shiftLabel = "時間位移",
+            unknownAnimeLabel = "未知動畫",
+            unknownEpisodeLabel = "未知集數",
+            noneLabel = "無",
+            shiftSecondsLabel = { seconds -> "$seconds 秒" },
+            assCacheLabel = "ASS 快取",
+            deleteCachedDanmakuTitle = "要刪除已快取彈幕嗎？",
+            deleteCachedDanmakuText = { title ->
+                "這會移除「$title」的 dandanplay 持久快取，不會刪除原始媒體檔案。"
+            },
+            deleteCacheAction = "刪除快取",
+            cleanExpiredDanmakuCachesTitle = "要清理過期彈幕快取嗎？",
+            cleanExpiredDanmakuCachesText = { days ->
+                "這會移除超過 $days 天的 dandanplay 彈幕快取。目前仍有效的快取會保留。"
+            },
+            cleanExpiredAction = "清理過期項目",
             providerSettingsAction = "服務設定",
             myAnimeListClientSavedLabel = "Client ID 已儲存",
             trackingCredentialsNeededLabel = "設定 API 憑證後即可搜尋與同步",
@@ -4087,6 +4169,41 @@ private data class DesktopStrings(
     val cachedDanmakuTitle: String,
     val notCheckedLabel: String,
     val manageCacheAction: String,
+    val danmakuCacheSettingsTitle: String,
+    val danmakuCacheSettingsDescription: String,
+    val cachedEpisodesLabel: String,
+    val openCacheManagerAction: String,
+    val danmakuCacheManagerTitle: String,
+    val cachedSummaryTitle: String,
+    val expiredSummaryTitle: String,
+    val commentsSummaryTitle: String,
+    val cachedEventsCaption: String,
+    val cacheDayRuleCaption: (Int) -> String,
+    val persistedEntriesTitle: String,
+    val noDandanplayCachesText: String,
+    val selectedCacheTitle: String,
+    val selectCachePromptText: String,
+    val expiredStatusLabel: String,
+    val cacheEntryCommentSummary: (Int, Long, String) -> String,
+    val animeLabel: String,
+    val episodeLabel: String,
+    val mediaIdLabel: String,
+    val fileLabel: String,
+    val fileSizeLabel: String,
+    val commentsLabel: String,
+    val fetchedLabel: String,
+    val shiftLabel: String,
+    val unknownAnimeLabel: String,
+    val unknownEpisodeLabel: String,
+    val noneLabel: String,
+    val shiftSecondsLabel: (Double) -> String,
+    val assCacheLabel: String,
+    val deleteCachedDanmakuTitle: String,
+    val deleteCachedDanmakuText: (String) -> String,
+    val deleteCacheAction: String,
+    val cleanExpiredDanmakuCachesTitle: String,
+    val cleanExpiredDanmakuCachesText: (Int) -> String,
+    val cleanExpiredAction: String,
     val providerSettingsAction: String,
     val myAnimeListClientSavedLabel: String,
     val trackingCredentialsNeededLabel: String,
@@ -10663,16 +10780,16 @@ private fun SettingsSectionContent(
                     settings = danmakuSettings,
                     onSave = onSaveDanmakuSettings,
                 )
-                SectionCard("Danmaku Cache") {
+                SectionCard(strings.danmakuCacheSettingsTitle) {
                     Text(
-                        "Review persisted dandanplay comment caches, inspect selected entries, and clean stale rows using the configured cache age.",
+                        strings.danmakuCacheSettingsDescription,
                         color = DanmakuColors.TextMuted,
                     )
-                    MetadataRow("Cached episodes", dandanplayCacheEntries.size.toString())
+                    MetadataRow(strings.cachedEpisodesLabel, dandanplayCacheEntries.size.toString())
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         LibraryActionButton(
                             imageVector = Icons.Filled.Subtitles,
-                            label = "Open cache manager",
+                            label = strings.openCacheManagerAction,
                             onClick = {
                                 onRefreshDandanplayCacheEntries()
                                 showDanmakuCacheManager = true
@@ -10680,7 +10797,7 @@ private fun SettingsSectionContent(
                         )
                         LibraryActionButton(
                             imageVector = Icons.Filled.Refresh,
-                            label = "Refresh",
+                            label = strings.refreshAction,
                             onClick = onRefreshDandanplayCacheEntries,
                         )
                     }
@@ -10780,6 +10897,7 @@ private fun SettingsSectionContent(
     }
     if (showDanmakuCacheManager) {
         DanmakuCacheManagerDialog(
+            strings = strings,
             cacheEntries = dandanplayCacheEntries,
             cacheMaxAgeDays = dandanplaySettings.cacheMaxAgeDays,
             onRefresh = onRefreshDandanplayCacheEntries,
@@ -11180,6 +11298,7 @@ private fun ServerDashboardEventRow(event: LocalLibraryServerEvent) {
 
 @Composable
 private fun DanmakuCacheManagerDialog(
+    strings: DesktopStrings,
     cacheEntries: List<DesktopDandanplayCommentCache>,
     cacheMaxAgeDays: Int,
     onRefresh: () -> Unit,
@@ -11199,7 +11318,7 @@ private fun DanmakuCacheManagerDialog(
     AlertDialog(
         modifier = Modifier.width(880.dp),
         onDismissRequest = onDismiss,
-        title = { Text("Danmaku Cache Manager") },
+        title = { Text(strings.danmakuCacheManagerTitle) },
         text = {
             Column(
                 modifier = Modifier.heightIn(max = 620.dp),
@@ -11207,21 +11326,21 @@ private fun DanmakuCacheManagerDialog(
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     SummaryCard(
-                        title = "Cached",
+                        title = strings.cachedSummaryTitle,
                         value = cacheEntries.size.toString(),
-                        caption = "episodes",
+                        caption = strings.episodesLabel,
                         modifier = Modifier.weight(1f),
                     )
                     SummaryCard(
-                        title = "Expired",
+                        title = strings.expiredSummaryTitle,
                         value = staleCount.toString(),
-                        caption = "$cacheMaxAgeDays day rule",
+                        caption = strings.cacheDayRuleCaption(cacheMaxAgeDays),
                         modifier = Modifier.weight(1f),
                     )
                     SummaryCard(
-                        title = "Comments",
+                        title = strings.commentsSummaryTitle,
                         value = cacheEntries.sumOf { it.commentCountForCacheManager() }.toString(),
-                        caption = "cached events",
+                        caption = strings.cachedEventsCaption,
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -11233,9 +11352,9 @@ private fun DanmakuCacheManagerDialog(
                         modifier = Modifier.weight(1.1f),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Text("Persisted entries", fontWeight = FontWeight.Bold)
+                        Text(strings.persistedEntriesTitle, fontWeight = FontWeight.Bold)
                         if (cacheEntries.isEmpty()) {
-                            Text("No dandanplay comment caches are persisted yet.", color = DanmakuColors.TextMuted)
+                            Text(strings.noDandanplayCachesText, color = DanmakuColors.TextMuted)
                         } else {
                             LazyColumn(
                                 modifier = Modifier.heightIn(max = 360.dp),
@@ -11243,6 +11362,7 @@ private fun DanmakuCacheManagerDialog(
                             ) {
                                 items(cacheEntries, key = DesktopDandanplayCommentCache::mediaId) { entry ->
                                     DanmakuCacheEntryRow(
+                                        strings = strings,
                                         entry = entry,
                                         selected = selectedEntry?.mediaId == entry.mediaId,
                                         cacheMaxAgeDays = cacheMaxAgeDays,
@@ -11256,14 +11376,15 @@ private fun DanmakuCacheManagerDialog(
                         modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Text("Selected cache", fontWeight = FontWeight.Bold)
+                        Text(strings.selectedCacheTitle, fontWeight = FontWeight.Bold)
                         if (selectedEntry == null) {
                             Text(
-                                "Select an episode cache after preparing or refreshing danmaku.",
+                                strings.selectCachePromptText,
                                 color = DanmakuColors.TextMuted,
                             )
                         } else {
                             DanmakuCacheEntryDetails(
+                                strings = strings,
                                 entry = selectedEntry,
                                 cacheMaxAgeDays = cacheMaxAgeDays,
                                 onDelete = { pendingDeleteEntry = selectedEntry },
@@ -11275,7 +11396,7 @@ private fun DanmakuCacheManagerDialog(
         },
         confirmButton = {
             Button(onClick = onRefresh) {
-                Text("Refresh")
+                Text(strings.refreshAction)
             }
         },
         dismissButton = {
@@ -11284,10 +11405,10 @@ private fun DanmakuCacheManagerDialog(
                     onClick = { confirmCleanupExpired = true },
                     enabled = cacheEntries.isNotEmpty(),
                 ) {
-                    Text("Clean expired")
+                    Text(strings.cleanExpiredAction)
                 }
                 TextButton(onClick = onDismiss) {
-                    Text("Close")
+                    Text(strings.closeAction)
                 }
             }
         },
@@ -11295,18 +11416,20 @@ private fun DanmakuCacheManagerDialog(
 
     pendingDeleteEntry?.let { entry ->
         SettingsConfirmationDialog(
-            title = "Delete cached danmaku?",
-            text = "This removes the persisted dandanplay cache for ${entry.displayTitleForCacheManager()}. It does not remove the original media file.",
-            confirmLabel = "Delete cache",
+            title = strings.deleteCachedDanmakuTitle,
+            text = strings.deleteCachedDanmakuText(entry.displayTitleForCacheManager()),
+            confirmLabel = strings.deleteCacheAction,
+            cancelLabel = strings.cancelAction,
             onConfirm = { onDeleteEntry(entry.mediaId) },
             onDismiss = { pendingDeleteEntry = null },
         )
     }
     if (confirmCleanupExpired) {
         SettingsConfirmationDialog(
-            title = "Clean expired danmaku caches?",
-            text = "This removes dandanplay comment caches older than $cacheMaxAgeDays days. Current valid caches remain available.",
-            confirmLabel = "Clean expired",
+            title = strings.cleanExpiredDanmakuCachesTitle,
+            text = strings.cleanExpiredDanmakuCachesText(cacheMaxAgeDays),
+            confirmLabel = strings.cleanExpiredAction,
+            cancelLabel = strings.cancelAction,
             onConfirm = onCleanupExpired,
             onDismiss = { confirmCleanupExpired = false },
         )
@@ -11315,6 +11438,7 @@ private fun DanmakuCacheManagerDialog(
 
 @Composable
 private fun DanmakuCacheEntryRow(
+    strings: DesktopStrings,
     entry: DesktopDandanplayCommentCache,
     selected: Boolean,
     cacheMaxAgeDays: Int,
@@ -11332,7 +11456,7 @@ private fun DanmakuCacheEntryRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         StatusPill(
-            text = if (isExpired) "Expired" else "Ready",
+            text = if (isExpired) strings.expiredStatusLabel else strings.readyStatusLabel,
             icon = if (isExpired) Icons.Filled.Warning else Icons.Filled.CheckCircle,
             active = !isExpired,
             color = if (isExpired) DanmakuColors.Warning else DanmakuColors.Good,
@@ -11345,7 +11469,11 @@ private fun DanmakuCacheEntryRow(
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
-                "${entry.commentCountForCacheManager()} comments - ${entry.fetchedAtEpochMs.formatEpochTime()} - ${entry.fileName}",
+                strings.cacheEntryCommentSummary(
+                    entry.commentCountForCacheManager(),
+                    entry.fetchedAtEpochMs,
+                    entry.fileName,
+                ),
                 color = DanmakuColors.TextMuted,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -11356,25 +11484,30 @@ private fun DanmakuCacheEntryRow(
 
 @Composable
 private fun DanmakuCacheEntryDetails(
+    strings: DesktopStrings,
     entry: DesktopDandanplayCommentCache,
     cacheMaxAgeDays: Int,
     onDelete: () -> Unit,
 ) {
     val isExpired = entry.isExpiredForCacheManager(cacheMaxAgeDays)
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        MetadataRow("Status", if (isExpired) "Expired" else "Ready", if (isExpired) DanmakuColors.Warning else DanmakuColors.Good)
-        MetadataRow("Anime", entry.animeTitle ?: "Unknown anime")
-        MetadataRow("Episode", entry.episodeTitle ?: entry.episodeId?.toString() ?: "Unknown episode")
-        MetadataRow("Media ID", entry.mediaId)
-        MetadataRow("File", entry.fileName)
-        MetadataRow("File size", entry.fileSizeBytes.formatLibrarySize())
-        MetadataRow("Comments", entry.commentCountForCacheManager().toString())
-        MetadataRow("Fetched", entry.fetchedAtEpochMs.formatEpochTime())
-        MetadataRow("Shift", entry.shiftSeconds?.let { "$it seconds" } ?: "None")
-        entry.renderedAssPath?.let { MetadataRow("ASS cache", it) }
+        MetadataRow(
+            strings.statusLabel,
+            if (isExpired) strings.expiredStatusLabel else strings.readyStatusLabel,
+            if (isExpired) DanmakuColors.Warning else DanmakuColors.Good,
+        )
+        MetadataRow(strings.animeLabel, entry.animeTitle ?: strings.unknownAnimeLabel)
+        MetadataRow(strings.episodeLabel, entry.episodeTitle ?: entry.episodeId?.toString() ?: strings.unknownEpisodeLabel)
+        MetadataRow(strings.mediaIdLabel, entry.mediaId)
+        MetadataRow(strings.fileLabel, entry.fileName)
+        MetadataRow(strings.fileSizeLabel, entry.fileSizeBytes.formatLibrarySize())
+        MetadataRow(strings.commentsLabel, entry.commentCountForCacheManager().toString())
+        MetadataRow(strings.fetchedLabel, entry.fetchedAtEpochMs.formatEpochTime())
+        MetadataRow(strings.shiftLabel, entry.shiftSeconds?.let(strings.shiftSecondsLabel) ?: strings.noneLabel)
+        entry.renderedAssPath?.let { MetadataRow(strings.assCacheLabel, it) }
         LibraryActionButton(
             imageVector = Icons.Filled.Delete,
-            label = "Delete cache",
+            label = strings.deleteCacheAction,
             onClick = onDelete,
         )
     }

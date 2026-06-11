@@ -43,6 +43,9 @@ Status legend:
   - Home operational status cards now use the same desktop string layer for
     server, metadata/posters, external sync, downloads, and cached danmaku
     labels/actions while keeping runtime values as source data.
+  - The Settings Danmaku cache card and Danmaku Cache Manager dialog now use
+    the same string layer for summaries, entry rows, details, empty states, and
+    cleanup/delete confirmations.
   - Home main dashboard and app rail chrome now use the same desktop string
     layer for library slices, now-playing fallback, Continue Watching,
     Recently Added/Watched, My Library summaries, empty states, and Home-only
