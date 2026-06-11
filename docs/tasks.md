@@ -52,8 +52,9 @@ Status legend:
 - `[~]` Move the remaining desktop player surface out of `Main.kt`; playback
   constants and cycling helpers are split, and player composables are being
   moved into a dedicated desktop playback tab file.
-- `[~]` Move the desktop library workspace and shared library row/card
-  composables out of `Main.kt`.
+- `[x]` Move the desktop library workspace and shared library row/card
+  composables out of `Main.kt`; library UI is now split into tab, workspace,
+  lists, inspector, and helper files.
 - `[~]` Move desktop settings, server dashboard, and cache-management surfaces
   out of `Main.kt`.
 

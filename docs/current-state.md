@@ -31,7 +31,8 @@ trusted-LAN clients.
   shell file. The `Main.kt` decomposition is now tracked in
   `docs/design/desktop-main-refactor-plan.md`, with feature tab files being
   separated and the first remembered diagnostics/server-event state object
-  extracted from the shell.
+  extracted from the shell. Library UI has also been split into focused tab,
+  workspace, list/progress, inspector/mapping, and helper files.
 - Multi-root local anime library indexing, incremental rescanning, ani-rss
   output-folder import, and persistent SQLDelight/SQLite storage.
 - Trusted-LAN library server with pairing token, JSON catalog, byte-range media

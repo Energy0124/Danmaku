@@ -83,6 +83,17 @@ clear:
 - Split provider cards, server dashboard, cache manager, and validation helpers
   from settings if `DesktopSettingsTab.kt` remains above the target size.
 
+Completed library split:
+
+- `DesktopLibraryTab.kt` now keeps the top-level tab wrapper.
+- `DesktopLibraryWorkspace.kt` owns workspace navigation, imports, toolbar, and
+  external sync preview.
+- `DesktopLibraryLists.kt` owns progress/list surfaces.
+- `DesktopLibraryInspector.kt` owns inspector, mapping, metadata-match, and
+  compact inspector rows.
+- `DesktopLibraryUiHelpers.kt` owns shared library keyboard, poster,
+  metadata-readiness, and progress/download helper functions.
+
 Acceptance:
 
 - Prefer files below roughly 700 lines unless a single cohesive surface
