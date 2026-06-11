@@ -2591,6 +2591,7 @@ private fun DesktopShell(
                             seriesPosterById = seriesPosterById,
                             externalAnimeMappings = externalAnimeMappings,
                             externalAnimeItemMappingsByMediaId = externalAnimeItemMappingsByMediaId,
+                            externalAnimeProviderSettings = externalAnimeProviderSettings,
                             originalSeriesTitleByMediaId = originalSeriesTitleByMediaId,
                             refreshingMetadataMediaIds = refreshingMetadataMediaIds,
                             refreshingMetadataSeriesIds = refreshingMetadataSeriesIds,
@@ -5300,6 +5301,7 @@ private fun MediaLibraryTab(
     seriesPosterById: Map<String, Path?>,
     externalAnimeMappings: List<ExternalAnimeMapping>,
     externalAnimeItemMappingsByMediaId: Map<String, List<DesktopExternalAnimeItemMapping>>,
+    externalAnimeProviderSettings: ExternalAnimeProviderSettings,
     originalSeriesTitleByMediaId: Map<String, String>,
     refreshingMetadataMediaIds: Set<String>,
     refreshingMetadataSeriesIds: Set<String>,
@@ -5411,6 +5413,7 @@ private fun MediaLibraryTab(
             isExternalAnimeSyncing = isExternalAnimeSyncing,
             externalAnimeMappings = externalAnimeMappings,
             externalAnimeItemMappingsByMediaId = externalAnimeItemMappingsByMediaId,
+            externalAnimeProviderSettings = externalAnimeProviderSettings,
             originalSeriesTitleByMediaId = originalSeriesTitleByMediaId,
             refreshingMetadataMediaIds = refreshingMetadataMediaIds,
             refreshingMetadataSeriesIds = refreshingMetadataSeriesIds,
@@ -5484,6 +5487,7 @@ private fun WindowsLibraryWorkspace(
     isExternalAnimeSyncing: Boolean,
     externalAnimeMappings: List<ExternalAnimeMapping>,
     externalAnimeItemMappingsByMediaId: Map<String, List<DesktopExternalAnimeItemMapping>>,
+    externalAnimeProviderSettings: ExternalAnimeProviderSettings,
     originalSeriesTitleByMediaId: Map<String, String>,
     refreshingMetadataMediaIds: Set<String>,
     refreshingMetadataSeriesIds: Set<String>,
@@ -5710,6 +5714,7 @@ private fun WindowsLibraryWorkspace(
                 autoNextLocalPlayback = autoNextLocalPlayback,
                 externalAnimeMappings = selectedInspectorSeriesMappings,
                 externalAnimeItemMappings = selectedInspectorItemMappings,
+                externalAnimeProviderSettings = externalAnimeProviderSettings,
                 originalSeriesTitleByMediaId = originalSeriesTitleByMediaId,
                 refreshingMetadataMediaIds = refreshingMetadataMediaIds,
                 refreshingMetadataSeriesIds = refreshingMetadataSeriesIds,
@@ -7077,6 +7082,7 @@ private fun LibraryInspectorPane(
     autoNextLocalPlayback: Boolean,
     externalAnimeMappings: List<ExternalAnimeMapping>,
     externalAnimeItemMappings: List<DesktopExternalAnimeItemMapping>,
+    externalAnimeProviderSettings: ExternalAnimeProviderSettings,
     originalSeriesTitleByMediaId: Map<String, String>,
     refreshingMetadataMediaIds: Set<String>,
     refreshingMetadataSeriesIds: Set<String>,
@@ -7325,6 +7331,7 @@ private fun LibraryInspectorPane(
             selectedItem = selectedItem,
             seriesMappings = externalAnimeMappings,
             itemMappings = externalAnimeItemMappings,
+            externalAnimeProviderSettings = externalAnimeProviderSettings,
             onSaveExternalAnimeMapping = onSaveExternalAnimeMapping,
             onDeleteExternalAnimeMapping = onDeleteExternalAnimeMapping,
             onSaveExternalAnimeItemMapping = onSaveExternalAnimeItemMapping,
@@ -7439,6 +7446,7 @@ private fun ExternalAnimeMappingPanel(
     selectedItem: LibraryMediaItem,
     seriesMappings: List<ExternalAnimeMapping>,
     itemMappings: List<DesktopExternalAnimeItemMapping>,
+    externalAnimeProviderSettings: ExternalAnimeProviderSettings,
     onSaveExternalAnimeMapping: (LibrarySeries, ExternalAnimeProvider, String) -> Unit,
     onDeleteExternalAnimeMapping: (LibrarySeries, ExternalAnimeProvider) -> Unit,
     onSaveExternalAnimeItemMapping: (LibraryMediaItem, ExternalAnimeProvider, String) -> Unit,
@@ -7490,6 +7498,7 @@ private fun ExternalAnimeMappingPanel(
         MetadataMatchDialog(
             selectedSeries = selectedSeries,
             currentMappings = seriesMappings,
+            externalAnimeProviderSettings = externalAnimeProviderSettings,
             onSearchExternalAnimeMatches = onSearchExternalAnimeMatches,
             onSaveExternalAnimeMapping = onSaveExternalAnimeMapping,
             onDismiss = { showMatchDialog = false },
@@ -7501,17 +7510,21 @@ private fun ExternalAnimeMappingPanel(
 private fun MetadataMatchDialog(
     selectedSeries: LibrarySeries,
     currentMappings: List<ExternalAnimeMapping>,
+    externalAnimeProviderSettings: ExternalAnimeProviderSettings,
     onSearchExternalAnimeMatches: suspend (ExternalAnimeMatchQuery, Set<ExternalAnimeProvider>) -> Result<List<ExternalAnimeMatchCandidate>>,
     onSaveExternalAnimeMapping: (LibrarySeries, ExternalAnimeProvider, String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     var queryText by remember(selectedSeries.id) { mutableStateOf(selectedSeries.title) }
-    var includeMyAnimeList by remember(selectedSeries.id) {
-        mutableStateOf(currentMappings.none { it.animeId.provider == ExternalAnimeProvider.MY_ANIME_LIST })
+    val myAnimeListSearchAvailable = externalAnimeProviderSettings.myAnimeListClientId != null
+    val bangumiSearchAvailable = externalAnimeProviderSettings.bangumiBaseUrl.isNotBlank() &&
+        externalAnimeProviderSettings.bangumiUserAgent.isNotBlank()
+    var includeMyAnimeList by remember(selectedSeries.id, myAnimeListSearchAvailable) {
+        mutableStateOf(myAnimeListSearchAvailable && currentMappings.none { it.animeId.provider == ExternalAnimeProvider.MY_ANIME_LIST })
     }
-    var includeBangumi by remember(selectedSeries.id) {
-        mutableStateOf(currentMappings.none { it.animeId.provider == ExternalAnimeProvider.BANGUMI })
+    var includeBangumi by remember(selectedSeries.id, bangumiSearchAvailable) {
+        mutableStateOf(bangumiSearchAvailable && currentMappings.none { it.animeId.provider == ExternalAnimeProvider.BANGUMI })
     }
     var isSearching by remember { mutableStateOf(false) }
     var searchError by remember { mutableStateOf<String?>(null) }
@@ -7573,13 +7586,25 @@ private fun MetadataMatchDialog(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     MetadataMatchProviderToggle(
                         label = "MyAnimeList",
+                        detail = externalAnimeProviderSettings.myAnimeListStatusText,
                         selected = includeMyAnimeList,
-                        onToggle = { includeMyAnimeList = !includeMyAnimeList },
+                        enabled = myAnimeListSearchAvailable,
+                        onToggle = {
+                            if (myAnimeListSearchAvailable) {
+                                includeMyAnimeList = !includeMyAnimeList
+                            }
+                        },
                     )
                     MetadataMatchProviderToggle(
                         label = "Bangumi",
+                        detail = externalAnimeProviderSettings.bangumiStatusText,
                         selected = includeBangumi,
-                        onToggle = { includeBangumi = !includeBangumi },
+                        enabled = bangumiSearchAvailable,
+                        onToggle = {
+                            if (bangumiSearchAvailable) {
+                                includeBangumi = !includeBangumi
+                            }
+                        },
                     )
                     Spacer(modifier = Modifier.weight(1f))
                     LibraryActionButton(
@@ -7587,6 +7612,17 @@ private fun MetadataMatchDialog(
                         label = if (isSearching) "Searching..." else "Search",
                         enabled = !isSearching && queryText.isNotBlank(),
                         onClick = ::runSearch,
+                    )
+                }
+                if (!myAnimeListSearchAvailable || !bangumiSearchAvailable) {
+                    Text(
+                        buildList {
+                            if (!myAnimeListSearchAvailable) add("MyAnimeList search needs a client ID in Settings > Providers")
+                            if (!bangumiSearchAvailable) add("Bangumi search needs a valid API URL and User-Agent")
+                        }.joinToString("; "),
+                        color = DanmakuColors.Warning,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
                 currentMappings.takeIf { it.isNotEmpty() }?.let { mappings ->
@@ -7645,25 +7681,44 @@ private fun MetadataMatchDialog(
 @Composable
 private fun MetadataMatchProviderToggle(
     label: String,
+    detail: String,
     selected: Boolean,
+    enabled: Boolean,
     onToggle: () -> Unit,
 ) {
+    val backgroundColor = when {
+        selected -> DanmakuColors.AccentSoft
+        enabled -> DanmakuColors.SurfaceRaised
+        else -> DanmakuColors.SurfaceRaised.copy(alpha = 0.48f)
+    }
+    val iconColor = when {
+        selected -> DanmakuColors.Good
+        enabled -> DanmakuColors.TextMuted
+        else -> DanmakuColors.Warning
+    }
     Row(
         modifier = Modifier
             .clip(RoundedCornerShape(999.dp))
-            .background(if (selected) DanmakuColors.AccentSoft else DanmakuColors.SurfaceRaised)
-            .clickable(onClick = onToggle)
+            .background(backgroundColor)
+            .clickable(enabled = enabled, onClick = onToggle)
             .padding(horizontal = 10.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Icon(
-            imageVector = if (selected) Icons.Filled.CheckCircle else Icons.Filled.Search,
+            imageVector = when {
+                selected -> Icons.Filled.CheckCircle
+                enabled -> Icons.Filled.Search
+                else -> Icons.Filled.Warning
+            },
             contentDescription = label,
-            tint = if (selected) DanmakuColors.Good else DanmakuColors.TextMuted,
+            tint = iconColor,
             modifier = Modifier.size(16.dp),
         )
-        Text(label, maxLines = 1)
+        Column {
+            Text(label, maxLines = 1, color = if (enabled) Color.White else DanmakuColors.TextMuted)
+            Text(detail, maxLines = 1, color = if (enabled) DanmakuColors.TextMuted else DanmakuColors.Warning)
+        }
     }
 }
 

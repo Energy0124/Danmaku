@@ -253,9 +253,11 @@ Status legend:
     clients, caches returned provider metadata, ranks candidates by confidence,
     shows provider IDs, matched titles, episode counts, years, summaries, and
     saves the selected series-level mapping through the existing mapping store.
-  - Remaining: add poster previews, provider availability badges, richer manual
-    override controls, and episode-level dandanplay match search in the same
-    surface.
+  - Provider availability badges now reflect saved MyAnimeList client ID and
+    Bangumi API/User-Agent settings, disable unavailable searches, and explain
+    which Settings > Providers value is needed.
+  - Remaining: add poster previews, richer manual override controls, and
+    episode-level dandanplay match search in the same surface.
 - `[~]` Build Danmaku Cache Manager with persisted cache state, cleanup rules,
   selected episode state, and confirmation for bulk deletes.
   - Settings > Danmaku now opens a Danmaku Cache Manager backed by persisted
