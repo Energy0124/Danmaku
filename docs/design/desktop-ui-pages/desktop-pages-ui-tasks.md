@@ -55,6 +55,9 @@ Status legend:
   - Player preparation/status overlay and the right danmaku/details panel now
     use the desktop string layer for panel labels, visibility actions, cache
     rows, track fallbacks, sliders, and preparation/error step labels.
+  - Player empty state, top navigation chrome, and bottom transport
+    content-description/tooling labels now use the desktop string layer for
+    English / `zh-TW` readiness.
   - Remaining: migrate page actions, status labels, dialogs, tooltips,
     inspector copy, and empty/error states.
 - `[ ]` Add UI review screenshots or checks for English and `zh-TW` labels in
@@ -137,6 +140,9 @@ Status legend:
 
 - `[ ]` Align player overlays with the mockup: compact top overlay, bottom
   transport, and collapsible right panel.
+  - Player empty state, top overlay/navigation controls, and bottom transport
+    labels/tooltips now share localized chrome with the rest of the desktop
+    string layer while preserving current transport behavior.
 - `[x]` Add current Player focus mode so playback can hide non-video chrome and
   use almost the full window.
 - `[x]` Add clear restore controls and a keyboard shortcut for Player focus

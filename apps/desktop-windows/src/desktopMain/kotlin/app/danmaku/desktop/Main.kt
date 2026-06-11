@@ -2817,6 +2817,29 @@ private enum class DesktopUiLanguage(
             credentialsPrivacyText = "Credentials are stored in local protected settings where supported and omitted from diagnostics.",
             playbackNeedsAttentionTitle = "Playback needs attention",
             preparingPlaybackTitle = "Preparing playback",
+            noMediaLoadedLabel = "No media loaded",
+            playingLabel = "Playing",
+            videoHostLabel = "Video host",
+            openMediaFileAction = "Open media file",
+            homeAction = "Home",
+            libraryAction = "Library",
+            showPlayerChromeAction = "Show player chrome (H)",
+            hidePlayerChromeAction = "Hide player chrome (H)",
+            previousEpisodeAction = "Previous episode",
+            previousEpisodeWithTitle = { title -> "Previous episode: $title" },
+            nextEpisodeAction = "Next episode",
+            nextEpisodeWithTitle = { title -> "Next episode: $title" },
+            backThirtySecondsAction = "Back 30 seconds",
+            backTenSecondsAction = "Back 10 seconds",
+            playAction = "Play",
+            forwardTenSecondsAction = "Forward 10 seconds",
+            forwardThirtySecondsAction = "Forward 30 seconds",
+            volumeLabel = "Volume",
+            subtitleShortLabel = "Sub",
+            hideDanmakuPanelAction = "Hide danmaku panel",
+            showDanmakuPanelAction = "Show danmaku panel",
+            exitFullscreenAction = "Exit fullscreen",
+            enterFullscreenAction = "Enter fullscreen",
             libraryStepLabel = "Library",
             preparingMediaStepText = "Preparing media, subtitles, metadata, and danmaku...",
             playerRuntimeStepLabel = "Player runtime",
@@ -3116,6 +3139,29 @@ private enum class DesktopUiLanguage(
             credentialsPrivacyText = "憑證會盡可能儲存在本機受保護設定中，並且不會寫入診斷資訊。",
             playbackNeedsAttentionTitle = "播放需要處理",
             preparingPlaybackTitle = "正在準備播放",
+            noMediaLoadedLabel = "尚未載入媒體",
+            playingLabel = "播放中",
+            videoHostLabel = "影片主機",
+            openMediaFileAction = "開啟媒體檔案",
+            homeAction = "首頁",
+            libraryAction = "媒體庫",
+            showPlayerChromeAction = "顯示播放器介面 (H)",
+            hidePlayerChromeAction = "隱藏播放器介面 (H)",
+            previousEpisodeAction = "上一集",
+            previousEpisodeWithTitle = { title -> "上一集：$title" },
+            nextEpisodeAction = "下一集",
+            nextEpisodeWithTitle = { title -> "下一集：$title" },
+            backThirtySecondsAction = "倒退 30 秒",
+            backTenSecondsAction = "倒退 10 秒",
+            playAction = "播放",
+            forwardTenSecondsAction = "快轉 10 秒",
+            forwardThirtySecondsAction = "快轉 30 秒",
+            volumeLabel = "音量",
+            subtitleShortLabel = "字幕",
+            hideDanmakuPanelAction = "隱藏彈幕面板",
+            showDanmakuPanelAction = "顯示彈幕面板",
+            exitFullscreenAction = "離開全螢幕",
+            enterFullscreenAction = "進入全螢幕",
             libraryStepLabel = "媒體庫",
             preparingMediaStepText = "正在準備媒體、字幕、中繼資料與彈幕...",
             playerRuntimeStepLabel = "播放器執行階段",
@@ -3402,6 +3448,29 @@ private data class DesktopStrings(
     val credentialsPrivacyText: String,
     val playbackNeedsAttentionTitle: String,
     val preparingPlaybackTitle: String,
+    val noMediaLoadedLabel: String,
+    val playingLabel: String,
+    val videoHostLabel: String,
+    val openMediaFileAction: String,
+    val homeAction: String,
+    val libraryAction: String,
+    val showPlayerChromeAction: String,
+    val hidePlayerChromeAction: String,
+    val previousEpisodeAction: String,
+    val previousEpisodeWithTitle: (String) -> String,
+    val nextEpisodeAction: String,
+    val nextEpisodeWithTitle: (String) -> String,
+    val backThirtySecondsAction: String,
+    val backTenSecondsAction: String,
+    val playAction: String,
+    val forwardTenSecondsAction: String,
+    val forwardThirtySecondsAction: String,
+    val volumeLabel: String,
+    val subtitleShortLabel: String,
+    val hideDanmakuPanelAction: String,
+    val showDanmakuPanelAction: String,
+    val exitFullscreenAction: String,
+    val enterFullscreenAction: String,
     val libraryStepLabel: String,
     val preparingMediaStepText: String,
     val playerRuntimeStepLabel: String,
@@ -5134,7 +5203,7 @@ private fun PlaybackTab(
         DesktopMpvVideoControlsState(
             visible = true,
             hasMedia = false,
-            title = playbackLabel ?: playbackSnapshot.source?.toString()?.redactToken() ?: "No media loaded",
+            title = playbackLabel ?: playbackSnapshot.source?.toString()?.redactToken() ?: strings.noMediaLoadedLabel,
             status = playbackSnapshot.status.name,
             overlayStatus = overlayStatus,
             positionMs = 0L,
@@ -5142,8 +5211,8 @@ private fun PlaybackTab(
             isPlaying = false,
             volumePercent = playbackSnapshot.volumePercent,
             playbackRate = playbackSnapshot.playbackRate,
-            audioText = "Audio",
-            subtitleText = "Sub",
+            audioText = strings.audioLabel,
+            subtitleText = strings.subtitleShortLabel,
             aspectText = videoAspectMode.label,
             isFullscreen = isFullscreen,
             canOpenMedia = canOpenMedia,
@@ -5178,7 +5247,8 @@ private fun PlaybackTab(
     Column(modifier = playbackModifier) {
         if (hasMedia && !isFullscreen && !isFocusMode) {
             PlaybackWindowNavigationHeader(
-                title = playbackLabel ?: playbackSnapshot.source?.toString()?.redactToken() ?: "Playing",
+                strings = strings,
+                title = playbackLabel ?: playbackSnapshot.source?.toString()?.redactToken() ?: strings.playingLabel,
                 status = playbackSnapshot.status.name,
                 overlayStatus = overlayStatus,
                 isFocusMode = isFocusMode,
@@ -5219,7 +5289,8 @@ private fun PlaybackTab(
                             .revealControlsOnPointerInput(),
                     ) {
                         PlayerTopOverlay(
-                            title = playbackLabel ?: playbackSnapshot.source?.toString()?.redactToken() ?: "No media loaded",
+                            strings = strings,
+                            title = playbackLabel ?: playbackSnapshot.source?.toString()?.redactToken() ?: strings.noMediaLoadedLabel,
                             status = playbackSnapshot.status.name,
                             overlayStatus = overlayStatus,
                             isFullscreen = isFullscreen,
@@ -5237,6 +5308,7 @@ private fun PlaybackTab(
                     }
                 }
                 PlayerEmptyOverlay(
+                    strings = strings,
                     canOpenMedia = canOpenMedia,
                     mpvRuntimeStatus = mpvRuntimeStatus,
                     videoHostStatus = videoHostStatus,
@@ -5250,6 +5322,7 @@ private fun PlaybackTab(
                         .revealControlsOnPointerInput(),
                 ) {
                     PlayerBottomOverlay(
+                        strings = strings,
                         playbackSnapshot = playbackSnapshot,
                         isFullscreen = isFullscreen,
                         videoAspectMode = videoAspectMode,
@@ -5366,6 +5439,7 @@ private fun KeyEvent.toDesktopPlayerShortcutInput(): DesktopPlayerShortcutInput?
 
 @Composable
 private fun PlayerEmptyOverlay(
+    strings: DesktopStrings,
     canOpenMedia: Boolean,
     mpvRuntimeStatus: String,
     videoHostStatus: String,
@@ -5379,23 +5453,24 @@ private fun PlayerEmptyOverlay(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("No media loaded", color = Color.White, style = MaterialTheme.typography.h5)
+        Text(strings.noMediaLoadedLabel, color = Color.White, style = MaterialTheme.typography.h5)
         Spacer(modifier = Modifier.height(10.dp))
         Text(
-            text = "$mpvRuntimeStatus Video host: $videoHostStatus",
+            text = "$mpvRuntimeStatus ${strings.videoHostLabel}: $videoHostStatus",
             color = DanmakuColors.TextMuted,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
         Spacer(modifier = Modifier.height(16.dp))
         Button(onClick = onOpenMediaFile, enabled = canOpenMedia) {
-            Text("Open media file")
+            Text(strings.openMediaFileAction)
         }
     }
 }
 
 @Composable
 private fun PlaybackWindowNavigationHeader(
+    strings: DesktopStrings,
     title: String,
     status: String,
     overlayStatus: String,
@@ -5412,11 +5487,11 @@ private fun PlaybackWindowNavigationHeader(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        PlayerIconButton(Icons.Filled.Home, "Home", onClick = onShowHome)
-        PlayerIconButton(Icons.AutoMirrored.Filled.LibraryBooks, "Library", onClick = onShowLibrary)
+        PlayerIconButton(Icons.Filled.Home, strings.homeAction, onClick = onShowHome)
+        PlayerIconButton(Icons.AutoMirrored.Filled.LibraryBooks, strings.libraryAction, onClick = onShowLibrary)
         PlayerIconButton(
             imageVector = if (isFocusMode) Icons.Filled.FullscreenExit else Icons.Filled.Fullscreen,
-            contentDescription = if (isFocusMode) "Show player chrome (H)" else "Hide player chrome (H)",
+            contentDescription = if (isFocusMode) strings.showPlayerChromeAction else strings.hidePlayerChromeAction,
             active = isFocusMode,
             onClick = onToggleFocusMode,
         )
@@ -5448,6 +5523,7 @@ private fun PlaybackWindowNavigationHeader(
 
 @Composable
 private fun PlayerTopOverlay(
+    strings: DesktopStrings,
     title: String,
     status: String,
     overlayStatus: String,
@@ -5466,11 +5542,11 @@ private fun PlayerTopOverlay(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        PlayerIconButton(Icons.Filled.Home, "Home", onClick = onShowHome)
-        PlayerIconButton(Icons.AutoMirrored.Filled.LibraryBooks, "Library", onClick = onShowLibrary)
+        PlayerIconButton(Icons.Filled.Home, strings.homeAction, onClick = onShowHome)
+        PlayerIconButton(Icons.AutoMirrored.Filled.LibraryBooks, strings.libraryAction, onClick = onShowLibrary)
         PlayerIconButton(
             imageVector = if (isFocusMode) Icons.Filled.FullscreenExit else Icons.Filled.Fullscreen,
-            contentDescription = if (isFocusMode) "Show player chrome (H)" else "Hide player chrome (H)",
+            contentDescription = if (isFocusMode) strings.showPlayerChromeAction else strings.hidePlayerChromeAction,
             active = isFocusMode,
             onClick = onToggleFocusMode,
         )
@@ -5497,6 +5573,7 @@ private fun PlayerTopOverlay(
 
 @Composable
 private fun PlayerBottomOverlay(
+    strings: DesktopStrings,
     playbackSnapshot: PlaybackSnapshot,
     isFullscreen: Boolean,
     videoAspectMode: DesktopVideoAspectMode,
@@ -5592,40 +5669,40 @@ private fun PlayerBottomOverlay(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                PlayerIconButton(Icons.Filled.FolderOpen, "Open media file", enabled = canOpenMedia, onClick = onOpenMediaFile)
+                PlayerIconButton(Icons.Filled.FolderOpen, strings.openMediaFileAction, enabled = canOpenMedia, onClick = onOpenMediaFile)
                 PlayerIconButton(
                     imageVector = Icons.Filled.SkipPrevious,
-                    contentDescription = previousEpisodeLabel?.let { "Previous episode: $it" } ?: "Previous episode",
+                    contentDescription = previousEpisodeLabel?.let(strings.previousEpisodeWithTitle) ?: strings.previousEpisodeAction,
                     enabled = hasMedia && onPlayPreviousEpisode != null,
                     onClick = { onPlayPreviousEpisode?.invoke() },
                 )
                 if (!isNarrow) {
-                    PlayerIconButton(Icons.Filled.FastRewind, "Back 30 seconds", enabled = hasMedia, onClick = onSeekBackwardLarge)
+                    PlayerIconButton(Icons.Filled.FastRewind, strings.backThirtySecondsAction, enabled = hasMedia, onClick = onSeekBackwardLarge)
                 }
-                PlayerIconButton(Icons.Filled.Replay10, "Back 10 seconds", enabled = hasMedia, onClick = onSeekBackward)
+                PlayerIconButton(Icons.Filled.Replay10, strings.backTenSecondsAction, enabled = hasMedia, onClick = onSeekBackward)
                 PlayerIconButton(
                     imageVector = if (playbackSnapshot.status == PlaybackStatus.PLAYING) {
                         Icons.Filled.Pause
                     } else {
                         Icons.Filled.PlayArrow
                     },
-                    contentDescription = if (playbackSnapshot.status == PlaybackStatus.PLAYING) "Pause" else "Play",
+                    contentDescription = if (playbackSnapshot.status == PlaybackStatus.PLAYING) strings.pauseAction else strings.playAction,
                     enabled = hasMedia,
                     onClick = if (playbackSnapshot.status == PlaybackStatus.PLAYING) onPause else onPlay,
                 )
-                PlayerIconButton(Icons.Filled.Forward10, "Forward 10 seconds", enabled = hasMedia, onClick = onSeekForward)
+                PlayerIconButton(Icons.Filled.Forward10, strings.forwardTenSecondsAction, enabled = hasMedia, onClick = onSeekForward)
                 if (!isNarrow) {
-                    PlayerIconButton(Icons.Filled.FastForward, "Forward 30 seconds", enabled = hasMedia, onClick = onSeekForwardLarge)
+                    PlayerIconButton(Icons.Filled.FastForward, strings.forwardThirtySecondsAction, enabled = hasMedia, onClick = onSeekForwardLarge)
                 }
                 PlayerIconButton(
                     imageVector = Icons.Filled.SkipNext,
-                    contentDescription = nextEpisodeLabel?.let { "Next episode: $it" } ?: "Next episode",
+                    contentDescription = nextEpisodeLabel?.let(strings.nextEpisodeWithTitle) ?: strings.nextEpisodeAction,
                     enabled = hasMedia && onPlayNextEpisode != null,
                     onClick = { onPlayNextEpisode?.invoke() },
                 )
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.VolumeUp,
-                    contentDescription = "Volume",
+                    contentDescription = strings.volumeLabel,
                     tint = DanmakuColors.TextMuted,
                 )
                 Text(
@@ -5648,7 +5725,7 @@ private fun PlayerBottomOverlay(
                 )
                 if (!isCompact) {
                     PlayerOverlayButton(
-                        text = playbackSnapshot.selectedTrackButtonText(PlaybackTrackKind.AUDIO, "Audio"),
+                        text = playbackSnapshot.selectedTrackButtonText(PlaybackTrackKind.AUDIO, strings.audioLabel),
                         enabled = hasMedia && playbackSnapshot.tracks.any { it.kind == PlaybackTrackKind.AUDIO },
                         modifier = Modifier.width(108.dp),
                         onClick = {
@@ -5656,7 +5733,7 @@ private fun PlayerBottomOverlay(
                         },
                     )
                     PlayerOverlayButton(
-                        text = playbackSnapshot.selectedTrackButtonText(PlaybackTrackKind.SUBTITLE, "Sub"),
+                        text = playbackSnapshot.selectedTrackButtonText(PlaybackTrackKind.SUBTITLE, strings.subtitleShortLabel),
                         enabled = hasMedia && playbackSnapshot.tracks.any { it.kind == PlaybackTrackKind.SUBTITLE },
                         modifier = Modifier.width(108.dp),
                         onClick = {
@@ -5673,9 +5750,9 @@ private fun PlayerBottomOverlay(
                 PlayerIconButton(
                     imageVector = Icons.Filled.Subtitles,
                     contentDescription = if (rightPanelVisible) {
-                        "Hide danmaku panel"
+                        strings.hideDanmakuPanelAction
                     } else {
-                        "Show danmaku panel"
+                        strings.showDanmakuPanelAction
                     },
                     enabled = hasMedia,
                     active = rightPanelVisible,
@@ -5683,14 +5760,14 @@ private fun PlayerBottomOverlay(
                 )
                 PlayerIconButton(
                     imageVector = if (isFocusMode) Icons.Filled.FullscreenExit else Icons.Filled.Fullscreen,
-                    contentDescription = if (isFocusMode) "Show player chrome (H)" else "Hide player chrome (H)",
+                    contentDescription = if (isFocusMode) strings.showPlayerChromeAction else strings.hidePlayerChromeAction,
                     enabled = true,
                     active = isFocusMode,
                     onClick = onToggleFocusMode,
                 )
                 PlayerIconButton(
                     imageVector = if (isFullscreen) Icons.Filled.FullscreenExit else Icons.Filled.Fullscreen,
-                    contentDescription = if (isFullscreen) "Exit fullscreen" else "Enter fullscreen",
+                    contentDescription = if (isFullscreen) strings.exitFullscreenAction else strings.enterFullscreenAction,
                     enabled = hasMedia,
                     onClick = { onSetFullscreen(!isFullscreen) },
                 )

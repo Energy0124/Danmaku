@@ -49,6 +49,8 @@ Status legend:
   - Player preparation/status overlay and right danmaku/details panel chrome
     now use the same desktop string layer for labels, actions, cache rows,
     track fallbacks, sliders, and preparation step labels.
+  - Player empty state, top navigation chrome, and bottom transport
+    labels/tooltips now use the same desktop string layer.
 - `[~]` Align the desktop top header with the target shell: app identity, global
   search, refresh/rescan, diagnostics/notifications, help, settings, and local
   profile/device controls.
