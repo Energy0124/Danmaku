@@ -605,6 +605,14 @@ internal fun DesktopShell(
             appendDiagnostic = ::appendDiagnostic,
         )
     }
+    val downloadActions = remember(libraryState) {
+        DesktopShellDownloadActions(
+            scope = scope,
+            catalogStore = catalogStore,
+            libraryState = libraryState,
+            appendDiagnostic = ::appendDiagnostic,
+        )
+    }
     val discoveryAnnouncer = remember(server) {
         LocalLibraryDiscoveryAnnouncer(server.localPort).apply {
             start()
@@ -680,8 +688,7 @@ internal fun DesktopShell(
                 }
             }
             DesktopShellTab.DOWNLOADS -> {
-                libraryState.downloadQueueItems = catalogStore.loadDownloads()
-                appendDiagnostic("downloads", "Primary shortcut refreshed download queue")
+                downloadActions.refreshQueue()
                 true
             }
             DesktopShellTab.PLAYBACK -> {
@@ -1226,32 +1233,9 @@ internal fun DesktopShell(
                                     title = navigationState.desktopStrings.chooseAniRssCompletedMediaFolderTitle,
                                 )?.let(libraryActions::importAndScanAniRssRoot)
                             },
-                            onRefreshQueue = {
-                                libraryState.downloadQueueItems = catalogStore.loadDownloads()
-                            },
-                            onRemoveQueueItem = { item ->
-                                scope.launch {
-                                    runCatching {
-                                        withContext(Dispatchers.IO) {
-                                            catalogStore.deleteDownload(item.id)
-                                        }
-                                    }.onSuccess {
-                                        libraryState.downloadQueueItems = catalogStore.loadDownloads()
-                                        appendDiagnostic("downloads", "Removed download queue item ${item.id}")
-                                    }.onFailure { error ->
-                                        appendDiagnostic("downloads", "Failed to remove download queue item ${item.id}: ${error.message}")
-                                    }
-                                }
-                            },
-                            onOpenOutputFolder = { item ->
-                                openDownloadOutputFolder(item)
-                                    .onSuccess {
-                                        appendDiagnostic("downloads", "Opened download output folder for ${item.id}")
-                                    }
-                                    .onFailure { error ->
-                                        appendDiagnostic("downloads", "Failed to open download output folder for ${item.id}: ${error.message}")
-                                    }
-                            },
+                            onRefreshQueue = downloadActions::refreshQueue,
+                            onRemoveQueueItem = downloadActions::removeQueueItem,
+                            onOpenOutputFolder = downloadActions::openOutputFolder,
                         )
                         DesktopShellTab.PROFILE -> ProfileTab(
                             desktopLanguage = navigationState.desktopLanguage,

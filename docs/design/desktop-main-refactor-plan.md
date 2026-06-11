@@ -84,10 +84,11 @@ Initial slice:
 - `DesktopShellLibraryActions` owns root scan/import/remove, published library
   application, background poster refresh, metadata refresh, favorites,
   external mapping/search, and external tracking sync actions.
+- `DesktopShellDownloadActions` owns persisted queue refresh/removal and
+  opening queue output folders.
 - `DesktopShell` delegates diagnostic/server-event actions and
   navigation/search/language actions to remembered state objects while
-  download queue actions, shell/window effects, and player control callback
-  wiring remain local.
+  shell/window effects and player control callback wiring remain local.
 
 Acceptance:
 
@@ -161,10 +162,9 @@ Completed shared/library follow-up split:
 Remaining structural hotspot:
 
 - `DesktopShell.kt` still owns dependency construction, long-lived state,
-  effects, shell/window behavior, playback-tab command callback wiring, and
-  download queue actions. The next refactor should move download queue actions
-  behind a smaller action object, then split shell lifecycle/player callback
-  wiring if needed to get below the 1,000-line target.
+  effects, shell/window behavior, and playback-tab command callback wiring.
+  The next refactor should split shell lifecycle/player callback wiring if
+  needed to get below the 1,000-line target.
 
 Acceptance:
 
