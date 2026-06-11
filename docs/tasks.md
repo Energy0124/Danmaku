@@ -34,8 +34,9 @@ Status legend:
   out of feature rendering after the first file-ownership split; diagnostics
   and server-event state plus navigation/search/language state now have
   remembered state objects, and playback session/progress flags have a
-  remembered state object.
-- `[ ]` Extract desktop library/settings state and typed shell actions
+  remembered state object. Settings/preferences/provider status also now have
+  a remembered state object.
+- `[ ]` Extract desktop library state and typed shell actions
   from `DesktopShell.kt`; UI files are now mostly split, leaving orchestration
   as the dominant remaining hotspot.
 

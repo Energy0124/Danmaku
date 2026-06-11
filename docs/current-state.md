@@ -40,9 +40,10 @@ trusted-LAN clients.
   workspace, and library inspector surfaces are further split into focused
   files. `DesktopShell.kt` has diagnostics/server-event and
   navigation/search/language state objects extracted, plus a playback session
-  state object for queued playback/progress/smoke/autonext flags, but remains
-  the main orchestration hotspot for playback commands, library, settings, and
-  provider actions.
+  state object for queued playback/progress/smoke/autonext flags, and a
+  settings state object for preferences/provider statuses/cache entries. It
+  remains the main orchestration hotspot for playback commands, library,
+  settings, and provider actions.
 - Multi-root local anime library indexing, incremental rescanning, ani-rss
   output-folder import, and persistent SQLDelight/SQLite storage.
 - Trusted-LAN library server with pairing token, JSON catalog, byte-range media

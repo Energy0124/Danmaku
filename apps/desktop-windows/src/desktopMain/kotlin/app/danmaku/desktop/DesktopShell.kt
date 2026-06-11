@@ -206,12 +206,6 @@ internal fun DesktopShell(
     val playbackPreferencesStore = remember(catalogStore) {
         DesktopPlaybackPreferencesStore(catalogStore)
     }
-    var playbackPreferences by remember(playbackPreferencesStore) {
-        mutableStateOf(playbackPreferencesStore.load())
-    }
-    var danmakuSettings by remember(playbackPreferencesStore) {
-        mutableStateOf(playbackPreferences.danmakuSettings)
-    }
     val rootRegistry = remember(catalogStore) { DesktopLibraryRootRegistry(catalogStore) }
     val rootScanner = remember(catalogStore, rootRegistry) {
         DesktopLibraryRootScanner(catalogStore, rootRegistry)
@@ -233,17 +227,12 @@ internal fun DesktopShell(
             posterCache = posterCache,
         )
     }
-    var dandanplaySettings by remember(dandanplayCredentialStore) {
-        mutableStateOf(dandanplayCredentialStore.loadSettings())
-    }
-    var externalAnimeProviderSettings by remember(externalAnimeCredentialStore) {
-        mutableStateOf(externalAnimeCredentialStore.loadSettings())
-    }
-    var dandanplayConnectionTestStatus by remember { mutableStateOf<SettingsConnectionTestStatus?>(null) }
-    var myAnimeListConnectionTestStatus by remember { mutableStateOf<SettingsConnectionTestStatus?>(null) }
-    var bangumiConnectionTestStatus by remember { mutableStateOf<SettingsConnectionTestStatus?>(null) }
-    var localServerConnectionTestStatus by remember { mutableStateOf<SettingsConnectionTestStatus?>(null) }
-    var dandanplayCacheEntries by remember { mutableStateOf(catalogStore.loadDandanplayCommentCaches()) }
+    val settingsState = rememberDesktopShellSettingsState(
+        playbackPreferencesStore = playbackPreferencesStore,
+        dandanplayCredentialStore = dandanplayCredentialStore,
+        externalAnimeCredentialStore = externalAnimeCredentialStore,
+        catalogStore = catalogStore,
+    )
     val myAnimeListOAuthService = remember(externalAnimeCredentialStore) {
         MyAnimeListOAuthService(externalAnimeCredentialStore)
     }
@@ -254,7 +243,7 @@ internal fun DesktopShell(
         DesktopDandanplayDanmakuResolver(
             loadConnection = dandanplayCredentialStore::loadConnection,
             cacheMaxAgeDays = { dandanplayCredentialStore.loadSettings().cacheMaxAgeDays },
-            danmakuSettings = { danmakuSettings },
+            danmakuSettings = { settingsState.danmakuSettings },
             cacheStore = catalogStore,
         )
     }
@@ -350,10 +339,10 @@ internal fun DesktopShell(
             commandExecutor = mpvRuntime.executor,
             propertyReader = mpvRuntime.propertyReader,
             initialSnapshot = PlaybackSnapshot(
-                playbackRate = playbackPreferences.playbackRate,
-                volumePercent = playbackPreferences.volumePercent,
+                playbackRate = settingsState.playbackPreferences.playbackRate,
+                volumePercent = settingsState.playbackPreferences.volumePercent,
             ),
-            initialVideoAspectMode = playbackPreferences.videoAspectMode,
+            initialVideoAspectMode = settingsState.playbackPreferences.videoAspectMode,
         )
     }
     LaunchedEffect(mpvRuntime, mpvVideoWindowId) {
@@ -584,7 +573,7 @@ internal fun DesktopShell(
                 }.fold(
                     onSuccess = { updatedSettings ->
                         scope.launch {
-                            externalAnimeProviderSettings = updatedSettings
+                            settingsState.externalAnimeProviderSettings = updatedSettings
                             appendDiagnostic("settings", "MyAnimeList OAuth authorization complete")
                         }
                         PublicGetHookResponse(
@@ -616,20 +605,20 @@ internal fun DesktopShell(
     val networkUrls = remember(server) { server.networkUrls() }
 
     LaunchedEffect(playbackController) {
-        playbackController.dispatch(PlaybackCommand.SetPlaybackRate(playbackPreferences.playbackRate))
-        playbackController.dispatch(PlaybackCommand.SetVolume(playbackPreferences.volumePercent))
-        playbackController.setVideoAspectMode(playbackPreferences.videoAspectMode)
+        playbackController.dispatch(PlaybackCommand.SetPlaybackRate(settingsState.playbackPreferences.playbackRate))
+        playbackController.dispatch(PlaybackCommand.SetVolume(settingsState.playbackPreferences.volumePercent))
+        playbackController.setVideoAspectMode(settingsState.playbackPreferences.videoAspectMode)
         playbackSnapshot = playbackController.snapshot()
         appendDiagnostic(
             "settings",
-            "Applied playback defaults: rate=${playbackPreferences.playbackRate}x, " +
-                "volume=${playbackPreferences.volumePercent}%, aspect=${playbackPreferences.videoAspectMode.label}",
+            "Applied playback defaults: rate=${settingsState.playbackPreferences.playbackRate}x, " +
+                "volume=${settingsState.playbackPreferences.volumePercent}%, aspect=${settingsState.playbackPreferences.videoAspectMode.label}",
         )
     }
 
     fun refreshMissingSeriesPosters(library: IndexedLocalLibrary) {
         if (isRefreshingSeriesPosters) return
-        if (!dandanplaySettings.isFetchEnabled) {
+        if (!settingsState.dandanplaySettings.isFetchEnabled) {
             appendDiagnostic("metadata", "Skipping poster refresh; dandanplay provider is not configured")
             return
         }
@@ -751,7 +740,7 @@ internal fun DesktopShell(
         }
     }
 
-    LaunchedEffect(indexedLibrary, dandanplaySettings.isFetchEnabled) {
+    LaunchedEffect(indexedLibrary, settingsState.dandanplaySettings.isFetchEnabled) {
         indexedLibrary?.let(::refreshMissingSeriesPosters)
     }
 
@@ -786,7 +775,7 @@ internal fun DesktopShell(
             appendDiagnostic("metadata", "Cannot refresh metadata; library is not indexed")
             return
         }
-        if (!dandanplaySettings.isFetchEnabled) {
+        if (!settingsState.dandanplaySettings.isFetchEnabled) {
             appendDiagnostic("metadata", "Cannot refresh metadata; dandanplay provider is not configured")
             return
         }
@@ -797,7 +786,7 @@ internal fun DesktopShell(
             dandanplayCacheStatus = dandanplayStatusMessage(
                 mediaId = item.id,
                 summary = "refreshing anime metadata and poster...",
-                details = item.dandanplayStatusContext(dandanplaySettings),
+                details = item.dandanplayStatusContext(settingsState.dandanplaySettings),
             )
             val result = withContext(Dispatchers.IO) {
                 runCatching {
@@ -837,7 +826,7 @@ internal fun DesktopShell(
             appendDiagnostic("metadata", "Cannot refresh series metadata; library is not indexed")
             return
         }
-        if (!dandanplaySettings.isFetchEnabled) {
+        if (!settingsState.dandanplaySettings.isFetchEnabled) {
             appendDiagnostic("metadata", "Cannot refresh series metadata; dandanplay provider is not configured")
             return
         }
@@ -941,7 +930,7 @@ internal fun DesktopShell(
                             mappedAtEpochMs = System.currentTimeMillis(),
                         ),
                     )
-                    if (provider == ExternalAnimeProvider.DANDANPLAY && dandanplaySettings.isFetchEnabled) {
+                    if (provider == ExternalAnimeProvider.DANDANPLAY && settingsState.dandanplaySettings.isFetchEnabled) {
                         animeMetadataResolver.refreshDandanplayMetadataForAnime(
                             animeId = animeId,
                             forceRefresh = false,
@@ -1346,7 +1335,7 @@ internal fun DesktopShell(
             dandanplayCacheStatus = dandanplayStatusMessage(
                 mediaId = item.id,
                 summary = "library is not indexed; cannot check danmaku",
-                details = item.dandanplayStatusContext(dandanplaySettings),
+                details = item.dandanplayStatusContext(settingsState.dandanplaySettings),
             )
             libraryError = "Index or scan a local library before preparing playback."
             appendDiagnostic("playback", "Cannot prepare local playback; library is not indexed")
@@ -1362,7 +1351,7 @@ internal fun DesktopShell(
                     refreshDandanplay -> "refreshing dandanplay match..."
                     else -> "checking dandanplay match..."
                 },
-                details = item.dandanplayStatusContext(dandanplaySettings) +
+                details = item.dandanplayStatusContext(settingsState.dandanplaySettings) +
                     listOfNotNull(
                         preferredDandanplayEpisodeId?.let {
                             DandanplayPlaybackUiDetail("Requested episode ID", it.toString())
@@ -1372,7 +1361,7 @@ internal fun DesktopShell(
             runCatching {
                 withContext(Dispatchers.IO) {
                     val preparation = localPlaybackPreparer.prepare(library, item)
-                    if (!dandanplaySettings.isFetchEnabled) {
+                    if (!settingsState.dandanplaySettings.isFetchEnabled) {
                         PreparedLocalPlaybackResult(
                             preparation = preparation,
                             dandanplayResolution = null,
@@ -1444,7 +1433,7 @@ internal fun DesktopShell(
                     "Prepared local playback: ${item.id}; source=${result.preparation.source.path}; resume=${result.preparation.resumePositionMs}",
                 )
                 when {
-                    !dandanplaySettings.isFetchEnabled ->
+                    !settingsState.dandanplaySettings.isFetchEnabled ->
                         appendDiagnostic("danmaku", "dandanplay fetching is not configured; no automatic danmaku overlay attached")
                     result.dandanplayError != null ->
                         appendDiagnostic("danmaku", "dandanplay fetch failed for ${item.id}: ${result.dandanplayError.message}")
@@ -1463,11 +1452,11 @@ internal fun DesktopShell(
                         appendDiagnostic("danmaku", "dandanplay found no match for ${item.id}")
                 }
                 dandanplayCacheStatus = when {
-                    !dandanplaySettings.isFetchEnabled ->
+                    !settingsState.dandanplaySettings.isFetchEnabled ->
                         dandanplayStatusMessage(
                             mediaId = item.id,
                             summary = "dandanplay fetching is not configured",
-                            details = item.dandanplayStatusContext(dandanplaySettings) +
+                            details = item.dandanplayStatusContext(settingsState.dandanplaySettings) +
                                 DandanplayPlaybackUiDetail(
                                     "Result",
                                     "automatic danmaku matching skipped",
@@ -1477,7 +1466,7 @@ internal fun DesktopShell(
                         dandanplayStatusMessage(
                             mediaId = item.id,
                             summary = "dandanplay match failed",
-                            details = item.dandanplayStatusContext(dandanplaySettings) +
+                            details = item.dandanplayStatusContext(settingsState.dandanplaySettings) +
                                 DandanplayPlaybackUiDetail(
                                     "Error",
                                     result.dandanplayError.readableMessage(),
@@ -1495,7 +1484,7 @@ internal fun DesktopShell(
                         }
                         val status = dandanplayStatusFromResolution(item.id, resolution)
                         status.copy(
-                            details = item.dandanplayStatusContext(dandanplaySettings) +
+                            details = item.dandanplayStatusContext(settingsState.dandanplaySettings) +
                                 status.details +
                                 listOfNotNull(playbackDetail),
                         )
@@ -1504,7 +1493,7 @@ internal fun DesktopShell(
                         dandanplayStatusMessage(
                             mediaId = item.id,
                             summary = "dandanplay returned no result",
-                            details = item.dandanplayStatusContext(dandanplaySettings),
+                            details = item.dandanplayStatusContext(settingsState.dandanplaySettings),
                         )
                 }
                 if (loadAfterPrepare) {
@@ -1516,7 +1505,7 @@ internal fun DesktopShell(
                 dandanplayCacheStatus = dandanplayStatusMessage(
                     mediaId = item.id,
                     summary = "prepare failed before danmaku could load",
-                    details = item.dandanplayStatusContext(dandanplaySettings) +
+                    details = item.dandanplayStatusContext(settingsState.dandanplaySettings) +
                         DandanplayPlaybackUiDetail("Error", it.readableMessage()),
                 )
                 appendDiagnostic("playback", "Prepare local playback failed: ${it.message}")
@@ -1531,7 +1520,7 @@ internal fun DesktopShell(
             dandanplayCacheStatus = dandanplayStatusMessage(
                 mediaId = item.id,
                 summary = "library is not indexed; cannot check cached danmaku",
-                details = item.dandanplayStatusContext(dandanplaySettings),
+                details = item.dandanplayStatusContext(settingsState.dandanplaySettings),
             )
             return
         }
@@ -1548,7 +1537,7 @@ internal fun DesktopShell(
             dandanplayCacheStatus = dandanplayStatusMessage(
                 mediaId = item.id,
                 summary = "checking cached danmaku...",
-                details = item.dandanplayStatusContext(dandanplaySettings),
+                details = item.dandanplayStatusContext(settingsState.dandanplaySettings),
             )
             val result = withContext(Dispatchers.IO) {
                 runCatching {
@@ -1562,7 +1551,7 @@ internal fun DesktopShell(
                     dandanplayStatusMessage(
                         mediaId = item.id,
                         summary = "no valid cached danmaku",
-                        details = item.dandanplayStatusContext(dandanplaySettings) +
+                        details = item.dandanplayStatusContext(settingsState.dandanplaySettings) +
                             DandanplayPlaybackUiDetail(
                                 "Cache",
                                 "prepare or refresh danmaku to fetch comments",
@@ -1571,14 +1560,14 @@ internal fun DesktopShell(
                 } else {
                     val status = dandanplayCachedInspectionStatus(item.id, resolution)
                     status.copy(
-                        details = item.dandanplayStatusContext(dandanplaySettings) + status.details,
+                        details = item.dandanplayStatusContext(settingsState.dandanplaySettings) + status.details,
                     )
                 }
             }.onFailure { error ->
                 dandanplayCacheStatus = dandanplayStatusMessage(
                     mediaId = item.id,
                     summary = "cached danmaku check failed",
-                    details = item.dandanplayStatusContext(dandanplaySettings) +
+                    details = item.dandanplayStatusContext(settingsState.dandanplaySettings) +
                         DandanplayPlaybackUiDetail("Error", error.readableMessage()),
                 )
             }
@@ -1599,11 +1588,11 @@ internal fun DesktopShell(
     }
 
     fun refreshPreparedDandanplay(preparation: DesktopLocalPlaybackPreparation) {
-        if (!dandanplaySettings.isFetchEnabled) {
+        if (!settingsState.dandanplaySettings.isFetchEnabled) {
             dandanplayCacheStatus = dandanplayStatusMessage(
                 mediaId = preparation.item.id,
                 summary = "dandanplay fetching is not configured",
-                details = preparation.item.dandanplayStatusContext(dandanplaySettings) +
+                details = preparation.item.dandanplayStatusContext(settingsState.dandanplaySettings) +
                     DandanplayPlaybackUiDetail(
                         "Result",
                         "automatic danmaku refresh skipped",
@@ -1642,7 +1631,7 @@ internal fun DesktopShell(
                 dandanplayCacheStatus = dandanplayStatusMessage(
                     mediaId = preparation.item.id,
                     summary = "dandanplay cache cleared",
-                    details = preparation.item.dandanplayStatusContext(dandanplaySettings),
+                    details = preparation.item.dandanplayStatusContext(settingsState.dandanplaySettings),
                 )
                 appendDiagnostic("danmaku", "Cleared dandanplay cache for ${preparation.item.id}")
             }.onFailure {
@@ -1656,7 +1645,7 @@ internal fun DesktopShell(
         dandanplayCacheStatus = dandanplayStatusMessage(
             mediaId = preparation.item.id,
             summary = "prepared danmaku overlay removed",
-            details = preparation.item.dandanplayStatusContext(dandanplaySettings),
+            details = preparation.item.dandanplayStatusContext(settingsState.dandanplaySettings),
         )
         appendDiagnostic("danmaku", "Removed prepared danmaku overlay for ${preparation.item.id}")
     }
@@ -1669,7 +1658,7 @@ internal fun DesktopShell(
                 withContext(Dispatchers.IO) {
                     DesktopManualDanmakuOverlayRenderer.render(
                         inputPath = danmakuPath,
-                        settings = danmakuSettings,
+                        settings = settingsState.danmakuSettings,
                     )
                 }
             }.onSuccess { overlay ->
@@ -1677,7 +1666,7 @@ internal fun DesktopShell(
                 dandanplayCacheStatus = dandanplayStatusMessage(
                     mediaId = preparation.item.id,
                     summary = "manual danmaku: attached ${overlay.eventCount} comments",
-                    details = preparation.item.dandanplayStatusContext(dandanplaySettings) +
+                    details = preparation.item.dandanplayStatusContext(settingsState.dandanplaySettings) +
                         listOf(
                             DandanplayPlaybackUiDetail("Source file", overlay.inputPath.toString()),
                             DandanplayPlaybackUiDetail("Comments", "${overlay.eventCount} comments"),
@@ -1725,7 +1714,7 @@ internal fun DesktopShell(
                     playbackPreferencesStore.load()
                 }
             }.onSuccess { updatedPreferences ->
-                playbackPreferences = updatedPreferences
+                settingsState.updatePlaybackPreferences(updatedPreferences)
                 appendDiagnostic("settings", "Saved $label playback preference")
             }.onFailure {
                 appendDiagnostic("settings", "Failed to save $label playback preference: ${it.message}")
@@ -1752,7 +1741,7 @@ internal fun DesktopShell(
                     )
                 }
             }.onSuccess { updatedSettings ->
-                dandanplaySettings = updatedSettings
+                settingsState.dandanplaySettings = updatedSettings
                 appendDiagnostic("settings", "Saved dandanplay provider settings for ${updatedSettings.baseUrl}")
             }.onFailure {
                 appendDiagnostic("settings", "Failed to save dandanplay provider settings: ${it.message}")
@@ -1768,7 +1757,7 @@ internal fun DesktopShell(
                     dandanplayCredentialStore.loadSettings()
                 }
             }.onSuccess { updatedSettings ->
-                dandanplaySettings = updatedSettings
+                settingsState.dandanplaySettings = updatedSettings
                 appendDiagnostic("settings", "Cleared dandanplay provider settings")
             }.onFailure {
                 appendDiagnostic("settings", "Failed to clear dandanplay provider settings: ${it.message}")
@@ -1797,7 +1786,7 @@ internal fun DesktopShell(
                     )
                 }
             }.onSuccess { updatedSettings ->
-                externalAnimeProviderSettings = updatedSettings
+                settingsState.externalAnimeProviderSettings = updatedSettings
                 appendDiagnostic("settings", "Saved MyAnimeList/Bangumi provider settings")
             }.onFailure {
                 appendDiagnostic("settings", "Failed to save external anime provider settings: ${it.message}")
@@ -1816,12 +1805,12 @@ internal fun DesktopShell(
                         myAnimeListClientId = myAnimeListClientId,
                         myAnimeListClientSecret = myAnimeListClientSecret,
                         myAnimeListAccessToken = null,
-                        bangumiBaseUrl = externalAnimeProviderSettings.bangumiBaseUrl,
-                        bangumiUserAgent = externalAnimeProviderSettings.bangumiUserAgent,
+                        bangumiBaseUrl = settingsState.externalAnimeProviderSettings.bangumiBaseUrl,
+                        bangumiUserAgent = settingsState.externalAnimeProviderSettings.bangumiUserAgent,
                         bangumiAccessToken = null,
                     )
                 }
-                externalAnimeProviderSettings = updatedSettings
+                settingsState.externalAnimeProviderSettings = updatedSettings
                 val redirectUri = "${server.baseUrl()}${DesktopLibraryServerRuntime.MY_ANIME_LIST_OAUTH_CALLBACK_PATH}"
                 val clientSecret = myAnimeListClientSecret?.trim()?.takeIf(String::isNotBlank)
                     ?: withContext(Dispatchers.IO) {
@@ -1852,7 +1841,7 @@ internal fun DesktopShell(
                     externalAnimeCredentialStore.clearMyAnimeListSettings()
                 }
             }.onSuccess { updatedSettings ->
-                externalAnimeProviderSettings = updatedSettings
+                settingsState.externalAnimeProviderSettings = updatedSettings
                 appendDiagnostic("settings", "Cleared MyAnimeList provider settings")
             }.onFailure {
                 appendDiagnostic("settings", "Failed to clear MyAnimeList provider settings: ${it.message}")
@@ -1867,7 +1856,7 @@ internal fun DesktopShell(
                     externalAnimeCredentialStore.clearBangumiSettings()
                 }
             }.onSuccess { updatedSettings ->
-                externalAnimeProviderSettings = updatedSettings
+                settingsState.externalAnimeProviderSettings = updatedSettings
                 appendDiagnostic("settings", "Cleared Bangumi provider settings")
             }.onFailure {
                 appendDiagnostic("settings", "Failed to clear Bangumi provider settings: ${it.message}")
@@ -1876,7 +1865,7 @@ internal fun DesktopShell(
     }
 
     fun testDandanplayConnection() {
-        dandanplayConnectionTestStatus = SettingsConnectionTestStatus(
+        settingsState.dandanplayConnectionTestStatus = SettingsConnectionTestStatus(
             outcome = SettingsConnectionTestOutcome.TESTING,
             detail = "Checking saved dandanplay settings...",
         )
@@ -1892,14 +1881,14 @@ internal fun DesktopShell(
                     "settings",
                     "dandanplay connection OK: ${anime.titles.primary} (#${anime.id.value})",
                 )
-                dandanplayConnectionTestStatus = SettingsConnectionTestStatus(
+                settingsState.dandanplayConnectionTestStatus = SettingsConnectionTestStatus(
                     outcome = SettingsConnectionTestOutcome.SUCCESS,
                     detail = "${anime.titles.primary} (#${anime.id.value})",
                 )
             }.onFailure {
                 val message = it.readableMessage()
                 appendDiagnostic("settings", "dandanplay connection test failed: $message")
-                dandanplayConnectionTestStatus = SettingsConnectionTestStatus(
+                settingsState.dandanplayConnectionTestStatus = SettingsConnectionTestStatus(
                     outcome = SettingsConnectionTestOutcome.FAILURE,
                     detail = message,
                 )
@@ -1908,16 +1897,16 @@ internal fun DesktopShell(
     }
 
     fun testMyAnimeListConnection() {
-        val clientId = externalAnimeProviderSettings.myAnimeListClientId
+        val clientId = settingsState.externalAnimeProviderSettings.myAnimeListClientId
         if (clientId.isNullOrBlank()) {
             appendDiagnostic("settings", "MyAnimeList connection test needs a saved client ID")
-            myAnimeListConnectionTestStatus = SettingsConnectionTestStatus(
+            settingsState.myAnimeListConnectionTestStatus = SettingsConnectionTestStatus(
                 outcome = SettingsConnectionTestOutcome.FAILURE,
                 detail = "Save a MyAnimeList client ID first.",
             )
             return
         }
-        myAnimeListConnectionTestStatus = SettingsConnectionTestStatus(
+        settingsState.myAnimeListConnectionTestStatus = SettingsConnectionTestStatus(
             outcome = SettingsConnectionTestOutcome.TESTING,
             detail = "Searching MyAnimeList with the saved client ID...",
         )
@@ -1933,14 +1922,14 @@ internal fun DesktopShell(
                     "settings",
                     "MyAnimeList connection OK: ${results.firstOrNull()?.titles?.primary ?: "no anime returned"}",
                 )
-                myAnimeListConnectionTestStatus = SettingsConnectionTestStatus(
+                settingsState.myAnimeListConnectionTestStatus = SettingsConnectionTestStatus(
                     outcome = SettingsConnectionTestOutcome.SUCCESS,
                     detail = results.firstOrNull()?.titles?.primary ?: "No anime returned.",
                 )
             }.onFailure {
                 val message = it.readableMessage()
                 appendDiagnostic("settings", "MyAnimeList connection test failed: $message")
-                myAnimeListConnectionTestStatus = SettingsConnectionTestStatus(
+                settingsState.myAnimeListConnectionTestStatus = SettingsConnectionTestStatus(
                     outcome = SettingsConnectionTestOutcome.FAILURE,
                     detail = message,
                 )
@@ -1949,8 +1938,8 @@ internal fun DesktopShell(
     }
 
     fun testBangumiConnection() {
-        val settings = externalAnimeProviderSettings
-        bangumiConnectionTestStatus = SettingsConnectionTestStatus(
+        val settings = settingsState.externalAnimeProviderSettings
+        settingsState.bangumiConnectionTestStatus = SettingsConnectionTestStatus(
             outcome = SettingsConnectionTestOutcome.TESTING,
             detail = "Searching Bangumi with the saved base URL and User-Agent...",
         )
@@ -1968,14 +1957,14 @@ internal fun DesktopShell(
                     "settings",
                     "Bangumi connection OK: ${results.firstOrNull()?.titles?.primary ?: "no anime returned"}",
                 )
-                bangumiConnectionTestStatus = SettingsConnectionTestStatus(
+                settingsState.bangumiConnectionTestStatus = SettingsConnectionTestStatus(
                     outcome = SettingsConnectionTestOutcome.SUCCESS,
                     detail = results.firstOrNull()?.titles?.primary ?: "No anime returned.",
                 )
             }.onFailure {
                 val message = it.readableMessage()
                 appendDiagnostic("settings", "Bangumi connection test failed: $message")
-                bangumiConnectionTestStatus = SettingsConnectionTestStatus(
+                settingsState.bangumiConnectionTestStatus = SettingsConnectionTestStatus(
                     outcome = SettingsConnectionTestOutcome.FAILURE,
                     detail = message,
                 )
@@ -1986,7 +1975,7 @@ internal fun DesktopShell(
     fun testLocalServerConnection() {
         val baseUrl = server.baseUrl()
         val pairingToken = server.pairingToken
-        localServerConnectionTestStatus = SettingsConnectionTestStatus(
+        settingsState.localServerConnectionTestStatus = SettingsConnectionTestStatus(
             outcome = SettingsConnectionTestOutcome.TESTING,
             detail = "Checking status and pairing-token catalog access...",
         )
@@ -2005,14 +1994,14 @@ internal fun DesktopShell(
                     "settings",
                     "Local server OK: API ${status.apiVersion}, streaming=${status.mediaStreaming}, items=$itemCount",
                 )
-                localServerConnectionTestStatus = SettingsConnectionTestStatus(
+                settingsState.localServerConnectionTestStatus = SettingsConnectionTestStatus(
                     outcome = SettingsConnectionTestOutcome.SUCCESS,
                     detail = "API ${status.apiVersion}, streaming=${status.mediaStreaming}, $itemCount items",
                 )
             }.onFailure {
                 val message = it.readableMessage()
                 appendDiagnostic("settings", "Local server test failed: $message")
-                localServerConnectionTestStatus = SettingsConnectionTestStatus(
+                settingsState.localServerConnectionTestStatus = SettingsConnectionTestStatus(
                     outcome = SettingsConnectionTestOutcome.FAILURE,
                     detail = message,
                 )
@@ -2028,7 +2017,7 @@ internal fun DesktopShell(
                     catalogStore.loadDandanplayCommentCaches()
                 }
             }.onSuccess { updatedEntries ->
-                dandanplayCacheEntries = updatedEntries
+                settingsState.dandanplayCacheEntries = updatedEntries
                 appendDiagnostic("danmaku", "Cleaned up expired dandanplay cache entries")
             }.onFailure {
                 appendDiagnostic("danmaku", "Failed to clean expired dandanplay cache entries: ${it.message}")
@@ -2042,7 +2031,7 @@ internal fun DesktopShell(
                     catalogStore.loadDandanplayCommentCaches()
                 }
             }.onSuccess {
-                dandanplayCacheEntries = it
+                settingsState.dandanplayCacheEntries = it
                 appendDiagnostic("danmaku", "Reloaded ${it.size} dandanplay cache entr${if (it.size == 1) "y" else "ies"}")
             }.onFailure {
                 appendDiagnostic("danmaku", "Failed to reload dandanplay cache entries: ${it.message}")
@@ -2057,7 +2046,7 @@ internal fun DesktopShell(
                     catalogStore.loadDandanplayCommentCaches()
                 }
             }.onSuccess { updatedEntries ->
-                dandanplayCacheEntries = updatedEntries
+                settingsState.dandanplayCacheEntries = updatedEntries
                 if (dandanplayCacheStatus?.mediaId == mediaId) {
                     dandanplayCacheStatus = dandanplayStatusMessage(
                         mediaId = mediaId,
@@ -2075,8 +2064,7 @@ internal fun DesktopShell(
             playbackPreferencesStore.saveDanmakuSettings(settings)
             playbackPreferencesStore.load()
         }.onSuccess { updatedPreferences ->
-            playbackPreferences = updatedPreferences
-            danmakuSettings = updatedPreferences.danmakuSettings
+            settingsState.updatePlaybackPreferences(updatedPreferences)
             overlayStatus = if (updatedPreferences.danmakuSettings.visible) {
                 "Danmaku settings saved; reload media or refresh cache to apply"
             } else {
@@ -2259,7 +2247,7 @@ internal fun DesktopShell(
                             mpvRuntimeStatus = mpvRuntime.statusMessage,
                             videoHostStatus = videoHostStatus,
                             overlayStatus = overlayStatus,
-                            danmakuSettings = danmakuSettings,
+                            danmakuSettings = settingsState.danmakuSettings,
                             dandanplayCacheStatus = dandanplayCacheStatus,
                             isPreparingLocalPlayback = isPreparingLocalPlayback,
                             libraryError = libraryError,
@@ -2451,7 +2439,7 @@ internal fun DesktopShell(
                             playbackProgresses = playbackProgresses,
                             externalAnimeSyncFailures = externalAnimeSyncFailures,
                             isExternalAnimeSyncing = isExternalAnimeSyncing,
-                            externalAnimeProviderSettings = externalAnimeProviderSettings,
+                            externalAnimeProviderSettings = settingsState.externalAnimeProviderSettings,
                             onSyncExternalAnimePlan = ::syncExternalAnimePlan,
                             onOpenSettings = { navigationState.selectedTab = DesktopShellTab.PROFILE },
                             onOpenLibrary = { navigationState.selectedTab = DesktopShellTab.MEDIA_LIBRARY },
@@ -2465,7 +2453,7 @@ internal fun DesktopShell(
                             seriesPosterById = seriesPosterById,
                             externalAnimeMappings = externalAnimeMappings,
                             externalAnimeItemMappingsByMediaId = externalAnimeItemMappingsByMediaId,
-                            externalAnimeProviderSettings = externalAnimeProviderSettings,
+                            externalAnimeProviderSettings = settingsState.externalAnimeProviderSettings,
                             originalSeriesTitleByMediaId = originalSeriesTitleByMediaId,
                             refreshingMetadataMediaIds = refreshingMetadataMediaIds,
                             refreshingMetadataSeriesIds = refreshingMetadataSeriesIds,
@@ -2587,28 +2575,28 @@ internal fun DesktopShell(
                             appLogPath = diagnosticFileLog.appLogPath,
                             mpvLogPath = diagnosticFileLog.mpvLogPath,
                             diagnosticLog = diagnosticLog,
-                            danmakuSettings = danmakuSettings,
+                            danmakuSettings = settingsState.danmakuSettings,
                             onSaveDanmakuSettings = ::saveDanmakuSettings,
-                            dandanplayCacheEntries = dandanplayCacheEntries,
+                            dandanplayCacheEntries = settingsState.dandanplayCacheEntries,
                             onRefreshDandanplayCacheEntries = ::refreshDandanplayCacheEntries,
                             onDeleteDandanplayCacheEntry = ::deleteDandanplayCacheEntry,
                             onCleanupExpiredDandanplayCaches = ::cleanupExpiredDandanplayCaches,
                             onDesktopLanguageChange = navigationState::updateDesktopLanguage,
-                            dandanplaySettings = dandanplaySettings,
+                            dandanplaySettings = settingsState.dandanplaySettings,
                             onSaveDandanplaySettings = ::saveDandanplaySettings,
                             onClearDandanplaySettings = ::clearDandanplaySettings,
-                            dandanplayConnectionTestStatus = dandanplayConnectionTestStatus,
+                            dandanplayConnectionTestStatus = settingsState.dandanplayConnectionTestStatus,
                             onTestDandanplayConnection = ::testDandanplayConnection,
-                            externalAnimeProviderSettings = externalAnimeProviderSettings,
+                            externalAnimeProviderSettings = settingsState.externalAnimeProviderSettings,
                             onSaveExternalAnimeProviderSettings = ::saveExternalAnimeProviderSettings,
                             onStartMyAnimeListOAuth = ::startMyAnimeListOAuth,
-                            myAnimeListConnectionTestStatus = myAnimeListConnectionTestStatus,
-                            bangumiConnectionTestStatus = bangumiConnectionTestStatus,
+                            myAnimeListConnectionTestStatus = settingsState.myAnimeListConnectionTestStatus,
+                            bangumiConnectionTestStatus = settingsState.bangumiConnectionTestStatus,
                             onTestMyAnimeListConnection = ::testMyAnimeListConnection,
                             onTestBangumiConnection = ::testBangumiConnection,
                             onClearMyAnimeListSettings = ::clearMyAnimeListSettings,
                             onClearBangumiSettings = ::clearBangumiSettings,
-                            localServerConnectionTestStatus = localServerConnectionTestStatus,
+                            localServerConnectionTestStatus = settingsState.localServerConnectionTestStatus,
                             onTestLocalServerConnection = ::testLocalServerConnection,
                         )
                     }

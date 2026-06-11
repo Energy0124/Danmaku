@@ -65,9 +65,13 @@ Initial slice:
 - `DesktopShellPlaybackState` owns queued playback request, active playback
   label/progress target, progress save cursors, auto-next flag, and smoke-test
   playback flags.
+- `DesktopShellSettingsState` owns playback/danmaku preferences, provider
+  settings, provider connection test status, and dandanplay cache-manager
+  entries.
 - `DesktopShell` delegates diagnostic/server-event actions and
   navigation/search/language actions to remembered state objects while playback
-  command handling, library, settings, and provider actions remain local.
+  command handling, library, settings save/test, and provider actions remain
+  local.
 
 Acceptance:
 
@@ -142,9 +146,8 @@ Remaining structural hotspot:
 
 - `DesktopShell.kt` still owns dependency construction, long-lived state,
   effects, and most playback/library/settings action implementations. The next
-  refactor should extract library/settings state objects and a typed action
-  facade around the remaining command handlers rather than adding more UI-only
-  files.
+  refactor should extract library state and a typed action facade around the
+  remaining command handlers rather than adding more UI-only files.
 
 Acceptance:
 
