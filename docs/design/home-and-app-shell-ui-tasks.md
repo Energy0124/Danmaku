@@ -46,6 +46,9 @@ Status legend:
   - Settings General privacy copy and the real dandanplay/MyAnimeList/Bangumi
     provider forms now use the same desktop string layer for labels, actions,
     validation copy, and clear/cleanup confirmations.
+  - Player preparation/status overlay and right danmaku/details panel chrome
+    now use the same desktop string layer for labels, actions, cache rows,
+    track fallbacks, sliders, and preparation step labels.
 - `[~]` Align the desktop top header with the target shell: app identity, global
   search, refresh/rescan, diagnostics/notifications, help, settings, and local
   profile/device controls.

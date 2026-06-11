@@ -52,6 +52,9 @@ Status legend:
   - Settings General privacy chrome and the real dandanplay/MyAnimeList/Bangumi
     provider forms now use the desktop string layer for labels, actions,
     validation copy, and clear/cleanup confirmation text.
+  - Player preparation/status overlay and the right danmaku/details panel now
+    use the desktop string layer for panel labels, visibility actions, cache
+    rows, track fallbacks, sliders, and preparation/error step labels.
   - Remaining: migrate page actions, status labels, dialogs, tooltips,
     inspector copy, and empty/error states.
 - `[ ]` Add UI review screenshots or checks for English and `zh-TW` labels in
@@ -163,6 +166,9 @@ Status legend:
   - Right player panel now controls danmaku visibility, opacity, density, font
     scale, speed, display area, and offset through the persisted danmaku
     preference path.
+  - Right player panel chrome now has English / `zh-TW` strings for the
+    danmaku heading, visibility state/action, cache row, track fallbacks,
+    slider labels, and offset label.
   - Remaining: lane behavior and filter preset editing.
 - `[~]` Show cached danmaku state after media selection and after relaunch.
   - Player now inspects persisted dandanplay cache state when the active local
@@ -174,6 +180,8 @@ Status legend:
   - Player now shows a structured preparation/status overlay using the
     existing local preparation flag, player runtime error, library preparation
     error, and dandanplay cache status so failures point at the affected step.
+  - Preparation/status overlay labels now use the desktop English / `zh-TW`
+    string layer while preserving runtime error text from the source failure.
   - Remaining: add visual QA around overlapping overlays and step-specific
     retry actions.
 - `[ ]` Run fullscreen, resize, aspect, hardware decode, and 4K playback QA.

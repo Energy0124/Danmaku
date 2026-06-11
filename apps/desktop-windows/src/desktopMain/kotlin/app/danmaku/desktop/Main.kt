@@ -2389,6 +2389,7 @@ private fun DesktopShell(
                         val nextLocalPlaybackItem = activeLocalMediaId
                             ?.let { mediaId -> indexedLibrary?.catalog?.nextItem(mediaId) }
                         PlaybackTab(
+                            strings = desktopStrings,
                             playbackLabel = activePlaybackLabel,
                             playbackSnapshot = playbackSnapshot,
                             mpvRuntimeStatus = mpvRuntime.statusMessage,
@@ -2814,6 +2815,28 @@ private enum class DesktopUiLanguage(
             supportedLabel = "Supported",
             privacyTitle = "Privacy",
             credentialsPrivacyText = "Credentials are stored in local protected settings where supported and omitted from diagnostics.",
+            playbackNeedsAttentionTitle = "Playback needs attention",
+            preparingPlaybackTitle = "Preparing playback",
+            libraryStepLabel = "Library",
+            preparingMediaStepText = "Preparing media, subtitles, metadata, and danmaku...",
+            playerRuntimeStepLabel = "Player runtime",
+            libraryPreparationStepLabel = "Library preparation",
+            danmakuTitle = "Danmaku",
+            shownLabel = "Shown",
+            hiddenLabel = "Hidden",
+            cacheLabel = "Cache",
+            audioLabel = "Audio",
+            subtitleLabel = "Subtitle",
+            defaultLabel = "Default",
+            offLabel = "Off",
+            hideAction = "Hide",
+            showAction = "Show",
+            opacityLabel = "Opacity",
+            densityLabel = "Density",
+            fontLabel = "Font",
+            speedLabel = "Speed",
+            areaLabel = "Area",
+            offsetLabel = "Offset",
             libraryViewTitles = mapOf(
                 WindowsLibraryView.CONTINUE_WATCHING to "Continue",
                 WindowsLibraryView.NEXT_UP to "Next up",
@@ -3091,6 +3114,28 @@ private enum class DesktopUiLanguage(
             supportedLabel = "支援",
             privacyTitle = "隱私",
             credentialsPrivacyText = "憑證會盡可能儲存在本機受保護設定中，並且不會寫入診斷資訊。",
+            playbackNeedsAttentionTitle = "播放需要處理",
+            preparingPlaybackTitle = "正在準備播放",
+            libraryStepLabel = "媒體庫",
+            preparingMediaStepText = "正在準備媒體、字幕、中繼資料與彈幕...",
+            playerRuntimeStepLabel = "播放器執行階段",
+            libraryPreparationStepLabel = "媒體庫準備",
+            danmakuTitle = "彈幕",
+            shownLabel = "顯示",
+            hiddenLabel = "隱藏",
+            cacheLabel = "快取",
+            audioLabel = "音訊",
+            subtitleLabel = "字幕",
+            defaultLabel = "預設",
+            offLabel = "關閉",
+            hideAction = "隱藏",
+            showAction = "顯示",
+            opacityLabel = "透明度",
+            densityLabel = "密度",
+            fontLabel = "字型",
+            speedLabel = "速度",
+            areaLabel = "範圍",
+            offsetLabel = "時間偏移",
             libraryViewTitles = mapOf(
                 WindowsLibraryView.CONTINUE_WATCHING to "繼續觀看",
                 WindowsLibraryView.NEXT_UP to "接著看",
@@ -3355,6 +3400,28 @@ private data class DesktopStrings(
     val supportedLabel: String,
     val privacyTitle: String,
     val credentialsPrivacyText: String,
+    val playbackNeedsAttentionTitle: String,
+    val preparingPlaybackTitle: String,
+    val libraryStepLabel: String,
+    val preparingMediaStepText: String,
+    val playerRuntimeStepLabel: String,
+    val libraryPreparationStepLabel: String,
+    val danmakuTitle: String,
+    val shownLabel: String,
+    val hiddenLabel: String,
+    val cacheLabel: String,
+    val audioLabel: String,
+    val subtitleLabel: String,
+    val defaultLabel: String,
+    val offLabel: String,
+    val hideAction: String,
+    val showAction: String,
+    val opacityLabel: String,
+    val densityLabel: String,
+    val fontLabel: String,
+    val speedLabel: String,
+    val areaLabel: String,
+    val offsetLabel: String,
     val libraryViewTitles: Map<WindowsLibraryView, String> = emptyMap(),
     val libraryHostSubtitle: String,
     val librarySearchLabel: String,
@@ -4915,6 +4982,7 @@ private fun TrackingProviderCard(
 @Composable
 @OptIn(ExperimentalComposeUiApi::class)
 private fun PlaybackTab(
+    strings: DesktopStrings,
     playbackLabel: String?,
     playbackSnapshot: PlaybackSnapshot,
     mpvRuntimeStatus: String,
@@ -5226,6 +5294,7 @@ private fun PlaybackTab(
                 (isPreparingLocalPlayback || playbackSnapshot.errorMessage != null || libraryError != null)
             ) {
                 PlayerPreparationStatusOverlay(
+                    strings = strings,
                     isPreparingLocalPlayback = isPreparingLocalPlayback,
                     playbackError = playbackSnapshot.errorMessage,
                     libraryError = libraryError,
@@ -5239,6 +5308,7 @@ private fun PlaybackTab(
             }
             if (hasMedia && controlsVisible && !isFocusMode && !isFullscreen && rightPanelVisible) {
                 PlayerRightPanel(
+                    strings = strings,
                     playbackSnapshot = playbackSnapshot,
                     overlayStatus = overlayStatus,
                     dandanplayCacheStatus = dandanplayCacheStatus,
@@ -5631,6 +5701,7 @@ private fun PlayerBottomOverlay(
 
 @Composable
 private fun PlayerPreparationStatusOverlay(
+    strings: DesktopStrings,
     isPreparingLocalPlayback: Boolean,
     playbackError: String?,
     libraryError: String?,
@@ -5652,7 +5723,7 @@ private fun PlayerPreparationStatusOverlay(
                 tint = if (hasError) DanmakuColors.Warning else DanmakuColors.Info,
             )
             Text(
-                text = if (hasError) "Playback needs attention" else "Preparing playback",
+                text = if (hasError) strings.playbackNeedsAttentionTitle else strings.preparingPlaybackTitle,
                 color = Color.White,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f),
@@ -5662,15 +5733,15 @@ private fun PlayerPreparationStatusOverlay(
         }
         if (isPreparingLocalPlayback) {
             PlayerPreparationStepRow(
-                label = "Library",
-                value = "Preparing media, subtitles, metadata, and danmaku...",
+                label = strings.libraryStepLabel,
+                value = strings.preparingMediaStepText,
                 color = DanmakuColors.Info,
                 icon = Icons.Filled.Refresh,
             )
         }
         playbackError?.let { error ->
             PlayerPreparationStepRow(
-                label = "Player runtime",
+                label = strings.playerRuntimeStepLabel,
                 value = error,
                 color = DanmakuColors.Warning,
                 icon = Icons.Filled.Warning,
@@ -5678,7 +5749,7 @@ private fun PlayerPreparationStatusOverlay(
         }
         libraryError?.let { error ->
             PlayerPreparationStepRow(
-                label = "Library preparation",
+                label = strings.libraryPreparationStepLabel,
                 value = error,
                 color = DanmakuColors.Warning,
                 icon = Icons.Filled.Warning,
@@ -5686,7 +5757,7 @@ private fun PlayerPreparationStatusOverlay(
         }
         dandanplayCacheStatus?.let { status ->
             PlayerPreparationStepRow(
-                label = "Danmaku",
+                label = strings.danmakuTitle,
                 value = status.summary,
                 color = if (status.summary.isDandanplayWarningStatus()) DanmakuColors.Warning else DanmakuColors.Good,
                 icon = if (status.summary.isDandanplayWarningStatus()) Icons.Filled.Warning else Icons.Filled.CheckCircle,
@@ -5721,6 +5792,7 @@ private fun PlayerPreparationStepRow(
 
 @Composable
 private fun PlayerRightPanel(
+    strings: DesktopStrings,
     playbackSnapshot: PlaybackSnapshot,
     overlayStatus: String,
     dandanplayCacheStatus: DandanplayPlaybackUiStatus?,
@@ -5741,15 +5813,15 @@ private fun PlayerRightPanel(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Icon(Icons.Filled.Subtitles, contentDescription = null, tint = DanmakuColors.Accent)
-            Text("Danmaku", color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            StatusPill(if (danmakuSettings.visible) "Shown" else "Hidden", active = danmakuSettings.visible)
+            Text(strings.danmakuTitle, color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            StatusPill(if (danmakuSettings.visible) strings.shownLabel else strings.hiddenLabel, active = danmakuSettings.visible)
         }
         Text(overlayStatus, color = DanmakuColors.TextMuted, maxLines = 2, overflow = TextOverflow.Ellipsis)
         dandanplayCacheStatus?.let { status ->
-            MetadataRow("Cache", status.summary, if (status.summary.isDandanplayWarningStatus()) DanmakuColors.Warning else DanmakuColors.Good)
-        } ?: MetadataRow("Cache", "Not checked", DanmakuColors.TextMuted)
-        MetadataRow("Audio", selectedAudio?.label ?: "Default")
-        MetadataRow("Subtitle", selectedSubtitle?.label ?: "Off")
+            MetadataRow(strings.cacheLabel, status.summary, if (status.summary.isDandanplayWarningStatus()) DanmakuColors.Warning else DanmakuColors.Good)
+        } ?: MetadataRow(strings.cacheLabel, strings.notCheckedLabel, DanmakuColors.TextMuted)
+        MetadataRow(strings.audioLabel, selectedAudio?.label ?: strings.defaultLabel)
+        MetadataRow(strings.subtitleLabel, selectedSubtitle?.label ?: strings.offLabel)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
                 onClick = { onSaveDanmakuSettings(danmakuSettings.copy(visible = !danmakuSettings.visible)) },
@@ -5761,45 +5833,46 @@ private fun PlayerRightPanel(
                     modifier = Modifier.size(16.dp),
                 )
                 Spacer(Modifier.width(6.dp))
-                Text(if (danmakuSettings.visible) "Hide" else "Show")
+                Text(if (danmakuSettings.visible) strings.hideAction else strings.showAction)
             }
         }
         PlayerDanmakuSlider(
-            label = "Opacity",
+            label = strings.opacityLabel,
             value = danmakuSettings.opacityPercent,
             range = 0..100,
             suffix = "%",
             onValueChange = { onSaveDanmakuSettings(danmakuSettings.copy(opacityPercent = it)) },
         )
         PlayerDanmakuSlider(
-            label = "Density",
+            label = strings.densityLabel,
             value = danmakuSettings.densityPercent,
             range = 10..200,
             suffix = "%",
             onValueChange = { onSaveDanmakuSettings(danmakuSettings.copy(densityPercent = it)) },
         )
         PlayerDanmakuSlider(
-            label = "Font",
+            label = strings.fontLabel,
             value = danmakuSettings.fontScalePercent,
             range = 50..200,
             suffix = "%",
             onValueChange = { onSaveDanmakuSettings(danmakuSettings.copy(fontScalePercent = it)) },
         )
         PlayerDanmakuSlider(
-            label = "Speed",
+            label = strings.speedLabel,
             value = danmakuSettings.speedPercent,
             range = 25..300,
             suffix = "%",
             onValueChange = { onSaveDanmakuSettings(danmakuSettings.copy(speedPercent = it)) },
         )
         PlayerDanmakuSlider(
-            label = "Area",
+            label = strings.areaLabel,
             value = danmakuSettings.displayAreaPercent,
             range = 10..100,
             suffix = "%",
             onValueChange = { onSaveDanmakuSettings(danmakuSettings.copy(displayAreaPercent = it)) },
         )
         PlayerDanmakuOffsetControl(
+            strings = strings,
             offsetMs = danmakuSettings.offsetMs,
             onOffsetChange = { onSaveDanmakuSettings(danmakuSettings.copy(offsetMs = it)) },
         )
@@ -5829,12 +5902,13 @@ private fun PlayerDanmakuSlider(
 
 @Composable
 private fun PlayerDanmakuOffsetControl(
+    strings: DesktopStrings,
     offsetMs: Long,
     onOffsetChange: (Long) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Offset", color = DanmakuColors.TextMuted, modifier = Modifier.weight(1f), maxLines = 1)
+            Text(strings.offsetLabel, color = DanmakuColors.TextMuted, modifier = Modifier.weight(1f), maxLines = 1)
             Text("${offsetMs}ms", color = Color.White, maxLines = 1)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
