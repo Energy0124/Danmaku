@@ -78,11 +78,11 @@ Status legend:
 - `[~]` Add manual refresh metadata/poster actions at both series and episode
   scope.
   - Series cards and the inspector expose series metadata refresh; the
-    inspector and Files/Favorites episode rows now expose scoped episode
-    metadata refresh without requiring playback preparation.
-  - Remaining: add the same row-level episode refresh affordance to Continue
-    Watching, Next Up, and History rows if those views keep separate row
-    components.
+    inspector, Continue Watching, Next Up, History, Files, and Favorites rows
+    now expose scoped episode metadata refresh without requiring playback
+    preparation.
+  - Remaining: align Paired remote-library metadata actions once remote
+    metadata editing exists.
 - `[ ]` Ensure episode-level mapping updates only the selected episode.
 - `[ ]` Add cache-state readback when an episode is selected.
 - `[ ]` Add tests for selection propagation, metadata refresh action routing,

@@ -5351,26 +5351,32 @@ private fun LibraryCenterWorkspace(
             WindowsLibraryView.CONTINUE_WATCHING -> ContinueWatchingList(
                 items = continueWatchingItems,
                 selectedMediaId = selectedMediaId,
+                refreshingMetadataMediaIds = refreshingMetadataMediaIds,
                 isPreparing = isPreparing,
                 compact = compact,
                 onShowDetails = onShowDetails,
+                onRefreshEpisodeMetadata = onRefreshEpisodeMetadata,
                 onPlayLocalPlayback = onPlayLocalPlayback,
             )
             WindowsLibraryView.NEXT_UP -> NextUpList(
                 items = nextUpItems,
                 selectedMediaId = selectedMediaId,
+                refreshingMetadataMediaIds = refreshingMetadataMediaIds,
                 isPreparing = isPreparing,
                 compact = compact,
                 onShowDetails = onShowDetails,
+                onRefreshEpisodeMetadata = onRefreshEpisodeMetadata,
                 onPrepareLocalPlayback = onPrepareLocalPlayback,
                 onPlayLocalPlayback = onPlayLocalPlayback,
             )
             WindowsLibraryView.RECENTLY_WATCHED -> RecentlyWatchedList(
                 items = recentlyWatchedItems,
                 selectedMediaId = selectedMediaId,
+                refreshingMetadataMediaIds = refreshingMetadataMediaIds,
                 isPreparing = isPreparing,
                 compact = compact,
                 onShowDetails = onShowDetails,
+                onRefreshEpisodeMetadata = onRefreshEpisodeMetadata,
                 onPrepareLocalPlayback = onPrepareLocalPlayback,
                 onPlayLocalPlayback = onPlayLocalPlayback,
             )
@@ -5946,9 +5952,11 @@ private fun LibraryProgressCard(
 private fun ContinueWatchingList(
     items: List<LibraryPlaybackProgressItem>,
     selectedMediaId: String?,
+    refreshingMetadataMediaIds: Set<String>,
     isPreparing: Boolean,
     compact: Boolean,
     onShowDetails: (LibraryMediaItem) -> Unit,
+    onRefreshEpisodeMetadata: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
 ) {
     if (items.isEmpty()) {
@@ -5976,12 +5984,14 @@ private fun ContinueWatchingList(
                 ContinueWatchingRow(
                     item = item,
                     selected = item.mediaItem.id == selectedMediaId || (selectedMediaId == null && rowIndex == boundedSelectedIndex),
+                    isRefreshingMetadata = item.mediaItem.id in refreshingMetadataMediaIds,
                     isPreparing = isPreparing,
                     compact = compact,
                     onShowDetails = {
                         selectedIndex = rowIndex
                         onShowDetails(it)
                     },
+                    onRefreshEpisodeMetadata = onRefreshEpisodeMetadata,
                     onPlayLocalPlayback = onPlayLocalPlayback,
                 )
             }
@@ -5993,9 +6003,11 @@ private fun ContinueWatchingList(
 private fun NextUpList(
     items: List<LibraryNextUpItem>,
     selectedMediaId: String?,
+    refreshingMetadataMediaIds: Set<String>,
     isPreparing: Boolean,
     compact: Boolean,
     onShowDetails: (LibraryMediaItem) -> Unit,
+    onRefreshEpisodeMetadata: (LibraryMediaItem) -> Unit,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
 ) {
@@ -6024,12 +6036,14 @@ private fun NextUpList(
                 NextUpRow(
                     item = item,
                     selected = item.mediaItem.id == selectedMediaId || (selectedMediaId == null && rowIndex == boundedSelectedIndex),
+                    isRefreshingMetadata = item.mediaItem.id in refreshingMetadataMediaIds,
                     isPreparing = isPreparing,
                     compact = compact,
                     onShowDetails = {
                         selectedIndex = rowIndex
                         onShowDetails(it)
                     },
+                    onRefreshEpisodeMetadata = onRefreshEpisodeMetadata,
                     onPrepareLocalPlayback = onPrepareLocalPlayback,
                     onPlayLocalPlayback = onPlayLocalPlayback,
                 )
@@ -6042,9 +6056,11 @@ private fun NextUpList(
 private fun RecentlyWatchedList(
     items: List<LibraryPlaybackProgressItem>,
     selectedMediaId: String?,
+    refreshingMetadataMediaIds: Set<String>,
     isPreparing: Boolean,
     compact: Boolean,
     onShowDetails: (LibraryMediaItem) -> Unit,
+    onRefreshEpisodeMetadata: (LibraryMediaItem) -> Unit,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
 ) {
@@ -6073,12 +6089,14 @@ private fun RecentlyWatchedList(
                 RecentlyWatchedRow(
                     item = item,
                     selected = item.mediaItem.id == selectedMediaId || (selectedMediaId == null && rowIndex == boundedSelectedIndex),
+                    isRefreshingMetadata = item.mediaItem.id in refreshingMetadataMediaIds,
                     isPreparing = isPreparing,
                     compact = compact,
                     onShowDetails = {
                         selectedIndex = rowIndex
                         onShowDetails(it)
                     },
+                    onRefreshEpisodeMetadata = onRefreshEpisodeMetadata,
                     onPrepareLocalPlayback = onPrepareLocalPlayback,
                     onPlayLocalPlayback = onPlayLocalPlayback,
                 )
@@ -8809,13 +8827,15 @@ private fun LibrarySeriesWatchSummary?.progressLabel(): String =
 private fun NextUpRow(
     item: LibraryNextUpItem,
     selected: Boolean,
+    isRefreshingMetadata: Boolean,
     isPreparing: Boolean,
     compact: Boolean,
     onShowDetails: (LibraryMediaItem) -> Unit,
+    onRefreshEpisodeMetadata: (LibraryMediaItem) -> Unit,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
 ) {
-    val metadataReadiness = item.mediaItem.metadataReadiness(isRefreshing = false)
+    val metadataReadiness = item.mediaItem.metadataReadiness(isRefreshing = isRefreshingMetadata)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -8853,6 +8873,17 @@ private fun NextUpRow(
                     onClick = { onShowDetails(item.mediaItem) },
                 )
             }
+            PlayerIconButton(
+                imageVector = Icons.Filled.Refresh,
+                contentDescription = if (isRefreshingMetadata) {
+                    "Refreshing episode metadata"
+                } else {
+                    "Refresh episode metadata"
+                },
+                enabled = !isPreparing && !isRefreshingMetadata,
+                active = isRefreshingMetadata,
+                onClick = { onRefreshEpisodeMetadata(item.mediaItem) },
+            )
             LibraryActionButton(
                 imageVector = Icons.Filled.Refresh,
                 label = if (isPreparing) "Preparing..." else if (compact) "Prep" else "Prepare",
@@ -8873,11 +8904,14 @@ private fun NextUpRow(
 private fun ContinueWatchingRow(
     item: LibraryPlaybackProgressItem,
     selected: Boolean,
+    isRefreshingMetadata: Boolean,
     isPreparing: Boolean,
     compact: Boolean,
     onShowDetails: (LibraryMediaItem) -> Unit,
+    onRefreshEpisodeMetadata: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
 ) {
+    val metadataReadiness = item.mediaItem.metadataReadiness(isRefreshing = isRefreshingMetadata)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -8896,7 +8930,8 @@ private fun ContinueWatchingRow(
             }
             Text(
                 "Resume at ${item.progress.positionMs.formatPlaybackTime()} / " +
-                    (item.progress.durationMs?.formatPlaybackTime() ?: "unknown"),
+                    (item.progress.durationMs?.formatPlaybackTime() ?: "unknown") +
+                    " - ${metadataReadiness.label}",
                 color = DanmakuColors.TextMuted,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -8916,6 +8951,17 @@ private fun ContinueWatchingRow(
                     onClick = { onShowDetails(item.mediaItem) },
                 )
             }
+            PlayerIconButton(
+                imageVector = Icons.Filled.Refresh,
+                contentDescription = if (isRefreshingMetadata) {
+                    "Refreshing episode metadata"
+                } else {
+                    "Refresh episode metadata"
+                },
+                enabled = !isPreparing && !isRefreshingMetadata,
+                active = isRefreshingMetadata,
+                onClick = { onRefreshEpisodeMetadata(item.mediaItem) },
+            )
             LibraryActionButton(
                 imageVector = Icons.Filled.PlayArrow,
                 label = if (isPreparing) "Loading..." else "Resume",
@@ -8930,12 +8976,15 @@ private fun ContinueWatchingRow(
 private fun RecentlyWatchedRow(
     item: LibraryPlaybackProgressItem,
     selected: Boolean,
+    isRefreshingMetadata: Boolean,
     isPreparing: Boolean,
     compact: Boolean,
     onShowDetails: (LibraryMediaItem) -> Unit,
+    onRefreshEpisodeMetadata: (LibraryMediaItem) -> Unit,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
 ) {
+    val metadataReadiness = item.mediaItem.metadataReadiness(isRefreshing = isRefreshingMetadata)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -8955,7 +9004,8 @@ private fun RecentlyWatchedRow(
             Text(
                 "Last seen ${item.progress.updatedAtEpochMs.toDiagnosticTime()} at " +
                     "${item.progress.positionMs.formatPlaybackTime()} / " +
-                    (item.progress.durationMs?.formatPlaybackTime() ?: "unknown"),
+                    (item.progress.durationMs?.formatPlaybackTime() ?: "unknown") +
+                    " - ${metadataReadiness.label}",
                 color = DanmakuColors.TextMuted,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -8975,6 +9025,17 @@ private fun RecentlyWatchedRow(
                     onClick = { onShowDetails(item.mediaItem) },
                 )
             }
+            PlayerIconButton(
+                imageVector = Icons.Filled.Refresh,
+                contentDescription = if (isRefreshingMetadata) {
+                    "Refreshing episode metadata"
+                } else {
+                    "Refresh episode metadata"
+                },
+                enabled = !isPreparing && !isRefreshingMetadata,
+                active = isRefreshingMetadata,
+                onClick = { onRefreshEpisodeMetadata(item.mediaItem) },
+            )
             LibraryActionButton(
                 imageVector = Icons.Filled.Refresh,
                 label = if (isPreparing) "Preparing..." else if (compact) "Prep" else "Prepare",
