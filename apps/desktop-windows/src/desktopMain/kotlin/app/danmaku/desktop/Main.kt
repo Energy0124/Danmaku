@@ -2860,6 +2860,39 @@ private enum class DesktopUiLanguage(
             speedLabel = "Speed",
             areaLabel = "Area",
             offsetLabel = "Offset",
+            librarySlicesTitle = "Library slices",
+            animeSeriesSliceLabel = "Anime Series",
+            moviesSliceLabel = "Movies",
+            ovasSpecialsSliceLabel = "OVAs / Specials",
+            allEpisodesSliceLabel = "All Episodes",
+            favoritesSliceLabel = "Favorites",
+            nowPlayingTitle = "Now Playing",
+            recentlyAddedTitle = "Recently Added",
+            browseAllAction = "Browse all",
+            newlyAddedEmptyText = "Newly added episodes will appear here after a library scan.",
+            recentlyAddedDetailLabel = { indexedAtEpochMs, sizeText -> "Added ${indexedAtEpochMs.formatEpochTime()} - $sizeText" },
+            recentlyWatchedTitle = "Recently Watched",
+            recentPlaybackEmptyText = "Recent playback will appear here after you watch local episodes.",
+            watchedAtLabel = { positionMs -> "Watched ${positionMs.formatPlaybackTime()}" },
+            myLibraryTitle = "My Library",
+            seriesSummaryTitle = "Series",
+            matchedGroupsCaption = "matched groups",
+            favoritesSummaryTitle = "Favorites",
+            savedEpisodesCaption = "saved episodes",
+            watchingSummaryTitle = "Watching",
+            inProgressCaption = "in progress",
+            homeLibraryEmptyText = "Add a local anime folder to build your Home dashboard.",
+            librarySnapshotTitle = "Library Snapshot",
+            continueWatchingTitle = "Continue Watching",
+            noResumeQueueText = "No resume queue yet. Browse the library to start playback.",
+            loadedNowLabel = "Loaded now",
+            resumeAtLabel = { positionMs -> "Resume at ${positionMs.formatPlaybackTime()}" },
+            resumeSavedPositionLabel = "Resume at saved position",
+            savedPositionLabel = "saved position",
+            lastWatchedLabel = "last watched",
+            nextAfterLabel = { positionMs -> "Next after ${positionMs?.formatPlaybackTime() ?: "last watched"}" },
+            startWatchingLibraryLabel = "Start watching this library",
+            episodeCountShortLabel = { count -> "$count eps" },
             libraryViewTitles = mapOf(
                 WindowsLibraryView.CONTINUE_WATCHING to "Continue",
                 WindowsLibraryView.NEXT_UP to "Next up",
@@ -3182,6 +3215,39 @@ private enum class DesktopUiLanguage(
             speedLabel = "速度",
             areaLabel = "範圍",
             offsetLabel = "時間偏移",
+            librarySlicesTitle = "媒體庫分類",
+            animeSeriesSliceLabel = "動畫系列",
+            moviesSliceLabel = "電影",
+            ovasSpecialsSliceLabel = "OVA / 特別篇",
+            allEpisodesSliceLabel = "所有集數",
+            favoritesSliceLabel = "收藏",
+            nowPlayingTitle = "播放中",
+            recentlyAddedTitle = "最近加入",
+            browseAllAction = "瀏覽全部",
+            newlyAddedEmptyText = "掃描媒體庫後，新加入的集數會顯示在這裡。",
+            recentlyAddedDetailLabel = { indexedAtEpochMs, sizeText -> "加入 ${indexedAtEpochMs.formatEpochTime()} - $sizeText" },
+            recentlyWatchedTitle = "最近觀看",
+            recentPlaybackEmptyText = "觀看本機集數後，最近播放會顯示在這裡。",
+            watchedAtLabel = { positionMs -> "已觀看 ${positionMs.formatPlaybackTime()}" },
+            myLibraryTitle = "我的媒體庫",
+            seriesSummaryTitle = "系列",
+            matchedGroupsCaption = "已對應群組",
+            favoritesSummaryTitle = "收藏",
+            savedEpisodesCaption = "已收藏集數",
+            watchingSummaryTitle = "觀看中",
+            inProgressCaption = "進行中",
+            homeLibraryEmptyText = "加入本機動畫資料夾以建立首頁儀表板。",
+            librarySnapshotTitle = "媒體庫快照",
+            continueWatchingTitle = "繼續觀看",
+            noResumeQueueText = "尚無續播佇列。瀏覽媒體庫開始播放。",
+            loadedNowLabel = "目前載入",
+            resumeAtLabel = { positionMs -> "從 ${positionMs.formatPlaybackTime()} 繼續" },
+            resumeSavedPositionLabel = "從已儲存位置繼續",
+            savedPositionLabel = "已儲存位置",
+            lastWatchedLabel = "上次觀看位置",
+            nextAfterLabel = { positionMs -> "接著 ${positionMs?.formatPlaybackTime() ?: "上次觀看位置"}" },
+            startWatchingLibraryLabel = "開始觀看此媒體庫",
+            episodeCountShortLabel = { count -> "$count 集" },
             libraryViewTitles = mapOf(
                 WindowsLibraryView.CONTINUE_WATCHING to "繼續觀看",
                 WindowsLibraryView.NEXT_UP to "接著看",
@@ -3491,6 +3557,39 @@ private data class DesktopStrings(
     val speedLabel: String,
     val areaLabel: String,
     val offsetLabel: String,
+    val librarySlicesTitle: String,
+    val animeSeriesSliceLabel: String,
+    val moviesSliceLabel: String,
+    val ovasSpecialsSliceLabel: String,
+    val allEpisodesSliceLabel: String,
+    val favoritesSliceLabel: String,
+    val nowPlayingTitle: String,
+    val recentlyAddedTitle: String,
+    val browseAllAction: String,
+    val newlyAddedEmptyText: String,
+    val recentlyAddedDetailLabel: (Long, String) -> String,
+    val recentlyWatchedTitle: String,
+    val recentPlaybackEmptyText: String,
+    val watchedAtLabel: (Long) -> String,
+    val myLibraryTitle: String,
+    val seriesSummaryTitle: String,
+    val matchedGroupsCaption: String,
+    val favoritesSummaryTitle: String,
+    val savedEpisodesCaption: String,
+    val watchingSummaryTitle: String,
+    val inProgressCaption: String,
+    val homeLibraryEmptyText: String,
+    val librarySnapshotTitle: String,
+    val continueWatchingTitle: String,
+    val noResumeQueueText: String,
+    val loadedNowLabel: String,
+    val resumeAtLabel: (Long) -> String,
+    val resumeSavedPositionLabel: String,
+    val savedPositionLabel: String,
+    val lastWatchedLabel: String,
+    val nextAfterLabel: (Long?) -> String,
+    val startWatchingLibraryLabel: String,
+    val episodeCountShortLabel: (Int) -> String,
     val libraryViewTitles: Map<WindowsLibraryView, String> = emptyMap(),
     val libraryHostSubtitle: String,
     val librarySearchLabel: String,
@@ -3769,7 +3868,7 @@ private fun ShellHeader(
         )
         PlayerIconButton(
             imageVector = Icons.Filled.MoreHoriz,
-            contentDescription = "Settings",
+            contentDescription = strings.settingsTitle,
             onClick = onShowSettings,
         )
     }
@@ -3846,8 +3945,14 @@ private fun AppNavigationRail(
             onClick = { onTabSelected(DesktopShellTab.PROFILE) },
         )
         Divider(color = DanmakuColors.SurfaceRaised)
-        Text("Library slices", color = DanmakuColors.TextMuted, fontWeight = FontWeight.Bold)
-        listOf("Anime Series", "Movies", "OVAs / Specials", "All Episodes", "Favorites").forEach { label ->
+        Text(strings.librarySlicesTitle, color = DanmakuColors.TextMuted, fontWeight = FontWeight.Bold)
+        listOf(
+            strings.animeSeriesSliceLabel,
+            strings.moviesSliceLabel,
+            strings.ovasSpecialsSliceLabel,
+            strings.allEpisodesSliceLabel,
+            strings.favoritesSliceLabel,
+        ).forEach { label ->
             Text(
                 text = label,
                 color = DanmakuColors.TextMuted,
@@ -3862,6 +3967,7 @@ private fun AppNavigationRail(
         }
         Spacer(modifier = Modifier.weight(1f))
         NowPlayingRailCard(
+            strings = strings,
             playbackLabel = playbackLabel,
             playbackStatus = playbackStatus,
             onOpenPlayer = { onTabSelected(DesktopShellTab.PLAYBACK) },
@@ -3904,6 +4010,7 @@ private fun AppRailItem(
 
 @Composable
 private fun NowPlayingRailCard(
+    strings: DesktopStrings,
     playbackLabel: String?,
     playbackStatus: PlaybackStatus,
     onOpenPlayer: () -> Unit,
@@ -3917,9 +4024,9 @@ private fun NowPlayingRailCard(
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
-        Text("Now Playing", color = DanmakuColors.TextMuted, fontWeight = FontWeight.Bold)
+        Text(strings.nowPlayingTitle, color = DanmakuColors.TextMuted, fontWeight = FontWeight.Bold)
         Text(
-            playbackLabel ?: "No media loaded",
+            playbackLabel ?: strings.noMediaLoadedLabel,
             color = Color.White,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
@@ -4007,6 +4114,7 @@ private fun HomeTab(
             if (compact) {
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     HomeMainColumn(
+                        strings = strings,
                         playbackSnapshot = playbackSnapshot,
                         continueWatchingItems = continueWatchingItems,
                         nextUpItems = nextUpItems,
@@ -4048,6 +4156,7 @@ private fun HomeTab(
             } else {
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     HomeMainColumn(
+                        strings = strings,
                         playbackSnapshot = playbackSnapshot,
                         continueWatchingItems = continueWatchingItems,
                         nextUpItems = nextUpItems,
@@ -4095,6 +4204,7 @@ private fun HomeTab(
 
 @Composable
 private fun HomeMainColumn(
+    strings: DesktopStrings,
     playbackSnapshot: PlaybackSnapshot,
     continueWatchingItems: List<LibraryPlaybackProgressItem>,
     nextUpItems: List<LibraryNextUpItem>,
@@ -4112,6 +4222,7 @@ private fun HomeMainColumn(
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
         HomeHeroCard(
+            strings = strings,
             playbackSnapshot = playbackSnapshot,
             continueWatchingItems = continueWatchingItems,
             nextUpItems = nextUpItems,
@@ -4122,12 +4233,12 @@ private fun HomeMainColumn(
             onPlayLocalPlayback = onPlayLocalPlayback,
         )
         HomeSectionHeader(
-            title = "Recently Added",
-            actionLabel = "Browse all",
+            title = strings.recentlyAddedTitle,
+            actionLabel = strings.browseAllAction,
             onAction = onOpenLibrary,
         )
         if (recentlyAddedItems.isEmpty()) {
-            EmptyState("Newly added episodes will appear here after a library scan.")
+            EmptyState(strings.newlyAddedEmptyText)
         } else {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 recentlyAddedItems.take(4).forEach { mediaItem ->
@@ -4135,8 +4246,9 @@ private fun HomeMainColumn(
                         mediaItem = mediaItem,
                         coverPath = seriesByMediaId[mediaItem.id]?.let { seriesPosterById[it.id] },
                         progressPercent = null,
-                        detail = mediaItem.recentlyAddedDetail(),
+                        detail = mediaItem.recentlyAddedDetail(strings),
                         isPreparing = isPreparingLocalPlayback,
+                        playContentDescription = strings.playAction,
                         onPlay = { onPlayLocalPlayback(mediaItem) },
                         modifier = Modifier.weight(1f),
                     )
@@ -4147,12 +4259,12 @@ private fun HomeMainColumn(
             }
         }
         HomeSectionHeader(
-            title = "Recently Watched",
-            actionLabel = "Open library",
+            title = strings.recentlyWatchedTitle,
+            actionLabel = strings.openLibraryAction,
             onAction = onOpenLibrary,
         )
         if (recentlyWatchedItems.isEmpty()) {
-            EmptyState("Recent playback will appear here after you watch local episodes.")
+            EmptyState(strings.recentPlaybackEmptyText)
         } else {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 recentlyWatchedItems.take(4).forEach { item ->
@@ -4160,8 +4272,9 @@ private fun HomeMainColumn(
                         mediaItem = item.mediaItem,
                         coverPath = seriesByMediaId[item.mediaItem.id]?.let { seriesPosterById[it.id] },
                         progressPercent = item.progress.progressPercent(),
-                        detail = "Watched ${item.progress.positionMs.formatPlaybackTime()}",
+                        detail = strings.watchedAtLabel(item.progress.positionMs),
                         isPreparing = isPreparingLocalPlayback,
+                        playContentDescription = strings.playAction,
                         onPlay = { onPlayLocalPlayback(item.mediaItem) },
                         modifier = Modifier.weight(1f),
                     )
@@ -4172,36 +4285,37 @@ private fun HomeMainColumn(
             }
         }
         HomeSectionHeader(
-            title = "My Library",
-            actionLabel = "Browse all",
+            title = strings.myLibraryTitle,
+            actionLabel = strings.browseAllAction,
             onAction = onOpenLibrary,
         )
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             SummaryCard(
-                title = "Series",
+                title = strings.seriesSummaryTitle,
                 value = series.size.toString(),
-                caption = "matched groups",
+                caption = strings.matchedGroupsCaption,
                 modifier = Modifier.weight(1f),
             )
             SummaryCard(
-                title = "Favorites",
+                title = strings.favoritesSummaryTitle,
                 value = favoriteMediaIds.size.toString(),
-                caption = "saved episodes",
+                caption = strings.savedEpisodesCaption,
                 modifier = Modifier.weight(1f),
             )
             SummaryCard(
-                title = "Watching",
+                title = strings.watchingSummaryTitle,
                 value = continueWatchingItems.size.toString(),
-                caption = "in progress",
+                caption = strings.inProgressCaption,
                 modifier = Modifier.weight(1f),
             )
         }
         if (series.isEmpty()) {
-            EmptyState("Add a local anime folder to build your Home dashboard.", "Open Library", onOpenLibrary)
+            EmptyState(strings.homeLibraryEmptyText, strings.openLibraryAction, onOpenLibrary)
         } else {
-            SectionCard("Library Snapshot") {
+            SectionCard(strings.librarySnapshotTitle) {
                 series.take(6).forEach { librarySeries ->
                     HomeSeriesSummaryRow(
+                        strings = strings,
                         series = librarySeries,
                         coverPath = seriesPosterById[librarySeries.id],
                         watchSummary = seriesWatchSummaryById[librarySeries.id],
@@ -4215,6 +4329,7 @@ private fun HomeMainColumn(
 
 @Composable
 private fun HomeHeroCard(
+    strings: DesktopStrings,
     playbackSnapshot: PlaybackSnapshot,
     continueWatchingItems: List<LibraryPlaybackProgressItem>,
     nextUpItems: List<LibraryNextUpItem>,
@@ -4229,9 +4344,9 @@ private fun HomeHeroCard(
             add(
                 HomeResumeCardModel(
                     mediaItem = item.mediaItem,
-                    detail = "Resume at ${item.progress.positionMs.formatPlaybackTime()}",
+                    detail = strings.resumeAtLabel(item.progress.positionMs),
                     progressPercent = item.progress.progressPercent(),
-                    actionLabel = "Resume",
+                    actionLabel = strings.resumeAction,
                 ),
             )
         }
@@ -4239,17 +4354,17 @@ private fun HomeHeroCard(
             add(
                 HomeResumeCardModel(
                     mediaItem = item.mediaItem,
-                    detail = item.nextUpLabel(),
+                    detail = item.nextUpLabel(strings),
                     progressPercent = item.progress?.progressPercent(),
-                    actionLabel = item.nextUpActionLabel(),
+                    actionLabel = item.nextUpActionLabel(strings),
                 ),
             )
         }
     }.distinctBy { it.mediaItem.id }.take(3)
 
-    SectionCard("Continue Watching") {
+    SectionCard(strings.continueWatchingTitle) {
         if (resumeCards.isEmpty()) {
-            EmptyState("No resume queue yet. Browse the library to start playback.", "Open Library", onOpenLibrary)
+            EmptyState(strings.noResumeQueueText, strings.openLibraryAction, onOpenLibrary)
             return@SectionCard
         }
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -4264,7 +4379,7 @@ private fun HomeHeroCard(
             }
         }
         playbackSnapshot.source?.let { source ->
-            MetadataRow("Loaded now", source.toString().redactToken())
+            MetadataRow(strings.loadedNowLabel, source.toString().redactToken())
         }
     }
 }
@@ -4328,6 +4443,7 @@ private fun HomeEpisodeCard(
     progressPercent: Int?,
     detail: String,
     isPreparing: Boolean,
+    playContentDescription: String,
     onPlay: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -4356,7 +4472,7 @@ private fun HomeEpisodeCard(
             Text(detail, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
             PlayerIconButton(
                 imageVector = Icons.Filled.PlayArrow,
-                contentDescription = "Play",
+                contentDescription = playContentDescription,
                 enabled = !isPreparing,
                 onClick = onPlay,
             )
@@ -4366,6 +4482,7 @@ private fun HomeEpisodeCard(
 
 @Composable
 private fun HomeSeriesSummaryRow(
+    strings: DesktopStrings,
     series: LibrarySeries,
     coverPath: Path?,
     watchSummary: LibrarySeriesWatchSummary?,
@@ -4391,7 +4508,7 @@ private fun HomeSeriesSummaryRow(
             Text(series.title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(watchSummary.progressLabel(), color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        StatusPill("${series.episodeCount} eps")
+        StatusPill(strings.episodeCountShortLabel(series.episodeCount))
     }
 }
 
@@ -9084,9 +9201,9 @@ private fun LibraryMediaItem.localSeriesLabel(): String? {
         ?.let { "File group: $it" }
 }
 
-private fun LibraryMediaItem.recentlyAddedDetail(): String =
+private fun LibraryMediaItem.recentlyAddedDetail(strings: DesktopStrings): String =
     if (indexedAtEpochMs > 0) {
-        "Added ${indexedAtEpochMs.formatEpochTime()} - ${sizeBytes.formatLibrarySize()}"
+        strings.recentlyAddedDetailLabel(indexedAtEpochMs, sizeBytes.formatLibrarySize())
     } else {
         "${mediaType.uppercase()} - ${sizeBytes.formatLibrarySize()}"
     }
@@ -12522,11 +12639,25 @@ private fun Long.formatLibrarySize(): String {
     }
 }
 
+private fun LibraryNextUpItem.nextUpLabel(strings: DesktopStrings): String =
+    when (reason) {
+        LibraryNextUpReason.RESUME -> progress?.positionMs?.let(strings.resumeAtLabel) ?: strings.resumeSavedPositionLabel
+        LibraryNextUpReason.NEXT_EPISODE -> strings.nextAfterLabel(sourceProgress?.positionMs)
+        LibraryNextUpReason.START -> strings.startWatchingLibraryLabel
+    }
+
 private fun LibraryNextUpItem.nextUpLabel(): String =
     when (reason) {
         LibraryNextUpReason.RESUME -> "Resume at ${progress?.positionMs?.formatPlaybackTime() ?: "saved position"}"
         LibraryNextUpReason.NEXT_EPISODE -> "Next after ${sourceProgress?.positionMs?.formatPlaybackTime() ?: "last watched"}"
         LibraryNextUpReason.START -> "Start watching this library"
+    }
+
+private fun LibraryNextUpItem.nextUpActionLabel(strings: DesktopStrings): String =
+    when (reason) {
+        LibraryNextUpReason.RESUME -> strings.resumeAction
+        LibraryNextUpReason.NEXT_EPISODE,
+        LibraryNextUpReason.START -> strings.playAction
     }
 
 private fun LibraryNextUpItem.nextUpActionLabel(): String =

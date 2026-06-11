@@ -43,6 +43,10 @@ Status legend:
   - Home operational status cards now use the same desktop string layer for
     server, metadata/posters, external sync, downloads, and cached danmaku
     labels/actions while keeping runtime values as source data.
+  - Home main dashboard and app rail chrome now use the same desktop string
+    layer for library slices, now-playing fallback, Continue Watching,
+    Recently Added/Watched, My Library summaries, empty states, and Home-only
+    resume/next-up labels.
   - Settings General privacy copy and the real dandanplay/MyAnimeList/Bangumi
     provider forms now use the same desktop string layer for labels, actions,
     validation copy, and clear/cleanup confirmations.
@@ -70,6 +74,9 @@ Status legend:
   - Existing local DB rows without the new timestamp fall back to file modified
     time during migration/load; new and unchanged scanned items preserve their
     first indexed time.
+  - Home dashboard section headers, summary captions, empty states, card
+    action labels, and Home-only resume/next-up detail labels now route through
+    English / `zh-TW` desktop strings.
 - `[x]` Add a right-side operational status column on desktop Home for server,
   metadata/posters, external sync, downloads, and cached danmaku.
 - `[x]` Make status cards actionable with Open Dashboard, Refresh Metadata, Open

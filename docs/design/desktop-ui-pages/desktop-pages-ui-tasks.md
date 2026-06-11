@@ -49,6 +49,10 @@ Status legend:
   - The Home operational status column now uses the desktop string layer for
     server, metadata/posters, external sync, downloads, and cached danmaku
     card chrome.
+  - Home main dashboard and app rail chrome now use the desktop string layer
+    for library slices, now-playing fallback, Continue Watching, Recently
+    Added/Watched, My Library summaries, empty states, and Home-only
+    resume/next-up labels.
   - Settings General privacy chrome and the real dandanplay/MyAnimeList/Bangumi
     provider forms now use the desktop string layer for labels, actions,
     validation copy, and clear/cleanup confirmation text.
