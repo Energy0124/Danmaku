@@ -105,6 +105,15 @@ Completed settings split:
 - `DesktopSettingsProviders.kt` owns dandanplay, MyAnimeList, and Bangumi
   provider cards.
 
+Completed playback split:
+
+- `DesktopPlaybackTab.kt` now owns the tab-level player composition.
+- `DesktopPlaybackShortcuts.kt` owns desktop player shortcut key mapping.
+- `DesktopPlaybackOverlays.kt` owns empty, navigation, top/bottom, and
+  preparation-status overlays.
+- `DesktopPlaybackPanels.kt` owns the right panel, danmaku controls, focus
+  restore button, and shared playback action buttons.
+
 Acceptance:
 
 - Prefer files below roughly 700 lines unless a single cohesive surface

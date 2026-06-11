@@ -49,9 +49,9 @@ Status legend:
   dense desktop, mobile, and TV surfaces.
 - `[ ]` Add release checklist automation for Android APKs and Windows portable
   archives.
-- `[~]` Move the remaining desktop player surface out of `Main.kt`; playback
-  constants and cycling helpers are split, and player composables are being
-  moved into a dedicated desktop playback tab file.
+- `[x]` Move the remaining desktop player surface out of `Main.kt`; playback
+  tab, shortcut, overlay, panel, constants, and cycling helpers are now split
+  into focused desktop playback files.
 - `[x]` Move the desktop library workspace and shared library row/card
   composables out of `Main.kt`; library UI is now split into tab, workspace,
   lists, inspector, and helper files.
