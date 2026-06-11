@@ -2758,6 +2758,9 @@ private fun HomeTab(
     val recentlyWatchedItems = remember(catalog, playbackProgresses) {
         catalog?.recentlyWatchedItems(playbackProgresses).orEmpty()
     }
+    val recentlyIndexedItems = remember(catalog) {
+        catalog?.items.orEmpty().asReversed()
+    }
     val externalTrackingPlan = remember(catalog, externalAnimeMappings, playbackProgresses, externalAnimeSyncFailures) {
         catalog?.externalAnimeTrackingPlan(
             mappings = externalAnimeMappings,
@@ -2778,6 +2781,7 @@ private fun HomeTab(
                         continueWatchingItems = continueWatchingItems,
                         nextUpItems = nextUpItems,
                         recentlyWatchedItems = recentlyWatchedItems,
+                        recentlyIndexedItems = recentlyIndexedItems,
                         series = series,
                         seriesByMediaId = seriesByMediaId,
                         seriesPosterById = seriesPosterById,
@@ -2817,6 +2821,7 @@ private fun HomeTab(
                         continueWatchingItems = continueWatchingItems,
                         nextUpItems = nextUpItems,
                         recentlyWatchedItems = recentlyWatchedItems,
+                        recentlyIndexedItems = recentlyIndexedItems,
                         series = series,
                         seriesByMediaId = seriesByMediaId,
                         seriesPosterById = seriesPosterById,
@@ -2862,6 +2867,7 @@ private fun HomeMainColumn(
     continueWatchingItems: List<LibraryPlaybackProgressItem>,
     nextUpItems: List<LibraryNextUpItem>,
     recentlyWatchedItems: List<LibraryPlaybackProgressItem>,
+    recentlyIndexedItems: List<LibraryMediaItem>,
     series: List<LibrarySeries>,
     seriesByMediaId: Map<String, LibrarySeries>,
     seriesPosterById: Map<String, Path?>,
@@ -2883,6 +2889,31 @@ private fun HomeMainColumn(
             onOpenLibrary = onOpenLibrary,
             onPlayLocalPlayback = onPlayLocalPlayback,
         )
+        HomeSectionHeader(
+            title = "Recently Indexed",
+            actionLabel = "Browse all",
+            onAction = onOpenLibrary,
+        )
+        if (recentlyIndexedItems.isEmpty()) {
+            EmptyState("Newly indexed episodes will appear here after a library scan.")
+        } else {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                recentlyIndexedItems.take(4).forEach { mediaItem ->
+                    HomeEpisodeCard(
+                        mediaItem = mediaItem,
+                        coverPath = seriesByMediaId[mediaItem.id]?.let { seriesPosterById[it.id] },
+                        progressPercent = null,
+                        detail = "${mediaItem.mediaType.uppercase()} - ${mediaItem.sizeBytes.formatLibrarySize()}",
+                        isPreparing = isPreparingLocalPlayback,
+                        onPlay = { onPlayLocalPlayback(mediaItem) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                repeat((4 - recentlyIndexedItems.take(4).size).coerceAtLeast(0)) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+        }
         HomeSectionHeader(
             title = "Recently Watched",
             actionLabel = "Open library",
