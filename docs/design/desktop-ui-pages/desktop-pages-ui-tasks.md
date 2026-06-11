@@ -77,6 +77,9 @@ Status legend:
   - Library paired-browse heading, Favorites/Files/All Series/Next Up empty
     states, All Series heading, and series-card refresh/play actions now use
     the desktop string layer.
+  - Library recently-watched empty state, external ID mapping header/actions,
+    provider episode labels, remove buttons, and Diagnostics panel title/empty
+    state now use the desktop string layer.
   - Paired remote-library browse chrome now uses the desktop string layer for
     connection fields, load/search/sort/filter actions, empty/error states,
     prepared playback details, and remote row playback actions.

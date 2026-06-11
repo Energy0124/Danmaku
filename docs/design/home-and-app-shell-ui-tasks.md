@@ -78,6 +78,9 @@ Status legend:
   - Library paired-browse heading, Favorites/Files/All Series/Next Up empty
     states, All Series heading, and series-card refresh/play actions now use
     the same string layer.
+  - Library recently-watched empty state, external ID mapping controls, provider
+    episode labels, remove buttons, and Diagnostics panel title/empty state now
+    use the same string layer.
   - Library Import summary cards, folder/import/rescan actions, registered-root
     rows, empty state, and remove-folder confirmation now use the same string
     layer.

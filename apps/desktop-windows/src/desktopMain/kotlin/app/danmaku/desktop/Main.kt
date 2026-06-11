@@ -2933,6 +2933,7 @@ private enum class DesktopUiLanguage(
             noSeriesFilterMatchesText = "No series match the current filters.",
             noInProgressLocalEpisodesText = "No in-progress local episodes yet.",
             noNextUpItemText = "No next-up item yet. Start watching from All Series.",
+            noRecentlyWatchedLocalEpisodesText = "No recently watched local episodes yet.",
             subtitlesOnlyLabel = "Subtitles only",
             pathSortLabel = "Path sort",
             requireSubtitlesAction = "Require subtitles",
@@ -2995,6 +2996,12 @@ private enum class DesktopUiLanguage(
             showEpisodeDetailsAction = "Show episode details",
             checkCachedDanmakuAction = "Check cached danmaku",
             moreEpisodeActionsAction = "More episode actions",
+            externalIdsTitle = "External IDs",
+            matchAction = "Match",
+            linkAction = "Link",
+            replaceAction = "Replace",
+            correctAction = "Correct",
+            providerEpisodeLabel = { provider -> "$provider episode" },
             preparePlaybackAction = "Prepare playback",
             refreshEpisodeMetadataAction = "Refresh episode metadata",
             refreshingEpisodeMetadataAction = "Refreshing episode metadata",
@@ -3357,6 +3364,8 @@ private enum class DesktopUiLanguage(
             offsetMsValueLabel = { offsetMs -> "$offsetMs ms" },
             saveDanmakuDisplayAction = "Save danmaku display",
             resetDraftAction = "Reset draft",
+            diagnosticsTitle = "Diagnostics",
+            noDiagnosticsText = "No diagnostics yet. Start playback or scan a library to populate this log.",
             metadataMatchTitle = "Metadata Match",
             metadataMatchDescription = { title ->
                 "Search provider metadata for $title and save a series-level mapping."
@@ -3528,6 +3537,7 @@ private enum class DesktopUiLanguage(
             noSeriesFilterMatchesText = "沒有符合目前篩選的系列。",
             noInProgressLocalEpisodesText = "尚無進行中的本機集數。",
             noNextUpItemText = "尚無接著看項目。請先從所有系列開始觀看。",
+            noRecentlyWatchedLocalEpisodesText = "尚無最近觀看的本機集數。",
             subtitlesOnlyLabel = "只顯示字幕",
             pathSortLabel = "路徑排序",
             requireSubtitlesAction = "只顯示有字幕",
@@ -3590,6 +3600,12 @@ private enum class DesktopUiLanguage(
             showEpisodeDetailsAction = "顯示集數詳情",
             checkCachedDanmakuAction = "檢查彈幕快取",
             moreEpisodeActionsAction = "更多集數動作",
+            externalIdsTitle = "外部 ID",
+            matchAction = "對應",
+            linkAction = "連結",
+            replaceAction = "取代",
+            correctAction = "修正",
+            providerEpisodeLabel = { provider -> "$provider 集數" },
             preparePlaybackAction = "準備播放",
             refreshEpisodeMetadataAction = "重新整理集數中繼資料",
             refreshingEpisodeMetadataAction = "正在重新整理集數中繼資料",
@@ -3952,6 +3968,8 @@ private enum class DesktopUiLanguage(
             offsetMsValueLabel = { offsetMs -> "$offsetMs ms" },
             saveDanmakuDisplayAction = "儲存彈幕顯示",
             resetDraftAction = "重設草稿",
+            diagnosticsTitle = "診斷",
+            noDiagnosticsText = "尚無診斷紀錄。開始播放或掃描媒體庫後會填入此紀錄。",
             metadataMatchTitle = "中繼資料對應",
             metadataMatchDescription = { title ->
                 "搜尋「$title」的服務中繼資料，並儲存系列層級對應。"
@@ -4101,6 +4119,7 @@ private data class DesktopStrings(
     val noSeriesFilterMatchesText: String,
     val noInProgressLocalEpisodesText: String,
     val noNextUpItemText: String,
+    val noRecentlyWatchedLocalEpisodesText: String,
     val subtitlesOnlyLabel: String,
     val pathSortLabel: String,
     val requireSubtitlesAction: String,
@@ -4161,6 +4180,12 @@ private data class DesktopStrings(
     val showEpisodeDetailsAction: String,
     val checkCachedDanmakuAction: String,
     val moreEpisodeActionsAction: String,
+    val externalIdsTitle: String,
+    val matchAction: String,
+    val linkAction: String,
+    val replaceAction: String,
+    val correctAction: String,
+    val providerEpisodeLabel: (String) -> String,
     val preparePlaybackAction: String,
     val refreshEpisodeMetadataAction: String,
     val refreshingEpisodeMetadataAction: String,
@@ -4509,6 +4534,8 @@ private data class DesktopStrings(
     val offsetMsValueLabel: (Long) -> String,
     val saveDanmakuDisplayAction: String,
     val resetDraftAction: String,
+    val diagnosticsTitle: String,
+    val noDiagnosticsText: String,
     val metadataMatchTitle: String,
     val metadataMatchDescription: (String) -> String,
     val metadataMatchSearchTitleLabel: String,
@@ -5334,7 +5361,11 @@ private fun HomeStatusColumn(
             actionLabel = strings.manageCacheAction,
             onAction = onOpenSettings,
         )
-        DiagnosticsPanel(diagnosticLog, modifier = Modifier.heightIn(max = 280.dp))
+        DiagnosticsPanel(
+            strings = strings,
+            diagnosticLog = diagnosticLog,
+            modifier = Modifier.heightIn(max = 280.dp),
+        )
     }
 }
 
@@ -8752,7 +8783,7 @@ private fun RecentlyWatchedList(
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
 ) {
     if (items.isEmpty()) {
-        EmptyState("No recently watched local episodes yet.")
+        EmptyState(strings.noRecentlyWatchedLocalEpisodesText)
     } else {
         var selectedIndex by remember(items) { mutableStateOf(0) }
         val boundedSelectedIndex = selectedIndex.coerceIn(0, items.lastIndex)
@@ -9269,14 +9300,15 @@ private fun ExternalAnimeMappingPanel(
 
     Divider(color = DanmakuColors.SurfaceRaised)
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("External IDs", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+        Text(strings.externalIdsTitle, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
         LibraryActionButton(
             imageVector = Icons.Filled.Search,
-            label = "Match",
+            label = strings.matchAction,
             onClick = { showMatchDialog = true },
         )
     }
     ExternalSeriesMappingRow(
+        strings = strings,
         provider = ExternalAnimeProvider.MY_ANIME_LIST,
         mapping = malMapping,
         selectedSeries = selectedSeries,
@@ -9284,6 +9316,7 @@ private fun ExternalAnimeMappingPanel(
         onDelete = onDeleteExternalAnimeMapping,
     )
     ExternalSeriesMappingRow(
+        strings = strings,
         provider = ExternalAnimeProvider.BANGUMI,
         mapping = bangumiMapping,
         selectedSeries = selectedSeries,
@@ -9291,6 +9324,7 @@ private fun ExternalAnimeMappingPanel(
         onDelete = onDeleteExternalAnimeMapping,
     )
     ExternalItemMappingRow(
+        strings = strings,
         provider = ExternalAnimeProvider.DANDANPLAY,
         currentId = displayedDandanplayId,
         hasManualMapping = dandanplayItemMapping != null,
@@ -9660,6 +9694,7 @@ private fun MetadataMatchPosterPreview(
 
 @Composable
 private fun ExternalSeriesMappingRow(
+    strings: DesktopStrings,
     provider: ExternalAnimeProvider,
     mapping: ExternalAnimeMapping?,
     selectedSeries: LibrarySeries,
@@ -9673,15 +9708,17 @@ private fun ExternalSeriesMappingRow(
         label = provider.displayName,
         value = animeIdText,
         onValueChange = { animeIdText = it.filter(Char::isDigit) },
-        saveLabel = if (mapping == null) "Link" else "Replace",
+        saveLabel = if (mapping == null) strings.linkAction else strings.replaceAction,
         deleteEnabled = mapping != null,
         onSave = { onSave(selectedSeries, provider, animeIdText) },
         onDelete = { onDelete(selectedSeries, provider) },
+        removeLabel = strings.removeAction,
     )
 }
 
 @Composable
 private fun ExternalItemMappingRow(
+    strings: DesktopStrings,
     provider: ExternalAnimeProvider,
     currentId: Long?,
     hasManualMapping: Boolean,
@@ -9693,13 +9730,14 @@ private fun ExternalItemMappingRow(
         mutableStateOf(currentId?.toString().orEmpty())
     }
     ExternalMappingEditRow(
-        label = "${provider.displayName} episode",
+        label = strings.providerEpisodeLabel(provider.displayName),
         value = animeIdText,
         onValueChange = { animeIdText = it.filter(Char::isDigit) },
-        saveLabel = if (hasManualMapping) "Replace" else "Correct",
+        saveLabel = if (hasManualMapping) strings.replaceAction else strings.correctAction,
         deleteEnabled = hasManualMapping,
         onSave = { onSave(selectedItem, provider, animeIdText) },
         onDelete = { onDelete(selectedItem, provider) },
+        removeLabel = strings.removeAction,
     )
 }
 
@@ -9712,6 +9750,7 @@ private fun ExternalMappingEditRow(
     deleteEnabled: Boolean,
     onSave: () -> Unit,
     onDelete: () -> Unit,
+    removeLabel: String,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -9735,7 +9774,7 @@ private fun ExternalMappingEditRow(
             enabled = deleteEnabled,
             onClick = onDelete,
         ) {
-            Text("Remove")
+            Text(removeLabel)
         }
     }
 }
@@ -11133,7 +11172,7 @@ private fun SettingsSectionContent(
                     MetadataRow(strings.appLogLabel, appLogPath.toString())
                     MetadataRow(strings.mpvLogLabel, mpvLogPath.toString())
                 }
-                DiagnosticsPanel(diagnosticLog)
+                DiagnosticsPanel(strings = strings, diagnosticLog = diagnosticLog)
             }
         }
     }
@@ -12347,15 +12386,16 @@ private fun EmptyState(
 
 @Composable
 private fun DiagnosticsPanel(
+    strings: DesktopStrings,
     diagnosticLog: List<DesktopDiagnosticLogEntry>,
     modifier: Modifier = Modifier,
 ) {
     SectionCard(
-        title = "Diagnostics",
+        title = strings.diagnosticsTitle,
         modifier = modifier,
     ) {
         if (diagnosticLog.isEmpty()) {
-            EmptyState("No diagnostics yet. Start playback or scan a library to populate this log.")
+            EmptyState(strings.noDiagnosticsText)
             return@SectionCard
         }
         LazyColumn(modifier = Modifier.height(240.dp)) {
