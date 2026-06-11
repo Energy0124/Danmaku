@@ -174,6 +174,29 @@ Avoid:
 - Text-heavy buttons where an icon with tooltip is clearer.
 - One-hue purple, beige, brown, or slate-only palettes.
 
+## Localization
+
+Danmaku should be designed for localization from the start. The first supported
+UI languages are:
+
+- English (`en`)
+- Traditional Chinese (`zh-TW`)
+
+All user-facing shell text, navigation labels, buttons, empty states, error
+messages, tooltips, settings labels, provider status messages, and dialog copy
+should come from localized resources instead of hardcoded strings.
+
+The UI must allow for longer translated labels without breaking layout:
+
+- Navigation and toolbar labels should have tooltip or accessible-label
+  fallbacks when space is tight.
+- Buttons should use icons plus localized accessible labels where possible.
+- Tables and inspectors should wrap or elide non-critical text while preserving
+  full values in details or tooltips.
+- Generated/provider anime titles are content, not UI chrome, and should be
+  displayed in the source language returned by metadata unless a provider
+  supplies localized titles.
+
 ## Platform Adaptation
 
 ### Windows Desktop

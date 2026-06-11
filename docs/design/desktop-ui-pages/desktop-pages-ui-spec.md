@@ -36,6 +36,10 @@ All desktop pages should share the same shell contract:
 - No nested decorative cards; panels should be functional containers.
 - Long titles must either wrap in details panels or have tooltip/read-more
   affordances.
+- All user-facing UI chrome must be localizable. English (`en`) and Traditional
+  Chinese (`zh-TW`) are the first required locales.
+- Layouts must tolerate longer localized labels without clipped primary
+  actions or broken toolbar/rail spacing.
 
 ## Library Page
 

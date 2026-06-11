@@ -24,6 +24,13 @@ Status legend:
 - `[ ]` Create or refine reusable desktop shell components for header,
   navigation rail, page title/action row, status badges, icon buttons,
   tooltips, and page-level empty/error states.
+- `[ ]` Add a desktop localization resource structure with English and
+  Traditional Chinese (`zh-TW`) strings for shell navigation, page actions,
+  status labels, dialogs, tooltips, and empty/error states.
+- `[ ]` Replace hardcoded user-facing desktop UI chrome with localized string
+  lookups while keeping provider/content titles unchanged.
+- `[ ]` Add UI review screenshots or checks for English and `zh-TW` labels in
+  dense surfaces such as the rail, toolbar, inspector, and settings forms.
 - `[ ]` Normalize route labels to Home, Library, Downloads, Player, Tracking,
   and Settings.
 - `[ ]` Decide whether Tracking becomes a first-class `DesktopShellTab` instead

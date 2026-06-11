@@ -17,6 +17,8 @@ Status legend:
   Downloads, Tracking, Settings, and secondary-surface mockups.
 - `[~]` Ensure the desktop Player can hide both sidebars so video uses almost
   the full window in focus mode.
+- `[~]` Add first-pass localization support for English and Traditional Chinese
+  (`zh-TW`) across desktop, Android mobile, and Android TV UI chrome.
 - `[~]` Finish desktop playback QA for fullscreen, resize, aspect, 4K media,
   hardware decoding, and multi-display behavior.
 - `[~]` Complete Android mobile/tablet library viewport QA at phone and tablet
@@ -38,6 +40,8 @@ Status legend:
 - `[ ]` Define authorized download source contracts and queue execution
   behavior.
 - `[ ]` Add QA scripts or checklists for Windows fullscreen/4K/hardware decode.
+- `[ ]` Add localization QA checks for English and `zh-TW` screenshots on
+  dense desktop, mobile, and TV surfaces.
 - `[ ]` Add release checklist automation for Android APKs and Windows portable
   archives.
 

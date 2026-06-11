@@ -82,6 +82,9 @@ trusted-LAN clients.
 
 - Windows fullscreen, resize, 4K, hardware-decoding, and multi-display playback
   behavior need broader manual validation.
+- UI localization is now a design requirement for English and Traditional
+  Chinese (`zh-TW`), but broad resource extraction and screenshot QA are not
+  implemented yet.
 - Android mobile/tablet layouts need final viewport QA on phone and tablet
   sizes.
 - Android TV layouts need 1080p and 4K safe-area/focus QA on real or emulated
