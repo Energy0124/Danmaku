@@ -10,7 +10,8 @@ in-app language selector.
 
 ## Current Slice
 
-- Shell navigation/header chrome resources live in
+- Shell navigation/header chrome and settings section/general-settings label
+  resources live in
   `apps/desktop-windows/src/commonMain/composeResources/values/strings.xml`.
 - Traditional Chinese resources live in
   `apps/desktop-windows/src/commonMain/composeResources/values-zh-rTW/strings.xml`.
@@ -33,8 +34,9 @@ in-app language selector.
 
 ## Next Steps
 
-1. Move settings section titles and simple settings labels into resources.
-2. Move shell/dialog strings with placeholders into XML format strings.
+1. Move shell/playback/dialog strings with placeholders into XML format
+   strings.
+2. Move playback controls and danmaku panel labels into resources.
 3. Introduce a locale-owner strategy for desktop language selection so
    generated resources can be the source of truth independent of system locale.
 4. Remove migrated fields from the Kotlin initializer only after their resource
