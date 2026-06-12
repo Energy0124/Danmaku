@@ -3,12 +3,13 @@ package app.danmaku.desktop
 internal enum class DesktopUiLanguage(
     val storageValue: String,
     val displayName: String,
-    val strings: DesktopStrings,
+    private val stringsFactory: () -> DesktopStrings,
 ) {
     ENGLISH(
         storageValue = "en",
         displayName = "English",
-        strings = desktopStrings {
+        stringsFactory = {
+            desktopStrings {
             mediaHub = "Media hub"
             shellSubtitle = "Local anime library host"
             searchLabel = "Search anime, episodes, files (Ctrl+K)"
@@ -591,12 +592,14 @@ internal enum class DesktopUiLanguage(
             metadataMatchCurrentMappingsPrefix = "Current mappings:"
             metadataMatchEmptyState = "Search MyAnimeList or Bangumi to review candidates and save a mapping."
             metadataMatchMatchedTitlePrefix = "matched:"
+            }
         },
     ),
     ZH_TW(
         storageValue = "zh-TW",
         displayName = "繁體中文",
-        strings = desktopStrings {
+        stringsFactory = {
+            desktopStrings {
             tabTitles = mapOf(
                 DesktopShellTab.HOME to "首頁",
                 DesktopShellTab.PLAYBACK to "播放",
@@ -1198,8 +1201,12 @@ internal enum class DesktopUiLanguage(
             metadataMatchCurrentMappingsPrefix = "目前對應："
             metadataMatchEmptyState = "搜尋 MyAnimeList 或 Bangumi 以檢視候選項目並儲存對應。"
             metadataMatchMatchedTitlePrefix = "符合標題："
+            }
         },
     );
+
+    val strings: DesktopStrings
+        get() = stringsFactory()
 
     companion object {
         fun fromStorageValue(value: String?): DesktopUiLanguage =
@@ -1207,7 +1214,7 @@ internal enum class DesktopUiLanguage(
     }
 }
 
-private fun desktopStrings(configure: DesktopStrings.() -> Unit): DesktopStrings =
+internal fun desktopStrings(configure: DesktopStrings.() -> Unit): DesktopStrings =
     DesktopStrings().apply(configure)
 
 internal class DesktopStrings {

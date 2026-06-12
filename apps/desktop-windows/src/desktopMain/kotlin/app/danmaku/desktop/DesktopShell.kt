@@ -499,6 +499,7 @@ internal fun DesktopShell(
             appendDiagnostic = ::appendDiagnostic,
         )
     }
+    val desktopStrings = rememberDesktopResourceStrings(navigationState.desktopLanguage)
 
     fun triggerPrimaryPageAction(): Boolean {
         return when (navigationState.selectedTab) {
@@ -507,7 +508,7 @@ internal fun DesktopShell(
                 if (libraryState.registeredRoots.isEmpty() || libraryState.isIndexing) {
                     false
                 } else {
-                    appendDiagnostic("shell", "Primary shortcut requested library rescan from ${navigationState.desktopStrings.tabTitle(navigationState.selectedTab)}")
+                    appendDiagnostic("shell", "Primary shortcut requested library rescan from ${desktopStrings.tabTitle(navigationState.selectedTab)}")
                     libraryActions.rescanRegisteredRoots()
                     true
                 }
@@ -721,7 +722,7 @@ internal fun DesktopShell(
                 if (showAppChrome) {
                     AppNavigationRail(
                         selectedTab = navigationState.selectedTab,
-                        strings = navigationState.desktopStrings,
+                        strings = desktopStrings,
                         onTabSelected = { navigationState.selectedTab = it },
                         playbackLabel = playbackState.activePlaybackLabel,
                         playbackStatus = playbackSnapshot.status,
@@ -733,7 +734,7 @@ internal fun DesktopShell(
                     if (showAppChrome) {
                         ShellHeader(
                             selectedTab = navigationState.selectedTab,
-                            strings = navigationState.desktopStrings,
+                            strings = desktopStrings,
                             searchText = navigationState.globalSearchText,
                             onSearchTextChange = { navigationState.globalSearchText = it },
                             onSubmitSearch = navigationState::submitGlobalSearch,
@@ -763,7 +764,7 @@ internal fun DesktopShell(
                         val nextLocalPlaybackItem = activeLocalMediaId
                             ?.let { mediaId -> libraryState.indexedLibrary?.catalog?.nextItem(mediaId) }
                         PlaybackTab(
-                            strings = navigationState.desktopStrings,
+                            strings = desktopStrings,
                             playbackLabel = playbackState.activePlaybackLabel,
                             playbackSnapshot = playbackSnapshot,
                             mpvRuntimeStatus = mpvRuntime.statusMessage,
@@ -809,7 +810,7 @@ internal fun DesktopShell(
                             },
                             onOpenMediaFile = {
                                 playbackActions.openDirectMediaFile(
-                                    title = navigationState.desktopStrings.chooseMediaFileTitle(hostPlatform.displayName),
+                                    title = desktopStrings.chooseMediaFileTitle(hostPlatform.displayName),
                                 )
                             },
                             onPlay = playbackActions::dispatchPlay,
@@ -836,7 +837,7 @@ internal fun DesktopShell(
                     }
                     when (navigationState.selectedTab) {
                         DesktopShellTab.HOME -> HomeTab(
-                            strings = navigationState.desktopStrings,
+                            strings = desktopStrings,
                             playbackSnapshot = playbackSnapshot,
                             registeredRoots = libraryState.registeredRoots,
                             indexedLibrary = displayIndexedLibrary,
@@ -871,7 +872,7 @@ internal fun DesktopShell(
                         )
                         DesktopShellTab.PLAYBACK -> Unit
                         DesktopShellTab.TRACKING -> TrackingTab(
-                            strings = navigationState.desktopStrings,
+                            strings = desktopStrings,
                             indexedLibrary = displayIndexedLibrary,
                             externalAnimeMappings = externalAnimeMappings,
                             playbackProgresses = libraryState.playbackProgresses,
@@ -883,7 +884,7 @@ internal fun DesktopShell(
                             onOpenLibrary = { navigationState.selectedTab = DesktopShellTab.MEDIA_LIBRARY },
                         )
                         DesktopShellTab.MEDIA_LIBRARY -> MediaLibraryTab(
-                            strings = navigationState.desktopStrings,
+                            strings = desktopStrings,
                             registeredRoots = libraryState.registeredRoots,
                             indexedLibrary = displayIndexedLibrary,
                             searchSeed = navigationState.librarySearchSeed,
@@ -908,12 +909,12 @@ internal fun DesktopShell(
                             lastScanStats = libraryState.lastScanStats,
                             onAddLibraryFolder = {
                                 selectLibraryDirectory(
-                                    title = navigationState.desktopStrings.chooseAnimeLibraryFolderTitle,
+                                    title = desktopStrings.chooseAnimeLibraryFolderTitle,
                                 )?.let(libraryActions::registerAndScanUserRoot)
                             },
                             onImportAniRssOutputFolder = {
                                 selectLibraryDirectory(
-                                    title = navigationState.desktopStrings.chooseAniRssCompletedMediaFolderTitle,
+                                    title = desktopStrings.chooseAniRssCompletedMediaFolderTitle,
                                 )?.let(libraryActions::importAndScanAniRssRoot)
                             },
                             onRescanRegisteredRoots = libraryActions::rescanRegisteredRoots,
@@ -942,7 +943,7 @@ internal fun DesktopShell(
                             onLoadPreparedPlayback = playbackActions::loadPreparedLocalPlayback,
                             remoteBrowser = {
                                 RemoteLibraryBrowser(
-                                    strings = navigationState.desktopStrings,
+                                    strings = desktopStrings,
                                     defaultServerUrl = server.baseUrl(),
                                     defaultPairingToken = server.pairingToken,
                                     appendDiagnostic = ::appendDiagnostic,
@@ -951,7 +952,7 @@ internal fun DesktopShell(
                             },
                         )
                         DesktopShellTab.DOWNLOADS -> DownloadsTab(
-                            strings = navigationState.desktopStrings,
+                            strings = desktopStrings,
                             isIndexing = libraryState.isIndexing,
                             webhookUrls = serverRuntime.aniRssWebhookUrls(),
                             webhookToken = serverRuntime.aniRssWebhookToken,
@@ -959,7 +960,7 @@ internal fun DesktopShell(
                             downloadQueueItems = libraryState.downloadQueueItems,
                             onAddAniRssOutputFolder = {
                                 selectLibraryDirectory(
-                                    title = navigationState.desktopStrings.chooseAniRssCompletedMediaFolderTitle,
+                                    title = desktopStrings.chooseAniRssCompletedMediaFolderTitle,
                                 )?.let(libraryActions::importAndScanAniRssRoot)
                             },
                             onRefreshQueue = downloadActions::refreshQueue,
@@ -968,7 +969,7 @@ internal fun DesktopShell(
                         )
                         DesktopShellTab.PROFILE -> ProfileTab(
                             desktopLanguage = navigationState.desktopLanguage,
-                            strings = navigationState.desktopStrings,
+                            strings = desktopStrings,
                             mpvRuntimeStatus = mpvRuntime.statusMessage,
                             videoHostStatus = videoHostStatus,
                             serverBaseUrl = server.baseUrl(),

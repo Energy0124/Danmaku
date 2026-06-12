@@ -1,0 +1,18 @@
+<resources>
+    <string name="desktop_tab_home">首頁</string>
+    <string name="desktop_tab_playback">播放</string>
+    <string name="desktop_tab_media_library">媒體庫</string>
+    <string name="desktop_tab_downloads">下載</string>
+    <string name="desktop_tab_tracking">追蹤</string>
+    <string name="desktop_tab_profile">設定</string>
+    <string name="desktop_media_hub">媒體中心</string>
+    <string name="desktop_shell_subtitle">本機動畫媒體庫主機</string>
+    <string name="desktop_search_label">搜尋動畫、集數、檔案 (Ctrl+K)</string>
+    <string name="desktop_player_status_prefix">播放器</string>
+    <string name="desktop_episodes_suffix">集</string>
+    <string name="desktop_rescan_library">重新掃描媒體庫</string>
+    <string name="desktop_settings_title">設定</string>
+    <string name="desktop_settings_description">應用程式、服務、播放與診斷</string>
+    <string name="desktop_home_action">首頁</string>
+    <string name="desktop_library_action">媒體庫</string>
+</resources>

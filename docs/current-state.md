@@ -1,6 +1,6 @@
 # Current State
 
-Last reviewed: 2026-06-11.
+Last reviewed: 2026-06-12.
 
 Danmaku is in active foundation work. The strongest vertical slice is Windows
 desktop as the local library host/player, with Android mobile and Android TV as
@@ -58,7 +58,11 @@ trusted-LAN clients.
   but it is now below the planned 1,000-line threshold. Desktop localization
   strings are initialized through a small DSL-backed holder instead of a giant
   constructor, avoiding JVM method-signature limits as English/`zh-TW` coverage
-  grows.
+  grows. The first Compose Multiplatform resource-backed desktop string slice
+  is in place for shell navigation/header chrome, using
+  `commonMain/composeResources/values` and `values-zh-rTW`; the adapter keeps
+  selected-language fallback strings when Compose's current locale does not
+  match the selected desktop language.
 - Multi-root local anime library indexing, incremental rescanning, ani-rss
   output-folder import, and persistent SQLDelight/SQLite storage.
 - Trusted-LAN library server with pairing token, JSON catalog, byte-range media
@@ -116,8 +120,9 @@ trusted-LAN clients.
 - Windows fullscreen, resize, 4K, hardware-decoding, and multi-display playback
   behavior need broader manual validation.
 - UI localization is now a design requirement for English and Traditional
-  Chinese (`zh-TW`), but broad resource extraction and screenshot QA are not
-  implemented yet.
+  Chinese (`zh-TW`). Desktop shell chrome has started moving to generated
+  Compose resources, but broad resource extraction, app-language-to-resource
+  locale control, placeholder migration, and screenshot QA are not complete.
 - Android mobile/tablet layouts need final viewport QA on phone and tablet
   sizes.
 - Android TV layouts need 1080p and 4K safe-area/focus QA on real or emulated
@@ -143,7 +148,7 @@ trusted-LAN clients.
 
 ## Last Verified Commands
 
-Recent local checks during the 2026-06-11 desktop refactor work:
+Recent local checks during the 2026-06-12 desktop localization refactor work:
 
 ```powershell
 .\gradlew.bat --no-daemon :apps:desktop-windows:compileKotlinDesktop

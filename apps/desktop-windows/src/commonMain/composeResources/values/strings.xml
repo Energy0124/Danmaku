@@ -1,0 +1,18 @@
+<resources>
+    <string name="desktop_tab_home">Home</string>
+    <string name="desktop_tab_playback">Playback</string>
+    <string name="desktop_tab_media_library">Library</string>
+    <string name="desktop_tab_downloads">Downloads</string>
+    <string name="desktop_tab_tracking">Tracking</string>
+    <string name="desktop_tab_profile">Settings</string>
+    <string name="desktop_media_hub">Media hub</string>
+    <string name="desktop_shell_subtitle">Local anime library host</string>
+    <string name="desktop_search_label">Search anime, episodes, files (Ctrl+K)</string>
+    <string name="desktop_player_status_prefix">Player</string>
+    <string name="desktop_episodes_suffix">episodes</string>
+    <string name="desktop_rescan_library">Rescan library</string>
+    <string name="desktop_settings_title">Settings</string>
+    <string name="desktop_settings_description">App, providers, playback, and diagnostics</string>
+    <string name="desktop_home_action">Home</string>
+    <string name="desktop_library_action">Library</string>
+</resources>
