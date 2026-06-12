@@ -18,7 +18,9 @@ Status legend:
 - `[~]` Ensure the desktop Player can hide both sidebars so video uses almost
   the full window in focus mode.
 - `[~]` Add first-pass localization support for English and Traditional Chinese
-  (`zh-TW`) across desktop, Android mobile, and Android TV UI chrome.
+  (`zh-TW`) across desktop, Android mobile, and Android TV UI chrome; desktop
+  strings now use a DSL-backed holder so the growing string set does not hit
+  JVM method-signature limits.
 - `[~]` Finish desktop playback QA for fullscreen, resize, aspect, 4K media,
   hardware decoding, and multi-display behavior.
 - `[~]` Complete Android mobile/tablet library viewport QA at phone and tablet

@@ -55,7 +55,10 @@ trusted-LAN clients.
   library action object. Persisted download queue refresh/removal and output
   folder opening are in a download action object. `DesktopShell.kt` remains
   the main orchestration hotspot for shell/window effects and tab assembly,
-  but it is now below the planned 1,000-line threshold.
+  but it is now below the planned 1,000-line threshold. Desktop localization
+  strings are initialized through a small DSL-backed holder instead of a giant
+  constructor, avoiding JVM method-signature limits as English/`zh-TW` coverage
+  grows.
 - Multi-root local anime library indexing, incremental rescanning, ani-rss
   output-folder import, and persistent SQLDelight/SQLite storage.
 - Trusted-LAN library server with pairing token, JSON catalog, byte-range media

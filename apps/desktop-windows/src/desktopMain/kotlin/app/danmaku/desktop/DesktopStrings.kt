@@ -8,122 +8,122 @@ internal enum class DesktopUiLanguage(
     ENGLISH(
         storageValue = "en",
         displayName = "English",
-        strings = DesktopStrings(
-            mediaHub = "Media hub",
-            shellSubtitle = "Local anime library host",
-            searchLabel = "Search anime, episodes, files (Ctrl+K)",
-            playerStatusPrefix = "Player",
-            episodesSuffix = "episodes",
-            rescanLibrary = "Rescan library",
-            settingsTitle = "Settings",
-            settingsDescription = "App, providers, playback, and diagnostics",
-            languageTitle = "Language",
-            languageDescription = "Choose the desktop shell language. Page content localization will expand from this shared string layer.",
-            uiLanguageLabel = "UI language",
-            uiLanguagesValue = "English, Traditional Chinese",
-            appLabel = "App",
-            primaryTargetsLabel = "Primary targets",
-            supportedLabel = "Supported",
-            librarySettingsDescription = "Library folders, imports, metadata refresh, mapping, and episode preparation are managed from the Library page.",
-            metadataLabel = "Metadata",
-            metadataRefreshLibraryDetailsText = "Series and episode refresh actions are available in Library details.",
-            importsLabel = "Imports",
-            aniRssImportsManagedDownloadsText = "ani-rss output folders are managed from Downloads.",
-            playbackRuntimeTitle = "Playback Runtime",
-            mpvExecutorLabel = "mpv executor",
-            rendererLabel = "Renderer",
-            mpvRendererDescription = "mpv video output with generated ASS danmaku overlay",
-            focusModeLabel = "Focus mode",
-            playerFocusModeDescription = "Player can hide non-video chrome with H",
-            storageCleanupDescription = "Cache cleanup is available from provider settings. Download destination controls will be enabled when source contracts are implemented.",
-            appLogLabel = "App log",
-            mpvLogLabel = "mpv log",
-            privacyCredentialsTitle = "Privacy and Credentials",
-            privacyCredentialsDescription = "Secrets are masked in forms and diagnostics. Clearing provider settings removes saved provider credentials.",
-            desktopRuntimeTitle = "Desktop Runtime",
-            privacyTitle = "Privacy",
-            credentialsPrivacyText = "Credentials are stored in local protected settings where supported and omitted from diagnostics.",
-            playbackNeedsAttentionTitle = "Playback needs attention",
-            preparingPlaybackTitle = "Preparing playback",
-            noMediaLoadedLabel = "No media loaded",
-            playingLabel = "Playing",
-            videoHostLabel = "Video host",
-            openMediaFileAction = "Open media file",
-            chooseMediaFileTitle = { host -> "Choose media file for $host playback" },
-            chooseAnimeLibraryFolderTitle = "Choose anime library folder",
-            chooseAniRssCompletedMediaFolderTitle = "Choose ani-rss completed-media folder",
-            homeAction = "Home",
-            libraryAction = "Library",
-            showPlayerChromeAction = "Show player chrome (H)",
-            hidePlayerChromeAction = "Hide player chrome (H)",
-            previousEpisodeAction = "Previous episode",
-            previousEpisodeWithTitle = { title -> "Previous episode: $title" },
-            nextEpisodeAction = "Next episode",
-            nextEpisodeWithTitle = { title -> "Next episode: $title" },
-            backThirtySecondsAction = "Back 30 seconds",
-            backTenSecondsAction = "Back 10 seconds",
-            playAction = "Play",
-            forwardTenSecondsAction = "Forward 10 seconds",
-            forwardThirtySecondsAction = "Forward 30 seconds",
-            volumeLabel = "Volume",
-            subtitleShortLabel = "Sub",
-            hideDanmakuPanelAction = "Hide danmaku panel",
-            showDanmakuPanelAction = "Show danmaku panel",
-            exitFullscreenAction = "Exit fullscreen",
-            enterFullscreenAction = "Enter fullscreen",
-            libraryStepLabel = "Library",
-            preparingMediaStepText = "Preparing media, subtitles, metadata, and danmaku...",
-            playerRuntimeStepLabel = "Player runtime",
-            libraryPreparationStepLabel = "Library preparation",
-            danmakuTitle = "Danmaku",
-            shownLabel = "Shown",
-            hiddenLabel = "Hidden",
-            cacheLabel = "Cache",
-            audioLabel = "Audio",
-            subtitleLabel = "Subtitle",
-            defaultLabel = "Default",
-            offLabel = "Off",
-            hideAction = "Hide",
-            showAction = "Show",
-            opacityLabel = "Opacity",
-            densityLabel = "Density",
-            fontLabel = "Font",
-            speedLabel = "Speed",
-            areaLabel = "Area",
-            offsetLabel = "Offset",
-            librarySlicesTitle = "Library slices",
-            animeSeriesSliceLabel = "Anime Series",
-            moviesSliceLabel = "Movies",
-            ovasSpecialsSliceLabel = "OVAs / Specials",
-            allEpisodesSliceLabel = "All Episodes",
-            favoritesSliceLabel = "Favorites",
-            nowPlayingTitle = "Now Playing",
-            recentlyAddedTitle = "Recently Added",
-            browseAllAction = "Browse all",
-            newlyAddedEmptyText = "Newly added episodes will appear here after a library scan.",
-            recentlyAddedDetailLabel = { indexedAtEpochMs, sizeText -> "Added ${indexedAtEpochMs.formatEpochTime()} - $sizeText" },
-            recentlyWatchedTitle = "Recently Watched",
-            recentPlaybackEmptyText = "Recent playback will appear here after you watch local episodes.",
-            watchedAtLabel = { positionMs -> "Watched ${positionMs.formatPlaybackTime()}" },
-            myLibraryTitle = "My Library",
-            seriesSummaryTitle = "Series",
-            matchedGroupsCaption = "matched groups",
-            favoritesSummaryTitle = "Favorites",
-            savedEpisodesCaption = "saved episodes",
-            watchingSummaryTitle = "Watching",
-            inProgressCaption = "in progress",
-            homeLibraryEmptyText = "Add a local anime folder to build your Home dashboard.",
-            librarySnapshotTitle = "Library Snapshot",
-            continueWatchingTitle = "Continue Watching",
-            noResumeQueueText = "No resume queue yet. Browse the library to start playback.",
-            loadedNowLabel = "Loaded now",
-            resumeAtLabel = { positionMs -> "Resume at ${positionMs.formatPlaybackTime()}" },
-            resumeSavedPositionLabel = "Resume at saved position",
-            savedPositionLabel = "saved position",
-            lastWatchedLabel = "last watched",
-            nextAfterLabel = { positionMs -> "Next after ${positionMs?.formatPlaybackTime() ?: "last watched"}" },
-            startWatchingLibraryLabel = "Start watching this library",
-            episodeCountShortLabel = { count -> "$count eps" },
+        strings = desktopStrings {
+            mediaHub = "Media hub"
+            shellSubtitle = "Local anime library host"
+            searchLabel = "Search anime, episodes, files (Ctrl+K)"
+            playerStatusPrefix = "Player"
+            episodesSuffix = "episodes"
+            rescanLibrary = "Rescan library"
+            settingsTitle = "Settings"
+            settingsDescription = "App, providers, playback, and diagnostics"
+            languageTitle = "Language"
+            languageDescription = "Choose the desktop shell language. Page content localization will expand from this shared string layer."
+            uiLanguageLabel = "UI language"
+            uiLanguagesValue = "English, Traditional Chinese"
+            appLabel = "App"
+            primaryTargetsLabel = "Primary targets"
+            supportedLabel = "Supported"
+            librarySettingsDescription = "Library folders, imports, metadata refresh, mapping, and episode preparation are managed from the Library page."
+            metadataLabel = "Metadata"
+            metadataRefreshLibraryDetailsText = "Series and episode refresh actions are available in Library details."
+            importsLabel = "Imports"
+            aniRssImportsManagedDownloadsText = "ani-rss output folders are managed from Downloads."
+            playbackRuntimeTitle = "Playback Runtime"
+            mpvExecutorLabel = "mpv executor"
+            rendererLabel = "Renderer"
+            mpvRendererDescription = "mpv video output with generated ASS danmaku overlay"
+            focusModeLabel = "Focus mode"
+            playerFocusModeDescription = "Player can hide non-video chrome with H"
+            storageCleanupDescription = "Cache cleanup is available from provider settings. Download destination controls will be enabled when source contracts are implemented."
+            appLogLabel = "App log"
+            mpvLogLabel = "mpv log"
+            privacyCredentialsTitle = "Privacy and Credentials"
+            privacyCredentialsDescription = "Secrets are masked in forms and diagnostics. Clearing provider settings removes saved provider credentials."
+            desktopRuntimeTitle = "Desktop Runtime"
+            privacyTitle = "Privacy"
+            credentialsPrivacyText = "Credentials are stored in local protected settings where supported and omitted from diagnostics."
+            playbackNeedsAttentionTitle = "Playback needs attention"
+            preparingPlaybackTitle = "Preparing playback"
+            noMediaLoadedLabel = "No media loaded"
+            playingLabel = "Playing"
+            videoHostLabel = "Video host"
+            openMediaFileAction = "Open media file"
+            chooseMediaFileTitle = { host -> "Choose media file for $host playback" }
+            chooseAnimeLibraryFolderTitle = "Choose anime library folder"
+            chooseAniRssCompletedMediaFolderTitle = "Choose ani-rss completed-media folder"
+            homeAction = "Home"
+            libraryAction = "Library"
+            showPlayerChromeAction = "Show player chrome (H)"
+            hidePlayerChromeAction = "Hide player chrome (H)"
+            previousEpisodeAction = "Previous episode"
+            previousEpisodeWithTitle = { title -> "Previous episode: $title" }
+            nextEpisodeAction = "Next episode"
+            nextEpisodeWithTitle = { title -> "Next episode: $title" }
+            backThirtySecondsAction = "Back 30 seconds"
+            backTenSecondsAction = "Back 10 seconds"
+            playAction = "Play"
+            forwardTenSecondsAction = "Forward 10 seconds"
+            forwardThirtySecondsAction = "Forward 30 seconds"
+            volumeLabel = "Volume"
+            subtitleShortLabel = "Sub"
+            hideDanmakuPanelAction = "Hide danmaku panel"
+            showDanmakuPanelAction = "Show danmaku panel"
+            exitFullscreenAction = "Exit fullscreen"
+            enterFullscreenAction = "Enter fullscreen"
+            libraryStepLabel = "Library"
+            preparingMediaStepText = "Preparing media, subtitles, metadata, and danmaku..."
+            playerRuntimeStepLabel = "Player runtime"
+            libraryPreparationStepLabel = "Library preparation"
+            danmakuTitle = "Danmaku"
+            shownLabel = "Shown"
+            hiddenLabel = "Hidden"
+            cacheLabel = "Cache"
+            audioLabel = "Audio"
+            subtitleLabel = "Subtitle"
+            defaultLabel = "Default"
+            offLabel = "Off"
+            hideAction = "Hide"
+            showAction = "Show"
+            opacityLabel = "Opacity"
+            densityLabel = "Density"
+            fontLabel = "Font"
+            speedLabel = "Speed"
+            areaLabel = "Area"
+            offsetLabel = "Offset"
+            librarySlicesTitle = "Library slices"
+            animeSeriesSliceLabel = "Anime Series"
+            moviesSliceLabel = "Movies"
+            ovasSpecialsSliceLabel = "OVAs / Specials"
+            allEpisodesSliceLabel = "All Episodes"
+            favoritesSliceLabel = "Favorites"
+            nowPlayingTitle = "Now Playing"
+            recentlyAddedTitle = "Recently Added"
+            browseAllAction = "Browse all"
+            newlyAddedEmptyText = "Newly added episodes will appear here after a library scan."
+            recentlyAddedDetailLabel = { indexedAtEpochMs, sizeText -> "Added ${indexedAtEpochMs.formatEpochTime()} - $sizeText" }
+            recentlyWatchedTitle = "Recently Watched"
+            recentPlaybackEmptyText = "Recent playback will appear here after you watch local episodes."
+            watchedAtLabel = { positionMs -> "Watched ${positionMs.formatPlaybackTime()}" }
+            myLibraryTitle = "My Library"
+            seriesSummaryTitle = "Series"
+            matchedGroupsCaption = "matched groups"
+            favoritesSummaryTitle = "Favorites"
+            savedEpisodesCaption = "saved episodes"
+            watchingSummaryTitle = "Watching"
+            inProgressCaption = "in progress"
+            homeLibraryEmptyText = "Add a local anime folder to build your Home dashboard."
+            librarySnapshotTitle = "Library Snapshot"
+            continueWatchingTitle = "Continue Watching"
+            noResumeQueueText = "No resume queue yet. Browse the library to start playback."
+            loadedNowLabel = "Loaded now"
+            resumeAtLabel = { positionMs -> "Resume at ${positionMs.formatPlaybackTime()}" }
+            resumeSavedPositionLabel = "Resume at saved position"
+            savedPositionLabel = "saved position"
+            lastWatchedLabel = "last watched"
+            nextAfterLabel = { positionMs -> "Next after ${positionMs?.formatPlaybackTime() ?: "last watched"}" }
+            startWatchingLibraryLabel = "Start watching this library"
+            episodeCountShortLabel = { count -> "$count eps" }
             libraryViewTitles = mapOf(
                 WindowsLibraryView.CONTINUE_WATCHING to "Continue",
                 WindowsLibraryView.NEXT_UP to "Next up",
@@ -133,470 +133,470 @@ internal enum class DesktopUiLanguage(
                 WindowsLibraryView.FILES to "Files",
                 WindowsLibraryView.EXTERNAL_SYNC to "External Sync",
                 WindowsLibraryView.PAIRED to "Paired",
-            ),
-            libraryHostSubtitle = "Library host",
-            librarySearchLabel = "Search anime, episode, path",
-            libraryToolbarCompactDescription = "Search and filter without leaving context.",
-            libraryToolbarDescription = "Search, filter, and select media without leaving context.",
-            episodeCountSummary = { visible, total -> "$visible / $total episodes" },
-            favoriteCountSummary = { count -> "$count favorites" },
-            favoriteEpisodesFilterEmptyText = "No favorite episodes match the current filters.",
-            episodesFilterEmptyText = "No episodes match the current filters.",
-            noIndexedSeriesText = "No indexed series yet. Add a folder and scan to build the cover library.",
-            noSeriesFilterMatchesText = "No series match the current filters.",
-            noInProgressLocalEpisodesText = "No in-progress local episodes yet.",
-            noNextUpItemText = "No next-up item yet. Start watching from All Series.",
-            noRecentlyWatchedLocalEpisodesText = "No recently watched local episodes yet.",
-            subtitlesOnlyLabel = "Subtitles only",
-            pathSortLabel = "Path sort",
-            requireSubtitlesAction = "Require subtitles",
-            showAllSubtitlesAction = "Show all subtitles",
-            favoritesOnlyAction = "Favorites only",
-            showAllFavoritesAction = "Show all favorites",
-            sortByPathAction = "Sort by path",
-            sortByTitleAction = "Sort by title",
-            openLibraryImportPanelAction = "Open library import panel",
-            rescanFoldersAction = "Rescan folders",
-            localPcLabel = "Local PC",
-            indexingLabel = "Indexing...",
-            externalListsLabel = "External lists",
-            noLibraryLabel = "No library",
-            pairedDevicesLabel = "Paired devices",
-            lanBrowserReadyLabel = "LAN browser ready",
-            foldersLabel = "Folders",
-            noFoldersLabel = "No folders yet",
-            moreItemsLabel = { count -> "+$count more" },
-            lastScanSummary = { reused, refreshed -> "Last scan: $reused unchanged, $refreshed refreshed" },
-            lastScanCountsSummary = { reused, refreshed -> "$reused unchanged, $refreshed refreshed" },
-            libraryImportTitle = "Library Import",
-            aniRssRootCountLabel = { count -> "$count ani-rss" },
-            scanRunningLabel = "scan running",
-            publishedLabel = "published",
-            lastScanTitle = "Last scan",
-            reusedCountLabel = { count -> "$count reused" },
-            notRunLabel = "not run",
-            addFolderAction = "Add folder",
-            importAniRssOutputAction = "Import ani-rss output",
-            rescanAllAction = "Rescan all",
-            rescanAction = "Rescan",
-            scanningAction = "Scanning...",
-            indexingLibraryRootsLabel = "Indexing library roots",
-            registeredRootsTitle = "Registered roots",
-            libraryImportEmptyText = "Add a local anime folder or import an ani-rss completed-media folder to build the library.",
-            removeLibraryFolderTitle = "Remove library folder?",
+            )
+            libraryHostSubtitle = "Library host"
+            librarySearchLabel = "Search anime, episode, path"
+            libraryToolbarCompactDescription = "Search and filter without leaving context."
+            libraryToolbarDescription = "Search, filter, and select media without leaving context."
+            episodeCountSummary = { visible, total -> "$visible / $total episodes" }
+            favoriteCountSummary = { count -> "$count favorites" }
+            favoriteEpisodesFilterEmptyText = "No favorite episodes match the current filters."
+            episodesFilterEmptyText = "No episodes match the current filters."
+            noIndexedSeriesText = "No indexed series yet. Add a folder and scan to build the cover library."
+            noSeriesFilterMatchesText = "No series match the current filters."
+            noInProgressLocalEpisodesText = "No in-progress local episodes yet."
+            noNextUpItemText = "No next-up item yet. Start watching from All Series."
+            noRecentlyWatchedLocalEpisodesText = "No recently watched local episodes yet."
+            subtitlesOnlyLabel = "Subtitles only"
+            pathSortLabel = "Path sort"
+            requireSubtitlesAction = "Require subtitles"
+            showAllSubtitlesAction = "Show all subtitles"
+            favoritesOnlyAction = "Favorites only"
+            showAllFavoritesAction = "Show all favorites"
+            sortByPathAction = "Sort by path"
+            sortByTitleAction = "Sort by title"
+            openLibraryImportPanelAction = "Open library import panel"
+            rescanFoldersAction = "Rescan folders"
+            localPcLabel = "Local PC"
+            indexingLabel = "Indexing..."
+            externalListsLabel = "External lists"
+            noLibraryLabel = "No library"
+            pairedDevicesLabel = "Paired devices"
+            lanBrowserReadyLabel = "LAN browser ready"
+            foldersLabel = "Folders"
+            noFoldersLabel = "No folders yet"
+            moreItemsLabel = { count -> "+$count more" }
+            lastScanSummary = { reused, refreshed -> "Last scan: $reused unchanged, $refreshed refreshed" }
+            lastScanCountsSummary = { reused, refreshed -> "$reused unchanged, $refreshed refreshed" }
+            libraryImportTitle = "Library Import"
+            aniRssRootCountLabel = { count -> "$count ani-rss" }
+            scanRunningLabel = "scan running"
+            publishedLabel = "published"
+            lastScanTitle = "Last scan"
+            reusedCountLabel = { count -> "$count reused" }
+            notRunLabel = "not run"
+            addFolderAction = "Add folder"
+            importAniRssOutputAction = "Import ani-rss output"
+            rescanAllAction = "Rescan all"
+            rescanAction = "Rescan"
+            scanningAction = "Scanning..."
+            indexingLibraryRootsLabel = "Indexing library roots"
+            registeredRootsTitle = "Registered roots"
+            libraryImportEmptyText = "Add a local anime folder or import an ani-rss completed-media folder to build the library."
+            removeLibraryFolderTitle = "Remove library folder?"
             removeLibraryFolderText = { name ->
                 "This removes $name from Danmaku and drops its indexed episode rows. It does not delete files from disk."
-            },
-            removeFolderAction = "Remove folder",
-            userSelectedFolderLabel = "User selected folder",
-            aniRssOutputFolderLabel = "ani-rss output folder",
-            libraryRootAvailableLabel = "Available",
-            libraryRootMissingLabel = "Missing",
-            lastScannedAtLabel = { epochMs -> "Last scanned ${epochMs.formatEpochTime()}" },
-            notScannedYetLabel = "Not scanned yet",
-            inspectorResizeHandleLabel = "Resize details panel",
-            resetInspectorWidthAction = "Reset details width",
-            inspectorTitle = "Inspector",
-            inspectorEmptyText = "Select a series or episode to inspect playback, subtitles, and danmaku readiness.",
-            nextPlayableLabel = { title -> "Next playable: $title" },
-            loadingAction = "Loading...",
-            preparingAction = "Preparing...",
-            prepareAction = "Prepare",
-            prepareShortAction = "Prep",
-            detailsAction = "Details",
-            favoriteAction = "Favorite",
-            unfavoriteAction = "Unfavorite",
-            showEpisodeDetailsAction = "Show episode details",
-            checkCachedDanmakuAction = "Check cached danmaku",
-            moreEpisodeActionsAction = "More episode actions",
-            externalIdsTitle = "External IDs",
-            matchAction = "Match",
-            linkAction = "Link",
-            replaceAction = "Replace",
-            correctAction = "Correct",
-            providerEpisodeLabel = { provider -> "$provider episode" },
-            preparePlaybackAction = "Prepare playback",
-            refreshEpisodeMetadataAction = "Refresh episode metadata",
-            refreshingEpisodeMetadataAction = "Refreshing episode metadata",
-            refreshSeriesMetadataAction = "Refresh series metadata",
-            refreshingSeriesMetadataAction = "Refreshing series metadata",
-            loadIntoPlayerAction = "Load into player",
-            refreshDanmakuAction = "Refresh danmaku",
-            attachLocalDanmakuAction = "Attach local danmaku",
-            attachLocalDanmakuShortAction = "Attach local",
-            removeOverlayAction = "Remove overlay",
-            clearDanmakuCacheAction = "Clear danmaku cache",
-            clearCacheAction = "Clear cache",
-            enableAutoNextAction = "Enable auto-next",
-            disableAutoNextAction = "Disable auto-next",
-            autoNextOnLabel = "Auto-next on",
-            autoNextOffLabel = "Auto-next off",
-            readinessTitle = "Readiness",
-            preparedPlaybackLabel = "Prepared playback",
-            prepareToInspectTracksLabel = "Prepare to inspect tracks",
-            notPreparedLabel = "Not prepared",
-            resumeValueLabel = { positionMs -> "Resume ${positionMs.formatPlaybackTime()}" },
-            notCheckedYetLabel = "Not checked yet",
-            subtitlesIndexedLabel = { count -> "$count indexed" },
-            episodesTitle = "Episodes",
-            advancedTitle = "Advanced",
-            favoriteStatusLabel = "Favorite",
-            pairedLibraryTitle = "Desktop paired library client",
-            pairedLibraryDescription = "Defaults to this app's embedded same-machine server. Enter another desktop URL to browse remotely.",
-            pairedLibraryServerUrlLabel = "Library server URL",
-            pairingCodeLabel = "Pairing code",
-            loadPairedCatalogAction = "Load paired server catalog",
-            pairedLibraryErrorLabel = { message -> "Paired library error: $message" },
-            pairedEpisodesLabel = { count -> "Paired episodes: $count" },
-            pairedProgressLabel = "Paired progress",
-            savedRowsLabel = { count -> "$count saved rows" },
-            pairedNextUpTitle = "Paired Next Up",
-            pairedNextUpEmptyText = "No paired next-up item yet.",
-            pairedContinueWatchingTitle = "Paired Continue Watching",
-            pairedContinueWatchingEmptyText = "No in-progress paired episodes yet.",
-            searchPairedEpisodesLabel = "Search paired episodes",
-            sortTitleAction = "Sort title",
-            sortPathAction = "Sort path",
-            showingLabel = "Showing",
-            pairedEpisodesCountLabel = { visible, total -> "$visible / $total paired episodes" },
-            pairedCatalogEmptyText = "Load a paired server catalog to browse remote episodes.",
-            pairedServerEmptyText = "The paired server did not publish any episodes.",
-            pairedFilterEmptyText = "No paired episodes match the current filters.",
-            resetFiltersAction = "Reset filters",
-            preparedDesktopPlaybackLabel = { series, episode -> "Prepared desktop playback: $series - $episode" },
-            sourceValueLabel = { value -> "Source: $value" },
-            resumeValueText = { value -> "Resume: $value" },
-            startFromBeginningLabel = "start from beginning",
-            loadIntoDesktopControllerAction = "Load into desktop controller",
-            unknownMediaLabel = "unknown media",
-            unknownDurationLabel = "unknown",
-            noSubtitlesLabel = "no subtitles",
-            subtitleCountLabel = { count -> "$count subtitles" },
+            }
+            removeFolderAction = "Remove folder"
+            userSelectedFolderLabel = "User selected folder"
+            aniRssOutputFolderLabel = "ani-rss output folder"
+            libraryRootAvailableLabel = "Available"
+            libraryRootMissingLabel = "Missing"
+            lastScannedAtLabel = { epochMs -> "Last scanned ${epochMs.formatEpochTime()}" }
+            notScannedYetLabel = "Not scanned yet"
+            inspectorResizeHandleLabel = "Resize details panel"
+            resetInspectorWidthAction = "Reset details width"
+            inspectorTitle = "Inspector"
+            inspectorEmptyText = "Select a series or episode to inspect playback, subtitles, and danmaku readiness."
+            nextPlayableLabel = { title -> "Next playable: $title" }
+            loadingAction = "Loading..."
+            preparingAction = "Preparing..."
+            prepareAction = "Prepare"
+            prepareShortAction = "Prep"
+            detailsAction = "Details"
+            favoriteAction = "Favorite"
+            unfavoriteAction = "Unfavorite"
+            showEpisodeDetailsAction = "Show episode details"
+            checkCachedDanmakuAction = "Check cached danmaku"
+            moreEpisodeActionsAction = "More episode actions"
+            externalIdsTitle = "External IDs"
+            matchAction = "Match"
+            linkAction = "Link"
+            replaceAction = "Replace"
+            correctAction = "Correct"
+            providerEpisodeLabel = { provider -> "$provider episode" }
+            preparePlaybackAction = "Prepare playback"
+            refreshEpisodeMetadataAction = "Refresh episode metadata"
+            refreshingEpisodeMetadataAction = "Refreshing episode metadata"
+            refreshSeriesMetadataAction = "Refresh series metadata"
+            refreshingSeriesMetadataAction = "Refreshing series metadata"
+            loadIntoPlayerAction = "Load into player"
+            refreshDanmakuAction = "Refresh danmaku"
+            attachLocalDanmakuAction = "Attach local danmaku"
+            attachLocalDanmakuShortAction = "Attach local"
+            removeOverlayAction = "Remove overlay"
+            clearDanmakuCacheAction = "Clear danmaku cache"
+            clearCacheAction = "Clear cache"
+            enableAutoNextAction = "Enable auto-next"
+            disableAutoNextAction = "Disable auto-next"
+            autoNextOnLabel = "Auto-next on"
+            autoNextOffLabel = "Auto-next off"
+            readinessTitle = "Readiness"
+            preparedPlaybackLabel = "Prepared playback"
+            prepareToInspectTracksLabel = "Prepare to inspect tracks"
+            notPreparedLabel = "Not prepared"
+            resumeValueLabel = { positionMs -> "Resume ${positionMs.formatPlaybackTime()}" }
+            notCheckedYetLabel = "Not checked yet"
+            subtitlesIndexedLabel = { count -> "$count indexed" }
+            episodesTitle = "Episodes"
+            advancedTitle = "Advanced"
+            favoriteStatusLabel = "Favorite"
+            pairedLibraryTitle = "Desktop paired library client"
+            pairedLibraryDescription = "Defaults to this app's embedded same-machine server. Enter another desktop URL to browse remotely."
+            pairedLibraryServerUrlLabel = "Library server URL"
+            pairingCodeLabel = "Pairing code"
+            loadPairedCatalogAction = "Load paired server catalog"
+            pairedLibraryErrorLabel = { message -> "Paired library error: $message" }
+            pairedEpisodesLabel = { count -> "Paired episodes: $count" }
+            pairedProgressLabel = "Paired progress"
+            savedRowsLabel = { count -> "$count saved rows" }
+            pairedNextUpTitle = "Paired Next Up"
+            pairedNextUpEmptyText = "No paired next-up item yet."
+            pairedContinueWatchingTitle = "Paired Continue Watching"
+            pairedContinueWatchingEmptyText = "No in-progress paired episodes yet."
+            searchPairedEpisodesLabel = "Search paired episodes"
+            sortTitleAction = "Sort title"
+            sortPathAction = "Sort path"
+            showingLabel = "Showing"
+            pairedEpisodesCountLabel = { visible, total -> "$visible / $total paired episodes" }
+            pairedCatalogEmptyText = "Load a paired server catalog to browse remote episodes."
+            pairedServerEmptyText = "The paired server did not publish any episodes."
+            pairedFilterEmptyText = "No paired episodes match the current filters."
+            resetFiltersAction = "Reset filters"
+            preparedDesktopPlaybackLabel = { series, episode -> "Prepared desktop playback: $series - $episode" }
+            sourceValueLabel = { value -> "Source: $value" }
+            resumeValueText = { value -> "Resume: $value" }
+            startFromBeginningLabel = "start from beginning"
+            loadIntoDesktopControllerAction = "Load into desktop controller"
+            unknownMediaLabel = "unknown media"
+            unknownDurationLabel = "unknown"
+            noSubtitlesLabel = "no subtitles"
+            subtitleCountLabel = { count -> "$count subtitles" }
             downloadFilterTitles = mapOf(
                 DownloadQueueFilter.ALL to "All",
                 DownloadQueueFilter.ACTIVE to "Active",
                 DownloadQueueFilter.QUEUED to "Queued",
                 DownloadQueueFilter.COMPLETED to "Completed",
                 DownloadQueueFilter.FAILED to "Failed",
-            ),
-            downloadsActiveTitle = "Active",
-            downloadsActiveCaption = "currently running",
-            downloadsQueuedTitle = "Queued",
-            downloadsQueuedCaption = "waiting",
-            downloadsCompletedTitle = "Completed",
-            downloadsCompletedCaption = "ready to import",
-            downloadsFailedTitle = "Failed",
-            downloadsFailedCaption = "needs attention",
-            downloadQueueTitle = "Download Queue",
-            refreshDownloadQueueAction = "Refresh download queue",
-            downloadQueuePolicyText = "Queue execution is reserved for authorized source contracts. ani-rss completed-media imports are available today.",
-            downloadQueueEmptyText = "No persisted queue items yet. Completed ani-rss downloads can be imported from a trusted output folder.",
-            downloadQueueFilterEmptyText = { filter -> "No ${filter.lowercase()} queue items match this filter." },
-            openOutputFolderAction = "Open output folder",
-            removeQueueItemAction = "Remove queue item",
-            removeDownloadTitle = "Remove download queue item?",
+            )
+            downloadsActiveTitle = "Active"
+            downloadsActiveCaption = "currently running"
+            downloadsQueuedTitle = "Queued"
+            downloadsQueuedCaption = "waiting"
+            downloadsCompletedTitle = "Completed"
+            downloadsCompletedCaption = "ready to import"
+            downloadsFailedTitle = "Failed"
+            downloadsFailedCaption = "needs attention"
+            downloadQueueTitle = "Download Queue"
+            refreshDownloadQueueAction = "Refresh download queue"
+            downloadQueuePolicyText = "Queue execution is reserved for authorized source contracts. ani-rss completed-media imports are available today."
+            downloadQueueEmptyText = "No persisted queue items yet. Completed ani-rss downloads can be imported from a trusted output folder."
+            downloadQueueFilterEmptyText = { filter -> "No ${filter.lowercase()} queue items match this filter." }
+            openOutputFolderAction = "Open output folder"
+            removeQueueItemAction = "Remove queue item"
+            removeDownloadTitle = "Remove download queue item?"
             removeDownloadText = { outputPath ->
                 "This removes the persisted queue row for $outputPath. It does not delete downloaded files from disk."
-            },
-            removeAction = "Remove",
-            downloadSetupAuthorizedSourcesTitle = "Authorized Sources",
-            downloadSetupAuthorizedSourcesText = "Use providers you are authorized to access. Danmaku imports completed media and does not bypass DRM or service rules.",
-            authorizedImportsOnlyLabel = "Authorized imports only",
-            queueExecutionPlannedLabel = "Queue execution planned",
-            importRootCountLabel = { count -> "$count import roots" },
-            addAniRssOutputFolderAction = "Add ani-rss output folder",
-            aniRssWebhookTitle = "ani-rss Webhook",
-            noWebhookUrlText = "No webhook URL is available yet.",
-            webhookUrlLabel = "DOWNLOAD_END URL",
-            webhookHeaderLabel = "Header",
-            webhookTokenLabel = "Token",
-            importRootsTitle = "Import Roots",
-            noAniRssRootsText = "No ani-rss output folders registered.",
-            downloadInspectorTitle = "Download Inspector",
-            downloadInspectorEmptyText = "Select a queue item to inspect source, output path, progress, and available actions.",
-            stateLabel = "State",
-            progressLabel = "Progress",
-            createdLabel = "Created",
-            updatedLabel = "Updated",
-            outputLabel = "Output",
-            sourceLabel = "Source",
-            failureLabel = "Failure",
-            openFolderAction = "Open folder",
-            pauseAction = "Pause",
-            resumeAction = "Resume",
-            retryAction = "Retry",
-            cancelAction = "Cancel",
-            downloadExecutionPlannedText = "Pause, resume, cancel, and retry will be enabled after authorized download source contracts and queue execution are implemented.",
-            dandanplayProvidersTitle = "Danmaku Providers",
-            dandanplayProvidersDescription = "dandanplay-compatible API settings for auto-match and fetched danmaku tracks.",
-            cacheExpiryLabel = "Cache expiry",
-            lastTestLabel = "Last test",
-            apiBaseUrlLabel = "API base URL",
-            appIdOptionalLabel = "AppId (optional)",
-            appSecretKeepLabel = "AppSecret (leave blank to keep saved secret)",
-            appSecretOptionalLabel = "AppSecret (optional)",
-            cacheMaxAgeDaysLabel = "Cache max age days",
-            signedAuthAction = "Signed auth",
-            credentialAuthAction = "Credential auth",
-            currentAuthLabel = { mode -> "Current: $mode" },
-            saveDandanplaySettingsAction = "Save dandanplay settings",
-            testSavedAction = "Test saved",
-            clearAction = "Clear",
-            cleanExpiredCacheAction = "Clean expired cache",
-            clearDandanplayTitle = "Clear dandanplay settings?",
-            clearDandanplayText = "This removes saved dandanplay credentials from local protected settings. API URL and cache defaults can be entered again later.",
-            cleanExpiredDandanplayTitle = "Clean expired dandanplay cache?",
-            cleanExpiredDandanplayText = "Expired cached danmaku entries will be removed according to the current cache age setting. Fresh valid entries are kept.",
-            externalAnimeListsTitle = "External Anime Lists",
-            externalAnimeListsDescription = "MyAnimeList and Bangumi settings for anime search, manual mapping, and future progress sync.",
-            myAnimeListTestLabel = "MAL test",
-            bangumiTestLabel = "Bangumi test",
-            myAnimeListClientIdLabel = "MyAnimeList client ID",
-            myAnimeListAccessTokenKeepLabel = "MyAnimeList access token (leave blank to keep saved token)",
-            myAnimeListAccessTokenOptionalLabel = "MyAnimeList access token (optional)",
-            myAnimeListClientSecretKeepLabel = "MyAnimeList client secret (leave blank to keep saved secret)",
-            myAnimeListClientSecretOptionalLabel = "MyAnimeList client secret (optional for OAuth)",
-            bangumiApiBaseUrlLabel = "Bangumi API base URL",
-            bangumiUserAgentLabel = "Bangumi User-Agent",
-            bangumiUserAgentRequiredError = "Bangumi User-Agent is required.",
-            bangumiAccessTokenKeepLabel = "Bangumi access token (leave blank to keep saved token)",
-            bangumiAccessTokenOptionalLabel = "Bangumi access token (optional)",
-            saveExternalListsAction = "Save external lists",
-            connectMyAnimeListAction = "Connect MAL",
-            testMyAnimeListAction = "Test MAL",
-            testBangumiAction = "Test Bangumi",
-            clearMyAnimeListAction = "Clear MAL",
-            clearBangumiAction = "Clear Bangumi",
-            clearMyAnimeListTitle = "Clear MyAnimeList credentials?",
-            clearMyAnimeListText = "This removes the saved MyAnimeList client secret and access token from local protected settings. Existing local anime mappings are not removed.",
-            clearBangumiTitle = "Clear Bangumi credentials?",
-            clearBangumiText = "This removes the saved Bangumi access token from local protected settings. Existing local anime mappings are not removed.",
-            localServerTitle = "Local Server",
-            serverBaseUrlLabel = "Base URL",
-            lanUrlLabel = "LAN URL",
-            lanUrlsLabel = "LAN URLs",
-            lanUrlNumberedLabel = { index -> "LAN URL $index" },
-            discoveryLabel = "Discovery",
-            openServerDashboardAction = "Open dashboard",
-            testLocalServerAction = "Test local server",
-            serverDashboardTitle = "Server Dashboard",
-            pairingAndLanAccessTitle = "Pairing and LAN access",
-            healthTitle = "Health",
-            notCheckedThisSessionLabel = "Not checked this session",
-            recentRequestsLabel = "Recent requests",
-            connectedClientsLabel = "Connected clients",
-            connectedClientsPlannedText = "Planned: client identity is not instrumented yet",
-            bandwidthLabel = "Bandwidth",
-            bandwidthPlannedText = "Planned: byte counters are not instrumented yet",
-            recentServerRequestsTitle = "Recent server requests",
-            noServerRequestsText = "No server requests recorded this session.",
-            testServerAction = "Test server",
-            copyAction = "Copy",
-            testingStatusLabel = "Testing",
-            okStatusLabel = "OK",
-            failedStatusLabel = "Failed",
-            homeServerStatusTitle = "Server Status",
-            attentionNeededLabel = "Attention needed",
-            onlineLabel = "Online",
-            noLanUrlDetectedLabel = "No LAN URL detected",
-            pairingLabel = "Pairing",
-            episodesLabel = "Episodes",
-            errorLabel = "Error",
-            metadataAndPostersTitle = "Metadata and Posters",
-            loadingLabel = "Loading",
-            partialLabel = "Partial",
-            waitingLabel = "Waiting",
-            metadataLoadingLabel = "Metadata loading",
-            metadataFailedLabel = "Metadata failed",
-            metadataReadyLabel = "Metadata ready",
-            metadataPartialLabel = "Metadata partial",
-            metadataNeededLabel = "Metadata needed",
-            metadataFailedShortLabel = "Failed",
-            metadataReadyShortLabel = "Ready",
-            metadataNeededShortLabel = "Needed",
-            metadataLoadingDetail = "Poster and anime match are refreshing",
-            metadataFailedDetail = "Refresh episode metadata to retry matching",
-            metadataReadyDetail = "Matched anime title and poster are available",
-            metadataPartialMatchedNoPosterDetail = "Matched anime title is ready; poster is missing",
-            metadataPartialPosterNoTitleDetail = "Poster is cached; anime title is missing",
-            metadataPartialGenericDetail = "Some metadata is cached; refresh to complete the match",
-            metadataNeededDetail = "Refresh metadata to match anime title and poster",
-            seriesMetadataLoadingDetail = "Series poster and episode metadata are refreshing",
-            seriesMetadataFailedDetail = "One or more episode metadata matches failed",
-            seriesMetadataReadyDetail = "Series poster and episode metadata are available",
-            seriesMetadataPartialDetail = "Some poster or episode metadata is available",
-            seriesMetadataNeededDetail = "Refresh metadata to match this series",
-            fileGroupLabel = { title -> "File group: $title" },
-            postersReadySummary = { ready, total -> "$ready/$total posters ready" },
-            refreshAction = "Refresh",
-            refreshingAction = "Refreshing",
-            lastScanLabel = "Last scan",
-            groupsLabel = "Groups",
-            externalSyncTitle = "External Sync",
-            notMappedLabel = "Not mapped",
-            readyUpdatesLabel = { count -> "$count ready updates" },
-            openTrackingAction = "Open Tracking",
-            downloadQueueReadyLabel = "Queue ready",
-            downloadsImportDetail = "ani-rss output and imports",
-            openDownloadsAction = "Open Downloads",
-            cachedDanmakuTitle = "Cached Danmaku",
-            notCheckedLabel = "Not checked",
-            manageCacheAction = "Manage Cache",
-            danmakuCacheSettingsTitle = "Danmaku Cache",
-            danmakuCacheSettingsDescription = "Review persisted dandanplay comment caches, inspect selected entries, and clean stale rows using the configured cache age.",
-            cachedEpisodesLabel = "Cached episodes",
-            openCacheManagerAction = "Open cache manager",
-            danmakuCacheManagerTitle = "Danmaku Cache Manager",
-            cachedSummaryTitle = "Cached",
-            expiredSummaryTitle = "Expired",
-            commentsSummaryTitle = "Comments",
-            cachedEventsCaption = "cached events",
-            cacheDayRuleCaption = { days -> "$days day rule" },
-            persistedEntriesTitle = "Persisted entries",
-            noDandanplayCachesText = "No dandanplay comment caches are persisted yet.",
-            selectedCacheTitle = "Selected cache",
-            selectCachePromptText = "Select an episode cache after preparing or refreshing danmaku.",
-            expiredStatusLabel = "Expired",
+            }
+            removeAction = "Remove"
+            downloadSetupAuthorizedSourcesTitle = "Authorized Sources"
+            downloadSetupAuthorizedSourcesText = "Use providers you are authorized to access. Danmaku imports completed media and does not bypass DRM or service rules."
+            authorizedImportsOnlyLabel = "Authorized imports only"
+            queueExecutionPlannedLabel = "Queue execution planned"
+            importRootCountLabel = { count -> "$count import roots" }
+            addAniRssOutputFolderAction = "Add ani-rss output folder"
+            aniRssWebhookTitle = "ani-rss Webhook"
+            noWebhookUrlText = "No webhook URL is available yet."
+            webhookUrlLabel = "DOWNLOAD_END URL"
+            webhookHeaderLabel = "Header"
+            webhookTokenLabel = "Token"
+            importRootsTitle = "Import Roots"
+            noAniRssRootsText = "No ani-rss output folders registered."
+            downloadInspectorTitle = "Download Inspector"
+            downloadInspectorEmptyText = "Select a queue item to inspect source, output path, progress, and available actions."
+            stateLabel = "State"
+            progressLabel = "Progress"
+            createdLabel = "Created"
+            updatedLabel = "Updated"
+            outputLabel = "Output"
+            sourceLabel = "Source"
+            failureLabel = "Failure"
+            openFolderAction = "Open folder"
+            pauseAction = "Pause"
+            resumeAction = "Resume"
+            retryAction = "Retry"
+            cancelAction = "Cancel"
+            downloadExecutionPlannedText = "Pause, resume, cancel, and retry will be enabled after authorized download source contracts and queue execution are implemented."
+            dandanplayProvidersTitle = "Danmaku Providers"
+            dandanplayProvidersDescription = "dandanplay-compatible API settings for auto-match and fetched danmaku tracks."
+            cacheExpiryLabel = "Cache expiry"
+            lastTestLabel = "Last test"
+            apiBaseUrlLabel = "API base URL"
+            appIdOptionalLabel = "AppId (optional)"
+            appSecretKeepLabel = "AppSecret (leave blank to keep saved secret)"
+            appSecretOptionalLabel = "AppSecret (optional)"
+            cacheMaxAgeDaysLabel = "Cache max age days"
+            signedAuthAction = "Signed auth"
+            credentialAuthAction = "Credential auth"
+            currentAuthLabel = { mode -> "Current: $mode" }
+            saveDandanplaySettingsAction = "Save dandanplay settings"
+            testSavedAction = "Test saved"
+            clearAction = "Clear"
+            cleanExpiredCacheAction = "Clean expired cache"
+            clearDandanplayTitle = "Clear dandanplay settings?"
+            clearDandanplayText = "This removes saved dandanplay credentials from local protected settings. API URL and cache defaults can be entered again later."
+            cleanExpiredDandanplayTitle = "Clean expired dandanplay cache?"
+            cleanExpiredDandanplayText = "Expired cached danmaku entries will be removed according to the current cache age setting. Fresh valid entries are kept."
+            externalAnimeListsTitle = "External Anime Lists"
+            externalAnimeListsDescription = "MyAnimeList and Bangumi settings for anime search, manual mapping, and future progress sync."
+            myAnimeListTestLabel = "MAL test"
+            bangumiTestLabel = "Bangumi test"
+            myAnimeListClientIdLabel = "MyAnimeList client ID"
+            myAnimeListAccessTokenKeepLabel = "MyAnimeList access token (leave blank to keep saved token)"
+            myAnimeListAccessTokenOptionalLabel = "MyAnimeList access token (optional)"
+            myAnimeListClientSecretKeepLabel = "MyAnimeList client secret (leave blank to keep saved secret)"
+            myAnimeListClientSecretOptionalLabel = "MyAnimeList client secret (optional for OAuth)"
+            bangumiApiBaseUrlLabel = "Bangumi API base URL"
+            bangumiUserAgentLabel = "Bangumi User-Agent"
+            bangumiUserAgentRequiredError = "Bangumi User-Agent is required."
+            bangumiAccessTokenKeepLabel = "Bangumi access token (leave blank to keep saved token)"
+            bangumiAccessTokenOptionalLabel = "Bangumi access token (optional)"
+            saveExternalListsAction = "Save external lists"
+            connectMyAnimeListAction = "Connect MAL"
+            testMyAnimeListAction = "Test MAL"
+            testBangumiAction = "Test Bangumi"
+            clearMyAnimeListAction = "Clear MAL"
+            clearBangumiAction = "Clear Bangumi"
+            clearMyAnimeListTitle = "Clear MyAnimeList credentials?"
+            clearMyAnimeListText = "This removes the saved MyAnimeList client secret and access token from local protected settings. Existing local anime mappings are not removed."
+            clearBangumiTitle = "Clear Bangumi credentials?"
+            clearBangumiText = "This removes the saved Bangumi access token from local protected settings. Existing local anime mappings are not removed."
+            localServerTitle = "Local Server"
+            serverBaseUrlLabel = "Base URL"
+            lanUrlLabel = "LAN URL"
+            lanUrlsLabel = "LAN URLs"
+            lanUrlNumberedLabel = { index -> "LAN URL $index" }
+            discoveryLabel = "Discovery"
+            openServerDashboardAction = "Open dashboard"
+            testLocalServerAction = "Test local server"
+            serverDashboardTitle = "Server Dashboard"
+            pairingAndLanAccessTitle = "Pairing and LAN access"
+            healthTitle = "Health"
+            notCheckedThisSessionLabel = "Not checked this session"
+            recentRequestsLabel = "Recent requests"
+            connectedClientsLabel = "Connected clients"
+            connectedClientsPlannedText = "Planned: client identity is not instrumented yet"
+            bandwidthLabel = "Bandwidth"
+            bandwidthPlannedText = "Planned: byte counters are not instrumented yet"
+            recentServerRequestsTitle = "Recent server requests"
+            noServerRequestsText = "No server requests recorded this session."
+            testServerAction = "Test server"
+            copyAction = "Copy"
+            testingStatusLabel = "Testing"
+            okStatusLabel = "OK"
+            failedStatusLabel = "Failed"
+            homeServerStatusTitle = "Server Status"
+            attentionNeededLabel = "Attention needed"
+            onlineLabel = "Online"
+            noLanUrlDetectedLabel = "No LAN URL detected"
+            pairingLabel = "Pairing"
+            episodesLabel = "Episodes"
+            errorLabel = "Error"
+            metadataAndPostersTitle = "Metadata and Posters"
+            loadingLabel = "Loading"
+            partialLabel = "Partial"
+            waitingLabel = "Waiting"
+            metadataLoadingLabel = "Metadata loading"
+            metadataFailedLabel = "Metadata failed"
+            metadataReadyLabel = "Metadata ready"
+            metadataPartialLabel = "Metadata partial"
+            metadataNeededLabel = "Metadata needed"
+            metadataFailedShortLabel = "Failed"
+            metadataReadyShortLabel = "Ready"
+            metadataNeededShortLabel = "Needed"
+            metadataLoadingDetail = "Poster and anime match are refreshing"
+            metadataFailedDetail = "Refresh episode metadata to retry matching"
+            metadataReadyDetail = "Matched anime title and poster are available"
+            metadataPartialMatchedNoPosterDetail = "Matched anime title is ready; poster is missing"
+            metadataPartialPosterNoTitleDetail = "Poster is cached; anime title is missing"
+            metadataPartialGenericDetail = "Some metadata is cached; refresh to complete the match"
+            metadataNeededDetail = "Refresh metadata to match anime title and poster"
+            seriesMetadataLoadingDetail = "Series poster and episode metadata are refreshing"
+            seriesMetadataFailedDetail = "One or more episode metadata matches failed"
+            seriesMetadataReadyDetail = "Series poster and episode metadata are available"
+            seriesMetadataPartialDetail = "Some poster or episode metadata is available"
+            seriesMetadataNeededDetail = "Refresh metadata to match this series"
+            fileGroupLabel = { title -> "File group: $title" }
+            postersReadySummary = { ready, total -> "$ready/$total posters ready" }
+            refreshAction = "Refresh"
+            refreshingAction = "Refreshing"
+            lastScanLabel = "Last scan"
+            groupsLabel = "Groups"
+            externalSyncTitle = "External Sync"
+            notMappedLabel = "Not mapped"
+            readyUpdatesLabel = { count -> "$count ready updates" }
+            openTrackingAction = "Open Tracking"
+            downloadQueueReadyLabel = "Queue ready"
+            downloadsImportDetail = "ani-rss output and imports"
+            openDownloadsAction = "Open Downloads"
+            cachedDanmakuTitle = "Cached Danmaku"
+            notCheckedLabel = "Not checked"
+            manageCacheAction = "Manage Cache"
+            danmakuCacheSettingsTitle = "Danmaku Cache"
+            danmakuCacheSettingsDescription = "Review persisted dandanplay comment caches, inspect selected entries, and clean stale rows using the configured cache age."
+            cachedEpisodesLabel = "Cached episodes"
+            openCacheManagerAction = "Open cache manager"
+            danmakuCacheManagerTitle = "Danmaku Cache Manager"
+            cachedSummaryTitle = "Cached"
+            expiredSummaryTitle = "Expired"
+            commentsSummaryTitle = "Comments"
+            cachedEventsCaption = "cached events"
+            cacheDayRuleCaption = { days -> "$days day rule" }
+            persistedEntriesTitle = "Persisted entries"
+            noDandanplayCachesText = "No dandanplay comment caches are persisted yet."
+            selectedCacheTitle = "Selected cache"
+            selectCachePromptText = "Select an episode cache after preparing or refreshing danmaku."
+            expiredStatusLabel = "Expired"
             cacheEntryCommentSummary = { count, fetchedAtEpochMs, fileName ->
                 "$count comments - ${fetchedAtEpochMs.formatEpochTime()} - $fileName"
-            },
-            animeLabel = "Anime",
-            episodeLabel = "Episode",
-            mediaIdLabel = "Media ID",
-            fileLabel = "File",
-            fileSizeLabel = "File size",
-            commentsLabel = "Comments",
-            fetchedLabel = "Fetched",
-            shiftLabel = "Shift",
-            unknownAnimeLabel = "Unknown anime",
-            unknownEpisodeLabel = "Unknown episode",
-            noneLabel = "None",
-            shiftSecondsLabel = { seconds -> "$seconds seconds" },
-            assCacheLabel = "ASS cache",
-            deleteCachedDanmakuTitle = "Delete cached danmaku?",
+            }
+            animeLabel = "Anime"
+            episodeLabel = "Episode"
+            mediaIdLabel = "Media ID"
+            fileLabel = "File"
+            fileSizeLabel = "File size"
+            commentsLabel = "Comments"
+            fetchedLabel = "Fetched"
+            shiftLabel = "Shift"
+            unknownAnimeLabel = "Unknown anime"
+            unknownEpisodeLabel = "Unknown episode"
+            noneLabel = "None"
+            shiftSecondsLabel = { seconds -> "$seconds seconds" }
+            assCacheLabel = "ASS cache"
+            deleteCachedDanmakuTitle = "Delete cached danmaku?"
             deleteCachedDanmakuText = { title ->
                 "This removes the persisted dandanplay cache for $title. It does not remove the original media file."
-            },
-            deleteCacheAction = "Delete cache",
-            cleanExpiredDanmakuCachesTitle = "Clean expired danmaku caches?",
+            }
+            deleteCacheAction = "Delete cache"
+            cleanExpiredDanmakuCachesTitle = "Clean expired danmaku caches?"
             cleanExpiredDanmakuCachesText = { days ->
                 "This removes dandanplay comment caches older than $days days. Current valid caches remain available."
-            },
-            cleanExpiredAction = "Clean expired",
-            providerSettingsAction = "Provider settings",
-            myAnimeListClientSavedLabel = "Client ID saved",
-            trackingCredentialsNeededLabel = "Configure API credentials to search and sync",
-            mappedSummaryTitle = "Mapped",
-            mappedSummaryCaption = "series links",
-            readySummaryTitle = "Ready",
-            readySummaryCaption = "provider writes",
-            conflictsSummaryTitle = "Conflicts",
-            conflictsSummaryCaption = "need review",
-            failuresSummaryTitle = "Failures",
-            failuresSummaryCaption = "retry tracked",
-            trackingSyncPreviewTitle = "Tracking Sync Preview",
-            openLibraryAction = "Open Library",
-            noExternalSyncLibraryText = "No indexed library is available for external sync preview.",
-            providerUpdatesCaption = "provider updates",
-            externalAheadCaption = "external ahead",
-            mappingChecksCaption = "mapping checks",
-            syncingUpdatesAction = "Syncing updates",
-            syncReadyUpdatesAction = "Sync ready updates",
-            noProviderWritesReadyText = "No provider writes are ready.",
-            writesReadyUpdatesText = { count -> "Writes $count ready updates to connected external lists." },
-            dryRunUpdatesTitle = "Dry-run updates",
-            noExternalProgressUpdatesText = "No external progress updates are ready.",
-            noExternalProgressConflictsText = "No external progress conflicts are detected.",
-            syncFailuresTitle = "Sync failures",
-            noSyncFailuresText = "No sync failures recorded.",
-            moreSkippedLabel = { count -> "+$count more skipped" },
-            localWatchedEpisodesLabel = { count -> "Local $count" },
-            externalWatchedEpisodesLabel = { count -> "External $count" },
-            syncAttemptLabel = { attempt -> "Attempt $attempt" },
-            trackingNoLibraryText = "Index a local library before reviewing external progress sync.",
-            trackingTableTitle = "Tracking Table",
-            trackingTableDescription = "Local and provider progress",
-            syncAllReadyAction = "Sync all ready",
-            syncingAction = "Syncing",
-            trackingRowsEmptyText = "No tracking rows are available yet. Link local series to MyAnimeList or Bangumi from Library details.",
-            localSeriesHeader = "Local series",
-            providerHeader = "Provider",
-            actionHeader = "Action",
-            mappingInspectorTitle = "Mapping Inspector",
-            mappingInspectorEmptyText = "Select a tracking row to inspect provider IDs, progress, and planned sync behavior.",
-            animeIdLabel = "Anime ID",
-            providerUrlLabel = "Provider URL",
-            localSeriesIdLabel = "Local series ID",
-            localProgressLabel = "Local progress",
-            providerProgressLabel = "Provider progress",
-            confidenceLabel = "Confidence",
-            statusLabel = "Status",
-            conflictLabel = "Conflict",
-            externalWatchedLabel = "External watched",
-            nextRetryLabel = "Next retry",
-            skippedLabel = "Skipped",
-            syncSelectedAction = "Sync selected",
-            refreshProviderStateAction = "Refresh provider state",
-            removeMappingAction = "Remove mapping",
-            resolveConflictAction = "Resolve conflict",
-            trackingPlannedControlsText = "Provider readback, mapping removal, and conflict resolution controls are planned; ready updates can sync through the existing provider sync path.",
-            readbackPendingLabel = "Readback pending",
-            readyStatusLabel = "Ready",
-            reviewConflictAction = "Review conflict",
-            conflictStatusLabel = "Conflict",
-            externalProviderLabel = "External provider",
-            notLinkedLabel = "Not linked",
-            noLinkLabel = "No link",
-            needsMappingLabel = "Needs mapping",
-            missingLocalSeriesLabel = "Missing local series",
-            retryAtLabel = { epochMs -> "Retry ${epochMs.formatEpochTime()}" },
-            failedAttemptsLabel = { attempts -> "Failed x$attempts" },
-            watchedCountLabel = { count -> "$count watched" },
-            searchAction = "Search",
-            searchingAction = "Searching...",
-            closeAction = "Close",
-            useAction = "Use",
-            mappedAction = "Mapped",
-            posterLoadingLabel = "Loading",
-            posterUnavailableLabel = "Poster unavailable",
-            danmakuDisplaySettingsTitle = "Danmaku Display",
-            danmakuDisplaySettingsDescription = "Controls generated ASS danmaku overlays for matched and manually attached comment tracks. Reload media or refresh cached danmaku to apply renderer changes.",
-            visibilityLabel = "Visibility",
-            fontScaleLabel = "Font scale",
-            displayAreaLabel = "Display area",
-            showDanmakuAction = "Show danmaku",
-            hideDanmakuAction = "Hide danmaku",
-            opacityPercentLabel = "Opacity %",
-            fontScalePercentLabel = "Font scale %",
-            speedPercentLabel = "Speed %",
-            densityPercentLabel = "Density %",
-            displayAreaPercentLabel = "Display area %",
-            offsetMsLabel = "Offset ms",
-            keywordFiltersLabel = "Keyword filters, one per line",
-            regexFiltersLabel = "Regex filters, one per line",
-            offsetMsValueLabel = { offsetMs -> "$offsetMs ms" },
-            saveDanmakuDisplayAction = "Save danmaku display",
-            resetDraftAction = "Reset draft",
-            diagnosticsTitle = "Diagnostics",
-            noDiagnosticsText = "No diagnostics yet. Start playback or scan a library to populate this log.",
-            metadataMatchTitle = "Metadata Match",
+            }
+            cleanExpiredAction = "Clean expired"
+            providerSettingsAction = "Provider settings"
+            myAnimeListClientSavedLabel = "Client ID saved"
+            trackingCredentialsNeededLabel = "Configure API credentials to search and sync"
+            mappedSummaryTitle = "Mapped"
+            mappedSummaryCaption = "series links"
+            readySummaryTitle = "Ready"
+            readySummaryCaption = "provider writes"
+            conflictsSummaryTitle = "Conflicts"
+            conflictsSummaryCaption = "need review"
+            failuresSummaryTitle = "Failures"
+            failuresSummaryCaption = "retry tracked"
+            trackingSyncPreviewTitle = "Tracking Sync Preview"
+            openLibraryAction = "Open Library"
+            noExternalSyncLibraryText = "No indexed library is available for external sync preview."
+            providerUpdatesCaption = "provider updates"
+            externalAheadCaption = "external ahead"
+            mappingChecksCaption = "mapping checks"
+            syncingUpdatesAction = "Syncing updates"
+            syncReadyUpdatesAction = "Sync ready updates"
+            noProviderWritesReadyText = "No provider writes are ready."
+            writesReadyUpdatesText = { count -> "Writes $count ready updates to connected external lists." }
+            dryRunUpdatesTitle = "Dry-run updates"
+            noExternalProgressUpdatesText = "No external progress updates are ready."
+            noExternalProgressConflictsText = "No external progress conflicts are detected."
+            syncFailuresTitle = "Sync failures"
+            noSyncFailuresText = "No sync failures recorded."
+            moreSkippedLabel = { count -> "+$count more skipped" }
+            localWatchedEpisodesLabel = { count -> "Local $count" }
+            externalWatchedEpisodesLabel = { count -> "External $count" }
+            syncAttemptLabel = { attempt -> "Attempt $attempt" }
+            trackingNoLibraryText = "Index a local library before reviewing external progress sync."
+            trackingTableTitle = "Tracking Table"
+            trackingTableDescription = "Local and provider progress"
+            syncAllReadyAction = "Sync all ready"
+            syncingAction = "Syncing"
+            trackingRowsEmptyText = "No tracking rows are available yet. Link local series to MyAnimeList or Bangumi from Library details."
+            localSeriesHeader = "Local series"
+            providerHeader = "Provider"
+            actionHeader = "Action"
+            mappingInspectorTitle = "Mapping Inspector"
+            mappingInspectorEmptyText = "Select a tracking row to inspect provider IDs, progress, and planned sync behavior."
+            animeIdLabel = "Anime ID"
+            providerUrlLabel = "Provider URL"
+            localSeriesIdLabel = "Local series ID"
+            localProgressLabel = "Local progress"
+            providerProgressLabel = "Provider progress"
+            confidenceLabel = "Confidence"
+            statusLabel = "Status"
+            conflictLabel = "Conflict"
+            externalWatchedLabel = "External watched"
+            nextRetryLabel = "Next retry"
+            skippedLabel = "Skipped"
+            syncSelectedAction = "Sync selected"
+            refreshProviderStateAction = "Refresh provider state"
+            removeMappingAction = "Remove mapping"
+            resolveConflictAction = "Resolve conflict"
+            trackingPlannedControlsText = "Provider readback, mapping removal, and conflict resolution controls are planned; ready updates can sync through the existing provider sync path."
+            readbackPendingLabel = "Readback pending"
+            readyStatusLabel = "Ready"
+            reviewConflictAction = "Review conflict"
+            conflictStatusLabel = "Conflict"
+            externalProviderLabel = "External provider"
+            notLinkedLabel = "Not linked"
+            noLinkLabel = "No link"
+            needsMappingLabel = "Needs mapping"
+            missingLocalSeriesLabel = "Missing local series"
+            retryAtLabel = { epochMs -> "Retry ${epochMs.formatEpochTime()}" }
+            failedAttemptsLabel = { attempts -> "Failed x$attempts" }
+            watchedCountLabel = { count -> "$count watched" }
+            searchAction = "Search"
+            searchingAction = "Searching..."
+            closeAction = "Close"
+            useAction = "Use"
+            mappedAction = "Mapped"
+            posterLoadingLabel = "Loading"
+            posterUnavailableLabel = "Poster unavailable"
+            danmakuDisplaySettingsTitle = "Danmaku Display"
+            danmakuDisplaySettingsDescription = "Controls generated ASS danmaku overlays for matched and manually attached comment tracks. Reload media or refresh cached danmaku to apply renderer changes."
+            visibilityLabel = "Visibility"
+            fontScaleLabel = "Font scale"
+            displayAreaLabel = "Display area"
+            showDanmakuAction = "Show danmaku"
+            hideDanmakuAction = "Hide danmaku"
+            opacityPercentLabel = "Opacity %"
+            fontScalePercentLabel = "Font scale %"
+            speedPercentLabel = "Speed %"
+            densityPercentLabel = "Density %"
+            displayAreaPercentLabel = "Display area %"
+            offsetMsLabel = "Offset ms"
+            keywordFiltersLabel = "Keyword filters, one per line"
+            regexFiltersLabel = "Regex filters, one per line"
+            offsetMsValueLabel = { offsetMs -> "$offsetMs ms" }
+            saveDanmakuDisplayAction = "Save danmaku display"
+            resetDraftAction = "Reset draft"
+            diagnosticsTitle = "Diagnostics"
+            noDiagnosticsText = "No diagnostics yet. Start playback or scan a library to populate this log."
+            metadataMatchTitle = "Metadata Match"
             metadataMatchDescription = { title ->
                 "Search provider metadata for $title and save a series-level mapping."
-            },
-            metadataMatchSearchTitleLabel = "Search title",
-            metadataMatchSelectProviderError = "Select at least one provider to search.",
-            metadataMatchNoCandidates = { title -> "No provider candidates matched \"$title\"." },
-            metadataMatchMyAnimeListUnavailable = "MyAnimeList search needs a client ID in Settings > Providers",
-            metadataMatchBangumiUnavailable = "Bangumi search needs a valid API URL and User-Agent",
-            metadataMatchCurrentMappingsPrefix = "Current mappings:",
-            metadataMatchEmptyState = "Search MyAnimeList or Bangumi to review candidates and save a mapping.",
-            metadataMatchMatchedTitlePrefix = "matched:",
-        ),
+            }
+            metadataMatchSearchTitleLabel = "Search title"
+            metadataMatchSelectProviderError = "Select at least one provider to search."
+            metadataMatchNoCandidates = { title -> "No provider candidates matched \"$title\"." }
+            metadataMatchMyAnimeListUnavailable = "MyAnimeList search needs a client ID in Settings > Providers"
+            metadataMatchBangumiUnavailable = "Bangumi search needs a valid API URL and User-Agent"
+            metadataMatchCurrentMappingsPrefix = "Current mappings:"
+            metadataMatchEmptyState = "Search MyAnimeList or Bangumi to review candidates and save a mapping."
+            metadataMatchMatchedTitlePrefix = "matched:"
+        },
     ),
     ZH_TW(
         storageValue = "zh-TW",
         displayName = "繁體中文",
-        strings = DesktopStrings(
+        strings = desktopStrings {
             tabTitles = mapOf(
                 DesktopShellTab.HOME to "首頁",
                 DesktopShellTab.PLAYBACK to "播放",
@@ -604,7 +604,7 @@ internal enum class DesktopUiLanguage(
                 DesktopShellTab.DOWNLOADS to "下載",
                 DesktopShellTab.TRACKING to "追蹤",
                 DesktopShellTab.PROFILE to "設定",
-            ),
+            )
             settingsSectionTitles = mapOf(
                 DesktopSettingsSection.GENERAL to "一般",
                 DesktopSettingsSection.LIBRARY to "媒體庫",
@@ -615,122 +615,122 @@ internal enum class DesktopUiLanguage(
                 DesktopSettingsSection.STORAGE to "儲存空間",
                 DesktopSettingsSection.PRIVACY to "隱私",
                 DesktopSettingsSection.DIAGNOSTICS to "診斷",
-            ),
-            mediaHub = "媒體中心",
-            shellSubtitle = "本機動畫媒體庫主機",
-            searchLabel = "搜尋動畫、集數、檔案 (Ctrl+K)",
-            playerStatusPrefix = "播放器",
-            episodesSuffix = "集",
-            rescanLibrary = "重新掃描媒體庫",
-            settingsTitle = "設定",
-            settingsDescription = "應用程式、服務、播放與診斷",
-            languageTitle = "語言",
-            languageDescription = "選擇桌面介面語言。頁面內容會沿著這個共用字串層逐步在地化。",
-            uiLanguageLabel = "介面語言",
-            uiLanguagesValue = "英文、繁體中文",
-            appLabel = "應用程式",
-            primaryTargetsLabel = "主要平台",
-            supportedLabel = "支援",
-            librarySettingsDescription = "媒體庫資料夾、匯入、中繼資料重新整理、對應與集數準備都在媒體庫頁面管理。",
-            metadataLabel = "中繼資料",
-            metadataRefreshLibraryDetailsText = "系列與集數重新整理動作可在媒體庫詳情中使用。",
-            importsLabel = "匯入",
-            aniRssImportsManagedDownloadsText = "ani-rss 輸出資料夾由下載頁面管理。",
-            playbackRuntimeTitle = "播放執行階段",
-            mpvExecutorLabel = "mpv 執行器",
-            rendererLabel = "渲染器",
-            mpvRendererDescription = "mpv 視訊輸出搭配產生的 ASS 彈幕覆蓋",
-            focusModeLabel = "專注模式",
-            playerFocusModeDescription = "播放器可用 H 隱藏非視訊介面",
-            storageCleanupDescription = "快取清理可從服務設定執行。下載目的地控制會在來源合約實作後啟用。",
-            appLogLabel = "應用程式紀錄",
-            mpvLogLabel = "mpv 紀錄",
-            privacyCredentialsTitle = "隱私與憑證",
-            privacyCredentialsDescription = "表單與診斷會遮蔽秘密資訊。清除服務設定會移除已儲存的服務憑證。",
-            desktopRuntimeTitle = "桌面執行階段",
-            privacyTitle = "隱私",
-            credentialsPrivacyText = "憑證會盡可能儲存在本機受保護設定中，並且不會寫入診斷資訊。",
-            playbackNeedsAttentionTitle = "播放需要處理",
-            preparingPlaybackTitle = "正在準備播放",
-            noMediaLoadedLabel = "尚未載入媒體",
-            playingLabel = "播放中",
-            videoHostLabel = "影片主機",
-            openMediaFileAction = "開啟媒體檔案",
-            chooseMediaFileTitle = { host -> "選擇 $host 播放用媒體檔案" },
-            chooseAnimeLibraryFolderTitle = "選擇動畫媒體庫資料夾",
-            chooseAniRssCompletedMediaFolderTitle = "選擇 ani-rss 已完成媒體資料夾",
-            homeAction = "首頁",
-            libraryAction = "媒體庫",
-            showPlayerChromeAction = "顯示播放器介面 (H)",
-            hidePlayerChromeAction = "隱藏播放器介面 (H)",
-            previousEpisodeAction = "上一集",
-            previousEpisodeWithTitle = { title -> "上一集：$title" },
-            nextEpisodeAction = "下一集",
-            nextEpisodeWithTitle = { title -> "下一集：$title" },
-            backThirtySecondsAction = "倒退 30 秒",
-            backTenSecondsAction = "倒退 10 秒",
-            playAction = "播放",
-            forwardTenSecondsAction = "快轉 10 秒",
-            forwardThirtySecondsAction = "快轉 30 秒",
-            volumeLabel = "音量",
-            subtitleShortLabel = "字幕",
-            hideDanmakuPanelAction = "隱藏彈幕面板",
-            showDanmakuPanelAction = "顯示彈幕面板",
-            exitFullscreenAction = "離開全螢幕",
-            enterFullscreenAction = "進入全螢幕",
-            libraryStepLabel = "媒體庫",
-            preparingMediaStepText = "正在準備媒體、字幕、中繼資料與彈幕...",
-            playerRuntimeStepLabel = "播放器執行階段",
-            libraryPreparationStepLabel = "媒體庫準備",
-            danmakuTitle = "彈幕",
-            shownLabel = "顯示",
-            hiddenLabel = "隱藏",
-            cacheLabel = "快取",
-            audioLabel = "音訊",
-            subtitleLabel = "字幕",
-            defaultLabel = "預設",
-            offLabel = "關閉",
-            hideAction = "隱藏",
-            showAction = "顯示",
-            opacityLabel = "透明度",
-            densityLabel = "密度",
-            fontLabel = "字型",
-            speedLabel = "速度",
-            areaLabel = "範圍",
-            offsetLabel = "時間偏移",
-            librarySlicesTitle = "媒體庫分類",
-            animeSeriesSliceLabel = "動畫系列",
-            moviesSliceLabel = "電影",
-            ovasSpecialsSliceLabel = "OVA / 特別篇",
-            allEpisodesSliceLabel = "所有集數",
-            favoritesSliceLabel = "收藏",
-            nowPlayingTitle = "播放中",
-            recentlyAddedTitle = "最近加入",
-            browseAllAction = "瀏覽全部",
-            newlyAddedEmptyText = "掃描媒體庫後，新加入的集數會顯示在這裡。",
-            recentlyAddedDetailLabel = { indexedAtEpochMs, sizeText -> "加入 ${indexedAtEpochMs.formatEpochTime()} - $sizeText" },
-            recentlyWatchedTitle = "最近觀看",
-            recentPlaybackEmptyText = "觀看本機集數後，最近播放會顯示在這裡。",
-            watchedAtLabel = { positionMs -> "已觀看 ${positionMs.formatPlaybackTime()}" },
-            myLibraryTitle = "我的媒體庫",
-            seriesSummaryTitle = "系列",
-            matchedGroupsCaption = "已對應群組",
-            favoritesSummaryTitle = "收藏",
-            savedEpisodesCaption = "已收藏集數",
-            watchingSummaryTitle = "觀看中",
-            inProgressCaption = "進行中",
-            homeLibraryEmptyText = "加入本機動畫資料夾以建立首頁儀表板。",
-            librarySnapshotTitle = "媒體庫快照",
-            continueWatchingTitle = "繼續觀看",
-            noResumeQueueText = "尚無續播佇列。瀏覽媒體庫開始播放。",
-            loadedNowLabel = "目前載入",
-            resumeAtLabel = { positionMs -> "從 ${positionMs.formatPlaybackTime()} 繼續" },
-            resumeSavedPositionLabel = "從已儲存位置繼續",
-            savedPositionLabel = "已儲存位置",
-            lastWatchedLabel = "上次觀看位置",
-            nextAfterLabel = { positionMs -> "接著 ${positionMs?.formatPlaybackTime() ?: "上次觀看位置"}" },
-            startWatchingLibraryLabel = "開始觀看此媒體庫",
-            episodeCountShortLabel = { count -> "$count 集" },
+            )
+            mediaHub = "媒體中心"
+            shellSubtitle = "本機動畫媒體庫主機"
+            searchLabel = "搜尋動畫、集數、檔案 (Ctrl+K)"
+            playerStatusPrefix = "播放器"
+            episodesSuffix = "集"
+            rescanLibrary = "重新掃描媒體庫"
+            settingsTitle = "設定"
+            settingsDescription = "應用程式、服務、播放與診斷"
+            languageTitle = "語言"
+            languageDescription = "選擇桌面介面語言。頁面內容會沿著這個共用字串層逐步在地化。"
+            uiLanguageLabel = "介面語言"
+            uiLanguagesValue = "英文、繁體中文"
+            appLabel = "應用程式"
+            primaryTargetsLabel = "主要平台"
+            supportedLabel = "支援"
+            librarySettingsDescription = "媒體庫資料夾、匯入、中繼資料重新整理、對應與集數準備都在媒體庫頁面管理。"
+            metadataLabel = "中繼資料"
+            metadataRefreshLibraryDetailsText = "系列與集數重新整理動作可在媒體庫詳情中使用。"
+            importsLabel = "匯入"
+            aniRssImportsManagedDownloadsText = "ani-rss 輸出資料夾由下載頁面管理。"
+            playbackRuntimeTitle = "播放執行階段"
+            mpvExecutorLabel = "mpv 執行器"
+            rendererLabel = "渲染器"
+            mpvRendererDescription = "mpv 視訊輸出搭配產生的 ASS 彈幕覆蓋"
+            focusModeLabel = "專注模式"
+            playerFocusModeDescription = "播放器可用 H 隱藏非視訊介面"
+            storageCleanupDescription = "快取清理可從服務設定執行。下載目的地控制會在來源合約實作後啟用。"
+            appLogLabel = "應用程式紀錄"
+            mpvLogLabel = "mpv 紀錄"
+            privacyCredentialsTitle = "隱私與憑證"
+            privacyCredentialsDescription = "表單與診斷會遮蔽秘密資訊。清除服務設定會移除已儲存的服務憑證。"
+            desktopRuntimeTitle = "桌面執行階段"
+            privacyTitle = "隱私"
+            credentialsPrivacyText = "憑證會盡可能儲存在本機受保護設定中，並且不會寫入診斷資訊。"
+            playbackNeedsAttentionTitle = "播放需要處理"
+            preparingPlaybackTitle = "正在準備播放"
+            noMediaLoadedLabel = "尚未載入媒體"
+            playingLabel = "播放中"
+            videoHostLabel = "影片主機"
+            openMediaFileAction = "開啟媒體檔案"
+            chooseMediaFileTitle = { host -> "選擇 $host 播放用媒體檔案" }
+            chooseAnimeLibraryFolderTitle = "選擇動畫媒體庫資料夾"
+            chooseAniRssCompletedMediaFolderTitle = "選擇 ani-rss 已完成媒體資料夾"
+            homeAction = "首頁"
+            libraryAction = "媒體庫"
+            showPlayerChromeAction = "顯示播放器介面 (H)"
+            hidePlayerChromeAction = "隱藏播放器介面 (H)"
+            previousEpisodeAction = "上一集"
+            previousEpisodeWithTitle = { title -> "上一集：$title" }
+            nextEpisodeAction = "下一集"
+            nextEpisodeWithTitle = { title -> "下一集：$title" }
+            backThirtySecondsAction = "倒退 30 秒"
+            backTenSecondsAction = "倒退 10 秒"
+            playAction = "播放"
+            forwardTenSecondsAction = "快轉 10 秒"
+            forwardThirtySecondsAction = "快轉 30 秒"
+            volumeLabel = "音量"
+            subtitleShortLabel = "字幕"
+            hideDanmakuPanelAction = "隱藏彈幕面板"
+            showDanmakuPanelAction = "顯示彈幕面板"
+            exitFullscreenAction = "離開全螢幕"
+            enterFullscreenAction = "進入全螢幕"
+            libraryStepLabel = "媒體庫"
+            preparingMediaStepText = "正在準備媒體、字幕、中繼資料與彈幕..."
+            playerRuntimeStepLabel = "播放器執行階段"
+            libraryPreparationStepLabel = "媒體庫準備"
+            danmakuTitle = "彈幕"
+            shownLabel = "顯示"
+            hiddenLabel = "隱藏"
+            cacheLabel = "快取"
+            audioLabel = "音訊"
+            subtitleLabel = "字幕"
+            defaultLabel = "預設"
+            offLabel = "關閉"
+            hideAction = "隱藏"
+            showAction = "顯示"
+            opacityLabel = "透明度"
+            densityLabel = "密度"
+            fontLabel = "字型"
+            speedLabel = "速度"
+            areaLabel = "範圍"
+            offsetLabel = "時間偏移"
+            librarySlicesTitle = "媒體庫分類"
+            animeSeriesSliceLabel = "動畫系列"
+            moviesSliceLabel = "電影"
+            ovasSpecialsSliceLabel = "OVA / 特別篇"
+            allEpisodesSliceLabel = "所有集數"
+            favoritesSliceLabel = "收藏"
+            nowPlayingTitle = "播放中"
+            recentlyAddedTitle = "最近加入"
+            browseAllAction = "瀏覽全部"
+            newlyAddedEmptyText = "掃描媒體庫後，新加入的集數會顯示在這裡。"
+            recentlyAddedDetailLabel = { indexedAtEpochMs, sizeText -> "加入 ${indexedAtEpochMs.formatEpochTime()} - $sizeText" }
+            recentlyWatchedTitle = "最近觀看"
+            recentPlaybackEmptyText = "觀看本機集數後，最近播放會顯示在這裡。"
+            watchedAtLabel = { positionMs -> "已觀看 ${positionMs.formatPlaybackTime()}" }
+            myLibraryTitle = "我的媒體庫"
+            seriesSummaryTitle = "系列"
+            matchedGroupsCaption = "已對應群組"
+            favoritesSummaryTitle = "收藏"
+            savedEpisodesCaption = "已收藏集數"
+            watchingSummaryTitle = "觀看中"
+            inProgressCaption = "進行中"
+            homeLibraryEmptyText = "加入本機動畫資料夾以建立首頁儀表板。"
+            librarySnapshotTitle = "媒體庫快照"
+            continueWatchingTitle = "繼續觀看"
+            noResumeQueueText = "尚無續播佇列。瀏覽媒體庫開始播放。"
+            loadedNowLabel = "目前載入"
+            resumeAtLabel = { positionMs -> "從 ${positionMs.formatPlaybackTime()} 繼續" }
+            resumeSavedPositionLabel = "從已儲存位置繼續"
+            savedPositionLabel = "已儲存位置"
+            lastWatchedLabel = "上次觀看位置"
+            nextAfterLabel = { positionMs -> "接著 ${positionMs?.formatPlaybackTime() ?: "上次觀看位置"}" }
+            startWatchingLibraryLabel = "開始觀看此媒體庫"
+            episodeCountShortLabel = { count -> "$count 集" }
             libraryViewTitles = mapOf(
                 WindowsLibraryView.CONTINUE_WATCHING to "繼續觀看",
                 WindowsLibraryView.NEXT_UP to "接著看",
@@ -740,465 +740,465 @@ internal enum class DesktopUiLanguage(
                 WindowsLibraryView.FILES to "檔案",
                 WindowsLibraryView.EXTERNAL_SYNC to "外部同步",
                 WindowsLibraryView.PAIRED to "已配對",
-            ),
-            libraryHostSubtitle = "媒體庫主機",
-            librarySearchLabel = "搜尋動畫、集數、路徑",
-            libraryToolbarCompactDescription = "在目前內容中搜尋與篩選。",
-            libraryToolbarDescription = "搜尋、篩選並選取媒體，不離開目前內容。",
-            episodeCountSummary = { visible, total -> "$visible / $total 集" },
-            favoriteCountSummary = { count -> "$count 個收藏" },
-            favoriteEpisodesFilterEmptyText = "沒有符合目前篩選的收藏集數。",
-            episodesFilterEmptyText = "沒有符合目前篩選的集數。",
-            noIndexedSeriesText = "尚無已索引系列。新增資料夾並掃描後即可建立海報媒體庫。",
-            noSeriesFilterMatchesText = "沒有符合目前篩選的系列。",
-            noInProgressLocalEpisodesText = "尚無進行中的本機集數。",
-            noNextUpItemText = "尚無接著看項目。請先從所有系列開始觀看。",
-            noRecentlyWatchedLocalEpisodesText = "尚無最近觀看的本機集數。",
-            subtitlesOnlyLabel = "只顯示字幕",
-            pathSortLabel = "路徑排序",
-            requireSubtitlesAction = "只顯示有字幕",
-            showAllSubtitlesAction = "顯示所有字幕狀態",
-            favoritesOnlyAction = "只顯示收藏",
-            showAllFavoritesAction = "顯示所有收藏狀態",
-            sortByPathAction = "依路徑排序",
-            sortByTitleAction = "依標題排序",
-            openLibraryImportPanelAction = "開啟媒體庫匯入面板",
-            rescanFoldersAction = "重新掃描資料夾",
-            localPcLabel = "本機電腦",
-            indexingLabel = "索引中...",
-            externalListsLabel = "外部清單",
-            noLibraryLabel = "尚無媒體庫",
-            pairedDevicesLabel = "已配對裝置",
-            lanBrowserReadyLabel = "區網瀏覽已就緒",
-            foldersLabel = "資料夾",
-            noFoldersLabel = "尚無資料夾",
-            moreItemsLabel = { count -> "還有 $count 個" },
-            lastScanSummary = { reused, refreshed -> "上次掃描：$reused 個未變更，$refreshed 個已更新" },
-            lastScanCountsSummary = { reused, refreshed -> "$reused 個未變更，$refreshed 個已更新" },
-            libraryImportTitle = "媒體庫匯入",
-            aniRssRootCountLabel = { count -> "$count 個 ani-rss" },
-            scanRunningLabel = "掃描中",
-            publishedLabel = "已發佈",
-            lastScanTitle = "上次掃描",
-            reusedCountLabel = { count -> "$count 個已重用" },
-            notRunLabel = "尚未執行",
-            addFolderAction = "新增資料夾",
-            importAniRssOutputAction = "匯入 ani-rss 輸出",
-            rescanAllAction = "重新掃描全部",
-            rescanAction = "重新掃描",
-            scanningAction = "掃描中...",
-            indexingLibraryRootsLabel = "正在索引媒體庫根目錄",
-            registeredRootsTitle = "已註冊根目錄",
-            libraryImportEmptyText = "新增本機動畫資料夾，或匯入 ani-rss 已完成媒體資料夾以建立媒體庫。",
-            removeLibraryFolderTitle = "要移除媒體庫資料夾嗎？",
+            )
+            libraryHostSubtitle = "媒體庫主機"
+            librarySearchLabel = "搜尋動畫、集數、路徑"
+            libraryToolbarCompactDescription = "在目前內容中搜尋與篩選。"
+            libraryToolbarDescription = "搜尋、篩選並選取媒體，不離開目前內容。"
+            episodeCountSummary = { visible, total -> "$visible / $total 集" }
+            favoriteCountSummary = { count -> "$count 個收藏" }
+            favoriteEpisodesFilterEmptyText = "沒有符合目前篩選的收藏集數。"
+            episodesFilterEmptyText = "沒有符合目前篩選的集數。"
+            noIndexedSeriesText = "尚無已索引系列。新增資料夾並掃描後即可建立海報媒體庫。"
+            noSeriesFilterMatchesText = "沒有符合目前篩選的系列。"
+            noInProgressLocalEpisodesText = "尚無進行中的本機集數。"
+            noNextUpItemText = "尚無接著看項目。請先從所有系列開始觀看。"
+            noRecentlyWatchedLocalEpisodesText = "尚無最近觀看的本機集數。"
+            subtitlesOnlyLabel = "只顯示字幕"
+            pathSortLabel = "路徑排序"
+            requireSubtitlesAction = "只顯示有字幕"
+            showAllSubtitlesAction = "顯示所有字幕狀態"
+            favoritesOnlyAction = "只顯示收藏"
+            showAllFavoritesAction = "顯示所有收藏狀態"
+            sortByPathAction = "依路徑排序"
+            sortByTitleAction = "依標題排序"
+            openLibraryImportPanelAction = "開啟媒體庫匯入面板"
+            rescanFoldersAction = "重新掃描資料夾"
+            localPcLabel = "本機電腦"
+            indexingLabel = "索引中..."
+            externalListsLabel = "外部清單"
+            noLibraryLabel = "尚無媒體庫"
+            pairedDevicesLabel = "已配對裝置"
+            lanBrowserReadyLabel = "區網瀏覽已就緒"
+            foldersLabel = "資料夾"
+            noFoldersLabel = "尚無資料夾"
+            moreItemsLabel = { count -> "還有 $count 個" }
+            lastScanSummary = { reused, refreshed -> "上次掃描：$reused 個未變更，$refreshed 個已更新" }
+            lastScanCountsSummary = { reused, refreshed -> "$reused 個未變更，$refreshed 個已更新" }
+            libraryImportTitle = "媒體庫匯入"
+            aniRssRootCountLabel = { count -> "$count 個 ani-rss" }
+            scanRunningLabel = "掃描中"
+            publishedLabel = "已發佈"
+            lastScanTitle = "上次掃描"
+            reusedCountLabel = { count -> "$count 個已重用" }
+            notRunLabel = "尚未執行"
+            addFolderAction = "新增資料夾"
+            importAniRssOutputAction = "匯入 ani-rss 輸出"
+            rescanAllAction = "重新掃描全部"
+            rescanAction = "重新掃描"
+            scanningAction = "掃描中..."
+            indexingLibraryRootsLabel = "正在索引媒體庫根目錄"
+            registeredRootsTitle = "已註冊根目錄"
+            libraryImportEmptyText = "新增本機動畫資料夾，或匯入 ani-rss 已完成媒體資料夾以建立媒體庫。"
+            removeLibraryFolderTitle = "要移除媒體庫資料夾嗎？"
             removeLibraryFolderText = { name ->
                 "這會從 Danmaku 移除 $name 並刪除已索引的集數資料列，不會刪除磁碟上的檔案。"
-            },
-            removeFolderAction = "移除資料夾",
-            userSelectedFolderLabel = "使用者選取的資料夾",
-            aniRssOutputFolderLabel = "ani-rss 輸出資料夾",
-            libraryRootAvailableLabel = "可用",
-            libraryRootMissingLabel = "遺失",
-            lastScannedAtLabel = { epochMs -> "上次掃描 ${epochMs.formatEpochTime()}" },
-            notScannedYetLabel = "尚未掃描",
-            inspectorResizeHandleLabel = "調整詳情面板寬度",
-            resetInspectorWidthAction = "重設詳情寬度",
-            inspectorTitle = "檢視器",
-            inspectorEmptyText = "選取系列或集數以檢視播放、字幕與彈幕準備狀態。",
-            nextPlayableLabel = { title -> "下一個可播放：$title" },
-            loadingAction = "載入中...",
-            preparingAction = "準備中...",
-            prepareAction = "準備",
-            prepareShortAction = "準備",
-            detailsAction = "詳情",
-            favoriteAction = "收藏",
-            unfavoriteAction = "取消收藏",
-            showEpisodeDetailsAction = "顯示集數詳情",
-            checkCachedDanmakuAction = "檢查彈幕快取",
-            moreEpisodeActionsAction = "更多集數動作",
-            externalIdsTitle = "外部 ID",
-            matchAction = "對應",
-            linkAction = "連結",
-            replaceAction = "取代",
-            correctAction = "修正",
-            providerEpisodeLabel = { provider -> "$provider 集數" },
-            preparePlaybackAction = "準備播放",
-            refreshEpisodeMetadataAction = "重新整理集數中繼資料",
-            refreshingEpisodeMetadataAction = "正在重新整理集數中繼資料",
-            refreshSeriesMetadataAction = "重新整理系列中繼資料",
-            refreshingSeriesMetadataAction = "正在重新整理系列中繼資料",
-            loadIntoPlayerAction = "載入播放器",
-            refreshDanmakuAction = "重新整理彈幕",
-            attachLocalDanmakuAction = "附加本機彈幕",
-            attachLocalDanmakuShortAction = "附加本機",
-            removeOverlayAction = "移除覆蓋",
-            clearDanmakuCacheAction = "清除彈幕快取",
-            clearCacheAction = "清除快取",
-            enableAutoNextAction = "啟用自動下一集",
-            disableAutoNextAction = "停用自動下一集",
-            autoNextOnLabel = "自動下一集開啟",
-            autoNextOffLabel = "自動下一集關閉",
-            readinessTitle = "準備狀態",
-            preparedPlaybackLabel = "播放已準備",
-            prepareToInspectTracksLabel = "準備後檢視軌道",
-            notPreparedLabel = "尚未準備",
-            resumeValueLabel = { positionMs -> "續播 ${positionMs.formatPlaybackTime()}" },
-            notCheckedYetLabel = "尚未檢查",
-            subtitlesIndexedLabel = { count -> "已索引 $count 筆" },
-            episodesTitle = "集數",
-            advancedTitle = "進階",
-            favoriteStatusLabel = "已收藏",
-            pairedLibraryTitle = "桌面配對媒體庫用戶端",
-            pairedLibraryDescription = "預設連到此應用程式內建的同機伺服器。輸入其他桌面 URL 可遠端瀏覽。",
-            pairedLibraryServerUrlLabel = "媒體庫伺服器 URL",
-            pairingCodeLabel = "配對碼",
-            loadPairedCatalogAction = "載入配對伺服器目錄",
-            pairedLibraryErrorLabel = { message -> "配對媒體庫錯誤：$message" },
-            pairedEpisodesLabel = { count -> "配對集數：$count" },
-            pairedProgressLabel = "配對進度",
-            savedRowsLabel = { count -> "$count 筆已儲存" },
-            pairedNextUpTitle = "配對下一集",
-            pairedNextUpEmptyText = "尚無配對下一集項目。",
-            pairedContinueWatchingTitle = "配對繼續觀看",
-            pairedContinueWatchingEmptyText = "尚無進行中的配對集數。",
-            searchPairedEpisodesLabel = "搜尋配對集數",
-            sortTitleAction = "依標題排序",
-            sortPathAction = "依路徑排序",
-            showingLabel = "顯示",
-            pairedEpisodesCountLabel = { visible, total -> "$visible / $total 個配對集數" },
-            pairedCatalogEmptyText = "載入配對伺服器目錄以瀏覽遠端集數。",
-            pairedServerEmptyText = "配對伺服器未發佈任何集數。",
-            pairedFilterEmptyText = "沒有符合目前篩選的配對集數。",
-            resetFiltersAction = "重設篩選",
-            preparedDesktopPlaybackLabel = { series, episode -> "已準備桌面播放：$series - $episode" },
-            sourceValueLabel = { value -> "來源：$value" },
-            resumeValueText = { value -> "續播：$value" },
-            startFromBeginningLabel = "從頭開始",
-            loadIntoDesktopControllerAction = "載入桌面控制器",
-            unknownMediaLabel = "未知媒體",
-            unknownDurationLabel = "未知",
-            noSubtitlesLabel = "無字幕",
-            subtitleCountLabel = { count -> "$count 個字幕" },
+            }
+            removeFolderAction = "移除資料夾"
+            userSelectedFolderLabel = "使用者選取的資料夾"
+            aniRssOutputFolderLabel = "ani-rss 輸出資料夾"
+            libraryRootAvailableLabel = "可用"
+            libraryRootMissingLabel = "遺失"
+            lastScannedAtLabel = { epochMs -> "上次掃描 ${epochMs.formatEpochTime()}" }
+            notScannedYetLabel = "尚未掃描"
+            inspectorResizeHandleLabel = "調整詳情面板寬度"
+            resetInspectorWidthAction = "重設詳情寬度"
+            inspectorTitle = "檢視器"
+            inspectorEmptyText = "選取系列或集數以檢視播放、字幕與彈幕準備狀態。"
+            nextPlayableLabel = { title -> "下一個可播放：$title" }
+            loadingAction = "載入中..."
+            preparingAction = "準備中..."
+            prepareAction = "準備"
+            prepareShortAction = "準備"
+            detailsAction = "詳情"
+            favoriteAction = "收藏"
+            unfavoriteAction = "取消收藏"
+            showEpisodeDetailsAction = "顯示集數詳情"
+            checkCachedDanmakuAction = "檢查彈幕快取"
+            moreEpisodeActionsAction = "更多集數動作"
+            externalIdsTitle = "外部 ID"
+            matchAction = "對應"
+            linkAction = "連結"
+            replaceAction = "取代"
+            correctAction = "修正"
+            providerEpisodeLabel = { provider -> "$provider 集數" }
+            preparePlaybackAction = "準備播放"
+            refreshEpisodeMetadataAction = "重新整理集數中繼資料"
+            refreshingEpisodeMetadataAction = "正在重新整理集數中繼資料"
+            refreshSeriesMetadataAction = "重新整理系列中繼資料"
+            refreshingSeriesMetadataAction = "正在重新整理系列中繼資料"
+            loadIntoPlayerAction = "載入播放器"
+            refreshDanmakuAction = "重新整理彈幕"
+            attachLocalDanmakuAction = "附加本機彈幕"
+            attachLocalDanmakuShortAction = "附加本機"
+            removeOverlayAction = "移除覆蓋"
+            clearDanmakuCacheAction = "清除彈幕快取"
+            clearCacheAction = "清除快取"
+            enableAutoNextAction = "啟用自動下一集"
+            disableAutoNextAction = "停用自動下一集"
+            autoNextOnLabel = "自動下一集開啟"
+            autoNextOffLabel = "自動下一集關閉"
+            readinessTitle = "準備狀態"
+            preparedPlaybackLabel = "播放已準備"
+            prepareToInspectTracksLabel = "準備後檢視軌道"
+            notPreparedLabel = "尚未準備"
+            resumeValueLabel = { positionMs -> "續播 ${positionMs.formatPlaybackTime()}" }
+            notCheckedYetLabel = "尚未檢查"
+            subtitlesIndexedLabel = { count -> "已索引 $count 筆" }
+            episodesTitle = "集數"
+            advancedTitle = "進階"
+            favoriteStatusLabel = "已收藏"
+            pairedLibraryTitle = "桌面配對媒體庫用戶端"
+            pairedLibraryDescription = "預設連到此應用程式內建的同機伺服器。輸入其他桌面 URL 可遠端瀏覽。"
+            pairedLibraryServerUrlLabel = "媒體庫伺服器 URL"
+            pairingCodeLabel = "配對碼"
+            loadPairedCatalogAction = "載入配對伺服器目錄"
+            pairedLibraryErrorLabel = { message -> "配對媒體庫錯誤：$message" }
+            pairedEpisodesLabel = { count -> "配對集數：$count" }
+            pairedProgressLabel = "配對進度"
+            savedRowsLabel = { count -> "$count 筆已儲存" }
+            pairedNextUpTitle = "配對下一集"
+            pairedNextUpEmptyText = "尚無配對下一集項目。"
+            pairedContinueWatchingTitle = "配對繼續觀看"
+            pairedContinueWatchingEmptyText = "尚無進行中的配對集數。"
+            searchPairedEpisodesLabel = "搜尋配對集數"
+            sortTitleAction = "依標題排序"
+            sortPathAction = "依路徑排序"
+            showingLabel = "顯示"
+            pairedEpisodesCountLabel = { visible, total -> "$visible / $total 個配對集數" }
+            pairedCatalogEmptyText = "載入配對伺服器目錄以瀏覽遠端集數。"
+            pairedServerEmptyText = "配對伺服器未發佈任何集數。"
+            pairedFilterEmptyText = "沒有符合目前篩選的配對集數。"
+            resetFiltersAction = "重設篩選"
+            preparedDesktopPlaybackLabel = { series, episode -> "已準備桌面播放：$series - $episode" }
+            sourceValueLabel = { value -> "來源：$value" }
+            resumeValueText = { value -> "續播：$value" }
+            startFromBeginningLabel = "從頭開始"
+            loadIntoDesktopControllerAction = "載入桌面控制器"
+            unknownMediaLabel = "未知媒體"
+            unknownDurationLabel = "未知"
+            noSubtitlesLabel = "無字幕"
+            subtitleCountLabel = { count -> "$count 個字幕" }
             downloadFilterTitles = mapOf(
                 DownloadQueueFilter.ALL to "全部",
                 DownloadQueueFilter.ACTIVE to "進行中",
                 DownloadQueueFilter.QUEUED to "佇列",
                 DownloadQueueFilter.COMPLETED to "已完成",
                 DownloadQueueFilter.FAILED to "失敗",
-            ),
-            downloadsActiveTitle = "進行中",
-            downloadsActiveCaption = "目前執行",
-            downloadsQueuedTitle = "佇列",
-            downloadsQueuedCaption = "等待中",
-            downloadsCompletedTitle = "已完成",
-            downloadsCompletedCaption = "可匯入",
-            downloadsFailedTitle = "失敗",
-            downloadsFailedCaption = "需要處理",
-            downloadQueueTitle = "下載佇列",
-            refreshDownloadQueueAction = "重新整理下載佇列",
-            downloadQueuePolicyText = "佇列執行會等授權來源合約完成後再啟用。目前可匯入 ani-rss 已完成媒體。",
-            downloadQueueEmptyText = "尚無已儲存的佇列項目。可以從信任的輸出資料夾匯入 ani-rss 已完成下載。",
-            downloadQueueFilterEmptyText = { filter -> "沒有符合「$filter」篩選的佇列項目。" },
-            openOutputFolderAction = "開啟輸出資料夾",
-            removeQueueItemAction = "移除佇列項目",
-            removeDownloadTitle = "要移除下載佇列項目嗎？",
+            )
+            downloadsActiveTitle = "進行中"
+            downloadsActiveCaption = "目前執行"
+            downloadsQueuedTitle = "佇列"
+            downloadsQueuedCaption = "等待中"
+            downloadsCompletedTitle = "已完成"
+            downloadsCompletedCaption = "可匯入"
+            downloadsFailedTitle = "失敗"
+            downloadsFailedCaption = "需要處理"
+            downloadQueueTitle = "下載佇列"
+            refreshDownloadQueueAction = "重新整理下載佇列"
+            downloadQueuePolicyText = "佇列執行會等授權來源合約完成後再啟用。目前可匯入 ani-rss 已完成媒體。"
+            downloadQueueEmptyText = "尚無已儲存的佇列項目。可以從信任的輸出資料夾匯入 ani-rss 已完成下載。"
+            downloadQueueFilterEmptyText = { filter -> "沒有符合「$filter」篩選的佇列項目。" }
+            openOutputFolderAction = "開啟輸出資料夾"
+            removeQueueItemAction = "移除佇列項目"
+            removeDownloadTitle = "要移除下載佇列項目嗎？"
             removeDownloadText = { outputPath ->
                 "這只會移除 $outputPath 的已儲存佇列資料列，不會刪除磁碟上的下載檔案。"
-            },
-            removeAction = "移除",
-            downloadSetupAuthorizedSourcesTitle = "授權來源",
-            downloadSetupAuthorizedSourcesText = "請使用你已授權存取的服務。Danmaku 只匯入已完成媒體，不會繞過 DRM 或服務規則。",
-            authorizedImportsOnlyLabel = "僅限授權匯入",
-            queueExecutionPlannedLabel = "佇列執行規劃中",
-            importRootCountLabel = { count -> "$count 個匯入根目錄" },
-            addAniRssOutputFolderAction = "新增 ani-rss 輸出資料夾",
-            aniRssWebhookTitle = "ani-rss Webhook",
-            noWebhookUrlText = "目前沒有可用的 webhook URL。",
-            webhookUrlLabel = "DOWNLOAD_END URL",
-            webhookHeaderLabel = "Header",
-            webhookTokenLabel = "Token",
-            importRootsTitle = "匯入根目錄",
-            noAniRssRootsText = "尚未註冊 ani-rss 輸出資料夾。",
-            downloadInspectorTitle = "下載檢視",
-            downloadInspectorEmptyText = "選取佇列項目以檢視來源、輸出路徑、進度與可用動作。",
-            stateLabel = "狀態",
-            progressLabel = "進度",
-            createdLabel = "建立時間",
-            updatedLabel = "更新時間",
-            outputLabel = "輸出",
-            sourceLabel = "來源",
-            failureLabel = "失敗原因",
-            openFolderAction = "開啟資料夾",
-            pauseAction = "暫停",
-            resumeAction = "繼續",
-            retryAction = "重試",
-            cancelAction = "取消",
-            downloadExecutionPlannedText = "暫停、繼續、取消與重試會在授權下載來源合約與佇列執行完成後啟用。",
-            dandanplayProvidersTitle = "彈幕服務",
-            dandanplayProvidersDescription = "用於自動對應與抓取彈幕軌的 dandanplay 相容 API 設定。",
-            cacheExpiryLabel = "快取期限",
-            lastTestLabel = "上次測試",
-            apiBaseUrlLabel = "API 基礎網址",
-            appIdOptionalLabel = "AppId（選填）",
-            appSecretKeepLabel = "AppSecret（留空以保留已儲存密鑰）",
-            appSecretOptionalLabel = "AppSecret（選填）",
-            cacheMaxAgeDaysLabel = "快取最長天數",
-            signedAuthAction = "簽章驗證",
-            credentialAuthAction = "帳密驗證",
-            currentAuthLabel = { mode -> "目前：$mode" },
-            saveDandanplaySettingsAction = "儲存 dandanplay 設定",
-            testSavedAction = "測試已儲存設定",
-            clearAction = "清除",
-            cleanExpiredCacheAction = "清除過期快取",
-            clearDandanplayTitle = "清除 dandanplay 設定？",
-            clearDandanplayText = "這會從本機受保護設定中移除已儲存的 dandanplay 憑證。之後仍可重新輸入 API 網址與快取預設值。",
-            cleanExpiredDandanplayTitle = "清除過期 dandanplay 快取？",
-            cleanExpiredDandanplayText = "會依目前快取期限移除過期彈幕快取；仍有效的新鮮快取會保留。",
-            externalAnimeListsTitle = "外部動畫清單",
-            externalAnimeListsDescription = "MyAnimeList 與 Bangumi 設定，用於動畫搜尋、手動對應與未來進度同步。",
-            myAnimeListTestLabel = "MAL 測試",
-            bangumiTestLabel = "Bangumi 測試",
-            myAnimeListClientIdLabel = "MyAnimeList Client ID",
-            myAnimeListAccessTokenKeepLabel = "MyAnimeList 存取權杖（留空以保留已儲存權杖）",
-            myAnimeListAccessTokenOptionalLabel = "MyAnimeList 存取權杖（選填）",
-            myAnimeListClientSecretKeepLabel = "MyAnimeList Client Secret（留空以保留已儲存密鑰）",
-            myAnimeListClientSecretOptionalLabel = "MyAnimeList Client Secret（OAuth 選填）",
-            bangumiApiBaseUrlLabel = "Bangumi API 基礎網址",
-            bangumiUserAgentLabel = "Bangumi User-Agent",
-            bangumiUserAgentRequiredError = "Bangumi User-Agent 為必填。",
-            bangumiAccessTokenKeepLabel = "Bangumi 存取權杖（留空以保留已儲存權杖）",
-            bangumiAccessTokenOptionalLabel = "Bangumi 存取權杖（選填）",
-            saveExternalListsAction = "儲存外部清單",
-            connectMyAnimeListAction = "連線 MAL",
-            testMyAnimeListAction = "測試 MAL",
-            testBangumiAction = "測試 Bangumi",
-            clearMyAnimeListAction = "清除 MAL",
-            clearBangumiAction = "清除 Bangumi",
-            clearMyAnimeListTitle = "清除 MyAnimeList 憑證？",
-            clearMyAnimeListText = "這會從本機受保護設定中移除已儲存的 MyAnimeList client secret 與存取權杖。既有本機動畫對應不會被移除。",
-            clearBangumiTitle = "清除 Bangumi 憑證？",
-            clearBangumiText = "這會從本機受保護設定中移除已儲存的 Bangumi 存取權杖。既有本機動畫對應不會被移除。",
-            localServerTitle = "本機伺服器",
-            serverBaseUrlLabel = "Base URL",
-            lanUrlLabel = "LAN URL",
-            lanUrlsLabel = "LAN URLs",
-            lanUrlNumberedLabel = { index -> "LAN URL $index" },
-            discoveryLabel = "探索",
-            openServerDashboardAction = "開啟儀表板",
-            testLocalServerAction = "測試本機伺服器",
-            serverDashboardTitle = "伺服器儀表板",
-            pairingAndLanAccessTitle = "配對與 LAN 存取",
-            healthTitle = "健康狀態",
-            notCheckedThisSessionLabel = "此工作階段尚未檢查",
-            recentRequestsLabel = "最近請求",
-            connectedClientsLabel = "已連線用戶端",
-            connectedClientsPlannedText = "規劃中：尚未記錄用戶端身分",
-            bandwidthLabel = "頻寬",
-            bandwidthPlannedText = "規劃中：尚未記錄位元組計數",
-            recentServerRequestsTitle = "最近伺服器請求",
-            noServerRequestsText = "此工作階段尚無伺服器請求紀錄。",
-            testServerAction = "測試伺服器",
-            copyAction = "複製",
-            testingStatusLabel = "測試中",
-            okStatusLabel = "正常",
-            failedStatusLabel = "失敗",
-            homeServerStatusTitle = "伺服器狀態",
-            attentionNeededLabel = "需要處理",
-            onlineLabel = "線上",
-            noLanUrlDetectedLabel = "沒有偵測到 LAN 網址",
-            pairingLabel = "配對",
-            episodesLabel = "集數",
-            errorLabel = "錯誤",
-            metadataAndPostersTitle = "中繼資料與海報",
-            loadingLabel = "載入中",
-            partialLabel = "部分完成",
-            waitingLabel = "等待中",
-            metadataLoadingLabel = "中繼資料載入中",
-            metadataFailedLabel = "中繼資料失敗",
-            metadataReadyLabel = "中繼資料就緒",
-            metadataPartialLabel = "中繼資料部分完成",
-            metadataNeededLabel = "需要中繼資料",
-            metadataFailedShortLabel = "失敗",
-            metadataReadyShortLabel = "就緒",
-            metadataNeededShortLabel = "需要",
-            metadataLoadingDetail = "正在重新整理海報與動畫對應",
-            metadataFailedDetail = "重新整理單集資料以重試對應",
-            metadataReadyDetail = "已取得符合的動畫標題與海報",
-            metadataPartialMatchedNoPosterDetail = "動畫標題已符合；缺少海報",
-            metadataPartialPosterNoTitleDetail = "海報已快取；缺少動畫標題",
-            metadataPartialGenericDetail = "已快取部分中繼資料；重新整理可完成對應",
-            metadataNeededDetail = "重新整理中繼資料以對應動畫標題與海報",
-            seriesMetadataLoadingDetail = "正在重新整理系列海報與單集中繼資料",
-            seriesMetadataFailedDetail = "一或多個單集中繼資料對應失敗",
-            seriesMetadataReadyDetail = "系列海報與單集中繼資料已就緒",
-            seriesMetadataPartialDetail = "已有部分海報或單集中繼資料",
-            seriesMetadataNeededDetail = "重新整理中繼資料以對應此系列",
-            fileGroupLabel = { title -> "檔案群組：$title" },
-            postersReadySummary = { ready, total -> "$ready/$total 張海報就緒" },
-            refreshAction = "重新整理",
-            refreshingAction = "重新整理中",
-            lastScanLabel = "上次掃描",
-            groupsLabel = "群組",
-            externalSyncTitle = "外部同步",
-            notMappedLabel = "尚未對應",
-            readyUpdatesLabel = { count -> "$count 個更新可同步" },
-            openTrackingAction = "開啟追蹤",
-            downloadQueueReadyLabel = "佇列就緒",
-            downloadsImportDetail = "ani-rss 輸出與匯入",
-            openDownloadsAction = "開啟下載",
-            cachedDanmakuTitle = "已快取彈幕",
-            notCheckedLabel = "尚未檢查",
-            manageCacheAction = "管理快取",
-            danmakuCacheSettingsTitle = "彈幕快取",
-            danmakuCacheSettingsDescription = "檢視已儲存的 dandanplay 彈幕快取、檢查所選項目，並依目前快取期限清理過期資料。",
-            cachedEpisodesLabel = "已快取集數",
-            openCacheManagerAction = "開啟快取管理",
-            danmakuCacheManagerTitle = "彈幕快取管理",
-            cachedSummaryTitle = "已快取",
-            expiredSummaryTitle = "已過期",
-            commentsSummaryTitle = "彈幕",
-            cachedEventsCaption = "已快取事件",
-            cacheDayRuleCaption = { days -> "$days 天規則" },
-            persistedEntriesTitle = "已儲存項目",
-            noDandanplayCachesText = "目前沒有已儲存的 dandanplay 彈幕快取。",
-            selectedCacheTitle = "所選快取",
-            selectCachePromptText = "準備或重新整理彈幕後，選取一個集數快取檢視內容。",
-            expiredStatusLabel = "已過期",
+            }
+            removeAction = "移除"
+            downloadSetupAuthorizedSourcesTitle = "授權來源"
+            downloadSetupAuthorizedSourcesText = "請使用你已授權存取的服務。Danmaku 只匯入已完成媒體，不會繞過 DRM 或服務規則。"
+            authorizedImportsOnlyLabel = "僅限授權匯入"
+            queueExecutionPlannedLabel = "佇列執行規劃中"
+            importRootCountLabel = { count -> "$count 個匯入根目錄" }
+            addAniRssOutputFolderAction = "新增 ani-rss 輸出資料夾"
+            aniRssWebhookTitle = "ani-rss Webhook"
+            noWebhookUrlText = "目前沒有可用的 webhook URL。"
+            webhookUrlLabel = "DOWNLOAD_END URL"
+            webhookHeaderLabel = "Header"
+            webhookTokenLabel = "Token"
+            importRootsTitle = "匯入根目錄"
+            noAniRssRootsText = "尚未註冊 ani-rss 輸出資料夾。"
+            downloadInspectorTitle = "下載檢視"
+            downloadInspectorEmptyText = "選取佇列項目以檢視來源、輸出路徑、進度與可用動作。"
+            stateLabel = "狀態"
+            progressLabel = "進度"
+            createdLabel = "建立時間"
+            updatedLabel = "更新時間"
+            outputLabel = "輸出"
+            sourceLabel = "來源"
+            failureLabel = "失敗原因"
+            openFolderAction = "開啟資料夾"
+            pauseAction = "暫停"
+            resumeAction = "繼續"
+            retryAction = "重試"
+            cancelAction = "取消"
+            downloadExecutionPlannedText = "暫停、繼續、取消與重試會在授權下載來源合約與佇列執行完成後啟用。"
+            dandanplayProvidersTitle = "彈幕服務"
+            dandanplayProvidersDescription = "用於自動對應與抓取彈幕軌的 dandanplay 相容 API 設定。"
+            cacheExpiryLabel = "快取期限"
+            lastTestLabel = "上次測試"
+            apiBaseUrlLabel = "API 基礎網址"
+            appIdOptionalLabel = "AppId（選填）"
+            appSecretKeepLabel = "AppSecret（留空以保留已儲存密鑰）"
+            appSecretOptionalLabel = "AppSecret（選填）"
+            cacheMaxAgeDaysLabel = "快取最長天數"
+            signedAuthAction = "簽章驗證"
+            credentialAuthAction = "帳密驗證"
+            currentAuthLabel = { mode -> "目前：$mode" }
+            saveDandanplaySettingsAction = "儲存 dandanplay 設定"
+            testSavedAction = "測試已儲存設定"
+            clearAction = "清除"
+            cleanExpiredCacheAction = "清除過期快取"
+            clearDandanplayTitle = "清除 dandanplay 設定？"
+            clearDandanplayText = "這會從本機受保護設定中移除已儲存的 dandanplay 憑證。之後仍可重新輸入 API 網址與快取預設值。"
+            cleanExpiredDandanplayTitle = "清除過期 dandanplay 快取？"
+            cleanExpiredDandanplayText = "會依目前快取期限移除過期彈幕快取；仍有效的新鮮快取會保留。"
+            externalAnimeListsTitle = "外部動畫清單"
+            externalAnimeListsDescription = "MyAnimeList 與 Bangumi 設定，用於動畫搜尋、手動對應與未來進度同步。"
+            myAnimeListTestLabel = "MAL 測試"
+            bangumiTestLabel = "Bangumi 測試"
+            myAnimeListClientIdLabel = "MyAnimeList Client ID"
+            myAnimeListAccessTokenKeepLabel = "MyAnimeList 存取權杖（留空以保留已儲存權杖）"
+            myAnimeListAccessTokenOptionalLabel = "MyAnimeList 存取權杖（選填）"
+            myAnimeListClientSecretKeepLabel = "MyAnimeList Client Secret（留空以保留已儲存密鑰）"
+            myAnimeListClientSecretOptionalLabel = "MyAnimeList Client Secret（OAuth 選填）"
+            bangumiApiBaseUrlLabel = "Bangumi API 基礎網址"
+            bangumiUserAgentLabel = "Bangumi User-Agent"
+            bangumiUserAgentRequiredError = "Bangumi User-Agent 為必填。"
+            bangumiAccessTokenKeepLabel = "Bangumi 存取權杖（留空以保留已儲存權杖）"
+            bangumiAccessTokenOptionalLabel = "Bangumi 存取權杖（選填）"
+            saveExternalListsAction = "儲存外部清單"
+            connectMyAnimeListAction = "連線 MAL"
+            testMyAnimeListAction = "測試 MAL"
+            testBangumiAction = "測試 Bangumi"
+            clearMyAnimeListAction = "清除 MAL"
+            clearBangumiAction = "清除 Bangumi"
+            clearMyAnimeListTitle = "清除 MyAnimeList 憑證？"
+            clearMyAnimeListText = "這會從本機受保護設定中移除已儲存的 MyAnimeList client secret 與存取權杖。既有本機動畫對應不會被移除。"
+            clearBangumiTitle = "清除 Bangumi 憑證？"
+            clearBangumiText = "這會從本機受保護設定中移除已儲存的 Bangumi 存取權杖。既有本機動畫對應不會被移除。"
+            localServerTitle = "本機伺服器"
+            serverBaseUrlLabel = "Base URL"
+            lanUrlLabel = "LAN URL"
+            lanUrlsLabel = "LAN URLs"
+            lanUrlNumberedLabel = { index -> "LAN URL $index" }
+            discoveryLabel = "探索"
+            openServerDashboardAction = "開啟儀表板"
+            testLocalServerAction = "測試本機伺服器"
+            serverDashboardTitle = "伺服器儀表板"
+            pairingAndLanAccessTitle = "配對與 LAN 存取"
+            healthTitle = "健康狀態"
+            notCheckedThisSessionLabel = "此工作階段尚未檢查"
+            recentRequestsLabel = "最近請求"
+            connectedClientsLabel = "已連線用戶端"
+            connectedClientsPlannedText = "規劃中：尚未記錄用戶端身分"
+            bandwidthLabel = "頻寬"
+            bandwidthPlannedText = "規劃中：尚未記錄位元組計數"
+            recentServerRequestsTitle = "最近伺服器請求"
+            noServerRequestsText = "此工作階段尚無伺服器請求紀錄。"
+            testServerAction = "測試伺服器"
+            copyAction = "複製"
+            testingStatusLabel = "測試中"
+            okStatusLabel = "正常"
+            failedStatusLabel = "失敗"
+            homeServerStatusTitle = "伺服器狀態"
+            attentionNeededLabel = "需要處理"
+            onlineLabel = "線上"
+            noLanUrlDetectedLabel = "沒有偵測到 LAN 網址"
+            pairingLabel = "配對"
+            episodesLabel = "集數"
+            errorLabel = "錯誤"
+            metadataAndPostersTitle = "中繼資料與海報"
+            loadingLabel = "載入中"
+            partialLabel = "部分完成"
+            waitingLabel = "等待中"
+            metadataLoadingLabel = "中繼資料載入中"
+            metadataFailedLabel = "中繼資料失敗"
+            metadataReadyLabel = "中繼資料就緒"
+            metadataPartialLabel = "中繼資料部分完成"
+            metadataNeededLabel = "需要中繼資料"
+            metadataFailedShortLabel = "失敗"
+            metadataReadyShortLabel = "就緒"
+            metadataNeededShortLabel = "需要"
+            metadataLoadingDetail = "正在重新整理海報與動畫對應"
+            metadataFailedDetail = "重新整理單集資料以重試對應"
+            metadataReadyDetail = "已取得符合的動畫標題與海報"
+            metadataPartialMatchedNoPosterDetail = "動畫標題已符合；缺少海報"
+            metadataPartialPosterNoTitleDetail = "海報已快取；缺少動畫標題"
+            metadataPartialGenericDetail = "已快取部分中繼資料；重新整理可完成對應"
+            metadataNeededDetail = "重新整理中繼資料以對應動畫標題與海報"
+            seriesMetadataLoadingDetail = "正在重新整理系列海報與單集中繼資料"
+            seriesMetadataFailedDetail = "一或多個單集中繼資料對應失敗"
+            seriesMetadataReadyDetail = "系列海報與單集中繼資料已就緒"
+            seriesMetadataPartialDetail = "已有部分海報或單集中繼資料"
+            seriesMetadataNeededDetail = "重新整理中繼資料以對應此系列"
+            fileGroupLabel = { title -> "檔案群組：$title" }
+            postersReadySummary = { ready, total -> "$ready/$total 張海報就緒" }
+            refreshAction = "重新整理"
+            refreshingAction = "重新整理中"
+            lastScanLabel = "上次掃描"
+            groupsLabel = "群組"
+            externalSyncTitle = "外部同步"
+            notMappedLabel = "尚未對應"
+            readyUpdatesLabel = { count -> "$count 個更新可同步" }
+            openTrackingAction = "開啟追蹤"
+            downloadQueueReadyLabel = "佇列就緒"
+            downloadsImportDetail = "ani-rss 輸出與匯入"
+            openDownloadsAction = "開啟下載"
+            cachedDanmakuTitle = "已快取彈幕"
+            notCheckedLabel = "尚未檢查"
+            manageCacheAction = "管理快取"
+            danmakuCacheSettingsTitle = "彈幕快取"
+            danmakuCacheSettingsDescription = "檢視已儲存的 dandanplay 彈幕快取、檢查所選項目，並依目前快取期限清理過期資料。"
+            cachedEpisodesLabel = "已快取集數"
+            openCacheManagerAction = "開啟快取管理"
+            danmakuCacheManagerTitle = "彈幕快取管理"
+            cachedSummaryTitle = "已快取"
+            expiredSummaryTitle = "已過期"
+            commentsSummaryTitle = "彈幕"
+            cachedEventsCaption = "已快取事件"
+            cacheDayRuleCaption = { days -> "$days 天規則" }
+            persistedEntriesTitle = "已儲存項目"
+            noDandanplayCachesText = "目前沒有已儲存的 dandanplay 彈幕快取。"
+            selectedCacheTitle = "所選快取"
+            selectCachePromptText = "準備或重新整理彈幕後，選取一個集數快取檢視內容。"
+            expiredStatusLabel = "已過期"
             cacheEntryCommentSummary = { count, fetchedAtEpochMs, fileName ->
                 "$count 則彈幕 - ${fetchedAtEpochMs.formatEpochTime()} - $fileName"
-            },
-            animeLabel = "動畫",
-            episodeLabel = "集數",
-            mediaIdLabel = "媒體 ID",
-            fileLabel = "檔案",
-            fileSizeLabel = "檔案大小",
-            commentsLabel = "彈幕",
-            fetchedLabel = "取得時間",
-            shiftLabel = "時間位移",
-            unknownAnimeLabel = "未知動畫",
-            unknownEpisodeLabel = "未知集數",
-            noneLabel = "無",
-            shiftSecondsLabel = { seconds -> "$seconds 秒" },
-            assCacheLabel = "ASS 快取",
-            deleteCachedDanmakuTitle = "要刪除已快取彈幕嗎？",
+            }
+            animeLabel = "動畫"
+            episodeLabel = "集數"
+            mediaIdLabel = "媒體 ID"
+            fileLabel = "檔案"
+            fileSizeLabel = "檔案大小"
+            commentsLabel = "彈幕"
+            fetchedLabel = "取得時間"
+            shiftLabel = "時間位移"
+            unknownAnimeLabel = "未知動畫"
+            unknownEpisodeLabel = "未知集數"
+            noneLabel = "無"
+            shiftSecondsLabel = { seconds -> "$seconds 秒" }
+            assCacheLabel = "ASS 快取"
+            deleteCachedDanmakuTitle = "要刪除已快取彈幕嗎？"
             deleteCachedDanmakuText = { title ->
                 "這會移除「$title」的 dandanplay 持久快取，不會刪除原始媒體檔案。"
-            },
-            deleteCacheAction = "刪除快取",
-            cleanExpiredDanmakuCachesTitle = "要清理過期彈幕快取嗎？",
+            }
+            deleteCacheAction = "刪除快取"
+            cleanExpiredDanmakuCachesTitle = "要清理過期彈幕快取嗎？"
             cleanExpiredDanmakuCachesText = { days ->
                 "這會移除超過 $days 天的 dandanplay 彈幕快取。目前仍有效的快取會保留。"
-            },
-            cleanExpiredAction = "清理過期項目",
-            providerSettingsAction = "服務設定",
-            myAnimeListClientSavedLabel = "Client ID 已儲存",
-            trackingCredentialsNeededLabel = "設定 API 憑證後即可搜尋與同步",
-            mappedSummaryTitle = "已對應",
-            mappedSummaryCaption = "系列連結",
-            readySummaryTitle = "可同步",
-            readySummaryCaption = "服務寫入",
-            conflictsSummaryTitle = "衝突",
-            conflictsSummaryCaption = "需要檢視",
-            failuresSummaryTitle = "失敗",
-            failuresSummaryCaption = "已追蹤重試",
-            trackingSyncPreviewTitle = "追蹤同步預覽",
-            openLibraryAction = "開啟媒體庫",
-            noExternalSyncLibraryText = "沒有可用於外部同步預覽的已索引媒體庫。",
-            providerUpdatesCaption = "服務更新",
-            externalAheadCaption = "外部進度較新",
-            mappingChecksCaption = "對應檢查",
-            syncingUpdatesAction = "正在同步更新",
-            syncReadyUpdatesAction = "同步可寫入更新",
-            noProviderWritesReadyText = "目前沒有可寫入服務的更新。",
-            writesReadyUpdatesText = { count -> "會將 $count 個可同步更新寫入已連線外部清單。" },
-            dryRunUpdatesTitle = "試算更新",
-            noExternalProgressUpdatesText = "目前沒有可同步的外部進度更新。",
-            noExternalProgressConflictsText = "沒有偵測到外部進度衝突。",
-            syncFailuresTitle = "同步失敗",
-            noSyncFailuresText = "尚無同步失敗紀錄。",
-            moreSkippedLabel = { count -> "另有 $count 個已略過" },
-            localWatchedEpisodesLabel = { count -> "本機 $count" },
-            externalWatchedEpisodesLabel = { count -> "外部 $count" },
-            syncAttemptLabel = { attempt -> "嘗試 $attempt" },
-            trackingNoLibraryText = "先建立本機媒體庫索引，再檢視外部進度同步。",
-            trackingTableTitle = "追蹤表格",
-            trackingTableDescription = "本機與服務進度",
-            syncAllReadyAction = "同步所有可寫入項目",
-            syncingAction = "同步中",
-            trackingRowsEmptyText = "目前沒有追蹤資料列。請先在媒體庫詳情中連結本機系列到 MyAnimeList 或 Bangumi。",
-            localSeriesHeader = "本機系列",
-            providerHeader = "服務",
-            actionHeader = "動作",
-            mappingInspectorTitle = "對應檢視",
-            mappingInspectorEmptyText = "選取追蹤資料列以檢視服務 ID、進度與預計同步行為。",
-            animeIdLabel = "動畫 ID",
-            providerUrlLabel = "服務網址",
-            localSeriesIdLabel = "本機系列 ID",
-            localProgressLabel = "本機進度",
-            providerProgressLabel = "服務進度",
-            confidenceLabel = "信心值",
-            statusLabel = "狀態",
-            conflictLabel = "衝突",
-            externalWatchedLabel = "服務已看",
-            nextRetryLabel = "下次重試",
-            skippedLabel = "已略過",
-            syncSelectedAction = "同步所選項目",
-            refreshProviderStateAction = "重新讀取服務狀態",
-            removeMappingAction = "移除對應",
-            resolveConflictAction = "解決衝突",
-            trackingPlannedControlsText = "服務讀回、移除對應與衝突解決控制仍在規劃中；可同步項目會走現有服務同步路徑。",
-            readbackPendingLabel = "尚未讀回",
-            readyStatusLabel = "可同步",
-            reviewConflictAction = "檢視衝突",
-            conflictStatusLabel = "衝突",
-            externalProviderLabel = "外部服務",
-            notLinkedLabel = "未連結",
-            noLinkLabel = "無連結",
-            needsMappingLabel = "需要對應",
-            missingLocalSeriesLabel = "缺少本機系列",
-            retryAtLabel = { epochMs -> "重試 ${epochMs.formatEpochTime()}" },
-            failedAttemptsLabel = { attempts -> "失敗 x$attempts" },
-            watchedCountLabel = { count -> "已看 $count 集" },
-            searchAction = "搜尋",
-            searchingAction = "搜尋中...",
-            closeAction = "關閉",
-            useAction = "使用",
-            mappedAction = "已對應",
-            posterLoadingLabel = "載入中",
-            posterUnavailableLabel = "無法載入海報",
-            danmakuDisplaySettingsTitle = "彈幕顯示",
-            danmakuDisplaySettingsDescription = "控制符合或手動附加彈幕軌產生的 ASS 彈幕覆蓋。重新載入媒體或重新整理已快取彈幕後，播放器才會套用渲染變更。",
-            visibilityLabel = "可見性",
-            fontScaleLabel = "字型縮放",
-            displayAreaLabel = "顯示範圍",
-            showDanmakuAction = "顯示彈幕",
-            hideDanmakuAction = "隱藏彈幕",
-            opacityPercentLabel = "透明度 %",
-            fontScalePercentLabel = "字型縮放 %",
-            speedPercentLabel = "速度 %",
-            densityPercentLabel = "密度 %",
-            displayAreaPercentLabel = "顯示範圍 %",
-            offsetMsLabel = "時間偏移 ms",
-            keywordFiltersLabel = "關鍵字篩選，每行一個",
-            regexFiltersLabel = "Regex 篩選，每行一個",
-            offsetMsValueLabel = { offsetMs -> "$offsetMs ms" },
-            saveDanmakuDisplayAction = "儲存彈幕顯示",
-            resetDraftAction = "重設草稿",
-            diagnosticsTitle = "診斷",
-            noDiagnosticsText = "尚無診斷紀錄。開始播放或掃描媒體庫後會填入此紀錄。",
-            metadataMatchTitle = "中繼資料對應",
+            }
+            cleanExpiredAction = "清理過期項目"
+            providerSettingsAction = "服務設定"
+            myAnimeListClientSavedLabel = "Client ID 已儲存"
+            trackingCredentialsNeededLabel = "設定 API 憑證後即可搜尋與同步"
+            mappedSummaryTitle = "已對應"
+            mappedSummaryCaption = "系列連結"
+            readySummaryTitle = "可同步"
+            readySummaryCaption = "服務寫入"
+            conflictsSummaryTitle = "衝突"
+            conflictsSummaryCaption = "需要檢視"
+            failuresSummaryTitle = "失敗"
+            failuresSummaryCaption = "已追蹤重試"
+            trackingSyncPreviewTitle = "追蹤同步預覽"
+            openLibraryAction = "開啟媒體庫"
+            noExternalSyncLibraryText = "沒有可用於外部同步預覽的已索引媒體庫。"
+            providerUpdatesCaption = "服務更新"
+            externalAheadCaption = "外部進度較新"
+            mappingChecksCaption = "對應檢查"
+            syncingUpdatesAction = "正在同步更新"
+            syncReadyUpdatesAction = "同步可寫入更新"
+            noProviderWritesReadyText = "目前沒有可寫入服務的更新。"
+            writesReadyUpdatesText = { count -> "會將 $count 個可同步更新寫入已連線外部清單。" }
+            dryRunUpdatesTitle = "試算更新"
+            noExternalProgressUpdatesText = "目前沒有可同步的外部進度更新。"
+            noExternalProgressConflictsText = "沒有偵測到外部進度衝突。"
+            syncFailuresTitle = "同步失敗"
+            noSyncFailuresText = "尚無同步失敗紀錄。"
+            moreSkippedLabel = { count -> "另有 $count 個已略過" }
+            localWatchedEpisodesLabel = { count -> "本機 $count" }
+            externalWatchedEpisodesLabel = { count -> "外部 $count" }
+            syncAttemptLabel = { attempt -> "嘗試 $attempt" }
+            trackingNoLibraryText = "先建立本機媒體庫索引，再檢視外部進度同步。"
+            trackingTableTitle = "追蹤表格"
+            trackingTableDescription = "本機與服務進度"
+            syncAllReadyAction = "同步所有可寫入項目"
+            syncingAction = "同步中"
+            trackingRowsEmptyText = "目前沒有追蹤資料列。請先在媒體庫詳情中連結本機系列到 MyAnimeList 或 Bangumi。"
+            localSeriesHeader = "本機系列"
+            providerHeader = "服務"
+            actionHeader = "動作"
+            mappingInspectorTitle = "對應檢視"
+            mappingInspectorEmptyText = "選取追蹤資料列以檢視服務 ID、進度與預計同步行為。"
+            animeIdLabel = "動畫 ID"
+            providerUrlLabel = "服務網址"
+            localSeriesIdLabel = "本機系列 ID"
+            localProgressLabel = "本機進度"
+            providerProgressLabel = "服務進度"
+            confidenceLabel = "信心值"
+            statusLabel = "狀態"
+            conflictLabel = "衝突"
+            externalWatchedLabel = "服務已看"
+            nextRetryLabel = "下次重試"
+            skippedLabel = "已略過"
+            syncSelectedAction = "同步所選項目"
+            refreshProviderStateAction = "重新讀取服務狀態"
+            removeMappingAction = "移除對應"
+            resolveConflictAction = "解決衝突"
+            trackingPlannedControlsText = "服務讀回、移除對應與衝突解決控制仍在規劃中；可同步項目會走現有服務同步路徑。"
+            readbackPendingLabel = "尚未讀回"
+            readyStatusLabel = "可同步"
+            reviewConflictAction = "檢視衝突"
+            conflictStatusLabel = "衝突"
+            externalProviderLabel = "外部服務"
+            notLinkedLabel = "未連結"
+            noLinkLabel = "無連結"
+            needsMappingLabel = "需要對應"
+            missingLocalSeriesLabel = "缺少本機系列"
+            retryAtLabel = { epochMs -> "重試 ${epochMs.formatEpochTime()}" }
+            failedAttemptsLabel = { attempts -> "失敗 x$attempts" }
+            watchedCountLabel = { count -> "已看 $count 集" }
+            searchAction = "搜尋"
+            searchingAction = "搜尋中..."
+            closeAction = "關閉"
+            useAction = "使用"
+            mappedAction = "已對應"
+            posterLoadingLabel = "載入中"
+            posterUnavailableLabel = "無法載入海報"
+            danmakuDisplaySettingsTitle = "彈幕顯示"
+            danmakuDisplaySettingsDescription = "控制符合或手動附加彈幕軌產生的 ASS 彈幕覆蓋。重新載入媒體或重新整理已快取彈幕後，播放器才會套用渲染變更。"
+            visibilityLabel = "可見性"
+            fontScaleLabel = "字型縮放"
+            displayAreaLabel = "顯示範圍"
+            showDanmakuAction = "顯示彈幕"
+            hideDanmakuAction = "隱藏彈幕"
+            opacityPercentLabel = "透明度 %"
+            fontScalePercentLabel = "字型縮放 %"
+            speedPercentLabel = "速度 %"
+            densityPercentLabel = "密度 %"
+            displayAreaPercentLabel = "顯示範圍 %"
+            offsetMsLabel = "時間偏移 ms"
+            keywordFiltersLabel = "關鍵字篩選，每行一個"
+            regexFiltersLabel = "Regex 篩選，每行一個"
+            offsetMsValueLabel = { offsetMs -> "$offsetMs ms" }
+            saveDanmakuDisplayAction = "儲存彈幕顯示"
+            resetDraftAction = "重設草稿"
+            diagnosticsTitle = "診斷"
+            noDiagnosticsText = "尚無診斷紀錄。開始播放或掃描媒體庫後會填入此紀錄。"
+            metadataMatchTitle = "中繼資料對應"
             metadataMatchDescription = { title ->
                 "搜尋「$title」的服務中繼資料，並儲存系列層級對應。"
-            },
-            metadataMatchSearchTitleLabel = "搜尋標題",
-            metadataMatchSelectProviderError = "請至少選擇一個要搜尋的服務。",
-            metadataMatchNoCandidates = { title -> "找不到符合「$title」的服務候選項目。" },
-            metadataMatchMyAnimeListUnavailable = "MyAnimeList 搜尋需要在「設定 > 服務」填入 Client ID",
-            metadataMatchBangumiUnavailable = "Bangumi 搜尋需要有效的 API URL 與 User-Agent",
-            metadataMatchCurrentMappingsPrefix = "目前對應：",
-            metadataMatchEmptyState = "搜尋 MyAnimeList 或 Bangumi 以檢視候選項目並儲存對應。",
-            metadataMatchMatchedTitlePrefix = "符合標題：",
-        ),
+            }
+            metadataMatchSearchTitleLabel = "搜尋標題"
+            metadataMatchSelectProviderError = "請至少選擇一個要搜尋的服務。"
+            metadataMatchNoCandidates = { title -> "找不到符合「$title」的服務候選項目。" }
+            metadataMatchMyAnimeListUnavailable = "MyAnimeList 搜尋需要在「設定 > 服務」填入 Client ID"
+            metadataMatchBangumiUnavailable = "Bangumi 搜尋需要有效的 API URL 與 User-Agent"
+            metadataMatchCurrentMappingsPrefix = "目前對應："
+            metadataMatchEmptyState = "搜尋 MyAnimeList 或 Bangumi 以檢視候選項目並儲存對應。"
+            metadataMatchMatchedTitlePrefix = "符合標題："
+        },
     );
 
     companion object {
@@ -1207,565 +1207,567 @@ internal enum class DesktopUiLanguage(
     }
 }
 
-internal data class DesktopStrings(
-    val tabTitles: Map<DesktopShellTab, String> = emptyMap(),
-    val settingsSectionTitles: Map<DesktopSettingsSection, String> = emptyMap(),
-    val mediaHub: String,
-    val shellSubtitle: String,
-    val searchLabel: String,
-    val playerStatusPrefix: String,
-    val episodesSuffix: String,
-    val rescanLibrary: String,
-    val settingsTitle: String,
-    val settingsDescription: String,
-    val languageTitle: String,
-    val languageDescription: String,
-    val uiLanguageLabel: String,
-    val uiLanguagesValue: String,
-    val appLabel: String,
-    val primaryTargetsLabel: String,
-    val supportedLabel: String,
-    val librarySettingsDescription: String,
-    val metadataLabel: String,
-    val metadataRefreshLibraryDetailsText: String,
-    val importsLabel: String,
-    val aniRssImportsManagedDownloadsText: String,
-    val playbackRuntimeTitle: String,
-    val mpvExecutorLabel: String,
-    val rendererLabel: String,
-    val mpvRendererDescription: String,
-    val focusModeLabel: String,
-    val playerFocusModeDescription: String,
-    val storageCleanupDescription: String,
-    val appLogLabel: String,
-    val mpvLogLabel: String,
-    val privacyCredentialsTitle: String,
-    val privacyCredentialsDescription: String,
-    val desktopRuntimeTitle: String,
-    val privacyTitle: String,
-    val credentialsPrivacyText: String,
-    val playbackNeedsAttentionTitle: String,
-    val preparingPlaybackTitle: String,
-    val noMediaLoadedLabel: String,
-    val playingLabel: String,
-    val videoHostLabel: String,
-    val openMediaFileAction: String,
-    val chooseMediaFileTitle: (String) -> String,
-    val chooseAnimeLibraryFolderTitle: String,
-    val chooseAniRssCompletedMediaFolderTitle: String,
-    val homeAction: String,
-    val libraryAction: String,
-    val showPlayerChromeAction: String,
-    val hidePlayerChromeAction: String,
-    val previousEpisodeAction: String,
-    val previousEpisodeWithTitle: (String) -> String,
-    val nextEpisodeAction: String,
-    val nextEpisodeWithTitle: (String) -> String,
-    val backThirtySecondsAction: String,
-    val backTenSecondsAction: String,
-    val playAction: String,
-    val forwardTenSecondsAction: String,
-    val forwardThirtySecondsAction: String,
-    val volumeLabel: String,
-    val subtitleShortLabel: String,
-    val hideDanmakuPanelAction: String,
-    val showDanmakuPanelAction: String,
-    val exitFullscreenAction: String,
-    val enterFullscreenAction: String,
-    val libraryStepLabel: String,
-    val preparingMediaStepText: String,
-    val playerRuntimeStepLabel: String,
-    val libraryPreparationStepLabel: String,
-    val danmakuTitle: String,
-    val shownLabel: String,
-    val hiddenLabel: String,
-    val cacheLabel: String,
-    val audioLabel: String,
-    val subtitleLabel: String,
-    val defaultLabel: String,
-    val offLabel: String,
-    val hideAction: String,
-    val showAction: String,
-    val opacityLabel: String,
-    val densityLabel: String,
-    val fontLabel: String,
-    val speedLabel: String,
-    val areaLabel: String,
-    val offsetLabel: String,
-    val librarySlicesTitle: String,
-    val animeSeriesSliceLabel: String,
-    val moviesSliceLabel: String,
-    val ovasSpecialsSliceLabel: String,
-    val allEpisodesSliceLabel: String,
-    val favoritesSliceLabel: String,
-    val nowPlayingTitle: String,
-    val recentlyAddedTitle: String,
-    val browseAllAction: String,
-    val newlyAddedEmptyText: String,
-    val recentlyAddedDetailLabel: (Long, String) -> String,
-    val recentlyWatchedTitle: String,
-    val recentPlaybackEmptyText: String,
-    val watchedAtLabel: (Long) -> String,
-    val myLibraryTitle: String,
-    val seriesSummaryTitle: String,
-    val matchedGroupsCaption: String,
-    val favoritesSummaryTitle: String,
-    val savedEpisodesCaption: String,
-    val watchingSummaryTitle: String,
-    val inProgressCaption: String,
-    val homeLibraryEmptyText: String,
-    val librarySnapshotTitle: String,
-    val continueWatchingTitle: String,
-    val noResumeQueueText: String,
-    val loadedNowLabel: String,
-    val resumeAtLabel: (Long) -> String,
-    val resumeSavedPositionLabel: String,
-    val savedPositionLabel: String,
-    val lastWatchedLabel: String,
-    val nextAfterLabel: (Long?) -> String,
-    val startWatchingLibraryLabel: String,
-    val episodeCountShortLabel: (Int) -> String,
-    val libraryViewTitles: Map<WindowsLibraryView, String> = emptyMap(),
-    val libraryHostSubtitle: String,
-    val librarySearchLabel: String,
-    val libraryToolbarCompactDescription: String,
-    val libraryToolbarDescription: String,
-    val episodeCountSummary: (Int, Int) -> String,
-    val favoriteCountSummary: (Int) -> String,
-    val favoriteEpisodesFilterEmptyText: String,
-    val episodesFilterEmptyText: String,
-    val noIndexedSeriesText: String,
-    val noSeriesFilterMatchesText: String,
-    val noInProgressLocalEpisodesText: String,
-    val noNextUpItemText: String,
-    val noRecentlyWatchedLocalEpisodesText: String,
-    val subtitlesOnlyLabel: String,
-    val pathSortLabel: String,
-    val requireSubtitlesAction: String,
-    val showAllSubtitlesAction: String,
-    val favoritesOnlyAction: String,
-    val showAllFavoritesAction: String,
-    val sortByPathAction: String,
-    val sortByTitleAction: String,
-    val openLibraryImportPanelAction: String,
-    val rescanFoldersAction: String,
-    val localPcLabel: String,
-    val indexingLabel: String,
-    val externalListsLabel: String,
-    val noLibraryLabel: String,
-    val pairedDevicesLabel: String,
-    val lanBrowserReadyLabel: String,
-    val foldersLabel: String,
-    val noFoldersLabel: String,
-    val moreItemsLabel: (Int) -> String,
-    val lastScanSummary: (Int, Int) -> String,
-    val lastScanCountsSummary: (Int, Int) -> String,
-    val libraryImportTitle: String,
-    val aniRssRootCountLabel: (Int) -> String,
-    val scanRunningLabel: String,
-    val publishedLabel: String,
-    val lastScanTitle: String,
-    val reusedCountLabel: (Int) -> String,
-    val notRunLabel: String,
-    val addFolderAction: String,
-    val importAniRssOutputAction: String,
-    val rescanAllAction: String,
-    val rescanAction: String,
-    val scanningAction: String,
-    val indexingLibraryRootsLabel: String,
-    val registeredRootsTitle: String,
-    val libraryImportEmptyText: String,
-    val removeLibraryFolderTitle: String,
-    val removeLibraryFolderText: (String) -> String,
-    val removeFolderAction: String,
-    val userSelectedFolderLabel: String,
-    val aniRssOutputFolderLabel: String,
-    val libraryRootAvailableLabel: String,
-    val libraryRootMissingLabel: String,
-    val lastScannedAtLabel: (Long) -> String,
-    val notScannedYetLabel: String,
-    val inspectorResizeHandleLabel: String,
-    val resetInspectorWidthAction: String,
-    val inspectorTitle: String,
-    val inspectorEmptyText: String,
-    val nextPlayableLabel: (String) -> String,
-    val loadingAction: String,
-    val preparingAction: String,
-    val prepareAction: String,
-    val prepareShortAction: String,
-    val detailsAction: String,
-    val favoriteAction: String,
-    val unfavoriteAction: String,
-    val showEpisodeDetailsAction: String,
-    val checkCachedDanmakuAction: String,
-    val moreEpisodeActionsAction: String,
-    val externalIdsTitle: String,
-    val matchAction: String,
-    val linkAction: String,
-    val replaceAction: String,
-    val correctAction: String,
-    val providerEpisodeLabel: (String) -> String,
-    val preparePlaybackAction: String,
-    val refreshEpisodeMetadataAction: String,
-    val refreshingEpisodeMetadataAction: String,
-    val refreshSeriesMetadataAction: String,
-    val refreshingSeriesMetadataAction: String,
-    val loadIntoPlayerAction: String,
-    val refreshDanmakuAction: String,
-    val attachLocalDanmakuAction: String,
-    val attachLocalDanmakuShortAction: String,
-    val removeOverlayAction: String,
-    val clearDanmakuCacheAction: String,
-    val clearCacheAction: String,
-    val enableAutoNextAction: String,
-    val disableAutoNextAction: String,
-    val autoNextOnLabel: String,
-    val autoNextOffLabel: String,
-    val readinessTitle: String,
-    val preparedPlaybackLabel: String,
-    val prepareToInspectTracksLabel: String,
-    val notPreparedLabel: String,
-    val resumeValueLabel: (Long) -> String,
-    val notCheckedYetLabel: String,
-    val subtitlesIndexedLabel: (Int) -> String,
-    val episodesTitle: String,
-    val advancedTitle: String,
-    val favoriteStatusLabel: String,
-    val pairedLibraryTitle: String,
-    val pairedLibraryDescription: String,
-    val pairedLibraryServerUrlLabel: String,
-    val pairingCodeLabel: String,
-    val loadPairedCatalogAction: String,
-    val pairedLibraryErrorLabel: (String) -> String,
-    val pairedEpisodesLabel: (Int) -> String,
-    val pairedProgressLabel: String,
-    val savedRowsLabel: (Int) -> String,
-    val pairedNextUpTitle: String,
-    val pairedNextUpEmptyText: String,
-    val pairedContinueWatchingTitle: String,
-    val pairedContinueWatchingEmptyText: String,
-    val searchPairedEpisodesLabel: String,
-    val sortTitleAction: String,
-    val sortPathAction: String,
-    val showingLabel: String,
-    val pairedEpisodesCountLabel: (Int, Int) -> String,
-    val pairedCatalogEmptyText: String,
-    val pairedServerEmptyText: String,
-    val pairedFilterEmptyText: String,
-    val resetFiltersAction: String,
-    val preparedDesktopPlaybackLabel: (String, String) -> String,
-    val sourceValueLabel: (String) -> String,
-    val resumeValueText: (String) -> String,
-    val startFromBeginningLabel: String,
-    val loadIntoDesktopControllerAction: String,
-    val unknownMediaLabel: String,
-    val unknownDurationLabel: String,
-    val noSubtitlesLabel: String,
-    val subtitleCountLabel: (Int) -> String,
-    val downloadFilterTitles: Map<DownloadQueueFilter, String> = emptyMap(),
-    val downloadsActiveTitle: String,
-    val downloadsActiveCaption: String,
-    val downloadsQueuedTitle: String,
-    val downloadsQueuedCaption: String,
-    val downloadsCompletedTitle: String,
-    val downloadsCompletedCaption: String,
-    val downloadsFailedTitle: String,
-    val downloadsFailedCaption: String,
-    val downloadQueueTitle: String,
-    val refreshDownloadQueueAction: String,
-    val downloadQueuePolicyText: String,
-    val downloadQueueEmptyText: String,
-    val downloadQueueFilterEmptyText: (String) -> String,
-    val openOutputFolderAction: String,
-    val removeQueueItemAction: String,
-    val removeDownloadTitle: String,
-    val removeDownloadText: (String) -> String,
-    val removeAction: String,
-    val downloadSetupAuthorizedSourcesTitle: String,
-    val downloadSetupAuthorizedSourcesText: String,
-    val authorizedImportsOnlyLabel: String,
-    val queueExecutionPlannedLabel: String,
-    val importRootCountLabel: (Int) -> String,
-    val addAniRssOutputFolderAction: String,
-    val aniRssWebhookTitle: String,
-    val noWebhookUrlText: String,
-    val webhookUrlLabel: String,
-    val webhookHeaderLabel: String,
-    val webhookTokenLabel: String,
-    val importRootsTitle: String,
-    val noAniRssRootsText: String,
-    val downloadInspectorTitle: String,
-    val downloadInspectorEmptyText: String,
-    val stateLabel: String,
-    val progressLabel: String,
-    val createdLabel: String,
-    val updatedLabel: String,
-    val outputLabel: String,
-    val sourceLabel: String,
-    val failureLabel: String,
-    val openFolderAction: String,
-    val pauseAction: String,
-    val resumeAction: String,
-    val retryAction: String,
-    val cancelAction: String,
-    val downloadExecutionPlannedText: String,
-    val dandanplayProvidersTitle: String,
-    val dandanplayProvidersDescription: String,
-    val cacheExpiryLabel: String,
-    val lastTestLabel: String,
-    val apiBaseUrlLabel: String,
-    val appIdOptionalLabel: String,
-    val appSecretKeepLabel: String,
-    val appSecretOptionalLabel: String,
-    val cacheMaxAgeDaysLabel: String,
-    val signedAuthAction: String,
-    val credentialAuthAction: String,
-    val currentAuthLabel: (String) -> String,
-    val saveDandanplaySettingsAction: String,
-    val testSavedAction: String,
-    val clearAction: String,
-    val cleanExpiredCacheAction: String,
-    val clearDandanplayTitle: String,
-    val clearDandanplayText: String,
-    val cleanExpiredDandanplayTitle: String,
-    val cleanExpiredDandanplayText: String,
-    val externalAnimeListsTitle: String,
-    val externalAnimeListsDescription: String,
-    val myAnimeListTestLabel: String,
-    val bangumiTestLabel: String,
-    val myAnimeListClientIdLabel: String,
-    val myAnimeListAccessTokenKeepLabel: String,
-    val myAnimeListAccessTokenOptionalLabel: String,
-    val myAnimeListClientSecretKeepLabel: String,
-    val myAnimeListClientSecretOptionalLabel: String,
-    val bangumiApiBaseUrlLabel: String,
-    val bangumiUserAgentLabel: String,
-    val bangumiUserAgentRequiredError: String,
-    val bangumiAccessTokenKeepLabel: String,
-    val bangumiAccessTokenOptionalLabel: String,
-    val saveExternalListsAction: String,
-    val connectMyAnimeListAction: String,
-    val testMyAnimeListAction: String,
-    val testBangumiAction: String,
-    val clearMyAnimeListAction: String,
-    val clearBangumiAction: String,
-    val clearMyAnimeListTitle: String,
-    val clearMyAnimeListText: String,
-    val clearBangumiTitle: String,
-    val clearBangumiText: String,
-    val localServerTitle: String,
-    val serverBaseUrlLabel: String,
-    val lanUrlLabel: String,
-    val lanUrlsLabel: String,
-    val lanUrlNumberedLabel: (Int) -> String,
-    val discoveryLabel: String,
-    val openServerDashboardAction: String,
-    val testLocalServerAction: String,
-    val serverDashboardTitle: String,
-    val pairingAndLanAccessTitle: String,
-    val healthTitle: String,
-    val notCheckedThisSessionLabel: String,
-    val recentRequestsLabel: String,
-    val connectedClientsLabel: String,
-    val connectedClientsPlannedText: String,
-    val bandwidthLabel: String,
-    val bandwidthPlannedText: String,
-    val recentServerRequestsTitle: String,
-    val noServerRequestsText: String,
-    val testServerAction: String,
-    val copyAction: String,
-    val testingStatusLabel: String,
-    val okStatusLabel: String,
-    val failedStatusLabel: String,
-    val homeServerStatusTitle: String,
-    val attentionNeededLabel: String,
-    val onlineLabel: String,
-    val noLanUrlDetectedLabel: String,
-    val pairingLabel: String,
-    val episodesLabel: String,
-    val errorLabel: String,
-    val metadataAndPostersTitle: String,
-    val loadingLabel: String,
-    val partialLabel: String,
-    val waitingLabel: String,
-    val metadataLoadingLabel: String,
-    val metadataFailedLabel: String,
-    val metadataReadyLabel: String,
-    val metadataPartialLabel: String,
-    val metadataNeededLabel: String,
-    val metadataFailedShortLabel: String,
-    val metadataReadyShortLabel: String,
-    val metadataNeededShortLabel: String,
-    val metadataLoadingDetail: String,
-    val metadataFailedDetail: String,
-    val metadataReadyDetail: String,
-    val metadataPartialMatchedNoPosterDetail: String,
-    val metadataPartialPosterNoTitleDetail: String,
-    val metadataPartialGenericDetail: String,
-    val metadataNeededDetail: String,
-    val seriesMetadataLoadingDetail: String,
-    val seriesMetadataFailedDetail: String,
-    val seriesMetadataReadyDetail: String,
-    val seriesMetadataPartialDetail: String,
-    val seriesMetadataNeededDetail: String,
-    val fileGroupLabel: (String) -> String,
-    val postersReadySummary: (Int, Int) -> String,
-    val refreshAction: String,
-    val refreshingAction: String,
-    val lastScanLabel: String,
-    val groupsLabel: String,
-    val externalSyncTitle: String,
-    val notMappedLabel: String,
-    val readyUpdatesLabel: (Int) -> String,
-    val openTrackingAction: String,
-    val downloadQueueReadyLabel: String,
-    val downloadsImportDetail: String,
-    val openDownloadsAction: String,
-    val cachedDanmakuTitle: String,
-    val notCheckedLabel: String,
-    val manageCacheAction: String,
-    val danmakuCacheSettingsTitle: String,
-    val danmakuCacheSettingsDescription: String,
-    val cachedEpisodesLabel: String,
-    val openCacheManagerAction: String,
-    val danmakuCacheManagerTitle: String,
-    val cachedSummaryTitle: String,
-    val expiredSummaryTitle: String,
-    val commentsSummaryTitle: String,
-    val cachedEventsCaption: String,
-    val cacheDayRuleCaption: (Int) -> String,
-    val persistedEntriesTitle: String,
-    val noDandanplayCachesText: String,
-    val selectedCacheTitle: String,
-    val selectCachePromptText: String,
-    val expiredStatusLabel: String,
-    val cacheEntryCommentSummary: (Int, Long, String) -> String,
-    val animeLabel: String,
-    val episodeLabel: String,
-    val mediaIdLabel: String,
-    val fileLabel: String,
-    val fileSizeLabel: String,
-    val commentsLabel: String,
-    val fetchedLabel: String,
-    val shiftLabel: String,
-    val unknownAnimeLabel: String,
-    val unknownEpisodeLabel: String,
-    val noneLabel: String,
-    val shiftSecondsLabel: (Double) -> String,
-    val assCacheLabel: String,
-    val deleteCachedDanmakuTitle: String,
-    val deleteCachedDanmakuText: (String) -> String,
-    val deleteCacheAction: String,
-    val cleanExpiredDanmakuCachesTitle: String,
-    val cleanExpiredDanmakuCachesText: (Int) -> String,
-    val cleanExpiredAction: String,
-    val providerSettingsAction: String,
-    val myAnimeListClientSavedLabel: String,
-    val trackingCredentialsNeededLabel: String,
-    val mappedSummaryTitle: String,
-    val mappedSummaryCaption: String,
-    val readySummaryTitle: String,
-    val readySummaryCaption: String,
-    val conflictsSummaryTitle: String,
-    val conflictsSummaryCaption: String,
-    val failuresSummaryTitle: String,
-    val failuresSummaryCaption: String,
-    val trackingSyncPreviewTitle: String,
-    val openLibraryAction: String,
-    val noExternalSyncLibraryText: String,
-    val providerUpdatesCaption: String,
-    val externalAheadCaption: String,
-    val mappingChecksCaption: String,
-    val syncingUpdatesAction: String,
-    val syncReadyUpdatesAction: String,
-    val noProviderWritesReadyText: String,
-    val writesReadyUpdatesText: (Int) -> String,
-    val dryRunUpdatesTitle: String,
-    val noExternalProgressUpdatesText: String,
-    val noExternalProgressConflictsText: String,
-    val syncFailuresTitle: String,
-    val noSyncFailuresText: String,
-    val moreSkippedLabel: (Int) -> String,
-    val localWatchedEpisodesLabel: (Int) -> String,
-    val externalWatchedEpisodesLabel: (Int) -> String,
-    val syncAttemptLabel: (Int) -> String,
-    val trackingNoLibraryText: String,
-    val trackingTableTitle: String,
-    val trackingTableDescription: String,
-    val syncAllReadyAction: String,
-    val syncingAction: String,
-    val trackingRowsEmptyText: String,
-    val localSeriesHeader: String,
-    val providerHeader: String,
-    val actionHeader: String,
-    val mappingInspectorTitle: String,
-    val mappingInspectorEmptyText: String,
-    val animeIdLabel: String,
-    val providerUrlLabel: String,
-    val localSeriesIdLabel: String,
-    val localProgressLabel: String,
-    val providerProgressLabel: String,
-    val confidenceLabel: String,
-    val statusLabel: String,
-    val conflictLabel: String,
-    val externalWatchedLabel: String,
-    val nextRetryLabel: String,
-    val skippedLabel: String,
-    val syncSelectedAction: String,
-    val refreshProviderStateAction: String,
-    val removeMappingAction: String,
-    val resolveConflictAction: String,
-    val trackingPlannedControlsText: String,
-    val readbackPendingLabel: String,
-    val readyStatusLabel: String,
-    val reviewConflictAction: String,
-    val conflictStatusLabel: String,
-    val externalProviderLabel: String,
-    val notLinkedLabel: String,
-    val noLinkLabel: String,
-    val needsMappingLabel: String,
-    val missingLocalSeriesLabel: String,
-    val retryAtLabel: (Long) -> String,
-    val failedAttemptsLabel: (Int) -> String,
-    val watchedCountLabel: (Int) -> String,
-    val searchAction: String,
-    val searchingAction: String,
-    val closeAction: String,
-    val useAction: String,
-    val mappedAction: String,
-    val posterLoadingLabel: String,
-    val posterUnavailableLabel: String,
-    val danmakuDisplaySettingsTitle: String,
-    val danmakuDisplaySettingsDescription: String,
-    val visibilityLabel: String,
-    val fontScaleLabel: String,
-    val displayAreaLabel: String,
-    val showDanmakuAction: String,
-    val hideDanmakuAction: String,
-    val opacityPercentLabel: String,
-    val fontScalePercentLabel: String,
-    val speedPercentLabel: String,
-    val densityPercentLabel: String,
-    val displayAreaPercentLabel: String,
-    val offsetMsLabel: String,
-    val keywordFiltersLabel: String,
-    val regexFiltersLabel: String,
-    val offsetMsValueLabel: (Long) -> String,
-    val saveDanmakuDisplayAction: String,
-    val resetDraftAction: String,
-    val diagnosticsTitle: String,
-    val noDiagnosticsText: String,
-    val metadataMatchTitle: String,
-    val metadataMatchDescription: (String) -> String,
-    val metadataMatchSearchTitleLabel: String,
-    val metadataMatchSelectProviderError: String,
-    val metadataMatchNoCandidates: (String) -> String,
-    val metadataMatchMyAnimeListUnavailable: String,
-    val metadataMatchBangumiUnavailable: String,
-    val metadataMatchCurrentMappingsPrefix: String,
-    val metadataMatchEmptyState: String,
-    val metadataMatchMatchedTitlePrefix: String,
-) {
+private fun desktopStrings(configure: DesktopStrings.() -> Unit): DesktopStrings =
+    DesktopStrings().apply(configure)
+
+internal class DesktopStrings {
+    var tabTitles: Map<DesktopShellTab, String> = emptyMap()
+    var settingsSectionTitles: Map<DesktopSettingsSection, String> = emptyMap()
+    var mediaHub: String = ""
+    var shellSubtitle: String = ""
+    var searchLabel: String = ""
+    var playerStatusPrefix: String = ""
+    var episodesSuffix: String = ""
+    var rescanLibrary: String = ""
+    var settingsTitle: String = ""
+    var settingsDescription: String = ""
+    var languageTitle: String = ""
+    var languageDescription: String = ""
+    var uiLanguageLabel: String = ""
+    var uiLanguagesValue: String = ""
+    var appLabel: String = ""
+    var primaryTargetsLabel: String = ""
+    var supportedLabel: String = ""
+    var librarySettingsDescription: String = ""
+    var metadataLabel: String = ""
+    var metadataRefreshLibraryDetailsText: String = ""
+    var importsLabel: String = ""
+    var aniRssImportsManagedDownloadsText: String = ""
+    var playbackRuntimeTitle: String = ""
+    var mpvExecutorLabel: String = ""
+    var rendererLabel: String = ""
+    var mpvRendererDescription: String = ""
+    var focusModeLabel: String = ""
+    var playerFocusModeDescription: String = ""
+    var storageCleanupDescription: String = ""
+    var appLogLabel: String = ""
+    var mpvLogLabel: String = ""
+    var privacyCredentialsTitle: String = ""
+    var privacyCredentialsDescription: String = ""
+    var desktopRuntimeTitle: String = ""
+    var privacyTitle: String = ""
+    var credentialsPrivacyText: String = ""
+    var playbackNeedsAttentionTitle: String = ""
+    var preparingPlaybackTitle: String = ""
+    var noMediaLoadedLabel: String = ""
+    var playingLabel: String = ""
+    var videoHostLabel: String = ""
+    var openMediaFileAction: String = ""
+    var chooseMediaFileTitle: (String) -> String = { _ -> "" }
+    var chooseAnimeLibraryFolderTitle: String = ""
+    var chooseAniRssCompletedMediaFolderTitle: String = ""
+    var homeAction: String = ""
+    var libraryAction: String = ""
+    var showPlayerChromeAction: String = ""
+    var hidePlayerChromeAction: String = ""
+    var previousEpisodeAction: String = ""
+    var previousEpisodeWithTitle: (String) -> String = { _ -> "" }
+    var nextEpisodeAction: String = ""
+    var nextEpisodeWithTitle: (String) -> String = { _ -> "" }
+    var backThirtySecondsAction: String = ""
+    var backTenSecondsAction: String = ""
+    var playAction: String = ""
+    var forwardTenSecondsAction: String = ""
+    var forwardThirtySecondsAction: String = ""
+    var volumeLabel: String = ""
+    var subtitleShortLabel: String = ""
+    var hideDanmakuPanelAction: String = ""
+    var showDanmakuPanelAction: String = ""
+    var exitFullscreenAction: String = ""
+    var enterFullscreenAction: String = ""
+    var libraryStepLabel: String = ""
+    var preparingMediaStepText: String = ""
+    var playerRuntimeStepLabel: String = ""
+    var libraryPreparationStepLabel: String = ""
+    var danmakuTitle: String = ""
+    var shownLabel: String = ""
+    var hiddenLabel: String = ""
+    var cacheLabel: String = ""
+    var audioLabel: String = ""
+    var subtitleLabel: String = ""
+    var defaultLabel: String = ""
+    var offLabel: String = ""
+    var hideAction: String = ""
+    var showAction: String = ""
+    var opacityLabel: String = ""
+    var densityLabel: String = ""
+    var fontLabel: String = ""
+    var speedLabel: String = ""
+    var areaLabel: String = ""
+    var offsetLabel: String = ""
+    var librarySlicesTitle: String = ""
+    var animeSeriesSliceLabel: String = ""
+    var moviesSliceLabel: String = ""
+    var ovasSpecialsSliceLabel: String = ""
+    var allEpisodesSliceLabel: String = ""
+    var favoritesSliceLabel: String = ""
+    var nowPlayingTitle: String = ""
+    var recentlyAddedTitle: String = ""
+    var browseAllAction: String = ""
+    var newlyAddedEmptyText: String = ""
+    var recentlyAddedDetailLabel: (Long, String) -> String = { _, _ -> "" }
+    var recentlyWatchedTitle: String = ""
+    var recentPlaybackEmptyText: String = ""
+    var watchedAtLabel: (Long) -> String = { _ -> "" }
+    var myLibraryTitle: String = ""
+    var seriesSummaryTitle: String = ""
+    var matchedGroupsCaption: String = ""
+    var favoritesSummaryTitle: String = ""
+    var savedEpisodesCaption: String = ""
+    var watchingSummaryTitle: String = ""
+    var inProgressCaption: String = ""
+    var homeLibraryEmptyText: String = ""
+    var librarySnapshotTitle: String = ""
+    var continueWatchingTitle: String = ""
+    var noResumeQueueText: String = ""
+    var loadedNowLabel: String = ""
+    var resumeAtLabel: (Long) -> String = { _ -> "" }
+    var resumeSavedPositionLabel: String = ""
+    var savedPositionLabel: String = ""
+    var lastWatchedLabel: String = ""
+    var nextAfterLabel: (Long?) -> String = { _ -> "" }
+    var startWatchingLibraryLabel: String = ""
+    var episodeCountShortLabel: (Int) -> String = { _ -> "" }
+    var libraryViewTitles: Map<WindowsLibraryView, String> = emptyMap()
+    var libraryHostSubtitle: String = ""
+    var librarySearchLabel: String = ""
+    var libraryToolbarCompactDescription: String = ""
+    var libraryToolbarDescription: String = ""
+    var episodeCountSummary: (Int, Int) -> String = { _, _ -> "" }
+    var favoriteCountSummary: (Int) -> String = { _ -> "" }
+    var favoriteEpisodesFilterEmptyText: String = ""
+    var episodesFilterEmptyText: String = ""
+    var noIndexedSeriesText: String = ""
+    var noSeriesFilterMatchesText: String = ""
+    var noInProgressLocalEpisodesText: String = ""
+    var noNextUpItemText: String = ""
+    var noRecentlyWatchedLocalEpisodesText: String = ""
+    var subtitlesOnlyLabel: String = ""
+    var pathSortLabel: String = ""
+    var requireSubtitlesAction: String = ""
+    var showAllSubtitlesAction: String = ""
+    var favoritesOnlyAction: String = ""
+    var showAllFavoritesAction: String = ""
+    var sortByPathAction: String = ""
+    var sortByTitleAction: String = ""
+    var openLibraryImportPanelAction: String = ""
+    var rescanFoldersAction: String = ""
+    var localPcLabel: String = ""
+    var indexingLabel: String = ""
+    var externalListsLabel: String = ""
+    var noLibraryLabel: String = ""
+    var pairedDevicesLabel: String = ""
+    var lanBrowserReadyLabel: String = ""
+    var foldersLabel: String = ""
+    var noFoldersLabel: String = ""
+    var moreItemsLabel: (Int) -> String = { _ -> "" }
+    var lastScanSummary: (Int, Int) -> String = { _, _ -> "" }
+    var lastScanCountsSummary: (Int, Int) -> String = { _, _ -> "" }
+    var libraryImportTitle: String = ""
+    var aniRssRootCountLabel: (Int) -> String = { _ -> "" }
+    var scanRunningLabel: String = ""
+    var publishedLabel: String = ""
+    var lastScanTitle: String = ""
+    var reusedCountLabel: (Int) -> String = { _ -> "" }
+    var notRunLabel: String = ""
+    var addFolderAction: String = ""
+    var importAniRssOutputAction: String = ""
+    var rescanAllAction: String = ""
+    var rescanAction: String = ""
+    var scanningAction: String = ""
+    var indexingLibraryRootsLabel: String = ""
+    var registeredRootsTitle: String = ""
+    var libraryImportEmptyText: String = ""
+    var removeLibraryFolderTitle: String = ""
+    var removeLibraryFolderText: (String) -> String = { _ -> "" }
+    var removeFolderAction: String = ""
+    var userSelectedFolderLabel: String = ""
+    var aniRssOutputFolderLabel: String = ""
+    var libraryRootAvailableLabel: String = ""
+    var libraryRootMissingLabel: String = ""
+    var lastScannedAtLabel: (Long) -> String = { _ -> "" }
+    var notScannedYetLabel: String = ""
+    var inspectorResizeHandleLabel: String = ""
+    var resetInspectorWidthAction: String = ""
+    var inspectorTitle: String = ""
+    var inspectorEmptyText: String = ""
+    var nextPlayableLabel: (String) -> String = { _ -> "" }
+    var loadingAction: String = ""
+    var preparingAction: String = ""
+    var prepareAction: String = ""
+    var prepareShortAction: String = ""
+    var detailsAction: String = ""
+    var favoriteAction: String = ""
+    var unfavoriteAction: String = ""
+    var showEpisodeDetailsAction: String = ""
+    var checkCachedDanmakuAction: String = ""
+    var moreEpisodeActionsAction: String = ""
+    var externalIdsTitle: String = ""
+    var matchAction: String = ""
+    var linkAction: String = ""
+    var replaceAction: String = ""
+    var correctAction: String = ""
+    var providerEpisodeLabel: (String) -> String = { _ -> "" }
+    var preparePlaybackAction: String = ""
+    var refreshEpisodeMetadataAction: String = ""
+    var refreshingEpisodeMetadataAction: String = ""
+    var refreshSeriesMetadataAction: String = ""
+    var refreshingSeriesMetadataAction: String = ""
+    var loadIntoPlayerAction: String = ""
+    var refreshDanmakuAction: String = ""
+    var attachLocalDanmakuAction: String = ""
+    var attachLocalDanmakuShortAction: String = ""
+    var removeOverlayAction: String = ""
+    var clearDanmakuCacheAction: String = ""
+    var clearCacheAction: String = ""
+    var enableAutoNextAction: String = ""
+    var disableAutoNextAction: String = ""
+    var autoNextOnLabel: String = ""
+    var autoNextOffLabel: String = ""
+    var readinessTitle: String = ""
+    var preparedPlaybackLabel: String = ""
+    var prepareToInspectTracksLabel: String = ""
+    var notPreparedLabel: String = ""
+    var resumeValueLabel: (Long) -> String = { _ -> "" }
+    var notCheckedYetLabel: String = ""
+    var subtitlesIndexedLabel: (Int) -> String = { _ -> "" }
+    var episodesTitle: String = ""
+    var advancedTitle: String = ""
+    var favoriteStatusLabel: String = ""
+    var pairedLibraryTitle: String = ""
+    var pairedLibraryDescription: String = ""
+    var pairedLibraryServerUrlLabel: String = ""
+    var pairingCodeLabel: String = ""
+    var loadPairedCatalogAction: String = ""
+    var pairedLibraryErrorLabel: (String) -> String = { _ -> "" }
+    var pairedEpisodesLabel: (Int) -> String = { _ -> "" }
+    var pairedProgressLabel: String = ""
+    var savedRowsLabel: (Int) -> String = { _ -> "" }
+    var pairedNextUpTitle: String = ""
+    var pairedNextUpEmptyText: String = ""
+    var pairedContinueWatchingTitle: String = ""
+    var pairedContinueWatchingEmptyText: String = ""
+    var searchPairedEpisodesLabel: String = ""
+    var sortTitleAction: String = ""
+    var sortPathAction: String = ""
+    var showingLabel: String = ""
+    var pairedEpisodesCountLabel: (Int, Int) -> String = { _, _ -> "" }
+    var pairedCatalogEmptyText: String = ""
+    var pairedServerEmptyText: String = ""
+    var pairedFilterEmptyText: String = ""
+    var resetFiltersAction: String = ""
+    var preparedDesktopPlaybackLabel: (String, String) -> String = { _, _ -> "" }
+    var sourceValueLabel: (String) -> String = { _ -> "" }
+    var resumeValueText: (String) -> String = { _ -> "" }
+    var startFromBeginningLabel: String = ""
+    var loadIntoDesktopControllerAction: String = ""
+    var unknownMediaLabel: String = ""
+    var unknownDurationLabel: String = ""
+    var noSubtitlesLabel: String = ""
+    var subtitleCountLabel: (Int) -> String = { _ -> "" }
+    var downloadFilterTitles: Map<DownloadQueueFilter, String> = emptyMap()
+    var downloadsActiveTitle: String = ""
+    var downloadsActiveCaption: String = ""
+    var downloadsQueuedTitle: String = ""
+    var downloadsQueuedCaption: String = ""
+    var downloadsCompletedTitle: String = ""
+    var downloadsCompletedCaption: String = ""
+    var downloadsFailedTitle: String = ""
+    var downloadsFailedCaption: String = ""
+    var downloadQueueTitle: String = ""
+    var refreshDownloadQueueAction: String = ""
+    var downloadQueuePolicyText: String = ""
+    var downloadQueueEmptyText: String = ""
+    var downloadQueueFilterEmptyText: (String) -> String = { _ -> "" }
+    var openOutputFolderAction: String = ""
+    var removeQueueItemAction: String = ""
+    var removeDownloadTitle: String = ""
+    var removeDownloadText: (String) -> String = { _ -> "" }
+    var removeAction: String = ""
+    var downloadSetupAuthorizedSourcesTitle: String = ""
+    var downloadSetupAuthorizedSourcesText: String = ""
+    var authorizedImportsOnlyLabel: String = ""
+    var queueExecutionPlannedLabel: String = ""
+    var importRootCountLabel: (Int) -> String = { _ -> "" }
+    var addAniRssOutputFolderAction: String = ""
+    var aniRssWebhookTitle: String = ""
+    var noWebhookUrlText: String = ""
+    var webhookUrlLabel: String = ""
+    var webhookHeaderLabel: String = ""
+    var webhookTokenLabel: String = ""
+    var importRootsTitle: String = ""
+    var noAniRssRootsText: String = ""
+    var downloadInspectorTitle: String = ""
+    var downloadInspectorEmptyText: String = ""
+    var stateLabel: String = ""
+    var progressLabel: String = ""
+    var createdLabel: String = ""
+    var updatedLabel: String = ""
+    var outputLabel: String = ""
+    var sourceLabel: String = ""
+    var failureLabel: String = ""
+    var openFolderAction: String = ""
+    var pauseAction: String = ""
+    var resumeAction: String = ""
+    var retryAction: String = ""
+    var cancelAction: String = ""
+    var downloadExecutionPlannedText: String = ""
+    var dandanplayProvidersTitle: String = ""
+    var dandanplayProvidersDescription: String = ""
+    var cacheExpiryLabel: String = ""
+    var lastTestLabel: String = ""
+    var apiBaseUrlLabel: String = ""
+    var appIdOptionalLabel: String = ""
+    var appSecretKeepLabel: String = ""
+    var appSecretOptionalLabel: String = ""
+    var cacheMaxAgeDaysLabel: String = ""
+    var signedAuthAction: String = ""
+    var credentialAuthAction: String = ""
+    var currentAuthLabel: (String) -> String = { _ -> "" }
+    var saveDandanplaySettingsAction: String = ""
+    var testSavedAction: String = ""
+    var clearAction: String = ""
+    var cleanExpiredCacheAction: String = ""
+    var clearDandanplayTitle: String = ""
+    var clearDandanplayText: String = ""
+    var cleanExpiredDandanplayTitle: String = ""
+    var cleanExpiredDandanplayText: String = ""
+    var externalAnimeListsTitle: String = ""
+    var externalAnimeListsDescription: String = ""
+    var myAnimeListTestLabel: String = ""
+    var bangumiTestLabel: String = ""
+    var myAnimeListClientIdLabel: String = ""
+    var myAnimeListAccessTokenKeepLabel: String = ""
+    var myAnimeListAccessTokenOptionalLabel: String = ""
+    var myAnimeListClientSecretKeepLabel: String = ""
+    var myAnimeListClientSecretOptionalLabel: String = ""
+    var bangumiApiBaseUrlLabel: String = ""
+    var bangumiUserAgentLabel: String = ""
+    var bangumiUserAgentRequiredError: String = ""
+    var bangumiAccessTokenKeepLabel: String = ""
+    var bangumiAccessTokenOptionalLabel: String = ""
+    var saveExternalListsAction: String = ""
+    var connectMyAnimeListAction: String = ""
+    var testMyAnimeListAction: String = ""
+    var testBangumiAction: String = ""
+    var clearMyAnimeListAction: String = ""
+    var clearBangumiAction: String = ""
+    var clearMyAnimeListTitle: String = ""
+    var clearMyAnimeListText: String = ""
+    var clearBangumiTitle: String = ""
+    var clearBangumiText: String = ""
+    var localServerTitle: String = ""
+    var serverBaseUrlLabel: String = ""
+    var lanUrlLabel: String = ""
+    var lanUrlsLabel: String = ""
+    var lanUrlNumberedLabel: (Int) -> String = { _ -> "" }
+    var discoveryLabel: String = ""
+    var openServerDashboardAction: String = ""
+    var testLocalServerAction: String = ""
+    var serverDashboardTitle: String = ""
+    var pairingAndLanAccessTitle: String = ""
+    var healthTitle: String = ""
+    var notCheckedThisSessionLabel: String = ""
+    var recentRequestsLabel: String = ""
+    var connectedClientsLabel: String = ""
+    var connectedClientsPlannedText: String = ""
+    var bandwidthLabel: String = ""
+    var bandwidthPlannedText: String = ""
+    var recentServerRequestsTitle: String = ""
+    var noServerRequestsText: String = ""
+    var testServerAction: String = ""
+    var copyAction: String = ""
+    var testingStatusLabel: String = ""
+    var okStatusLabel: String = ""
+    var failedStatusLabel: String = ""
+    var homeServerStatusTitle: String = ""
+    var attentionNeededLabel: String = ""
+    var onlineLabel: String = ""
+    var noLanUrlDetectedLabel: String = ""
+    var pairingLabel: String = ""
+    var episodesLabel: String = ""
+    var errorLabel: String = ""
+    var metadataAndPostersTitle: String = ""
+    var loadingLabel: String = ""
+    var partialLabel: String = ""
+    var waitingLabel: String = ""
+    var metadataLoadingLabel: String = ""
+    var metadataFailedLabel: String = ""
+    var metadataReadyLabel: String = ""
+    var metadataPartialLabel: String = ""
+    var metadataNeededLabel: String = ""
+    var metadataFailedShortLabel: String = ""
+    var metadataReadyShortLabel: String = ""
+    var metadataNeededShortLabel: String = ""
+    var metadataLoadingDetail: String = ""
+    var metadataFailedDetail: String = ""
+    var metadataReadyDetail: String = ""
+    var metadataPartialMatchedNoPosterDetail: String = ""
+    var metadataPartialPosterNoTitleDetail: String = ""
+    var metadataPartialGenericDetail: String = ""
+    var metadataNeededDetail: String = ""
+    var seriesMetadataLoadingDetail: String = ""
+    var seriesMetadataFailedDetail: String = ""
+    var seriesMetadataReadyDetail: String = ""
+    var seriesMetadataPartialDetail: String = ""
+    var seriesMetadataNeededDetail: String = ""
+    var fileGroupLabel: (String) -> String = { _ -> "" }
+    var postersReadySummary: (Int, Int) -> String = { _, _ -> "" }
+    var refreshAction: String = ""
+    var refreshingAction: String = ""
+    var lastScanLabel: String = ""
+    var groupsLabel: String = ""
+    var externalSyncTitle: String = ""
+    var notMappedLabel: String = ""
+    var readyUpdatesLabel: (Int) -> String = { _ -> "" }
+    var openTrackingAction: String = ""
+    var downloadQueueReadyLabel: String = ""
+    var downloadsImportDetail: String = ""
+    var openDownloadsAction: String = ""
+    var cachedDanmakuTitle: String = ""
+    var notCheckedLabel: String = ""
+    var manageCacheAction: String = ""
+    var danmakuCacheSettingsTitle: String = ""
+    var danmakuCacheSettingsDescription: String = ""
+    var cachedEpisodesLabel: String = ""
+    var openCacheManagerAction: String = ""
+    var danmakuCacheManagerTitle: String = ""
+    var cachedSummaryTitle: String = ""
+    var expiredSummaryTitle: String = ""
+    var commentsSummaryTitle: String = ""
+    var cachedEventsCaption: String = ""
+    var cacheDayRuleCaption: (Int) -> String = { _ -> "" }
+    var persistedEntriesTitle: String = ""
+    var noDandanplayCachesText: String = ""
+    var selectedCacheTitle: String = ""
+    var selectCachePromptText: String = ""
+    var expiredStatusLabel: String = ""
+    var cacheEntryCommentSummary: (Int, Long, String) -> String = { _, _, _ -> "" }
+    var animeLabel: String = ""
+    var episodeLabel: String = ""
+    var mediaIdLabel: String = ""
+    var fileLabel: String = ""
+    var fileSizeLabel: String = ""
+    var commentsLabel: String = ""
+    var fetchedLabel: String = ""
+    var shiftLabel: String = ""
+    var unknownAnimeLabel: String = ""
+    var unknownEpisodeLabel: String = ""
+    var noneLabel: String = ""
+    var shiftSecondsLabel: (Double) -> String = { _ -> "" }
+    var assCacheLabel: String = ""
+    var deleteCachedDanmakuTitle: String = ""
+    var deleteCachedDanmakuText: (String) -> String = { _ -> "" }
+    var deleteCacheAction: String = ""
+    var cleanExpiredDanmakuCachesTitle: String = ""
+    var cleanExpiredDanmakuCachesText: (Int) -> String = { _ -> "" }
+    var cleanExpiredAction: String = ""
+    var providerSettingsAction: String = ""
+    var myAnimeListClientSavedLabel: String = ""
+    var trackingCredentialsNeededLabel: String = ""
+    var mappedSummaryTitle: String = ""
+    var mappedSummaryCaption: String = ""
+    var readySummaryTitle: String = ""
+    var readySummaryCaption: String = ""
+    var conflictsSummaryTitle: String = ""
+    var conflictsSummaryCaption: String = ""
+    var failuresSummaryTitle: String = ""
+    var failuresSummaryCaption: String = ""
+    var trackingSyncPreviewTitle: String = ""
+    var openLibraryAction: String = ""
+    var noExternalSyncLibraryText: String = ""
+    var providerUpdatesCaption: String = ""
+    var externalAheadCaption: String = ""
+    var mappingChecksCaption: String = ""
+    var syncingUpdatesAction: String = ""
+    var syncReadyUpdatesAction: String = ""
+    var noProviderWritesReadyText: String = ""
+    var writesReadyUpdatesText: (Int) -> String = { _ -> "" }
+    var dryRunUpdatesTitle: String = ""
+    var noExternalProgressUpdatesText: String = ""
+    var noExternalProgressConflictsText: String = ""
+    var syncFailuresTitle: String = ""
+    var noSyncFailuresText: String = ""
+    var moreSkippedLabel: (Int) -> String = { _ -> "" }
+    var localWatchedEpisodesLabel: (Int) -> String = { _ -> "" }
+    var externalWatchedEpisodesLabel: (Int) -> String = { _ -> "" }
+    var syncAttemptLabel: (Int) -> String = { _ -> "" }
+    var trackingNoLibraryText: String = ""
+    var trackingTableTitle: String = ""
+    var trackingTableDescription: String = ""
+    var syncAllReadyAction: String = ""
+    var syncingAction: String = ""
+    var trackingRowsEmptyText: String = ""
+    var localSeriesHeader: String = ""
+    var providerHeader: String = ""
+    var actionHeader: String = ""
+    var mappingInspectorTitle: String = ""
+    var mappingInspectorEmptyText: String = ""
+    var animeIdLabel: String = ""
+    var providerUrlLabel: String = ""
+    var localSeriesIdLabel: String = ""
+    var localProgressLabel: String = ""
+    var providerProgressLabel: String = ""
+    var confidenceLabel: String = ""
+    var statusLabel: String = ""
+    var conflictLabel: String = ""
+    var externalWatchedLabel: String = ""
+    var nextRetryLabel: String = ""
+    var skippedLabel: String = ""
+    var syncSelectedAction: String = ""
+    var refreshProviderStateAction: String = ""
+    var removeMappingAction: String = ""
+    var resolveConflictAction: String = ""
+    var trackingPlannedControlsText: String = ""
+    var readbackPendingLabel: String = ""
+    var readyStatusLabel: String = ""
+    var reviewConflictAction: String = ""
+    var conflictStatusLabel: String = ""
+    var externalProviderLabel: String = ""
+    var notLinkedLabel: String = ""
+    var noLinkLabel: String = ""
+    var needsMappingLabel: String = ""
+    var missingLocalSeriesLabel: String = ""
+    var retryAtLabel: (Long) -> String = { _ -> "" }
+    var failedAttemptsLabel: (Int) -> String = { _ -> "" }
+    var watchedCountLabel: (Int) -> String = { _ -> "" }
+    var searchAction: String = ""
+    var searchingAction: String = ""
+    var closeAction: String = ""
+    var useAction: String = ""
+    var mappedAction: String = ""
+    var posterLoadingLabel: String = ""
+    var posterUnavailableLabel: String = ""
+    var danmakuDisplaySettingsTitle: String = ""
+    var danmakuDisplaySettingsDescription: String = ""
+    var visibilityLabel: String = ""
+    var fontScaleLabel: String = ""
+    var displayAreaLabel: String = ""
+    var showDanmakuAction: String = ""
+    var hideDanmakuAction: String = ""
+    var opacityPercentLabel: String = ""
+    var fontScalePercentLabel: String = ""
+    var speedPercentLabel: String = ""
+    var densityPercentLabel: String = ""
+    var displayAreaPercentLabel: String = ""
+    var offsetMsLabel: String = ""
+    var keywordFiltersLabel: String = ""
+    var regexFiltersLabel: String = ""
+    var offsetMsValueLabel: (Long) -> String = { _ -> "" }
+    var saveDanmakuDisplayAction: String = ""
+    var resetDraftAction: String = ""
+    var diagnosticsTitle: String = ""
+    var noDiagnosticsText: String = ""
+    var metadataMatchTitle: String = ""
+    var metadataMatchDescription: (String) -> String = { _ -> "" }
+    var metadataMatchSearchTitleLabel: String = ""
+    var metadataMatchSelectProviderError: String = ""
+    var metadataMatchNoCandidates: (String) -> String = { _ -> "" }
+    var metadataMatchMyAnimeListUnavailable: String = ""
+    var metadataMatchBangumiUnavailable: String = ""
+    var metadataMatchCurrentMappingsPrefix: String = ""
+    var metadataMatchEmptyState: String = ""
+    var metadataMatchMatchedTitlePrefix: String = ""
     fun tabTitle(tab: DesktopShellTab): String = tabTitles[tab] ?: tab.title
     fun settingsSectionTitle(section: DesktopSettingsSection): String =
         settingsSectionTitles[section] ?: section.title
