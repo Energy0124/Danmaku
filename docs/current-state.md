@@ -60,8 +60,8 @@ trusted-LAN clients.
   constructor, avoiding JVM method-signature limits as English/`zh-TW` coverage
   grows. Compose Multiplatform resource-backed desktop string slices are in
   place for shell navigation/header chrome, settings section/general settings
-  labels, playback/dialog control strings, and Home/Library placeholder/count
-  strings with XML templates, using
+  labels, playback/dialog control strings, Home/Library placeholder/count
+  strings, and Home dashboard body labels with XML templates, using
   `commonMain/composeResources/values` and `values-zh-rTW`; the adapter keeps
   selected-language fallback strings when Compose's current locale does not
   match the selected desktop language.
@@ -123,10 +123,10 @@ trusted-LAN clients.
   behavior need broader manual validation.
 - UI localization is now a design requirement for English and Traditional
   Chinese (`zh-TW`). Desktop shell chrome, settings chrome/general labels,
-  playback/dialog controls, and Home/Library placeholder/count strings have
-  started moving to generated Compose resources, but broad resource extraction,
-  app-language-to-resource locale control, remaining body-label migration, and
-  screenshot QA are not complete.
+  playback/dialog controls, Home/Library placeholder/count strings, and Home
+  dashboard body labels have started moving to generated Compose resources, but
+  broad resource extraction, app-language-to-resource locale control, remaining
+  body-label migration, and screenshot QA are not complete.
 - Android mobile/tablet layouts need final viewport QA on phone and tablet
   sizes.
 - Android TV layouts need 1080p and 4K safe-area/focus QA on real or emulated

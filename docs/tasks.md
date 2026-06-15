@@ -21,8 +21,9 @@ Status legend:
   (`zh-TW`) across desktop, Android mobile, and Android TV UI chrome; desktop
   strings now use a DSL-backed holder so the growing string set does not hit
   JVM method-signature limits, and the first desktop shell/settings/playback
-  chrome strings plus Home/Library placeholder/count strings are backed by
-  Compose Multiplatform generated resources under `commonMain/composeResources`.
+  chrome strings plus Home/Library placeholder/count and Home dashboard body
+  strings are backed by Compose Multiplatform generated resources under
+  `commonMain/composeResources`.
 - `[~]` Finish desktop playback QA for fullscreen, resize, aspect, 4K media,
   hardware decoding, and multi-display behavior.
 - `[~]` Complete Android mobile/tablet library viewport QA at phone and tablet
@@ -68,9 +69,9 @@ Status legend:
 - `[ ]` Add localization QA checks for English and `zh-TW` screenshots on
   dense desktop, mobile, and TV surfaces.
 - `[ ]` Continue migrating desktop `DesktopStrings` into Compose Multiplatform
-  resources by feature slice, continuing with remaining Home/Library body
-  labels, download/provider placeholders, danmaku panel labels, and the desktop
-  locale-owner strategy.
+  resources by feature slice, continuing with remaining Library workspace body
+  labels, download/provider placeholders, danmaku panel labels, and the
+  desktop locale-owner strategy.
 - `[ ]` Add release checklist automation for Android APKs and Windows portable
   archives.
 - `[x]` Move the remaining desktop player surface out of `Main.kt`; playback
