@@ -12,8 +12,9 @@ in-app language selector.
 
 - Shell navigation/header chrome, settings section/general-settings labels,
   playback/dialog controls, Home/Library placeholder/count strings, Home
-  dashboard body strings, Library workspace navigation/filter strings, and
-  Library import/inspector action strings live in
+  dashboard body strings, Library workspace navigation/filter strings, Library
+  import/inspector action strings, and Library metadata/playback inspector
+  strings live in
   `apps/desktop-windows/src/commonMain/composeResources/values/strings.xml`.
 - Traditional Chinese resources live in
   `apps/desktop-windows/src/commonMain/composeResources/values-zh-rTW/strings.xml`.
@@ -36,10 +37,10 @@ in-app language selector.
 
 ## Next Steps
 
-1. Move remaining Library metadata/playback action labels into XML string
-   resources.
-2. Move download/provider placeholders, playback body labels, and danmaku panel
+1. Move download/provider placeholders, playback body labels, and danmaku panel
    labels into resources.
+2. Move paired-library and remaining tracking/external-sync labels into XML
+   string resources.
 3. Introduce a locale-owner strategy for desktop language selection so
    generated resources can be the source of truth independent of system locale.
 4. Remove migrated fields from the Kotlin initializer only after their resource

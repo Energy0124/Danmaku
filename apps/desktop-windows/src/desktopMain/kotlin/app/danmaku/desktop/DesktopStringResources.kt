@@ -196,6 +196,35 @@ import danmaku.apps.desktop_windows.generated.resources.desktop_user_selected_fo
 import danmaku.apps.desktop_windows.generated.resources.desktop_volume_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_watched_at_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_watching_summary_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_advanced_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_attach_local_danmaku_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_attach_local_danmaku_short_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_auto_next_off_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_auto_next_on_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_clear_cache_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_clear_danmaku_cache_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_correct_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_disable_auto_next_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_enable_auto_next_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_episodes_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_external_ids_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_favorite_status_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_link_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_load_into_player_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_match_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_not_checked_yet_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_not_prepared_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_prepared_playback_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_prepare_playback_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_prepare_to_inspect_tracks_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_readiness_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_refresh_danmaku_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_refresh_episode_metadata_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_refresh_series_metadata_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_refreshing_episode_metadata_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_refreshing_series_metadata_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_remove_overlay_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_replace_action
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -377,6 +406,35 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
     val showEpisodeDetailsAction = stringResource(Res.string.desktop_show_episode_details_action)
     val checkCachedDanmakuAction = stringResource(Res.string.desktop_check_cached_danmaku_action)
     val moreEpisodeActionsAction = stringResource(Res.string.desktop_more_episode_actions_action)
+    val externalIdsTitle = stringResource(Res.string.desktop_external_ids_title)
+    val matchAction = stringResource(Res.string.desktop_match_action)
+    val linkAction = stringResource(Res.string.desktop_link_action)
+    val replaceAction = stringResource(Res.string.desktop_replace_action)
+    val correctAction = stringResource(Res.string.desktop_correct_action)
+    val preparePlaybackAction = stringResource(Res.string.desktop_prepare_playback_action)
+    val refreshEpisodeMetadataAction = stringResource(Res.string.desktop_refresh_episode_metadata_action)
+    val refreshingEpisodeMetadataAction = stringResource(Res.string.desktop_refreshing_episode_metadata_action)
+    val refreshSeriesMetadataAction = stringResource(Res.string.desktop_refresh_series_metadata_action)
+    val refreshingSeriesMetadataAction = stringResource(Res.string.desktop_refreshing_series_metadata_action)
+    val loadIntoPlayerAction = stringResource(Res.string.desktop_load_into_player_action)
+    val refreshDanmakuAction = stringResource(Res.string.desktop_refresh_danmaku_action)
+    val attachLocalDanmakuAction = stringResource(Res.string.desktop_attach_local_danmaku_action)
+    val attachLocalDanmakuShortAction = stringResource(Res.string.desktop_attach_local_danmaku_short_action)
+    val removeOverlayAction = stringResource(Res.string.desktop_remove_overlay_action)
+    val clearDanmakuCacheAction = stringResource(Res.string.desktop_clear_danmaku_cache_action)
+    val clearCacheAction = stringResource(Res.string.desktop_clear_cache_action)
+    val enableAutoNextAction = stringResource(Res.string.desktop_enable_auto_next_action)
+    val disableAutoNextAction = stringResource(Res.string.desktop_disable_auto_next_action)
+    val autoNextOnLabel = stringResource(Res.string.desktop_auto_next_on_label)
+    val autoNextOffLabel = stringResource(Res.string.desktop_auto_next_off_label)
+    val readinessTitle = stringResource(Res.string.desktop_readiness_title)
+    val preparedPlaybackLabel = stringResource(Res.string.desktop_prepared_playback_label)
+    val prepareToInspectTracksLabel = stringResource(Res.string.desktop_prepare_to_inspect_tracks_label)
+    val notPreparedLabel = stringResource(Res.string.desktop_not_prepared_label)
+    val notCheckedYetLabel = stringResource(Res.string.desktop_not_checked_yet_label)
+    val episodesTitle = stringResource(Res.string.desktop_episodes_title)
+    val advancedTitle = stringResource(Res.string.desktop_advanced_title)
+    val favoriteStatusLabel = stringResource(Res.string.desktop_favorite_status_label)
     val recentlyAddedDetailLabel = stringResource(Res.string.desktop_recently_added_detail_label)
     val watchedAtLabel = stringResource(Res.string.desktop_watched_at_label)
     val resumeAtLabel = stringResource(Res.string.desktop_resume_at_label)
@@ -579,6 +637,35 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
             this.showEpisodeDetailsAction = showEpisodeDetailsAction
             this.checkCachedDanmakuAction = checkCachedDanmakuAction
             this.moreEpisodeActionsAction = moreEpisodeActionsAction
+            this.externalIdsTitle = externalIdsTitle
+            this.matchAction = matchAction
+            this.linkAction = linkAction
+            this.replaceAction = replaceAction
+            this.correctAction = correctAction
+            this.preparePlaybackAction = preparePlaybackAction
+            this.refreshEpisodeMetadataAction = refreshEpisodeMetadataAction
+            this.refreshingEpisodeMetadataAction = refreshingEpisodeMetadataAction
+            this.refreshSeriesMetadataAction = refreshSeriesMetadataAction
+            this.refreshingSeriesMetadataAction = refreshingSeriesMetadataAction
+            this.loadIntoPlayerAction = loadIntoPlayerAction
+            this.refreshDanmakuAction = refreshDanmakuAction
+            this.attachLocalDanmakuAction = attachLocalDanmakuAction
+            this.attachLocalDanmakuShortAction = attachLocalDanmakuShortAction
+            this.removeOverlayAction = removeOverlayAction
+            this.clearDanmakuCacheAction = clearDanmakuCacheAction
+            this.clearCacheAction = clearCacheAction
+            this.enableAutoNextAction = enableAutoNextAction
+            this.disableAutoNextAction = disableAutoNextAction
+            this.autoNextOnLabel = autoNextOnLabel
+            this.autoNextOffLabel = autoNextOffLabel
+            this.readinessTitle = readinessTitle
+            this.preparedPlaybackLabel = preparedPlaybackLabel
+            this.prepareToInspectTracksLabel = prepareToInspectTracksLabel
+            this.notPreparedLabel = notPreparedLabel
+            this.notCheckedYetLabel = notCheckedYetLabel
+            this.episodesTitle = episodesTitle
+            this.advancedTitle = advancedTitle
+            this.favoriteStatusLabel = favoriteStatusLabel
             this.recentlyAddedDetailLabel = { indexedAtEpochMs, sizeText ->
                 recentlyAddedDetailLabel.formatResourceString(indexedAtEpochMs.formatEpochTime(), sizeText)
             }
