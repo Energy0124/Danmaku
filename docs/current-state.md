@@ -142,9 +142,9 @@ trusted-LAN clients.
 - A 2026-06-15 full review found no local build/test blocker across Rust,
   Gradle, and Worker proxy checks. The highest-risk code issues are expected
   user-facing failure paths that still flow through `error(...)`/`check(...)`
-  in LAN discovery/client calls, provider responses, and indexed-media
-  preparation; these should become typed recoverable failures with localized UI
-  copy before release.
+  in provider responses and indexed-media preparation; these should become
+  typed recoverable failures with localized UI copy before release. LAN
+  discovery/client HTTP failures now use typed exceptions.
 - Android mobile and Android TV still have very large `MainActivity.kt`
   entrypoints. They compile and have instrumentation-source coverage, but they
   should be split into shell/state/action and screen files before more feature

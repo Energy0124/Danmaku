@@ -131,6 +131,7 @@ import app.danmaku.library.android.AndroidLibraryFavoriteStore
 import app.danmaku.library.android.AndroidLanLibraryConnectionStore
 import app.danmaku.library.android.LanLibraryClient
 import app.danmaku.library.android.LanLibraryDiscoveryClient
+import app.danmaku.library.android.LanLibraryDiscoveryException
 import app.danmaku.player.android.Media3PlaybackController
 import app.danmaku.player.android.Media3PlaybackServiceConnection
 import kotlinx.coroutines.Dispatchers
@@ -293,7 +294,7 @@ private fun MobilePlayerScreen() {
             runCatching {
                 withContext(Dispatchers.IO) {
                     discoveryClient.discover().firstOrNull()
-                        ?: error("No Windows library server discovered")
+                        ?: throw LanLibraryDiscoveryException("No Windows library server discovered")
                 }
             }.onSuccess {
                 serverUrl = it.baseUrl

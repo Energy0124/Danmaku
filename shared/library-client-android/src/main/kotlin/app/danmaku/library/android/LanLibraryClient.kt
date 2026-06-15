@@ -5,6 +5,7 @@ import app.danmaku.domain.LanLibraryServerStatus
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySubtitleTrack
 import app.danmaku.domain.PlaybackProgress
+import app.danmaku.library.LanLibraryClientException
 import app.danmaku.library.LanLibraryClient as SharedLanLibraryClient
 import app.danmaku.library.LanPlaybackTarget
 import kotlinx.serialization.encodeToString
@@ -28,9 +29,7 @@ class LanLibraryClient(
     override fun fetchServerStatus(baseUrl: String): LanLibraryServerStatus {
         val connection = open("${baseUrl.trimEnd('/')}/api/server/status")
         return try {
-            check(connection.responseCode == HttpURLConnection.HTTP_OK) {
-                "Library server returned HTTP ${connection.responseCode}"
-            }
+            connection.requireResponse(HttpURLConnection.HTTP_OK)
             json.decodeFromString(
                 connection.inputStream.bufferedReader().use { it.readText() },
             )
@@ -45,9 +44,7 @@ class LanLibraryClient(
     ): LibraryCatalog {
         val connection = open("${baseUrl.trimEnd('/')}/api/library?token=${pairingToken.encoded()}")
         return try {
-            check(connection.responseCode == HttpURLConnection.HTTP_OK) {
-                "Library server returned HTTP ${connection.responseCode}"
-            }
+            connection.requireResponse(HttpURLConnection.HTTP_OK)
             json.decodeFromString(
                 connection.inputStream.bufferedReader().use { it.readText() },
             )
@@ -82,7 +79,7 @@ class LanLibraryClient(
                 HttpURLConnection.HTTP_OK -> json.decodeFromString(
                     connection.inputStream.bufferedReader().use { it.readText() },
                 )
-                else -> error("Library server returned HTTP ${connection.responseCode}")
+                else -> throw connection.httpException()
             }
         } finally {
             connection.disconnect()
@@ -95,9 +92,7 @@ class LanLibraryClient(
     ): List<PlaybackProgress> {
         val connection = open(progressListUrl(baseUrl, pairingToken))
         return try {
-            check(connection.responseCode == HttpURLConnection.HTTP_OK) {
-                "Library server returned HTTP ${connection.responseCode}"
-            }
+            connection.requireResponse(HttpURLConnection.HTTP_OK)
             json.decodeFromString(
                 connection.inputStream.bufferedReader().use { it.readText() },
             )
@@ -120,9 +115,7 @@ class LanLibraryClient(
             connection.outputStream.bufferedWriter().use {
                 it.write(json.encodeToString(progress))
             }
-            check(connection.responseCode == HttpURLConnection.HTTP_NO_CONTENT) {
-                "Library server returned HTTP ${connection.responseCode}"
-            }
+            connection.requireResponse(HttpURLConnection.HTTP_NO_CONTENT)
         } finally {
             connection.disconnect()
         }
@@ -183,5 +176,14 @@ private fun String.encoded(): String =
 
 private fun String.decoded(): String =
     java.net.URLDecoder.decode(this, Charsets.UTF_8.name())
+
+private fun HttpURLConnection.requireResponse(expectedCode: Int) {
+    if (responseCode != expectedCode) {
+        throw httpException()
+    }
+}
+
+private fun HttpURLConnection.httpException(): LanLibraryClientException =
+    LanLibraryClientException("Library server returned HTTP $responseCode")
 
 private const val MEDIA_PATH_PREFIX = "/media/"

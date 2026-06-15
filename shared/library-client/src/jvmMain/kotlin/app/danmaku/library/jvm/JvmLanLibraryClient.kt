@@ -6,6 +6,7 @@ import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySubtitleTrack
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.library.LanLibraryClient
+import app.danmaku.library.LanLibraryClientException
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.net.HttpURLConnection
@@ -27,9 +28,7 @@ class JvmLanLibraryClient(
     override fun fetchServerStatus(baseUrl: String): LanLibraryServerStatus {
         val connection = open("${baseUrl.trimEnd('/')}/api/server/status")
         return try {
-            check(connection.responseCode == HttpURLConnection.HTTP_OK) {
-                "Library server returned HTTP ${connection.responseCode}"
-            }
+            connection.requireResponse(HttpURLConnection.HTTP_OK)
             json.decodeFromString(
                 connection.inputStream.bufferedReader().use { it.readText() },
             )
@@ -44,9 +43,7 @@ class JvmLanLibraryClient(
     ): LibraryCatalog {
         val connection = open("${baseUrl.trimEnd('/')}/api/library?token=${pairingToken.encoded()}")
         return try {
-            check(connection.responseCode == HttpURLConnection.HTTP_OK) {
-                "Library server returned HTTP ${connection.responseCode}"
-            }
+            connection.requireResponse(HttpURLConnection.HTTP_OK)
             json.decodeFromString(
                 connection.inputStream.bufferedReader().use { it.readText() },
             )
@@ -81,7 +78,7 @@ class JvmLanLibraryClient(
                 HttpURLConnection.HTTP_OK -> json.decodeFromString(
                     connection.inputStream.bufferedReader().use { it.readText() },
                 )
-                else -> error("Library server returned HTTP ${connection.responseCode}")
+                else -> throw connection.httpException()
             }
         } finally {
             connection.disconnect()
@@ -94,9 +91,7 @@ class JvmLanLibraryClient(
     ): List<PlaybackProgress> {
         val connection = open(progressListUrl(baseUrl, pairingToken))
         return try {
-            check(connection.responseCode == HttpURLConnection.HTTP_OK) {
-                "Library server returned HTTP ${connection.responseCode}"
-            }
+            connection.requireResponse(HttpURLConnection.HTTP_OK)
             json.decodeFromString(
                 connection.inputStream.bufferedReader().use { it.readText() },
             )
@@ -119,9 +114,7 @@ class JvmLanLibraryClient(
             connection.outputStream.bufferedWriter().use {
                 it.write(json.encodeToString(progress))
             }
-            check(connection.responseCode == HttpURLConnection.HTTP_NO_CONTENT) {
-                "Library server returned HTTP ${connection.responseCode}"
-            }
+            connection.requireResponse(HttpURLConnection.HTTP_NO_CONTENT)
         } finally {
             connection.disconnect()
         }
@@ -154,3 +147,12 @@ class JvmLanLibraryClient(
 
 private fun String.encoded(): String =
     URLEncoder.encode(this, Charsets.UTF_8.name())
+
+private fun HttpURLConnection.requireResponse(expectedCode: Int) {
+    if (responseCode != expectedCode) {
+        throw httpException()
+    }
+}
+
+private fun HttpURLConnection.httpException(): LanLibraryClientException =
+    LanLibraryClientException("Library server returned HTTP $responseCode")

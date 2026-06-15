@@ -5,6 +5,7 @@ import app.danmaku.domain.LanLibraryServerStatus
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySubtitleTrack
 import app.danmaku.domain.PlaybackProgress
+import app.danmaku.library.LanLibraryClientException
 import app.danmaku.server.LocalLibraryServer
 import app.danmaku.server.PublishedLibrary
 import java.net.URI
@@ -13,6 +14,7 @@ import kotlin.io.path.deleteIfExists
 import kotlin.io.path.writeBytes
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Assert.assertNull
 import org.junit.Test
 
@@ -98,6 +100,21 @@ class LanLibraryClientIntegrationTest {
         } finally {
             mediaFile.deleteIfExists()
             subtitleFile.deleteIfExists()
+        }
+    }
+
+    @Test
+    fun reportsHttpFailuresAsLanLibraryClientExceptions() {
+        LocalLibraryServer(port = 0, pairingToken = "expected-token").use { server ->
+            server.start()
+            val client = LanLibraryClient()
+
+            val failure = runCatching {
+                client.fetchCatalog(server.baseUrl(), "wrong-token")
+            }.exceptionOrNull()
+
+            assertTrue(failure is LanLibraryClientException)
+            assertEquals("Library server returned HTTP 401", failure?.message)
         }
     }
 }

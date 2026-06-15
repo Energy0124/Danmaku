@@ -49,6 +49,11 @@ interface LanLibraryClient {
     )
 }
 
+class LanLibraryClientException(
+    message: String,
+    cause: Throwable? = null,
+) : RuntimeException(message, cause)
+
 data class LanPlaybackTarget(
     val baseUrl: String,
     val pairingToken: String,
@@ -225,7 +230,9 @@ class LanLibraryConnectionSession(
 
     fun validateServer(baseUrl: String): LanLibraryServerStatus {
         val status = libraryClient.fetchServerStatus(baseUrl)
-        status.compatibilityErrorMessage()?.let(::error)
+        status.compatibilityErrorMessage()?.let {
+            throw LanLibraryClientException(it)
+        }
         return status
     }
 }

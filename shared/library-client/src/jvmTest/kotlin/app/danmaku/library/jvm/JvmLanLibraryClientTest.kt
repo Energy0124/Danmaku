@@ -5,6 +5,7 @@ import app.danmaku.domain.LanLibraryServerStatus
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySubtitleTrack
 import app.danmaku.domain.PlaybackProgress
+import app.danmaku.library.LanLibraryClientException
 import app.danmaku.server.LocalLibraryServer
 import app.danmaku.server.PublishedLibrary
 import kotlinx.serialization.encodeToString
@@ -127,6 +128,20 @@ class JvmLanLibraryClientTest {
 
             assertEquals(catalog, client.fetchCatalog(server.baseUrl, "123456"))
             assertEquals(2, server.acceptedRequests)
+        }
+    }
+
+    @Test
+    fun reportsHttpFailuresAsLanLibraryClientExceptions() {
+        LocalLibraryServer(port = 0, pairingToken = "expected-token").use { server ->
+            server.start()
+            val client = JvmLanLibraryClient()
+
+            val failure = assertFailsWith<LanLibraryClientException> {
+                client.fetchCatalog(server.baseUrl(), "wrong-token")
+            }
+
+            assertEquals("Library server returned HTTP 401", failure.message)
         }
     }
 

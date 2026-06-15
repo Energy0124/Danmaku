@@ -62,9 +62,10 @@ Status legend:
 ## Next Engineering Work
 
 - `[ ]` P1: Replace expected user-facing crashes with recoverable typed
-  failures and localized UI states. Cover LAN discovery with no PC found,
-  LAN client non-OK HTTP responses, missing indexed media files, provider
-  redirect/response parse failures, and MAL OAuth callback failures.
+  failures and localized UI states. LAN discovery with no PC found and LAN
+  client non-OK HTTP responses now use typed exceptions; remaining work covers
+  missing indexed media files, provider redirect/response parse failures, MAL
+  OAuth callback failures, and localized UI copy for these failure states.
 - `[ ]` P1: Split Android mobile `MainActivity.kt` into focused app shell,
   connection/library, home, playback, and shared UI/state files before adding
   more mobile features.
@@ -121,10 +122,11 @@ Full review date: 2026-06-15.
 
 - `[x]` P0: No local build, Rust test, Gradle JVM/Android/desktop test, or
   Worker proxy typecheck/test blocker found in the review run.
-- `[ ]` P1: Expected failures still use crash-style control flow in user-facing
-  paths. Examples include no LAN server discovered on mobile/TV, LAN client
-  non-OK HTTP responses, missing indexed media during desktop playback prep,
-  provider redirect/parse assumptions, and MAL OAuth callback errors.
+- `[~]` P1: Expected failures still use crash-style control flow in some
+  user-facing paths. LAN discovery with no PC found and LAN client non-OK HTTP
+  responses now use typed exceptions; remaining examples include missing
+  indexed media during desktop playback prep, provider redirect/parse
+  assumptions, MAL OAuth callback errors, and localized UI copy.
 - `[ ]` P1: Android mobile and Android TV app entrypoints are monolithic
   enough to slow safe feature work and review. Keep behavior stable while
   extracting screen/state/action boundaries.

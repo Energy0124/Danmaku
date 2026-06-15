@@ -11,6 +11,11 @@ data class DiscoveredLanLibraryServer(
     val baseUrl: String,
 )
 
+class LanLibraryDiscoveryException(
+    message: String,
+    cause: Throwable? = null,
+) : RuntimeException(message, cause)
+
 class LanLibraryDiscoveryClient(
     private val json: Json = Json {
         ignoreUnknownKeys = true

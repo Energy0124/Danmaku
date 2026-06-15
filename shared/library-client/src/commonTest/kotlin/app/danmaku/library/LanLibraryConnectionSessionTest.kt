@@ -39,7 +39,7 @@ class LanLibraryConnectionSessionTest {
             status = LanLibraryServerStatus(apiVersion = LanLibraryServerStatus.CURRENT_API_VERSION + 1),
         )
 
-        val error = assertFailsWith<IllegalStateException> {
+        val error = assertFailsWith<LanLibraryClientException> {
             LanLibraryConnectionSession(client).fetchCatalogWithProgress(
                 baseUrl = "http://192.168.1.20:8686",
                 pairingToken = "123456",
