@@ -6,24 +6,45 @@ import danmaku.apps.desktop_windows.generated.resources.Res
 import danmaku.apps.desktop_windows.generated.resources.desktop_ani_rss_imports_managed_downloads_text
 import danmaku.apps.desktop_windows.generated.resources.desktop_app_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_app_log_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_back_ten_seconds_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_back_thirty_seconds_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_choose_anime_library_folder_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_choose_ani_rss_completed_media_folder_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_choose_media_file_title
 import danmaku.apps.desktop_windows.generated.resources.desktop_credentials_privacy_text
 import danmaku.apps.desktop_windows.generated.resources.desktop_episodes_suffix
+import danmaku.apps.desktop_windows.generated.resources.desktop_enter_fullscreen_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_exit_fullscreen_action
 import danmaku.apps.desktop_windows.generated.resources.desktop_focus_mode_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_forward_ten_seconds_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_forward_thirty_seconds_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_hide_danmaku_panel_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_hide_player_chrome_action
 import danmaku.apps.desktop_windows.generated.resources.desktop_home_action
 import danmaku.apps.desktop_windows.generated.resources.desktop_imports_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_language_description
 import danmaku.apps.desktop_windows.generated.resources.desktop_language_title
 import danmaku.apps.desktop_windows.generated.resources.desktop_library_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_library_preparation_step_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_library_settings_description
+import danmaku.apps.desktop_windows.generated.resources.desktop_library_step_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_media_hub
 import danmaku.apps.desktop_windows.generated.resources.desktop_metadata_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_metadata_refresh_library_details_text
 import danmaku.apps.desktop_windows.generated.resources.desktop_mpv_executor_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_mpv_log_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_mpv_renderer_description
+import danmaku.apps.desktop_windows.generated.resources.desktop_next_episode_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_next_episode_with_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_open_media_file_action
 import danmaku.apps.desktop_windows.generated.resources.desktop_player_status_prefix
 import danmaku.apps.desktop_windows.generated.resources.desktop_player_focus_mode_description
+import danmaku.apps.desktop_windows.generated.resources.desktop_player_runtime_step_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_playback_runtime_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_play_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_preparing_media_step_text
+import danmaku.apps.desktop_windows.generated.resources.desktop_previous_episode_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_previous_episode_with_title
 import danmaku.apps.desktop_windows.generated.resources.desktop_primary_targets_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_privacy_credentials_description
 import danmaku.apps.desktop_windows.generated.resources.desktop_privacy_credentials_title
@@ -44,7 +65,10 @@ import danmaku.apps.desktop_windows.generated.resources.desktop_settings_section
 import danmaku.apps.desktop_windows.generated.resources.desktop_settings_section_storage
 import danmaku.apps.desktop_windows.generated.resources.desktop_settings_title
 import danmaku.apps.desktop_windows.generated.resources.desktop_shell_subtitle
+import danmaku.apps.desktop_windows.generated.resources.desktop_show_danmaku_panel_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_show_player_chrome_action
 import danmaku.apps.desktop_windows.generated.resources.desktop_storage_cleanup_description
+import danmaku.apps.desktop_windows.generated.resources.desktop_subtitle_short_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_supported_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_tab_downloads
 import danmaku.apps.desktop_windows.generated.resources.desktop_tab_home
@@ -54,6 +78,7 @@ import danmaku.apps.desktop_windows.generated.resources.desktop_tab_profile
 import danmaku.apps.desktop_windows.generated.resources.desktop_tab_tracking
 import danmaku.apps.desktop_windows.generated.resources.desktop_ui_language_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_ui_languages_value
+import danmaku.apps.desktop_windows.generated.resources.desktop_volume_label
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -108,8 +133,34 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
     val desktopRuntimeTitle = stringResource(Res.string.desktop_runtime_title)
     val privacyTitle = stringResource(Res.string.desktop_privacy_title)
     val credentialsPrivacyText = stringResource(Res.string.desktop_credentials_privacy_text)
+    val openMediaFileAction = stringResource(Res.string.desktop_open_media_file_action)
+    val chooseMediaFileTitle = stringResource(Res.string.desktop_choose_media_file_title)
+    val chooseAnimeLibraryFolderTitle = stringResource(Res.string.desktop_choose_anime_library_folder_title)
+    val chooseAniRssCompletedMediaFolderTitle =
+        stringResource(Res.string.desktop_choose_ani_rss_completed_media_folder_title)
     val homeAction = stringResource(Res.string.desktop_home_action)
     val libraryAction = stringResource(Res.string.desktop_library_action)
+    val showPlayerChromeAction = stringResource(Res.string.desktop_show_player_chrome_action)
+    val hidePlayerChromeAction = stringResource(Res.string.desktop_hide_player_chrome_action)
+    val previousEpisodeAction = stringResource(Res.string.desktop_previous_episode_action)
+    val previousEpisodeWithTitle = stringResource(Res.string.desktop_previous_episode_with_title)
+    val nextEpisodeAction = stringResource(Res.string.desktop_next_episode_action)
+    val nextEpisodeWithTitle = stringResource(Res.string.desktop_next_episode_with_title)
+    val backThirtySecondsAction = stringResource(Res.string.desktop_back_thirty_seconds_action)
+    val backTenSecondsAction = stringResource(Res.string.desktop_back_ten_seconds_action)
+    val playAction = stringResource(Res.string.desktop_play_action)
+    val forwardTenSecondsAction = stringResource(Res.string.desktop_forward_ten_seconds_action)
+    val forwardThirtySecondsAction = stringResource(Res.string.desktop_forward_thirty_seconds_action)
+    val volumeLabel = stringResource(Res.string.desktop_volume_label)
+    val subtitleShortLabel = stringResource(Res.string.desktop_subtitle_short_label)
+    val hideDanmakuPanelAction = stringResource(Res.string.desktop_hide_danmaku_panel_action)
+    val showDanmakuPanelAction = stringResource(Res.string.desktop_show_danmaku_panel_action)
+    val exitFullscreenAction = stringResource(Res.string.desktop_exit_fullscreen_action)
+    val enterFullscreenAction = stringResource(Res.string.desktop_enter_fullscreen_action)
+    val libraryStepLabel = stringResource(Res.string.desktop_library_step_label)
+    val preparingMediaStepText = stringResource(Res.string.desktop_preparing_media_step_text)
+    val playerRuntimeStepLabel = stringResource(Res.string.desktop_player_runtime_step_label)
+    val libraryPreparationStepLabel = stringResource(Res.string.desktop_library_preparation_step_label)
 
     return language.strings.apply {
         if (useResourceStrings) {
@@ -166,11 +217,39 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
             this.desktopRuntimeTitle = desktopRuntimeTitle
             this.privacyTitle = privacyTitle
             this.credentialsPrivacyText = credentialsPrivacyText
+            this.openMediaFileAction = openMediaFileAction
+            this.chooseMediaFileTitle = { host -> chooseMediaFileTitle.formatResourceString(host) }
+            this.chooseAnimeLibraryFolderTitle = chooseAnimeLibraryFolderTitle
+            this.chooseAniRssCompletedMediaFolderTitle = chooseAniRssCompletedMediaFolderTitle
             this.homeAction = homeAction
             this.libraryAction = libraryAction
+            this.showPlayerChromeAction = showPlayerChromeAction
+            this.hidePlayerChromeAction = hidePlayerChromeAction
+            this.previousEpisodeAction = previousEpisodeAction
+            this.previousEpisodeWithTitle = { title -> previousEpisodeWithTitle.formatResourceString(title) }
+            this.nextEpisodeAction = nextEpisodeAction
+            this.nextEpisodeWithTitle = { title -> nextEpisodeWithTitle.formatResourceString(title) }
+            this.backThirtySecondsAction = backThirtySecondsAction
+            this.backTenSecondsAction = backTenSecondsAction
+            this.playAction = playAction
+            this.forwardTenSecondsAction = forwardTenSecondsAction
+            this.forwardThirtySecondsAction = forwardThirtySecondsAction
+            this.volumeLabel = volumeLabel
+            this.subtitleShortLabel = subtitleShortLabel
+            this.hideDanmakuPanelAction = hideDanmakuPanelAction
+            this.showDanmakuPanelAction = showDanmakuPanelAction
+            this.exitFullscreenAction = exitFullscreenAction
+            this.enterFullscreenAction = enterFullscreenAction
+            this.libraryStepLabel = libraryStepLabel
+            this.preparingMediaStepText = preparingMediaStepText
+            this.playerRuntimeStepLabel = playerRuntimeStepLabel
+            this.libraryPreparationStepLabel = libraryPreparationStepLabel
         }
     }
 }
+
+private fun String.formatResourceString(vararg args: Any): String =
+    java.lang.String.format(java.util.Locale.ROOT, this, *args)
 
 private fun DesktopUiLanguage.matchesResourceLocale(locale: Locale): Boolean =
     when (this) {

@@ -1,6 +1,6 @@
 # Current State
 
-Last reviewed: 2026-06-12.
+Last reviewed: 2026-06-15.
 
 Danmaku is in active foundation work. The strongest vertical slice is Windows
 desktop as the local library host/player, with Android mobile and Android TV as
@@ -59,8 +59,9 @@ trusted-LAN clients.
   strings are initialized through a small DSL-backed holder instead of a giant
   constructor, avoiding JVM method-signature limits as English/`zh-TW` coverage
   grows. Compose Multiplatform resource-backed desktop string slices are in
-  place for shell navigation/header chrome plus settings section/general
-  settings labels, using
+  place for shell navigation/header chrome, settings section/general settings
+  labels, and playback/dialog control strings with XML placeholder templates,
+  using
   `commonMain/composeResources/values` and `values-zh-rTW`; the adapter keeps
   selected-language fallback strings when Compose's current locale does not
   match the selected desktop language.
@@ -121,10 +122,10 @@ trusted-LAN clients.
 - Windows fullscreen, resize, 4K, hardware-decoding, and multi-display playback
   behavior need broader manual validation.
 - UI localization is now a design requirement for English and Traditional
-  Chinese (`zh-TW`). Desktop shell chrome and settings chrome/general labels
-  have started moving to generated Compose resources, but broad resource
-  extraction, app-language-to-resource locale control, placeholder migration,
-  and screenshot QA are not complete.
+  Chinese (`zh-TW`). Desktop shell chrome, settings chrome/general labels, and
+  playback/dialog control strings have started moving to generated Compose
+  resources, but broad resource extraction, app-language-to-resource locale
+  control, remaining placeholder migration, and screenshot QA are not complete.
 - Android mobile/tablet layouts need final viewport QA on phone and tablet
   sizes.
 - Android TV layouts need 1080p and 4K safe-area/focus QA on real or emulated

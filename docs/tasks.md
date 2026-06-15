@@ -20,8 +20,8 @@ Status legend:
 - `[~]` Add first-pass localization support for English and Traditional Chinese
   (`zh-TW`) across desktop, Android mobile, and Android TV UI chrome; desktop
   strings now use a DSL-backed holder so the growing string set does not hit
-  JVM method-signature limits, and the first desktop shell/settings chrome
-  strings are backed by Compose Multiplatform generated resources under
+  JVM method-signature limits, and the first desktop shell/settings/playback
+  chrome strings are backed by Compose Multiplatform generated resources under
   `commonMain/composeResources`.
 - `[~]` Finish desktop playback QA for fullscreen, resize, aspect, 4K media,
   hardware decoding, and multi-display behavior.
@@ -68,8 +68,8 @@ Status legend:
 - `[ ]` Add localization QA checks for English and `zh-TW` screenshots on
   dense desktop, mobile, and TV surfaces.
 - `[ ]` Continue migrating desktop `DesktopStrings` into Compose Multiplatform
-  resources by feature slice, starting with placeholder/lambda strings and
-  playback controls after the shell/settings chrome slices.
+  resources by feature slice, continuing with Home/Library placeholder strings
+  after the shell/settings/playback chrome slices.
 - `[ ]` Add release checklist automation for Android APKs and Windows portable
   archives.
 - `[x]` Move the remaining desktop player surface out of `Main.kt`; playback

@@ -1,6 +1,6 @@
 # Desktop Localization Resource Plan
 
-Last updated: 2026-06-12.
+Last updated: 2026-06-15.
 
 ## Goal
 
@@ -10,8 +10,8 @@ in-app language selector.
 
 ## Current Slice
 
-- Shell navigation/header chrome and settings section/general-settings label
-  resources live in
+- Shell navigation/header chrome, settings section/general-settings labels, and
+  playback/dialog control resources live in
   `apps/desktop-windows/src/commonMain/composeResources/values/strings.xml`.
 - Traditional Chinese resources live in
   `apps/desktop-windows/src/commonMain/composeResources/values-zh-rTW/strings.xml`.
@@ -34,9 +34,9 @@ in-app language selector.
 
 ## Next Steps
 
-1. Move shell/playback/dialog strings with placeholders into XML format
-   strings.
-2. Move playback controls and danmaku panel labels into resources.
+1. Move Home and Library placeholder strings into XML format strings.
+2. Move remaining playback tab body labels and danmaku panel labels into
+   resources.
 3. Introduce a locale-owner strategy for desktop language selection so
    generated resources can be the source of truth independent of system locale.
 4. Remove migrated fields from the Kotlin initializer only after their resource
