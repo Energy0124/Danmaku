@@ -22,9 +22,9 @@ Status legend:
   strings now use a DSL-backed holder so the growing string set does not hit
   JVM method-signature limits, and the first desktop shell/settings/playback
   chrome strings plus Home/Library placeholder/count, Home dashboard body,
-  Library workspace navigation/filter, Library import/inspector action, and
-  Library metadata/playback inspector strings are backed by Compose
-  Multiplatform generated resources under `commonMain/composeResources`.
+  Library workspace navigation/filter, Library import/inspector action, Library
+  metadata/playback inspector, and Downloads queue/import strings are backed by
+  Compose Multiplatform generated resources under `commonMain/composeResources`.
 - `[~]` Finish desktop playback QA for fullscreen, resize, aspect, 4K media,
   hardware decoding, and multi-display behavior.
 - `[~]` Complete Android mobile/tablet library viewport QA at phone and tablet
@@ -70,7 +70,7 @@ Status legend:
 - `[ ]` Add localization QA checks for English and `zh-TW` screenshots on
   dense desktop, mobile, and TV surfaces.
 - `[ ]` Continue migrating desktop `DesktopStrings` into Compose Multiplatform
-  resources by feature slice, continuing with download/provider placeholders,
+  resources by feature slice, continuing with provider settings placeholders,
   danmaku panel labels, paired-library labels, and the desktop locale-owner
   strategy.
 - `[ ]` Add release checklist automation for Android APKs and Windows portable

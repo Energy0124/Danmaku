@@ -13,8 +13,8 @@ in-app language selector.
 - Shell navigation/header chrome, settings section/general-settings labels,
   playback/dialog controls, Home/Library placeholder/count strings, Home
   dashboard body strings, Library workspace navigation/filter strings, Library
-  import/inspector action strings, and Library metadata/playback inspector
-  strings live in
+  import/inspector action strings, Library metadata/playback inspector strings,
+  and Downloads queue/import strings live in
   `apps/desktop-windows/src/commonMain/composeResources/values/strings.xml`.
 - Traditional Chinese resources live in
   `apps/desktop-windows/src/commonMain/composeResources/values-zh-rTW/strings.xml`.
@@ -37,7 +37,7 @@ in-app language selector.
 
 ## Next Steps
 
-1. Move download/provider placeholders, playback body labels, and danmaku panel
+1. Move provider settings placeholders, playback body labels, and danmaku panel
    labels into resources.
 2. Move paired-library and remaining tracking/external-sync labels into XML
    string resources.

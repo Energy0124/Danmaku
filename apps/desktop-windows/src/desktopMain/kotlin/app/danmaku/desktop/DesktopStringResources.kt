@@ -225,6 +225,57 @@ import danmaku.apps.desktop_windows.generated.resources.desktop_refreshing_episo
 import danmaku.apps.desktop_windows.generated.resources.desktop_refreshing_series_metadata_action
 import danmaku.apps.desktop_windows.generated.resources.desktop_remove_overlay_action
 import danmaku.apps.desktop_windows.generated.resources.desktop_replace_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_add_ani_rss_output_folder_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_ani_rss_webhook_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_authorized_imports_only_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_cancel_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_created_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_download_execution_planned_text
+import danmaku.apps.desktop_windows.generated.resources.desktop_download_filter_active
+import danmaku.apps.desktop_windows.generated.resources.desktop_download_filter_all
+import danmaku.apps.desktop_windows.generated.resources.desktop_download_filter_completed
+import danmaku.apps.desktop_windows.generated.resources.desktop_download_filter_failed
+import danmaku.apps.desktop_windows.generated.resources.desktop_download_filter_queued
+import danmaku.apps.desktop_windows.generated.resources.desktop_download_inspector_empty_text
+import danmaku.apps.desktop_windows.generated.resources.desktop_download_inspector_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_download_queue_empty_text
+import danmaku.apps.desktop_windows.generated.resources.desktop_download_queue_filter_empty_text
+import danmaku.apps.desktop_windows.generated.resources.desktop_download_queue_policy_text
+import danmaku.apps.desktop_windows.generated.resources.desktop_download_queue_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_download_setup_authorized_sources_text
+import danmaku.apps.desktop_windows.generated.resources.desktop_download_setup_authorized_sources_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_downloads_active_caption
+import danmaku.apps.desktop_windows.generated.resources.desktop_downloads_active_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_downloads_completed_caption
+import danmaku.apps.desktop_windows.generated.resources.desktop_downloads_completed_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_downloads_failed_caption
+import danmaku.apps.desktop_windows.generated.resources.desktop_downloads_failed_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_downloads_queued_caption
+import danmaku.apps.desktop_windows.generated.resources.desktop_downloads_queued_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_failure_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_import_root_count_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_import_roots_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_no_ani_rss_roots_text
+import danmaku.apps.desktop_windows.generated.resources.desktop_no_webhook_url_text
+import danmaku.apps.desktop_windows.generated.resources.desktop_open_folder_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_open_output_folder_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_output_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_pause_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_progress_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_queue_execution_planned_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_refresh_download_queue_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_remove_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_remove_download_text
+import danmaku.apps.desktop_windows.generated.resources.desktop_remove_download_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_remove_queue_item_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_resume_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_retry_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_source_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_state_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_updated_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_webhook_header_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_webhook_token_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_webhook_url_label
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -435,6 +486,58 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
     val episodesTitle = stringResource(Res.string.desktop_episodes_title)
     val advancedTitle = stringResource(Res.string.desktop_advanced_title)
     val favoriteStatusLabel = stringResource(Res.string.desktop_favorite_status_label)
+    val downloadFilterAll = stringResource(Res.string.desktop_download_filter_all)
+    val downloadFilterActive = stringResource(Res.string.desktop_download_filter_active)
+    val downloadFilterQueued = stringResource(Res.string.desktop_download_filter_queued)
+    val downloadFilterCompleted = stringResource(Res.string.desktop_download_filter_completed)
+    val downloadFilterFailed = stringResource(Res.string.desktop_download_filter_failed)
+    val downloadsActiveTitle = stringResource(Res.string.desktop_downloads_active_title)
+    val downloadsActiveCaption = stringResource(Res.string.desktop_downloads_active_caption)
+    val downloadsQueuedTitle = stringResource(Res.string.desktop_downloads_queued_title)
+    val downloadsQueuedCaption = stringResource(Res.string.desktop_downloads_queued_caption)
+    val downloadsCompletedTitle = stringResource(Res.string.desktop_downloads_completed_title)
+    val downloadsCompletedCaption = stringResource(Res.string.desktop_downloads_completed_caption)
+    val downloadsFailedTitle = stringResource(Res.string.desktop_downloads_failed_title)
+    val downloadsFailedCaption = stringResource(Res.string.desktop_downloads_failed_caption)
+    val downloadQueueTitle = stringResource(Res.string.desktop_download_queue_title)
+    val refreshDownloadQueueAction = stringResource(Res.string.desktop_refresh_download_queue_action)
+    val downloadQueuePolicyText = stringResource(Res.string.desktop_download_queue_policy_text)
+    val downloadQueueEmptyText = stringResource(Res.string.desktop_download_queue_empty_text)
+    val downloadQueueFilterEmptyText = stringResource(Res.string.desktop_download_queue_filter_empty_text)
+    val openOutputFolderAction = stringResource(Res.string.desktop_open_output_folder_action)
+    val removeQueueItemAction = stringResource(Res.string.desktop_remove_queue_item_action)
+    val removeDownloadTitle = stringResource(Res.string.desktop_remove_download_title)
+    val removeDownloadText = stringResource(Res.string.desktop_remove_download_text)
+    val removeAction = stringResource(Res.string.desktop_remove_action)
+    val downloadSetupAuthorizedSourcesTitle =
+        stringResource(Res.string.desktop_download_setup_authorized_sources_title)
+    val downloadSetupAuthorizedSourcesText = stringResource(Res.string.desktop_download_setup_authorized_sources_text)
+    val authorizedImportsOnlyLabel = stringResource(Res.string.desktop_authorized_imports_only_label)
+    val queueExecutionPlannedLabel = stringResource(Res.string.desktop_queue_execution_planned_label)
+    val importRootCountLabel = stringResource(Res.string.desktop_import_root_count_label)
+    val addAniRssOutputFolderAction = stringResource(Res.string.desktop_add_ani_rss_output_folder_action)
+    val aniRssWebhookTitle = stringResource(Res.string.desktop_ani_rss_webhook_title)
+    val noWebhookUrlText = stringResource(Res.string.desktop_no_webhook_url_text)
+    val webhookUrlLabel = stringResource(Res.string.desktop_webhook_url_label)
+    val webhookHeaderLabel = stringResource(Res.string.desktop_webhook_header_label)
+    val webhookTokenLabel = stringResource(Res.string.desktop_webhook_token_label)
+    val importRootsTitle = stringResource(Res.string.desktop_import_roots_title)
+    val noAniRssRootsText = stringResource(Res.string.desktop_no_ani_rss_roots_text)
+    val downloadInspectorTitle = stringResource(Res.string.desktop_download_inspector_title)
+    val downloadInspectorEmptyText = stringResource(Res.string.desktop_download_inspector_empty_text)
+    val stateLabel = stringResource(Res.string.desktop_state_label)
+    val progressLabel = stringResource(Res.string.desktop_progress_label)
+    val createdLabel = stringResource(Res.string.desktop_created_label)
+    val updatedLabel = stringResource(Res.string.desktop_updated_label)
+    val outputLabel = stringResource(Res.string.desktop_output_label)
+    val sourceLabel = stringResource(Res.string.desktop_source_label)
+    val failureLabel = stringResource(Res.string.desktop_failure_label)
+    val openFolderAction = stringResource(Res.string.desktop_open_folder_action)
+    val pauseAction = stringResource(Res.string.desktop_pause_action)
+    val resumeAction = stringResource(Res.string.desktop_resume_action)
+    val retryAction = stringResource(Res.string.desktop_retry_action)
+    val cancelAction = stringResource(Res.string.desktop_cancel_action)
+    val downloadExecutionPlannedText = stringResource(Res.string.desktop_download_execution_planned_text)
     val recentlyAddedDetailLabel = stringResource(Res.string.desktop_recently_added_detail_label)
     val watchedAtLabel = stringResource(Res.string.desktop_watched_at_label)
     val resumeAtLabel = stringResource(Res.string.desktop_resume_at_label)
@@ -666,6 +769,61 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
             this.episodesTitle = episodesTitle
             this.advancedTitle = advancedTitle
             this.favoriteStatusLabel = favoriteStatusLabel
+            downloadFilterTitles = mapOf(
+                DownloadQueueFilter.ALL to downloadFilterAll,
+                DownloadQueueFilter.ACTIVE to downloadFilterActive,
+                DownloadQueueFilter.QUEUED to downloadFilterQueued,
+                DownloadQueueFilter.COMPLETED to downloadFilterCompleted,
+                DownloadQueueFilter.FAILED to downloadFilterFailed,
+            )
+            this.downloadsActiveTitle = downloadsActiveTitle
+            this.downloadsActiveCaption = downloadsActiveCaption
+            this.downloadsQueuedTitle = downloadsQueuedTitle
+            this.downloadsQueuedCaption = downloadsQueuedCaption
+            this.downloadsCompletedTitle = downloadsCompletedTitle
+            this.downloadsCompletedCaption = downloadsCompletedCaption
+            this.downloadsFailedTitle = downloadsFailedTitle
+            this.downloadsFailedCaption = downloadsFailedCaption
+            this.downloadQueueTitle = downloadQueueTitle
+            this.refreshDownloadQueueAction = refreshDownloadQueueAction
+            this.downloadQueuePolicyText = downloadQueuePolicyText
+            this.downloadQueueEmptyText = downloadQueueEmptyText
+            this.downloadQueueFilterEmptyText = { filter ->
+                downloadQueueFilterEmptyText.formatResourceString(filter.lowercase())
+            }
+            this.openOutputFolderAction = openOutputFolderAction
+            this.removeQueueItemAction = removeQueueItemAction
+            this.removeDownloadTitle = removeDownloadTitle
+            this.removeDownloadText = { outputPath -> removeDownloadText.formatResourceString(outputPath) }
+            this.removeAction = removeAction
+            this.downloadSetupAuthorizedSourcesTitle = downloadSetupAuthorizedSourcesTitle
+            this.downloadSetupAuthorizedSourcesText = downloadSetupAuthorizedSourcesText
+            this.authorizedImportsOnlyLabel = authorizedImportsOnlyLabel
+            this.queueExecutionPlannedLabel = queueExecutionPlannedLabel
+            this.importRootCountLabel = { count -> importRootCountLabel.formatResourceString(count) }
+            this.addAniRssOutputFolderAction = addAniRssOutputFolderAction
+            this.aniRssWebhookTitle = aniRssWebhookTitle
+            this.noWebhookUrlText = noWebhookUrlText
+            this.webhookUrlLabel = webhookUrlLabel
+            this.webhookHeaderLabel = webhookHeaderLabel
+            this.webhookTokenLabel = webhookTokenLabel
+            this.importRootsTitle = importRootsTitle
+            this.noAniRssRootsText = noAniRssRootsText
+            this.downloadInspectorTitle = downloadInspectorTitle
+            this.downloadInspectorEmptyText = downloadInspectorEmptyText
+            this.stateLabel = stateLabel
+            this.progressLabel = progressLabel
+            this.createdLabel = createdLabel
+            this.updatedLabel = updatedLabel
+            this.outputLabel = outputLabel
+            this.sourceLabel = sourceLabel
+            this.failureLabel = failureLabel
+            this.openFolderAction = openFolderAction
+            this.pauseAction = pauseAction
+            this.resumeAction = resumeAction
+            this.retryAction = retryAction
+            this.cancelAction = cancelAction
+            this.downloadExecutionPlannedText = downloadExecutionPlannedText
             this.recentlyAddedDetailLabel = { indexedAtEpochMs, sizeText ->
                 recentlyAddedDetailLabel.formatResourceString(indexedAtEpochMs.formatEpochTime(), sizeText)
             }
