@@ -320,6 +320,40 @@ import danmaku.apps.desktop_windows.generated.resources.desktop_signed_auth_acti
 import danmaku.apps.desktop_windows.generated.resources.desktop_test_bangumi_action
 import danmaku.apps.desktop_windows.generated.resources.desktop_test_my_anime_list_action
 import danmaku.apps.desktop_windows.generated.resources.desktop_test_saved_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_area_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_audio_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_cache_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_danmaku_display_settings_description
+import danmaku.apps.desktop_windows.generated.resources.desktop_danmaku_display_settings_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_danmaku_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_default_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_density_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_density_percent_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_display_area_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_display_area_percent_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_font_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_font_scale_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_font_scale_percent_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_hidden_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_hide_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_hide_danmaku_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_keyword_filters_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_off_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_offset_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_offset_ms_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_offset_ms_value_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_opacity_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_opacity_percent_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_regex_filters_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_reset_draft_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_save_danmaku_display_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_show_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_show_danmaku_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_shown_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_speed_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_speed_percent_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_subtitle_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_visibility_label
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -396,6 +430,22 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
     val subtitleShortLabel = stringResource(Res.string.desktop_subtitle_short_label)
     val hideDanmakuPanelAction = stringResource(Res.string.desktop_hide_danmaku_panel_action)
     val showDanmakuPanelAction = stringResource(Res.string.desktop_show_danmaku_panel_action)
+    val danmakuTitle = stringResource(Res.string.desktop_danmaku_title)
+    val shownLabel = stringResource(Res.string.desktop_shown_label)
+    val hiddenLabel = stringResource(Res.string.desktop_hidden_label)
+    val cacheLabel = stringResource(Res.string.desktop_cache_label)
+    val audioLabel = stringResource(Res.string.desktop_audio_label)
+    val subtitleLabel = stringResource(Res.string.desktop_subtitle_label)
+    val defaultLabel = stringResource(Res.string.desktop_default_label)
+    val offLabel = stringResource(Res.string.desktop_off_label)
+    val hideAction = stringResource(Res.string.desktop_hide_action)
+    val showAction = stringResource(Res.string.desktop_show_action)
+    val opacityLabel = stringResource(Res.string.desktop_opacity_label)
+    val densityLabel = stringResource(Res.string.desktop_density_label)
+    val fontLabel = stringResource(Res.string.desktop_font_label)
+    val speedLabel = stringResource(Res.string.desktop_speed_label)
+    val areaLabel = stringResource(Res.string.desktop_area_label)
+    val offsetLabel = stringResource(Res.string.desktop_offset_label)
     val exitFullscreenAction = stringResource(Res.string.desktop_exit_fullscreen_action)
     val enterFullscreenAction = stringResource(Res.string.desktop_enter_fullscreen_action)
     val libraryStepLabel = stringResource(Res.string.desktop_library_step_label)
@@ -529,6 +579,24 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
     val notCheckedYetLabel = stringResource(Res.string.desktop_not_checked_yet_label)
     val episodesTitle = stringResource(Res.string.desktop_episodes_title)
     val advancedTitle = stringResource(Res.string.desktop_advanced_title)
+    val danmakuDisplaySettingsTitle = stringResource(Res.string.desktop_danmaku_display_settings_title)
+    val danmakuDisplaySettingsDescription = stringResource(Res.string.desktop_danmaku_display_settings_description)
+    val visibilityLabel = stringResource(Res.string.desktop_visibility_label)
+    val fontScaleLabel = stringResource(Res.string.desktop_font_scale_label)
+    val displayAreaLabel = stringResource(Res.string.desktop_display_area_label)
+    val showDanmakuAction = stringResource(Res.string.desktop_show_danmaku_action)
+    val hideDanmakuAction = stringResource(Res.string.desktop_hide_danmaku_action)
+    val opacityPercentLabel = stringResource(Res.string.desktop_opacity_percent_label)
+    val fontScalePercentLabel = stringResource(Res.string.desktop_font_scale_percent_label)
+    val speedPercentLabel = stringResource(Res.string.desktop_speed_percent_label)
+    val densityPercentLabel = stringResource(Res.string.desktop_density_percent_label)
+    val displayAreaPercentLabel = stringResource(Res.string.desktop_display_area_percent_label)
+    val offsetMsLabel = stringResource(Res.string.desktop_offset_ms_label)
+    val keywordFiltersLabel = stringResource(Res.string.desktop_keyword_filters_label)
+    val regexFiltersLabel = stringResource(Res.string.desktop_regex_filters_label)
+    val offsetMsValueLabel = stringResource(Res.string.desktop_offset_ms_value_label)
+    val saveDanmakuDisplayAction = stringResource(Res.string.desktop_save_danmaku_display_action)
+    val resetDraftAction = stringResource(Res.string.desktop_reset_draft_action)
     val favoriteStatusLabel = stringResource(Res.string.desktop_favorite_status_label)
     val downloadFilterAll = stringResource(Res.string.desktop_download_filter_all)
     val downloadFilterActive = stringResource(Res.string.desktop_download_filter_active)
@@ -725,6 +793,22 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
             this.subtitleShortLabel = subtitleShortLabel
             this.hideDanmakuPanelAction = hideDanmakuPanelAction
             this.showDanmakuPanelAction = showDanmakuPanelAction
+            this.danmakuTitle = danmakuTitle
+            this.shownLabel = shownLabel
+            this.hiddenLabel = hiddenLabel
+            this.cacheLabel = cacheLabel
+            this.audioLabel = audioLabel
+            this.subtitleLabel = subtitleLabel
+            this.defaultLabel = defaultLabel
+            this.offLabel = offLabel
+            this.hideAction = hideAction
+            this.showAction = showAction
+            this.opacityLabel = opacityLabel
+            this.densityLabel = densityLabel
+            this.fontLabel = fontLabel
+            this.speedLabel = speedLabel
+            this.areaLabel = areaLabel
+            this.offsetLabel = offsetLabel
             this.exitFullscreenAction = exitFullscreenAction
             this.enterFullscreenAction = enterFullscreenAction
             this.libraryStepLabel = libraryStepLabel
@@ -860,6 +944,24 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
             this.notCheckedYetLabel = notCheckedYetLabel
             this.episodesTitle = episodesTitle
             this.advancedTitle = advancedTitle
+            this.danmakuDisplaySettingsTitle = danmakuDisplaySettingsTitle
+            this.danmakuDisplaySettingsDescription = danmakuDisplaySettingsDescription
+            this.visibilityLabel = visibilityLabel
+            this.fontScaleLabel = fontScaleLabel
+            this.displayAreaLabel = displayAreaLabel
+            this.showDanmakuAction = showDanmakuAction
+            this.hideDanmakuAction = hideDanmakuAction
+            this.opacityPercentLabel = opacityPercentLabel
+            this.fontScalePercentLabel = fontScalePercentLabel
+            this.speedPercentLabel = speedPercentLabel
+            this.densityPercentLabel = densityPercentLabel
+            this.displayAreaPercentLabel = displayAreaPercentLabel
+            this.offsetMsLabel = offsetMsLabel
+            this.keywordFiltersLabel = keywordFiltersLabel
+            this.regexFiltersLabel = regexFiltersLabel
+            this.offsetMsValueLabel = { offsetMs -> offsetMsValueLabel.formatResourceString(offsetMs) }
+            this.saveDanmakuDisplayAction = saveDanmakuDisplayAction
+            this.resetDraftAction = resetDraftAction
             this.favoriteStatusLabel = favoriteStatusLabel
             downloadFilterTitles = mapOf(
                 DownloadQueueFilter.ALL to downloadFilterAll,

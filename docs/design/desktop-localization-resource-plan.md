@@ -37,10 +37,9 @@ in-app language selector.
 
 ## Next Steps
 
-1. Move playback body labels and danmaku panel labels into resources.
-2. Move paired-library and remaining tracking/external-sync labels into XML
+1. Move paired-library and remaining tracking/external-sync labels into XML
    string resources.
-3. Introduce a locale-owner strategy for desktop language selection so
+2. Introduce a locale-owner strategy for desktop language selection so
    generated resources can be the source of truth independent of system locale.
-4. Remove migrated fields from the Kotlin initializer only after their resource
+3. Remove migrated fields from the Kotlin initializer only after their resource
    adapter coverage and English/`zh-TW` screenshot checks are in place.

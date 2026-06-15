@@ -23,8 +23,9 @@ Status legend:
   JVM method-signature limits, and the first desktop shell/settings/playback
   chrome strings plus Home/Library placeholder/count, Home dashboard body,
   Library workspace navigation/filter, Library import/inspector action, Library
-  metadata/playback inspector, Downloads queue/import, and provider settings
-  strings are backed by Compose Multiplatform generated resources under
+  metadata/playback inspector, Downloads queue/import, provider settings, and
+  danmaku panel/display strings are backed by Compose Multiplatform generated
+  resources under
   `commonMain/composeResources`.
 - `[~]` Finish desktop playback QA for fullscreen, resize, aspect, 4K media,
   hardware decoding, and multi-display behavior.
@@ -71,9 +72,8 @@ Status legend:
 - `[ ]` Add localization QA checks for English and `zh-TW` screenshots on
   dense desktop, mobile, and TV surfaces.
 - `[ ]` Continue migrating desktop `DesktopStrings` into Compose Multiplatform
-  resources by feature slice, continuing with danmaku panel labels,
-  paired-library labels, tracking/external-sync labels, and the desktop
-  locale-owner strategy.
+  resources by feature slice, continuing with paired-library labels,
+  tracking/external-sync labels, and the desktop locale-owner strategy.
 - `[ ]` Add release checklist automation for Android APKs and Windows portable
   archives.
 - `[x]` Move the remaining desktop player surface out of `Main.kt`; playback
