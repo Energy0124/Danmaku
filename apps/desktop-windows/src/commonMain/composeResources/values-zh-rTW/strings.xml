@@ -75,4 +75,22 @@
     <string name="desktop_preparing_media_step_text">正在準備媒體、字幕、中繼資料與彈幕...</string>
     <string name="desktop_player_runtime_step_label">播放器執行階段</string>
     <string name="desktop_library_preparation_step_label">媒體庫準備</string>
+    <string name="desktop_recently_added_detail_label">加入 %1$s - %2$s</string>
+    <string name="desktop_watched_at_label">已觀看 %1$s</string>
+    <string name="desktop_resume_at_label">從 %1$s 繼續</string>
+    <string name="desktop_last_watched_label">上次觀看位置</string>
+    <string name="desktop_next_after_label">接著 %1$s</string>
+    <string name="desktop_episode_count_short_label">%1$d 集</string>
+    <string name="desktop_episode_count_summary">%1$d / %2$d 集</string>
+    <string name="desktop_favorite_count_summary">%1$d 個收藏</string>
+    <string name="desktop_more_items_label">還有 %1$d 個</string>
+    <string name="desktop_last_scan_summary">上次掃描：%1$d 個未變更，%2$d 個已更新</string>
+    <string name="desktop_last_scan_counts_summary">%1$d 個未變更，%2$d 個已更新</string>
+    <string name="desktop_ani_rss_root_count_label">%1$d 個 ani-rss</string>
+    <string name="desktop_reused_count_label">%1$d 個已重用</string>
+    <string name="desktop_last_scanned_at_label">上次掃描 %1$s</string>
+    <string name="desktop_next_playable_label">下一個可播放：%1$s</string>
+    <string name="desktop_provider_episode_label">%1$s 集數</string>
+    <string name="desktop_resume_value_label">續播 %1$s</string>
+    <string name="desktop_subtitles_indexed_label">已索引 %1$d 筆</string>
 </resources>

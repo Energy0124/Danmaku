@@ -3,6 +3,7 @@ package app.danmaku.desktop
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.text.intl.Locale
 import danmaku.apps.desktop_windows.generated.resources.Res
+import danmaku.apps.desktop_windows.generated.resources.desktop_ani_rss_root_count_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_ani_rss_imports_managed_downloads_text
 import danmaku.apps.desktop_windows.generated.resources.desktop_app_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_app_log_label
@@ -18,6 +19,9 @@ import danmaku.apps.desktop_windows.generated.resources.desktop_exit_fullscreen_
 import danmaku.apps.desktop_windows.generated.resources.desktop_focus_mode_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_forward_ten_seconds_action
 import danmaku.apps.desktop_windows.generated.resources.desktop_forward_thirty_seconds_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_episode_count_short_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_episode_count_summary
+import danmaku.apps.desktop_windows.generated.resources.desktop_favorite_count_summary
 import danmaku.apps.desktop_windows.generated.resources.desktop_hide_danmaku_panel_action
 import danmaku.apps.desktop_windows.generated.resources.desktop_hide_player_chrome_action
 import danmaku.apps.desktop_windows.generated.resources.desktop_home_action
@@ -28,14 +32,21 @@ import danmaku.apps.desktop_windows.generated.resources.desktop_library_action
 import danmaku.apps.desktop_windows.generated.resources.desktop_library_preparation_step_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_library_settings_description
 import danmaku.apps.desktop_windows.generated.resources.desktop_library_step_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_last_scan_counts_summary
+import danmaku.apps.desktop_windows.generated.resources.desktop_last_scan_summary
+import danmaku.apps.desktop_windows.generated.resources.desktop_last_scanned_at_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_last_watched_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_media_hub
 import danmaku.apps.desktop_windows.generated.resources.desktop_metadata_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_metadata_refresh_library_details_text
+import danmaku.apps.desktop_windows.generated.resources.desktop_more_items_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_mpv_executor_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_mpv_log_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_mpv_renderer_description
+import danmaku.apps.desktop_windows.generated.resources.desktop_next_after_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_next_episode_action
 import danmaku.apps.desktop_windows.generated.resources.desktop_next_episode_with_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_next_playable_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_open_media_file_action
 import danmaku.apps.desktop_windows.generated.resources.desktop_player_status_prefix
 import danmaku.apps.desktop_windows.generated.resources.desktop_player_focus_mode_description
@@ -49,8 +60,13 @@ import danmaku.apps.desktop_windows.generated.resources.desktop_primary_targets_
 import danmaku.apps.desktop_windows.generated.resources.desktop_privacy_credentials_description
 import danmaku.apps.desktop_windows.generated.resources.desktop_privacy_credentials_title
 import danmaku.apps.desktop_windows.generated.resources.desktop_privacy_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_provider_episode_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_recently_added_detail_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_rescan_library
 import danmaku.apps.desktop_windows.generated.resources.desktop_renderer_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_resume_at_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_resume_value_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_reused_count_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_runtime_title
 import danmaku.apps.desktop_windows.generated.resources.desktop_search_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_settings_description
@@ -69,6 +85,7 @@ import danmaku.apps.desktop_windows.generated.resources.desktop_show_danmaku_pan
 import danmaku.apps.desktop_windows.generated.resources.desktop_show_player_chrome_action
 import danmaku.apps.desktop_windows.generated.resources.desktop_storage_cleanup_description
 import danmaku.apps.desktop_windows.generated.resources.desktop_subtitle_short_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_subtitles_indexed_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_supported_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_tab_downloads
 import danmaku.apps.desktop_windows.generated.resources.desktop_tab_home
@@ -79,6 +96,7 @@ import danmaku.apps.desktop_windows.generated.resources.desktop_tab_tracking
 import danmaku.apps.desktop_windows.generated.resources.desktop_ui_language_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_ui_languages_value
 import danmaku.apps.desktop_windows.generated.resources.desktop_volume_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_watched_at_label
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -161,6 +179,24 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
     val preparingMediaStepText = stringResource(Res.string.desktop_preparing_media_step_text)
     val playerRuntimeStepLabel = stringResource(Res.string.desktop_player_runtime_step_label)
     val libraryPreparationStepLabel = stringResource(Res.string.desktop_library_preparation_step_label)
+    val recentlyAddedDetailLabel = stringResource(Res.string.desktop_recently_added_detail_label)
+    val watchedAtLabel = stringResource(Res.string.desktop_watched_at_label)
+    val resumeAtLabel = stringResource(Res.string.desktop_resume_at_label)
+    val lastWatchedLabel = stringResource(Res.string.desktop_last_watched_label)
+    val nextAfterLabel = stringResource(Res.string.desktop_next_after_label)
+    val episodeCountShortLabel = stringResource(Res.string.desktop_episode_count_short_label)
+    val episodeCountSummary = stringResource(Res.string.desktop_episode_count_summary)
+    val favoriteCountSummary = stringResource(Res.string.desktop_favorite_count_summary)
+    val moreItemsLabel = stringResource(Res.string.desktop_more_items_label)
+    val lastScanSummary = stringResource(Res.string.desktop_last_scan_summary)
+    val lastScanCountsSummary = stringResource(Res.string.desktop_last_scan_counts_summary)
+    val aniRssRootCountLabel = stringResource(Res.string.desktop_ani_rss_root_count_label)
+    val reusedCountLabel = stringResource(Res.string.desktop_reused_count_label)
+    val lastScannedAtLabel = stringResource(Res.string.desktop_last_scanned_at_label)
+    val nextPlayableLabel = stringResource(Res.string.desktop_next_playable_label)
+    val providerEpisodeLabel = stringResource(Res.string.desktop_provider_episode_label)
+    val resumeValueLabel = stringResource(Res.string.desktop_resume_value_label)
+    val subtitlesIndexedLabel = stringResource(Res.string.desktop_subtitles_indexed_label)
 
     return language.strings.apply {
         if (useResourceStrings) {
@@ -244,6 +280,32 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
             this.preparingMediaStepText = preparingMediaStepText
             this.playerRuntimeStepLabel = playerRuntimeStepLabel
             this.libraryPreparationStepLabel = libraryPreparationStepLabel
+            this.recentlyAddedDetailLabel = { indexedAtEpochMs, sizeText ->
+                recentlyAddedDetailLabel.formatResourceString(indexedAtEpochMs.formatEpochTime(), sizeText)
+            }
+            this.watchedAtLabel = { positionMs -> watchedAtLabel.formatResourceString(positionMs.formatPlaybackTime()) }
+            this.resumeAtLabel = { positionMs -> resumeAtLabel.formatResourceString(positionMs.formatPlaybackTime()) }
+            this.lastWatchedLabel = lastWatchedLabel
+            this.nextAfterLabel = { positionMs ->
+                nextAfterLabel.formatResourceString(positionMs?.formatPlaybackTime() ?: lastWatchedLabel)
+            }
+            this.episodeCountShortLabel = { count -> episodeCountShortLabel.formatResourceString(count) }
+            this.episodeCountSummary = { visible, total -> episodeCountSummary.formatResourceString(visible, total) }
+            this.favoriteCountSummary = { count -> favoriteCountSummary.formatResourceString(count) }
+            this.moreItemsLabel = { count -> moreItemsLabel.formatResourceString(count) }
+            this.lastScanSummary = { reused, refreshed -> lastScanSummary.formatResourceString(reused, refreshed) }
+            this.lastScanCountsSummary = { reused, refreshed ->
+                lastScanCountsSummary.formatResourceString(reused, refreshed)
+            }
+            this.aniRssRootCountLabel = { count -> aniRssRootCountLabel.formatResourceString(count) }
+            this.reusedCountLabel = { count -> reusedCountLabel.formatResourceString(count) }
+            this.lastScannedAtLabel = { epochMs ->
+                lastScannedAtLabel.formatResourceString(epochMs.formatEpochTime())
+            }
+            this.nextPlayableLabel = { title -> nextPlayableLabel.formatResourceString(title) }
+            this.providerEpisodeLabel = { provider -> providerEpisodeLabel.formatResourceString(provider) }
+            this.resumeValueLabel = { positionMs -> resumeValueLabel.formatResourceString(positionMs.formatPlaybackTime()) }
+            this.subtitlesIndexedLabel = { count -> subtitlesIndexedLabel.formatResourceString(count) }
         }
     }
 }

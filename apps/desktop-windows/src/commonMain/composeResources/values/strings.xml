@@ -75,4 +75,22 @@
     <string name="desktop_preparing_media_step_text">Preparing media, subtitles, metadata, and danmaku...</string>
     <string name="desktop_player_runtime_step_label">Player runtime</string>
     <string name="desktop_library_preparation_step_label">Library preparation</string>
+    <string name="desktop_recently_added_detail_label">Added %1$s - %2$s</string>
+    <string name="desktop_watched_at_label">Watched %1$s</string>
+    <string name="desktop_resume_at_label">Resume at %1$s</string>
+    <string name="desktop_last_watched_label">last watched</string>
+    <string name="desktop_next_after_label">Next after %1$s</string>
+    <string name="desktop_episode_count_short_label">%1$d eps</string>
+    <string name="desktop_episode_count_summary">%1$d / %2$d episodes</string>
+    <string name="desktop_favorite_count_summary">%1$d favorites</string>
+    <string name="desktop_more_items_label">+%1$d more</string>
+    <string name="desktop_last_scan_summary">Last scan: %1$d unchanged, %2$d refreshed</string>
+    <string name="desktop_last_scan_counts_summary">%1$d unchanged, %2$d refreshed</string>
+    <string name="desktop_ani_rss_root_count_label">%1$d ani-rss</string>
+    <string name="desktop_reused_count_label">%1$d reused</string>
+    <string name="desktop_last_scanned_at_label">Last scanned %1$s</string>
+    <string name="desktop_next_playable_label">Next playable: %1$s</string>
+    <string name="desktop_provider_episode_label">%1$s episode</string>
+    <string name="desktop_resume_value_label">Resume %1$s</string>
+    <string name="desktop_subtitles_indexed_label">%1$d indexed</string>
 </resources>
