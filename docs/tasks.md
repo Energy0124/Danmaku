@@ -20,12 +20,8 @@ Status legend:
 - `[~]` Add first-pass localization support for English and Traditional Chinese
   (`zh-TW`) across desktop, Android mobile, and Android TV UI chrome; desktop
   strings now use a DSL-backed holder so the growing string set does not hit
-  JVM method-signature limits, and the first desktop shell/settings/playback
-  chrome strings plus Home/Library placeholder/count, Home dashboard body,
-  Library workspace navigation/filter, Library import/inspector action, Library
-  metadata/playback inspector, Downloads queue/import, provider settings,
-  danmaku panel/display, and paired-library client strings are backed by Compose
-  Multiplatform generated resources under
+  JVM method-signature limits, and all current desktop `DesktopStrings` fields
+  have Compose Multiplatform generated resource adapter coverage under
   `commonMain/composeResources`.
 - `[~]` Finish desktop playback QA for fullscreen, resize, aspect, 4K media,
   hardware decoding, and multi-display behavior.
@@ -71,10 +67,8 @@ Status legend:
 - `[ ]` Add QA scripts or checklists for Windows fullscreen/4K/hardware decode.
 - `[ ]` Add localization QA checks for English and `zh-TW` screenshots on
   dense desktop, mobile, and TV surfaces.
-- `[ ]` Continue migrating desktop `DesktopStrings` into Compose Multiplatform
-  resources by feature slice, continuing with remaining shared/body labels and
-  the desktop locale-owner strategy after tracking/external-sync and cache
-  manager labels were moved.
+- `[ ]` Run English and `zh-TW` screenshot QA for desktop generated resources,
+  then remove duplicated migrated fallback text from the Kotlin initializer.
 - `[ ]` Add release checklist automation for Android APKs and Windows portable
   archives.
 - `[x]` Move the remaining desktop player surface out of `Main.kt`; playback
