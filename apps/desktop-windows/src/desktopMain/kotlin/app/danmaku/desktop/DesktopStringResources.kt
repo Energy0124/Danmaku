@@ -302,8 +302,21 @@ import danmaku.apps.desktop_windows.generated.resources.desktop_clear_my_anime_l
 import danmaku.apps.desktop_windows.generated.resources.desktop_clear_my_anime_list_title
 import danmaku.apps.desktop_windows.generated.resources.desktop_connect_my_anime_list_action
 import danmaku.apps.desktop_windows.generated.resources.desktop_action_header
+import danmaku.apps.desktop_windows.generated.resources.desktop_anime_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_anime_id_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_ass_cache_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_cache_day_rule_caption
+import danmaku.apps.desktop_windows.generated.resources.desktop_cache_entry_comment_summary
+import danmaku.apps.desktop_windows.generated.resources.desktop_cached_danmaku_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_cached_episodes_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_cached_events_caption
+import danmaku.apps.desktop_windows.generated.resources.desktop_cached_summary_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_clean_expired_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_clean_expired_danmaku_caches_text
+import danmaku.apps.desktop_windows.generated.resources.desktop_clean_expired_danmaku_caches_title
 import danmaku.apps.desktop_windows.generated.resources.desktop_close_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_comments_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_comments_summary_title
 import danmaku.apps.desktop_windows.generated.resources.desktop_confidence_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_conflict_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_conflict_status_label
@@ -313,7 +326,16 @@ import danmaku.apps.desktop_windows.generated.resources.desktop_credential_auth_
 import danmaku.apps.desktop_windows.generated.resources.desktop_current_auth_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_dandanplay_providers_description
 import danmaku.apps.desktop_windows.generated.resources.desktop_dandanplay_providers_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_danmaku_cache_manager_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_danmaku_cache_settings_description
+import danmaku.apps.desktop_windows.generated.resources.desktop_danmaku_cache_settings_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_delete_cache_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_delete_cached_danmaku_text
+import danmaku.apps.desktop_windows.generated.resources.desktop_delete_cached_danmaku_title
 import danmaku.apps.desktop_windows.generated.resources.desktop_dry_run_updates_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_episode_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_expired_status_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_expired_summary_title
 import danmaku.apps.desktop_windows.generated.resources.desktop_external_ahead_caption
 import danmaku.apps.desktop_windows.generated.resources.desktop_external_anime_lists_description
 import danmaku.apps.desktop_windows.generated.resources.desktop_external_anime_lists_title
@@ -323,6 +345,9 @@ import danmaku.apps.desktop_windows.generated.resources.desktop_external_watched
 import danmaku.apps.desktop_windows.generated.resources.desktop_failed_attempts_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_failures_summary_caption
 import danmaku.apps.desktop_windows.generated.resources.desktop_failures_summary_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_fetched_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_file_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_file_size_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_last_test_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_local_progress_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_local_series_header
@@ -345,6 +370,7 @@ import danmaku.apps.desktop_windows.generated.resources.desktop_my_anime_list_cl
 import danmaku.apps.desktop_windows.generated.resources.desktop_my_anime_list_test_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_needs_mapping_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_next_retry_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_no_dandanplay_caches_text
 import danmaku.apps.desktop_windows.generated.resources.desktop_no_external_progress_conflicts_text
 import danmaku.apps.desktop_windows.generated.resources.desktop_no_external_progress_updates_text
 import danmaku.apps.desktop_windows.generated.resources.desktop_no_external_sync_library_text
@@ -352,9 +378,16 @@ import danmaku.apps.desktop_windows.generated.resources.desktop_no_link_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_no_provider_writes_ready_text
 import danmaku.apps.desktop_windows.generated.resources.desktop_no_sync_failures_text
 import danmaku.apps.desktop_windows.generated.resources.desktop_not_linked_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_not_checked_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_manage_cache_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_media_id_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_none_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_open_library_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_open_cache_manager_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_persisted_entries_title
 import danmaku.apps.desktop_windows.generated.resources.desktop_poster_loading_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_poster_unavailable_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_provider_settings_action
 import danmaku.apps.desktop_windows.generated.resources.desktop_provider_header
 import danmaku.apps.desktop_windows.generated.resources.desktop_provider_progress_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_provider_updates_caption
@@ -372,6 +405,10 @@ import danmaku.apps.desktop_windows.generated.resources.desktop_save_dandanplay_
 import danmaku.apps.desktop_windows.generated.resources.desktop_save_external_lists_action
 import danmaku.apps.desktop_windows.generated.resources.desktop_search_action
 import danmaku.apps.desktop_windows.generated.resources.desktop_searching_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_select_cache_prompt_text
+import danmaku.apps.desktop_windows.generated.resources.desktop_selected_cache_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_shift_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_shift_seconds_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_signed_auth_action
 import danmaku.apps.desktop_windows.generated.resources.desktop_skipped_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_status_label
@@ -393,6 +430,8 @@ import danmaku.apps.desktop_windows.generated.resources.desktop_tracking_sync_pr
 import danmaku.apps.desktop_windows.generated.resources.desktop_tracking_table_description
 import danmaku.apps.desktop_windows.generated.resources.desktop_tracking_table_title
 import danmaku.apps.desktop_windows.generated.resources.desktop_use_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_unknown_anime_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_unknown_episode_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_watched_count_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_writes_ready_updates_text
 import danmaku.apps.desktop_windows.generated.resources.desktop_area_label
@@ -835,6 +874,45 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
     val clearMyAnimeListText = stringResource(Res.string.desktop_clear_my_anime_list_text)
     val clearBangumiTitle = stringResource(Res.string.desktop_clear_bangumi_title)
     val clearBangumiText = stringResource(Res.string.desktop_clear_bangumi_text)
+    val cachedDanmakuTitle = stringResource(Res.string.desktop_cached_danmaku_title)
+    val notCheckedLabel = stringResource(Res.string.desktop_not_checked_label)
+    val manageCacheAction = stringResource(Res.string.desktop_manage_cache_action)
+    val danmakuCacheSettingsTitle = stringResource(Res.string.desktop_danmaku_cache_settings_title)
+    val danmakuCacheSettingsDescription = stringResource(Res.string.desktop_danmaku_cache_settings_description)
+    val cachedEpisodesLabel = stringResource(Res.string.desktop_cached_episodes_label)
+    val openCacheManagerAction = stringResource(Res.string.desktop_open_cache_manager_action)
+    val danmakuCacheManagerTitle = stringResource(Res.string.desktop_danmaku_cache_manager_title)
+    val cachedSummaryTitle = stringResource(Res.string.desktop_cached_summary_title)
+    val expiredSummaryTitle = stringResource(Res.string.desktop_expired_summary_title)
+    val commentsSummaryTitle = stringResource(Res.string.desktop_comments_summary_title)
+    val cachedEventsCaption = stringResource(Res.string.desktop_cached_events_caption)
+    val cacheDayRuleCaption = stringResource(Res.string.desktop_cache_day_rule_caption)
+    val persistedEntriesTitle = stringResource(Res.string.desktop_persisted_entries_title)
+    val noDandanplayCachesText = stringResource(Res.string.desktop_no_dandanplay_caches_text)
+    val selectedCacheTitle = stringResource(Res.string.desktop_selected_cache_title)
+    val selectCachePromptText = stringResource(Res.string.desktop_select_cache_prompt_text)
+    val expiredStatusLabel = stringResource(Res.string.desktop_expired_status_label)
+    val cacheEntryCommentSummary = stringResource(Res.string.desktop_cache_entry_comment_summary)
+    val animeLabel = stringResource(Res.string.desktop_anime_label)
+    val episodeLabel = stringResource(Res.string.desktop_episode_label)
+    val mediaIdLabel = stringResource(Res.string.desktop_media_id_label)
+    val fileLabel = stringResource(Res.string.desktop_file_label)
+    val fileSizeLabel = stringResource(Res.string.desktop_file_size_label)
+    val commentsLabel = stringResource(Res.string.desktop_comments_label)
+    val fetchedLabel = stringResource(Res.string.desktop_fetched_label)
+    val shiftLabel = stringResource(Res.string.desktop_shift_label)
+    val unknownAnimeLabel = stringResource(Res.string.desktop_unknown_anime_label)
+    val unknownEpisodeLabel = stringResource(Res.string.desktop_unknown_episode_label)
+    val noneLabel = stringResource(Res.string.desktop_none_label)
+    val shiftSecondsLabel = stringResource(Res.string.desktop_shift_seconds_label)
+    val assCacheLabel = stringResource(Res.string.desktop_ass_cache_label)
+    val deleteCachedDanmakuTitle = stringResource(Res.string.desktop_delete_cached_danmaku_title)
+    val deleteCachedDanmakuText = stringResource(Res.string.desktop_delete_cached_danmaku_text)
+    val deleteCacheAction = stringResource(Res.string.desktop_delete_cache_action)
+    val cleanExpiredDanmakuCachesTitle = stringResource(Res.string.desktop_clean_expired_danmaku_caches_title)
+    val cleanExpiredDanmakuCachesText = stringResource(Res.string.desktop_clean_expired_danmaku_caches_text)
+    val cleanExpiredAction = stringResource(Res.string.desktop_clean_expired_action)
+    val providerSettingsAction = stringResource(Res.string.desktop_provider_settings_action)
     val myAnimeListClientSavedLabel = stringResource(Res.string.desktop_my_anime_list_client_saved_label)
     val trackingCredentialsNeededLabel = stringResource(Res.string.desktop_tracking_credentials_needed_label)
     val mappedSummaryTitle = stringResource(Res.string.desktop_mapped_summary_title)
@@ -1309,6 +1387,47 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
             this.clearMyAnimeListText = clearMyAnimeListText
             this.clearBangumiTitle = clearBangumiTitle
             this.clearBangumiText = clearBangumiText
+            this.cachedDanmakuTitle = cachedDanmakuTitle
+            this.notCheckedLabel = notCheckedLabel
+            this.manageCacheAction = manageCacheAction
+            this.danmakuCacheSettingsTitle = danmakuCacheSettingsTitle
+            this.danmakuCacheSettingsDescription = danmakuCacheSettingsDescription
+            this.cachedEpisodesLabel = cachedEpisodesLabel
+            this.openCacheManagerAction = openCacheManagerAction
+            this.danmakuCacheManagerTitle = danmakuCacheManagerTitle
+            this.cachedSummaryTitle = cachedSummaryTitle
+            this.expiredSummaryTitle = expiredSummaryTitle
+            this.commentsSummaryTitle = commentsSummaryTitle
+            this.cachedEventsCaption = cachedEventsCaption
+            this.cacheDayRuleCaption = { days -> cacheDayRuleCaption.formatResourceString(days) }
+            this.persistedEntriesTitle = persistedEntriesTitle
+            this.noDandanplayCachesText = noDandanplayCachesText
+            this.selectedCacheTitle = selectedCacheTitle
+            this.selectCachePromptText = selectCachePromptText
+            this.expiredStatusLabel = expiredStatusLabel
+            this.cacheEntryCommentSummary = { count, fetchedAtEpochMs, fileName ->
+                cacheEntryCommentSummary.formatResourceString(count, fetchedAtEpochMs.formatEpochTime(), fileName)
+            }
+            this.animeLabel = animeLabel
+            this.episodeLabel = episodeLabel
+            this.mediaIdLabel = mediaIdLabel
+            this.fileLabel = fileLabel
+            this.fileSizeLabel = fileSizeLabel
+            this.commentsLabel = commentsLabel
+            this.fetchedLabel = fetchedLabel
+            this.shiftLabel = shiftLabel
+            this.unknownAnimeLabel = unknownAnimeLabel
+            this.unknownEpisodeLabel = unknownEpisodeLabel
+            this.noneLabel = noneLabel
+            this.shiftSecondsLabel = { seconds -> shiftSecondsLabel.formatResourceString(seconds) }
+            this.assCacheLabel = assCacheLabel
+            this.deleteCachedDanmakuTitle = deleteCachedDanmakuTitle
+            this.deleteCachedDanmakuText = { title -> deleteCachedDanmakuText.formatResourceString(title) }
+            this.deleteCacheAction = deleteCacheAction
+            this.cleanExpiredDanmakuCachesTitle = cleanExpiredDanmakuCachesTitle
+            this.cleanExpiredDanmakuCachesText = { days -> cleanExpiredDanmakuCachesText.formatResourceString(days) }
+            this.cleanExpiredAction = cleanExpiredAction
+            this.providerSettingsAction = providerSettingsAction
             this.myAnimeListClientSavedLabel = myAnimeListClientSavedLabel
             this.trackingCredentialsNeededLabel = trackingCredentialsNeededLabel
             this.mappedSummaryTitle = mappedSummaryTitle

@@ -14,8 +14,9 @@ in-app language selector.
   playback/dialog controls, Home/Library placeholder/count strings, Home
   dashboard body strings, Library workspace navigation/filter strings, Library
   import/inspector action strings, Library metadata/playback inspector strings,
-  Downloads queue/import strings, provider settings strings,
-  tracking/external-sync strings, and mapping search/poster strings live in
+  Downloads queue/import strings, provider settings strings, cache manager
+  strings, tracking/external-sync strings, and mapping search/poster strings
+  live in
   `apps/desktop-windows/src/commonMain/composeResources/values/strings.xml`.
 - Traditional Chinese resources live in
   `apps/desktop-windows/src/commonMain/composeResources/values-zh-rTW/strings.xml`.
@@ -38,7 +39,7 @@ in-app language selector.
 
 ## Next Steps
 
-1. Move cache/remaining desktop body labels into XML string resources.
+1. Move remaining shared/body labels into XML string resources.
 2. Introduce a locale-owner strategy for desktop language selection so
    generated resources can be the source of truth independent of system locale.
 3. Remove migrated fields from the Kotlin initializer only after their resource
