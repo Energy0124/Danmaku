@@ -173,19 +173,28 @@ fun interface ExternalAnimeHttpPost {
     }
 }
 
+class ExternalAnimeProviderException(
+    message: String,
+    cause: Throwable? = null,
+) : RuntimeException(message, cause)
+
 private fun HttpURLConnection.readExternalAnimeResponse(): String =
     try {
         val status = responseCode
         val responseBody = (if (status >= HttpURLConnection.HTTP_BAD_REQUEST) errorStream else inputStream)
             .use { input ->
                 val bytes = input.readNBytes(DEFAULT_MAX_RESPONSE_BYTES + 1)
-                check(bytes.size <= DEFAULT_MAX_RESPONSE_BYTES) {
-                    "external anime response exceeded $DEFAULT_MAX_RESPONSE_BYTES bytes"
+                if (bytes.size > DEFAULT_MAX_RESPONSE_BYTES) {
+                    throw ExternalAnimeProviderException(
+                        "external anime response exceeded $DEFAULT_MAX_RESPONSE_BYTES bytes",
+                    )
                 }
                 bytes.toString(Charsets.UTF_8)
             }
-        check(status in 200..299) {
-            "external anime request failed with HTTP $status: ${responseBody.take(200)}"
+        if (status !in 200..299) {
+            throw ExternalAnimeProviderException(
+                "external anime request failed with HTTP $status: ${responseBody.take(200)}",
+            )
         }
         responseBody
     } finally {

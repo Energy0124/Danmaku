@@ -70,6 +70,11 @@ enum class DandanplayAuthenticationMode {
     CREDENTIAL,
 }
 
+class DandanplayClientException(
+    message: String,
+    cause: Throwable? = null,
+) : RuntimeException(message, cause)
+
 class DandanplayDanmakuClient(
     private val connection: DandanplayConnection = DandanplayConnection(),
     private val json: Json = Json {
@@ -94,8 +99,8 @@ class DandanplayDanmakuClient(
             apiPath = "/api/v2/match",
             body = fingerprint.toMatchRequest(),
         ).asObject()
-        check(data.boolean("success") != false) {
-            "dandanplay match failed: ${data.string("message") ?: "unknown error"}"
+        if (data.boolean("success") == false) {
+            throw DandanplayClientException("dandanplay match failed: ${data.string("message") ?: "unknown error"}")
         }
         return data.array("matches")
             .mapNotNull(JsonElement::asObjectOrNull)
@@ -114,8 +119,8 @@ class DandanplayDanmakuClient(
             apiPath = apiPath,
             query = query,
         ).asObject()
-        check(data.boolean("success") != false) {
-            "dandanplay comment fetch failed: ${data.string("message") ?: "unknown error"}"
+        if (data.boolean("success") == false) {
+            throw DandanplayClientException("dandanplay comment fetch failed: ${data.string("message") ?: "unknown error"}")
         }
         return data.array("comments")
             .mapIndexedNotNull { index, element ->
@@ -140,11 +145,13 @@ class DandanplayDanmakuClient(
             method = "GET",
             apiPath = "/api/v2/bangumi/$animeId",
         ).asObject()
-        check(data.boolean("success") != false) {
-            "dandanplay anime detail fetch failed: ${data.string("message") ?: data.string("errorMessage") ?: "unknown error"}"
+        if (data.boolean("success") == false) {
+            throw DandanplayClientException(
+                "dandanplay anime detail fetch failed: ${data.string("message") ?: data.string("errorMessage") ?: "unknown error"}",
+            )
         }
         val anime = data["bangumi"]?.asObjectOrNull()
-            ?: error("dandanplay anime detail response did not include bangumi")
+            ?: throw DandanplayClientException("dandanplay anime detail response did not include bangumi")
         return anime.toExternalAnimeInfo(animeId)
     }
 
@@ -175,27 +182,27 @@ class DandanplayDanmakuClient(
                 val status = httpConnection.responseCode
                 val responseBody = httpConnection.responseStream(status).use { input ->
                     val bytes = input.readNBytes(maxResponseBytes + 1)
-                    check(bytes.size <= maxResponseBytes) {
-                        "dandanplay response exceeded $maxResponseBytes bytes"
+                    if (bytes.size > maxResponseBytes) {
+                        throw DandanplayClientException("dandanplay response exceeded $maxResponseBytes bytes")
                     }
                     bytes.toString(Charsets.UTF_8)
                 }
                 if (httpConnection.shouldFollowDandanplayRedirect(method, status, body)) {
-                    check(redirectCount < MAX_REDIRECTS) {
-                        "dandanplay redirect limit exceeded for $requestUrl"
+                    if (redirectCount >= MAX_REDIRECTS) {
+                        throw DandanplayClientException("dandanplay redirect limit exceeded for $requestUrl")
                     }
                     requestUrl = requestUrl.resolveHttpRedirect(httpConnection.getHeaderField("Location"))
                     return@repeat
                 }
-                check(status == HttpURLConnection.HTTP_OK) {
-                    httpConnection.dandanplayHttpErrorMessage(status, responseBody)
+                if (status != HttpURLConnection.HTTP_OK) {
+                    throw DandanplayClientException(httpConnection.dandanplayHttpErrorMessage(status, responseBody))
                 }
                 return json.parseToJsonElement(responseBody)
             } finally {
                 httpConnection.disconnect()
             }
         }
-        error("dandanplay redirect limit exceeded for $requestUrl")
+        throw DandanplayClientException("dandanplay redirect limit exceeded for $requestUrl")
     }
 
     private fun openHttpConnection(
@@ -492,18 +499,18 @@ private fun JsonObject.double(key: String): Double? =
 
 private fun URL.resolveHttpRedirect(location: String?): URL {
     val redirectLocation = location?.takeIf(String::isNotBlank)
-        ?: error("dandanplay redirect did not include a Location header")
+        ?: throw DandanplayClientException("dandanplay redirect did not include a Location header")
     val redirectUri = URI(redirectLocation)
     val resolvedUri = if (redirectUri.isAbsolute) {
         redirectUri
     } else {
         toURI().resolve(redirectUri)
     }
-    require(resolvedUri.scheme.equals("http", ignoreCase = true) || resolvedUri.scheme.equals("https", ignoreCase = true)) {
-        "dandanplay redirect must use http or https"
+    if (!resolvedUri.scheme.equals("http", ignoreCase = true) && !resolvedUri.scheme.equals("https", ignoreCase = true)) {
+        throw DandanplayClientException("dandanplay redirect must use http or https")
     }
-    require(resolvedUri.host != null) {
-        "dandanplay redirect must include a host"
+    if (resolvedUri.host == null) {
+        throw DandanplayClientException("dandanplay redirect must include a host")
     }
     return resolvedUri.toURL()
 }

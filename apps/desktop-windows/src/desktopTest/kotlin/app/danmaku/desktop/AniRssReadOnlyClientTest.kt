@@ -82,9 +82,10 @@ class AniRssReadOnlyClientTest {
                 maxResponseBytes = 64,
             )
 
-            assertFailsWith<IllegalStateException> {
+            val error = assertFailsWith<AniRssClientException> {
                 client.fetchAbout()
             }
+            assertEquals("ani-rss response exceeded 64 bytes", error.message)
         }
     }
 

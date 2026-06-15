@@ -172,17 +172,19 @@ class AniRssReadOnlyClient(
             val status = connection.responseCode
             val responseBody = connection.responseStream(status).use { input ->
                 val bytes = input.readNBytes(maxResponseBytes + 1)
-                check(bytes.size <= maxResponseBytes) {
-                    "ani-rss response exceeded $maxResponseBytes bytes"
+                if (bytes.size > maxResponseBytes) {
+                    throw AniRssClientException("ani-rss response exceeded $maxResponseBytes bytes")
                 }
                 bytes.toString(Charsets.UTF_8)
             }
-            check(status == HttpURLConnection.HTTP_OK) {
-                "ani-rss returned HTTP $status"
+            if (status != HttpURLConnection.HTTP_OK) {
+                throw AniRssClientException("ani-rss returned HTTP $status")
             }
             val envelope = json.parseToJsonElement(responseBody).asObject()
-            check(envelope.int("code") == HttpURLConnection.HTTP_OK) {
-                "ani-rss API request failed: ${envelope.string("message") ?: "unknown error"}"
+            if (envelope.int("code") != HttpURLConnection.HTTP_OK) {
+                throw AniRssClientException(
+                    "ani-rss API request failed: ${envelope.string("message") ?: "unknown error"}",
+                )
             }
             envelope["data"] ?: JsonNull
         } finally {
@@ -210,6 +212,11 @@ class AniRssReadOnlyClient(
         const val DEFAULT_MAX_RESPONSE_BYTES = 4 * 1024 * 1024
     }
 }
+
+class AniRssClientException(
+    message: String,
+    cause: Throwable? = null,
+) : RuntimeException(message, cause)
 
 data class AniRssHealth(
     val available: Boolean,

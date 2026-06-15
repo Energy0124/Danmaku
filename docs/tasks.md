@@ -61,13 +61,14 @@ Status legend:
 
 ## Next Engineering Work
 
-- `[ ]` P1: Replace expected user-facing crashes with recoverable typed
+- `[~]` P1: Replace expected user-facing crashes with recoverable typed
   failures and localized UI states. LAN discovery with no PC found and LAN
   client non-OK HTTP responses now use typed exceptions. Desktop missing
   indexed-media and dandanplay no-match action failures now use typed desktop
-  user-action exceptions; remaining work covers provider redirect/response
-  parse failures, MAL OAuth callback failures, and localized UI copy for these
-  failure states.
+  user-action exceptions. Dandanplay, MAL OAuth, external anime search/write,
+  and ani-rss remote failures now use typed provider exceptions; remaining work
+  is localized UI copy for these failure states and any newly discovered
+  user-facing crash paths.
 - `[ ]` P1: Split Android mobile `MainActivity.kt` into focused app shell,
   connection/library, home, playback, and shared UI/state files before adding
   more mobile features.
@@ -124,12 +125,12 @@ Full review date: 2026-06-15.
 
 - `[x]` P0: No local build, Rust test, Gradle JVM/Android/desktop test, or
   Worker proxy typecheck/test blocker found in the review run.
-- `[~]` P1: Expected failures still use crash-style control flow in some
-  user-facing paths. LAN discovery with no PC found and LAN client non-OK HTTP
-  responses now use typed exceptions. Desktop missing indexed-media and
-  dandanplay no-match action failures now use typed desktop user-action
-  exceptions; remaining examples include provider redirect/parse assumptions,
-  MAL OAuth callback errors, and localized UI copy.
+- `[~]` P1: Expected user-facing failures are being moved out of crash-style
+  control flow. LAN discovery/client errors, desktop missing indexed-media and
+  no-match action failures, dandanplay provider failures, MAL OAuth callback
+  and token failures, external anime search/write failures, and ani-rss remote
+  failures now use typed exceptions. Remaining work is localized UI copy and a
+  final audit for any newly discovered user-facing crash paths.
 - `[ ]` P1: Android mobile and Android TV app entrypoints are monolithic
   enough to slow safe feature work and review. Keep behavior stable while
   extracting screen/state/action boundaries.

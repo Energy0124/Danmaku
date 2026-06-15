@@ -106,9 +106,40 @@ class MyAnimeListOAuthTest {
             )
             service.beginAuthorization("http://localhost:8686/oauth/myanimelist/callback")
 
-            assertFailsWith<IllegalArgumentException> {
+            val error = assertFailsWith<MyAnimeListOAuthException> {
                 service.completeAuthorization(mapOf("code" to "authorization-code", "state" to "wrong-state"))
             }
+            assertEquals("MyAnimeList OAuth state did not match", error.message)
+        }
+    }
+
+    @Test
+    fun reportsCallbackErrorsAsOAuthFailures() {
+        val temp = createTempDirectory("danmaku-mal-oauth-callback")
+        DesktopLibraryCatalogStore(temp.resolve("catalog.db")).use { catalogStore ->
+            val credentialStore = ExternalAnimeCredentialStore(
+                store = catalogStore,
+                secretProtector = ReversingSecretProtector,
+            )
+            credentialStore.saveSettings(
+                myAnimeListClientId = "mal-client",
+                myAnimeListClientSecret = null,
+                myAnimeListAccessToken = null,
+                bangumiBaseUrl = DEFAULT_BANGUMI_BASE_URL,
+                bangumiUserAgent = DEFAULT_BANGUMI_USER_AGENT,
+                bangumiAccessToken = null,
+            )
+            val service = MyAnimeListOAuthService(
+                credentialStore = credentialStore,
+                randomBytes = { size -> ByteArray(size) { index -> index.toByte() } },
+            )
+            service.beginAuthorization("http://localhost:8686/oauth/myanimelist/callback")
+
+            val error = assertFailsWith<MyAnimeListOAuthException> {
+                service.completeAuthorization(mapOf("error" to "access_denied"))
+            }
+
+            assertEquals("MyAnimeList authorization failed: access_denied", error.message)
         }
     }
 
@@ -148,6 +179,25 @@ class MyAnimeListOAuthTest {
         assertEquals("access-token", token.accessToken)
         assertEquals("refresh-token", token.refreshToken)
         assertEquals(2_678_400, token.expiresInSeconds)
+    }
+
+    @Test
+    fun tokenClientReportsMissingAccessTokenAsOAuthFailure() {
+        val client = MyAnimeListOAuthTokenClient.default(
+            httpPost = OAuthHttpPost { _, _, _ -> """{"refresh_token":"refresh-token"}""" },
+        )
+
+        val error = assertFailsWith<MyAnimeListOAuthException> {
+            client.exchangeAuthorizationCode(
+                code = "code",
+                codeVerifier = "verifier",
+                redirectUri = "http://127.0.0.1:8686/oauth/myanimelist/callback",
+                clientId = "client-id",
+                clientSecret = null,
+            )
+        }
+
+        assertEquals("MAL token response omitted access_token", error.message)
     }
 
     private fun URI.queryParameters(): Map<String, String> =

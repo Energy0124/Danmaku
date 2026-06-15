@@ -26,7 +26,7 @@ class MyAnimeListOAuthService(
     ): URI {
         val settings = credentialStore.loadSettings()
         val clientId = settings.myAnimeListClientId
-            ?: error("MyAnimeList client ID is not configured")
+            ?: throw MyAnimeListOAuthException("MyAnimeList client ID is not configured")
         val session = MyAnimeListOAuthSession(
             state = randomToken(24),
             codeVerifier = randomToken(64),
@@ -48,15 +48,17 @@ class MyAnimeListOAuthService(
 
     fun completeAuthorization(queryParameters: Map<String, String>): ExternalAnimeProviderSettings {
         queryParameters["error"]?.let { error ->
-            error("MyAnimeList authorization failed: $error")
+            throw MyAnimeListOAuthException("MyAnimeList authorization failed: $error")
         }
         val code = queryParameters["code"]?.takeIf(String::isNotBlank)
-            ?: error("MyAnimeList callback did not include an authorization code")
+            ?: throw MyAnimeListOAuthException("MyAnimeList callback did not include an authorization code")
         val state = queryParameters["state"]?.takeIf(String::isNotBlank)
-            ?: error("MyAnimeList callback did not include state")
+            ?: throw MyAnimeListOAuthException("MyAnimeList callback did not include state")
         val session = pendingSession.getAndSet(null)
-            ?: error("No MyAnimeList authorization is pending")
-        require(state == session.state) { "MyAnimeList OAuth state did not match" }
+            ?: throw MyAnimeListOAuthException("No MyAnimeList authorization is pending")
+        if (state != session.state) {
+            throw MyAnimeListOAuthException("MyAnimeList OAuth state did not match")
+        }
 
         val token = tokenClient.exchangeAuthorizationCode(
             code = code,
@@ -78,6 +80,11 @@ class MyAnimeListOAuthService(
             .encodeToString(randomBytes(byteCount))
             .take(128)
 }
+
+class MyAnimeListOAuthException(
+    message: String,
+    cause: Throwable? = null,
+) : RuntimeException(message, cause)
 
 data class MyAnimeListOAuthSession(
     val state: String,
@@ -142,7 +149,8 @@ fun interface MyAnimeListOAuthTokenClient {
                 )
                 val root = json.parseToJsonElement(response).asObject()
                 MyAnimeListOAuthToken(
-                    accessToken = root.string("access_token") ?: error("MAL token response omitted access_token"),
+                    accessToken = root.string("access_token")
+                        ?: throw MyAnimeListOAuthException("MAL token response omitted access_token"),
                     refreshToken = root.string("refresh_token"),
                     expiresInSeconds = root.long("expires_in"),
                 )
@@ -174,12 +182,18 @@ private fun HttpURLConnection.readOAuthResponse(): String =
         val responseBody = (if (status >= HttpURLConnection.HTTP_BAD_REQUEST) errorStream else inputStream)
             ?.use { input ->
                 input.readNBytes(1_000_001)
-                    .also { check(it.size <= 1_000_000) }
+                    .also {
+                        if (it.size > 1_000_000) {
+                            throw MyAnimeListOAuthException("MyAnimeList OAuth token response exceeded 1000000 bytes")
+                        }
+                    }
                     .toString(Charsets.UTF_8)
             }
             .orEmpty()
-        check(status in 200..299) {
-            "MyAnimeList OAuth token request failed with HTTP $status: ${responseBody.take(200)}"
+        if (status !in 200..299) {
+            throw MyAnimeListOAuthException(
+                "MyAnimeList OAuth token request failed with HTTP $status: ${responseBody.take(200)}",
+            )
         }
         responseBody
     } finally {

@@ -168,9 +168,19 @@ class DandanplayDanmakuClientTest {
         DandanplayFixture(commentResponse = """{"success":false,"message":"denied","comments":[]}""").use { fixture ->
             val client = DandanplayDanmakuClient(DandanplayConnection(fixture.baseUrl))
 
-            assertFailsWith<IllegalStateException> {
+            val error = assertFailsWith<DandanplayClientException> {
                 client.fetchComments(123450001)
             }
+            assertEquals("dandanplay comment fetch failed: denied", error.message)
+        }
+
+        DandanplayFixture(detailResponse = """{"success":true}""").use { fixture ->
+            val client = DandanplayDanmakuClient(DandanplayConnection(fixture.baseUrl))
+
+            val error = assertFailsWith<DandanplayClientException> {
+                client.fetchAnimeDetails(12345)
+            }
+            assertEquals("dandanplay anime detail response did not include bangumi", error.message)
         }
     }
 
@@ -183,7 +193,7 @@ class DandanplayDanmakuClientTest {
         ).use { fixture ->
             val client = DandanplayDanmakuClient(DandanplayConnection(fixture.baseUrl))
 
-            val error = assertFailsWith<IllegalStateException> {
+            val error = assertFailsWith<DandanplayClientException> {
                 client.match(
                     DandanplayMediaFingerprint(
                         fileName = "Example S01E01.mkv",

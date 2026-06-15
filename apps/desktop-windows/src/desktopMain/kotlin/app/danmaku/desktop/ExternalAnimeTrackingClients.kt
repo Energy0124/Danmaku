@@ -141,11 +141,15 @@ fun interface ExternalAnimeHttpPatch {
                     .build()
                     .send(requestBuilder.build(), HttpResponse.BodyHandlers.ofString(Charsets.UTF_8))
                 val responseBody = response.body()
-                check(responseBody.toByteArray(Charsets.UTF_8).size <= DEFAULT_TRACKING_MAX_RESPONSE_BYTES) {
-                    "external anime tracking response exceeded $DEFAULT_TRACKING_MAX_RESPONSE_BYTES bytes"
+                if (responseBody.toByteArray(Charsets.UTF_8).size > DEFAULT_TRACKING_MAX_RESPONSE_BYTES) {
+                    throw ExternalAnimeProviderException(
+                        "external anime tracking response exceeded $DEFAULT_TRACKING_MAX_RESPONSE_BYTES bytes",
+                    )
                 }
-                check(response.statusCode() in 200..299) {
-                    "external anime tracking request failed with HTTP ${response.statusCode()}: ${responseBody.take(200)}"
+                if (response.statusCode() !in 200..299) {
+                    throw ExternalAnimeProviderException(
+                        "external anime tracking request failed with HTTP ${response.statusCode()}: ${responseBody.take(200)}",
+                    )
                 }
                 responseBody
             }
