@@ -12,7 +12,8 @@ in-app language selector.
 
 - Shell navigation/header chrome, settings section/general-settings labels,
   playback/dialog controls, Home/Library placeholder/count strings, Home
-  dashboard body strings, and Library workspace navigation/filter strings live in
+  dashboard body strings, Library workspace navigation/filter strings, and
+  Library import/inspector action strings live in
   `apps/desktop-windows/src/commonMain/composeResources/values/strings.xml`.
 - Traditional Chinese resources live in
   `apps/desktop-windows/src/commonMain/composeResources/values-zh-rTW/strings.xml`.
@@ -35,7 +36,8 @@ in-app language selector.
 
 ## Next Steps
 
-1. Move remaining Library inspector/import labels into XML string resources.
+1. Move remaining Library metadata/playback action labels into XML string
+   resources.
 2. Move download/provider placeholders, playback body labels, and danmaku panel
    labels into resources.
 3. Introduce a locale-owner strategy for desktop language selection so
