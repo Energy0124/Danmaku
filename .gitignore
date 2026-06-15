@@ -9,6 +9,7 @@
 **/.npm-cache/
 build/
 **/build/
+apps/desktop-windows/bin/
 build-test/
 **/build-test/
 dist/
