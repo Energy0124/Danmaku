@@ -22,11 +22,16 @@ import danmaku.apps.desktop_windows.generated.resources.desktop_enter_fullscreen
 import danmaku.apps.desktop_windows.generated.resources.desktop_exit_fullscreen_action
 import danmaku.apps.desktop_windows.generated.resources.desktop_favorites_slice_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_favorites_summary_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_favorite_episodes_filter_empty_text
+import danmaku.apps.desktop_windows.generated.resources.desktop_favorites_only_action
 import danmaku.apps.desktop_windows.generated.resources.desktop_focus_mode_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_folders_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_forward_ten_seconds_action
 import danmaku.apps.desktop_windows.generated.resources.desktop_forward_thirty_seconds_action
 import danmaku.apps.desktop_windows.generated.resources.desktop_episode_count_short_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_episode_count_summary
+import danmaku.apps.desktop_windows.generated.resources.desktop_episodes_filter_empty_text
+import danmaku.apps.desktop_windows.generated.resources.desktop_external_lists_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_favorite_count_summary
 import danmaku.apps.desktop_windows.generated.resources.desktop_hide_danmaku_panel_action
 import danmaku.apps.desktop_windows.generated.resources.desktop_hide_player_chrome_action
@@ -34,6 +39,8 @@ import danmaku.apps.desktop_windows.generated.resources.desktop_home_action
 import danmaku.apps.desktop_windows.generated.resources.desktop_home_library_empty_text
 import danmaku.apps.desktop_windows.generated.resources.desktop_imports_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_in_progress_caption
+import danmaku.apps.desktop_windows.generated.resources.desktop_indexing_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_lan_browser_ready_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_language_description
 import danmaku.apps.desktop_windows.generated.resources.desktop_language_title
 import danmaku.apps.desktop_windows.generated.resources.desktop_library_action
@@ -42,11 +49,24 @@ import danmaku.apps.desktop_windows.generated.resources.desktop_library_slices_t
 import danmaku.apps.desktop_windows.generated.resources.desktop_library_settings_description
 import danmaku.apps.desktop_windows.generated.resources.desktop_library_snapshot_title
 import danmaku.apps.desktop_windows.generated.resources.desktop_library_step_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_library_host_subtitle
+import danmaku.apps.desktop_windows.generated.resources.desktop_library_search_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_library_toolbar_compact_description
+import danmaku.apps.desktop_windows.generated.resources.desktop_library_toolbar_description
+import danmaku.apps.desktop_windows.generated.resources.desktop_library_view_all_series
+import danmaku.apps.desktop_windows.generated.resources.desktop_library_view_continue
+import danmaku.apps.desktop_windows.generated.resources.desktop_library_view_external_sync
+import danmaku.apps.desktop_windows.generated.resources.desktop_library_view_favorites
+import danmaku.apps.desktop_windows.generated.resources.desktop_library_view_files
+import danmaku.apps.desktop_windows.generated.resources.desktop_library_view_history
+import danmaku.apps.desktop_windows.generated.resources.desktop_library_view_next_up
+import danmaku.apps.desktop_windows.generated.resources.desktop_library_view_paired
 import danmaku.apps.desktop_windows.generated.resources.desktop_last_scan_counts_summary
 import danmaku.apps.desktop_windows.generated.resources.desktop_last_scan_summary
 import danmaku.apps.desktop_windows.generated.resources.desktop_last_scanned_at_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_last_watched_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_loaded_now_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_local_pc_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_matched_groups_caption
 import danmaku.apps.desktop_windows.generated.resources.desktop_media_hub
 import danmaku.apps.desktop_windows.generated.resources.desktop_metadata_label
@@ -63,9 +83,19 @@ import danmaku.apps.desktop_windows.generated.resources.desktop_next_episode_act
 import danmaku.apps.desktop_windows.generated.resources.desktop_next_episode_with_title
 import danmaku.apps.desktop_windows.generated.resources.desktop_next_playable_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_no_resume_queue_text
+import danmaku.apps.desktop_windows.generated.resources.desktop_no_folders_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_no_indexed_series_text
+import danmaku.apps.desktop_windows.generated.resources.desktop_no_in_progress_local_episodes_text
+import danmaku.apps.desktop_windows.generated.resources.desktop_no_library_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_no_next_up_item_text
+import danmaku.apps.desktop_windows.generated.resources.desktop_no_recently_watched_local_episodes_text
+import danmaku.apps.desktop_windows.generated.resources.desktop_no_series_filter_matches_text
 import danmaku.apps.desktop_windows.generated.resources.desktop_now_playing_title
 import danmaku.apps.desktop_windows.generated.resources.desktop_open_media_file_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_open_library_import_panel_action
 import danmaku.apps.desktop_windows.generated.resources.desktop_ovas_specials_slice_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_paired_devices_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_path_sort_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_player_status_prefix
 import danmaku.apps.desktop_windows.generated.resources.desktop_player_focus_mode_description
 import danmaku.apps.desktop_windows.generated.resources.desktop_player_runtime_step_label
@@ -84,7 +114,9 @@ import danmaku.apps.desktop_windows.generated.resources.desktop_recently_added_d
 import danmaku.apps.desktop_windows.generated.resources.desktop_recently_added_title
 import danmaku.apps.desktop_windows.generated.resources.desktop_recently_watched_title
 import danmaku.apps.desktop_windows.generated.resources.desktop_rescan_library
+import danmaku.apps.desktop_windows.generated.resources.desktop_rescan_folders_action
 import danmaku.apps.desktop_windows.generated.resources.desktop_renderer_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_require_subtitles_action
 import danmaku.apps.desktop_windows.generated.resources.desktop_resume_at_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_resume_saved_position_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_resume_value_label
@@ -104,7 +136,11 @@ import danmaku.apps.desktop_windows.generated.resources.desktop_settings_section
 import danmaku.apps.desktop_windows.generated.resources.desktop_settings_title
 import danmaku.apps.desktop_windows.generated.resources.desktop_shell_subtitle
 import danmaku.apps.desktop_windows.generated.resources.desktop_show_danmaku_panel_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_show_all_favorites_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_show_all_subtitles_action
 import danmaku.apps.desktop_windows.generated.resources.desktop_show_player_chrome_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_sort_by_path_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_sort_by_title_action
 import danmaku.apps.desktop_windows.generated.resources.desktop_storage_cleanup_description
 import danmaku.apps.desktop_windows.generated.resources.desktop_saved_episodes_caption
 import danmaku.apps.desktop_windows.generated.resources.desktop_saved_position_label
@@ -112,6 +148,7 @@ import danmaku.apps.desktop_windows.generated.resources.desktop_series_summary_t
 import danmaku.apps.desktop_windows.generated.resources.desktop_start_watching_library_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_subtitle_short_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_subtitles_indexed_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_subtitles_only_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_supported_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_tab_downloads
 import danmaku.apps.desktop_windows.generated.resources.desktop_tab_home
@@ -233,6 +270,43 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
     val resumeSavedPositionLabel = stringResource(Res.string.desktop_resume_saved_position_label)
     val savedPositionLabel = stringResource(Res.string.desktop_saved_position_label)
     val startWatchingLibraryLabel = stringResource(Res.string.desktop_start_watching_library_label)
+    val libraryViewContinue = stringResource(Res.string.desktop_library_view_continue)
+    val libraryViewNextUp = stringResource(Res.string.desktop_library_view_next_up)
+    val libraryViewAllSeries = stringResource(Res.string.desktop_library_view_all_series)
+    val libraryViewHistory = stringResource(Res.string.desktop_library_view_history)
+    val libraryViewFavorites = stringResource(Res.string.desktop_library_view_favorites)
+    val libraryViewFiles = stringResource(Res.string.desktop_library_view_files)
+    val libraryViewExternalSync = stringResource(Res.string.desktop_library_view_external_sync)
+    val libraryViewPaired = stringResource(Res.string.desktop_library_view_paired)
+    val libraryHostSubtitle = stringResource(Res.string.desktop_library_host_subtitle)
+    val librarySearchLabel = stringResource(Res.string.desktop_library_search_label)
+    val libraryToolbarCompactDescription = stringResource(Res.string.desktop_library_toolbar_compact_description)
+    val libraryToolbarDescription = stringResource(Res.string.desktop_library_toolbar_description)
+    val favoriteEpisodesFilterEmptyText = stringResource(Res.string.desktop_favorite_episodes_filter_empty_text)
+    val episodesFilterEmptyText = stringResource(Res.string.desktop_episodes_filter_empty_text)
+    val noIndexedSeriesText = stringResource(Res.string.desktop_no_indexed_series_text)
+    val noSeriesFilterMatchesText = stringResource(Res.string.desktop_no_series_filter_matches_text)
+    val noInProgressLocalEpisodesText = stringResource(Res.string.desktop_no_in_progress_local_episodes_text)
+    val noNextUpItemText = stringResource(Res.string.desktop_no_next_up_item_text)
+    val noRecentlyWatchedLocalEpisodesText = stringResource(Res.string.desktop_no_recently_watched_local_episodes_text)
+    val subtitlesOnlyLabel = stringResource(Res.string.desktop_subtitles_only_label)
+    val pathSortLabel = stringResource(Res.string.desktop_path_sort_label)
+    val requireSubtitlesAction = stringResource(Res.string.desktop_require_subtitles_action)
+    val showAllSubtitlesAction = stringResource(Res.string.desktop_show_all_subtitles_action)
+    val favoritesOnlyAction = stringResource(Res.string.desktop_favorites_only_action)
+    val showAllFavoritesAction = stringResource(Res.string.desktop_show_all_favorites_action)
+    val sortByPathAction = stringResource(Res.string.desktop_sort_by_path_action)
+    val sortByTitleAction = stringResource(Res.string.desktop_sort_by_title_action)
+    val openLibraryImportPanelAction = stringResource(Res.string.desktop_open_library_import_panel_action)
+    val rescanFoldersAction = stringResource(Res.string.desktop_rescan_folders_action)
+    val localPcLabel = stringResource(Res.string.desktop_local_pc_label)
+    val indexingLabel = stringResource(Res.string.desktop_indexing_label)
+    val externalListsLabel = stringResource(Res.string.desktop_external_lists_label)
+    val noLibraryLabel = stringResource(Res.string.desktop_no_library_label)
+    val pairedDevicesLabel = stringResource(Res.string.desktop_paired_devices_label)
+    val lanBrowserReadyLabel = stringResource(Res.string.desktop_lan_browser_ready_label)
+    val foldersLabel = stringResource(Res.string.desktop_folders_label)
+    val noFoldersLabel = stringResource(Res.string.desktop_no_folders_label)
     val recentlyAddedDetailLabel = stringResource(Res.string.desktop_recently_added_detail_label)
     val watchedAtLabel = stringResource(Res.string.desktop_watched_at_label)
     val resumeAtLabel = stringResource(Res.string.desktop_resume_at_label)
@@ -361,6 +435,45 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
             this.resumeSavedPositionLabel = resumeSavedPositionLabel
             this.savedPositionLabel = savedPositionLabel
             this.startWatchingLibraryLabel = startWatchingLibraryLabel
+            libraryViewTitles = mapOf(
+                WindowsLibraryView.CONTINUE_WATCHING to libraryViewContinue,
+                WindowsLibraryView.NEXT_UP to libraryViewNextUp,
+                WindowsLibraryView.ALL_SERIES to libraryViewAllSeries,
+                WindowsLibraryView.RECENTLY_WATCHED to libraryViewHistory,
+                WindowsLibraryView.FAVORITES to libraryViewFavorites,
+                WindowsLibraryView.FILES to libraryViewFiles,
+                WindowsLibraryView.EXTERNAL_SYNC to libraryViewExternalSync,
+                WindowsLibraryView.PAIRED to libraryViewPaired,
+            )
+            this.libraryHostSubtitle = libraryHostSubtitle
+            this.librarySearchLabel = librarySearchLabel
+            this.libraryToolbarCompactDescription = libraryToolbarCompactDescription
+            this.libraryToolbarDescription = libraryToolbarDescription
+            this.favoriteEpisodesFilterEmptyText = favoriteEpisodesFilterEmptyText
+            this.episodesFilterEmptyText = episodesFilterEmptyText
+            this.noIndexedSeriesText = noIndexedSeriesText
+            this.noSeriesFilterMatchesText = noSeriesFilterMatchesText
+            this.noInProgressLocalEpisodesText = noInProgressLocalEpisodesText
+            this.noNextUpItemText = noNextUpItemText
+            this.noRecentlyWatchedLocalEpisodesText = noRecentlyWatchedLocalEpisodesText
+            this.subtitlesOnlyLabel = subtitlesOnlyLabel
+            this.pathSortLabel = pathSortLabel
+            this.requireSubtitlesAction = requireSubtitlesAction
+            this.showAllSubtitlesAction = showAllSubtitlesAction
+            this.favoritesOnlyAction = favoritesOnlyAction
+            this.showAllFavoritesAction = showAllFavoritesAction
+            this.sortByPathAction = sortByPathAction
+            this.sortByTitleAction = sortByTitleAction
+            this.openLibraryImportPanelAction = openLibraryImportPanelAction
+            this.rescanFoldersAction = rescanFoldersAction
+            this.localPcLabel = localPcLabel
+            this.indexingLabel = indexingLabel
+            this.externalListsLabel = externalListsLabel
+            this.noLibraryLabel = noLibraryLabel
+            this.pairedDevicesLabel = pairedDevicesLabel
+            this.lanBrowserReadyLabel = lanBrowserReadyLabel
+            this.foldersLabel = foldersLabel
+            this.noFoldersLabel = noFoldersLabel
             this.recentlyAddedDetailLabel = { indexedAtEpochMs, sizeText ->
                 recentlyAddedDetailLabel.formatResourceString(indexedAtEpochMs.formatEpochTime(), sizeText)
             }
