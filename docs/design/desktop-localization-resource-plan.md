@@ -37,8 +37,7 @@ in-app language selector.
 
 ## Next Steps
 
-1. Move paired-library and remaining tracking/external-sync labels into XML
-   string resources.
+1. Move remaining tracking/external-sync labels into XML string resources.
 2. Introduce a locale-owner strategy for desktop language selection so
    generated resources can be the source of truth independent of system locale.
 3. Remove migrated fields from the Kotlin initializer only after their resource

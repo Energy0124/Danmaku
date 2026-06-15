@@ -354,6 +354,37 @@ import danmaku.apps.desktop_windows.generated.resources.desktop_speed_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_speed_percent_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_subtitle_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_visibility_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_load_into_desktop_controller_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_load_paired_catalog_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_no_subtitles_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_paired_catalog_empty_text
+import danmaku.apps.desktop_windows.generated.resources.desktop_paired_continue_watching_empty_text
+import danmaku.apps.desktop_windows.generated.resources.desktop_paired_continue_watching_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_paired_episodes_count_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_paired_episodes_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_paired_filter_empty_text
+import danmaku.apps.desktop_windows.generated.resources.desktop_paired_library_description
+import danmaku.apps.desktop_windows.generated.resources.desktop_paired_library_error_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_paired_library_server_url_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_paired_library_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_paired_next_up_empty_text
+import danmaku.apps.desktop_windows.generated.resources.desktop_paired_next_up_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_paired_progress_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_paired_server_empty_text
+import danmaku.apps.desktop_windows.generated.resources.desktop_pairing_code_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_prepared_desktop_playback_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_reset_filters_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_resume_value_text
+import danmaku.apps.desktop_windows.generated.resources.desktop_saved_rows_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_search_paired_episodes_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_showing_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_sort_path_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_sort_title_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_source_value_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_start_from_beginning_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_subtitle_count_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_unknown_duration_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_unknown_media_label
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -487,6 +518,37 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
     val libraryViewFiles = stringResource(Res.string.desktop_library_view_files)
     val libraryViewExternalSync = stringResource(Res.string.desktop_library_view_external_sync)
     val libraryViewPaired = stringResource(Res.string.desktop_library_view_paired)
+    val pairedLibraryTitle = stringResource(Res.string.desktop_paired_library_title)
+    val pairedLibraryDescription = stringResource(Res.string.desktop_paired_library_description)
+    val pairedLibraryServerUrlLabel = stringResource(Res.string.desktop_paired_library_server_url_label)
+    val pairingCodeLabel = stringResource(Res.string.desktop_pairing_code_label)
+    val loadPairedCatalogAction = stringResource(Res.string.desktop_load_paired_catalog_action)
+    val pairedLibraryErrorLabel = stringResource(Res.string.desktop_paired_library_error_label)
+    val pairedEpisodesLabel = stringResource(Res.string.desktop_paired_episodes_label)
+    val pairedProgressLabel = stringResource(Res.string.desktop_paired_progress_label)
+    val savedRowsLabel = stringResource(Res.string.desktop_saved_rows_label)
+    val pairedNextUpTitle = stringResource(Res.string.desktop_paired_next_up_title)
+    val pairedNextUpEmptyText = stringResource(Res.string.desktop_paired_next_up_empty_text)
+    val pairedContinueWatchingTitle = stringResource(Res.string.desktop_paired_continue_watching_title)
+    val pairedContinueWatchingEmptyText = stringResource(Res.string.desktop_paired_continue_watching_empty_text)
+    val searchPairedEpisodesLabel = stringResource(Res.string.desktop_search_paired_episodes_label)
+    val sortTitleAction = stringResource(Res.string.desktop_sort_title_action)
+    val sortPathAction = stringResource(Res.string.desktop_sort_path_action)
+    val showingLabel = stringResource(Res.string.desktop_showing_label)
+    val pairedEpisodesCountLabel = stringResource(Res.string.desktop_paired_episodes_count_label)
+    val pairedCatalogEmptyText = stringResource(Res.string.desktop_paired_catalog_empty_text)
+    val pairedServerEmptyText = stringResource(Res.string.desktop_paired_server_empty_text)
+    val pairedFilterEmptyText = stringResource(Res.string.desktop_paired_filter_empty_text)
+    val resetFiltersAction = stringResource(Res.string.desktop_reset_filters_action)
+    val preparedDesktopPlaybackLabel = stringResource(Res.string.desktop_prepared_desktop_playback_label)
+    val sourceValueLabel = stringResource(Res.string.desktop_source_value_label)
+    val resumeValueText = stringResource(Res.string.desktop_resume_value_text)
+    val startFromBeginningLabel = stringResource(Res.string.desktop_start_from_beginning_label)
+    val loadIntoDesktopControllerAction = stringResource(Res.string.desktop_load_into_desktop_controller_action)
+    val unknownMediaLabel = stringResource(Res.string.desktop_unknown_media_label)
+    val unknownDurationLabel = stringResource(Res.string.desktop_unknown_duration_label)
+    val noSubtitlesLabel = stringResource(Res.string.desktop_no_subtitles_label)
+    val subtitleCountLabel = stringResource(Res.string.desktop_subtitle_count_label)
     val libraryHostSubtitle = stringResource(Res.string.desktop_library_host_subtitle)
     val librarySearchLabel = stringResource(Res.string.desktop_library_search_label)
     val libraryToolbarCompactDescription = stringResource(Res.string.desktop_library_toolbar_compact_description)
@@ -852,6 +914,41 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
                 WindowsLibraryView.EXTERNAL_SYNC to libraryViewExternalSync,
                 WindowsLibraryView.PAIRED to libraryViewPaired,
             )
+            this.pairedLibraryTitle = pairedLibraryTitle
+            this.pairedLibraryDescription = pairedLibraryDescription
+            this.pairedLibraryServerUrlLabel = pairedLibraryServerUrlLabel
+            this.pairingCodeLabel = pairingCodeLabel
+            this.loadPairedCatalogAction = loadPairedCatalogAction
+            this.pairedLibraryErrorLabel = { message -> pairedLibraryErrorLabel.formatResourceString(message) }
+            this.pairedEpisodesLabel = { count -> pairedEpisodesLabel.formatResourceString(count) }
+            this.pairedProgressLabel = pairedProgressLabel
+            this.savedRowsLabel = { count -> savedRowsLabel.formatResourceString(count) }
+            this.pairedNextUpTitle = pairedNextUpTitle
+            this.pairedNextUpEmptyText = pairedNextUpEmptyText
+            this.pairedContinueWatchingTitle = pairedContinueWatchingTitle
+            this.pairedContinueWatchingEmptyText = pairedContinueWatchingEmptyText
+            this.searchPairedEpisodesLabel = searchPairedEpisodesLabel
+            this.sortTitleAction = sortTitleAction
+            this.sortPathAction = sortPathAction
+            this.showingLabel = showingLabel
+            this.pairedEpisodesCountLabel = { visible, total ->
+                pairedEpisodesCountLabel.formatResourceString(visible, total)
+            }
+            this.pairedCatalogEmptyText = pairedCatalogEmptyText
+            this.pairedServerEmptyText = pairedServerEmptyText
+            this.pairedFilterEmptyText = pairedFilterEmptyText
+            this.resetFiltersAction = resetFiltersAction
+            this.preparedDesktopPlaybackLabel = { series, episode ->
+                preparedDesktopPlaybackLabel.formatResourceString(series, episode)
+            }
+            this.sourceValueLabel = { value -> sourceValueLabel.formatResourceString(value) }
+            this.resumeValueText = { value -> resumeValueText.formatResourceString(value) }
+            this.startFromBeginningLabel = startFromBeginningLabel
+            this.loadIntoDesktopControllerAction = loadIntoDesktopControllerAction
+            this.unknownMediaLabel = unknownMediaLabel
+            this.unknownDurationLabel = unknownDurationLabel
+            this.noSubtitlesLabel = noSubtitlesLabel
+            this.subtitleCountLabel = { count -> subtitleCountLabel.formatResourceString(count) }
             this.libraryHostSubtitle = libraryHostSubtitle
             this.librarySearchLabel = librarySearchLabel
             this.libraryToolbarCompactDescription = libraryToolbarCompactDescription
