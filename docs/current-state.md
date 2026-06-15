@@ -139,6 +139,27 @@ trusted-LAN clients.
   and tab assembly; ongoing refactoring is moving them behind typed action
   boundaries without changing behavior. The immediate file-size target is met,
   so remaining work should be driven by coupling and testability.
+- A 2026-06-15 full review found no local build/test blocker across Rust,
+  Gradle, and Worker proxy checks. The highest-risk code issues are expected
+  user-facing failure paths that still flow through `error(...)`/`check(...)`
+  in LAN discovery/client calls, provider responses, and indexed-media
+  preparation; these should become typed recoverable failures with localized UI
+  copy before release.
+- Android mobile and Android TV still have very large `MainActivity.kt`
+  entrypoints. They compile and have instrumentation-source coverage, but they
+  should be split into shell/state/action and screen files before more feature
+  work lands there.
+- Desktop localization now routes through generated resources, but the
+  duplicated Kotlin fallback initializer remains. It should stay until
+  screenshot QA passes, then be reduced so future string changes do not require
+  editing both XML resources and fallback Kotlin text.
+- From an anime-viewer workflow perspective, the current foundation covers
+  local library playback, posters/metadata, progress, favorites, external
+  mapping/sync, and danmaku basics. Missing high-value viewer workflows include
+  watch status lists, seasonal/release-calendar views, OP/ED or recap skip
+  markers, per-series subtitle/audio preferences, richer danmaku filtering and
+  blocklists, duplicate/missing-episode library cleanup, external list import,
+  and custom collections/tags.
 
 ## Not Implemented
 
@@ -155,6 +176,19 @@ Recent local checks during the 2026-06-15 desktop localization refactor work:
 ```powershell
 .\gradlew.bat --no-daemon :apps:desktop-windows:compileKotlinDesktop
 .\gradlew.bat --no-daemon :apps:desktop-windows:desktopTest
+git diff --check
+```
+
+Full project review checks run on 2026-06-15:
+
+```powershell
+cargo fmt --all --check
+cargo test --workspace
+.\gradlew.bat --no-daemon :shared:domain:jvmTest :shared:library-client:jvmTest :shared:library-server-core:jvmTest :apps:desktop-windows:desktopTest :shared:library-client-android:testDebugUnitTest :shared:player-android-media3:assembleDebugAndroidTest :apps:android-mobile:assembleDebug :apps:android-tv:assembleDebug
+Push-Location tools\dandanplay-worker-proxy
+npm run typecheck
+npm test
+Pop-Location
 git diff --check
 ```
 

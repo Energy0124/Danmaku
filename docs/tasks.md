@@ -11,6 +11,11 @@ Status legend:
 
 ## Active Priorities
 
+- `[~]` Resolve P1 review findings from the 2026-06-15 full project review:
+  convert expected LAN/provider/media failures away from hard
+  `error(...)`/`check(...)` paths, split oversized Android entrypoints, and
+  close release-blocking QA gaps for Windows desktop, Android mobile/tablet,
+  Android TV, localization, and live external sync.
 - `[~]` Align the desktop Home page and shared app shell with the new
   header/navigation/status-column design direction.
 - `[~]` Extend the desktop page implementation toward the Library, Player,
@@ -56,19 +61,41 @@ Status legend:
 
 ## Next Engineering Work
 
+- `[ ]` P1: Replace expected user-facing crashes with recoverable typed
+  failures and localized UI states. Cover LAN discovery with no PC found,
+  LAN client non-OK HTTP responses, missing indexed media files, provider
+  redirect/response parse failures, and MAL OAuth callback failures.
+- `[ ]` P1: Split Android mobile `MainActivity.kt` into focused app shell,
+  connection/library, home, playback, and shared UI/state files before adding
+  more mobile features.
+- `[ ]` P1: Split Android TV `MainActivity.kt` into focused TV shell,
+  PC connection, home, library/search/favorites, playback controls, and shared
+  focus/visual primitives before adding more TV features.
+- `[ ]` P1: Add connected Android test runs to the release checklist and record
+  the required device/emulator matrix for mobile playback, LAN sync, TV focus,
+  and Media3 streaming.
 - `[ ]` Decide whether external anime sync failures should be persisted in the
   desktop database or kept session-only.
 - `[ ]` Add durable external list entry fetch/readback so sync plans can compare
   current provider state before writing.
-- `[ ]` Add user-facing danmaku offset/filter controls over the real playback
-  clock.
+- `[ ]` Extend user-facing danmaku controls beyond the current desktop offset
+  path: add richer filters/blocklists/presets and bring quick controls to
+  mobile and TV where practical.
 - `[ ]` Define authorized download source contracts and queue execution
   behavior.
 - `[ ]` Add QA scripts or checklists for Windows fullscreen/4K/hardware decode.
 - `[ ]` Add localization QA checks for English and `zh-TW` screenshots on
   dense desktop, mobile, and TV surfaces.
-- `[ ]` Run English and `zh-TW` screenshot QA for desktop generated resources,
-  then remove duplicated migrated fallback text from the Kotlin initializer.
+- `[ ]` P2: Run English and `zh-TW` screenshot QA for desktop generated
+  resources, then remove duplicated migrated fallback text from the Kotlin
+  initializer.
+- `[ ]` P2: After cross-platform localization QA passes, audit residual
+  hardcoded mobile/TV/desktop literals and move user-visible copy into the
+  platform resource layers.
+- `[ ]` P2: Continue reducing desktop orchestration hotspots by extracting
+  shell lifecycle/window effects, catalog-store persistence helpers, Home tab
+  presentation, and remaining large library/settings/playback surfaces where
+  it improves testability.
 - `[ ]` Add release checklist automation for Android APKs and Windows portable
   archives.
 - `[x]` Move the remaining desktop player surface out of `Main.kt`; playback
@@ -87,6 +114,67 @@ Status legend:
 - [Desktop pages UI tasks](design/desktop-ui-pages/desktop-pages-ui-tasks.md)
 - [Android mobile and TV library UI tasks](design/android-mobile-tv-library-ui-tasks.md)
 - [External anime mapping and tracking tasks](design/external-anime-tracking-tasks.md)
+
+## Review Findings
+
+Full review date: 2026-06-15.
+
+- `[x]` P0: No local build, Rust test, Gradle JVM/Android/desktop test, or
+  Worker proxy typecheck/test blocker found in the review run.
+- `[ ]` P1: Expected failures still use crash-style control flow in user-facing
+  paths. Examples include no LAN server discovered on mobile/TV, LAN client
+  non-OK HTTP responses, missing indexed media during desktop playback prep,
+  provider redirect/parse assumptions, and MAL OAuth callback errors.
+- `[ ]` P1: Android mobile and Android TV app entrypoints are monolithic
+  enough to slow safe feature work and review. Keep behavior stable while
+  extracting screen/state/action boundaries.
+- `[ ]` P1: Release confidence still depends on manual QA for Windows
+  fullscreen/resize/4K/hardware decoding, Android phone/tablet layouts,
+  Android TV 1080p/4K focus traversal, desktop localization screenshots, and
+  live MAL/Bangumi sync.
+- `[ ]` P1: Download queue storage exists, but authorized download source
+  contracts and queue execution behavior are not implemented.
+- `[ ]` P1: External sync can write updates, but provider readback/durable
+  failure handling still needs product decisions and implementation.
+- `[ ]` P2: Desktop localization resource migration is functionally wired, but
+  duplicated fallback Kotlin strings remain until screenshot QA proves the XML
+  resources.
+- `[ ]` P2: Desktop code is much healthier than the original monolith, but
+  `DesktopShell.kt`, `DesktopLibraryCatalogStore.kt`, Home, Library,
+  Settings, Playback, and string-resource adapter files remain review-heavy.
+- `[ ]` P2: Mobile/TV unit-test tasks are sparse or `NO-SOURCE` in places;
+  keep adding JVM/unit-level coverage for presentation/state logic as it is
+  extracted from Compose entrypoints.
+
+## Anime Lover Feature Backlog
+
+- `[ ]` P1: Add first-class watch status workflows: Plan to Watch, Watching,
+  Completed, Dropped, On Hold, Rewatching, score/rating, private notes, and
+  status filters across desktop/mobile/TV.
+- `[ ]` P1: Add external list import/readback so MAL/Bangumi can seed local
+  watch status, watched episode counts, scores, and conflicts before writes.
+- `[ ]` P1: Add release-calendar and seasonal anime views for "new this week",
+  airing day, next episode, season/year, and recently updated local episodes.
+- `[ ]` P1: Add library quality tools for duplicate files, missing episodes,
+  suspicious episode numbering, unmatched files, bad filenames, and local
+  series split/merge review.
+- `[ ]` P1: Add per-series playback preferences for preferred subtitle track,
+  audio track, subtitle requirement, playback speed, danmaku visibility, and
+  resume/autonext behavior.
+- `[ ]` P2: Add OP/ED/recap skip marker support with manual markers first,
+  then persisted per-series/per-episode reuse.
+- `[ ]` P2: Add richer danmaku controls: blocklist keywords/users, density
+  presets, style presets, per-series offset, quiet mode, and quick toggle
+  parity on desktop/mobile/TV.
+- `[ ]` P2: Improve anime metadata display with alternate title preferences
+  (Japanese, romaji, English, Chinese), studios, genres/tags, source material,
+  year/season, episode count, and specials/OVA/movie ordering.
+- `[ ]` P2: Add custom collections and smart filters such as Favorites,
+  Watch Later, by studio, by season, by tag, unwatched, almost finished,
+  downloaded/imported, and has local subtitles.
+- `[ ]` P2: Add notification-style surfaces for newly indexed episodes,
+  metadata refresh failures, external sync conflicts, and PC/server
+  availability while keeping local-first privacy defaults.
 
 ## Quality Gates
 
