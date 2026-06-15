@@ -191,14 +191,13 @@ internal class DesktopShellLibraryActions(
                 runCatching {
                     val animeId = animeMetadataResolver.cachedDandanplayAnimeIdForItem(item)
                         ?: run {
-                            val mediaPath = library.filesById[item.id]
-                                ?: error("Indexed media file is missing for ${item.id}")
+                            val mediaPath = library.requireMediaPath(item)
                             dandanplayDanmakuResolver
                                 .resolve(mediaId = item.id, mediaPath = mediaPath, forceRefresh = false)
                                 .match
                                 ?.animeId
                         }
-                        ?: error("dandanplay found no anime match for ${item.id}")
+                        ?: throw DesktopUserActionException("dandanplay found no anime match for ${item.id}")
                     animeMetadataResolver.refreshDandanplayMetadataForItem(
                         item = item,
                         animeId = animeId,

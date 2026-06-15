@@ -4,7 +4,6 @@ import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.PlaybackSource
 import app.danmaku.domain.resumePositionMs
 import app.danmaku.server.PlaybackProgressStore
-import java.nio.file.Files
 
 data class DesktopLocalPlaybackPreparation(
     val item: LibraryMediaItem,
@@ -20,11 +19,7 @@ class DesktopLocalPlaybackPreparer(
         library: IndexedLocalLibrary,
         item: LibraryMediaItem,
     ): DesktopLocalPlaybackPreparation {
-        val file = library.filesById[item.id]
-            ?: error("Indexed media file is missing for ${item.id}")
-        require(Files.isRegularFile(file)) {
-            "Indexed media file no longer exists: ${file.toAbsolutePath().normalize()}"
-        }
+        val file = library.requireMediaPath(item)
         return DesktopLocalPlaybackPreparation(
             item = item,
             source = PlaybackSource.LocalFile(file.toAbsolutePath().normalize().toString()),

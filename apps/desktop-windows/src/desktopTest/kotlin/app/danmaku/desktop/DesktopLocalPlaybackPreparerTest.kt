@@ -91,9 +91,33 @@ class DesktopLocalPlaybackPreparerTest {
         val item = library.catalog.items.single()
         episode.deleteExisting()
 
-        assertFailsWith<IllegalArgumentException> {
+        val failure = assertFailsWith<DesktopUserActionException> {
             DesktopLocalPlaybackPreparer(InMemoryPlaybackProgressStore()).prepare(library, item)
         }
+
+        assertEquals(
+            "Indexed media file no longer exists: ${episode.toAbsolutePath().normalize()}",
+            failure.message,
+        )
+
+        temp.toFile().deleteRecursively()
+    }
+
+    @Test
+    fun rejectsCatalogItemsWithoutIndexedFileMappings() {
+        val temp = createTempDirectory("danmaku-local-playback")
+        val episode = temp.resolve("Example Show").createDirectories()
+            .resolve("Episode 01.mkv")
+        episode.writeBytes(byteArrayOf(1, 2, 3))
+        val library = LocalMediaLibraryIndexer.index(temp)
+        val item = library.catalog.items.single()
+        val libraryWithoutFile = library.copy(filesById = emptyMap())
+
+        val failure = assertFailsWith<DesktopUserActionException> {
+            DesktopLocalPlaybackPreparer(InMemoryPlaybackProgressStore()).prepare(libraryWithoutFile, item)
+        }
+
+        assertEquals("Indexed media file is missing for ${item.id}", failure.message)
 
         temp.toFile().deleteRecursively()
     }

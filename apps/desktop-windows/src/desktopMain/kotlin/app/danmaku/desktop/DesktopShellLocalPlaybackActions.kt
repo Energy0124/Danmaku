@@ -62,8 +62,7 @@ internal class DesktopShellLocalPlaybackActions(
                             dandanplayError = null,
                         )
                     } else {
-                        val mediaPath = library.filesById[item.id]
-                            ?: error("Indexed media file is missing for ${item.id}")
+                        val mediaPath = library.requireMediaPath(item)
                         val dandanplayResult = runCatching {
                             dandanplayDanmakuResolver.resolve(
                                 mediaId = item.id,
@@ -235,8 +234,7 @@ internal class DesktopShellLocalPlaybackActions(
             )
             val result = withContext(Dispatchers.IO) {
                 runCatching {
-                    val mediaPath = library.filesById[item.id]
-                        ?: error("Indexed media file is missing for ${item.id}")
+                    val mediaPath = library.requireMediaPath(item)
                     dandanplayDanmakuResolver.resolveCached(item.id, mediaPath)
                 }
             }
