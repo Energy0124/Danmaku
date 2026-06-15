@@ -276,6 +276,50 @@ import danmaku.apps.desktop_windows.generated.resources.desktop_updated_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_webhook_header_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_webhook_token_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_webhook_url_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_api_base_url_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_app_id_optional_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_app_secret_keep_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_app_secret_optional_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_bangumi_access_token_keep_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_bangumi_access_token_optional_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_bangumi_api_base_url_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_bangumi_test_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_bangumi_user_agent_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_bangumi_user_agent_required_error
+import danmaku.apps.desktop_windows.generated.resources.desktop_cache_expiry_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_cache_max_age_days_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_clean_expired_cache_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_clean_expired_dandanplay_text
+import danmaku.apps.desktop_windows.generated.resources.desktop_clean_expired_dandanplay_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_clear_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_clear_bangumi_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_clear_bangumi_text
+import danmaku.apps.desktop_windows.generated.resources.desktop_clear_bangumi_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_clear_dandanplay_text
+import danmaku.apps.desktop_windows.generated.resources.desktop_clear_dandanplay_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_clear_my_anime_list_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_clear_my_anime_list_text
+import danmaku.apps.desktop_windows.generated.resources.desktop_clear_my_anime_list_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_connect_my_anime_list_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_credential_auth_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_current_auth_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_dandanplay_providers_description
+import danmaku.apps.desktop_windows.generated.resources.desktop_dandanplay_providers_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_external_anime_lists_description
+import danmaku.apps.desktop_windows.generated.resources.desktop_external_anime_lists_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_last_test_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_my_anime_list_access_token_keep_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_my_anime_list_access_token_optional_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_my_anime_list_client_id_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_my_anime_list_client_secret_keep_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_my_anime_list_client_secret_optional_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_my_anime_list_test_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_save_dandanplay_settings_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_save_external_lists_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_signed_auth_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_test_bangumi_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_test_my_anime_list_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_test_saved_action
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -538,6 +582,54 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
     val retryAction = stringResource(Res.string.desktop_retry_action)
     val cancelAction = stringResource(Res.string.desktop_cancel_action)
     val downloadExecutionPlannedText = stringResource(Res.string.desktop_download_execution_planned_text)
+    val dandanplayProvidersTitle = stringResource(Res.string.desktop_dandanplay_providers_title)
+    val dandanplayProvidersDescription = stringResource(Res.string.desktop_dandanplay_providers_description)
+    val cacheExpiryLabel = stringResource(Res.string.desktop_cache_expiry_label)
+    val lastTestLabel = stringResource(Res.string.desktop_last_test_label)
+    val apiBaseUrlLabel = stringResource(Res.string.desktop_api_base_url_label)
+    val appIdOptionalLabel = stringResource(Res.string.desktop_app_id_optional_label)
+    val appSecretKeepLabel = stringResource(Res.string.desktop_app_secret_keep_label)
+    val appSecretOptionalLabel = stringResource(Res.string.desktop_app_secret_optional_label)
+    val cacheMaxAgeDaysLabel = stringResource(Res.string.desktop_cache_max_age_days_label)
+    val signedAuthAction = stringResource(Res.string.desktop_signed_auth_action)
+    val credentialAuthAction = stringResource(Res.string.desktop_credential_auth_action)
+    val currentAuthLabel = stringResource(Res.string.desktop_current_auth_label)
+    val saveDandanplaySettingsAction = stringResource(Res.string.desktop_save_dandanplay_settings_action)
+    val testSavedAction = stringResource(Res.string.desktop_test_saved_action)
+    val clearAction = stringResource(Res.string.desktop_clear_action)
+    val cleanExpiredCacheAction = stringResource(Res.string.desktop_clean_expired_cache_action)
+    val clearDandanplayTitle = stringResource(Res.string.desktop_clear_dandanplay_title)
+    val clearDandanplayText = stringResource(Res.string.desktop_clear_dandanplay_text)
+    val cleanExpiredDandanplayTitle = stringResource(Res.string.desktop_clean_expired_dandanplay_title)
+    val cleanExpiredDandanplayText = stringResource(Res.string.desktop_clean_expired_dandanplay_text)
+    val externalAnimeListsTitle = stringResource(Res.string.desktop_external_anime_lists_title)
+    val externalAnimeListsDescription = stringResource(Res.string.desktop_external_anime_lists_description)
+    val myAnimeListTestLabel = stringResource(Res.string.desktop_my_anime_list_test_label)
+    val bangumiTestLabel = stringResource(Res.string.desktop_bangumi_test_label)
+    val myAnimeListClientIdLabel = stringResource(Res.string.desktop_my_anime_list_client_id_label)
+    val myAnimeListAccessTokenKeepLabel =
+        stringResource(Res.string.desktop_my_anime_list_access_token_keep_label)
+    val myAnimeListAccessTokenOptionalLabel =
+        stringResource(Res.string.desktop_my_anime_list_access_token_optional_label)
+    val myAnimeListClientSecretKeepLabel =
+        stringResource(Res.string.desktop_my_anime_list_client_secret_keep_label)
+    val myAnimeListClientSecretOptionalLabel =
+        stringResource(Res.string.desktop_my_anime_list_client_secret_optional_label)
+    val bangumiApiBaseUrlLabel = stringResource(Res.string.desktop_bangumi_api_base_url_label)
+    val bangumiUserAgentLabel = stringResource(Res.string.desktop_bangumi_user_agent_label)
+    val bangumiUserAgentRequiredError = stringResource(Res.string.desktop_bangumi_user_agent_required_error)
+    val bangumiAccessTokenKeepLabel = stringResource(Res.string.desktop_bangumi_access_token_keep_label)
+    val bangumiAccessTokenOptionalLabel = stringResource(Res.string.desktop_bangumi_access_token_optional_label)
+    val saveExternalListsAction = stringResource(Res.string.desktop_save_external_lists_action)
+    val connectMyAnimeListAction = stringResource(Res.string.desktop_connect_my_anime_list_action)
+    val testMyAnimeListAction = stringResource(Res.string.desktop_test_my_anime_list_action)
+    val testBangumiAction = stringResource(Res.string.desktop_test_bangumi_action)
+    val clearMyAnimeListAction = stringResource(Res.string.desktop_clear_my_anime_list_action)
+    val clearBangumiAction = stringResource(Res.string.desktop_clear_bangumi_action)
+    val clearMyAnimeListTitle = stringResource(Res.string.desktop_clear_my_anime_list_title)
+    val clearMyAnimeListText = stringResource(Res.string.desktop_clear_my_anime_list_text)
+    val clearBangumiTitle = stringResource(Res.string.desktop_clear_bangumi_title)
+    val clearBangumiText = stringResource(Res.string.desktop_clear_bangumi_text)
     val recentlyAddedDetailLabel = stringResource(Res.string.desktop_recently_added_detail_label)
     val watchedAtLabel = stringResource(Res.string.desktop_watched_at_label)
     val resumeAtLabel = stringResource(Res.string.desktop_resume_at_label)
@@ -824,6 +916,50 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
             this.retryAction = retryAction
             this.cancelAction = cancelAction
             this.downloadExecutionPlannedText = downloadExecutionPlannedText
+            this.dandanplayProvidersTitle = dandanplayProvidersTitle
+            this.dandanplayProvidersDescription = dandanplayProvidersDescription
+            this.cacheExpiryLabel = cacheExpiryLabel
+            this.lastTestLabel = lastTestLabel
+            this.apiBaseUrlLabel = apiBaseUrlLabel
+            this.appIdOptionalLabel = appIdOptionalLabel
+            this.appSecretKeepLabel = appSecretKeepLabel
+            this.appSecretOptionalLabel = appSecretOptionalLabel
+            this.cacheMaxAgeDaysLabel = cacheMaxAgeDaysLabel
+            this.signedAuthAction = signedAuthAction
+            this.credentialAuthAction = credentialAuthAction
+            this.currentAuthLabel = { mode -> currentAuthLabel.formatResourceString(mode) }
+            this.saveDandanplaySettingsAction = saveDandanplaySettingsAction
+            this.testSavedAction = testSavedAction
+            this.clearAction = clearAction
+            this.cleanExpiredCacheAction = cleanExpiredCacheAction
+            this.clearDandanplayTitle = clearDandanplayTitle
+            this.clearDandanplayText = clearDandanplayText
+            this.cleanExpiredDandanplayTitle = cleanExpiredDandanplayTitle
+            this.cleanExpiredDandanplayText = cleanExpiredDandanplayText
+            this.externalAnimeListsTitle = externalAnimeListsTitle
+            this.externalAnimeListsDescription = externalAnimeListsDescription
+            this.myAnimeListTestLabel = myAnimeListTestLabel
+            this.bangumiTestLabel = bangumiTestLabel
+            this.myAnimeListClientIdLabel = myAnimeListClientIdLabel
+            this.myAnimeListAccessTokenKeepLabel = myAnimeListAccessTokenKeepLabel
+            this.myAnimeListAccessTokenOptionalLabel = myAnimeListAccessTokenOptionalLabel
+            this.myAnimeListClientSecretKeepLabel = myAnimeListClientSecretKeepLabel
+            this.myAnimeListClientSecretOptionalLabel = myAnimeListClientSecretOptionalLabel
+            this.bangumiApiBaseUrlLabel = bangumiApiBaseUrlLabel
+            this.bangumiUserAgentLabel = bangumiUserAgentLabel
+            this.bangumiUserAgentRequiredError = bangumiUserAgentRequiredError
+            this.bangumiAccessTokenKeepLabel = bangumiAccessTokenKeepLabel
+            this.bangumiAccessTokenOptionalLabel = bangumiAccessTokenOptionalLabel
+            this.saveExternalListsAction = saveExternalListsAction
+            this.connectMyAnimeListAction = connectMyAnimeListAction
+            this.testMyAnimeListAction = testMyAnimeListAction
+            this.testBangumiAction = testBangumiAction
+            this.clearMyAnimeListAction = clearMyAnimeListAction
+            this.clearBangumiAction = clearBangumiAction
+            this.clearMyAnimeListTitle = clearMyAnimeListTitle
+            this.clearMyAnimeListText = clearMyAnimeListText
+            this.clearBangumiTitle = clearBangumiTitle
+            this.clearBangumiText = clearBangumiText
             this.recentlyAddedDetailLabel = { indexedAtEpochMs, sizeText ->
                 recentlyAddedDetailLabel.formatResourceString(indexedAtEpochMs.formatEpochTime(), sizeText)
             }

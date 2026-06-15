@@ -63,7 +63,8 @@ trusted-LAN clients.
   labels, playback/dialog control strings, Home/Library placeholder/count
   strings, Home dashboard body labels, Library workspace navigation/filter
   labels, Library import/inspector action labels, Library metadata/playback
-  inspector labels, and Downloads queue/import labels with XML templates, using
+  inspector labels, Downloads queue/import labels, and provider settings labels
+  with XML templates, using
   `commonMain/composeResources/values` and `values-zh-rTW`; the adapter keeps
   selected-language fallback strings when Compose's current locale does not
   match the selected desktop language.
@@ -128,9 +129,10 @@ trusted-LAN clients.
   playback/dialog controls, Home/Library placeholder/count strings, Home
   dashboard body labels, Library workspace navigation/filter labels, and Library
   import/inspector action labels, Library metadata/playback inspector labels,
-  and Downloads queue/import labels have started moving to generated Compose
-  resources, but broad resource extraction, app-language-to-resource locale
-  control, remaining body-label migration, and screenshot QA are not complete.
+  Downloads queue/import labels, and provider settings labels have started
+  moving to generated Compose resources, but broad resource extraction,
+  app-language-to-resource locale control, remaining body-label migration, and
+  screenshot QA are not complete.
 - Android mobile/tablet layouts need final viewport QA on phone and tablet
   sizes.
 - Android TV layouts need 1080p and 4K safe-area/focus QA on real or emulated
