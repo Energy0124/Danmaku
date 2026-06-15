@@ -301,25 +301,100 @@ import danmaku.apps.desktop_windows.generated.resources.desktop_clear_my_anime_l
 import danmaku.apps.desktop_windows.generated.resources.desktop_clear_my_anime_list_text
 import danmaku.apps.desktop_windows.generated.resources.desktop_clear_my_anime_list_title
 import danmaku.apps.desktop_windows.generated.resources.desktop_connect_my_anime_list_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_action_header
+import danmaku.apps.desktop_windows.generated.resources.desktop_anime_id_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_close_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_confidence_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_conflict_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_conflict_status_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_conflicts_summary_caption
+import danmaku.apps.desktop_windows.generated.resources.desktop_conflicts_summary_title
 import danmaku.apps.desktop_windows.generated.resources.desktop_credential_auth_action
 import danmaku.apps.desktop_windows.generated.resources.desktop_current_auth_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_dandanplay_providers_description
 import danmaku.apps.desktop_windows.generated.resources.desktop_dandanplay_providers_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_dry_run_updates_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_external_ahead_caption
 import danmaku.apps.desktop_windows.generated.resources.desktop_external_anime_lists_description
 import danmaku.apps.desktop_windows.generated.resources.desktop_external_anime_lists_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_external_provider_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_external_watched_episodes_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_external_watched_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_failed_attempts_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_failures_summary_caption
+import danmaku.apps.desktop_windows.generated.resources.desktop_failures_summary_title
 import danmaku.apps.desktop_windows.generated.resources.desktop_last_test_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_local_progress_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_local_series_header
+import danmaku.apps.desktop_windows.generated.resources.desktop_local_series_id_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_local_watched_episodes_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_mapped_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_mapped_summary_caption
+import danmaku.apps.desktop_windows.generated.resources.desktop_mapped_summary_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_mapping_checks_caption
+import danmaku.apps.desktop_windows.generated.resources.desktop_mapping_inspector_empty_text
+import danmaku.apps.desktop_windows.generated.resources.desktop_mapping_inspector_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_missing_local_series_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_more_skipped_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_my_anime_list_access_token_keep_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_my_anime_list_access_token_optional_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_my_anime_list_client_id_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_my_anime_list_client_saved_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_my_anime_list_client_secret_keep_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_my_anime_list_client_secret_optional_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_my_anime_list_test_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_needs_mapping_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_next_retry_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_no_external_progress_conflicts_text
+import danmaku.apps.desktop_windows.generated.resources.desktop_no_external_progress_updates_text
+import danmaku.apps.desktop_windows.generated.resources.desktop_no_external_sync_library_text
+import danmaku.apps.desktop_windows.generated.resources.desktop_no_link_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_no_provider_writes_ready_text
+import danmaku.apps.desktop_windows.generated.resources.desktop_no_sync_failures_text
+import danmaku.apps.desktop_windows.generated.resources.desktop_not_linked_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_open_library_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_poster_loading_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_poster_unavailable_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_provider_header
+import danmaku.apps.desktop_windows.generated.resources.desktop_provider_progress_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_provider_updates_caption
+import danmaku.apps.desktop_windows.generated.resources.desktop_provider_url_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_readback_pending_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_ready_status_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_ready_summary_caption
+import danmaku.apps.desktop_windows.generated.resources.desktop_ready_summary_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_refresh_provider_state_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_remove_mapping_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_resolve_conflict_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_retry_at_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_review_conflict_action
 import danmaku.apps.desktop_windows.generated.resources.desktop_save_dandanplay_settings_action
 import danmaku.apps.desktop_windows.generated.resources.desktop_save_external_lists_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_search_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_searching_action
 import danmaku.apps.desktop_windows.generated.resources.desktop_signed_auth_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_skipped_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_status_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_sync_all_ready_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_sync_attempt_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_sync_failures_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_sync_ready_updates_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_sync_selected_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_syncing_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_syncing_updates_action
 import danmaku.apps.desktop_windows.generated.resources.desktop_test_bangumi_action
 import danmaku.apps.desktop_windows.generated.resources.desktop_test_my_anime_list_action
 import danmaku.apps.desktop_windows.generated.resources.desktop_test_saved_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_tracking_credentials_needed_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_tracking_no_library_text
+import danmaku.apps.desktop_windows.generated.resources.desktop_tracking_planned_controls_text
+import danmaku.apps.desktop_windows.generated.resources.desktop_tracking_rows_empty_text
+import danmaku.apps.desktop_windows.generated.resources.desktop_tracking_sync_preview_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_tracking_table_description
+import danmaku.apps.desktop_windows.generated.resources.desktop_tracking_table_title
+import danmaku.apps.desktop_windows.generated.resources.desktop_use_action
+import danmaku.apps.desktop_windows.generated.resources.desktop_watched_count_label
+import danmaku.apps.desktop_windows.generated.resources.desktop_writes_ready_updates_text
 import danmaku.apps.desktop_windows.generated.resources.desktop_area_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_audio_label
 import danmaku.apps.desktop_windows.generated.resources.desktop_cache_label
@@ -760,6 +835,81 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
     val clearMyAnimeListText = stringResource(Res.string.desktop_clear_my_anime_list_text)
     val clearBangumiTitle = stringResource(Res.string.desktop_clear_bangumi_title)
     val clearBangumiText = stringResource(Res.string.desktop_clear_bangumi_text)
+    val myAnimeListClientSavedLabel = stringResource(Res.string.desktop_my_anime_list_client_saved_label)
+    val trackingCredentialsNeededLabel = stringResource(Res.string.desktop_tracking_credentials_needed_label)
+    val mappedSummaryTitle = stringResource(Res.string.desktop_mapped_summary_title)
+    val mappedSummaryCaption = stringResource(Res.string.desktop_mapped_summary_caption)
+    val readySummaryTitle = stringResource(Res.string.desktop_ready_summary_title)
+    val readySummaryCaption = stringResource(Res.string.desktop_ready_summary_caption)
+    val conflictsSummaryTitle = stringResource(Res.string.desktop_conflicts_summary_title)
+    val conflictsSummaryCaption = stringResource(Res.string.desktop_conflicts_summary_caption)
+    val failuresSummaryTitle = stringResource(Res.string.desktop_failures_summary_title)
+    val failuresSummaryCaption = stringResource(Res.string.desktop_failures_summary_caption)
+    val trackingSyncPreviewTitle = stringResource(Res.string.desktop_tracking_sync_preview_title)
+    val openLibraryAction = stringResource(Res.string.desktop_open_library_action)
+    val noExternalSyncLibraryText = stringResource(Res.string.desktop_no_external_sync_library_text)
+    val providerUpdatesCaption = stringResource(Res.string.desktop_provider_updates_caption)
+    val externalAheadCaption = stringResource(Res.string.desktop_external_ahead_caption)
+    val mappingChecksCaption = stringResource(Res.string.desktop_mapping_checks_caption)
+    val syncingUpdatesAction = stringResource(Res.string.desktop_syncing_updates_action)
+    val syncReadyUpdatesAction = stringResource(Res.string.desktop_sync_ready_updates_action)
+    val noProviderWritesReadyText = stringResource(Res.string.desktop_no_provider_writes_ready_text)
+    val writesReadyUpdatesText = stringResource(Res.string.desktop_writes_ready_updates_text)
+    val dryRunUpdatesTitle = stringResource(Res.string.desktop_dry_run_updates_title)
+    val noExternalProgressUpdatesText = stringResource(Res.string.desktop_no_external_progress_updates_text)
+    val noExternalProgressConflictsText = stringResource(Res.string.desktop_no_external_progress_conflicts_text)
+    val syncFailuresTitle = stringResource(Res.string.desktop_sync_failures_title)
+    val noSyncFailuresText = stringResource(Res.string.desktop_no_sync_failures_text)
+    val moreSkippedLabel = stringResource(Res.string.desktop_more_skipped_label)
+    val localWatchedEpisodesLabel = stringResource(Res.string.desktop_local_watched_episodes_label)
+    val externalWatchedEpisodesLabel = stringResource(Res.string.desktop_external_watched_episodes_label)
+    val syncAttemptLabel = stringResource(Res.string.desktop_sync_attempt_label)
+    val trackingNoLibraryText = stringResource(Res.string.desktop_tracking_no_library_text)
+    val trackingTableTitle = stringResource(Res.string.desktop_tracking_table_title)
+    val trackingTableDescription = stringResource(Res.string.desktop_tracking_table_description)
+    val syncAllReadyAction = stringResource(Res.string.desktop_sync_all_ready_action)
+    val syncingAction = stringResource(Res.string.desktop_syncing_action)
+    val trackingRowsEmptyText = stringResource(Res.string.desktop_tracking_rows_empty_text)
+    val localSeriesHeader = stringResource(Res.string.desktop_local_series_header)
+    val providerHeader = stringResource(Res.string.desktop_provider_header)
+    val actionHeader = stringResource(Res.string.desktop_action_header)
+    val mappingInspectorTitle = stringResource(Res.string.desktop_mapping_inspector_title)
+    val mappingInspectorEmptyText = stringResource(Res.string.desktop_mapping_inspector_empty_text)
+    val animeIdLabel = stringResource(Res.string.desktop_anime_id_label)
+    val providerUrlLabel = stringResource(Res.string.desktop_provider_url_label)
+    val localSeriesIdLabel = stringResource(Res.string.desktop_local_series_id_label)
+    val localProgressLabel = stringResource(Res.string.desktop_local_progress_label)
+    val providerProgressLabel = stringResource(Res.string.desktop_provider_progress_label)
+    val confidenceLabel = stringResource(Res.string.desktop_confidence_label)
+    val statusLabel = stringResource(Res.string.desktop_status_label)
+    val conflictLabel = stringResource(Res.string.desktop_conflict_label)
+    val externalWatchedLabel = stringResource(Res.string.desktop_external_watched_label)
+    val nextRetryLabel = stringResource(Res.string.desktop_next_retry_label)
+    val skippedLabel = stringResource(Res.string.desktop_skipped_label)
+    val syncSelectedAction = stringResource(Res.string.desktop_sync_selected_action)
+    val refreshProviderStateAction = stringResource(Res.string.desktop_refresh_provider_state_action)
+    val removeMappingAction = stringResource(Res.string.desktop_remove_mapping_action)
+    val resolveConflictAction = stringResource(Res.string.desktop_resolve_conflict_action)
+    val trackingPlannedControlsText = stringResource(Res.string.desktop_tracking_planned_controls_text)
+    val readbackPendingLabel = stringResource(Res.string.desktop_readback_pending_label)
+    val readyStatusLabel = stringResource(Res.string.desktop_ready_status_label)
+    val reviewConflictAction = stringResource(Res.string.desktop_review_conflict_action)
+    val conflictStatusLabel = stringResource(Res.string.desktop_conflict_status_label)
+    val externalProviderLabel = stringResource(Res.string.desktop_external_provider_label)
+    val notLinkedLabel = stringResource(Res.string.desktop_not_linked_label)
+    val noLinkLabel = stringResource(Res.string.desktop_no_link_label)
+    val needsMappingLabel = stringResource(Res.string.desktop_needs_mapping_label)
+    val missingLocalSeriesLabel = stringResource(Res.string.desktop_missing_local_series_label)
+    val retryAtLabel = stringResource(Res.string.desktop_retry_at_label)
+    val failedAttemptsLabel = stringResource(Res.string.desktop_failed_attempts_label)
+    val watchedCountLabel = stringResource(Res.string.desktop_watched_count_label)
+    val searchAction = stringResource(Res.string.desktop_search_action)
+    val searchingAction = stringResource(Res.string.desktop_searching_action)
+    val closeAction = stringResource(Res.string.desktop_close_action)
+    val useAction = stringResource(Res.string.desktop_use_action)
+    val mappedAction = stringResource(Res.string.desktop_mapped_action)
+    val posterLoadingLabel = stringResource(Res.string.desktop_poster_loading_label)
+    val posterUnavailableLabel = stringResource(Res.string.desktop_poster_unavailable_label)
     val recentlyAddedDetailLabel = stringResource(Res.string.desktop_recently_added_detail_label)
     val watchedAtLabel = stringResource(Res.string.desktop_watched_at_label)
     val resumeAtLabel = stringResource(Res.string.desktop_resume_at_label)
@@ -1159,6 +1309,81 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
             this.clearMyAnimeListText = clearMyAnimeListText
             this.clearBangumiTitle = clearBangumiTitle
             this.clearBangumiText = clearBangumiText
+            this.myAnimeListClientSavedLabel = myAnimeListClientSavedLabel
+            this.trackingCredentialsNeededLabel = trackingCredentialsNeededLabel
+            this.mappedSummaryTitle = mappedSummaryTitle
+            this.mappedSummaryCaption = mappedSummaryCaption
+            this.readySummaryTitle = readySummaryTitle
+            this.readySummaryCaption = readySummaryCaption
+            this.conflictsSummaryTitle = conflictsSummaryTitle
+            this.conflictsSummaryCaption = conflictsSummaryCaption
+            this.failuresSummaryTitle = failuresSummaryTitle
+            this.failuresSummaryCaption = failuresSummaryCaption
+            this.trackingSyncPreviewTitle = trackingSyncPreviewTitle
+            this.openLibraryAction = openLibraryAction
+            this.noExternalSyncLibraryText = noExternalSyncLibraryText
+            this.providerUpdatesCaption = providerUpdatesCaption
+            this.externalAheadCaption = externalAheadCaption
+            this.mappingChecksCaption = mappingChecksCaption
+            this.syncingUpdatesAction = syncingUpdatesAction
+            this.syncReadyUpdatesAction = syncReadyUpdatesAction
+            this.noProviderWritesReadyText = noProviderWritesReadyText
+            this.writesReadyUpdatesText = { count -> writesReadyUpdatesText.formatResourceString(count) }
+            this.dryRunUpdatesTitle = dryRunUpdatesTitle
+            this.noExternalProgressUpdatesText = noExternalProgressUpdatesText
+            this.noExternalProgressConflictsText = noExternalProgressConflictsText
+            this.syncFailuresTitle = syncFailuresTitle
+            this.noSyncFailuresText = noSyncFailuresText
+            this.moreSkippedLabel = { count -> moreSkippedLabel.formatResourceString(count) }
+            this.localWatchedEpisodesLabel = { count -> localWatchedEpisodesLabel.formatResourceString(count) }
+            this.externalWatchedEpisodesLabel = { count -> externalWatchedEpisodesLabel.formatResourceString(count) }
+            this.syncAttemptLabel = { attempt -> syncAttemptLabel.formatResourceString(attempt) }
+            this.trackingNoLibraryText = trackingNoLibraryText
+            this.trackingTableTitle = trackingTableTitle
+            this.trackingTableDescription = trackingTableDescription
+            this.syncAllReadyAction = syncAllReadyAction
+            this.syncingAction = syncingAction
+            this.trackingRowsEmptyText = trackingRowsEmptyText
+            this.localSeriesHeader = localSeriesHeader
+            this.providerHeader = providerHeader
+            this.actionHeader = actionHeader
+            this.mappingInspectorTitle = mappingInspectorTitle
+            this.mappingInspectorEmptyText = mappingInspectorEmptyText
+            this.animeIdLabel = animeIdLabel
+            this.providerUrlLabel = providerUrlLabel
+            this.localSeriesIdLabel = localSeriesIdLabel
+            this.localProgressLabel = localProgressLabel
+            this.providerProgressLabel = providerProgressLabel
+            this.confidenceLabel = confidenceLabel
+            this.statusLabel = statusLabel
+            this.conflictLabel = conflictLabel
+            this.externalWatchedLabel = externalWatchedLabel
+            this.nextRetryLabel = nextRetryLabel
+            this.skippedLabel = skippedLabel
+            this.syncSelectedAction = syncSelectedAction
+            this.refreshProviderStateAction = refreshProviderStateAction
+            this.removeMappingAction = removeMappingAction
+            this.resolveConflictAction = resolveConflictAction
+            this.trackingPlannedControlsText = trackingPlannedControlsText
+            this.readbackPendingLabel = readbackPendingLabel
+            this.readyStatusLabel = readyStatusLabel
+            this.reviewConflictAction = reviewConflictAction
+            this.conflictStatusLabel = conflictStatusLabel
+            this.externalProviderLabel = externalProviderLabel
+            this.notLinkedLabel = notLinkedLabel
+            this.noLinkLabel = noLinkLabel
+            this.needsMappingLabel = needsMappingLabel
+            this.missingLocalSeriesLabel = missingLocalSeriesLabel
+            this.retryAtLabel = { epochMs -> retryAtLabel.formatResourceString(epochMs.formatEpochTime()) }
+            this.failedAttemptsLabel = { attempts -> failedAttemptsLabel.formatResourceString(attempts) }
+            this.watchedCountLabel = { count -> watchedCountLabel.formatResourceString(count) }
+            this.searchAction = searchAction
+            this.searchingAction = searchingAction
+            this.closeAction = closeAction
+            this.useAction = useAction
+            this.mappedAction = mappedAction
+            this.posterLoadingLabel = posterLoadingLabel
+            this.posterUnavailableLabel = posterUnavailableLabel
             this.recentlyAddedDetailLabel = { indexedAtEpochMs, sizeText ->
                 recentlyAddedDetailLabel.formatResourceString(indexedAtEpochMs.formatEpochTime(), sizeText)
             }

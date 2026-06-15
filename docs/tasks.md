@@ -72,8 +72,9 @@ Status legend:
 - `[ ]` Add localization QA checks for English and `zh-TW` screenshots on
   dense desktop, mobile, and TV surfaces.
 - `[ ]` Continue migrating desktop `DesktopStrings` into Compose Multiplatform
-  resources by feature slice, continuing with tracking/external-sync labels and
-  the desktop locale-owner strategy.
+  resources by feature slice, continuing with cache/remaining body labels and
+  the desktop locale-owner strategy after tracking/external-sync labels were
+  moved.
 - `[ ]` Add release checklist automation for Android APKs and Windows portable
   archives.
 - `[x]` Move the remaining desktop player surface out of `Main.kt`; playback

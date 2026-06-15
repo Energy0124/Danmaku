@@ -64,8 +64,8 @@ trusted-LAN clients.
   strings, Home dashboard body labels, Library workspace navigation/filter
   labels, Library import/inspector action labels, Library metadata/playback
   inspector labels, Downloads queue/import labels, provider settings labels with
-  XML templates, danmaku panel/display labels, and paired-library client labels,
-  using
+  XML templates, tracking/external-sync labels, mapping search/poster labels,
+  danmaku panel/display labels, and paired-library client labels, using
   `commonMain/composeResources/values` and `values-zh-rTW`; the adapter keeps
   selected-language fallback strings when Compose's current locale does not
   match the selected desktop language.
@@ -130,9 +130,10 @@ trusted-LAN clients.
   playback/dialog controls, Home/Library placeholder/count strings, Home
   dashboard body labels, Library workspace navigation/filter labels, and Library
   import/inspector action labels, Library metadata/playback inspector labels,
-  Downloads queue/import labels, provider settings labels, danmaku panel/display
-  labels, and paired-library client labels have started moving to generated
-  Compose resources, but broad resource extraction,
+  Downloads queue/import labels, provider settings labels, tracking/external-sync
+  labels, mapping search/poster labels, danmaku panel/display labels, and
+  paired-library client labels have started moving to generated Compose
+  resources, but broad resource extraction,
   app-language-to-resource locale control, remaining body-label migration, and
   screenshot QA are not complete.
 - Android mobile/tablet layouts need final viewport QA on phone and tablet
