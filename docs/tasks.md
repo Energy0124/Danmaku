@@ -92,8 +92,9 @@ Status legend:
   remain package-internal for Library reuse. `WatchPage.kt` now owns the
   mobile Watch route and player-control helpers. Library detail and Next Up
   UI are now split into `LibraryDetailComponents.kt` and
-  `LibraryNextUpComponents.kt`; remaining mobile refactor work should extract
-  the reusable library rails/cards, then the Library and Connect pages.
+  `LibraryNextUpComponents.kt`; reusable library rails/cards now live in
+  `LibraryRailComponents.kt`. Remaining mobile refactor work should extract
+  the Library and Connect pages.
 - `[ ]` P1: Split Android TV `MainActivity.kt` into focused TV shell,
   PC connection, home, library/search/favorites, playback controls, and shared
   focus/visual primitives before adding more TV features.
