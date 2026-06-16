@@ -74,9 +74,12 @@ Status legend:
   local playback preparation and paired library catalog/remote playback failures
   now surface localized visible error copy. Remaining work is broader localized
   copy for action diagnostics and screenshot QA.
-- `[ ]` P1: Split Android mobile `MainActivity.kt` into focused app shell,
+- `[~]` P1: Split Android mobile `MainActivity.kt` into focused app shell,
   connection/library, home, playback, and shared UI/state files before adding
-  more mobile features.
+  more mobile features. First low-risk extraction moved poster loading, URL
+  encoding, display labels, size formatting, watch-status labels, and playback
+  time helpers into `MobileUiHelpers.kt`; next pass should split screen/state
+  ownership.
 - `[ ]` P1: Split Android TV `MainActivity.kt` into focused TV shell,
   PC connection, home, library/search/favorites, playback controls, and shared
   focus/visual primitives before adding more TV features.
@@ -149,9 +152,11 @@ Full review date: 2026-06-15.
   use localized English/`zh-TW` copy, and local playback preparation plus paired
   library catalog/remote playback failures now use localized visible error copy.
   Broader diagnostic-log localization and screenshot QA remain.
-- `[ ]` P1: Android mobile and Android TV app entrypoints are monolithic
-  enough to slow safe feature work and review. Keep behavior stable while
-  extracting screen/state/action boundaries.
+- `[~]` P1: Android mobile and Android TV app entrypoints are monolithic
+  enough to slow safe feature work and review. Android mobile helper and
+  formatting code has started moving out of `MainActivity.kt`; keep behavior
+  stable while extracting screen/state/action boundaries. Android TV remains
+  untouched.
 - `[ ]` P1: Release confidence still depends on manual QA for Windows
   fullscreen/resize/4K/hardware decoding, Android phone/tablet layouts,
   Android TV 1080p/4K focus traversal, desktop localization screenshots, and

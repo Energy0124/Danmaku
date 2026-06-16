@@ -1,6 +1,6 @@
 # Current State
 
-Last reviewed: 2026-06-15.
+Last reviewed: 2026-06-16.
 
 Danmaku is in active foundation work. The strongest vertical slice is Windows
 desktop as the local library host/player, with Android mobile and Android TV as
@@ -162,8 +162,11 @@ trusted-LAN clients.
   summaries on Home, Library, Tracking, and Settings. Broader diagnostic-log
   localization still needs release polish.
 - Android mobile and Android TV still have very large `MainActivity.kt`
-  entrypoints. They compile and have instrumentation-source coverage, but they
-  should be split into shell/state/action and screen files before more feature
+  entrypoints. Android mobile has started decomposition with poster loading,
+  URL encoding, display-label, watch-status, size, and playback-time helpers
+  extracted into `MobileUiHelpers.kt`; screen/state/action extraction is still
+  needed. Android TV remains untouched. Both compile and have
+  instrumentation-source coverage, but they should be split before more feature
   work lands there.
 - Desktop localization now routes through generated resources. The duplicated
   Kotlin fallback initializer has been reduced to the small set of non-Compose
@@ -195,6 +198,7 @@ Recent local checks during the 2026-06-15 desktop localization refactor work:
 git diff --check
 .\tools\windows\capture-desktop-localization-screenshots.ps1
 .\tools\windows\capture-desktop-localization-screenshots.ps1 -Languages zh-TW -Tabs home,library,tracking,settings
+.\gradlew.bat --no-daemon :apps:android-mobile:assembleDebug
 ```
 
 Full project review checks run on 2026-06-15:
