@@ -51,9 +51,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
-import androidx.media3.ui.PlayerView
 import androidx.tv.material3.Button
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
@@ -73,15 +71,12 @@ import app.danmaku.domain.LibraryWatchStatus
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.domain.PlaybackCommand
 import app.danmaku.domain.PlaybackSnapshot
-import app.danmaku.domain.PlaybackTrack
-import app.danmaku.domain.PlaybackTrackKind
 import app.danmaku.domain.continueWatchingItems
 import app.danmaku.domain.episodeDetail
 import app.danmaku.domain.filteredItems
 import app.danmaku.domain.groupedSeries
 import app.danmaku.domain.nextUpItems
 import app.danmaku.domain.recentlyWatchedItems
-import app.danmaku.domain.seekTargetBy
 import app.danmaku.domain.seriesWatchSummaryById
 import app.danmaku.domain.watchStatusByMediaId
 import app.danmaku.library.LanLibraryConnectionSession
@@ -101,12 +96,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private val TvAppBackground = Color(0xFF090B0E)
-private val TvPanelColor = Color(0xFF15191D)
-private val TvPanelRaisedColor = Color(0xFF20262B)
-private val TvCardColor = Color(0xFF111820)
-private val TvAccentBlue = Color(0xFF7DD3FC)
-private val TvMutedText = Color(0xFFB7C0C9)
+internal val TvAppBackground = Color(0xFF090B0E)
+internal val TvPanelColor = Color(0xFF15191D)
+internal val TvPanelRaisedColor = Color(0xFF20262B)
+internal val TvCardColor = Color(0xFF111820)
+internal val TvAccentBlue = Color(0xFF7DD3FC)
+internal val TvMutedText = Color(0xFFB7C0C9)
 
 internal data class LibraryPosterEndpoint(
     val baseUrl: String,
@@ -129,7 +124,7 @@ private enum class TvDestination(
 }
 
 @Composable
-private fun Modifier.tvFocusHalo(
+internal fun Modifier.tvFocusHalo(
     shape: RoundedCornerShape = RoundedCornerShape(20.dp),
 ): Modifier {
     var isFocused by remember { mutableStateOf(false) }
@@ -531,76 +526,6 @@ private fun TvDestinationHeader(
 }
 
 @Composable
-private fun TvPlayerPanel(
-    controller: Media3PlaybackController?,
-    snapshot: PlaybackSnapshot,
-    playbackError: String?,
-    onSeekTo: (Long) -> Unit,
-    onSelectAudio: (String) -> Unit,
-    onSelectSubtitle: (String?) -> Unit,
-    onPlay: () -> Unit,
-    onPause: () -> Unit,
-    onVolumeDown: () -> Unit,
-    onVolumeUp: () -> Unit,
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(24.dp))
-            .background(TvPanelRaisedColor)
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        AndroidView(
-            factory = { PlayerView(it) },
-            update = { it.player = controller?.player },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(300.dp),
-        )
-        TvSeekControls(snapshot = snapshot, onSeekTo = onSeekTo)
-        playbackError?.let {
-            Text(stringResource(R.string.playback_error_prefix, it), color = Color(0xFFFCA5A5))
-        }
-        TrackControls(
-            snapshot = snapshot,
-            onSelectAudio = onSelectAudio,
-            onSelectSubtitle = onSelectSubtitle,
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Button(
-                onClick = onPlay,
-                enabled = snapshot.source != null,
-                modifier = Modifier.tvFocusHalo(RoundedCornerShape(18.dp)),
-            ) {
-                Text(stringResource(R.string.action_play))
-            }
-            Button(
-                onClick = onPause,
-                enabled = snapshot.source != null,
-                modifier = Modifier.tvFocusHalo(RoundedCornerShape(18.dp)),
-            ) {
-                Text(stringResource(R.string.action_pause))
-            }
-            Button(
-                onClick = onVolumeDown,
-                enabled = snapshot.source != null && snapshot.volumePercent > 0,
-                modifier = Modifier.tvFocusHalo(RoundedCornerShape(18.dp)),
-            ) {
-                Text(stringResource(R.string.action_volume_down))
-            }
-            Button(
-                onClick = onVolumeUp,
-                enabled = snapshot.source != null && snapshot.volumePercent < 100,
-                modifier = Modifier.tvFocusHalo(RoundedCornerShape(18.dp)),
-            ) {
-                Text(stringResource(R.string.action_volume_up_percent, snapshot.volumePercent))
-            }
-        }
-    }
-}
-
-@Composable
 private fun TvHomePanel(
     catalog: LibraryCatalog?,
     playbackProgresses: List<PlaybackProgress>,
@@ -921,101 +846,6 @@ private fun TvHomeStatusPanel(
                     stringResource(R.string.action_open_library)
                 },
             )
-        }
-    }
-}
-
-@Composable
-private fun TvSeekControls(
-    snapshot: PlaybackSnapshot,
-    onSeekTo: (Long) -> Unit,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            stringResource(
-                R.string.player_position,
-                snapshot.position.positionMs.formatPlaybackTime(),
-                snapshot.position.durationMs?.formatPlaybackTime() ?: "--:--",
-            ),
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            TvSeekButton("-30s", snapshot, onSeekTo, -30_000)
-            TvSeekButton("-10s", snapshot, onSeekTo, -10_000)
-            TvSeekButton("+10s", snapshot, onSeekTo, 10_000)
-            TvSeekButton("+30s", snapshot, onSeekTo, 30_000)
-        }
-    }
-}
-
-@Composable
-private fun TvSeekButton(
-    label: String,
-    snapshot: PlaybackSnapshot,
-    onSeekTo: (Long) -> Unit,
-    deltaMs: Long,
-) {
-    Button(
-        onClick = { onSeekTo(snapshot.position.seekTargetBy(deltaMs)) },
-        enabled = snapshot.source != null,
-    ) {
-        Text(label)
-    }
-}
-
-@Composable
-private fun TrackControls(
-    snapshot: PlaybackSnapshot,
-    onSelectAudio: (String) -> Unit,
-    onSelectSubtitle: (String?) -> Unit,
-) {
-    val audioTracks = snapshot.tracks.filter { it.kind == PlaybackTrackKind.AUDIO }
-    val subtitleTracks = snapshot.tracks.filter { it.kind == PlaybackTrackKind.SUBTITLE }
-    if (audioTracks.isNotEmpty()) {
-        Text(stringResource(R.string.audio_tracks_title))
-        TrackButtons(audioTracks, onSelectAudio)
-    }
-    if (subtitleTracks.isNotEmpty()) {
-        Text(stringResource(R.string.subtitle_tracks_title))
-        LazyRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            item(key = "subtitle-off") {
-                Button(
-                    onClick = { onSelectSubtitle(null) },
-                    enabled = subtitleTracks.any(PlaybackTrack::selected),
-                ) {
-                    Text(stringResource(R.string.subtitle_off))
-                }
-            }
-            items(subtitleTracks, key = PlaybackTrack::id) { track ->
-                Button(
-                    onClick = { onSelectSubtitle(track.id) },
-                    enabled = track.supported && !track.selected,
-                ) {
-                    Text(track.buttonLabel())
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun TrackButtons(
-    tracks: List<PlaybackTrack>,
-    onSelect: (String) -> Unit,
-) {
-    LazyRow(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        items(tracks, key = PlaybackTrack::id) { track ->
-            Button(
-                onClick = { onSelect(track.id) },
-                enabled = track.supported && !track.selected,
-            ) {
-                Text(track.buttonLabel())
-            }
         }
     }
 }

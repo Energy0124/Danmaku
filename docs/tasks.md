@@ -100,7 +100,9 @@ Status legend:
   PC connection, home, library/search/favorites, playback controls, and shared
   focus/visual primitives before adding more TV features. First low-risk split
   moved poster loading, URL encoding, playback-time formatting, progress/watch
-  labels, next-up labels, and metadata labels into `TvUiHelpers.kt`.
+  labels, next-up labels, and metadata labels into `TvUiHelpers.kt`. Player
+  surface, seek controls, and audio/subtitle track controls now live in
+  `TvPlayerPanel.kt`.
 - `[ ]` P1: Add connected Android test runs to the release checklist and record
   the required device/emulator matrix for mobile playback, LAN sync, TV focus,
   and Media3 streaming.

@@ -181,9 +181,10 @@ trusted-LAN clients.
   `LibraryPage.kt`, and Connect route composition plus the connection form/rows
   are split into `ConnectPage.kt`. Android TV decomposition has started with
   poster loading, formatting, next-up, progress/watch-status, and metadata
-  labels in `TvUiHelpers.kt`; larger TV screen/component splits remain. Both
-  compile and have instrumentation-source coverage, but Android TV should be
-  split further before more feature work lands there.
+  labels in `TvUiHelpers.kt`; player surface, seek controls, and audio/subtitle
+  track controls are split into `TvPlayerPanel.kt`. Larger TV screen/component
+  splits remain. Both compile and have instrumentation-source coverage, but
+  Android TV should be split further before more feature work lands there.
 - Desktop localization now routes through generated resources. The duplicated
   Kotlin fallback initializer has been reduced to the small set of non-Compose
   error/default strings used by tests and default action paths, so normal UI
