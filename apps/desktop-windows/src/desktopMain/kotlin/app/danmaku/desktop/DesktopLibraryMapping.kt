@@ -348,7 +348,7 @@ internal fun MetadataMatchDialog(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     MetadataMatchProviderToggle(
                         label = "MyAnimeList",
-                        detail = externalAnimeProviderSettings.myAnimeListStatusText,
+                        detail = externalAnimeProviderSettings.myAnimeListStatusLabel(strings),
                         selected = includeMyAnimeList,
                         enabled = myAnimeListSearchAvailable,
                         onToggle = {
@@ -359,7 +359,7 @@ internal fun MetadataMatchDialog(
                     )
                     MetadataMatchProviderToggle(
                         label = "Bangumi",
-                        detail = externalAnimeProviderSettings.bangumiStatusText,
+                        detail = externalAnimeProviderSettings.bangumiStatusLabel(strings),
                         selected = includeBangumi,
                         enabled = bangumiSearchAvailable,
                         onToggle = {

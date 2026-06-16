@@ -52,12 +52,20 @@ in-app language selector.
    `--server-port=0` for QA launches so a running development server does not
    block capture.
 
-   2026-06-16 note: the helper now uses app-level screenshot capture instead of
-   external Win32 window discovery. `:apps:desktop-windows:desktopTest` passes,
-   and a one-shot English/Home capture was verified at
-   `build\qa\desktop-localization\desktop-localization-en-home.png`. Run the
-   full helper to complete the English/`zh-TW` visual review before removing
-   fallback initializer text.
+   2026-06-16 notes:
+   - The helper now uses app-level screenshot capture instead of external Win32
+     window discovery.
+   - `:apps:desktop-windows:desktopTest` passes, and the full helper generated
+     English/`zh-TW` screenshots for Home, Library, Downloads, Tracking, and
+     Settings.
+   - The first full pass found dynamic strings outside generated resources:
+     playback status enum names, provider credential summaries, external sync
+     summaries, skip/conflict reasons, external list statuses, watch-summary
+     labels, and dandanplay auth-mode labels. Those are now routed through
+     desktop strings.
+   - `zh-TW` Home, Library, Tracking, and Settings were recaptured after the
+     fixes and no longer show those leaks. Run one final full English/`zh-TW`
+     review before removing fallback initializer text.
 2. Remove duplicated migrated fallback text from the Kotlin initializer after
    screenshot checks pass.
 3. Consider moving the desktop locale-owner helper to a smaller dedicated owner

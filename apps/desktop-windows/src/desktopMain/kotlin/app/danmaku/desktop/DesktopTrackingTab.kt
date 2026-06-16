@@ -234,7 +234,7 @@ internal fun TrackingTab(
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             TrackingProviderCard(
                 title = "MyAnimeList",
-                status = externalAnimeProviderSettings.myAnimeListStatusText,
+                status = externalAnimeProviderSettings.myAnimeListStatusLabel(strings),
                 ready = externalAnimeProviderSettings.hasMyAnimeListAccessToken,
                 detail = if (externalAnimeProviderSettings.myAnimeListClientId != null) {
                     strings.myAnimeListClientSavedLabel
@@ -247,7 +247,7 @@ internal fun TrackingTab(
             )
             TrackingProviderCard(
                 title = "Bangumi",
-                status = externalAnimeProviderSettings.bangumiStatusText,
+                status = externalAnimeProviderSettings.bangumiStatusLabel(strings),
                 ready = externalAnimeProviderSettings.hasBangumiAccessToken,
                 detail = externalAnimeProviderSettings.bangumiBaseUrl,
                 actionLabel = strings.providerSettingsAction,
@@ -353,7 +353,7 @@ internal fun buildTrackingTableRows(
             providerUrl = mapping.animeId.webUrl,
             localProgress = "${update.update.watchedEpisodes ?: 0}/${update.series.episodeCount}",
             providerProgress = strings.readbackPendingLabel,
-            plannedAction = "${update.update.status.displayName}, ${strings.watchedCountLabel(update.update.watchedEpisodes ?: 0)}",
+            plannedAction = "${update.update.status.localizedLabel(strings)}, ${strings.watchedCountLabel(update.update.watchedEpisodes ?: 0)}",
             confidence = mapping.confidence.formatConfidence(),
             statusLabel = strings.readyStatusLabel,
             statusColor = DanmakuColors.Good,
@@ -396,7 +396,7 @@ internal fun buildTrackingTableRows(
             providerUrl = mapping?.animeId?.webUrl,
             localProgress = series?.let { "0/${it.episodeCount}" } ?: "-",
             providerProgress = "-",
-            plannedAction = skip.reason.displayName,
+            plannedAction = skip.reason.localizedLabel(strings),
             confidence = mapping?.confidence?.formatConfidence() ?: strings.noLinkLabel,
             statusLabel = if (mapping == null) strings.needsMappingLabel else strings.missingLocalSeriesLabel,
             statusColor = DanmakuColors.TextMuted,
@@ -611,7 +611,7 @@ internal fun TrackingInspectorPanel(
         MetadataRow(strings.confidenceLabel, selectedRow.confidence)
         MetadataRow(strings.statusLabel, selectedRow.statusLabel, selectedRow.statusColor)
         selectedRow.conflict?.let { conflict ->
-            MetadataRow(strings.conflictLabel, conflict.reason.displayName, DanmakuColors.Warning)
+            MetadataRow(strings.conflictLabel, conflict.reason.localizedLabel(strings), DanmakuColors.Warning)
             MetadataRow(strings.externalWatchedLabel, (conflict.externalEntry.watchedEpisodes ?: 0).toString())
         }
         selectedRow.failure?.let { failure ->
@@ -619,7 +619,7 @@ internal fun TrackingInspectorPanel(
             MetadataRow(strings.nextRetryLabel, failure.retryAfterEpochMs.formatEpochTime())
         }
         selectedRow.skip?.let { skip ->
-            MetadataRow(strings.skippedLabel, skip.reason.displayName)
+            MetadataRow(strings.skippedLabel, skip.reason.localizedLabel(strings))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(

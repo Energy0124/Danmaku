@@ -458,7 +458,7 @@ internal fun SeriesPosterCard(
             overflow = TextOverflow.Ellipsis,
         )
         Text(
-            text = "${watchSummary.progressLabel()} - ${metadataReadiness.label}",
+            text = "${watchSummary.progressLabel(strings)} - ${metadataReadiness.label}",
             color = DanmakuColors.TextMuted,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,

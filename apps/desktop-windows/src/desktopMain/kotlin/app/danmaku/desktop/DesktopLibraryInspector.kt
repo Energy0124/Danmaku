@@ -269,7 +269,7 @@ internal fun LibraryInspectorPane(
                 modifier = Modifier.fillMaxSize(),
             )
             Text(
-                watchSummary.progressLabel(),
+                watchSummary.progressLabel(strings),
                 color = Color.White,
                 modifier = Modifier
                     .align(Alignment.BottomStart)

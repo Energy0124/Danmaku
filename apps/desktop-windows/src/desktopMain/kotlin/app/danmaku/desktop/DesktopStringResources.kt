@@ -19,6 +19,10 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
     val shellSubtitle = stringResource(Res.string.desktop_shell_subtitle)
     val searchLabel = stringResource(Res.string.desktop_search_label)
     val playerStatusPrefix = stringResource(Res.string.desktop_player_status_prefix)
+    val playerIdleStatusLabel = stringResource(Res.string.desktop_player_idle_status_label)
+    val playerPausedStatusLabel = stringResource(Res.string.desktop_player_paused_status_label)
+    val playerEndedStatusLabel = stringResource(Res.string.desktop_player_ended_status_label)
+    val playerErrorStatusLabel = stringResource(Res.string.desktop_player_error_status_label)
     val episodesSuffix = stringResource(Res.string.desktop_episodes_suffix)
     val rescanLibrary = stringResource(Res.string.desktop_rescan_library)
     val settingsTitle = stringResource(Res.string.desktop_settings_title)
@@ -79,6 +83,7 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
     val backThirtySecondsAction = stringResource(Res.string.desktop_back_thirty_seconds_action)
     val backTenSecondsAction = stringResource(Res.string.desktop_back_ten_seconds_action)
     val playAction = stringResource(Res.string.desktop_play_action)
+    val watchSummaryProgressLabel = stringResource(Res.string.desktop_watch_summary_progress_label)
     val forwardTenSecondsAction = stringResource(Res.string.desktop_forward_ten_seconds_action)
     val forwardThirtySecondsAction = stringResource(Res.string.desktop_forward_thirty_seconds_action)
     val volumeLabel = stringResource(Res.string.desktop_volume_label)
@@ -534,6 +539,24 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
     val providerSettingsAction = stringResource(Res.string.desktop_provider_settings_action)
     val myAnimeListClientSavedLabel = stringResource(Res.string.desktop_my_anime_list_client_saved_label)
     val trackingCredentialsNeededLabel = stringResource(Res.string.desktop_tracking_credentials_needed_label)
+    val providerNotConfiguredStatus = stringResource(Res.string.desktop_provider_not_configured_status)
+    val myAnimeListOauthTokenSavedStatus = stringResource(Res.string.desktop_my_anime_list_oauth_token_saved_status)
+    val myAnimeListClientIdSecretSavedStatus = stringResource(Res.string.desktop_my_anime_list_client_id_secret_saved_status)
+    val myAnimeListClientIdSearchSavedStatus = stringResource(Res.string.desktop_my_anime_list_client_id_search_saved_status)
+    val bangumiAccessTokenSavedStatus = stringResource(Res.string.desktop_bangumi_access_token_saved_status)
+    val bangumiPublicSearchOnlyStatus = stringResource(Res.string.desktop_bangumi_public_search_only_status)
+    val dandanplayConfiguredStatus = stringResource(Res.string.desktop_dandanplay_configured_status)
+    val dandanplayCompatibleApiStatus = stringResource(Res.string.desktop_dandanplay_compatible_api_status)
+    val dandanplayNotConfiguredStatus = stringResource(Res.string.desktop_dandanplay_not_configured_status)
+    val externalSyncSummaryLabel = stringResource(Res.string.desktop_external_sync_summary_label)
+    val externalProgressAheadReason = stringResource(Res.string.desktop_external_progress_ahead_reason)
+    val externalListWatchingStatus = stringResource(Res.string.desktop_external_list_watching_status)
+    val externalListCompletedStatus = stringResource(Res.string.desktop_external_list_completed_status)
+    val externalListOnHoldStatus = stringResource(Res.string.desktop_external_list_on_hold_status)
+    val externalListDroppedStatus = stringResource(Res.string.desktop_external_list_dropped_status)
+    val externalListPlanToWatchStatus = stringResource(Res.string.desktop_external_list_plan_to_watch_status)
+    val externalListUnchangedStatus = stringResource(Res.string.desktop_external_list_unchanged_status)
+    val watchedEpisodeProgressLabel = stringResource(Res.string.desktop_watched_episode_progress_label)
     val mappedSummaryTitle = stringResource(Res.string.desktop_mapped_summary_title)
     val mappedSummaryCaption = stringResource(Res.string.desktop_mapped_summary_caption)
     val readySummaryTitle = stringResource(Res.string.desktop_ready_summary_title)
@@ -595,6 +618,8 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
     val externalProviderLabel = stringResource(Res.string.desktop_external_provider_label)
     val notLinkedLabel = stringResource(Res.string.desktop_not_linked_label)
     val noLinkLabel = stringResource(Res.string.desktop_no_link_label)
+    val missingLocalSeriesReason = stringResource(Res.string.desktop_missing_local_series_reason)
+    val unmappedLocalSeriesReason = stringResource(Res.string.desktop_unmapped_local_series_reason)
     val needsMappingLabel = stringResource(Res.string.desktop_needs_mapping_label)
     val missingLocalSeriesLabel = stringResource(Res.string.desktop_missing_local_series_label)
     val retryAtLabel = stringResource(Res.string.desktop_retry_at_label)
@@ -651,6 +676,10 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
             this.shellSubtitle = shellSubtitle
             this.searchLabel = searchLabel
             this.playerStatusPrefix = playerStatusPrefix
+            this.playerIdleStatusLabel = playerIdleStatusLabel
+            this.playerPausedStatusLabel = playerPausedStatusLabel
+            this.playerEndedStatusLabel = playerEndedStatusLabel
+            this.playerErrorStatusLabel = playerErrorStatusLabel
             this.episodesSuffix = episodesSuffix
             this.rescanLibrary = rescanLibrary
             this.settingsTitle = settingsTitle
@@ -701,6 +730,9 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
             this.backThirtySecondsAction = backThirtySecondsAction
             this.backTenSecondsAction = backTenSecondsAction
             this.playAction = playAction
+            this.watchSummaryProgressLabel = { watched, watching, fresh ->
+                watchSummaryProgressLabel.formatResourceString(watched, watching, fresh)
+            }
             this.forwardTenSecondsAction = forwardTenSecondsAction
             this.forwardThirtySecondsAction = forwardThirtySecondsAction
             this.volumeLabel = volumeLabel
@@ -1146,6 +1178,30 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
             this.providerSettingsAction = providerSettingsAction
             this.myAnimeListClientSavedLabel = myAnimeListClientSavedLabel
             this.trackingCredentialsNeededLabel = trackingCredentialsNeededLabel
+            this.providerNotConfiguredStatus = providerNotConfiguredStatus
+            this.myAnimeListOauthTokenSavedStatus = myAnimeListOauthTokenSavedStatus
+            this.myAnimeListClientIdSecretSavedStatus = myAnimeListClientIdSecretSavedStatus
+            this.myAnimeListClientIdSearchSavedStatus = myAnimeListClientIdSearchSavedStatus
+            this.bangumiAccessTokenSavedStatus = bangumiAccessTokenSavedStatus
+            this.bangumiPublicSearchOnlyStatus = bangumiPublicSearchOnlyStatus
+            this.dandanplayConfiguredStatus = { appId, authMode ->
+                dandanplayConfiguredStatus.formatResourceString(appId, authMode)
+            }
+            this.dandanplayCompatibleApiStatus = dandanplayCompatibleApiStatus
+            this.dandanplayNotConfiguredStatus = dandanplayNotConfiguredStatus
+            this.externalSyncSummaryLabel = { updates, conflicts, skipped ->
+                externalSyncSummaryLabel.formatResourceString(updates, conflicts, skipped)
+            }
+            this.externalProgressAheadReason = externalProgressAheadReason
+            this.externalListWatchingStatus = externalListWatchingStatus
+            this.externalListCompletedStatus = externalListCompletedStatus
+            this.externalListOnHoldStatus = externalListOnHoldStatus
+            this.externalListDroppedStatus = externalListDroppedStatus
+            this.externalListPlanToWatchStatus = externalListPlanToWatchStatus
+            this.externalListUnchangedStatus = externalListUnchangedStatus
+            this.watchedEpisodeProgressLabel = { watched, total ->
+                watchedEpisodeProgressLabel.formatResourceString(watched, total)
+            }
             this.mappedSummaryTitle = mappedSummaryTitle
             this.mappedSummaryCaption = mappedSummaryCaption
             this.readySummaryTitle = readySummaryTitle
@@ -1207,6 +1263,8 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
             this.externalProviderLabel = externalProviderLabel
             this.notLinkedLabel = notLinkedLabel
             this.noLinkLabel = noLinkLabel
+            this.missingLocalSeriesReason = missingLocalSeriesReason
+            this.unmappedLocalSeriesReason = unmappedLocalSeriesReason
             this.needsMappingLabel = needsMappingLabel
             this.missingLocalSeriesLabel = missingLocalSeriesLabel
             this.retryAtLabel = { epochMs -> retryAtLabel.formatResourceString(epochMs.formatEpochTime()) }

@@ -349,7 +349,7 @@ internal fun PlaybackTab(
             visible = true,
             hasMedia = false,
             title = playbackLabel ?: playbackSnapshot.source?.toString()?.redactToken() ?: strings.noMediaLoadedLabel,
-            status = playbackSnapshot.status.name,
+            status = playbackSnapshot.status.localizedLabel(strings),
             overlayStatus = overlayStatus,
             positionMs = 0L,
             durationMs = null,
@@ -394,7 +394,7 @@ internal fun PlaybackTab(
             PlaybackWindowNavigationHeader(
                 strings = strings,
                 title = playbackLabel ?: playbackSnapshot.source?.toString()?.redactToken() ?: strings.playingLabel,
-                status = playbackSnapshot.status.name,
+                status = playbackSnapshot.status.localizedLabel(strings),
                 overlayStatus = overlayStatus,
                 isFocusMode = isFocusMode,
                 onShowHome = onShowHome,
@@ -436,7 +436,7 @@ internal fun PlaybackTab(
                         PlayerTopOverlay(
                             strings = strings,
                             title = playbackLabel ?: playbackSnapshot.source?.toString()?.redactToken() ?: strings.noMediaLoadedLabel,
-                            status = playbackSnapshot.status.name,
+                            status = playbackSnapshot.status.localizedLabel(strings),
                             overlayStatus = overlayStatus,
                             isFullscreen = isFullscreen,
                             isFocusMode = isFocusMode,

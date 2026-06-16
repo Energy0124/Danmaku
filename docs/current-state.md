@@ -125,9 +125,13 @@ trusted-LAN clients.
   app-language-to-resource locale control are in place. Deterministic desktop
   launch overrides and an app-level Windows screenshot helper now exist for
   English/`zh-TW` Home, Library, Downloads, Tracking, and Settings review. A
-  one-shot English/Home capture was verified on 2026-06-16; the full
-  cross-language visual pass is still needed before deleting the duplicated
-  Kotlin fallback initializer text.
+  full English/`zh-TW` desktop capture pass was run on 2026-06-16; it found
+  dynamic status text that still bypassed resources. The follow-up fix localized
+  playback status chips, provider credential summaries, external sync summaries,
+  skip/conflict reasons, external list statuses, watch-summary labels, and
+  dandanplay auth-mode labels, then recaptured `zh-TW` Home, Library, Tracking,
+  and Settings successfully. Keep the duplicated Kotlin fallback initializer
+  until a final cross-language visual pass is accepted.
 - Android mobile/tablet layouts need final viewport QA on phone and tablet
   sizes.
 - Android TV layouts need 1080p and 4K safe-area/focus QA on real or emulated
@@ -154,16 +158,18 @@ trusted-LAN clients.
   match no-provider and provider-search failures now use localized
   English/`zh-TW` dialog copy, and local playback preparation plus paired
   library catalog/remote playback failures now use localized visible error copy.
-  Broader diagnostic-log localization and full screenshot QA still need release
-  polish.
+  Desktop screenshot QA also localized the remaining visible provider/status
+  summaries on Home, Library, Tracking, and Settings. Broader diagnostic-log
+  localization still needs release polish.
 - Android mobile and Android TV still have very large `MainActivity.kt`
   entrypoints. They compile and have instrumentation-source coverage, but they
   should be split into shell/state/action and screen files before more feature
   work lands there.
 - Desktop localization now routes through generated resources, but the
   duplicated Kotlin fallback initializer remains. It should stay until
-  interactive screenshot QA passes, then be reduced so future string changes do
-  not require editing both XML resources and fallback Kotlin text.
+  the final English/`zh-TW` screenshot review is accepted, then be reduced so
+  future string changes do not require editing both XML resources and fallback
+  Kotlin text.
 - From an anime-viewer workflow perspective, the current foundation covers
   local library playback, posters/metadata, progress, favorites, external
   mapping/sync, and danmaku basics. Missing high-value viewer workflows include
@@ -188,6 +194,8 @@ Recent local checks during the 2026-06-15 desktop localization refactor work:
 .\gradlew.bat --no-daemon :apps:desktop-windows:compileKotlinDesktop
 .\gradlew.bat --no-daemon :apps:desktop-windows:desktopTest
 git diff --check
+.\tools\windows\capture-desktop-localization-screenshots.ps1
+.\tools\windows\capture-desktop-localization-screenshots.ps1 -Languages zh-TW -Tabs home,library,tracking,settings
 ```
 
 Full project review checks run on 2026-06-15:

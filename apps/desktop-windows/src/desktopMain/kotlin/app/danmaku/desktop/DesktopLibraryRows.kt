@@ -195,6 +195,7 @@ import org.jetbrains.skia.Image as SkiaImage
 
 @Composable
 internal fun DesktopSeriesRow(
+    strings: DesktopStrings,
     series: LibrarySeries,
     watchSummary: LibrarySeriesWatchSummary?,
     isSelected: Boolean,
@@ -217,7 +218,7 @@ internal fun DesktopSeriesRow(
             overflow = TextOverflow.Ellipsis,
         )
         Text(
-            watchSummary.progressLabel(),
+            watchSummary.progressLabel(strings),
             color = DanmakuColors.TextMuted,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -292,11 +293,11 @@ internal fun dandanplayMatchCandidateDetail(match: DandanplayMatch): String =
         match.shiftSeconds?.let { add("Shift ${it}s") }
     }.joinToString(" / ")
 
-internal fun LibrarySeriesWatchSummary?.progressLabel(): String =
+internal fun LibrarySeriesWatchSummary?.progressLabel(strings: DesktopStrings): String =
     if (this == null) {
-        "0 watched, 0 watching, 0 new"
+        strings.watchSummaryProgressLabel(0, 0, 0)
     } else {
-        "$watchedCount watched, $inProgressCount watching, $newCount new"
+        strings.watchSummaryProgressLabel(watchedCount, inProgressCount, newCount)
     }
 
 @Composable

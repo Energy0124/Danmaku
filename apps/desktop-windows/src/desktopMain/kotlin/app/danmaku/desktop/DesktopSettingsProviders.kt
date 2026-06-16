@@ -227,7 +227,7 @@ internal fun DandanplayProviderCard(
             color = DanmakuColors.TextMuted,
         )
         Spacer(modifier = Modifier.height(10.dp))
-        MetadataRow("dandanplay", settings.statusText)
+        MetadataRow("dandanplay", settings.statusLabel(strings))
         MetadataRow(strings.cacheExpiryLabel, "${settings.cacheMaxAgeDays} days")
         connectionTestStatus?.let {
             SettingsConnectionTestStatusRow(strings = strings, label = strings.lastTestLabel, status = it)
@@ -288,7 +288,7 @@ internal fun DandanplayProviderCard(
                 Text(strings.credentialAuthAction)
             }
             Text(
-                strings.currentAuthLabel(authenticationMode.name.lowercase()),
+                strings.currentAuthLabel(authenticationMode.localizedLabel(strings)),
                 color = DanmakuColors.TextMuted,
                 modifier = Modifier.align(Alignment.CenterVertically),
             )
@@ -389,8 +389,8 @@ internal fun ExternalAnimeProviderSettingsCard(
             strings.externalAnimeListsDescription,
             color = DanmakuColors.TextMuted,
         )
-        MetadataRow("MyAnimeList", settings.myAnimeListStatusText)
-        MetadataRow("Bangumi", settings.bangumiStatusText)
+        MetadataRow("MyAnimeList", settings.myAnimeListStatusLabel(strings))
+        MetadataRow("Bangumi", settings.bangumiStatusLabel(strings))
         myAnimeListConnectionTestStatus?.let {
             SettingsConnectionTestStatusRow(strings = strings, label = strings.myAnimeListTestLabel, status = it)
         }

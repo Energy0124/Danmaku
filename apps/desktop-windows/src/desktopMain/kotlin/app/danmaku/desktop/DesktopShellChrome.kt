@@ -203,7 +203,7 @@ internal fun ShellHeader(
     searchFocusRequester: FocusRequester,
     onRefresh: () -> Unit,
     onShowSettings: () -> Unit,
-    playerStatus: String,
+    playerStatus: PlaybackStatus,
     episodeCount: Int,
     isRefreshEnabled: Boolean,
 ) {
@@ -237,7 +237,11 @@ internal fun ShellHeader(
                 },
             singleLine = true,
         )
-        StatusPill("${strings.playerStatusPrefix} $playerStatus", icon = Icons.Filled.PlayArrow, active = playerStatus == PlaybackStatus.PLAYING.name)
+        StatusPill(
+            "${strings.playerStatusPrefix} ${playerStatus.localizedLabel(strings)}",
+            icon = Icons.Filled.PlayArrow,
+            active = playerStatus == PlaybackStatus.PLAYING,
+        )
         StatusPill("$episodeCount ${strings.episodesSuffix}", icon = Icons.AutoMirrored.Filled.LibraryBooks)
         PlayerIconButton(
             imageVector = Icons.Filled.Refresh,
@@ -411,7 +415,7 @@ internal fun NowPlayingRailCard(
             overflow = TextOverflow.Ellipsis,
         )
         StatusPill(
-            text = playbackStatus.name.lowercase().replaceFirstChar { it.uppercase() },
+            text = playbackStatus.localizedLabel(strings),
             icon = Icons.Filled.PlayArrow,
             active = playbackStatus == PlaybackStatus.PLAYING,
         )

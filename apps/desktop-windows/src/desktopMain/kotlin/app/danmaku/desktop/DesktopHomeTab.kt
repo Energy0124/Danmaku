@@ -665,7 +665,7 @@ internal fun HomeSeriesSummaryRow(
         )
         Column(modifier = Modifier.weight(1f)) {
             Text(series.title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(watchSummary.progressLabel(), color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(watchSummary.progressLabel(strings), color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         StatusPill(strings.episodeCountShortLabel(series.episodeCount))
     }
@@ -747,7 +747,7 @@ internal fun HomeStatusColumn(
         OperationalStatusCard(
             icon = Icons.Filled.Refresh,
             title = strings.externalSyncTitle,
-            value = externalTrackingPlan?.summary?.label ?: strings.notMappedLabel,
+            value = externalTrackingPlan?.summary?.localizedLabel(strings) ?: strings.notMappedLabel,
             detail = strings.readyUpdatesLabel(externalTrackingPlan?.summary?.updateCount ?: 0),
             statusColor = if ((externalTrackingPlan?.summary?.updateCount ?: 0) > 0) DanmakuColors.Info else DanmakuColors.TextMuted,
             actionLabel = strings.openTrackingAction,

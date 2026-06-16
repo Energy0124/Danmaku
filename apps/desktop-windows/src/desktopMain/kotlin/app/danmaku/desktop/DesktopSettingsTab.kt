@@ -441,9 +441,9 @@ internal fun SettingsSectionContent(
                         strings.credentialsPrivacyText,
                         color = DanmakuColors.TextMuted,
                     )
-                    MetadataRow("MyAnimeList", externalAnimeProviderSettings.myAnimeListStatusText)
-                    MetadataRow("Bangumi", externalAnimeProviderSettings.bangumiStatusText)
-                    MetadataRow("dandanplay", dandanplaySettings.statusText)
+                    MetadataRow("MyAnimeList", externalAnimeProviderSettings.myAnimeListStatusLabel(strings))
+                    MetadataRow("Bangumi", externalAnimeProviderSettings.bangumiStatusLabel(strings))
+                    MetadataRow("dandanplay", dandanplaySettings.statusLabel(strings))
                 }
             }
             DesktopSettingsSection.LIBRARY -> {
@@ -558,9 +558,9 @@ internal fun SettingsSectionContent(
                         strings.privacyCredentialsDescription,
                         color = DanmakuColors.TextMuted,
                     )
-                    MetadataRow("MyAnimeList", externalAnimeProviderSettings.myAnimeListStatusText)
-                    MetadataRow("Bangumi", externalAnimeProviderSettings.bangumiStatusText)
-                    MetadataRow("dandanplay", dandanplaySettings.statusText)
+                    MetadataRow("MyAnimeList", externalAnimeProviderSettings.myAnimeListStatusLabel(strings))
+                    MetadataRow("Bangumi", externalAnimeProviderSettings.bangumiStatusLabel(strings))
+                    MetadataRow("dandanplay", dandanplaySettings.statusLabel(strings))
                 }
             }
             DesktopSettingsSection.DIAGNOSTICS -> {

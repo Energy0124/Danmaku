@@ -271,7 +271,7 @@ internal fun LibraryCenterWorkspace(
             StatusPill(strings.favoriteCountSummary(favoriteMediaIds.size), icon = Icons.Filled.Star)
             externalTrackingPlan?.summary?.let { summary ->
                 StatusPill(
-                    summary.label,
+                    summary.localizedLabel(strings),
                     icon = Icons.Filled.Refresh,
                     active = summary.updateCount > 0,
                 )
@@ -455,7 +455,7 @@ internal fun ExternalSyncPreviewView(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 items(plan.updates, key = { update -> "${update.mapping.localSeriesId}-${update.mapping.animeId.provider}" }) { update ->
-                    ExternalSyncUpdateRow(update)
+                    ExternalSyncUpdateRow(strings = strings, update = update)
                 }
             }
         }
@@ -503,7 +503,7 @@ internal fun ExternalSyncPreviewView(
                         Icon(Icons.Filled.Warning, contentDescription = null, tint = DanmakuColors.TextMuted)
                         Column(modifier = Modifier.weight(1f)) {
                             Text(skip.provider?.displayName ?: strings.externalProviderLabel, color = Color.White, maxLines = 1)
-                            Text(skip.reason.displayName, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(skip.reason.localizedLabel(strings), color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text(skip.localSeriesId, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
@@ -538,7 +538,7 @@ internal fun ExternalSyncConflictRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Text(conflict.reason.displayName, color = DanmakuColors.Warning, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(conflict.reason.localizedLabel(strings), color = DanmakuColors.Warning, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Column(horizontalAlignment = Alignment.End) {
             Text(strings.localWatchedEpisodesLabel(conflict.localUpdate.watchedEpisodes ?: 0), color = DanmakuColors.TextMuted, maxLines = 1)
@@ -579,6 +579,7 @@ internal fun ExternalSyncFailureRow(
 
 @Composable
 internal fun ExternalSyncUpdateRow(
+    strings: DesktopStrings,
     update: app.danmaku.domain.ExternalAnimeTrackingPlanUpdate,
 ) {
     Row(
@@ -600,9 +601,9 @@ internal fun ExternalSyncUpdateRow(
             )
         }
         Column(horizontalAlignment = Alignment.End) {
-            Text(update.update.status.displayName, color = DanmakuColors.Good, maxLines = 1)
+            Text(update.update.status.localizedLabel(strings), color = DanmakuColors.Good, maxLines = 1)
             Text(
-                "${update.update.watchedEpisodes ?: 0}/${update.series.episodeCount} watched",
+                strings.watchedEpisodeProgressLabel(update.update.watchedEpisodes ?: 0, update.series.episodeCount),
                 color = DanmakuColors.TextMuted,
                 maxLines = 1,
             )

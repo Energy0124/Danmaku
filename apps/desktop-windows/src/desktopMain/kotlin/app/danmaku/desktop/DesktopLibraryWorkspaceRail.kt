@@ -332,7 +332,7 @@ internal fun LibraryWorkspaceRail(
         LibrarySourceStatus(
             icon = Icons.Filled.Refresh,
             label = strings.externalListsLabel,
-            value = externalTrackingPlan?.summary?.label ?: strings.noLibraryLabel,
+            value = externalTrackingPlan?.summary?.localizedLabel(strings) ?: strings.noLibraryLabel,
             statusColor = if ((externalTrackingPlan?.summary?.updateCount ?: 0) > 0) {
                 DanmakuColors.Good
             } else {

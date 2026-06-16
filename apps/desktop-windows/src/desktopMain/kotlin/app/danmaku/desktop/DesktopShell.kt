@@ -786,7 +786,7 @@ internal fun DesktopShell(
                             searchFocusRequester = navigationState.globalSearchFocusRequester,
                             onRefresh = libraryActions::rescanRegisteredRoots,
                             onShowSettings = { navigationState.selectedTab = DesktopShellTab.PROFILE },
-                            playerStatus = playbackSnapshot.status.name,
+                            playerStatus = playbackSnapshot.status,
                             episodeCount = libraryState.indexedLibrary?.catalog?.items?.size ?: 0,
                             isRefreshEnabled = libraryState.registeredRoots.isNotEmpty() && !libraryState.isIndexing,
                         )
