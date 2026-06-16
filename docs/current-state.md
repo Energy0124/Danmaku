@@ -187,7 +187,8 @@ trusted-LAN clients.
   `TvShellUi.kt`; Home route composition and Home-only rails are split into
   `TvHomePanel.kt`; PC connection route UI, text input, and saved-PC cards are
   split into `TvPcConnectionPanel.kt`; library navigation and empty-state
-  panels are split into `TvLibraryPanels.kt`. Larger TV screen/component
+  panels are split into `TvLibraryPanels.kt`; Library route state/search/filter
+  composition is split into `TvLibraryScreen.kt`. Larger TV screen/component
   splits remain. Both compile and have instrumentation-source coverage, but
   Android TV should be split further before more feature work lands there.
 - Desktop localization now routes through generated resources. The duplicated
