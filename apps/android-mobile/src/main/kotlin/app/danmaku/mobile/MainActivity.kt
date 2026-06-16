@@ -56,7 +56,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -350,143 +349,91 @@ private fun MobilePlayerScreen() {
         }
     }
 
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        containerColor = AppBackground,
-        bottomBar = {
-            MobileBottomBar(
-                selectedTab = selectedTab,
-                onTabSelected = { selectedTab = it },
-            )
-        },
-    ) { innerPadding ->
-        when (selectedTab) {
-            MobileTab.Home -> HomePage(
-                contentPadding = innerPadding,
-                catalog = catalog,
-                posterEndpoint = posterEndpoint,
-                playbackProgresses = playbackProgresses,
-                snapshot = snapshot,
-                nowPlaying = nowPlaying,
-                onPlay = playEpisode,
-                onPlayPause = {
-                    if (snapshot.status == PlaybackStatus.PLAYING) {
-                        controller?.dispatch(PlaybackCommand.Pause)
-                    } else {
-                        controller?.dispatch(PlaybackCommand.Play)
-                    }
-                },
-                onOpenPlayer = { selectedTab = MobileTab.Watch },
-                onOpenLibrary = { selectedTab = MobileTab.Library },
-                onShowLibraryItem = { item ->
-                    librarySearchText = item.seriesTitle
-                    selectedTab = MobileTab.Library
-                },
-                onConnect = { selectedTab = MobileTab.Connect },
-            )
-            MobileTab.Watch -> WatchPage(
-                contentPadding = innerPadding,
-                controller = controller,
-                snapshot = snapshot,
-                nowPlaying = nowPlaying,
-                playbackError = playbackError,
-                onOpen = { openDocument.launch(arrayOf("video/*")) },
-                onPlayPause = {
-                    if (snapshot.status == PlaybackStatus.PLAYING) {
-                        controller?.dispatch(PlaybackCommand.Pause)
-                    } else {
-                        controller?.dispatch(PlaybackCommand.Play)
-                    }
-                },
-                onSeekTo = { controller?.dispatch(PlaybackCommand.SeekTo(it)) },
-                onSetVolume = { controller?.dispatch(PlaybackCommand.SetVolume(it)) },
-                onSelectAudio = { controller?.dispatch(PlaybackCommand.SelectAudioTrack(it)) },
-                onSelectSubtitle = { controller?.dispatch(PlaybackCommand.SelectSubtitleTrack(it)) },
-                onBrowseLibrary = { selectedTab = MobileTab.Library },
-            )
-            MobileTab.Library -> LibraryPage(
-                contentPadding = innerPadding,
-                catalog = catalog,
-                posterEndpoint = posterEndpoint,
-                playbackProgresses = playbackProgresses,
-                filteredItems = filteredItems,
-                totalCount = totalItems.size,
-                snapshot = snapshot,
-                nowPlaying = nowPlaying,
-                searchText = librarySearchText,
-                onSearchTextChange = { librarySearchText = it },
-                sort = librarySort,
-                onSortChange = { librarySort = it },
-                subtitleFilter = librarySubtitleFilter,
-                onSubtitleFilterChange = { librarySubtitleFilter = it },
-                favoriteMediaIds = favoriteMediaIds,
-                favoriteFilter = libraryFavoriteFilter,
-                onFavoriteFilterChange = { libraryFavoriteFilter = it },
-                onSetFavorite = setFavorite,
-                onPlay = playEpisode,
-                onPlayPause = {
-                    if (snapshot.status == PlaybackStatus.PLAYING) {
-                        controller?.dispatch(PlaybackCommand.Pause)
-                    } else {
-                        controller?.dispatch(PlaybackCommand.Play)
-                    }
-                },
-                onOpenPlayer = { selectedTab = MobileTab.Watch },
-                onConnect = { selectedTab = MobileTab.Connect },
-            )
-            MobileTab.Connect -> ConnectPage(
-                contentPadding = innerPadding,
-                catalog = catalog,
-                snapshot = snapshot,
-                nowPlaying = nowPlaying,
-                serverUrl = serverUrl,
-                pairingToken = pairingToken,
-                savedConnections = savedConnections,
-                libraryError = libraryError,
-                onServerUrlChange = { serverUrl = it },
-                onPairingTokenChange = { pairingToken = it },
-                onSelectConnection = {
-                    connectToLibrary(
-                        requestedServerUrl = it.baseUrl,
-                        requestedPairingToken = it.pairingToken,
-                        fallbackDisplayName = it.displayName,
-                    )
-                },
-                onEditConnection = {
-                    serverUrl = it.baseUrl
-                    pairingToken = it.pairingToken
-                },
-                onForgetConnection = {
-                    connectionStore.forgetProfile(it.id)
-                    savedConnections = connectionStore.loadProfiles()
-                },
-                onSaveConnection = {
-                    runCatching {
-                        connectionStore.saveCurrentConnection(
-                            baseUrl = serverUrl,
-                            pairingToken = pairingToken,
-                            displayName = catalog?.rootName,
-                        )
-                    }.onSuccess {
-                        savedConnections = connectionStore.loadProfiles()
-                        libraryError = null
-                    }.onFailure {
-                        libraryError = it.message
-                    }
-                },
-                onDiscover = discoverPc,
-                onRefresh = refreshLibrary,
-                onPlayPause = {
-                    if (snapshot.status == PlaybackStatus.PLAYING) {
-                        controller?.dispatch(PlaybackCommand.Pause)
-                    } else {
-                        controller?.dispatch(PlaybackCommand.Play)
-                    }
-                },
-                onOpenPlayer = { selectedTab = MobileTab.Watch },
-            )
+    val togglePlayback: () -> Unit = {
+        if (snapshot.status == PlaybackStatus.PLAYING) {
+            controller?.dispatch(PlaybackCommand.Pause)
+        } else {
+            controller?.dispatch(PlaybackCommand.Play)
         }
     }
+    MobileAppScaffold(
+        state = MobileAppUiState(
+            selectedTab = selectedTab,
+            controller = controller,
+            catalog = catalog,
+            posterEndpoint = posterEndpoint,
+            playbackProgresses = playbackProgresses,
+            filteredItems = filteredItems,
+            totalCount = totalItems.size,
+            snapshot = snapshot,
+            nowPlaying = nowPlaying,
+            playbackError = playbackError,
+            serverUrl = serverUrl,
+            pairingToken = pairingToken,
+            savedConnections = savedConnections,
+            libraryError = libraryError,
+            searchText = librarySearchText,
+            sort = librarySort,
+            subtitleFilter = librarySubtitleFilter,
+            favoriteMediaIds = favoriteMediaIds,
+            favoriteFilter = libraryFavoriteFilter,
+        ),
+        actions = MobileAppActions(
+            onTabSelected = { selectedTab = it },
+            onPlay = playEpisode,
+            onPlayPause = togglePlayback,
+            onOpenPlayer = { selectedTab = MobileTab.Watch },
+            onOpenLibrary = { selectedTab = MobileTab.Library },
+            onShowLibraryItem = { item ->
+                librarySearchText = item.seriesTitle
+                selectedTab = MobileTab.Library
+            },
+            onConnect = { selectedTab = MobileTab.Connect },
+            onOpenVideo = { openDocument.launch(arrayOf("video/*")) },
+            onSeekTo = { controller?.dispatch(PlaybackCommand.SeekTo(it)) },
+            onSetVolume = { controller?.dispatch(PlaybackCommand.SetVolume(it)) },
+            onSelectAudio = { controller?.dispatch(PlaybackCommand.SelectAudioTrack(it)) },
+            onSelectSubtitle = { controller?.dispatch(PlaybackCommand.SelectSubtitleTrack(it)) },
+            onSearchTextChange = { librarySearchText = it },
+            onSortChange = { librarySort = it },
+            onSubtitleFilterChange = { librarySubtitleFilter = it },
+            onFavoriteFilterChange = { libraryFavoriteFilter = it },
+            onSetFavorite = setFavorite,
+            onServerUrlChange = { serverUrl = it },
+            onPairingTokenChange = { pairingToken = it },
+            onSelectConnection = {
+                connectToLibrary(
+                    requestedServerUrl = it.baseUrl,
+                    requestedPairingToken = it.pairingToken,
+                    fallbackDisplayName = it.displayName,
+                )
+            },
+            onEditConnection = {
+                serverUrl = it.baseUrl
+                pairingToken = it.pairingToken
+            },
+            onForgetConnection = {
+                connectionStore.forgetProfile(it.id)
+                savedConnections = connectionStore.loadProfiles()
+            },
+            onSaveConnection = {
+                runCatching {
+                    connectionStore.saveCurrentConnection(
+                        baseUrl = serverUrl,
+                        pairingToken = pairingToken,
+                        displayName = catalog?.rootName,
+                    )
+                }.onSuccess {
+                    savedConnections = connectionStore.loadProfiles()
+                    libraryError = null
+                }.onFailure {
+                    libraryError = it.message
+                }
+            },
+            onDiscover = discoverPc,
+            onRefresh = refreshLibrary,
+        ),
+    )
 }
 
 @Composable
@@ -1706,7 +1653,7 @@ private fun SeriesDetailPanel(
 }
 
 @Composable
-private fun ConnectPage(
+internal fun ConnectPage(
     contentPadding: PaddingValues,
     catalog: LibraryCatalog?,
     snapshot: PlaybackSnapshot,

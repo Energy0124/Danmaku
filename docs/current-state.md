@@ -166,9 +166,11 @@ trusted-LAN clients.
   URL encoding, display-label, watch-status, size, and playback-time helpers
   extracted into `MobileUiHelpers.kt`; tab metadata, bottom navigation, shared
   page chrome, and the mini-player bar are also split into
-  `MobileShellUi.kt`. Screen/state/action extraction is still needed. Android
-  TV remains untouched. Both compile and have instrumentation-source coverage,
-  but they should be split before more feature work lands there.
+  `MobileShellUi.kt`. Top-level tab routing is split into
+  `MobileAppScaffold.kt` with explicit UI-state/action handoff objects. Service
+  and store side-effect extraction is still needed. Android TV remains
+  untouched. Both compile and have instrumentation-source coverage, but they
+  should be split before more feature work lands there.
 - Desktop localization now routes through generated resources. The duplicated
   Kotlin fallback initializer has been reduced to the small set of non-Compose
   error/default strings used by tests and default action paths, so normal UI
