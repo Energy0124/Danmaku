@@ -147,8 +147,10 @@ trusted-LAN clients.
   failures, ani-rss remote failures, external search with no configured
   provider, and poster fetch failures now use typed exceptions or
   optional-artwork fallbacks. The final `error(...)`/`check(...)` audit found
-  only test sentinels and startup/developer invariants remaining; localized UI
-  copy still needs release polish.
+  only test sentinels and startup/developer invariants remaining. Metadata
+  match no-provider and provider-search failures now use localized
+  English/`zh-TW` dialog copy; broader diagnostic-log localization and
+  screenshot QA still need release polish.
 - Android mobile and Android TV still have very large `MainActivity.kt`
   entrypoints. They compile and have instrumentation-source coverage, but they
   should be split into shell/state/action and screen files before more feature

@@ -206,6 +206,13 @@ internal fun LibraryMediaItem.dandanplayStatusContext(
 internal fun Throwable.readableMessage(): String =
     message?.takeIf(String::isNotBlank) ?: javaClass.simpleName
 
+internal fun Throwable.metadataMatchSearchErrorMessage(strings: DesktopStrings): String =
+    when (this) {
+        is DesktopUserActionException -> strings.metadataMatchNoConfiguredProvidersError
+        is ExternalAnimeProviderException -> strings.metadataMatchProviderSearchFailed
+        else -> readableMessage()
+    }
+
 internal fun String.isDandanplayWarningStatus(): Boolean {
     val normalized = lowercase()
     return listOf(

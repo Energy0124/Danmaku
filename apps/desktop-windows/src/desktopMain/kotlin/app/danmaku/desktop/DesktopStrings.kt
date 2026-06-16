@@ -586,6 +586,10 @@ internal enum class DesktopUiLanguage(
             }
             metadataMatchSearchTitleLabel = "Search title"
             metadataMatchSelectProviderError = "Select at least one provider to search."
+            metadataMatchNoConfiguredProvidersError =
+                "No metadata search provider is configured. Add MyAnimeList or Bangumi settings first."
+            metadataMatchProviderSearchFailed =
+                "Provider search failed. Check provider settings and try again."
             metadataMatchNoCandidates = { title -> "No provider candidates matched \"$title\"." }
             metadataMatchMyAnimeListUnavailable = "MyAnimeList search needs a client ID in Settings > Providers"
             metadataMatchBangumiUnavailable = "Bangumi search needs a valid API URL and User-Agent"
@@ -1195,6 +1199,10 @@ internal enum class DesktopUiLanguage(
             }
             metadataMatchSearchTitleLabel = "搜尋標題"
             metadataMatchSelectProviderError = "請至少選擇一個要搜尋的服務。"
+            metadataMatchNoConfiguredProvidersError =
+                "尚未設定中繼資料搜尋服務。請先新增 MyAnimeList 或 Bangumi 設定。"
+            metadataMatchProviderSearchFailed =
+                "服務搜尋失敗。請檢查服務設定後再試一次。"
             metadataMatchNoCandidates = { title -> "找不到符合「$title」的服務候選項目。" }
             metadataMatchMyAnimeListUnavailable = "MyAnimeList 搜尋需要在「設定 > 服務」填入 Client ID"
             metadataMatchBangumiUnavailable = "Bangumi 搜尋需要有效的 API URL 與 User-Agent"
@@ -1769,6 +1777,8 @@ internal class DesktopStrings {
     var metadataMatchDescription: (String) -> String = { _ -> "" }
     var metadataMatchSearchTitleLabel: String = ""
     var metadataMatchSelectProviderError: String = ""
+    var metadataMatchNoConfiguredProvidersError: String = ""
+    var metadataMatchProviderSearchFailed: String = ""
     var metadataMatchNoCandidates: (String) -> String = { _ -> "" }
     var metadataMatchMyAnimeListUnavailable: String = ""
     var metadataMatchBangumiUnavailable: String = ""

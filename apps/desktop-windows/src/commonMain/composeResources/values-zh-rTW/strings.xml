@@ -278,6 +278,8 @@
     <string name="desktop_metadata_match_description">搜尋「%1$s」的服務中繼資料，並儲存系列層級對應。</string>
     <string name="desktop_metadata_match_search_title_label">搜尋標題</string>
     <string name="desktop_metadata_match_select_provider_error">請至少選擇一個要搜尋的服務。</string>
+    <string name="desktop_metadata_match_no_configured_providers_error">尚未設定中繼資料搜尋服務。請先新增 MyAnimeList 或 Bangumi 設定。</string>
+    <string name="desktop_metadata_match_provider_search_failed">服務搜尋失敗。請檢查服務設定後再試一次。</string>
     <string name="desktop_metadata_match_no_candidates">找不到符合「%1$s」的服務候選項目。</string>
     <string name="desktop_metadata_match_my_anime_list_unavailable">MyAnimeList 搜尋需要在「設定 &gt; 服務」填入 Client ID</string>
     <string name="desktop_metadata_match_bangumi_unavailable">Bangumi 搜尋需要有效的 API URL 與 User-Agent</string>

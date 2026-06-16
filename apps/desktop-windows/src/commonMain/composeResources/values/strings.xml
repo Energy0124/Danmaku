@@ -278,6 +278,8 @@
     <string name="desktop_metadata_match_description">Search provider metadata for %1$s and save a series-level mapping.</string>
     <string name="desktop_metadata_match_search_title_label">Search title</string>
     <string name="desktop_metadata_match_select_provider_error">Select at least one provider to search.</string>
+    <string name="desktop_metadata_match_no_configured_providers_error">No metadata search provider is configured. Add MyAnimeList or Bangumi settings first.</string>
+    <string name="desktop_metadata_match_provider_search_failed">Provider search failed. Check provider settings and try again.</string>
     <string name="desktop_metadata_match_no_candidates">No provider candidates matched "%1$s".</string>
     <string name="desktop_metadata_match_my_anime_list_unavailable">MyAnimeList search needs a client ID in Settings &gt; Providers</string>
     <string name="desktop_metadata_match_bangumi_unavailable">Bangumi search needs a valid API URL and User-Agent</string>

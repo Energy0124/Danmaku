@@ -319,7 +319,7 @@ internal fun MetadataMatchDialog(
                 searchError = if (it.isEmpty()) strings.metadataMatchNoCandidates(title) else null
             }.onFailure {
                 candidates = emptyList()
-                searchError = it.readableMessage()
+                searchError = it.metadataMatchSearchErrorMessage(strings)
             }
             isSearching = false
         }

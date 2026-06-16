@@ -290,6 +290,10 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
     val metadataMatchSearchTitleLabel = stringResource(Res.string.desktop_metadata_match_search_title_label)
     val metadataMatchSelectProviderError =
         stringResource(Res.string.desktop_metadata_match_select_provider_error)
+    val metadataMatchNoConfiguredProvidersError =
+        stringResource(Res.string.desktop_metadata_match_no_configured_providers_error)
+    val metadataMatchProviderSearchFailed =
+        stringResource(Res.string.desktop_metadata_match_provider_search_failed)
     val metadataMatchNoCandidates = stringResource(Res.string.desktop_metadata_match_no_candidates)
     val metadataMatchMyAnimeListUnavailable =
         stringResource(Res.string.desktop_metadata_match_my_anime_list_unavailable)
@@ -893,6 +897,8 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
             this.metadataMatchDescription = { title -> metadataMatchDescription.formatResourceString(title) }
             this.metadataMatchSearchTitleLabel = metadataMatchSearchTitleLabel
             this.metadataMatchSelectProviderError = metadataMatchSelectProviderError
+            this.metadataMatchNoConfiguredProvidersError = metadataMatchNoConfiguredProvidersError
+            this.metadataMatchProviderSearchFailed = metadataMatchProviderSearchFailed
             this.metadataMatchNoCandidates = { title -> metadataMatchNoCandidates.formatResourceString(title) }
             this.metadataMatchMyAnimeListUnavailable = metadataMatchMyAnimeListUnavailable
             this.metadataMatchBangumiUnavailable = metadataMatchBangumiUnavailable
