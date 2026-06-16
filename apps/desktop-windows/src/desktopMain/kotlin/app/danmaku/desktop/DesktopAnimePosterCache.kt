@@ -1,11 +1,17 @@
 package app.danmaku.desktop
 
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URL
 import java.nio.file.Files
 import java.nio.file.Path
 import java.security.MessageDigest
+
+class DesktopAnimePosterCacheException(
+    message: String,
+    cause: Throwable? = null,
+) : RuntimeException(message, cause)
 
 class DesktopAnimePosterCache(
     private val cacheDirectory: Path = defaultCacheDirectory(),
@@ -32,28 +38,33 @@ class DesktopAnimePosterCache(
             return cachePath
         }
 
-        Files.createDirectories(cacheDirectory)
-        val connection = url.openConnection() as HttpURLConnection
         return try {
-            connection.instanceFollowRedirects = true
-            connection.connectTimeout = connectTimeoutMillis
-            connection.readTimeout = readTimeoutMillis
-            connection.setRequestProperty("Accept", "image/*,*/*;q=0.8")
-            connection.setRequestProperty("User-Agent", "Danmaku/1.0")
-            val status = connection.responseCode
-            check(status == HttpURLConnection.HTTP_OK) {
-                "poster fetch returned HTTP $status for $url"
+            Files.createDirectories(cacheDirectory)
+            val connection = url.openConnection() as? HttpURLConnection
+                ?: throw DesktopAnimePosterCacheException("poster URL did not open an HTTP connection")
+            try {
+                connection.instanceFollowRedirects = true
+                connection.connectTimeout = connectTimeoutMillis
+                connection.readTimeout = readTimeoutMillis
+                connection.setRequestProperty("Accept", "image/*,*/*;q=0.8")
+                connection.setRequestProperty("User-Agent", "Danmaku/1.0")
+                val status = connection.responseCode
+                if (status != HttpURLConnection.HTTP_OK) {
+                    throw DesktopAnimePosterCacheException("poster fetch returned HTTP $status for $url")
+                }
+                val bytes = connection.inputStream.use { input ->
+                    input.readNBytes(maxImageBytes + 1)
+                }
+                if (bytes.size > maxImageBytes) {
+                    throw DesktopAnimePosterCacheException("poster response exceeded $maxImageBytes bytes")
+                }
+                Files.write(cachePath, bytes)
+                cachePath
+            } finally {
+                connection.disconnect()
             }
-            val bytes = connection.inputStream.use { input ->
-                input.readNBytes(maxImageBytes + 1)
-            }
-            check(bytes.size <= maxImageBytes) {
-                "poster response exceeded $maxImageBytes bytes"
-            }
-            Files.write(cachePath, bytes)
-            cachePath
-        } finally {
-            connection.disconnect()
+        } catch (exception: IOException) {
+            throw DesktopAnimePosterCacheException("poster fetch failed for $url", exception)
         }
     }
 
@@ -77,17 +88,18 @@ class DesktopAnimePosterCache(
     }
 }
 
-private fun String.toValidatedPosterUrl(): URL? =
-    trim()
-        .takeIf(String::isNotBlank)
-        ?.let(URI::create)
-        ?.takeIf { uri ->
+private fun String.toValidatedPosterUrl(): URL? {
+    val candidate = trim().takeIf(String::isNotBlank) ?: return null
+    val uri = runCatching { URI(candidate) }.getOrNull() ?: return null
+    return uri
+        .takeIf { uri ->
             uri.scheme.equals("https", ignoreCase = true) &&
                 !uri.host.isNullOrBlank() &&
                 uri.userInfo == null &&
                 uri.fragment == null
         }
-        ?.toURL()
+        ?.let { validatedUri -> runCatching { validatedUri.toURL() }.getOrNull() }
+}
 
 private fun String.sha256Hex(): String =
     MessageDigest.getInstance("SHA-256")

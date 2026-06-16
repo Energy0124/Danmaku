@@ -144,8 +144,11 @@ trusted-LAN clients.
   moved out of crash-style control flow: LAN discovery/client HTTP failures,
   desktop missing indexed-media/no-match action failures, dandanplay provider
   failures, MAL OAuth callback/token failures, external anime search/write
-  failures, and ani-rss remote failures now use typed exceptions. Localized UI
-  copy and a final crash-path audit remain before release.
+  failures, ani-rss remote failures, external search with no configured
+  provider, and poster fetch failures now use typed exceptions or
+  optional-artwork fallbacks. The final `error(...)`/`check(...)` audit found
+  only test sentinels and startup/developer invariants remaining; localized UI
+  copy still needs release polish.
 - Android mobile and Android TV still have very large `MainActivity.kt`
   entrypoints. They compile and have instrumentation-source coverage, but they
   should be split into shell/state/action and screen files before more feature

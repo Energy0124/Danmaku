@@ -180,6 +180,11 @@ class DesktopAnimeMetadataResolverTest {
             val resolver = DesktopAnimeMetadataResolver(
                 catalogStore = store,
                 loadConnection = { DandanplayConnection("http://127.0.0.1:9") },
+                posterCache = DesktopAnimePosterCache(
+                    cacheDirectory = temp.resolve("posters"),
+                    connectTimeoutMillis = 200,
+                    readTimeoutMillis = 200,
+                ),
                 fetchAnimeDetails = { _, requestedAnimeId ->
                     ExternalAnimeInfo(
                         id = ExternalAnimeId(ExternalAnimeProvider.DANDANPLAY, requestedAnimeId),
@@ -193,6 +198,35 @@ class DesktopAnimeMetadataResolverTest {
             assertNotNull(store.loadExternalAnimeMetadataCache(animeId))
             assertEquals(animeId, store.loadExternalAnimeItemMappings(item.id).single().animeId)
             assertEquals(emptyList(), store.loadExternalAnimeMappings("example-show"))
+        }
+
+        temp.toFile().deleteRecursively()
+    }
+
+    @Test
+    fun itemMetadataRefreshKeepsMetadataWhenPosterFetchFails() {
+        val temp = createTempDirectory("danmaku-anime-unavailable-poster")
+        val databasePath = temp.resolve("catalog.db")
+        val item = libraryMediaItem(id = "episode-1")
+        val animeId = ExternalAnimeId(ExternalAnimeProvider.DANDANPLAY, 18844)
+
+        DesktopLibraryCatalogStore(databasePath).use { store ->
+            val resolver = DesktopAnimeMetadataResolver(
+                catalogStore = store,
+                loadConnection = { DandanplayConnection("http://127.0.0.1:9") },
+                fetchAnimeDetails = { _, requestedAnimeId ->
+                    ExternalAnimeInfo(
+                        id = ExternalAnimeId(ExternalAnimeProvider.DANDANPLAY, requestedAnimeId),
+                        titles = ExternalAnimeTitleSet(primary = "Classroom S4"),
+                        imageUrl = "https://127.0.0.1:1/poster.jpg",
+                    )
+                },
+            )
+
+            assertNull(resolver.refreshDandanplayMetadataForItem(item, animeId.value))
+
+            assertNotNull(store.loadExternalAnimeMetadataCache(animeId))
+            assertEquals(animeId, store.loadExternalAnimeItemMappings(item.id).single().animeId)
         }
 
         temp.toFile().deleteRecursively()

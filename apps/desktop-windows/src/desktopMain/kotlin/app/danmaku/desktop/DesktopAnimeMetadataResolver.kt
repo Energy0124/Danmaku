@@ -29,7 +29,7 @@ class DesktopAnimeMetadataResolver(
         forceRefresh: Boolean = false,
     ): Path? {
         val metadata = loadDandanplayMetadata(animeId, forceRefresh) ?: return null
-        return posterCache.fetch(metadata.imageUrl, forceRefresh = forceRefresh)
+        return fetchPoster(metadata.imageUrl, forceRefresh = forceRefresh)
     }
 
     fun refreshDandanplayMetadataForAnime(
@@ -37,7 +37,7 @@ class DesktopAnimeMetadataResolver(
         forceRefresh: Boolean = false,
     ): Path? {
         val metadata = loadDandanplayMetadata(animeId, forceRefresh) ?: return null
-        return posterCache.fetch(metadata.imageUrl, forceRefresh = forceRefresh)
+        return fetchPoster(metadata.imageUrl, forceRefresh = forceRefresh)
     }
 
     fun refreshDandanplayMetadataForItem(
@@ -55,7 +55,7 @@ class DesktopAnimeMetadataResolver(
                 mappedAtEpochMs = nowEpochMs(),
             ),
         )
-        return posterCache.fetch(metadata.imageUrl, forceRefresh = forceRefresh)
+        return fetchPoster(metadata.imageUrl, forceRefresh = forceRefresh)
     }
 
     fun ensureDandanplayPosterForSeries(
@@ -157,6 +157,16 @@ class DesktopAnimeMetadataResolver(
                 }
         }
     }
+
+    private fun fetchPoster(
+        imageUrl: String?,
+        forceRefresh: Boolean,
+    ): Path? =
+        try {
+            posterCache.fetch(imageUrl, forceRefresh = forceRefresh)
+        } catch (_: DesktopAnimePosterCacheException) {
+            null
+        }
 
     private fun cachedDandanplayAnimeIdForSeries(series: LibrarySeries): Long? =
         series.indexedItems()

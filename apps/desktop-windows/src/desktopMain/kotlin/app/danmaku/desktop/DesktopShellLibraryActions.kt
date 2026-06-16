@@ -373,8 +373,10 @@ internal class DesktopShellLibraryActions(
                         add(externalAnimeCredentialStore.loadBangumiSearchClient())
                     }
                 }
-                check(clients.isNotEmpty()) {
-                    "No external anime search providers are configured. Add a MyAnimeList client ID or enable Bangumi settings."
+                if (clients.isEmpty()) {
+                    throw DesktopUserActionException(
+                        "No external anime search providers are configured. Add a MyAnimeList client ID or enable Bangumi settings.",
+                    )
                 }
                 ExternalAnimeSearchService(
                     clients = clients,
@@ -389,7 +391,11 @@ internal class DesktopShellLibraryActions(
 
     suspend fun fetchMetadataMatchPoster(imageUrl: String?): Path? =
         withContext(Dispatchers.IO) {
-            posterCache.fetch(imageUrl)
+            try {
+                posterCache.fetch(imageUrl)
+            } catch (_: DesktopAnimePosterCacheException) {
+                null
+            }
         }
 
     fun setFavorite(item: LibraryMediaItem, isFavorite: Boolean) {
