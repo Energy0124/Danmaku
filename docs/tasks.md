@@ -71,9 +71,9 @@ Status legend:
   A final `error(...)`/`check(...)` audit found only test sentinels and
   startup/developer invariants remaining. Metadata match no-provider and
   provider-search failures now surface localized English/`zh-TW` dialog copy;
-  local playback preparation failures now surface localized visible error copy.
-  Remaining work is broader localized copy for action diagnostics and screenshot
-  QA.
+  local playback preparation and paired library catalog/remote playback failures
+  now surface localized visible error copy. Remaining work is broader localized
+  copy for action diagnostics and screenshot QA.
 - `[ ]` P1: Split Android mobile `MainActivity.kt` into focused app shell,
   connection/library, home, playback, and shared UI/state files before adding
   more mobile features.
@@ -138,9 +138,9 @@ Full review date: 2026-06-15.
   failures now use typed exceptions or optional fallbacks. The remaining
   `error(...)`/`check(...)` hits are test sentinels or startup/developer
   invariants. Metadata match no-provider and provider-search failure dialogs now
-  use localized English/`zh-TW` copy, and local playback preparation failures
-  now use localized visible error copy. Broader diagnostic-log localization and
-  screenshot QA remain.
+  use localized English/`zh-TW` copy, and local playback preparation plus paired
+  library catalog/remote playback failures now use localized visible error copy.
+  Broader diagnostic-log localization and screenshot QA remain.
 - `[ ]` P1: Android mobile and Android TV app entrypoints are monolithic
   enough to slow safe feature work and review. Keep behavior stable while
   extracting screen/state/action boundaries.

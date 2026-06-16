@@ -166,6 +166,7 @@ import app.danmaku.domain.recentlyWatchedItems
 import app.danmaku.domain.toPlaybackProgress
 import app.danmaku.domain.seriesWatchSummaryById
 import app.danmaku.domain.watchStatusByMediaId
+import app.danmaku.library.LanLibraryClientException
 import app.danmaku.library.LanLibraryConnectionSession
 import app.danmaku.library.LanPlaybackPreparation
 import app.danmaku.library.LanPlaybackPreparer
@@ -184,6 +185,7 @@ import java.awt.Desktop
 import java.awt.Toolkit
 import java.awt.Window as AwtWindow
 import java.awt.datatransfer.StringSelection
+import java.io.IOException
 import java.net.URI
 import kotlin.math.roundToInt
 import java.nio.file.Files
@@ -221,6 +223,20 @@ internal fun Throwable.localPlaybackPrepareErrorMessage(strings: DesktopStrings)
         DesktopUserActionFailureKind.GENERIC,
         null,
         -> strings.localPlaybackPrepareFailedError
+    }
+
+internal fun Throwable.pairedLibraryCatalogErrorMessage(strings: DesktopStrings): String =
+    when (this) {
+        is LanLibraryClientException -> strings.pairedLibraryServerRejectedError
+        is IOException -> strings.pairedLibraryUnreachableError
+        else -> strings.pairedLibraryUnreachableError
+    }
+
+internal fun Throwable.remotePlaybackPrepareErrorMessage(strings: DesktopStrings): String =
+    when (this) {
+        is LanLibraryClientException -> strings.pairedLibraryServerRejectedError
+        is IOException -> strings.pairedLibraryUnreachableError
+        else -> strings.remotePlaybackPrepareFailedError
     }
 
 internal fun String.isDandanplayWarningStatus(): Boolean {

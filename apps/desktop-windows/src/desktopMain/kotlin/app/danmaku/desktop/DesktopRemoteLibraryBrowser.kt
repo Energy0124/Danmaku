@@ -260,7 +260,7 @@ internal fun RemoteLibraryBrowser(
                     "Fetched catalog: ${it.catalog.items.size} items, ${it.playbackProgresses.size} progress rows",
                 )
             }.onFailure {
-                libraryError = it.message
+                libraryError = it.pairedLibraryCatalogErrorMessage(strings)
                 appendDiagnostic("remote-client", "Fetch catalog failed: ${it.message}")
             }
             isLoading = false
@@ -299,7 +299,7 @@ internal fun RemoteLibraryBrowser(
                     onLoadPreparedPlayback(it)
                 }
             }.onFailure {
-                libraryError = it.message
+                libraryError = it.remotePlaybackPrepareErrorMessage(strings)
                 appendDiagnostic("remote-client", "Prepare remote playback failed: ${it.message}")
             }
             isPreparingPlayback = false

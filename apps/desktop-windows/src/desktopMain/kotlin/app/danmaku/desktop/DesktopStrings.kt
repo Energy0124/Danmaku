@@ -255,6 +255,12 @@ internal enum class DesktopUiLanguage(
             pairingCodeLabel = "Pairing code"
             loadPairedCatalogAction = "Load paired server catalog"
             pairedLibraryErrorLabel = { message -> "Paired library error: $message" }
+            pairedLibraryServerRejectedError =
+                "The paired library server rejected the request. Check the server URL and pairing code."
+            pairedLibraryUnreachableError =
+                "Could not reach the paired library server. Make sure the PC is online and on this network."
+            remotePlaybackPrepareFailedError =
+                "Could not prepare remote playback. Reload the paired catalog and try again."
             pairedEpisodesLabel = { count -> "Paired episodes: $count" }
             pairedProgressLabel = "Paired progress"
             savedRowsLabel = { count -> "$count saved rows" }
@@ -875,6 +881,12 @@ internal enum class DesktopUiLanguage(
             pairingCodeLabel = "配對碼"
             loadPairedCatalogAction = "載入配對伺服器目錄"
             pairedLibraryErrorLabel = { message -> "配對媒體庫錯誤：$message" }
+            pairedLibraryServerRejectedError =
+                "配對媒體庫伺服器拒絕請求。請檢查伺服器 URL 與配對碼。"
+            pairedLibraryUnreachableError =
+                "無法連線到配對媒體庫伺服器。請確認 PC 已開機且位於同一網路。"
+            remotePlaybackPrepareFailedError =
+                "無法準備遠端播放。請重新載入配對目錄後再試一次。"
             pairedEpisodesLabel = { count -> "配對集數：$count" }
             pairedProgressLabel = "配對進度"
             savedRowsLabel = { count -> "$count 筆已儲存" }
@@ -1476,6 +1488,9 @@ internal class DesktopStrings {
     var pairingCodeLabel: String = ""
     var loadPairedCatalogAction: String = ""
     var pairedLibraryErrorLabel: (String) -> String = { _ -> "" }
+    var pairedLibraryServerRejectedError: String = ""
+    var pairedLibraryUnreachableError: String = ""
+    var remotePlaybackPrepareFailedError: String = ""
     var pairedEpisodesLabel: (Int) -> String = { _ -> "" }
     var pairedProgressLabel: String = ""
     var savedRowsLabel: (Int) -> String = { _ -> "" }

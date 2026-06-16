@@ -162,6 +162,12 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
     val pairingCodeLabel = stringResource(Res.string.desktop_pairing_code_label)
     val loadPairedCatalogAction = stringResource(Res.string.desktop_load_paired_catalog_action)
     val pairedLibraryErrorLabel = stringResource(Res.string.desktop_paired_library_error_label)
+    val pairedLibraryServerRejectedError =
+        stringResource(Res.string.desktop_paired_library_server_rejected_error)
+    val pairedLibraryUnreachableError =
+        stringResource(Res.string.desktop_paired_library_unreachable_error)
+    val remotePlaybackPrepareFailedError =
+        stringResource(Res.string.desktop_remote_playback_prepare_failed_error)
     val pairedEpisodesLabel = stringResource(Res.string.desktop_paired_episodes_label)
     val pairedProgressLabel = stringResource(Res.string.desktop_paired_progress_label)
     val savedRowsLabel = stringResource(Res.string.desktop_saved_rows_label)
@@ -773,6 +779,9 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
             this.pairingCodeLabel = pairingCodeLabel
             this.loadPairedCatalogAction = loadPairedCatalogAction
             this.pairedLibraryErrorLabel = { message -> pairedLibraryErrorLabel.formatResourceString(message) }
+            this.pairedLibraryServerRejectedError = pairedLibraryServerRejectedError
+            this.pairedLibraryUnreachableError = pairedLibraryUnreachableError
+            this.remotePlaybackPrepareFailedError = remotePlaybackPrepareFailedError
             this.pairedEpisodesLabel = { count -> pairedEpisodesLabel.formatResourceString(count) }
             this.pairedProgressLabel = pairedProgressLabel
             this.savedRowsLabel = { count -> savedRowsLabel.formatResourceString(count) }

@@ -128,6 +128,9 @@
     <string name="desktop_pairing_code_label">配對碼</string>
     <string name="desktop_load_paired_catalog_action">載入配對伺服器目錄</string>
     <string name="desktop_paired_library_error_label">配對媒體庫錯誤：%1$s</string>
+    <string name="desktop_paired_library_server_rejected_error">配對媒體庫伺服器拒絕請求。請檢查伺服器 URL 與配對碼。</string>
+    <string name="desktop_paired_library_unreachable_error">無法連線到配對媒體庫伺服器。請確認 PC 已開機且位於同一網路。</string>
+    <string name="desktop_remote_playback_prepare_failed_error">無法準備遠端播放。請重新載入配對目錄後再試一次。</string>
     <string name="desktop_paired_episodes_label">配對集數：%1$d</string>
     <string name="desktop_paired_progress_label">配對進度</string>
     <string name="desktop_saved_rows_label">%1$d 筆已儲存</string>

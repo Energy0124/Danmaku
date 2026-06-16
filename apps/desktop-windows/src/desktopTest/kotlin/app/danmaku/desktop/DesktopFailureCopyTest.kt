@@ -1,5 +1,7 @@
 package app.danmaku.desktop
 
+import app.danmaku.library.LanLibraryClientException
+import java.io.IOException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -63,6 +65,43 @@ class DesktopFailureCopyTest {
                 message = "Indexed media file no longer exists: S:/missing.mkv",
                 kind = DesktopUserActionFailureKind.INDEXED_MEDIA_FILE_MISSING,
             ).localPlaybackPrepareErrorMessage(traditionalChinese),
+        )
+    }
+
+    @Test
+    fun pairedLibraryUsesLocalizedCopyForExpectedFailures() {
+        val english = DesktopUiLanguage.ENGLISH.strings
+        val traditionalChinese = DesktopUiLanguage.ZH_TW.strings
+
+        assertEquals(
+            "The paired library server rejected the request. Check the server URL and pairing code.",
+            LanLibraryClientException("Library server returned HTTP 401")
+                .pairedLibraryCatalogErrorMessage(english),
+        )
+        assertEquals(
+            "Could not reach the paired library server. Make sure the PC is online and on this network.",
+            IOException("Connection refused")
+                .pairedLibraryCatalogErrorMessage(english),
+        )
+        assertEquals(
+            "配對媒體庫伺服器拒絕請求。請檢查伺服器 URL 與配對碼。",
+            LanLibraryClientException("Library server returned HTTP 401")
+                .pairedLibraryCatalogErrorMessage(traditionalChinese),
+        )
+        assertEquals(
+            "無法連線到配對媒體庫伺服器。請確認 PC 已開機且位於同一網路。",
+            IOException("Connection refused")
+                .pairedLibraryCatalogErrorMessage(traditionalChinese),
+        )
+        assertEquals(
+            "Could not prepare remote playback. Reload the paired catalog and try again.",
+            RuntimeException("boom")
+                .remotePlaybackPrepareErrorMessage(english),
+        )
+        assertEquals(
+            "無法準備遠端播放。請重新載入配對目錄後再試一次。",
+            RuntimeException("boom")
+                .remotePlaybackPrepareErrorMessage(traditionalChinese),
         )
     }
 }
