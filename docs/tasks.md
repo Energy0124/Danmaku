@@ -93,9 +93,9 @@ Status legend:
   mobile Watch route and player-control helpers. Library detail and Next Up
   UI are now split into `LibraryDetailComponents.kt` and
   `LibraryNextUpComponents.kt`; reusable library rails/cards now live in
-  `LibraryRailComponents.kt`, and `LibraryPage.kt` owns the mobile Library
-  route composition. Remaining mobile refactor work should extract the Connect
-  page and connection components.
+  `LibraryRailComponents.kt`, `LibraryPage.kt` owns the mobile Library route,
+  and `ConnectPage.kt` owns the Connect route plus connection form/rows. The
+  remaining entrypoint refactor work should move to Android TV.
 - `[ ]` P1: Split Android TV `MainActivity.kt` into focused TV shell,
   PC connection, home, library/search/favorites, playback controls, and shared
   focus/visual primitives before adding more TV features.
@@ -170,12 +170,10 @@ Full review date: 2026-06-15.
   Broader diagnostic-log localization and screenshot QA remain.
 - `[~]` P1: Android mobile and Android TV app entrypoints are monolithic
   enough to slow safe feature work and review. Android mobile helper,
-  formatting, shell-chrome, top-level route mapping, and remembered state code
-  has started moving out of `MainActivity.kt`; service/store action handling
-  is also split, and Home route composition is in `HomePage.kt`. Keep behavior
-  stable while extracting the remaining screen files; Watch route composition
-  and player controls are now in `WatchPage.kt`, with library detail/Next Up
-  UI split into dedicated component files. Android TV remains untouched.
+  formatting, shell-chrome, top-level route mapping, remembered state,
+  service/store action handling, and Home/Watch/Library/Connect route
+  composition are now split out of `MainActivity.kt`; Android TV remains
+  untouched.
 - `[ ]` P1: Release confidence still depends on manual QA for Windows
   fullscreen/resize/4K/hardware decoding, Android phone/tablet layouts,
   Android TV 1080p/4K focus traversal, desktop localization screenshots, and
