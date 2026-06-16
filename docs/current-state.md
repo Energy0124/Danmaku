@@ -185,9 +185,10 @@ trusted-LAN clients.
   track controls are split into `TvPlayerPanel.kt`; app destination metadata,
   top-level rail/header, and shared rail pill/navigation items are split into
   `TvShellUi.kt`; Home route composition and Home-only rails are split into
-  `TvHomePanel.kt`. Larger TV screen/component splits remain. Both compile and
-  have instrumentation-source coverage, but Android TV should be split further
-  before more feature work lands there.
+  `TvHomePanel.kt`; PC connection route UI, text input, and saved-PC cards are
+  split into `TvPcConnectionPanel.kt`. Larger TV screen/component splits
+  remain. Both compile and have instrumentation-source coverage, but Android TV
+  should be split further before more feature work lands there.
 - Desktop localization now routes through generated resources. The duplicated
   Kotlin fallback initializer has been reduced to the small set of non-Compose
   error/default strings used by tests and default action paths, so normal UI
