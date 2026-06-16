@@ -103,7 +103,8 @@ Status legend:
   labels, next-up labels, and metadata labels into `TvUiHelpers.kt`. Player
   surface, seek controls, and audio/subtitle track controls now live in
   `TvPlayerPanel.kt`. App destination metadata, top-level rail/header, and
-  shared rail pill/navigation items now live in `TvShellUi.kt`.
+  shared rail pill/navigation items now live in `TvShellUi.kt`. Home route
+  composition and Home-only rails now live in `TvHomePanel.kt`.
 - `[ ]` P1: Add connected Android test runs to the release checklist and record
   the required device/emulator matrix for mobile playback, LAN sync, TV focus,
   and Media3 streaming.
@@ -178,7 +179,9 @@ Full review date: 2026-06-15.
   formatting, shell-chrome, top-level route mapping, remembered state,
   service/store action handling, and Home/Watch/Library/Connect route
   composition are now split out of `MainActivity.kt`. Android TV decomposition
-  has started with shared UI helpers in `TvUiHelpers.kt`.
+  has started with shared UI helpers in `TvUiHelpers.kt`, player controls in
+  `TvPlayerPanel.kt`, shell chrome in `TvShellUi.kt`, and Home route
+  composition in `TvHomePanel.kt`.
 - `[ ]` P1: Release confidence still depends on manual QA for Windows
   fullscreen/resize/4K/hardware decoding, Android phone/tablet layouts,
   Android TV 1080p/4K focus traversal, desktop localization screenshots, and
