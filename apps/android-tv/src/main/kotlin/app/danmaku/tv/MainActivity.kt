@@ -50,7 +50,6 @@ import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.library.LanLibraryConnectionSession
 import app.danmaku.library.LanPlaybackPreparer
 import app.danmaku.library.LanPlaybackProgressSync
-import app.danmaku.library.LanPlaybackTarget
 import app.danmaku.library.android.AndroidLibraryFavoriteStore
 import app.danmaku.library.android.AndroidLanLibraryConnectionStore
 import app.danmaku.library.android.LanLibraryClient
@@ -322,26 +321,18 @@ private fun TvPlayerScreen() {
                                 onShowPc = { selectedDestination = TvDestination.Pc },
                                 onPlay = { item ->
                                     val activeController = controller ?: return@TvHomePanel
-                                    val target = LanPlaybackTarget(serverUrl, pairingToken, item.id)
                                     scope.launch {
-                                        val resumePosition = runCatching {
-                                            withContext(Dispatchers.IO) {
-                                                progressSync.fetchResumePositionMs(target)
-                                            }
-                                        }.onFailure {
-                                            libraryError = "Resume lookup failed: ${it.message}"
-                                        }.getOrNull()
-                                        val preparation = playbackPreparer.prepare(
-                                            baseUrl = target.baseUrl,
-                                            pairingToken = target.pairingToken,
+                                        playTvLibraryItem(
+                                            controller = activeController,
+                                            progressSync = progressSync,
+                                            playbackPreparer = playbackPreparer,
+                                            baseUrl = serverUrl,
+                                            pairingToken = pairingToken,
                                             item = item,
-                                            resumePositionMs = resumePosition,
+                                            onResumeLookupFailure = {
+                                                libraryError = "Resume lookup failed: ${it.message}"
+                                            },
                                         )
-                                        activeController.load(preparation)
-                                        preparation.resumePositionMs?.let {
-                                            activeController.dispatch(PlaybackCommand.SeekTo(it))
-                                        }
-                                        activeController.dispatch(PlaybackCommand.Play)
                                     }
                                 },
                             )
@@ -375,26 +366,18 @@ private fun TvPlayerScreen() {
                                 },
                                 onPlay = { item ->
                                     val activeController = controller ?: return@LibraryItems
-                                    val target = LanPlaybackTarget(serverUrl, pairingToken, item.id)
                                     scope.launch {
-                                        val resumePosition = runCatching {
-                                            withContext(Dispatchers.IO) {
-                                                progressSync.fetchResumePositionMs(target)
-                                            }
-                                        }.onFailure {
-                                            libraryError = "Resume lookup failed: ${it.message}"
-                                        }.getOrNull()
-                                        val preparation = playbackPreparer.prepare(
-                                            baseUrl = target.baseUrl,
-                                            pairingToken = target.pairingToken,
+                                        playTvLibraryItem(
+                                            controller = activeController,
+                                            progressSync = progressSync,
+                                            playbackPreparer = playbackPreparer,
+                                            baseUrl = serverUrl,
+                                            pairingToken = pairingToken,
                                             item = item,
-                                            resumePositionMs = resumePosition,
-                        )
-                                        activeController.load(preparation)
-                                        preparation.resumePositionMs?.let {
-                                            activeController.dispatch(PlaybackCommand.SeekTo(it))
-                                        }
-                                        activeController.dispatch(PlaybackCommand.Play)
+                                            onResumeLookupFailure = {
+                                                libraryError = "Resume lookup failed: ${it.message}"
+                                            },
+                                        )
                                     }
                                 },
                             )
