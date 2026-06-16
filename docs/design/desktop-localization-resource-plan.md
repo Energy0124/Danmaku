@@ -37,7 +37,26 @@ in-app language selector.
 
 ## Next Steps
 
-1. Run English and `zh-TW` screenshot QA across dense desktop surfaces.
+1. Run English and `zh-TW` screenshot QA across dense desktop surfaces:
+
+   ```powershell
+   .\tools\windows\capture-desktop-localization-screenshots.ps1
+   ```
+
+   The helper launches the desktop app with `--ui-language` and `--initial-tab`
+   overrides and writes local screenshots to
+   `build\qa\desktop-localization\`. Review Home, Library, Downloads,
+   Tracking, and Settings in both languages for missing generated resources,
+   fallback English, clipped text, and obvious overlap. The helper uses
+   `--server-port=0` for QA launches so a running development server does not
+   block capture.
+
+   2026-06-16 note: the helper and launch overrides are implemented, and
+   `:apps:desktop-windows:desktopTest` passes. The attempted capture from this
+   Codex shell reached `:apps:desktop-windows:run`, but the Java process had no
+   top-level window handle in the launched session, so screenshots were not
+   produced. Run the helper from an interactive desktop PowerShell session to
+   complete visual review.
 2. Remove duplicated migrated fallback text from the Kotlin initializer after
    screenshot checks pass.
 3. Consider moving the desktop locale-owner helper to a smaller dedicated owner

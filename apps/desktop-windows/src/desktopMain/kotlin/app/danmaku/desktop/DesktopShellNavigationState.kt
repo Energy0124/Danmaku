@@ -15,15 +15,17 @@ internal class DesktopShellNavigationState(
     private val catalogStore: DesktopLibraryCatalogStore,
     private val scope: CoroutineScope,
     private val appendDiagnostic: (String, String) -> Unit,
+    initialLanguage: DesktopUiLanguage? = null,
+    initialTab: DesktopShellTab? = null,
 ) {
-    var selectedTab by mutableStateOf(DesktopShellTab.HOME)
+    var selectedTab by mutableStateOf(initialTab ?: DesktopShellTab.HOME)
     var globalSearchText by mutableStateOf("")
     var librarySearchSeed by mutableStateOf("")
     var librarySearchSeedVersion by mutableStateOf(0)
     val globalSearchFocusRequester = FocusRequester()
 
     var desktopLanguage by mutableStateOf(
-        DesktopUiLanguage.fromStorageValue(
+        initialLanguage ?: DesktopUiLanguage.fromStorageValue(
             catalogStore.loadSetting(DESKTOP_UI_LANGUAGE_SETTING_KEY)?.value,
         ),
     )
@@ -78,11 +80,15 @@ internal fun rememberDesktopShellNavigationState(
     catalogStore: DesktopLibraryCatalogStore,
     scope: CoroutineScope,
     appendDiagnostic: (String, String) -> Unit,
+    initialLanguage: DesktopUiLanguage? = null,
+    initialTab: DesktopShellTab? = null,
 ): DesktopShellNavigationState =
-    remember(catalogStore, scope) {
+    remember(catalogStore, scope, initialLanguage, initialTab) {
         DesktopShellNavigationState(
             catalogStore = catalogStore,
             scope = scope,
             appendDiagnostic = appendDiagnostic,
+            initialLanguage = initialLanguage,
+            initialTab = initialTab,
         )
     }

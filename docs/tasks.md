@@ -93,8 +93,12 @@ Status legend:
 - `[ ]` Define authorized download source contracts and queue execution
   behavior.
 - `[ ]` Add QA scripts or checklists for Windows fullscreen/4K/hardware decode.
-- `[ ]` Add localization QA checks for English and `zh-TW` screenshots on
-  dense desktop, mobile, and TV surfaces.
+- `[~]` Add localization QA checks for English and `zh-TW` screenshots on
+  dense desktop, mobile, and TV surfaces. Desktop now has deterministic launch
+  overrides plus a Windows screenshot helper for Home, Library, Downloads,
+  Tracking, and Settings; local capture from the Codex shell was blocked because
+  the launched Java process had no top-level window handle, so interactive
+  desktop review still needs to be run.
 - `[ ]` P2: Run English and `zh-TW` screenshot QA for desktop generated
   resources, then remove duplicated migrated fallback text from the Kotlin
   initializer.

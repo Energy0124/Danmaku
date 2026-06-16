@@ -122,9 +122,12 @@ trusted-LAN clients.
   behavior need broader manual validation.
 - UI localization is now a design requirement for English and Traditional
   Chinese (`zh-TW`). Desktop `DesktopStrings` resource extraction and
-  app-language-to-resource locale control are in place, but English/`zh-TW`
-  screenshot QA is still needed before deleting the duplicated Kotlin fallback
-  initializer text.
+  app-language-to-resource locale control are in place. Deterministic desktop
+  launch overrides and a Windows screenshot helper now exist for English/`zh-TW`
+  Home, Library, Downloads, Tracking, and Settings review, but the attempted
+  capture from the Codex shell produced no top-level Java window handle, so
+  interactive screenshot QA is still needed before deleting the duplicated
+  Kotlin fallback initializer text.
 - Android mobile/tablet layouts need final viewport QA on phone and tablet
   sizes.
 - Android TV layouts need 1080p and 4K safe-area/focus QA on real or emulated
@@ -159,8 +162,8 @@ trusted-LAN clients.
   work lands there.
 - Desktop localization now routes through generated resources, but the
   duplicated Kotlin fallback initializer remains. It should stay until
-  screenshot QA passes, then be reduced so future string changes do not require
-  editing both XML resources and fallback Kotlin text.
+  interactive screenshot QA passes, then be reduced so future string changes do
+  not require editing both XML resources and fallback Kotlin text.
 - From an anime-viewer workflow perspective, the current foundation covers
   local library playback, posters/metadata, progress, favorites, external
   mapping/sync, and danmaku basics. Missing high-value viewer workflows include

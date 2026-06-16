@@ -47,6 +47,36 @@ class DesktopLaunchOptionsTest {
     }
 
     @Test
+    fun parsesLocalizationQaLaunchOverrides() {
+        val options = DesktopLaunchOptions.parse(
+            listOf(
+                "--ui-language=zh-TW",
+                "--initial-tab=library",
+                "--server-port=0",
+            ),
+        )
+
+        assertEquals(DesktopUiLanguage.ZH_TW, options.initialLanguage)
+        assertEquals(DesktopShellTab.MEDIA_LIBRARY, options.initialTab)
+        assertEquals(0, options.serverPort)
+    }
+
+    @Test
+    fun parsesLaunchOverrideAliases() {
+        val options = DesktopLaunchOptions.parse(
+            listOf(
+                "--language",
+                "en",
+                "--tab",
+                "settings",
+            ),
+        )
+
+        assertEquals(DesktopUiLanguage.ENGLISH, options.initialLanguage)
+        assertEquals(DesktopShellTab.PROFILE, options.initialTab)
+    }
+
+    @Test
     fun parsesSmokeMediaFromEnvironment() {
         val options = DesktopLaunchOptions.parse(
             args = listOf("--smoke-playback-media-env"),
@@ -76,6 +106,13 @@ class DesktopLaunchOptionsTest {
     fun rejectsMissingSmokeMediaValue() {
         assertFailsWith<IllegalStateException> {
             DesktopLaunchOptions.parse(listOf("--smoke-playback-media"))
+        }
+    }
+
+    @Test
+    fun rejectsInvalidServerPort() {
+        assertFailsWith<IllegalStateException> {
+            DesktopLaunchOptions.parse(listOf("--server-port=65536"))
         }
     }
 

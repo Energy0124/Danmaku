@@ -348,6 +348,7 @@ internal fun DesktopShell(
             catalogStore = catalogStore,
             rootScanner = rootScanner,
             metadataResolver = animeMetadataResolver,
+            port = launchOptions.serverPort ?: app.danmaku.server.LocalLibraryServer.DEFAULT_PORT,
             aniRssWebhookToken = aniRssCredentialStore.loadOrCreateWebhookToken(),
             onLibraryPublished = { library ->
                 scope.launch {
@@ -463,7 +464,13 @@ internal fun DesktopShell(
         libraryActions.cleanupLegacySeriesAnimeMappings()
     }
 
-    val navigationState = rememberDesktopShellNavigationState(catalogStore, scope, ::appendDiagnostic)
+    val navigationState = rememberDesktopShellNavigationState(
+        catalogStore = catalogStore,
+        scope = scope,
+        appendDiagnostic = ::appendDiagnostic,
+        initialLanguage = launchOptions.initialLanguage,
+        initialTab = launchOptions.initialTab,
+    )
     val playbackState = rememberDesktopShellPlaybackState(catalogStore)
     val playbackActions = remember(playbackController, playbackSession, navigationState, playbackState, settingsState, libraryState) {
         DesktopShellPlaybackActions(
