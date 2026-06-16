@@ -89,7 +89,8 @@ Status legend:
   and playback-service lifecycle still in `MobilePlayerScreen`. Next pass
   should continue splitting the large page composables into screen files.
   `HomePage.kt` now owns the mobile Home route composition while shared rails
-  remain package-internal for Library reuse.
+  remain package-internal for Library reuse. `WatchPage.kt` now owns the
+  mobile Watch route and player-control helpers.
 - `[ ]` P1: Split Android TV `MainActivity.kt` into focused TV shell,
   PC connection, home, library/search/favorites, playback controls, and shared
   focus/visual primitives before adding more TV features.
@@ -167,8 +168,8 @@ Full review date: 2026-06-15.
   formatting, shell-chrome, top-level route mapping, and remembered state code
   has started moving out of `MainActivity.kt`; service/store action handling
   is also split, and Home route composition is in `HomePage.kt`. Keep behavior
-  stable while extracting the remaining screen files. Android TV remains
-  untouched.
+  stable while extracting the remaining screen files; Watch route composition
+  and player controls are now in `WatchPage.kt`. Android TV remains untouched.
 - `[ ]` P1: Release confidence still depends on manual QA for Windows
   fullscreen/resize/4K/hardware decoding, Android phone/tablet layouts,
   Android TV 1080p/4K focus traversal, desktop localization screenshots, and
