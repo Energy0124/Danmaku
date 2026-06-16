@@ -84,7 +84,10 @@ Status legend:
   `MobileAppScaffold.kt` with explicit `MobileAppUiState` and
   `MobileAppActions` handoff objects. Remembered player/library state and
   derived catalog filtering/poster endpoints now live in `MobilePlayerState.kt`.
-  Next pass should move service/store side effects out of `MobilePlayerScreen`.
+  Service/store side effects and scaffold callbacks now live in
+  `MobilePlayerActionHandler.kt`, with only the Android file-picker URI load
+  and playback-service lifecycle still in `MobilePlayerScreen`. Next pass
+  should split the large page composables into screen files.
 - `[ ]` P1: Split Android TV `MainActivity.kt` into focused TV shell,
   PC connection, home, library/search/favorites, playback controls, and shared
   focus/visual primitives before adding more TV features.
@@ -160,9 +163,9 @@ Full review date: 2026-06-15.
 - `[~]` P1: Android mobile and Android TV app entrypoints are monolithic
   enough to slow safe feature work and review. Android mobile helper,
   formatting, shell-chrome, top-level route mapping, and remembered state code
-  has started moving out of `MainActivity.kt`; keep behavior stable while
-  extracting service/store side effects and screen files. Android TV remains
-  untouched.
+  has started moving out of `MainActivity.kt`; service/store action handling
+  is also split. Keep behavior stable while extracting the remaining screen
+  files. Android TV remains untouched.
 - `[ ]` P1: Release confidence still depends on manual QA for Windows
   fullscreen/resize/4K/hardware decoding, Android phone/tablet layouts,
   Android TV 1080p/4K focus traversal, desktop localization screenshots, and

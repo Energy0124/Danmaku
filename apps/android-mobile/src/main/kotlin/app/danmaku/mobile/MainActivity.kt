@@ -94,7 +94,6 @@ import app.danmaku.domain.LibrarySeries
 import app.danmaku.domain.LibrarySeriesWatchSummary
 import app.danmaku.domain.LibrarySubtitleFilter
 import app.danmaku.domain.LibraryWatchStatus
-import app.danmaku.domain.PlaybackCommand
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.PlaybackSource
@@ -114,18 +113,13 @@ import app.danmaku.library.LanLibraryConnectionSession
 import app.danmaku.library.LanLibraryConnectionProfile
 import app.danmaku.library.LanPlaybackPreparer
 import app.danmaku.library.LanPlaybackProgressSync
-import app.danmaku.library.LanPlaybackTarget
 import app.danmaku.library.android.AndroidLibraryFavoriteStore
 import app.danmaku.library.android.AndroidLanLibraryConnectionStore
 import app.danmaku.library.android.LanLibraryClient
 import app.danmaku.library.android.LanLibraryDiscoveryClient
-import app.danmaku.library.android.LanLibraryDiscoveryException
 import app.danmaku.player.android.Media3PlaybackController
 import app.danmaku.player.android.Media3PlaybackServiceConnection
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 internal val AppBackground = Color(0xFF101214)
 internal val PlayerBlack = Color(0xFF050607)
@@ -205,6 +199,28 @@ private fun MobilePlayerScreen() {
             appState.snapshot = it.snapshot()
         }
     }
+    val actionHandler = remember(
+        appState,
+        scope,
+        libraryConnectionSession,
+        progressSync,
+        playbackPreparer,
+        connectionStore,
+        favoriteStore,
+        discoveryClient,
+    ) {
+        MobilePlayerActionHandler(
+            state = appState,
+            scope = scope,
+            libraryConnectionSession = libraryConnectionSession,
+            progressSync = progressSync,
+            playbackPreparer = playbackPreparer,
+            connectionStore = connectionStore,
+            favoriteStore = favoriteStore,
+            discoveryClient = discoveryClient,
+            openVideoPicker = { openDocument.launch(arrayOf("video/*")) },
+        )
+    }
 
     DisposableEffect(playbackConnection) {
         playbackConnection.connect(
@@ -232,160 +248,9 @@ private fun MobilePlayerScreen() {
         }
     }
 
-    val discoverPc: () -> Unit = {
-        scope.launch {
-            runCatching {
-                withContext(Dispatchers.IO) {
-                    discoveryClient.discover().firstOrNull()
-                        ?: throw LanLibraryDiscoveryException("No Windows library server discovered")
-                }
-            }.onSuccess {
-                appState.serverUrl = it.baseUrl
-                appState.libraryError = null
-            }.onFailure {
-                appState.libraryError = it.message
-            }
-        }
-    }
-    fun connectToLibrary(
-        requestedServerUrl: String,
-        requestedPairingToken: String,
-        fallbackDisplayName: String? = null,
-    ) {
-        scope.launch {
-            runCatching {
-                withContext(Dispatchers.IO) {
-                    libraryConnectionSession.fetchCatalogWithProgress(
-                        baseUrl = requestedServerUrl,
-                        pairingToken = requestedPairingToken,
-                    )
-                }
-            }.onSuccess {
-                appState.serverUrl = requestedServerUrl.trim().trimEnd('/')
-                appState.pairingToken = requestedPairingToken
-                appState.catalog = it.catalog
-                appState.playbackProgresses = it.playbackProgresses
-                connectionStore.saveCurrentConnection(
-                    baseUrl = requestedServerUrl,
-                    pairingToken = requestedPairingToken,
-                    displayName = it.catalog.rootName.ifBlank { fallbackDisplayName },
-                )
-                appState.savedConnections = connectionStore.loadProfiles()
-                appState.libraryError = null
-                appState.selectedTab = MobileTab.Library
-            }.onFailure {
-                appState.libraryError = it.message
-            }
-        }
-    }
-    val refreshLibrary: () -> Unit = {
-        connectToLibrary(appState.serverUrl, appState.pairingToken)
-    }
-    val setFavorite: (LibraryMediaItem, Boolean) -> Unit = { item, isFavorite ->
-        runCatching {
-            favoriteStore.setFavoriteMediaId(item.id, isFavorite)
-        }.onSuccess {
-            appState.favoriteMediaIds = it
-            appState.libraryError = null
-        }.onFailure {
-            appState.libraryError = it.message
-        }
-    }
-    val playEpisode: (LibraryMediaItem) -> Unit = { item ->
-        val activeController = appState.controller
-        if (activeController == null) {
-            appState.playbackError = "Player service is not connected yet."
-        } else {
-            val target = LanPlaybackTarget(appState.serverUrl, appState.pairingToken, item.id)
-            appState.nowPlaying = item
-            appState.selectedTab = MobileTab.Watch
-            scope.launch {
-                val resumePosition = runCatching {
-                    withContext(Dispatchers.IO) {
-                        progressSync.fetchResumePositionMs(target)
-                    }
-                }.onFailure {
-                    appState.libraryError = "Resume lookup failed: ${it.message}"
-                }.getOrNull()
-                val preparation = playbackPreparer.prepare(
-                    baseUrl = target.baseUrl,
-                    pairingToken = target.pairingToken,
-                    item = item,
-                    resumePositionMs = resumePosition,
-                )
-                activeController.load(preparation)
-                preparation.resumePositionMs?.let {
-                    activeController.dispatch(PlaybackCommand.SeekTo(it))
-                }
-                activeController.dispatch(PlaybackCommand.Play)
-            }
-        }
-    }
-
-    val togglePlayback: () -> Unit = {
-        if (appState.snapshot.status == PlaybackStatus.PLAYING) {
-            appState.controller?.dispatch(PlaybackCommand.Pause)
-        } else {
-            appState.controller?.dispatch(PlaybackCommand.Play)
-        }
-    }
     MobileAppScaffold(
         state = appState.toUiState(),
-        actions = MobileAppActions(
-            onTabSelected = { appState.selectedTab = it },
-            onPlay = playEpisode,
-            onPlayPause = togglePlayback,
-            onOpenPlayer = { appState.selectedTab = MobileTab.Watch },
-            onOpenLibrary = { appState.selectedTab = MobileTab.Library },
-            onShowLibraryItem = { item ->
-                appState.librarySearchText = item.seriesTitle
-                appState.selectedTab = MobileTab.Library
-            },
-            onConnect = { appState.selectedTab = MobileTab.Connect },
-            onOpenVideo = { openDocument.launch(arrayOf("video/*")) },
-            onSeekTo = { appState.controller?.dispatch(PlaybackCommand.SeekTo(it)) },
-            onSetVolume = { appState.controller?.dispatch(PlaybackCommand.SetVolume(it)) },
-            onSelectAudio = { appState.controller?.dispatch(PlaybackCommand.SelectAudioTrack(it)) },
-            onSelectSubtitle = { appState.controller?.dispatch(PlaybackCommand.SelectSubtitleTrack(it)) },
-            onSearchTextChange = { appState.librarySearchText = it },
-            onSortChange = { appState.librarySort = it },
-            onSubtitleFilterChange = { appState.librarySubtitleFilter = it },
-            onFavoriteFilterChange = { appState.libraryFavoriteFilter = it },
-            onSetFavorite = setFavorite,
-            onServerUrlChange = { appState.serverUrl = it },
-            onPairingTokenChange = { appState.pairingToken = it },
-            onSelectConnection = {
-                connectToLibrary(
-                    requestedServerUrl = it.baseUrl,
-                    requestedPairingToken = it.pairingToken,
-                    fallbackDisplayName = it.displayName,
-                )
-            },
-            onEditConnection = {
-                appState.serverUrl = it.baseUrl
-                appState.pairingToken = it.pairingToken
-            },
-            onForgetConnection = {
-                connectionStore.forgetProfile(it.id)
-                appState.savedConnections = connectionStore.loadProfiles()
-            },
-            onSaveConnection = {
-                runCatching {
-                    connectionStore.saveCurrentConnection(
-                        baseUrl = appState.serverUrl,
-                        pairingToken = appState.pairingToken,
-                        displayName = appState.catalog?.rootName,
-                    )
-                }.onSuccess {
-                    appState.savedConnections = connectionStore.loadProfiles()
-                    appState.libraryError = null
-                }.onFailure {
-                    appState.libraryError = it.message
-                }
-            },
-            onDiscover = discoverPc,
-            onRefresh = refreshLibrary,
-        ),
+        actions = actionHandler.toAppActions(),
     )
 }
 

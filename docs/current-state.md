@@ -169,10 +169,11 @@ trusted-LAN clients.
   `MobileShellUi.kt`. Top-level tab routing is split into
   `MobileAppScaffold.kt` with explicit UI-state/action handoff objects.
   Remembered player/library state and derived catalog filtering/poster endpoint
-  values now live in `MobilePlayerState.kt`. Service and store side-effect
-  extraction is still needed. Android TV remains untouched. Both compile and
-  have instrumentation-source coverage, but they should be split before more
-  feature work lands there.
+  values now live in `MobilePlayerState.kt`. Service/store actions and scaffold
+  callbacks are split into `MobilePlayerActionHandler.kt`; `MobilePlayerScreen`
+  still owns the Android file-picker URI load and playback-service lifecycle.
+  Android TV remains untouched. Both compile and have instrumentation-source
+  coverage, but they should be split before more feature work lands there.
 - Desktop localization now routes through generated resources. The duplicated
   Kotlin fallback initializer has been reduced to the small set of non-Compose
   error/default strings used by tests and default action paths, so normal UI
