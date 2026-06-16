@@ -104,6 +104,13 @@
     <string name="desktop_continue_watching_title">繼續觀看</string>
     <string name="desktop_no_resume_queue_text">尚無續播佇列。瀏覽媒體庫開始播放。</string>
     <string name="desktop_loaded_now_label">目前載入</string>
+    <string name="desktop_local_playback_library_not_indexed_error">準備播放前，請先建立索引或掃描本機媒體庫。</string>
+    <string name="desktop_local_playback_media_mapping_missing_error">此集缺少索引檔案對應。請重新掃描媒體庫後再試一次。</string>
+    <string name="desktop_local_playback_media_file_missing_error">索引中的媒體檔案已無法使用。請檢查資料夾或重新掃描媒體庫。</string>
+    <string name="desktop_local_playback_no_dandanplay_match_error">dandanplay 找不到此集的動畫對應。</string>
+    <string name="desktop_local_playback_prepare_failed_error">無法準備本機播放。請檢查媒體庫檔案後再試一次。</string>
+    <string name="desktop_dandanplay_library_not_indexed_summary">媒體庫尚未索引；無法檢查彈幕</string>
+    <string name="desktop_dandanplay_prepare_failed_summary">準備失敗，尚未載入彈幕</string>
     <string name="desktop_resume_saved_position_label">從已儲存位置繼續</string>
     <string name="desktop_saved_position_label">已儲存位置</string>
     <string name="desktop_start_watching_library_label">開始觀看此媒體庫</string>

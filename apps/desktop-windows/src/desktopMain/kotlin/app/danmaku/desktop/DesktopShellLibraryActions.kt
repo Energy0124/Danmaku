@@ -197,7 +197,10 @@ internal class DesktopShellLibraryActions(
                                 .match
                                 ?.animeId
                         }
-                        ?: throw DesktopUserActionException("dandanplay found no anime match for ${item.id}")
+                        ?: throw DesktopUserActionException(
+                            message = "dandanplay found no anime match for ${item.id}",
+                            kind = DesktopUserActionFailureKind.DANDANPLAY_NO_MATCH,
+                        )
                     animeMetadataResolver.refreshDandanplayMetadataForItem(
                         item = item,
                         animeId = animeId,

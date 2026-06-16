@@ -104,6 +104,13 @@
     <string name="desktop_continue_watching_title">Continue Watching</string>
     <string name="desktop_no_resume_queue_text">No resume queue yet. Browse the library to start playback.</string>
     <string name="desktop_loaded_now_label">Loaded now</string>
+    <string name="desktop_local_playback_library_not_indexed_error">Index or scan a local library before preparing playback.</string>
+    <string name="desktop_local_playback_media_mapping_missing_error">This episode is missing its indexed file mapping. Rescan the library and try again.</string>
+    <string name="desktop_local_playback_media_file_missing_error">The indexed media file is no longer available. Check the folder or rescan the library.</string>
+    <string name="desktop_local_playback_no_dandanplay_match_error">dandanplay did not find an anime match for this episode.</string>
+    <string name="desktop_local_playback_prepare_failed_error">Could not prepare local playback. Check the library file and try again.</string>
+    <string name="desktop_dandanplay_library_not_indexed_summary">library is not indexed; cannot check danmaku</string>
+    <string name="desktop_dandanplay_prepare_failed_summary">prepare failed before danmaku could load</string>
     <string name="desktop_resume_saved_position_label">Resume at saved position</string>
     <string name="desktop_saved_position_label">saved position</string>
     <string name="desktop_start_watching_library_label">Start watching this library</string>

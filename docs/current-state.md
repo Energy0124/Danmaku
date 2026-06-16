@@ -149,7 +149,8 @@ trusted-LAN clients.
   optional-artwork fallbacks. The final `error(...)`/`check(...)` audit found
   only test sentinels and startup/developer invariants remaining. Metadata
   match no-provider and provider-search failures now use localized
-  English/`zh-TW` dialog copy; broader diagnostic-log localization and
+  English/`zh-TW` dialog copy, and local playback preparation failures now use
+  localized visible error copy. Broader diagnostic-log localization and
   screenshot QA still need release polish.
 - Android mobile and Android TV still have very large `MainActivity.kt`
   entrypoints. They compile and have instrumentation-source coverage, but they

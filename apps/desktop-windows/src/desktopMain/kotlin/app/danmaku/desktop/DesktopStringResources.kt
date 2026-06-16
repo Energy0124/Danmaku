@@ -131,6 +131,20 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
     val continueWatchingTitle = stringResource(Res.string.desktop_continue_watching_title)
     val noResumeQueueText = stringResource(Res.string.desktop_no_resume_queue_text)
     val loadedNowLabel = stringResource(Res.string.desktop_loaded_now_label)
+    val localPlaybackLibraryNotIndexedError =
+        stringResource(Res.string.desktop_local_playback_library_not_indexed_error)
+    val localPlaybackMediaMappingMissingError =
+        stringResource(Res.string.desktop_local_playback_media_mapping_missing_error)
+    val localPlaybackMediaFileMissingError =
+        stringResource(Res.string.desktop_local_playback_media_file_missing_error)
+    val localPlaybackNoDandanplayMatchError =
+        stringResource(Res.string.desktop_local_playback_no_dandanplay_match_error)
+    val localPlaybackPrepareFailedError =
+        stringResource(Res.string.desktop_local_playback_prepare_failed_error)
+    val dandanplayLibraryNotIndexedSummary =
+        stringResource(Res.string.desktop_dandanplay_library_not_indexed_summary)
+    val dandanplayPrepareFailedSummary =
+        stringResource(Res.string.desktop_dandanplay_prepare_failed_summary)
     val resumeSavedPositionLabel = stringResource(Res.string.desktop_resume_saved_position_label)
     val savedPositionLabel = stringResource(Res.string.desktop_saved_position_label)
     val startWatchingLibraryLabel = stringResource(Res.string.desktop_start_watching_library_label)
@@ -733,6 +747,13 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
             this.continueWatchingTitle = continueWatchingTitle
             this.noResumeQueueText = noResumeQueueText
             this.loadedNowLabel = loadedNowLabel
+            this.localPlaybackLibraryNotIndexedError = localPlaybackLibraryNotIndexedError
+            this.localPlaybackMediaMappingMissingError = localPlaybackMediaMappingMissingError
+            this.localPlaybackMediaFileMissingError = localPlaybackMediaFileMissingError
+            this.localPlaybackNoDandanplayMatchError = localPlaybackNoDandanplayMatchError
+            this.localPlaybackPrepareFailedError = localPlaybackPrepareFailedError
+            this.dandanplayLibraryNotIndexedSummary = dandanplayLibraryNotIndexedSummary
+            this.dandanplayPrepareFailedSummary = dandanplayPrepareFailedSummary
             this.resumeSavedPositionLabel = resumeSavedPositionLabel
             this.savedPositionLabel = savedPositionLabel
             this.startWatchingLibraryLabel = startWatchingLibraryLabel

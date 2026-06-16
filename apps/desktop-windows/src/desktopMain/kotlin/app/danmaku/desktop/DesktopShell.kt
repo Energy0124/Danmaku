@@ -486,7 +486,8 @@ internal fun DesktopShell(
             appendDiagnostic = ::appendDiagnostic,
         )
     }
-    val localPlaybackActions = remember(playbackActions, settingsState, libraryState) {
+    val desktopStrings = rememberDesktopResourceStrings(navigationState.desktopLanguage)
+    val localPlaybackActions = remember(playbackActions, settingsState, libraryState, desktopStrings) {
         DesktopShellLocalPlaybackActions(
             scope = scope,
             localPlaybackPreparer = localPlaybackPreparer,
@@ -497,9 +498,9 @@ internal fun DesktopShell(
             queuePlaybackUntilHostReady = playbackActions::queuePlaybackUntilHostReady,
             selectDanmakuFile = ::selectDanmakuFile,
             appendDiagnostic = ::appendDiagnostic,
+            currentStrings = { desktopStrings },
         )
     }
-    val desktopStrings = rememberDesktopResourceStrings(navigationState.desktopLanguage)
 
     fun triggerPrimaryPageAction(): Boolean {
         return when (navigationState.selectedTab) {

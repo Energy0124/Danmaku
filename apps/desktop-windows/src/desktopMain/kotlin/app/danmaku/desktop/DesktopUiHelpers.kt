@@ -213,6 +213,16 @@ internal fun Throwable.metadataMatchSearchErrorMessage(strings: DesktopStrings):
         else -> readableMessage()
     }
 
+internal fun Throwable.localPlaybackPrepareErrorMessage(strings: DesktopStrings): String =
+    when ((this as? DesktopUserActionException)?.kind) {
+        DesktopUserActionFailureKind.INDEXED_MEDIA_MAPPING_MISSING -> strings.localPlaybackMediaMappingMissingError
+        DesktopUserActionFailureKind.INDEXED_MEDIA_FILE_MISSING -> strings.localPlaybackMediaFileMissingError
+        DesktopUserActionFailureKind.DANDANPLAY_NO_MATCH -> strings.localPlaybackNoDandanplayMatchError
+        DesktopUserActionFailureKind.GENERIC,
+        null,
+        -> strings.localPlaybackPrepareFailedError
+    }
+
 internal fun String.isDandanplayWarningStatus(): Boolean {
     val normalized = lowercase()
     return listOf(

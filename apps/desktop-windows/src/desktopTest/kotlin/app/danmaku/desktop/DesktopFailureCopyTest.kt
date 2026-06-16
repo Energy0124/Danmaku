@@ -30,4 +30,39 @@ class DesktopFailureCopyTest {
                 .metadataMatchSearchErrorMessage(traditionalChinese),
         )
     }
+
+    @Test
+    fun localPlaybackPreparationUsesLocalizedCopyForExpectedFailures() {
+        val english = DesktopUiLanguage.ENGLISH.strings
+        val traditionalChinese = DesktopUiLanguage.ZH_TW.strings
+
+        assertEquals(
+            "This episode is missing its indexed file mapping. Rescan the library and try again.",
+            DesktopUserActionException(
+                message = "Indexed media file is missing for episode-1",
+                kind = DesktopUserActionFailureKind.INDEXED_MEDIA_MAPPING_MISSING,
+            ).localPlaybackPrepareErrorMessage(english),
+        )
+        assertEquals(
+            "The indexed media file is no longer available. Check the folder or rescan the library.",
+            DesktopUserActionException(
+                message = "Indexed media file no longer exists: S:/missing.mkv",
+                kind = DesktopUserActionFailureKind.INDEXED_MEDIA_FILE_MISSING,
+            ).localPlaybackPrepareErrorMessage(english),
+        )
+        assertEquals(
+            "此集缺少索引檔案對應。請重新掃描媒體庫後再試一次。",
+            DesktopUserActionException(
+                message = "Indexed media file is missing for episode-1",
+                kind = DesktopUserActionFailureKind.INDEXED_MEDIA_MAPPING_MISSING,
+            ).localPlaybackPrepareErrorMessage(traditionalChinese),
+        )
+        assertEquals(
+            "索引中的媒體檔案已無法使用。請檢查資料夾或重新掃描媒體庫。",
+            DesktopUserActionException(
+                message = "Indexed media file no longer exists: S:/missing.mkv",
+                kind = DesktopUserActionFailureKind.INDEXED_MEDIA_FILE_MISSING,
+            ).localPlaybackPrepareErrorMessage(traditionalChinese),
+        )
+    }
 }

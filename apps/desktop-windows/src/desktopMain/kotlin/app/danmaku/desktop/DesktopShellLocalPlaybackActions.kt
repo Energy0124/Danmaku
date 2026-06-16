@@ -17,6 +17,7 @@ internal class DesktopShellLocalPlaybackActions(
     private val queuePlaybackUntilHostReady: (DesktopPlaybackRequest) -> Unit,
     private val selectDanmakuFile: (String) -> Path?,
     private val appendDiagnostic: (String, String) -> Unit,
+    private val currentStrings: () -> DesktopStrings = { DesktopUiLanguage.ENGLISH.strings },
 ) {
     fun prepareLocalPlayback(
         item: LibraryMediaItem,
@@ -26,12 +27,13 @@ internal class DesktopShellLocalPlaybackActions(
     ) {
         val library = libraryState.indexedLibrary
         if (library == null) {
+            val strings = currentStrings()
             libraryState.dandanplayCacheStatus = dandanplayStatusMessage(
                 mediaId = item.id,
-                summary = "library is not indexed; cannot check danmaku",
+                summary = strings.dandanplayLibraryNotIndexedSummary,
                 details = item.dandanplayStatusContext(settingsState.dandanplaySettings),
             )
-            libraryState.libraryError = "Index or scan a local library before preparing playback."
+            libraryState.libraryError = strings.localPlaybackLibraryNotIndexedError
             appendDiagnostic("playback", "Cannot prepare local playback; library is not indexed")
             return
         }
@@ -194,12 +196,13 @@ internal class DesktopShellLocalPlaybackActions(
                     queuePlaybackUntilHostReady(result.preparation.toPlaybackRequest())
                 }
             }.onFailure {
-                libraryState.libraryError = it.message
+                val strings = currentStrings()
+                libraryState.libraryError = it.localPlaybackPrepareErrorMessage(strings)
                 libraryState.dandanplayCacheStatus = dandanplayStatusMessage(
                     mediaId = item.id,
-                    summary = "prepare failed before danmaku could load",
+                    summary = strings.dandanplayPrepareFailedSummary,
                     details = item.dandanplayStatusContext(settingsState.dandanplaySettings) +
-                        DandanplayPlaybackUiDetail("Error", it.readableMessage()),
+                        DandanplayPlaybackUiDetail(strings.errorLabel, it.readableMessage()),
                 )
                 appendDiagnostic("playback", "Prepare local playback failed: ${it.message}")
             }
