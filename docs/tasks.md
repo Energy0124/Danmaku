@@ -95,10 +95,9 @@ Status legend:
 - `[ ]` Add QA scripts or checklists for Windows fullscreen/4K/hardware decode.
 - `[~]` Add localization QA checks for English and `zh-TW` screenshots on
   dense desktop, mobile, and TV surfaces. Desktop now has deterministic launch
-  overrides plus a Windows screenshot helper for Home, Library, Downloads,
-  Tracking, and Settings; local capture from the Codex shell was blocked because
-  the launched Java process had no top-level window handle, so interactive
-  desktop review still needs to be run.
+  overrides plus app-level screenshot capture for Home, Library, Downloads,
+  Tracking, and Settings; one English/Home capture was verified, and the full
+  English/`zh-TW` desktop review still needs to be run.
 - `[ ]` P2: Run English and `zh-TW` screenshot QA for desktop generated
   resources, then remove duplicated migrated fallback text from the Kotlin
   initializer.
@@ -157,8 +156,8 @@ Full review date: 2026-06-15.
 - `[ ]` P1: External sync can write updates, but provider readback/durable
   failure handling still needs product decisions and implementation.
 - `[ ]` P2: Desktop localization resource migration is functionally wired, but
-  duplicated fallback Kotlin strings remain until screenshot QA proves the XML
-  resources.
+  duplicated fallback Kotlin strings remain until the full screenshot QA pass
+  proves the XML resources.
 - `[ ]` P2: Desktop code is much healthier than the original monolith, but
   `DesktopShell.kt`, `DesktopLibraryCatalogStore.kt`, Home, Library,
   Settings, Playback, and string-resource adapter files remain review-heavy.

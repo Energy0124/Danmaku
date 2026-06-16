@@ -48,8 +48,10 @@ import app.danmaku.library.jvm.JvmLanLibraryClient
 import app.danmaku.server.LocalLibraryDiscoveryAnnouncer
 import app.danmaku.server.LocalLibraryServerEvent
 import app.danmaku.server.PublicGetHookResponse
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.awt.Rectangle
 import java.awt.Window as AwtWindow
 import java.nio.file.Files
@@ -623,6 +625,41 @@ internal fun DesktopShell(
         }
         playbackState.smokePlaybackQueued = true
         playbackActions.queueSmokePlayback(smokePlayback)
+    }
+
+    LaunchedEffect(launchOptions.qaScreenshot) {
+        val qaScreenshot = launchOptions.qaScreenshot ?: return@LaunchedEffect
+        appendDiagnostic(
+            "qa",
+            "Waiting ${qaScreenshot.delay.inWholeSeconds}s before desktop screenshot capture",
+        )
+        delay(qaScreenshot.delay)
+        runCatching {
+            withContext(Dispatchers.IO) {
+                DesktopQaScreenshotCapture.capture(
+                    window = awtWindow,
+                    options = qaScreenshot,
+                    language = navigationState.desktopLanguage,
+                    selectedTab = navigationState.selectedTab,
+                )
+            }
+        }.onSuccess { result ->
+            appendDiagnostic(
+                "qa",
+                "Captured desktop screenshot ${result.width}x${result.height}: ${result.imagePath}",
+            )
+            if (qaScreenshot.autoExit) {
+                onRequestExit()
+            }
+        }.onFailure { error ->
+            appendDiagnostic(
+                "qa",
+                "Desktop screenshot capture failed: ${error.message ?: error::class.simpleName}",
+            )
+            if (qaScreenshot.autoExit) {
+                onRequestExit()
+            }
+        }
     }
 
     LaunchedEffect(navigationState.selectedTab, nativeVideoHostReady, playbackState.pendingPlaybackRequest, playbackSession) {

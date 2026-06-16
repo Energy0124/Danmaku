@@ -62,6 +62,24 @@ class DesktopLaunchOptionsTest {
     }
 
     @Test
+    fun parsesAppLevelQaScreenshotOptions() {
+        val options = DesktopLaunchOptions.parse(
+            listOf(
+                "--qa-screenshot-dir=S:/Projects/Danmaku/build/qa/desktop-localization",
+                "--qa-screenshot-name",
+                "desktop-localization-en-home",
+                "--qa-screenshot-delay-seconds=2",
+                "--qa-screenshot-keep-open",
+            ),
+        )
+
+        assertEquals(Path.of("S:/Projects/Danmaku/build/qa/desktop-localization"), options.qaScreenshot?.outputDirectory)
+        assertEquals("desktop-localization-en-home", options.qaScreenshot?.fileName)
+        assertEquals(2.seconds, options.qaScreenshot?.delay)
+        assertFalse(options.qaScreenshot?.autoExit ?: true)
+    }
+
+    @Test
     fun parsesLaunchOverrideAliases() {
         val options = DesktopLaunchOptions.parse(
             listOf(

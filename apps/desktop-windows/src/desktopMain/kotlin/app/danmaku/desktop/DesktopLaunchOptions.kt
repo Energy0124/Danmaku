@@ -9,6 +9,7 @@ internal data class DesktopLaunchOptions(
     val initialLanguage: DesktopUiLanguage? = null,
     val initialTab: DesktopShellTab? = null,
     val serverPort: Int? = null,
+    val qaScreenshot: DesktopQaScreenshotOptions? = null,
 ) {
     companion object {
         const val SMOKE_PLAYBACK_MEDIA_ENV = "DANMAKU_SMOKE_PLAYBACK_MEDIA"
@@ -31,6 +32,10 @@ internal data class DesktopLaunchOptions(
             var initialLanguage: DesktopUiLanguage? = null
             var initialTab: DesktopShellTab? = null
             var serverPort: Int? = null
+            var qaScreenshotDirectory: Path? = null
+            var qaScreenshotName: String? = null
+            var qaScreenshotDelay = DEFAULT_QA_SCREENSHOT_DELAY
+            var qaScreenshotAutoExit = true
 
             var index = 0
             while (index < args.size) {
@@ -62,6 +67,37 @@ internal data class DesktopLaunchOptions(
                     }
                     arg.startsWith("--server-port=") -> {
                         serverPort = arg.substringAfter("=").toServerPort()
+                    }
+                    arg == "--qa-screenshot-dir" -> {
+                        qaScreenshotDirectory = args.valueAfter(arg, index)?.let(Path::of)
+                        index += 1
+                    }
+                    arg.startsWith("--qa-screenshot-dir=") -> {
+                        qaScreenshotDirectory = arg.substringAfter("=").takeIf(String::isNotBlank)?.let(Path::of)
+                    }
+                    arg == "--qa-screenshot-name" -> {
+                        qaScreenshotName = args.valueAfter(arg, index)
+                        index += 1
+                    }
+                    arg.startsWith("--qa-screenshot-name=") -> {
+                        qaScreenshotName = arg.substringAfter("=").takeIf(String::isNotBlank)
+                    }
+                    arg == "--qa-screenshot-delay-seconds" -> {
+                        qaScreenshotDelay = args.valueAfter(arg, index)
+                            ?.toQaScreenshotDelay()
+                            ?: qaScreenshotDelay
+                        index += 1
+                    }
+                    arg.startsWith("--qa-screenshot-delay-seconds=") -> {
+                        qaScreenshotDelay = arg.substringAfter("=")
+                            .toQaScreenshotDelay()
+                            ?: qaScreenshotDelay
+                    }
+                    arg == "--qa-screenshot-keep-open" -> {
+                        qaScreenshotAutoExit = false
+                    }
+                    arg == "--qa-screenshot-exit" -> {
+                        qaScreenshotAutoExit = true
                     }
                     arg == "--smoke-playback-media" || arg == "--smoke-video" -> {
                         smokeMediaPath = args.valueAfter(arg, index)?.let(Path::of)
@@ -111,6 +147,14 @@ internal data class DesktopLaunchOptions(
                 initialLanguage = initialLanguage,
                 initialTab = initialTab,
                 serverPort = serverPort,
+                qaScreenshot = qaScreenshotDirectory?.let { outputDirectory ->
+                    DesktopQaScreenshotOptions(
+                        outputDirectory = outputDirectory,
+                        fileName = qaScreenshotName,
+                        delay = qaScreenshotDelay,
+                        autoExit = qaScreenshotAutoExit,
+                    )
+                },
             )
         }
 
@@ -121,6 +165,11 @@ internal data class DesktopLaunchOptions(
         private fun String.toSmokeDuration(): Duration? =
             toLongOrNull()
                 ?.coerceIn(MIN_SMOKE_PLAYBACK_SECONDS, MAX_SMOKE_PLAYBACK_SECONDS)
+                ?.seconds
+
+        private fun String.toQaScreenshotDelay(): Duration? =
+            toLongOrNull()
+                ?.coerceIn(MIN_QA_SCREENSHOT_DELAY_SECONDS, MAX_QA_SCREENSHOT_DELAY_SECONDS)
                 ?.seconds
 
         private fun String.toDesktopUiLanguage(): DesktopUiLanguage {
@@ -155,7 +204,17 @@ internal data class DesktopSmokePlaybackOptions(
     val autoExit: Boolean = false,
 )
 
+internal data class DesktopQaScreenshotOptions(
+    val outputDirectory: Path,
+    val fileName: String? = null,
+    val delay: Duration = DEFAULT_QA_SCREENSHOT_DELAY,
+    val autoExit: Boolean = true,
+)
+
 private const val MIN_SMOKE_PLAYBACK_SECONDS = 1L
 private const val MAX_SMOKE_PLAYBACK_SECONDS = 60L
+private const val MIN_QA_SCREENSHOT_DELAY_SECONDS = 0L
+private const val MAX_QA_SCREENSHOT_DELAY_SECONDS = 60L
 
 val DEFAULT_SMOKE_PLAYBACK_DURATION: Duration = 6.seconds
+val DEFAULT_QA_SCREENSHOT_DELAY: Duration = 4.seconds

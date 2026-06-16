@@ -123,10 +123,10 @@ trusted-LAN clients.
 - UI localization is now a design requirement for English and Traditional
   Chinese (`zh-TW`). Desktop `DesktopStrings` resource extraction and
   app-language-to-resource locale control are in place. Deterministic desktop
-  launch overrides and a Windows screenshot helper now exist for English/`zh-TW`
-  Home, Library, Downloads, Tracking, and Settings review, but the attempted
-  capture from the Codex shell produced no top-level Java window handle, so
-  interactive screenshot QA is still needed before deleting the duplicated
+  launch overrides and an app-level Windows screenshot helper now exist for
+  English/`zh-TW` Home, Library, Downloads, Tracking, and Settings review. A
+  one-shot English/Home capture was verified on 2026-06-16; the full
+  cross-language visual pass is still needed before deleting the duplicated
   Kotlin fallback initializer text.
 - Android mobile/tablet layouts need final viewport QA on phone and tablet
   sizes.
@@ -154,7 +154,7 @@ trusted-LAN clients.
   match no-provider and provider-search failures now use localized
   English/`zh-TW` dialog copy, and local playback preparation plus paired
   library catalog/remote playback failures now use localized visible error copy.
-  Broader diagnostic-log localization and screenshot QA still need release
+  Broader diagnostic-log localization and full screenshot QA still need release
   polish.
 - Android mobile and Android TV still have very large `MainActivity.kt`
   entrypoints. They compile and have instrumentation-source coverage, but they
