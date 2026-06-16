@@ -177,10 +177,11 @@ trusted-LAN clients.
   player-control helpers are split into `WatchPage.kt`. Mobile library detail
   and Next Up UI are split into `LibraryDetailComponents.kt` and
   `LibraryNextUpComponents.kt`, and reusable library rails/cards are split into
-  `LibraryRailComponents.kt`. Remaining mobile refactor work should move the
-  Library and Connect page compositions. Android TV remains untouched. Both
-  compile and have instrumentation-source coverage, but they should be split
-  before more feature work lands there.
+  `LibraryRailComponents.kt`. Mobile Library route composition is now split
+  into `LibraryPage.kt`; remaining mobile refactor work should move the Connect
+  page and connection components. Android TV remains untouched. Both compile
+  and have instrumentation-source coverage, but they should be split before
+  more feature work lands there.
 - Desktop localization now routes through generated resources. The duplicated
   Kotlin fallback initializer has been reduced to the small set of non-Compose
   error/default strings used by tests and default action paths, so normal UI
