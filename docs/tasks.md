@@ -106,7 +106,8 @@ Status legend:
   shared rail pill/navigation items now live in `TvShellUi.kt`. Home route
   composition and Home-only rails now live in `TvHomePanel.kt`. PC connection
   route UI, text input, and saved-PC cards now live in
-  `TvPcConnectionPanel.kt`.
+  `TvPcConnectionPanel.kt`. Library navigation and empty-state panels now live
+  in `TvLibraryPanels.kt`.
 - `[ ]` P1: Add connected Android test runs to the release checklist and record
   the required device/emulator matrix for mobile playback, LAN sync, TV focus,
   and Media3 streaming.
@@ -184,7 +185,8 @@ Full review date: 2026-06-15.
   has started with shared UI helpers in `TvUiHelpers.kt`, player controls in
   `TvPlayerPanel.kt`, shell chrome in `TvShellUi.kt`, and Home route
   composition in `TvHomePanel.kt`, plus PC connection UI in
-  `TvPcConnectionPanel.kt`.
+  `TvPcConnectionPanel.kt` and library navigation/empty states in
+  `TvLibraryPanels.kt`.
 - `[ ]` P1: Release confidence still depends on manual QA for Windows
   fullscreen/resize/4K/hardware decoding, Android phone/tablet layouts,
   Android TV 1080p/4K focus traversal, desktop localization screenshots, and
