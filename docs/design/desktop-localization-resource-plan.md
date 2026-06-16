@@ -64,9 +64,12 @@ in-app language selector.
      labels, and dandanplay auth-mode labels. Those are now routed through
      desktop strings.
    - `zh-TW` Home, Library, Tracking, and Settings were recaptured after the
-     fixes and no longer show those leaks. Run one final full English/`zh-TW`
-     review before removing fallback initializer text.
-2. Remove duplicated migrated fallback text from the Kotlin initializer after
-   screenshot checks pass.
+     fixes and no longer show those leaks.
+   - A final full English/`zh-TW` pass was accepted after trimming
+     `DesktopStrings.kt`; the Kotlin fallback now keeps only the non-Compose
+     error/default strings still used directly by tests and action defaults.
+2. Keep future desktop UI copy changes in `commonMain/composeResources` plus
+   the `DesktopStringResources.kt` adapter. Add Kotlin fallback text only when a
+   non-Compose path needs localized copy before resources are available.
 3. Consider moving the desktop locale-owner helper to a smaller dedicated owner
    module if future platforms need different resource-locale behavior.

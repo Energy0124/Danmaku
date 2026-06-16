@@ -129,9 +129,9 @@ trusted-LAN clients.
   dynamic status text that still bypassed resources. The follow-up fix localized
   playback status chips, provider credential summaries, external sync summaries,
   skip/conflict reasons, external list statuses, watch-summary labels, and
-  dandanplay auth-mode labels, then recaptured `zh-TW` Home, Library, Tracking,
-  and Settings successfully. Keep the duplicated Kotlin fallback initializer
-  until a final cross-language visual pass is accepted.
+  dandanplay auth-mode labels. A final full English/`zh-TW` screenshot pass was
+  accepted after trimming the Kotlin fallback initializer down to the
+  non-Compose error/default strings that still need direct access.
 - Android mobile/tablet layouts need final viewport QA on phone and tablet
   sizes.
 - Android TV layouts need 1080p and 4K safe-area/focus QA on real or emulated
@@ -165,11 +165,10 @@ trusted-LAN clients.
   entrypoints. They compile and have instrumentation-source coverage, but they
   should be split into shell/state/action and screen files before more feature
   work lands there.
-- Desktop localization now routes through generated resources, but the
-  duplicated Kotlin fallback initializer remains. It should stay until
-  the final English/`zh-TW` screenshot review is accepted, then be reduced so
-  future string changes do not require editing both XML resources and fallback
-  Kotlin text.
+- Desktop localization now routes through generated resources. The duplicated
+  Kotlin fallback initializer has been reduced to the small set of non-Compose
+  error/default strings used by tests and default action paths, so normal UI
+  string changes should happen in XML resources plus the resource adapter.
 - From an anime-viewer workflow perspective, the current foundation covers
   local library playback, posters/metadata, progress, favorites, external
   mapping/sync, and danmaku basics. Missing high-value viewer workflows include

@@ -101,11 +101,11 @@ Status legend:
   recaptured after fixing dynamic provider/status/watch-summary localization.
   Remaining: final accepted cross-language desktop review plus mobile/TV
   screenshots.
-- `[~]` P2: Finish English and `zh-TW` screenshot QA for desktop generated
+- `[x]` P2: Finish English and `zh-TW` screenshot QA for desktop generated
   resources, then remove duplicated migrated fallback text from the Kotlin
-  initializer. Dynamic desktop status strings are now localized, but the fallback
-  initializer should remain until the final cross-language visual pass is
-  accepted.
+  initializer. Dynamic desktop status strings are localized, the final full
+  desktop screenshot pass rendered successfully, and the Kotlin fallback now
+  keeps only the non-Compose error/default strings still used directly.
 - `[ ]` P2: After cross-platform localization QA passes, audit residual
   hardcoded mobile/TV/desktop literals and move user-visible copy into the
   platform resource layers.
@@ -160,10 +160,11 @@ Full review date: 2026-06-15.
   contracts and queue execution behavior are not implemented.
 - `[ ]` P1: External sync can write updates, but provider readback/durable
   failure handling still needs product decisions and implementation.
-- `[~]` P2: Desktop localization resource migration is functionally wired, and
-  screenshot QA has already flushed and fixed dynamic status/watch-summary
-  leaks. Duplicated fallback Kotlin strings remain until the final accepted
-  cross-language screenshot review proves the XML resources.
+- `[x]` P2: Desktop localization resource migration is functionally wired, and
+  screenshot QA flushed and fixed dynamic status/watch-summary leaks. The
+  duplicated fallback Kotlin initializer has been reduced to the small
+  non-Compose fallback set after the final accepted cross-language screenshot
+  review proved the XML resources.
 - `[ ]` P2: Desktop code is much healthier than the original monolith, but
   `DesktopShell.kt`, `DesktopLibraryCatalogStore.kt`, Home, Library,
   Settings, Playback, and string-resource adapter files remain review-heavy.
