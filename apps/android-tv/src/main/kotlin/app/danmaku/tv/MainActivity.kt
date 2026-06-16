@@ -1,6 +1,5 @@
 package app.danmaku.tv
 
-import android.graphics.BitmapFactory
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -44,8 +43,6 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -66,15 +63,12 @@ import app.danmaku.domain.LibraryCatalogQuery
 import app.danmaku.domain.LibraryCatalogSort
 import app.danmaku.domain.LibraryEpisodeDetail
 import app.danmaku.domain.LibraryFavoriteFilter
-import app.danmaku.domain.LibraryItemMetadataStatus
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibraryNextUpItem
-import app.danmaku.domain.LibraryNextUpReason
 import app.danmaku.domain.LibraryPlaybackProgressItem
 import app.danmaku.domain.LibrarySeries
 import app.danmaku.domain.LibrarySeriesWatchSummary
 import app.danmaku.domain.LibrarySubtitleFilter
-import app.danmaku.domain.LibraryWatchState
 import app.danmaku.domain.LibraryWatchStatus
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.domain.PlaybackCommand
@@ -106,9 +100,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.net.HttpURLConnection
-import java.net.URI
-import java.net.URLEncoder
 
 private val TvAppBackground = Color(0xFF090B0E)
 private val TvPanelColor = Color(0xFF15191D)
@@ -125,13 +116,6 @@ internal data class LibraryPosterEndpoint(
         val path = item.posterPath ?: return null
         return "${baseUrl.trim().trimEnd('/')}$path?token=${pairingToken.encodedQueryValue()}"
     }
-}
-
-private enum class PosterImageLoadState {
-    IDLE,
-    LOADING,
-    LOADED,
-    FAILED,
 }
 
 private enum class TvDestination(
@@ -1033,22 +1017,6 @@ private fun TrackButtons(
                 Text(track.buttonLabel())
             }
         }
-    }
-}
-
-@Composable
-private fun PlaybackTrack.buttonLabel(): String =
-    if (selected) stringResource(R.string.selected_suffix, label) else label
-
-private fun Long.formatPlaybackTime(): String {
-    val totalSeconds = this.coerceAtLeast(0) / 1_000
-    val hours = totalSeconds / 3_600
-    val minutes = (totalSeconds % 3_600) / 60
-    val seconds = totalSeconds % 60
-    return if (hours > 0) {
-        "$hours:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}"
-    } else {
-        "$minutes:${seconds.toString().padStart(2, '0')}"
     }
 }
 
@@ -2119,36 +2087,6 @@ private fun TvNextUpRail(
 }
 
 @Composable
-private fun LibraryNextUpItem.nextUpActionLabel(): String =
-    when (reason) {
-        LibraryNextUpReason.RESUME -> stringResource(R.string.action_resume)
-        LibraryNextUpReason.NEXT_EPISODE,
-        LibraryNextUpReason.START -> stringResource(R.string.action_play)
-    }
-
-@Composable
-private fun LibraryNextUpItem.nextUpLabel(): String =
-    when (reason) {
-        LibraryNextUpReason.RESUME ->
-            stringResource(
-                R.string.resume_at,
-                progress?.positionMs?.formatPlaybackTime() ?: stringResource(R.string.saved_position),
-            )
-        LibraryNextUpReason.NEXT_EPISODE -> stringResource(R.string.next_episode)
-        LibraryNextUpReason.START -> stringResource(R.string.start_watching)
-    }
-
-private fun String.initials(): String {
-    val words = trim()
-        .split(' ', '.', '_', '-', '[', ']')
-        .filter(String::isNotBlank)
-    return words
-        .take(2)
-        .joinToString(separator = "") { it.first().uppercaseChar().toString() }
-        .ifBlank { "?" }
-}
-
-@Composable
 private fun TvSeriesDetail(
     series: LibrarySeries,
     watchSummary: LibrarySeriesWatchSummary?,
@@ -2292,119 +2230,3 @@ private fun TvEpisodeButton(
         }
     }
 }
-
-private fun LibrarySeries.episodeLabel(): String =
-    if (episodeCount == 1) "1 episode" else "$episodeCount episodes"
-
-private data class PosterImageState(
-    val bitmap: ImageBitmap?,
-    val state: PosterImageLoadState,
-)
-
-@Composable
-private fun rememberPosterImage(url: String?): PosterImageState {
-    var bitmap by remember(url) { mutableStateOf<ImageBitmap?>(null) }
-    var state by remember(url) { mutableStateOf(PosterImageLoadState.IDLE) }
-
-    LaunchedEffect(url) {
-        bitmap = null
-        if (url == null) {
-            state = PosterImageLoadState.IDLE
-            return@LaunchedEffect
-        }
-        state = PosterImageLoadState.LOADING
-        val loaded = withContext(Dispatchers.IO) {
-            loadPosterImage(url)
-        }
-        bitmap = loaded
-        state = if (loaded == null) PosterImageLoadState.FAILED else PosterImageLoadState.LOADED
-    }
-
-    return PosterImageState(bitmap, state)
-}
-
-private fun loadPosterImage(url: String): ImageBitmap? {
-    val connection = (URI(url).toURL().openConnection() as HttpURLConnection).apply {
-        connectTimeout = 3_000
-        readTimeout = 5_000
-        requestMethod = "GET"
-    }
-    return try {
-        if (connection.responseCode !in 200..299) {
-            null
-        } else {
-            connection.inputStream.use { input ->
-                BitmapFactory.decodeStream(input)?.asImageBitmap()
-            }
-        }
-    } finally {
-        connection.disconnect()
-    }
-}
-
-private fun String.encodedQueryValue(): String =
-    URLEncoder.encode(this, Charsets.UTF_8.name())
-
-private fun LibrarySeriesWatchSummary?.shortProgressLabel(): String =
-    if (this == null) {
-        "0 watched"
-    } else {
-        "$watchedCount watched, $inProgressCount watching"
-    }
-
-private fun LibrarySeriesWatchSummary?.progressLabel(): String =
-    if (this == null) {
-        "0 watched, 0 watching"
-    } else {
-        "$watchedCount watched, $inProgressCount watching, $newCount new"
-    }
-
-@Composable
-private fun LibraryMediaItem.tvMetadataLabel(
-    watchStatus: LibraryWatchStatus?,
-    isFavorite: Boolean,
-): String =
-    buildList {
-        add(watchStatus.statusLabel())
-        animeMetadata?.let { add(stringResource(R.string.matched_anime, it.displayTitle)) }
-        if (posterPath != null) {
-            add(stringResource(R.string.poster_label))
-        }
-        metadataStatusLabel(
-            loadingLabel = stringResource(R.string.metadata_loading),
-            failedLabel = stringResource(R.string.metadata_failed),
-        )?.let(::add)
-        if (isFavorite) {
-            add(stringResource(R.string.action_favorite))
-        }
-    }.joinToString(" / ")
-
-private fun LibraryMediaItem.metadataStatusLabel(
-    loadingLabel: String,
-    failedLabel: String,
-): String? =
-    when (metadataStatus) {
-        LibraryItemMetadataStatus.LOADING -> loadingLabel
-        LibraryItemMetadataStatus.FAILED -> failedLabel
-        LibraryItemMetadataStatus.READY -> null
-        LibraryItemMetadataStatus.NOT_AVAILABLE -> null
-    }
-
-private fun LibraryWatchStatus?.statusLabel(): String =
-    when (this?.state) {
-        LibraryWatchState.WATCHED -> "Watched"
-        LibraryWatchState.IN_PROGRESS -> {
-            val progress = progress
-            "In progress" + if (progress == null) {
-                ""
-            } else {
-                " ${progress.positionMs.formatPlaybackTime()} / " +
-                    (progress.durationMs?.formatPlaybackTime() ?: "--:--")
-            }
-        }
-        LibraryWatchState.NEW,
-        null -> "New"
-    }
-
-private fun PlaybackProgress.progressLabel(): String =
-    "${positionMs.formatPlaybackTime()} / ${durationMs?.formatPlaybackTime() ?: "--:--"}"

@@ -96,9 +96,11 @@ Status legend:
   `LibraryRailComponents.kt`, `LibraryPage.kt` owns the mobile Library route,
   and `ConnectPage.kt` owns the Connect route plus connection form/rows. The
   remaining entrypoint refactor work should move to Android TV.
-- `[ ]` P1: Split Android TV `MainActivity.kt` into focused TV shell,
+- `[~]` P1: Split Android TV `MainActivity.kt` into focused TV shell,
   PC connection, home, library/search/favorites, playback controls, and shared
-  focus/visual primitives before adding more TV features.
+  focus/visual primitives before adding more TV features. First low-risk split
+  moved poster loading, URL encoding, playback-time formatting, progress/watch
+  labels, next-up labels, and metadata labels into `TvUiHelpers.kt`.
 - `[ ]` P1: Add connected Android test runs to the release checklist and record
   the required device/emulator matrix for mobile playback, LAN sync, TV focus,
   and Media3 streaming.
@@ -172,8 +174,8 @@ Full review date: 2026-06-15.
   enough to slow safe feature work and review. Android mobile helper,
   formatting, shell-chrome, top-level route mapping, remembered state,
   service/store action handling, and Home/Watch/Library/Connect route
-  composition are now split out of `MainActivity.kt`; Android TV remains
-  untouched.
+  composition are now split out of `MainActivity.kt`. Android TV decomposition
+  has started with shared UI helpers in `TvUiHelpers.kt`.
 - `[ ]` P1: Release confidence still depends on manual QA for Windows
   fullscreen/resize/4K/hardware decoding, Android phone/tablet layouts,
   Android TV 1080p/4K focus traversal, desktop localization screenshots, and
