@@ -54,8 +54,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -77,7 +75,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.testTag
@@ -133,14 +130,14 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private val AppBackground = Color(0xFF101214)
-private val PlayerBlack = Color(0xFF050607)
-private val PanelColor = Color(0xFF191D21)
-private val PanelAltColor = Color(0xFF20262B)
-private val SubtleText = Color(0xFFB7C0C9)
-private val AccentBlue = Color(0xFF7DD3FC)
-private val AccentAmber = Color(0xFFFBBF24)
-private val DangerRed = Color(0xFFFCA5A5)
+internal val AppBackground = Color(0xFF101214)
+internal val PlayerBlack = Color(0xFF050607)
+internal val PanelColor = Color(0xFF191D21)
+internal val PanelAltColor = Color(0xFF20262B)
+internal val SubtleText = Color(0xFFB7C0C9)
+internal val AccentBlue = Color(0xFF7DD3FC)
+internal val AccentAmber = Color(0xFFFBBF24)
+internal val DangerRed = Color(0xFFFCA5A5)
 
 internal data class LibraryPosterEndpoint(
     val baseUrl: String,
@@ -150,16 +147,6 @@ internal data class LibraryPosterEndpoint(
         val path = item.posterPath ?: return null
         return "${baseUrl.trim().trimEnd('/')}$path?token=${pairingToken.encodedQueryValue()}"
     }
-}
-
-private enum class MobileTab(
-    val labelResId: Int,
-    val icon: ImageVector,
-) {
-    Home(R.string.nav_home, Icons.Filled.Home),
-    Watch(R.string.nav_watch, Icons.Filled.PlayArrow),
-    Library(R.string.nav_library, Icons.Filled.VideoLibrary),
-    Connect(R.string.nav_connect, Icons.Filled.Settings),
 }
 
 class MainActivity : ComponentActivity() {
@@ -500,49 +487,6 @@ private fun MobilePlayerScreen() {
             )
         }
     }
-}
-
-@Composable
-private fun MobileBottomBar(
-    selectedTab: MobileTab,
-    onTabSelected: (MobileTab) -> Unit,
-) {
-    NavigationBar(
-        containerColor = Color(0xFF15191D),
-        tonalElevation = 0.dp,
-    ) {
-        MobileTab.entries.forEach { tab ->
-            NavigationBarItem(
-                selected = selectedTab == tab,
-                onClick = { onTabSelected(tab) },
-                icon = {
-                    val tabLabel = stringResource(tab.labelResId)
-                    Icon(
-                        imageVector = tab.icon,
-                        contentDescription = tabLabel,
-                    )
-                },
-                label = { Text(stringResource(tab.labelResId)) },
-            )
-        }
-    }
-}
-
-@Composable
-private fun PageColumn(
-    contentPadding: PaddingValues,
-    content: LazyListScope.() -> Unit,
-) {
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(AppBackground)
-            .padding(contentPadding)
-            .safeDrawingPadding(),
-        contentPadding = PaddingValues(start = 16.dp, top = 14.dp, end = 16.dp, bottom = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        content = content,
-    )
 }
 
 @Composable
@@ -1826,122 +1770,6 @@ private fun ConnectPage(
                 title = stringResource(R.string.connect_help_title),
                 body = stringResource(R.string.connect_help_body),
             )
-        }
-    }
-}
-
-@Composable
-private fun PageHeader(
-    icon: ImageVector,
-    title: String,
-    subtitle: String,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .background(Color(0xFF1E2930)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = AccentBlue,
-                modifier = Modifier.size(26.dp),
-            )
-        }
-        Spacer(modifier = Modifier.width(12.dp))
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
-        ) {
-            Text(
-                title,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Text(
-                subtitle,
-                color = SubtleText,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-    }
-}
-
-@Composable
-private fun MiniPlayerBar(
-    snapshot: PlaybackSnapshot,
-    nowPlaying: LibraryMediaItem?,
-    onPlayPause: () -> Unit,
-    onOpenPlayer: () -> Unit,
-) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
-            .clickable(onClick = onOpenPlayer)
-            .testTag("mini-player"),
-        shape = RoundedCornerShape(18.dp),
-        color = Color(0xFF17212A),
-        border = BorderStroke(1.dp, Color(0xFF304454)),
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(AccentBlue),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = if (snapshot.status == PlaybackStatus.PLAYING) {
-                        Icons.Filled.Pause
-                    } else {
-                        Icons.Filled.PlayArrow
-                    },
-                    contentDescription = null,
-                    tint = PlayerBlack,
-                )
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                Text(
-                    nowPlaying?.seriesTitle ?: snapshot.sourceLabel(nowPlaying),
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    nowPlaying?.episodeTitle
-                        ?: "${snapshot.position.positionMs.formatPlaybackTime()} · ${snapshot.status.displayLabel()}",
-                    color = SubtleText,
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            TextButton(onClick = onPlayPause) {
-                Icon(
-                    imageVector = if (snapshot.status == PlaybackStatus.PLAYING) {
-                        Icons.Filled.Pause
-                    } else {
-                        Icons.Filled.PlayArrow
-                    },
-                    contentDescription = if (snapshot.status == PlaybackStatus.PLAYING) "Pause" else "Play",
-                )
-            }
         }
     }
 }
