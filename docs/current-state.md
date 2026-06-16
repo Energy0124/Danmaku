@@ -172,8 +172,10 @@ trusted-LAN clients.
   values now live in `MobilePlayerState.kt`. Service/store actions and scaffold
   callbacks are split into `MobilePlayerActionHandler.kt`; `MobilePlayerScreen`
   still owns the Android file-picker URI load and playback-service lifecycle.
-  Android TV remains untouched. Both compile and have instrumentation-source
-  coverage, but they should be split before more feature work lands there.
+  Mobile Home route composition is split into `HomePage.kt`, with shared rails
+  kept package-internal for Library reuse. Android TV remains untouched. Both
+  compile and have instrumentation-source coverage, but they should be split
+  before more feature work lands there.
 - Desktop localization now routes through generated resources. The duplicated
   Kotlin fallback initializer has been reduced to the small set of non-Compose
   error/default strings used by tests and default action paths, so normal UI
