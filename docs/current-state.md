@@ -184,10 +184,11 @@ trusted-LAN clients.
   labels in `TvUiHelpers.kt`; player surface, seek controls, and audio/subtitle
   track controls are split into `TvPlayerPanel.kt`; app destination metadata,
   top-level rail/header, and shared rail pill/navigation items are split into
-  `TvShellUi.kt`; Home route composition and Home-only rails are split into
-  `TvHomePanel.kt`; PC connection route UI, text input, and saved-PC cards are
-  split into `TvPcConnectionPanel.kt`; library navigation and empty-state
-  panels are split into `TvLibraryPanels.kt`; Library route state and
+  `TvShellUi.kt`; Home route composition is split into `TvHomePanel.kt`, while
+  Home-only recently-added, series, and status rails are split into
+  `TvHomeRailComponents.kt`; PC connection route UI, text input, and saved-PC
+  cards are split into `TvPcConnectionPanel.kt`; library navigation and
+  empty-state panels are split into `TvLibraryPanels.kt`; Library route state and
   selection composition are split into `TvLibraryScreen.kt`; header/search/filter
   controls and series picker rendering are split into
   `TvLibraryFilterComponents.kt`; library poster rendering is split into

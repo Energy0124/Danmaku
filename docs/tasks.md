@@ -104,7 +104,8 @@ Status legend:
   surface, seek controls, and audio/subtitle track controls now live in
   `TvPlayerPanel.kt`. App destination metadata, top-level rail/header, and
   shared rail pill/navigation items now live in `TvShellUi.kt`. Home route
-  composition and Home-only rails now live in `TvHomePanel.kt`. PC connection
+  composition now lives in `TvHomePanel.kt`, while Home-only recently-added,
+  series, and status rails now live in `TvHomeRailComponents.kt`. PC connection
   route UI, text input, and saved-PC cards now live in
   `TvPcConnectionPanel.kt`. Library navigation and empty-state panels now live
   in `TvLibraryPanels.kt`. Library route state and selection composition now
@@ -203,12 +204,15 @@ Full review date: 2026-06-15.
   service/store action handling, and Home/Watch/Library/Connect route
   composition are now split out of `MainActivity.kt`. Android TV decomposition
   has started with shared UI helpers in `TvUiHelpers.kt`, player controls in
-  `TvPlayerPanel.kt`, shell chrome in `TvShellUi.kt`, and Home route
-  composition in `TvHomePanel.kt`, plus PC connection UI in
-  `TvPcConnectionPanel.kt` and library navigation/empty states in
-  `TvLibraryPanels.kt`; Library route state/search/filter composition now
-  lives in `TvLibraryScreen.kt`, and episode/series/progress rail components
-  live in `TvLibraryEpisodeComponents.kt`; duplicated remote playback
+  `TvPlayerPanel.kt`, shell chrome in `TvShellUi.kt`, Home route composition
+  in `TvHomePanel.kt`, and Home-only rails in `TvHomeRailComponents.kt`, plus
+  PC connection UI in `TvPcConnectionPanel.kt` and library navigation/empty
+  states in `TvLibraryPanels.kt`; Library route state and selection composition
+  now lives in `TvLibraryScreen.kt`, filter controls in
+  `TvLibraryFilterComponents.kt`, poster rendering in
+  `TvLibraryPosterComponents.kt`, episode/series detail in
+  `TvLibraryEpisodeComponents.kt`, and progress rails in `TvLibraryRails.kt`;
+  duplicated remote playback
   preparation and resume handling now live in `TvPlaybackActions.kt`; remembered
   TV state and PC/library/favorite/playback actions now live in
   `TvPlayerState.kt` and `TvPlayerActionHandler.kt`; shared TV colors, poster
