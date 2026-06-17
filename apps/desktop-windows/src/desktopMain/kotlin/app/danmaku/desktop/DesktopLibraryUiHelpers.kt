@@ -146,6 +146,7 @@ import app.danmaku.domain.LibrarySeriesWatchSummary
 import app.danmaku.domain.LibrarySubtitleFilter
 import app.danmaku.domain.LibraryWatchState
 import app.danmaku.domain.LibraryWatchStatus
+import app.danmaku.domain.LocalAnimeListEntry
 import app.danmaku.domain.PlaybackCommand
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.domain.PlaybackSnapshot
@@ -398,6 +399,7 @@ internal fun SeriesPosterCard(
     series: LibrarySeries,
     coverPath: Path?,
     watchSummary: LibrarySeriesWatchSummary?,
+    localAnimeListEntry: LocalAnimeListEntry?,
     isSelected: Boolean,
     isPreparing: Boolean,
     isRefreshingMetadata: Boolean,
@@ -449,6 +451,18 @@ internal fun SeriesPosterCard(
                     .padding(horizontal = 6.dp, vertical = 3.dp),
                 maxLines = 1,
             )
+            localAnimeListEntry?.let { entry ->
+                Text(
+                    text = entry.status.localizedLabel(strings),
+                    color = Color.White,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .background(DanmakuColors.Accent.copy(alpha = 0.90f), RoundedCornerShape(bottomStart = 4.dp))
+                        .padding(horizontal = 6.dp, vertical = 3.dp),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
         Text(
             text = series.title,
@@ -458,7 +472,11 @@ internal fun SeriesPosterCard(
             overflow = TextOverflow.Ellipsis,
         )
         Text(
-            text = "${watchSummary.progressLabel(strings)} - ${metadataReadiness.label}",
+            text = listOfNotNull(
+                localAnimeListEntry?.status?.localizedLabel(strings),
+                watchSummary.progressLabel(strings),
+                metadataReadiness.label,
+            ).joinToString(separator = " - "),
             color = DanmakuColors.TextMuted,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,

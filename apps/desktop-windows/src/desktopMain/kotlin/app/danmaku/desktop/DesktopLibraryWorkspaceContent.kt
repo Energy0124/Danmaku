@@ -47,6 +47,7 @@ import app.danmaku.domain.LibrarySeries
 import app.danmaku.domain.LibrarySeriesWatchSummary
 import app.danmaku.domain.LibrarySubtitleFilter
 import app.danmaku.domain.LibraryWatchStatus
+import app.danmaku.domain.LocalAnimeListEntry
 import java.nio.file.Path
 
 @Composable
@@ -78,6 +79,7 @@ internal fun LibraryCenterWorkspace(
     watchStatusById: Map<String, LibraryWatchStatus>,
     seriesWatchSummaryById: Map<String, LibrarySeriesWatchSummary>,
     favoriteMediaIds: Set<String>,
+    localAnimeListEntryBySeriesId: Map<String, LocalAnimeListEntry>,
     localWatchListCount: Int,
     externalTrackingPlan: ExternalAnimeTrackingPlan?,
     isExternalAnimeSyncing: Boolean,
@@ -231,6 +233,7 @@ internal fun LibraryCenterWorkspace(
                 nextUpItems = nextUpItems,
                 watchStatusById = watchStatusById,
                 seriesWatchSummaryById = seriesWatchSummaryById,
+                localAnimeListEntryBySeriesId = localAnimeListEntryBySeriesId,
                 isPreparing = isPreparing,
                 compact = compact,
                 onResetFilters = onResetFilters,

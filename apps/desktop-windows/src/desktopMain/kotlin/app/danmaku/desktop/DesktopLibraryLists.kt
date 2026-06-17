@@ -146,6 +146,7 @@ import app.danmaku.domain.LibrarySeriesWatchSummary
 import app.danmaku.domain.LibrarySubtitleFilter
 import app.danmaku.domain.LibraryWatchState
 import app.danmaku.domain.LibraryWatchStatus
+import app.danmaku.domain.LocalAnimeListEntry
 import app.danmaku.domain.PlaybackCommand
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.domain.PlaybackSnapshot
@@ -205,6 +206,7 @@ internal fun AllSeriesView(
     nextUpItems: List<LibraryNextUpItem>,
     watchStatusById: Map<String, LibraryWatchStatus>,
     seriesWatchSummaryById: Map<String, LibrarySeriesWatchSummary>,
+    localAnimeListEntryBySeriesId: Map<String, LocalAnimeListEntry>,
     isPreparing: Boolean,
     compact: Boolean,
     onResetFilters: () -> Unit,
@@ -267,6 +269,7 @@ internal fun AllSeriesView(
                     series = librarySeries,
                     coverPath = coverBySeriesId[librarySeries.id],
                     watchSummary = seriesWatchSummaryById[librarySeries.id],
+                    localAnimeListEntry = localAnimeListEntryBySeriesId[librarySeries.id],
                     isSelected = librarySeries.id == selectedSeries?.id,
                     isPreparing = isPreparing,
                     isRefreshingMetadata = librarySeries.id in refreshingMetadataSeriesIds,

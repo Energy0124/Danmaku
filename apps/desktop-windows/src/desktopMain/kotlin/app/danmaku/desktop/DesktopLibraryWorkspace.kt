@@ -417,6 +417,7 @@ internal fun WindowsLibraryWorkspace(
                 watchStatusById = watchStatusById,
                 seriesWatchSummaryById = seriesWatchSummaryById,
                 favoriteMediaIds = favoriteMediaIds,
+                localAnimeListEntryBySeriesId = localAnimeListEntryBySeriesId,
                 localWatchListCount = localAnimeListEntryBySeriesId.size,
                 externalTrackingPlan = externalTrackingPlan,
                 isExternalAnimeSyncing = isExternalAnimeSyncing,
