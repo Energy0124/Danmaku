@@ -109,8 +109,9 @@ Status legend:
   `TvPcConnectionPanel.kt`. Library navigation and empty-state panels now live
   in `TvLibraryPanels.kt`, and the Library route state/search/filter
   composition now lives in `TvLibraryScreen.kt`. Library poster tiles,
-  episode/detail rows, series detail, progress rails, and next-up rails now
-  live in `TvLibraryEpisodeComponents.kt`. Shared TV remote playback
+  episode/detail rows, and series detail now live in
+  `TvLibraryEpisodeComponents.kt`; progress and next-up rails now live in
+  `TvLibraryRails.kt`. Shared TV remote playback
   preparation, resume lookup, seek, and play dispatch now live in
   `TvPlaybackActions.kt`. Remembered TV player/library state now lives in
   `TvPlayerState.kt`, and PC discovery, library refresh, saved-connection,
