@@ -215,6 +215,8 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
     val showAllSubtitlesAction = stringResource(Res.string.desktop_show_all_subtitles_action)
     val favoritesOnlyAction = stringResource(Res.string.desktop_favorites_only_action)
     val showAllFavoritesAction = stringResource(Res.string.desktop_show_all_favorites_action)
+    val anyWatchListStatusAction = stringResource(Res.string.desktop_any_watch_list_status_action)
+    val untrackedWatchListStatusAction = stringResource(Res.string.desktop_untracked_watch_list_status_action)
     val sortByPathAction = stringResource(Res.string.desktop_sort_by_path_action)
     val sortByTitleAction = stringResource(Res.string.desktop_sort_by_title_action)
     val openLibraryImportPanelAction = stringResource(Res.string.desktop_open_library_import_panel_action)
@@ -647,6 +649,7 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
     val episodeCountShortLabel = stringResource(Res.string.desktop_episode_count_short_label)
     val episodeCountSummary = stringResource(Res.string.desktop_episode_count_summary)
     val favoriteCountSummary = stringResource(Res.string.desktop_favorite_count_summary)
+    val localWatchListCountSummary = stringResource(Res.string.desktop_local_watch_list_count_summary)
     val moreItemsLabel = stringResource(Res.string.desktop_more_items_label)
     val lastScanSummary = stringResource(Res.string.desktop_last_scan_summary)
     val lastScanCountsSummary = stringResource(Res.string.desktop_last_scan_counts_summary)
@@ -867,6 +870,8 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
             this.showAllSubtitlesAction = showAllSubtitlesAction
             this.favoritesOnlyAction = favoritesOnlyAction
             this.showAllFavoritesAction = showAllFavoritesAction
+            this.anyWatchListStatusAction = anyWatchListStatusAction
+            this.untrackedWatchListStatusAction = untrackedWatchListStatusAction
             this.sortByPathAction = sortByPathAction
             this.sortByTitleAction = sortByTitleAction
             this.openLibraryImportPanelAction = openLibraryImportPanelAction
@@ -1303,6 +1308,7 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
             this.episodeCountShortLabel = { count -> episodeCountShortLabel.formatResourceString(count) }
             this.episodeCountSummary = { visible, total -> episodeCountSummary.formatResourceString(visible, total) }
             this.favoriteCountSummary = { count -> favoriteCountSummary.formatResourceString(count) }
+            this.localWatchListCountSummary = { count -> localWatchListCountSummary.formatResourceString(count) }
             this.moreItemsLabel = { count -> moreItemsLabel.formatResourceString(count) }
             this.lastScanSummary = { reused, refreshed -> lastScanSummary.formatResourceString(reused, refreshed) }
             this.lastScanCountsSummary = { reused, refreshed ->

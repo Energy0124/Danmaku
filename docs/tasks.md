@@ -36,7 +36,10 @@ Status legend:
 - `[~]` Live QA for MyAnimeList/Bangumi mapping, OAuth, sync, conflict handling,
   relaunch behavior, and external list state.
 - `[~]` Continue library UI polish where details, title clarity, poster states,
-  and focus behavior affect everyday use.
+  watch-list browsing, and focus behavior affect everyday use. The desktop
+  Library now has local watch-list persistence, inspector editing, summary
+  count chips, and a browse filter that cycles through local watch-list
+  statuses including untracked series.
 - `[~]` Continue decomposing desktop `Main.kt` into focused shell, tab,
   settings, player, library, and shared UI modules while preserving behavior.
 - `[~]` Introduce a desktop shell state/action boundary so orchestration moves

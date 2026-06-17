@@ -178,6 +178,8 @@
     <string name="desktop_show_all_subtitles_action">顯示所有字幕狀態</string>
     <string name="desktop_favorites_only_action">只顯示收藏</string>
     <string name="desktop_show_all_favorites_action">顯示所有收藏狀態</string>
+    <string name="desktop_any_watch_list_status_action">所有觀看清單狀態</string>
+    <string name="desktop_untracked_watch_list_status_action">未加入觀看清單</string>
     <string name="desktop_sort_by_path_action">依路徑排序</string>
     <string name="desktop_sort_by_title_action">依標題排序</string>
     <string name="desktop_open_library_import_panel_action">開啟媒體庫匯入面板</string>
@@ -614,6 +616,7 @@
     <string name="desktop_episode_count_short_label">%1$d 集</string>
     <string name="desktop_episode_count_summary">%1$d / %2$d 集</string>
     <string name="desktop_favorite_count_summary">%1$d 個收藏</string>
+    <string name="desktop_local_watch_list_count_summary">%1$d 個觀看清單</string>
     <string name="desktop_more_items_label">還有 %1$d 個</string>
     <string name="desktop_last_scan_summary">上次掃描：%1$d 個未變更，%2$d 個已更新</string>
     <string name="desktop_last_scan_counts_summary">%1$d 個未變更，%2$d 個已更新</string>

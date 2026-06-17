@@ -264,6 +264,7 @@ internal fun WindowsLibraryWorkspace(
     var sort by remember { mutableStateOf(LibraryCatalogSort.TITLE) }
     var subtitleFilter by remember { mutableStateOf(LibrarySubtitleFilter.ANY) }
     var favoriteFilter by remember { mutableStateOf(LibraryFavoriteFilter.ANY) }
+    var localWatchListFilter by remember { mutableStateOf(LocalWatchListFilter.ANY) }
     LaunchedEffect(searchSeed, searchSeedVersion) {
         val query = searchSeed.trim()
         if (query.isNotBlank()) {
@@ -277,7 +278,18 @@ internal fun WindowsLibraryWorkspace(
     } else {
         favoriteFilter
     }
-    val filteredEpisodes = remember(catalog, searchText, sort, subtitleFilter, effectiveFavoriteFilter, favoriteMediaIds) {
+    val seriesIdByMediaId = remember(series) { series.seriesIdByMediaId() }
+    val filteredEpisodes = remember(
+        catalog,
+        searchText,
+        sort,
+        subtitleFilter,
+        effectiveFavoriteFilter,
+        favoriteMediaIds,
+        seriesIdByMediaId,
+        localAnimeListEntryBySeriesId,
+        localWatchListFilter,
+    ) {
         catalog
             ?.filteredItems(
                 LibraryCatalogQuery(
@@ -288,12 +300,18 @@ internal fun WindowsLibraryWorkspace(
                     favoriteMediaIds = favoriteMediaIds,
                 ),
             )
+            ?.filterByLocalWatchList(
+                seriesIdByMediaId = seriesIdByMediaId,
+                localAnimeListEntryBySeriesId = localAnimeListEntryBySeriesId,
+                filter = localWatchListFilter,
+            )
             .orEmpty()
     }
     val filtersAreDefault = searchText.isBlank() &&
         sort == LibraryCatalogSort.TITLE &&
         subtitleFilter == LibrarySubtitleFilter.ANY &&
-        effectiveFavoriteFilter == LibraryFavoriteFilter.ANY
+        effectiveFavoriteFilter == LibraryFavoriteFilter.ANY &&
+        localWatchListFilter == LocalWatchListFilter.ANY
     val visibleSeries = remember(series, filteredEpisodes, filtersAreDefault) {
         val visibleMediaIds = filteredEpisodes.mapTo(mutableSetOf(), LibraryMediaItem::id)
         if (visibleMediaIds.isEmpty() && filtersAreDefault) {
@@ -382,6 +400,8 @@ internal fun WindowsLibraryWorkspace(
                         LibraryFavoriteFilter.ANY
                     }
                 },
+                localWatchListFilter = localWatchListFilter,
+                onCycleLocalWatchListFilter = { localWatchListFilter = localWatchListFilter.next() },
                 catalog = catalog,
                 visibleSeries = visibleSeries,
                 selectedSeries = selectedSeries,
@@ -397,6 +417,7 @@ internal fun WindowsLibraryWorkspace(
                 watchStatusById = watchStatusById,
                 seriesWatchSummaryById = seriesWatchSummaryById,
                 favoriteMediaIds = favoriteMediaIds,
+                localWatchListCount = localAnimeListEntryBySeriesId.size,
                 externalTrackingPlan = externalTrackingPlan,
                 isExternalAnimeSyncing = isExternalAnimeSyncing,
                 isPreparing = isPreparing,
@@ -414,6 +435,7 @@ internal fun WindowsLibraryWorkspace(
                     sort = LibraryCatalogSort.TITLE
                     subtitleFilter = LibrarySubtitleFilter.ANY
                     favoriteFilter = LibraryFavoriteFilter.ANY
+                    localWatchListFilter = LocalWatchListFilter.ANY
                 },
                 remoteBrowser = remoteBrowser,
                 modifier = Modifier.weight(1f),

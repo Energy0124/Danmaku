@@ -1,6 +1,6 @@
 # Current State
 
-Last reviewed: 2026-06-16.
+Last reviewed: 2026-06-17.
 
 Danmaku is in active foundation work. The strongest vertical slice is Windows
 desktop as the local library host/player, with Android mobile and Android TV as
@@ -97,6 +97,10 @@ trusted-LAN clients.
   list entries and sync failures persist in the desktop catalog database across
   relaunch, and provider-ahead conflicts can seed local watched progress from
   the Tracking inspector.
+- Desktop local watch-list entries persist with status, score, and notes; the
+  Library inspector can edit them, the Library toolbar can filter browsing by
+  local watch-list status including untracked series, and summary chips expose
+  the current saved watch-list count.
 
 ### Android Mobile
 
@@ -236,13 +240,13 @@ trusted-LAN clients.
   string changes should happen in XML resources plus the resource adapter.
 - From an anime-viewer workflow perspective, the current foundation covers
   local library playback, posters/metadata, progress, favorites, external
-  mapping/sync, desktop local watch-list status/score/notes editing, provider
-  readback status/score visibility, and danmaku basics. Missing high-value
-  viewer workflows include watch status list filtering,
-  seasonal/release-calendar views, OP/ED or recap skip
-  markers, per-series subtitle/audio preferences, richer danmaku filtering and
-  blocklists, duplicate/missing-episode library cleanup, richer external
-  list-driven status/score workflows, and custom collections/tags.
+  mapping/sync, desktop local watch-list status/score/notes editing and
+  filtering, provider readback status/score visibility, and danmaku basics.
+  Missing high-value viewer workflows include seasonal/release-calendar views,
+  OP/ED or recap skip markers, per-series subtitle/audio preferences, richer
+  danmaku filtering and blocklists, duplicate/missing-episode library cleanup,
+  richer external list-driven status/score workflows, and custom
+  collections/tags.
 
 ## Not Implemented
 

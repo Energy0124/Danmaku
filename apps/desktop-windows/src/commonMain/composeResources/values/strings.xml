@@ -178,6 +178,8 @@
     <string name="desktop_show_all_subtitles_action">Show all subtitles</string>
     <string name="desktop_favorites_only_action">Favorites only</string>
     <string name="desktop_show_all_favorites_action">Show all favorites</string>
+    <string name="desktop_any_watch_list_status_action">Any watch-list status</string>
+    <string name="desktop_untracked_watch_list_status_action">Not in watch list</string>
     <string name="desktop_sort_by_path_action">Sort by path</string>
     <string name="desktop_sort_by_title_action">Sort by title</string>
     <string name="desktop_open_library_import_panel_action">Open library import panel</string>
@@ -614,6 +616,7 @@
     <string name="desktop_episode_count_short_label">%1$d eps</string>
     <string name="desktop_episode_count_summary">%1$d / %2$d episodes</string>
     <string name="desktop_favorite_count_summary">%1$d favorites</string>
+    <string name="desktop_local_watch_list_count_summary">%1$d watch-list</string>
     <string name="desktop_more_items_label">+%1$d more</string>
     <string name="desktop_last_scan_summary">Last scan: %1$d unchanged, %2$d refreshed</string>
     <string name="desktop_last_scan_counts_summary">%1$d unchanged, %2$d refreshed</string>

@@ -16,6 +16,7 @@ import androidx.compose.material.OutlinedTextField
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ViewList
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.GridView
@@ -53,6 +54,8 @@ internal fun LibraryCenterWorkspace(
     onToggleSubtitleFilter: () -> Unit,
     favoriteFilter: LibraryFavoriteFilter,
     onToggleFavoriteFilter: () -> Unit,
+    localWatchListFilter: LocalWatchListFilter,
+    onCycleLocalWatchListFilter: () -> Unit,
     catalog: LibraryCatalog?,
     visibleSeries: List<LibrarySeries>,
     selectedSeries: LibrarySeries?,
@@ -68,6 +71,7 @@ internal fun LibraryCenterWorkspace(
     watchStatusById: Map<String, LibraryWatchStatus>,
     seriesWatchSummaryById: Map<String, LibrarySeriesWatchSummary>,
     favoriteMediaIds: Set<String>,
+    localWatchListCount: Int,
     externalTrackingPlan: ExternalAnimeTrackingPlan?,
     isExternalAnimeSyncing: Boolean,
     isPreparing: Boolean,
@@ -104,6 +108,8 @@ internal fun LibraryCenterWorkspace(
             onToggleSubtitleFilter = onToggleSubtitleFilter,
             favoriteFilter = favoriteFilter,
             onToggleFavoriteFilter = onToggleFavoriteFilter,
+            localWatchListFilter = localWatchListFilter,
+            onCycleLocalWatchListFilter = onCycleLocalWatchListFilter,
             compact = compact,
         )
         Row(
@@ -117,6 +123,7 @@ internal fun LibraryCenterWorkspace(
                 icon = Icons.AutoMirrored.Filled.ViewList,
             )
             StatusPill(strings.favoriteCountSummary(favoriteMediaIds.size), icon = Icons.Filled.Star)
+            StatusPill(strings.localWatchListCountSummary(localWatchListCount), icon = Icons.Filled.CheckCircle)
             externalTrackingPlan?.summary?.let { summary ->
                 StatusPill(
                     summary.localizedLabel(strings),
@@ -129,6 +136,9 @@ internal fun LibraryCenterWorkspace(
             }
             if (selectedView == WindowsLibraryView.FAVORITES || favoriteFilter == LibraryFavoriteFilter.FAVORITES_ONLY) {
                 StatusPill(strings.favoritesOnlyAction, icon = Icons.Filled.Star, active = true)
+            }
+            if (localWatchListFilter != LocalWatchListFilter.ANY) {
+                StatusPill(localWatchListFilter.localizedLabel(strings), icon = Icons.Filled.CheckCircle, active = true)
             }
             if (sort != LibraryCatalogSort.TITLE) {
                 StatusPill(strings.pathSortLabel, icon = Icons.Filled.FolderOpen, active = true)
@@ -238,6 +248,8 @@ internal fun LibraryWorkspaceToolbar(
     onToggleSubtitleFilter: () -> Unit,
     favoriteFilter: LibraryFavoriteFilter,
     onToggleFavoriteFilter: () -> Unit,
+    localWatchListFilter: LocalWatchListFilter,
+    onCycleLocalWatchListFilter: () -> Unit,
     compact: Boolean,
 ) {
     @Composable
@@ -262,6 +274,12 @@ internal fun LibraryWorkspaceToolbar(
                 },
                 active = selectedView == WindowsLibraryView.FAVORITES || favoriteFilter != LibraryFavoriteFilter.ANY,
                 onClick = onToggleFavoriteFilter,
+            )
+            PlayerIconButton(
+                imageVector = Icons.Filled.CheckCircle,
+                contentDescription = localWatchListFilter.localizedLabel(strings),
+                active = localWatchListFilter != LocalWatchListFilter.ANY,
+                onClick = onCycleLocalWatchListFilter,
             )
             PlayerIconButton(
                 imageVector = if (sort == LibraryCatalogSort.TITLE) Icons.Filled.GridView else Icons.AutoMirrored.Filled.ViewList,

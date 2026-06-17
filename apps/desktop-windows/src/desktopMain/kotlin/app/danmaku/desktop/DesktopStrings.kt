@@ -198,6 +198,7 @@ internal class DesktopStrings {
     var libraryToolbarDescription: String = ""
     var episodeCountSummary: (Int, Int) -> String = { _, _ -> "" }
     var favoriteCountSummary: (Int) -> String = { _ -> "" }
+    var localWatchListCountSummary: (Int) -> String = { _ -> "" }
     var favoriteEpisodesFilterEmptyText: String = ""
     var episodesFilterEmptyText: String = ""
     var noIndexedSeriesText: String = ""
@@ -211,6 +212,8 @@ internal class DesktopStrings {
     var showAllSubtitlesAction: String = ""
     var favoritesOnlyAction: String = ""
     var showAllFavoritesAction: String = ""
+    var anyWatchListStatusAction: String = ""
+    var untrackedWatchListStatusAction: String = ""
     var sortByPathAction: String = ""
     var sortByTitleAction: String = ""
     var openLibraryImportPanelAction: String = ""
