@@ -195,9 +195,11 @@ trusted-LAN clients.
   remembered TV player/library state and PC/library/favorite/playback actions
   are split into `TvPlayerState.kt` and `TvPlayerActionHandler.kt`; shared TV
   colors, poster endpoint construction, and focus halo styling are split into
-  `TvUiPrimitives.kt`. Larger TV screen/component splits remain. Both compile
-  and have instrumentation-source coverage, but Android TV should be split
-  further before more feature work lands there.
+  `TvUiPrimitives.kt`; `TvPlayerActionHandler` has instrumentation-source
+  coverage for catalog refresh, catalog errors, saved connections,
+  selection/forget actions, and favorites. Larger TV screen/component splits
+  remain. Both compile and have instrumentation-source coverage, but Android TV
+  should be split further before more feature work lands there.
 - Desktop localization now routes through generated resources. The duplicated
   Kotlin fallback initializer has been reduced to the small set of non-Compose
   error/default strings used by tests and default action paths, so normal UI
@@ -229,6 +231,13 @@ git diff --check
 .\tools\windows\capture-desktop-localization-screenshots.ps1
 .\tools\windows\capture-desktop-localization-screenshots.ps1 -Languages zh-TW -Tabs home,library,tracking,settings
 .\gradlew.bat --no-daemon :apps:android-mobile:assembleDebug
+```
+
+Recent Android TV action-handler coverage checks:
+
+```powershell
+.\gradlew.bat --no-daemon :apps:android-tv:compileDebugKotlin
+.\gradlew.bat --no-daemon :apps:android-tv:compileDebugAndroidTestKotlin
 ```
 
 Full project review checks run on 2026-06-15:
