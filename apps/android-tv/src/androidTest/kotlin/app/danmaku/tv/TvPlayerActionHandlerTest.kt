@@ -15,7 +15,8 @@ import app.danmaku.library.LanPlaybackPreparer
 import app.danmaku.library.LanPlaybackProgressSync
 import app.danmaku.library.android.AndroidLanLibraryConnectionStore
 import app.danmaku.library.android.AndroidLibraryFavoriteStore
-import app.danmaku.library.android.LanLibraryDiscoveryClient
+import app.danmaku.library.android.DiscoveredLanLibraryServer
+import app.danmaku.library.android.LanLibraryDiscoveryException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
@@ -103,6 +104,73 @@ class TvPlayerActionHandlerTest {
     }
 
     @Test
+    fun discoverPcStoresFirstDiscoveredServerUrl() = runBlocking {
+        val discovery = RecordingTvLibraryDiscovery(
+            result = listOf(
+                DiscoveredLanLibraryServer(baseUrl = "http://first.test:8686"),
+                DiscoveredLanLibraryServer(baseUrl = "http://second.test:8686"),
+            ),
+        )
+        val state = TvPlayerState(emptyList(), emptySet()).apply {
+            serverUrl = "http://old.test:8686"
+            libraryError = "previous error"
+        }
+        val handler = actionHandler(
+            state = state,
+            client = RecordingLanLibraryClient(),
+            scope = this,
+            libraryDiscovery = discovery,
+        )
+
+        handler.discoverPc()
+        waitForLaunchedActions()
+
+        assertEquals("http://first.test:8686", state.serverUrl)
+        assertNull(state.libraryError)
+        assertEquals(1, discovery.discoveryRequests)
+    }
+
+    @Test
+    fun discoverPcStoresNoServerFailure() = runBlocking {
+        val state = TvPlayerState(emptyList(), emptySet()).apply {
+            serverUrl = "http://old.test:8686"
+        }
+        val handler = actionHandler(
+            state = state,
+            client = RecordingLanLibraryClient(),
+            scope = this,
+            libraryDiscovery = RecordingTvLibraryDiscovery(result = emptyList()),
+        )
+
+        handler.discoverPc()
+        waitForLaunchedActions()
+
+        assertEquals("http://old.test:8686", state.serverUrl)
+        assertEquals("No Windows library server discovered", state.libraryError)
+    }
+
+    @Test
+    fun discoverPcStoresDiscoveryFailure() = runBlocking {
+        val state = TvPlayerState(emptyList(), emptySet()).apply {
+            serverUrl = "http://old.test:8686"
+        }
+        val handler = actionHandler(
+            state = state,
+            client = RecordingLanLibraryClient(),
+            scope = this,
+            libraryDiscovery = RecordingTvLibraryDiscovery(
+                failure = LanLibraryDiscoveryException("Discovery socket unavailable"),
+            ),
+        )
+
+        handler.discoverPc()
+        waitForLaunchedActions()
+
+        assertEquals("http://old.test:8686", state.serverUrl)
+        assertEquals("Discovery socket unavailable", state.libraryError)
+    }
+
+    @Test
     fun connectionAndFavoriteActionsUpdateStateAndStores() = runBlocking {
         val item = LibraryMediaItem(
             id = "episode-1",
@@ -165,6 +233,7 @@ class TvPlayerActionHandlerTest {
         state: TvPlayerState,
         client: LanLibraryClient,
         scope: CoroutineScope,
+        libraryDiscovery: TvLibraryDiscovery = RecordingTvLibraryDiscovery(result = emptyList()),
     ): TvPlayerActionHandler =
         TvPlayerActionHandler(
             state = state,
@@ -174,7 +243,7 @@ class TvPlayerActionHandlerTest {
             playbackPreparer = LanPlaybackPreparer(client),
             connectionStore = connectionStore,
             favoriteStore = favoriteStore,
-            discoveryClient = LanLibraryDiscoveryClient(),
+            libraryDiscovery = libraryDiscovery,
         )
 
     private fun clearStores() {
@@ -186,6 +255,20 @@ class TvPlayerActionHandlerTest {
 
     private suspend fun waitForLaunchedActions() {
         currentCoroutineContext()[Job]?.children?.toList()?.joinAll()
+    }
+
+    private class RecordingTvLibraryDiscovery(
+        private val result: List<DiscoveredLanLibraryServer> = emptyList(),
+        private val failure: Throwable? = null,
+    ) : TvLibraryDiscovery {
+        var discoveryRequests = 0
+            private set
+
+        override fun discover(): List<DiscoveredLanLibraryServer> {
+            discoveryRequests += 1
+            failure?.let { throw it }
+            return result
+        }
     }
 
     private class RecordingLanLibraryClient(

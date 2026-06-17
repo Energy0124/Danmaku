@@ -7,12 +7,16 @@ import app.danmaku.library.LanPlaybackPreparer
 import app.danmaku.library.LanPlaybackProgressSync
 import app.danmaku.library.android.AndroidLibraryFavoriteStore
 import app.danmaku.library.android.AndroidLanLibraryConnectionStore
-import app.danmaku.library.android.LanLibraryDiscoveryClient
+import app.danmaku.library.android.DiscoveredLanLibraryServer
 import app.danmaku.library.android.LanLibraryDiscoveryException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+internal fun interface TvLibraryDiscovery {
+    fun discover(): List<DiscoveredLanLibraryServer>
+}
 
 internal class TvPlayerActionHandler(
     private val state: TvPlayerState,
@@ -22,7 +26,7 @@ internal class TvPlayerActionHandler(
     private val playbackPreparer: LanPlaybackPreparer,
     private val connectionStore: AndroidLanLibraryConnectionStore,
     private val favoriteStore: AndroidLibraryFavoriteStore,
-    private val discoveryClient: LanLibraryDiscoveryClient,
+    private val libraryDiscovery: TvLibraryDiscovery,
 ) {
     fun refreshLibrary() {
         scope.launch {
@@ -54,7 +58,7 @@ internal class TvPlayerActionHandler(
         scope.launch {
             runCatching {
                 withContext(Dispatchers.IO) {
-                    discoveryClient.discover().firstOrNull()
+                    libraryDiscovery.discover().firstOrNull()
                         ?: throw LanLibraryDiscoveryException("No Windows library server discovered")
                 }
             }.onSuccess {

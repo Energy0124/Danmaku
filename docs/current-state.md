@@ -197,9 +197,11 @@ trusted-LAN clients.
   colors, poster endpoint construction, and focus halo styling are split into
   `TvUiPrimitives.kt`; `TvPlayerActionHandler` has instrumentation-source
   coverage for catalog refresh, catalog errors, saved connections,
-  selection/forget actions, and favorites. Larger TV screen/component splits
-  remain. Both compile and have instrumentation-source coverage, but Android TV
-  should be split further before more feature work lands there.
+  selection/forget actions, favorites, and PC discovery success/no-server/
+  failure paths through a testable `TvLibraryDiscovery` boundary. Larger TV
+  screen/component splits remain. Both compile and have instrumentation-source
+  coverage, but Android TV should be split further before more feature work
+  lands there.
 - Desktop localization now routes through generated resources. The duplicated
   Kotlin fallback initializer has been reduced to the small set of non-Compose
   error/default strings used by tests and default action paths, so normal UI

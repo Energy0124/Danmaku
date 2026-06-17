@@ -75,6 +75,9 @@ private fun TvPlayerScreen() {
         AndroidLibraryFavoriteStore(context.applicationContext)
     }
     val discoveryClient = remember { LanLibraryDiscoveryClient() }
+    val libraryDiscovery = remember(discoveryClient) {
+        TvLibraryDiscovery { discoveryClient.discover() }
+    }
     val refreshPcFocusRequester = remember { FocusRequester() }
     val discoverPcFocusRequester = remember { FocusRequester() }
     val scope = rememberCoroutineScope()
@@ -92,7 +95,7 @@ private fun TvPlayerScreen() {
         playbackPreparer,
         connectionStore,
         favoriteStore,
-        discoveryClient,
+        libraryDiscovery,
     ) {
         TvPlayerActionHandler(
             state = state,
@@ -102,7 +105,7 @@ private fun TvPlayerScreen() {
             playbackPreparer = playbackPreparer,
             connectionStore = connectionStore,
             favoriteStore = favoriteStore,
-            discoveryClient = discoveryClient,
+            libraryDiscovery = libraryDiscovery,
         )
     }
 
