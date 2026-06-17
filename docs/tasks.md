@@ -115,7 +115,7 @@ Status legend:
   `TvPlayerPanel.kt`. App destination metadata, top-level rail/header, and
   shared rail pill/navigation items now live in `TvShellUi.kt`. Home route
   composition now lives in `TvHomePanel.kt`, while Home-only recently-added,
-  series, and status rails now live in `TvHomeRailComponents.kt`. PC connection
+  series, and status panels now live in separate focused files. PC connection
   route UI, text input, and saved-PC cards now live in
   `TvPcConnectionPanel.kt`. Library navigation and empty-state panels now live
   in `TvLibraryPanels.kt`. Library route composition now lives in
@@ -145,6 +145,8 @@ Status legend:
   `MainActivity.kt` as a 17-line app entrypoint. TV Library content-section
   rendering is now split into `TvLibraryContentSections.kt`, leaving
   `TvLibraryScreen.kt` focused on state, focus requesters, and top-level layout.
+  The former Home rail catch-all has also been split into focused
+  recently-added, series, and operational-status files.
 - `[ ]` P1: Add connected Android test runs to the release checklist and record
   the required device/emulator matrix for mobile playback, LAN sync, TV focus,
   and Media3 streaming.
@@ -232,7 +234,8 @@ Full review date: 2026-06-15.
   composition are now split out of `MainActivity.kt`. Android TV decomposition
   has started with shared UI helpers in `TvUiHelpers.kt`, player controls in
   `TvPlayerPanel.kt`, shell chrome in `TvShellUi.kt`, Home route composition
-  in `TvHomePanel.kt`, and Home-only rails in `TvHomeRailComponents.kt`, plus
+  in `TvHomePanel.kt`, and focused Home recently-added, series, and status
+  panel files, plus
   PC connection UI in `TvPcConnectionPanel.kt` and library navigation/empty
   states in `TvLibraryPanels.kt`; Library route composition now lives in
   `TvLibraryScreen.kt`, mutable filter/selection controls in

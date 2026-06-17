@@ -241,9 +241,11 @@ trusted-LAN clients.
   rendering are separated into focused content helpers, and `MainActivity.kt`
   is a 17-line app entrypoint. TV Library state/focus/top-level layout is now
   separated from Library content-section rendering in
-  `TvLibraryContentSections.kt`. Larger TV component splits remain. Both
-  compile and have instrumentation-source coverage, but Android TV should be
-  split further before more feature work lands there.
+  `TvLibraryContentSections.kt`. TV Home recently-added, series, and status
+  panels now live in separate files instead of the former catch-all Home rail
+  component file. Larger TV component splits remain. Both compile and have
+  instrumentation-source coverage, but Android TV should be split further
+  before more feature work lands there.
 - Desktop localization now routes through generated resources. The duplicated
   Kotlin fallback initializer has been reduced to the small set of non-Compose
   error/default strings used by tests and default action paths, so normal UI
