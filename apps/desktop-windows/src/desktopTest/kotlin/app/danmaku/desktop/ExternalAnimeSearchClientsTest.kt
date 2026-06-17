@@ -142,6 +142,39 @@ class ExternalAnimeSearchClientsTest {
     }
 
     @Test
+    fun myAnimeListTrackingClientReadsCurrentListStatusWithBearerToken() {
+        val client = MyAnimeListTrackingClient(
+            connection = MyAnimeListTrackingConnection(
+                accessToken = "mal-access-token",
+                baseUri = "https://example.test/".toUri(),
+            ),
+            httpGet = ExternalAnimeHttpGet { url, headers ->
+                assertEquals("https://example.test/anime/52991?fields=my_list_status", url.toString())
+                assertEquals("Bearer mal-access-token", headers["Authorization"])
+                """
+                {
+                  "id": 52991,
+                  "my_list_status": {
+                    "status": "watching",
+                    "score": 8,
+                    "num_episodes_watched": 4,
+                    "updated_at": "2024-01-02T03:04:05+00:00"
+                  }
+                }
+                """.trimIndent()
+            },
+        )
+
+        val entry = client.fetchListEntry(ExternalAnimeId(ExternalAnimeProvider.MY_ANIME_LIST, 52991))
+
+        requireNotNull(entry)
+        assertEquals(ExternalAnimeListStatus.WATCHING, entry.status)
+        assertEquals(4, entry.watchedEpisodes)
+        assertEquals(8, entry.score)
+        assertEquals(1_704_164_645_000, entry.updatedAtEpochMs)
+    }
+
+    @Test
     fun bangumiTrackingClientWritesCollectionStatusWithBearerToken() {
         var requestBody = ""
         val client = BangumiTrackingClient(
@@ -180,6 +213,36 @@ class ExternalAnimeSearchClientsTest {
         assertTrue(requestBody.contains("\"rate\":9"))
         assertEquals(ExternalAnimeListStatus.COMPLETED, entry.status)
         assertEquals(28, entry.watchedEpisodes)
+        assertEquals(9, entry.score)
+    }
+
+    @Test
+    fun bangumiTrackingClientReadsCurrentCollectionStatusWithBearerToken() {
+        val client = BangumiTrackingClient(
+            connection = BangumiTrackingConnection(
+                accessToken = "bangumi-access-token",
+                baseUri = "https://example.test/".toUri(),
+                userAgent = "DanmakuTest/1.0",
+            ),
+            httpGet = ExternalAnimeHttpGet { url, headers ->
+                assertEquals("https://example.test/v0/users/-/collections/400602", url.toString())
+                assertEquals("Bearer bangumi-access-token", headers["Authorization"])
+                assertEquals("DanmakuTest/1.0", headers["User-Agent"])
+                """
+                {
+                  "type": 3,
+                  "rate": 9,
+                  "ep_status": 12
+                }
+                """.trimIndent()
+            },
+        )
+
+        val entry = client.fetchListEntry(ExternalAnimeId(ExternalAnimeProvider.BANGUMI, 400602))
+
+        requireNotNull(entry)
+        assertEquals(ExternalAnimeListStatus.WATCHING, entry.status)
+        assertEquals(12, entry.watchedEpisodes)
         assertEquals(9, entry.score)
     }
 }

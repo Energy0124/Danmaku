@@ -122,6 +122,7 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import app.danmaku.domain.DanmakuDisplaySettings
 import app.danmaku.domain.ExternalAnimeId
+import app.danmaku.domain.ExternalAnimeListEntry
 import app.danmaku.domain.ExternalAnimeMatchCandidate
 import app.danmaku.domain.ExternalAnimeMatchQuery
 import app.danmaku.domain.ExternalAnimeMapping
@@ -208,6 +209,7 @@ internal fun MediaLibraryTab(
     refreshingMetadataMediaIds: Set<String>,
     refreshingMetadataSeriesIds: Set<String>,
     playbackProgresses: List<PlaybackProgress>,
+    externalAnimeListEntries: List<ExternalAnimeListEntry>,
     favoriteMediaIds: Set<String>,
     externalAnimeSyncFailures: List<ExternalAnimeSyncFailure>,
     isExternalAnimeSyncing: Boolean,
@@ -269,11 +271,13 @@ internal fun MediaLibraryTab(
             indexedLibrary?.catalog,
             externalAnimeMappings,
             playbackProgresses,
+            externalAnimeListEntries,
             externalAnimeSyncFailures,
         ) {
             indexedLibrary?.catalog?.externalAnimeTrackingPlan(
                 mappings = externalAnimeMappings,
                 progresses = playbackProgresses,
+                externalEntries = externalAnimeListEntries,
                 failures = externalAnimeSyncFailures,
             )
         }

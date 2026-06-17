@@ -487,6 +487,7 @@ internal fun DesktopShell(
                     ?.externalAnimeTrackingPlan(
                         mappings = externalAnimeMappings,
                         progresses = libraryState.playbackProgresses,
+                        externalEntries = libraryState.externalAnimeListEntries,
                         failures = libraryState.externalAnimeSyncFailures,
                     )
                     ?: return false
@@ -806,6 +807,7 @@ internal fun DesktopShell(
                             playbackProgresses = libraryState.playbackProgresses,
                             favoriteMediaIds = libraryState.favoriteMediaIds,
                             externalAnimeMappings = externalAnimeMappings,
+                            externalAnimeListEntries = libraryState.externalAnimeListEntries,
                             externalAnimeSyncFailures = libraryState.externalAnimeSyncFailures,
                             isIndexing = libraryState.isIndexing,
                             isPreparingLocalPlayback = libraryState.isPreparingLocalPlayback,
@@ -837,10 +839,13 @@ internal fun DesktopShell(
                             indexedLibrary = displayIndexedLibrary,
                             externalAnimeMappings = externalAnimeMappings,
                             playbackProgresses = libraryState.playbackProgresses,
+                            externalAnimeListEntries = libraryState.externalAnimeListEntries,
                             externalAnimeSyncFailures = libraryState.externalAnimeSyncFailures,
                             isExternalAnimeSyncing = libraryState.isExternalAnimeSyncing,
+                            isExternalAnimeReadbackRefreshing = libraryState.isExternalAnimeReadbackRefreshing,
                             externalAnimeProviderSettings = settingsState.externalAnimeProviderSettings,
                             onSyncExternalAnimePlan = libraryActions::syncExternalAnimePlan,
+                            onRefreshExternalAnimeReadback = libraryActions::refreshExternalAnimeReadback,
                             onOpenSettings = { navigationState.selectedTab = DesktopShellTab.PROFILE },
                             onOpenLibrary = { navigationState.selectedTab = DesktopShellTab.MEDIA_LIBRARY },
                         )
@@ -858,6 +863,7 @@ internal fun DesktopShell(
                             refreshingMetadataMediaIds = libraryState.refreshingMetadataMediaIds,
                             refreshingMetadataSeriesIds = libraryState.refreshingMetadataSeriesIds,
                             playbackProgresses = libraryState.playbackProgresses,
+                            externalAnimeListEntries = libraryState.externalAnimeListEntries,
                             favoriteMediaIds = libraryState.favoriteMediaIds,
                             externalAnimeSyncFailures = libraryState.externalAnimeSyncFailures,
                             isExternalAnimeSyncing = libraryState.isExternalAnimeSyncing,

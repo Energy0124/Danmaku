@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import app.danmaku.domain.ExternalAnimeListEntry
 import app.danmaku.domain.ExternalAnimeSyncFailure
 import java.nio.file.Path
 
@@ -35,7 +36,9 @@ internal class DesktopShellLibraryState(
     var refreshingMetadataMediaIds by mutableStateOf<Set<String>>(emptySet())
     var refreshingMetadataSeriesIds by mutableStateOf<Set<String>>(emptySet())
     var externalAnimeSyncFailures by mutableStateOf<List<ExternalAnimeSyncFailure>>(emptyList())
+    var externalAnimeListEntries by mutableStateOf<List<ExternalAnimeListEntry>>(emptyList())
     var isExternalAnimeSyncing by mutableStateOf(false)
+    var isExternalAnimeReadbackRefreshing by mutableStateOf(false)
 }
 
 @Composable

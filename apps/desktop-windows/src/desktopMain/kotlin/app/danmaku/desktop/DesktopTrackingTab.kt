@@ -122,6 +122,7 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import app.danmaku.domain.DanmakuDisplaySettings
 import app.danmaku.domain.ExternalAnimeId
+import app.danmaku.domain.ExternalAnimeListEntry
 import app.danmaku.domain.ExternalAnimeMatchCandidate
 import app.danmaku.domain.ExternalAnimeMatchQuery
 import app.danmaku.domain.ExternalAnimeMapping
@@ -199,18 +200,28 @@ internal fun TrackingTab(
     indexedLibrary: IndexedLocalLibrary?,
     externalAnimeMappings: List<ExternalAnimeMapping>,
     playbackProgresses: List<PlaybackProgress>,
+    externalAnimeListEntries: List<ExternalAnimeListEntry>,
     externalAnimeSyncFailures: List<ExternalAnimeSyncFailure>,
     isExternalAnimeSyncing: Boolean,
+    isExternalAnimeReadbackRefreshing: Boolean,
     externalAnimeProviderSettings: ExternalAnimeProviderSettings,
     onSyncExternalAnimePlan: (ExternalAnimeTrackingPlan) -> Unit,
+    onRefreshExternalAnimeReadback: (List<ExternalAnimeMapping>) -> Unit,
     onOpenSettings: () -> Unit,
     onOpenLibrary: () -> Unit,
 ) {
     val catalog = indexedLibrary?.catalog
-    val plan = remember(catalog, externalAnimeMappings, playbackProgresses, externalAnimeSyncFailures) {
+    val plan = remember(
+        catalog,
+        externalAnimeMappings,
+        playbackProgresses,
+        externalAnimeListEntries,
+        externalAnimeSyncFailures,
+    ) {
         catalog?.externalAnimeTrackingPlan(
             mappings = externalAnimeMappings,
             progresses = playbackProgresses,
+            externalEntries = externalAnimeListEntries,
             failures = externalAnimeSyncFailures,
         )
     }
@@ -218,11 +229,12 @@ internal fun TrackingTab(
         val seriesById = remember(catalog) {
             catalog?.groupedSeries()?.associateBy(LibrarySeries::id).orEmpty()
         }
-        val trackingRows = remember(plan, externalAnimeMappings, seriesById) {
+        val trackingRows = remember(plan, externalAnimeMappings, externalAnimeListEntries, seriesById) {
             buildTrackingTableRows(
                 strings = strings,
                 plan = plan,
                 mappings = externalAnimeMappings,
+                externalEntries = externalAnimeListEntries,
                 seriesById = seriesById,
             )
         }
@@ -295,8 +307,10 @@ internal fun TrackingTab(
                 rows = trackingRows,
                 selectedRow = selectedTrackingRow,
                 isSyncing = isExternalAnimeSyncing,
+                isReadbackRefreshing = isExternalAnimeReadbackRefreshing,
                 onSelectRow = { row -> selectedTrackingRowId = row.id },
                 onSync = onSyncExternalAnimePlan,
+                onRefreshReadback = onRefreshExternalAnimeReadback,
             )
         }
     }
@@ -334,6 +348,7 @@ internal fun buildTrackingTableRows(
     strings: DesktopStrings,
     plan: ExternalAnimeTrackingPlan?,
     mappings: List<ExternalAnimeMapping>,
+    externalEntries: List<ExternalAnimeListEntry>,
     seriesById: Map<String, LibrarySeries>,
 ): List<TrackingTableRow> {
     if (plan == null) {
@@ -341,8 +356,10 @@ internal fun buildTrackingTableRows(
     }
     val mappingsByAnimeId = mappings.associateBy(ExternalAnimeMapping::animeId)
     val mappingsBySeriesAndProvider = mappings.associateBy { it.localSeriesId to it.animeId.provider }
+    val externalEntryByAnimeId = externalEntries.associateBy(ExternalAnimeListEntry::animeId)
     val updateRows = plan.updates.map { update ->
         val mapping = update.mapping
+        val externalEntry = externalEntryByAnimeId[mapping.animeId]
         TrackingTableRow(
             id = "update-${mapping.localSeriesId}-${mapping.animeId.provider}-${mapping.animeId.value}",
             kind = TrackingRowKind.UPDATE,
@@ -352,7 +369,7 @@ internal fun buildTrackingTableRows(
             animeIdText = mapping.animeId.value.toString(),
             providerUrl = mapping.animeId.webUrl,
             localProgress = "${update.update.watchedEpisodes ?: 0}/${update.series.episodeCount}",
-            providerProgress = strings.readbackPendingLabel,
+            providerProgress = externalEntry.providerProgressLabel(strings, update.series.episodeCount),
             plannedAction = "${update.update.status.localizedLabel(strings)}, ${strings.watchedCountLabel(update.update.watchedEpisodes ?: 0)}",
             confidence = mapping.confidence.formatConfidence(),
             statusLabel = strings.readyStatusLabel,
@@ -433,6 +450,16 @@ internal fun buildTrackingTableRows(
     )
 }
 
+private fun ExternalAnimeListEntry?.providerProgressLabel(
+    strings: DesktopStrings,
+    episodeCount: Int,
+): String =
+    this?.let { entry ->
+        val watchedEpisodes = entry.watchedEpisodes ?: 0
+        val status = entry.status.localizedLabel(strings)
+        "$watchedEpisodes/$episodeCount, $status"
+    } ?: strings.readbackPendingLabel
+
 @Composable
 internal fun TrackingWorkspace(
     strings: DesktopStrings,
@@ -440,8 +467,10 @@ internal fun TrackingWorkspace(
     rows: List<TrackingTableRow>,
     selectedRow: TrackingTableRow?,
     isSyncing: Boolean,
+    isReadbackRefreshing: Boolean,
     onSelectRow: (TrackingTableRow) -> Unit,
     onSync: (ExternalAnimeTrackingPlan) -> Unit,
+    onRefreshReadback: (List<ExternalAnimeMapping>) -> Unit,
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         val compact = maxWidth < 1180.dp
@@ -453,14 +482,18 @@ internal fun TrackingWorkspace(
                     rows = rows,
                     selectedRow = selectedRow,
                     isSyncing = isSyncing,
+                    isReadbackRefreshing = isReadbackRefreshing,
                     onSelectRow = onSelectRow,
                     onSync = onSync,
+                    onRefreshReadback = onRefreshReadback,
                 )
                 TrackingInspectorPanel(
                     strings = strings,
                     selectedRow = selectedRow,
                     isSyncing = isSyncing,
+                    isReadbackRefreshing = isReadbackRefreshing,
                     onSync = onSync,
+                    onRefreshReadback = onRefreshReadback,
                 )
                 ExternalSyncPreviewView(strings = strings, plan = plan, isSyncing = isSyncing, onSync = onSync)
             }
@@ -476,8 +509,10 @@ internal fun TrackingWorkspace(
                         rows = rows,
                         selectedRow = selectedRow,
                         isSyncing = isSyncing,
+                        isReadbackRefreshing = isReadbackRefreshing,
                         onSelectRow = onSelectRow,
                         onSync = onSync,
+                        onRefreshReadback = onRefreshReadback,
                     )
                     ExternalSyncPreviewView(strings = strings, plan = plan, isSyncing = isSyncing, onSync = onSync)
                 }
@@ -485,7 +520,9 @@ internal fun TrackingWorkspace(
                     strings = strings,
                     selectedRow = selectedRow,
                     isSyncing = isSyncing,
+                    isReadbackRefreshing = isReadbackRefreshing,
                     onSync = onSync,
+                    onRefreshReadback = onRefreshReadback,
                     modifier = Modifier.width(380.dp),
                 )
             }
@@ -500,8 +537,10 @@ internal fun TrackingTablePanel(
     rows: List<TrackingTableRow>,
     selectedRow: TrackingTableRow?,
     isSyncing: Boolean,
+    isReadbackRefreshing: Boolean,
     onSelectRow: (TrackingTableRow) -> Unit,
     onSync: (ExternalAnimeTrackingPlan) -> Unit,
+    onRefreshReadback: (List<ExternalAnimeMapping>) -> Unit,
 ) {
     SectionCard(strings.trackingTableTitle) {
         Row(
@@ -511,12 +550,25 @@ internal fun TrackingTablePanel(
         ) {
             Text(strings.trackingTableDescription, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             Button(
-                enabled = plan?.updates?.isNotEmpty() == true && !isSyncing,
+                enabled = plan?.updates?.isNotEmpty() == true && !isSyncing && !isReadbackRefreshing,
                 onClick = { plan?.let(onSync) },
             ) {
                 Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
                 Text(if (isSyncing) strings.syncingAction else strings.syncAllReadyAction)
+            }
+            Button(
+                enabled = plan != null && rows.any { it.mapping != null } && !isSyncing && !isReadbackRefreshing,
+                onClick = {
+                    rows
+                        .mapNotNull(TrackingTableRow::mapping)
+                        .distinctBy { mapping -> mapping.animeId }
+                        .let(onRefreshReadback)
+                },
+            ) {
+                Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(if (isReadbackRefreshing) strings.refreshingAction else strings.refreshProviderStateAction)
             }
         }
         if (rows.isEmpty()) {
@@ -593,7 +645,9 @@ internal fun TrackingInspectorPanel(
     strings: DesktopStrings,
     selectedRow: TrackingTableRow?,
     isSyncing: Boolean,
+    isReadbackRefreshing: Boolean,
     onSync: (ExternalAnimeTrackingPlan) -> Unit,
+    onRefreshReadback: (List<ExternalAnimeMapping>) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     SectionCard(strings.mappingInspectorTitle, modifier = modifier) {
@@ -623,7 +677,7 @@ internal fun TrackingInspectorPanel(
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
-                enabled = selectedRow.update != null && !isSyncing,
+                enabled = selectedRow.update != null && !isSyncing && !isReadbackRefreshing,
                 onClick = {
                     selectedRow.update?.let { update ->
                         onSync(
@@ -639,8 +693,17 @@ internal fun TrackingInspectorPanel(
                 Spacer(Modifier.width(6.dp))
                 Text(if (isSyncing) strings.syncingAction else strings.syncSelectedAction)
             }
-            Button(enabled = false, onClick = {}) {
-                Text(strings.refreshProviderStateAction)
+            Button(
+                enabled = selectedRow.mapping != null && !isSyncing && !isReadbackRefreshing,
+                onClick = {
+                    selectedRow.mapping?.let { mapping ->
+                        onRefreshReadback(listOf(mapping))
+                    }
+                },
+            ) {
+                Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(if (isReadbackRefreshing) strings.refreshingAction else strings.refreshProviderStateAction)
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

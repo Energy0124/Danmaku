@@ -283,13 +283,13 @@ Status legend:
   - Tracking now has selectable rows for conflicts, ready updates, failures,
     and skipped mappings, plus an inspector showing provider IDs, URLs, local
     series IDs, local/provider progress, confidence, status, scoped sync for
-    ready rows, and disabled planned controls for provider readback, mapping
-    removal, and conflict resolution.
+    ready rows, and provider readback refresh; mapping removal and conflict
+    resolution remain planned controls.
   - Tracking page chrome now has English / `zh-TW` strings for provider cards,
     summary cards, table headers/actions, generated app-owned row labels,
     inspector labels, and planned disabled controls while provider/anime values
     stay source data.
-- `[ ]` Add provider readback before writes where APIs allow it.
+- `[x]` Add provider readback before writes where APIs allow it.
 - `[ ]` Decide whether sync failures should be persisted across relaunch.
 - `[ ]` Add live-account QA checklist for OAuth, token refresh, sync preview,
   conflict handling, failure retry, and relaunch behavior.
@@ -381,7 +381,9 @@ Status legend:
   Compose desktop tests can cover it.
 - `[ ]` Add model-level tests for download queue state once source contracts
   exist.
-- `[ ]` Add tests for tracking readback/plan/conflict/retry behavior.
+- `[~]` Add tests for tracking readback/plan/conflict/retry behavior. MAL and
+  Bangumi provider readback parsing/header coverage exists; action-level
+  readback and relaunch persistence tests remain.
 - `[ ]` Add tests for cache-state persistence and episode selection readback.
 - `[x]` Run `:apps:desktop-windows:compileKotlinDesktop` after UI wiring.
 - `[x]` Run `:apps:desktop-windows:desktopTest` after behavior changes.

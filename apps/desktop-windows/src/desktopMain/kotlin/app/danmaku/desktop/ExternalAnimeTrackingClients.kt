@@ -1,5 +1,6 @@
 package app.danmaku.desktop
 
+import app.danmaku.domain.ExternalAnimeId
 import app.danmaku.domain.ExternalAnimeListEntry
 import app.danmaku.domain.ExternalAnimeListStatus
 import app.danmaku.domain.ExternalAnimeProvider
@@ -18,10 +19,14 @@ import java.net.URLEncoder
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
+import java.time.Instant
+import java.time.format.DateTimeParseException
 import java.time.Duration
 
 interface ExternalAnimeTrackingClient {
     val provider: ExternalAnimeProvider
+
+    fun fetchListEntry(animeId: ExternalAnimeId): ExternalAnimeListEntry?
 
     fun updateListEntry(update: ExternalAnimeTrackingUpdate): ExternalAnimeListEntry
 }
@@ -38,10 +43,29 @@ data class MyAnimeListTrackingConnection(
 
 class MyAnimeListTrackingClient(
     private val connection: MyAnimeListTrackingConnection,
+    private val httpGet: ExternalAnimeHttpGet = ExternalAnimeHttpGet.default(),
     private val httpPatch: ExternalAnimeHttpPatch = ExternalAnimeHttpPatch.default(),
     private val json: Json = externalAnimeTrackingJson,
 ) : ExternalAnimeTrackingClient {
     override val provider: ExternalAnimeProvider = ExternalAnimeProvider.MY_ANIME_LIST
+
+    override fun fetchListEntry(animeId: ExternalAnimeId): ExternalAnimeListEntry? {
+        require(animeId.provider == provider) { "animeId provider must be MyAnimeList" }
+        val fields = "my_list_status"
+        val response = httpGet.get(
+            url = connection.baseUri.resolve("anime/${animeId.value}?fields=${fields.urlEncode()}").toURL(),
+            headers = mapOf(
+                "Accept" to "application/json",
+                "Authorization" to "Bearer ${connection.accessToken}",
+            ),
+        )
+        val listStatus = json
+            .parseToJsonElement(response)
+            .asObject()
+            .objectOrNull("my_list_status")
+            ?: return null
+        return listStatus.toMyAnimeListEntry(animeId)
+    }
 
     override fun updateListEntry(update: ExternalAnimeTrackingUpdate): ExternalAnimeListEntry {
         require(update.animeId.provider == provider) { "update animeId provider must be MyAnimeList" }
@@ -88,10 +112,27 @@ data class BangumiTrackingConnection(
 
 class BangumiTrackingClient(
     private val connection: BangumiTrackingConnection,
+    private val httpGet: ExternalAnimeHttpGet = ExternalAnimeHttpGet.default(),
     private val httpPatch: ExternalAnimeHttpPatch = ExternalAnimeHttpPatch.default(),
     private val json: Json = externalAnimeTrackingJson,
 ) : ExternalAnimeTrackingClient {
     override val provider: ExternalAnimeProvider = ExternalAnimeProvider.BANGUMI
+
+    override fun fetchListEntry(animeId: ExternalAnimeId): ExternalAnimeListEntry? {
+        require(animeId.provider == provider) { "animeId provider must be Bangumi" }
+        val response = httpGet.get(
+            url = connection.baseUri.resolve("v0/users/-/collections/${animeId.value}").toURL(),
+            headers = mapOf(
+                "Accept" to "application/json",
+                "Authorization" to "Bearer ${connection.accessToken}",
+                "User-Agent" to connection.userAgent,
+            ),
+        )
+        return json
+            .parseToJsonElement(response)
+            .asObject()
+            .toBangumiEntry(animeId)
+    }
 
     override fun updateListEntry(update: ExternalAnimeTrackingUpdate): ExternalAnimeListEntry {
         require(update.animeId.provider == provider) { "update animeId provider must be Bangumi" }
@@ -156,6 +197,24 @@ fun interface ExternalAnimeHttpPatch {
     }
 }
 
+private fun JsonObject.toMyAnimeListEntry(animeId: ExternalAnimeId): ExternalAnimeListEntry =
+    ExternalAnimeListEntry(
+        animeId = animeId,
+        status = string("status")?.toMyAnimeListStatus(),
+        watchedEpisodes = int("num_episodes_watched"),
+        score = int("score"),
+        updatedAtEpochMs = string("updated_at")?.toEpochMillisOrNull(),
+    )
+
+private fun JsonObject.toBangumiEntry(animeId: ExternalAnimeId): ExternalAnimeListEntry =
+    ExternalAnimeListEntry(
+        animeId = animeId,
+        status = int("type")?.toBangumiListStatus(),
+        watchedEpisodes = int("ep_status"),
+        score = int("rate"),
+        updatedAtEpochMs = null,
+    )
+
 private fun ExternalAnimeListStatus.toMyAnimeListStatus(): String =
     when (this) {
         ExternalAnimeListStatus.WATCHING -> "watching"
@@ -203,11 +262,21 @@ private fun String.urlEncode(): String =
 private fun JsonElement.asObject(): JsonObject =
     this as? JsonObject ?: JsonObject(emptyMap())
 
+private fun JsonObject.objectOrNull(key: String): JsonObject? =
+    get(key) as? JsonObject
+
 private fun JsonObject.string(key: String): String? =
     (get(key) as? JsonPrimitive)?.contentOrNull
 
 private fun JsonObject.int(key: String): Int? =
     (get(key) as? JsonPrimitive)?.intOrNull
+
+private fun String.toEpochMillisOrNull(): Long? =
+    try {
+        Instant.parse(this).toEpochMilli()
+    } catch (_: DateTimeParseException) {
+        null
+    }
 
 private val externalAnimeTrackingJson = Json {
     ignoreUnknownKeys = true

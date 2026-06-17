@@ -1,6 +1,7 @@
 package app.danmaku.desktop
 
 import app.danmaku.domain.ExternalAnimeId
+import app.danmaku.domain.ExternalAnimeListEntry
 import app.danmaku.domain.ExternalAnimeMapping
 import app.danmaku.domain.ExternalAnimeMappingSource
 import app.danmaku.domain.ExternalAnimeMatchCandidate
@@ -96,14 +97,11 @@ internal class DesktopShellLibraryActions(
             try {
                 val previousFailures = libraryState.externalAnimeSyncFailures.associateBy(ExternalAnimeSyncFailure::animeId)
                 val result = withContext(Dispatchers.IO) {
-                    val clients = buildMap {
-                        externalAnimeCredentialStore.loadMyAnimeListTrackingClient()
-                            ?.let { put(it.provider, it) }
-                        externalAnimeCredentialStore.loadBangumiTrackingClient()
-                            ?.let { put(it.provider, it) }
-                    }
+                    val clients = buildExternalAnimeTrackingClients()
                     var successCount = 0
+                    var conflictCount = 0
                     val failures = mutableListOf<ExternalAnimeSyncFailure>()
+                    val readbackEntries = mutableListOf<ExternalAnimeListEntry>()
                     plan.updates.forEach { update ->
                         val failedAtEpochMs = System.currentTimeMillis()
                         val client = clients[update.mapping.animeId.provider]
@@ -117,9 +115,22 @@ internal class DesktopShellLibraryActions(
                             return@forEach
                         }
                         runCatching {
+                            client.fetchListEntry(update.mapping.animeId)?.let { entry ->
+                                readbackEntries += entry
+                                val externalWatched = entry.watchedEpisodes
+                                val localWatched = update.update.watchedEpisodes
+                                if (externalWatched != null && localWatched != null && externalWatched > localWatched) {
+                                    return@runCatching false
+                                }
+                            }
                             client.updateListEntry(update.update)
-                        }.onSuccess {
-                            successCount += 1
+                            true
+                        }.onSuccess { didWrite ->
+                            if (didWrite) {
+                                successCount += 1
+                            } else {
+                                conflictCount += 1
+                            }
                         }.onFailure { error ->
                             failures += externalAnimeSyncFailure(
                                 update = update,
@@ -129,16 +140,89 @@ internal class DesktopShellLibraryActions(
                             )
                         }
                     }
-                    successCount to failures
+                    ExternalAnimeSyncResult(
+                        successCount = successCount,
+                        conflictCount = conflictCount,
+                        failures = failures,
+                        readbackEntries = readbackEntries,
+                    )
                 }
-                val (successCount, failures) = result
-                libraryState.externalAnimeSyncFailures = failures
+                libraryState.externalAnimeListEntries = mergeExternalAnimeListEntries(
+                    existing = libraryState.externalAnimeListEntries,
+                    replacements = result.readbackEntries,
+                    removeMissing = emptySet(),
+                )
+                libraryState.externalAnimeSyncFailures = result.failures
                 appendDiagnostic(
                     "external-sync",
-                    "External list sync complete: $successCount succeeded, ${failures.size} failed",
+                    "External list sync complete: ${result.successCount} succeeded, " +
+                        "${result.conflictCount} skipped for newer provider progress, ${result.failures.size} failed",
                 )
             } finally {
                 libraryState.isExternalAnimeSyncing = false
+            }
+        }
+    }
+
+    fun refreshExternalAnimeReadback(mappings: List<ExternalAnimeMapping>) {
+        if (libraryState.isExternalAnimeReadbackRefreshing || mappings.isEmpty()) {
+            return
+        }
+        libraryState.isExternalAnimeReadbackRefreshing = true
+        scope.launch {
+            try {
+                val animeIds = mappings
+                    .map(ExternalAnimeMapping::animeId)
+                    .distinct()
+                val result = withContext(Dispatchers.IO) {
+                    val clients = buildExternalAnimeTrackingClients()
+                    val entries = mutableListOf<ExternalAnimeListEntry>()
+                    val missing = mutableSetOf<ExternalAnimeId>()
+                    val failures = mutableListOf<String>()
+                    animeIds.forEach { animeId ->
+                        val client = clients[animeId.provider]
+                        if (client == null) {
+                            failures += "${animeId.provider.displayName} access token is not configured"
+                            return@forEach
+                        }
+                        runCatching {
+                            client.fetchListEntry(animeId)
+                        }.onSuccess { entry ->
+                            if (entry == null) {
+                                missing += animeId
+                            } else {
+                                entries += entry
+                            }
+                        }.onFailure { error ->
+                            failures += "${animeId.provider.displayName} #${animeId.value}: " +
+                                (error.message ?: error.javaClass.simpleName.ifBlank { "readback failed" })
+                        }
+                    }
+                    ExternalAnimeReadbackResult(
+                        requestedAnimeIds = animeIds.toSet(),
+                        entries = entries,
+                        missingAnimeIds = missing,
+                        failures = failures,
+                    )
+                }
+                libraryState.externalAnimeListEntries = mergeExternalAnimeListEntries(
+                    existing = libraryState.externalAnimeListEntries,
+                    replacements = result.entries,
+                    removeMissing = result.missingAnimeIds,
+                )
+                result.failures.take(3).forEach { failure ->
+                    appendDiagnostic("external-sync", "External list readback failed for $failure")
+                }
+                val omittedFailureCount = result.failures.size - 3
+                if (omittedFailureCount > 0) {
+                    appendDiagnostic("external-sync", "External list readback had $omittedFailureCount additional failures")
+                }
+                appendDiagnostic(
+                    "external-sync",
+                    "External list readback complete: ${result.entries.size}/${result.requestedAnimeIds.size} entries imported",
+                )
+            } finally {
+                libraryState.isExternalAnimeReadbackRefreshing = false
             }
         }
     }
@@ -557,4 +641,41 @@ internal class DesktopShellLibraryActions(
             retryAfterEpochMs = externalAnimeSyncRetryAfterEpochMs(failedAtEpochMs, attemptCount),
         )
     }
+
+    private fun buildExternalAnimeTrackingClients(): Map<ExternalAnimeProvider, ExternalAnimeTrackingClient> =
+        buildMap {
+            externalAnimeCredentialStore.loadMyAnimeListTrackingClient()
+                ?.let { put(it.provider, it) }
+            externalAnimeCredentialStore.loadBangumiTrackingClient()
+                ?.let { put(it.provider, it) }
+        }
+
+    private fun mergeExternalAnimeListEntries(
+        existing: List<ExternalAnimeListEntry>,
+        replacements: List<ExternalAnimeListEntry>,
+        removeMissing: Set<ExternalAnimeId>,
+    ): List<ExternalAnimeListEntry> {
+        val replacementIds = replacements.mapTo(mutableSetOf(), ExternalAnimeListEntry::animeId)
+        return existing
+            .filterNot { entry -> entry.animeId in replacementIds || entry.animeId in removeMissing }
+            .plus(replacements)
+            .sortedWith(
+                compareBy<ExternalAnimeListEntry> { it.animeId.provider.name }
+                    .thenBy { it.animeId.value },
+            )
+    }
+
+    private data class ExternalAnimeSyncResult(
+        val successCount: Int,
+        val conflictCount: Int,
+        val failures: List<ExternalAnimeSyncFailure>,
+        val readbackEntries: List<ExternalAnimeListEntry>,
+    )
+
+    private data class ExternalAnimeReadbackResult(
+        val requestedAnimeIds: Set<ExternalAnimeId>,
+        val entries: List<ExternalAnimeListEntry>,
+        val missingAnimeIds: Set<ExternalAnimeId>,
+        val failures: List<String>,
+    )
 }

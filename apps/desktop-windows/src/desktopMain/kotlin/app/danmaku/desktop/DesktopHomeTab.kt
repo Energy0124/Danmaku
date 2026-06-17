@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import app.danmaku.domain.ExternalAnimeListEntry
 import app.danmaku.domain.ExternalAnimeMapping
 import app.danmaku.domain.ExternalAnimeSyncFailure
 import app.danmaku.domain.LibraryMediaItem
@@ -33,6 +34,7 @@ internal fun HomeTab(
     playbackProgresses: List<PlaybackProgress>,
     favoriteMediaIds: Set<String>,
     externalAnimeMappings: List<ExternalAnimeMapping>,
+    externalAnimeListEntries: List<ExternalAnimeListEntry>,
     externalAnimeSyncFailures: List<ExternalAnimeSyncFailure>,
     isIndexing: Boolean,
     isPreparingLocalPlayback: Boolean,
@@ -82,10 +84,17 @@ internal fun HomeTab(
                     .thenByDescending { it.relativePath },
             )
     }
-    val externalTrackingPlan = remember(catalog, externalAnimeMappings, playbackProgresses, externalAnimeSyncFailures) {
+    val externalTrackingPlan = remember(
+        catalog,
+        externalAnimeMappings,
+        playbackProgresses,
+        externalAnimeListEntries,
+        externalAnimeSyncFailures,
+    ) {
         catalog?.externalAnimeTrackingPlan(
             mappings = externalAnimeMappings,
             progresses = playbackProgresses,
+            externalEntries = externalAnimeListEntries,
             failures = externalAnimeSyncFailures,
         )
     }
