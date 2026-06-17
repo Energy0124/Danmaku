@@ -1,9 +1,7 @@
 package app.danmaku.tv
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -16,14 +14,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -37,71 +33,6 @@ import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySeries
 import app.danmaku.domain.LibrarySeriesWatchSummary
 import app.danmaku.domain.LibraryWatchStatus
-
-@Composable
-internal fun TvPosterTile(
-    item: LibraryMediaItem,
-    title: String,
-    posterEndpoint: LibraryPosterEndpoint?,
-    modifier: Modifier = Modifier,
-    label: String? = null,
-) {
-    val posterUrl = posterEndpoint?.posterUrl(item)
-    val posterImage = rememberPosterImage(posterUrl)
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(18.dp))
-            .background(Color(0xFF26313A)),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (posterImage.bitmap != null) {
-            Image(
-                bitmap = posterImage.bitmap,
-                contentDescription = stringResource(R.string.poster_content_description, title),
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
-            )
-        } else {
-            Text(
-                title.initials(),
-                color = Color(0xFFE5E7EB),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-            )
-        }
-        if (posterImage.state == PosterImageLoadState.LOADING) {
-            TvPosterPill(
-                label = stringResource(R.string.poster_loading),
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(10.dp),
-            )
-        }
-        label?.let {
-            TvPosterPill(
-                label = it,
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(10.dp),
-            )
-        }
-    }
-}
-
-@Composable
-private fun TvPosterPill(
-    label: String,
-    modifier: Modifier = Modifier,
-) {
-    Box(
-        modifier = modifier
-            .clip(CircleShape)
-            .background(Color.Black.copy(alpha = 0.62f))
-            .padding(horizontal = 10.dp, vertical = 5.dp),
-    ) {
-        Text(label, color = Color.White)
-    }
-}
 
 @Composable
 internal fun TvEpisodeDetail(
