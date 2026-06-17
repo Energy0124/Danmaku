@@ -136,6 +136,14 @@ CREATE TABLE external_anime_sync_failure (
   PRIMARY KEY(provider, anime_id)
 );
 
+CREATE TABLE local_anime_list_entry (
+  local_series_id TEXT NOT NULL PRIMARY KEY,
+  status TEXT NOT NULL,
+  score INTEGER,
+  notes TEXT,
+  updated_at_epoch_ms INTEGER NOT NULL
+);
+
 selectMetadata:
 SELECT root_path, root_name, indexed_at_epoch_ms
 FROM library_metadata
@@ -560,3 +568,37 @@ VALUES (?, ?, ?, ?, ?, ?);
 
 deleteAllExternalAnimeSyncFailures:
 DELETE FROM external_anime_sync_failure;
+
+selectLocalAnimeListEntry:
+SELECT
+  local_series_id,
+  status,
+  score,
+  notes,
+  updated_at_epoch_ms
+FROM local_anime_list_entry
+WHERE local_series_id = ?;
+
+selectAllLocalAnimeListEntries:
+SELECT
+  local_series_id,
+  status,
+  score,
+  notes,
+  updated_at_epoch_ms
+FROM local_anime_list_entry
+ORDER BY local_series_id;
+
+upsertLocalAnimeListEntry:
+INSERT OR REPLACE INTO local_anime_list_entry(
+  local_series_id,
+  status,
+  score,
+  notes,
+  updated_at_epoch_ms
+)
+VALUES (?, ?, ?, ?, ?);
+
+deleteLocalAnimeListEntry:
+DELETE FROM local_anime_list_entry
+WHERE local_series_id = ?;

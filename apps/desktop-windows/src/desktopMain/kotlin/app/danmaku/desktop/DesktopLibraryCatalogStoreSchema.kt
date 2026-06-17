@@ -11,6 +11,8 @@ import app.danmaku.domain.ExternalAnimeSyncFailure
 import app.danmaku.domain.ExternalAnimeTitleSet
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySubtitleTrack
+import app.danmaku.domain.LocalAnimeListEntry
+import app.danmaku.domain.LocalAnimeListStatus
 import kotlinx.serialization.json.Json
 import java.nio.file.Path
 
@@ -151,6 +153,16 @@ internal object DesktopLibraryCatalogStoreSchema {
           attempt_count INTEGER NOT NULL,
           retry_after_epoch_ms INTEGER NOT NULL,
           PRIMARY KEY(provider, anime_id)
+        )
+    """.trimIndent()
+
+    val CREATE_LOCAL_ANIME_LIST_ENTRY_TABLE_SQL = """
+        CREATE TABLE IF NOT EXISTS local_anime_list_entry (
+          local_series_id TEXT NOT NULL PRIMARY KEY,
+          status TEXT NOT NULL,
+          score INTEGER,
+          notes TEXT,
+          updated_at_epoch_ms INTEGER NOT NULL
         )
     """.trimIndent()
 }
@@ -355,5 +367,20 @@ internal object DesktopLibraryCatalogStoreRowMappers {
             failedAtEpochMs = failedAtEpochMs,
             attemptCount = attemptCount.toInt(),
             retryAfterEpochMs = retryAfterEpochMs,
+        )
+
+    fun localAnimeListEntry(
+        localSeriesId: String,
+        status: String,
+        score: Long?,
+        notes: String?,
+        updatedAtEpochMs: Long,
+    ): LocalAnimeListEntry =
+        LocalAnimeListEntry(
+            localSeriesId = localSeriesId,
+            status = LocalAnimeListStatus.valueOf(status),
+            score = score?.toInt(),
+            notes = notes,
+            updatedAtEpochMs = updatedAtEpochMs,
         )
 }

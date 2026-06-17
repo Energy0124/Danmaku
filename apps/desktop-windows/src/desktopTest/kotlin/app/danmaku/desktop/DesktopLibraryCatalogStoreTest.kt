@@ -9,6 +9,8 @@ import app.danmaku.domain.ExternalAnimeMappingSource
 import app.danmaku.domain.ExternalAnimeProvider
 import app.danmaku.domain.ExternalAnimeSyncFailure
 import app.danmaku.domain.ExternalAnimeTitleSet
+import app.danmaku.domain.LocalAnimeListEntry
+import app.danmaku.domain.LocalAnimeListStatus
 import app.danmaku.domain.PlaybackProgress
 import kotlin.io.path.createDirectories
 import kotlin.io.path.createTempDirectory
@@ -680,6 +682,45 @@ class DesktopLibraryCatalogStoreTest {
     }
 
     @Test
+    fun persistsLocalAnimeListEntries() {
+        val temp = createTempDirectory("danmaku-local-anime-list")
+        val databasePath = temp.resolve("catalog.db")
+        val frieren = LocalAnimeListEntry(
+            localSeriesId = "frieren",
+            status = LocalAnimeListStatus.WATCHING,
+            score = 9,
+            notes = "Watch weekly",
+            updatedAtEpochMs = 1_704_164_645_000,
+        )
+        val apothecary = LocalAnimeListEntry(
+            localSeriesId = "apothecary-diaries",
+            status = LocalAnimeListStatus.PLAN_TO_WATCH,
+            updatedAtEpochMs = 1_704_164_646_000,
+        )
+
+        DesktopLibraryCatalogStore(databasePath).use { store ->
+            store.saveLocalAnimeListEntry(apothecary)
+            store.saveLocalAnimeListEntry(frieren)
+
+            assertEquals(frieren, store.loadLocalAnimeListEntry("frieren"))
+            assertEquals(listOf(apothecary, frieren), store.loadLocalAnimeListEntries())
+
+            store.saveLocalAnimeListEntry(frieren.copy(status = LocalAnimeListStatus.COMPLETED, score = 10))
+            store.deleteLocalAnimeListEntry("apothecary-diaries")
+        }
+
+        DesktopLibraryCatalogStore(databasePath).use { store ->
+            assertEquals(
+                listOf(frieren.copy(status = LocalAnimeListStatus.COMPLETED, score = 10)),
+                store.loadLocalAnimeListEntries(),
+            )
+            assertNull(store.loadLocalAnimeListEntry("apothecary-diaries"))
+        }
+
+        temp.toFile().deleteRecursively()
+    }
+
+    @Test
     fun replacingExternalAnimeItemMappingOnlyUpdatesSelectedEpisode() {
         val temp = createTempDirectory("danmaku-external-anime-item-scope")
         val databasePath = temp.resolve("catalog.db")
@@ -759,6 +800,14 @@ class DesktopLibraryCatalogStoreTest {
             store.replaceExternalAnimeSyncFailures(listOf(failure))
             assertEquals(listOf(entry), store.loadExternalAnimeListEntries())
             assertEquals(listOf(failure), store.loadExternalAnimeSyncFailures())
+            val localEntry = LocalAnimeListEntry(
+                localSeriesId = "frieren",
+                status = LocalAnimeListStatus.WATCHING,
+                score = 8,
+                updatedAtEpochMs = 123,
+            )
+            store.saveLocalAnimeListEntry(localEntry)
+            assertEquals(localEntry, store.loadLocalAnimeListEntry("frieren"))
         }
 
         temp.toFile().deleteRecursively()

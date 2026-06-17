@@ -12,6 +12,7 @@ import app.danmaku.domain.ExternalAnimeSyncFailure
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySubtitleTrack
+import app.danmaku.domain.LocalAnimeListEntry
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.server.PlaybackProgressStore
 import kotlinx.serialization.encodeToString
@@ -84,6 +85,11 @@ class DesktopLibraryCatalogStore(
         driver.execute(
             identifier = null,
             sql = DesktopLibraryCatalogStoreSchema.CREATE_EXTERNAL_ANIME_SYNC_FAILURE_TABLE_SQL,
+            parameters = 0,
+        )
+        driver.execute(
+            identifier = null,
+            sql = DesktopLibraryCatalogStoreSchema.CREATE_LOCAL_ANIME_LIST_ENTRY_TABLE_SQL,
             parameters = 0,
         )
         addColumnIfMissing("local_media_item", "subtitles_json", "TEXT NOT NULL DEFAULT '[]'")
@@ -605,6 +611,37 @@ class DesktopLibraryCatalogStore(
                 )
             }
         }
+    }
+
+    @Synchronized
+    fun loadLocalAnimeListEntry(localSeriesId: String): LocalAnimeListEntry? {
+        require(localSeriesId.isNotBlank()) { "localSeriesId must not be blank" }
+        return database.libraryCatalogQueries
+            .selectLocalAnimeListEntry(localSeriesId, DesktopLibraryCatalogStoreRowMappers::localAnimeListEntry)
+            .executeAsOneOrNull()
+    }
+
+    @Synchronized
+    fun loadLocalAnimeListEntries(): List<LocalAnimeListEntry> =
+        database.libraryCatalogQueries
+            .selectAllLocalAnimeListEntries(DesktopLibraryCatalogStoreRowMappers::localAnimeListEntry)
+            .executeAsList()
+
+    @Synchronized
+    fun saveLocalAnimeListEntry(entry: LocalAnimeListEntry) {
+        database.libraryCatalogQueries.upsertLocalAnimeListEntry(
+            entry.localSeriesId,
+            entry.status.name,
+            entry.score?.toLong(),
+            entry.notes,
+            entry.updatedAtEpochMs,
+        )
+    }
+
+    @Synchronized
+    fun deleteLocalAnimeListEntry(localSeriesId: String) {
+        require(localSeriesId.isNotBlank()) { "localSeriesId must not be blank" }
+        database.libraryCatalogQueries.deleteLocalAnimeListEntry(localSeriesId)
     }
 
     override fun close() {
