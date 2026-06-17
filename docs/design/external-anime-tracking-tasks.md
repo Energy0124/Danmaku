@@ -40,6 +40,7 @@ Status legend:
 - `[x]` Add dry-run preview before writing external list state.
 - `[x]` Add provider write clients for MyAnimeList and Bangumi progress/list updates.
 - `[x]` Add provider readback/import for MyAnimeList and Bangumi list entries before writes.
+- `[x]` Surface provider readback status and score in the desktop Tracking inspector.
 - `[x]` Add an explicit desktop sync action that writes ready updates and surfaces failures.
 - `[x]` Add conflict handling for external progress ahead of local progress.
 - `[x]` Resolve external-progress conflicts by importing provider watched counts into local progress.

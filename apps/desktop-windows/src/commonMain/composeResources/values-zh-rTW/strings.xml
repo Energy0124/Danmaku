@@ -567,6 +567,8 @@
     <string name="desktop_local_series_id_label">本機系列 ID</string>
     <string name="desktop_local_progress_label">本機進度</string>
     <string name="desktop_provider_progress_label">服務進度</string>
+    <string name="desktop_provider_list_status_label">服務清單狀態</string>
+    <string name="desktop_provider_score_label">服務評分</string>
     <string name="desktop_confidence_label">信心值</string>
     <string name="desktop_status_label">狀態</string>
     <string name="desktop_conflict_label">衝突</string>

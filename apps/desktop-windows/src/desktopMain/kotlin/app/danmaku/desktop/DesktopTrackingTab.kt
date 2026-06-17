@@ -338,6 +338,8 @@ internal data class TrackingTableRow(
     val providerUrl: String?,
     val localProgress: String,
     val providerProgress: String,
+    val providerListStatus: String,
+    val providerScore: String,
     val plannedAction: String,
     val confidence: String,
     val statusLabel: String,
@@ -375,6 +377,8 @@ internal fun buildTrackingTableRows(
             providerUrl = mapping.animeId.webUrl,
             localProgress = "${update.update.watchedEpisodes ?: 0}/${update.series.episodeCount}",
             providerProgress = externalEntry.providerProgressLabel(strings, update.series.episodeCount),
+            providerListStatus = externalEntry.providerListStatusLabel(strings),
+            providerScore = externalEntry.providerScoreLabel(strings),
             plannedAction = "${update.update.status.localizedLabel(strings)}, ${strings.watchedCountLabel(update.update.watchedEpisodes ?: 0)}",
             confidence = mapping.confidence.formatConfidence(),
             statusLabel = strings.readyStatusLabel,
@@ -395,6 +399,8 @@ internal fun buildTrackingTableRows(
             providerUrl = mapping.animeId.webUrl,
             localProgress = "${conflict.localUpdate.watchedEpisodes ?: 0}/${conflict.series.episodeCount}",
             providerProgress = "${conflict.externalEntry.watchedEpisodes ?: 0}/${conflict.series.episodeCount}",
+            providerListStatus = conflict.externalEntry.providerListStatusLabel(strings),
+            providerScore = conflict.externalEntry.providerScoreLabel(strings),
             plannedAction = strings.reviewConflictAction,
             confidence = mapping.confidence.formatConfidence(),
             statusLabel = strings.conflictStatusLabel,
@@ -408,6 +414,7 @@ internal fun buildTrackingTableRows(
             mappingsBySeriesAndProvider[skip.localSeriesId to provider]
         }
         val series = seriesById[skip.localSeriesId]
+        val externalEntry = mapping?.animeId?.let(externalEntryByAnimeId::get)
         TrackingTableRow(
             id = "skip-${skip.localSeriesId}-${skip.provider?.name ?: "provider"}-${skip.reason.name}",
             kind = TrackingRowKind.SKIPPED,
@@ -418,6 +425,8 @@ internal fun buildTrackingTableRows(
             providerUrl = mapping?.animeId?.webUrl,
             localProgress = series?.let { "0/${it.episodeCount}" } ?: "-",
             providerProgress = "-",
+            providerListStatus = externalEntry.providerListStatusLabel(strings),
+            providerScore = externalEntry.providerScoreLabel(strings),
             plannedAction = skip.reason.localizedLabel(strings),
             confidence = mapping?.confidence?.formatConfidence() ?: strings.noLinkLabel,
             statusLabel = if (mapping == null) strings.needsMappingLabel else strings.missingLocalSeriesLabel,
@@ -429,6 +438,7 @@ internal fun buildTrackingTableRows(
     val failureRows = plan.failures.map { failure ->
         val mapping = mappingsByAnimeId[failure.animeId]
         val series = mapping?.let { seriesById[it.localSeriesId] }
+        val externalEntry = externalEntryByAnimeId[failure.animeId]
         TrackingTableRow(
             id = "failure-${failure.animeId.provider}-${failure.animeId.value}-${failure.failedAtEpochMs}",
             kind = TrackingRowKind.FAILURE,
@@ -439,6 +449,8 @@ internal fun buildTrackingTableRows(
             providerUrl = failure.animeId.webUrl,
             localProgress = "-",
             providerProgress = strings.retryAtLabel(failure.retryAfterEpochMs),
+            providerListStatus = externalEntry.providerListStatusLabel(strings),
+            providerScore = externalEntry.providerScoreLabel(strings),
             plannedAction = failure.message,
             confidence = mapping?.confidence?.formatConfidence() ?: "-",
             statusLabel = strings.failedAttemptsLabel(failure.attemptCount),
@@ -464,6 +476,12 @@ private fun ExternalAnimeListEntry?.providerProgressLabel(
         val status = entry.status.localizedLabel(strings)
         "$watchedEpisodes/$episodeCount, $status"
     } ?: strings.readbackPendingLabel
+
+private fun ExternalAnimeListEntry?.providerListStatusLabel(strings: DesktopStrings): String =
+    this?.let { entry -> entry.status.localizedLabel(strings) } ?: strings.readbackPendingLabel
+
+private fun ExternalAnimeListEntry?.providerScoreLabel(strings: DesktopStrings): String =
+    this?.score?.let { "$it/10" } ?: strings.noneLabel
 
 @Composable
 internal fun TrackingWorkspace(
@@ -688,6 +706,8 @@ internal fun TrackingInspectorPanel(
         MetadataRow(strings.localSeriesIdLabel, selectedRow.localSeriesId)
         MetadataRow(strings.localProgressLabel, selectedRow.localProgress)
         MetadataRow(strings.providerProgressLabel, selectedRow.providerProgress)
+        MetadataRow(strings.providerListStatusLabel, selectedRow.providerListStatus)
+        MetadataRow(strings.providerScoreLabel, selectedRow.providerScore)
         MetadataRow(strings.confidenceLabel, selectedRow.confidence)
         MetadataRow(strings.statusLabel, selectedRow.statusLabel, selectedRow.statusColor)
         selectedRow.conflict?.let { conflict ->

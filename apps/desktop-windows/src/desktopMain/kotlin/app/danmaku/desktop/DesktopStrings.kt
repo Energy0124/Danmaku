@@ -592,6 +592,8 @@ internal class DesktopStrings {
     var localSeriesIdLabel: String = ""
     var localProgressLabel: String = ""
     var providerProgressLabel: String = ""
+    var providerListStatusLabel: String = ""
+    var providerScoreLabel: String = ""
     var confidenceLabel: String = ""
     var statusLabel: String = ""
     var conflictLabel: String = ""

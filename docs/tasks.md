@@ -267,8 +267,9 @@ Full review date: 2026-06-15.
 - `[~]` P1: Add external list import/readback so MAL/Bangumi can seed local
   watch status, watched episode counts, scores, and conflicts before writes.
   Desktop mapped-list readback, durable import history, and conflict-row local
-  watched-progress seeding are implemented; score/status workflows remain part
-  of the broader watch-list feature.
+  watched-progress seeding are implemented; readback status/score are visible
+  in the Tracking inspector, while editable local score/status workflows remain
+  part of the broader watch-list feature.
 - `[ ]` P1: Add release-calendar and seasonal anime views for "new this week",
   airing day, next episode, season/year, and recently updated local episodes.
 - `[ ]` P1: Add library quality tools for duplicate files, missing episodes,

@@ -600,6 +600,8 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
     val localSeriesIdLabel = stringResource(Res.string.desktop_local_series_id_label)
     val localProgressLabel = stringResource(Res.string.desktop_local_progress_label)
     val providerProgressLabel = stringResource(Res.string.desktop_provider_progress_label)
+    val providerListStatusLabel = stringResource(Res.string.desktop_provider_list_status_label)
+    val providerScoreLabel = stringResource(Res.string.desktop_provider_score_label)
     val confidenceLabel = stringResource(Res.string.desktop_confidence_label)
     val statusLabel = stringResource(Res.string.desktop_status_label)
     val conflictLabel = stringResource(Res.string.desktop_conflict_label)
@@ -1245,6 +1247,8 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
             this.localSeriesIdLabel = localSeriesIdLabel
             this.localProgressLabel = localProgressLabel
             this.providerProgressLabel = providerProgressLabel
+            this.providerListStatusLabel = providerListStatusLabel
+            this.providerScoreLabel = providerScoreLabel
             this.confidenceLabel = confidenceLabel
             this.statusLabel = statusLabel
             this.conflictLabel = conflictLabel
