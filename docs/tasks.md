@@ -112,7 +112,9 @@ Status legend:
   episode/detail rows, series detail, progress rails, and next-up rails now
   live in `TvLibraryEpisodeComponents.kt`. Shared TV remote playback
   preparation, resume lookup, seek, and play dispatch now live in
-  `TvPlaybackActions.kt`.
+  `TvPlaybackActions.kt`. Remembered TV player/library state now lives in
+  `TvPlayerState.kt`, and PC discovery, library refresh, saved-connection,
+  favorite, and playback item actions now live in `TvPlayerActionHandler.kt`.
 - `[ ]` P1: Add connected Android test runs to the release checklist and record
   the required device/emulator matrix for mobile playback, LAN sync, TV focus,
   and Media3 streaming.
@@ -194,7 +196,9 @@ Full review date: 2026-06-15.
   `TvLibraryPanels.kt`; Library route state/search/filter composition now
   lives in `TvLibraryScreen.kt`, and episode/series/progress rail components
   live in `TvLibraryEpisodeComponents.kt`; duplicated remote playback
-  preparation and resume handling now live in `TvPlaybackActions.kt`.
+  preparation and resume handling now live in `TvPlaybackActions.kt`; remembered
+  TV state and PC/library/favorite/playback actions now live in
+  `TvPlayerState.kt` and `TvPlayerActionHandler.kt`.
 - `[ ]` P1: Release confidence still depends on manual QA for Windows
   fullscreen/resize/4K/hardware decoding, Android phone/tablet layouts,
   Android TV 1080p/4K focus traversal, desktop localization screenshots, and

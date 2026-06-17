@@ -191,10 +191,12 @@ trusted-LAN clients.
   composition is split into `TvLibraryScreen.kt`; library poster tiles,
   episode/detail rows, series detail, progress rails, and next-up rails are
   split into `TvLibraryEpisodeComponents.kt`; duplicated remote playback
-  preparation and resume handling are split into `TvPlaybackActions.kt`. Larger
-  TV screen/component splits remain. Both compile and have
-  instrumentation-source coverage, but Android TV should be split further
-  before more feature work lands there.
+  preparation and resume handling are split into `TvPlaybackActions.kt`;
+  remembered TV player/library state and PC/library/favorite/playback actions
+  are split into `TvPlayerState.kt` and `TvPlayerActionHandler.kt`. Larger TV
+  screen/component splits remain. Both compile and have instrumentation-source
+  coverage, but Android TV should be split further before more feature work
+  lands there.
 - Desktop localization now routes through generated resources. The duplicated
   Kotlin fallback initializer has been reduced to the small set of non-Compose
   error/default strings used by tests and default action paths, so normal UI

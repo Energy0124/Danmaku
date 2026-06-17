@@ -41,12 +41,9 @@ import androidx.tv.material3.Button
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
-import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryFavoriteFilter
 import app.danmaku.domain.LibraryMediaItem
-import app.danmaku.domain.PlaybackProgress
 import app.danmaku.domain.PlaybackCommand
-import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.library.LanLibraryConnectionSession
 import app.danmaku.library.LanPlaybackPreparer
 import app.danmaku.library.LanPlaybackProgressSync
@@ -54,13 +51,8 @@ import app.danmaku.library.android.AndroidLibraryFavoriteStore
 import app.danmaku.library.android.AndroidLanLibraryConnectionStore
 import app.danmaku.library.android.LanLibraryClient
 import app.danmaku.library.android.LanLibraryDiscoveryClient
-import app.danmaku.library.android.LanLibraryDiscoveryException
-import app.danmaku.player.android.Media3PlaybackController
 import app.danmaku.player.android.Media3PlaybackServiceConnection
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 internal val TvAppBackground = Color(0xFF090B0E)
 internal val TvPanelColor = Color(0xFF15191D)
@@ -131,68 +123,56 @@ private fun TvPlayerScreen() {
     val refreshPcFocusRequester = remember { FocusRequester() }
     val discoverPcFocusRequester = remember { FocusRequester() }
     val scope = rememberCoroutineScope()
-    var controller by remember { mutableStateOf<Media3PlaybackController?>(null) }
-    var snapshot by remember { mutableStateOf(PlaybackSnapshot()) }
-    var playbackError by remember { mutableStateOf<String?>(null) }
-    var serverUrl by remember { mutableStateOf("http://10.0.2.2:8686") }
-    var pairingToken by remember { mutableStateOf("") }
-    var savedConnections by remember { mutableStateOf(connectionStore.loadProfiles()) }
-    var favoriteMediaIds by remember { mutableStateOf(favoriteStore.loadFavoriteMediaIds()) }
-    var catalog by remember { mutableStateOf<LibraryCatalog?>(null) }
-    var playbackProgresses by remember { mutableStateOf<List<PlaybackProgress>>(emptyList()) }
-    var libraryError by remember { mutableStateOf<String?>(null) }
-    var selectedDestination by remember { mutableStateOf(TvDestination.Pc) }
-    val posterEndpoint = catalog?.let {
-        LibraryPosterEndpoint(serverUrl, pairingToken)
+    val state = remember(connectionStore, favoriteStore) {
+        TvPlayerState(
+            initialSavedConnections = connectionStore.loadProfiles(),
+            initialFavoriteMediaIds = favoriteStore.loadFavoriteMediaIds(),
+        )
     }
-    fun refreshLibrary() {
-        scope.launch {
-            runCatching {
-                withContext(Dispatchers.IO) {
-                    libraryConnectionSession.fetchCatalogWithProgress(
-                        baseUrl = serverUrl,
-                        pairingToken = pairingToken,
-                    )
-                }
-            }.onSuccess {
-                catalog = it.catalog
-                playbackProgresses = it.playbackProgresses
-                connectionStore.saveCurrentConnection(
-                    baseUrl = serverUrl,
-                    pairingToken = pairingToken,
-                    displayName = it.catalog.rootName,
-                )
-                savedConnections = connectionStore.loadProfiles()
-                libraryError = null
-                selectedDestination = TvDestination.Library
-            }.onFailure {
-                libraryError = it.message
-            }
-        }
+    val actionHandler = remember(
+        state,
+        scope,
+        libraryConnectionSession,
+        progressSync,
+        playbackPreparer,
+        connectionStore,
+        favoriteStore,
+        discoveryClient,
+    ) {
+        TvPlayerActionHandler(
+            state = state,
+            scope = scope,
+            libraryConnectionSession = libraryConnectionSession,
+            progressSync = progressSync,
+            playbackPreparer = playbackPreparer,
+            connectionStore = connectionStore,
+            favoriteStore = favoriteStore,
+            discoveryClient = discoveryClient,
+        )
     }
 
     DisposableEffect(playbackConnection) {
         playbackConnection.connect(
             executor = ContextCompat.getMainExecutor(context),
             onConnected = {
-                controller = it
-                snapshot = it.snapshot()
-                playbackError = null
+                state.controller = it
+                state.snapshot = it.snapshot()
+                state.playbackError = null
             },
             onFailure = {
-                playbackError = it.message
+                state.playbackError = it.message
             },
         )
         onDispose {
-            controller = null
+            state.controller = null
             playbackConnection.close()
         }
     }
 
-    LaunchedEffect(controller) {
-        val activeController = controller ?: return@LaunchedEffect
+    LaunchedEffect(state.controller) {
+        val activeController = state.controller ?: return@LaunchedEffect
         while (true) {
-            snapshot = activeController.snapshot()
+            state.snapshot = activeController.snapshot()
             delay(250)
         }
     }
@@ -210,10 +190,10 @@ private fun TvPlayerScreen() {
             horizontalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             TvAppNavigationRail(
-                selectedDestination = selectedDestination,
-                catalog = catalog,
-                favoriteCount = favoriteMediaIds.size,
-                onSelectDestination = { selectedDestination = it },
+                selectedDestination = state.selectedDestination,
+                catalog = state.catalog,
+                favoriteCount = state.favoriteMediaIds.size,
+                onSelectDestination = { state.selectedDestination = it },
             )
             LazyColumn(
                 modifier = Modifier
@@ -222,119 +202,71 @@ private fun TvPlayerScreen() {
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 item {
-                    TvDestinationHeader(
-                        selectedDestination = selectedDestination,
-                        catalog = catalog,
-                        snapshot = snapshot,
+                        TvDestinationHeader(
+                        selectedDestination = state.selectedDestination,
+                        catalog = state.catalog,
+                        snapshot = state.snapshot,
                     )
                 }
-                if (selectedDestination != TvDestination.Pc) {
+                if (state.selectedDestination != TvDestination.Pc) {
                     item {
                         TvPlayerPanel(
-                            controller = controller,
-                            snapshot = snapshot,
-                            playbackError = playbackError,
-                            onSeekTo = { controller?.dispatch(PlaybackCommand.SeekTo(it)) },
+                            controller = state.controller,
+                            snapshot = state.snapshot,
+                            playbackError = state.playbackError,
+                            onSeekTo = { state.controller?.dispatch(PlaybackCommand.SeekTo(it)) },
                             onSelectAudio = {
-                                controller?.dispatch(PlaybackCommand.SelectAudioTrack(it))
+                                state.controller?.dispatch(PlaybackCommand.SelectAudioTrack(it))
                             },
                             onSelectSubtitle = {
-                                controller?.dispatch(PlaybackCommand.SelectSubtitleTrack(it))
+                                state.controller?.dispatch(PlaybackCommand.SelectSubtitleTrack(it))
                             },
-                            onPlay = { controller?.dispatch(PlaybackCommand.Play) },
-                            onPause = { controller?.dispatch(PlaybackCommand.Pause) },
+                            onPlay = { state.controller?.dispatch(PlaybackCommand.Play) },
+                            onPause = { state.controller?.dispatch(PlaybackCommand.Pause) },
                             onVolumeDown = {
-                                controller?.dispatch(
-                                    PlaybackCommand.SetVolume((snapshot.volumePercent - 10).coerceAtLeast(0)),
+                                state.controller?.dispatch(
+                                    PlaybackCommand.SetVolume((state.snapshot.volumePercent - 10).coerceAtLeast(0)),
                                 )
                             },
                             onVolumeUp = {
-                                controller?.dispatch(
-                                    PlaybackCommand.SetVolume((snapshot.volumePercent + 10).coerceAtMost(100)),
+                                state.controller?.dispatch(
+                                    PlaybackCommand.SetVolume((state.snapshot.volumePercent + 10).coerceAtMost(100)),
                                 )
                             },
                         )
                     }
                 }
 
-                when (selectedDestination) {
+                when (state.selectedDestination) {
                     TvDestination.Pc -> {
                         item {
                             TvPcConnectionPanel(
-                                serverUrl = serverUrl,
-                                onServerUrlChange = { serverUrl = it },
-                                pairingToken = pairingToken,
-                                onPairingTokenChange = { pairingToken = it },
-                                savedConnections = savedConnections,
-                                selectedBaseUrl = serverUrl.trim().trimEnd('/'),
-                                libraryError = libraryError,
+                                serverUrl = state.serverUrl,
+                                onServerUrlChange = { state.serverUrl = it },
+                                pairingToken = state.pairingToken,
+                                onPairingTokenChange = { state.pairingToken = it },
+                                savedConnections = state.savedConnections,
+                                selectedBaseUrl = state.serverUrl.trim().trimEnd('/'),
+                                libraryError = state.libraryError,
                                 refreshPcFocusRequester = refreshPcFocusRequester,
                                 discoverPcFocusRequester = discoverPcFocusRequester,
-                                onRefresh = ::refreshLibrary,
-                                onDiscover = {
-                                    scope.launch {
-                                        runCatching {
-                                            withContext(Dispatchers.IO) {
-                                                discoveryClient.discover().firstOrNull()
-                                                    ?: throw LanLibraryDiscoveryException("No Windows library server discovered")
-                                            }
-                                        }.onSuccess {
-                                            serverUrl = it.baseUrl
-                                            libraryError = null
-                                        }.onFailure {
-                                            libraryError = it.message
-                                        }
-                                    }
-                                },
-                                onSave = {
-                                    runCatching {
-                                        connectionStore.saveCurrentConnection(
-                                            baseUrl = serverUrl,
-                                            pairingToken = pairingToken,
-                                            displayName = catalog?.rootName,
-                                        )
-                                    }.onSuccess {
-                                        savedConnections = connectionStore.loadProfiles()
-                                        libraryError = null
-                                    }.onFailure {
-                                        libraryError = it.message
-                                    }
-                                },
-                                onSelectConnection = {
-                                    serverUrl = it.baseUrl
-                                    pairingToken = it.pairingToken
-                                },
-                                onForgetConnection = {
-                                    connectionStore.forgetProfile(it.id)
-                                    savedConnections = connectionStore.loadProfiles()
-                                },
+                                onRefresh = actionHandler::refreshLibrary,
+                                onDiscover = actionHandler::discoverPc,
+                                onSave = actionHandler::saveConnection,
+                                onSelectConnection = actionHandler::selectConnection,
+                                onForgetConnection = actionHandler::forgetConnection,
                             )
                         }
                     }
                     TvDestination.Home -> {
                         item {
                             TvHomePanel(
-                                catalog = catalog,
-                                playbackProgresses = playbackProgresses,
-                                posterEndpoint = posterEndpoint,
-                                onShowLibrary = { selectedDestination = TvDestination.Library },
-                                onShowPc = { selectedDestination = TvDestination.Pc },
-                                onPlay = { item ->
-                                    val activeController = controller ?: return@TvHomePanel
-                                    scope.launch {
-                                        playTvLibraryItem(
-                                            controller = activeController,
-                                            progressSync = progressSync,
-                                            playbackPreparer = playbackPreparer,
-                                            baseUrl = serverUrl,
-                                            pairingToken = pairingToken,
-                                            item = item,
-                                            onResumeLookupFailure = {
-                                                libraryError = "Resume lookup failed: ${it.message}"
-                                            },
-                                        )
-                                    }
-                                },
+                                catalog = state.catalog,
+                                playbackProgresses = state.playbackProgresses,
+                                posterEndpoint = state.posterEndpoint,
+                                onShowLibrary = { state.selectedDestination = TvDestination.Library },
+                                onShowPc = { state.selectedDestination = TvDestination.Pc },
+                                onPlay = actionHandler::playItem,
                             )
                         }
                     }
@@ -344,42 +276,18 @@ private fun TvPlayerScreen() {
                     -> {
                         item {
                             LibraryItems(
-                                catalog = catalog,
-                                posterEndpoint = posterEndpoint,
-                                playbackProgresses = playbackProgresses,
-                                favoriteMediaIds = favoriteMediaIds,
-                                initialFavoriteFilter = if (selectedDestination == TvDestination.Favorites) {
+                                catalog = state.catalog,
+                                posterEndpoint = state.posterEndpoint,
+                                playbackProgresses = state.playbackProgresses,
+                                favoriteMediaIds = state.favoriteMediaIds,
+                                initialFavoriteFilter = if (state.selectedDestination == TvDestination.Favorites) {
                                     LibraryFavoriteFilter.FAVORITES_ONLY
                                 } else {
                                     LibraryFavoriteFilter.ANY
                                 },
-                                focusSearchOnStart = selectedDestination == TvDestination.Search,
-                                onSetFavorite = { item, isFavorite ->
-                                    runCatching {
-                                        favoriteStore.setFavoriteMediaId(item.id, isFavorite)
-                                    }.onSuccess {
-                                        favoriteMediaIds = it
-                                        libraryError = null
-                                    }.onFailure {
-                                        libraryError = it.message
-                                    }
-                                },
-                                onPlay = { item ->
-                                    val activeController = controller ?: return@LibraryItems
-                                    scope.launch {
-                                        playTvLibraryItem(
-                                            controller = activeController,
-                                            progressSync = progressSync,
-                                            playbackPreparer = playbackPreparer,
-                                            baseUrl = serverUrl,
-                                            pairingToken = pairingToken,
-                                            item = item,
-                                            onResumeLookupFailure = {
-                                                libraryError = "Resume lookup failed: ${it.message}"
-                                            },
-                                        )
-                                    }
-                                },
+                                focusSearchOnStart = state.selectedDestination == TvDestination.Search,
+                                onSetFavorite = actionHandler::setFavorite,
+                                onPlay = actionHandler::playItem,
                             )
                         }
                     }
