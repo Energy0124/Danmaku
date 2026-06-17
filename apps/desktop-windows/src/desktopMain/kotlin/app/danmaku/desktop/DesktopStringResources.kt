@@ -602,6 +602,11 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
     val providerProgressLabel = stringResource(Res.string.desktop_provider_progress_label)
     val providerListStatusLabel = stringResource(Res.string.desktop_provider_list_status_label)
     val providerScoreLabel = stringResource(Res.string.desktop_provider_score_label)
+    val localWatchListTitle = stringResource(Res.string.desktop_local_watch_list_title)
+    val localScoreLabel = stringResource(Res.string.desktop_local_score_label)
+    val localNotesLabel = stringResource(Res.string.desktop_local_notes_label)
+    val saveLocalWatchListAction = stringResource(Res.string.desktop_save_local_watch_list_action)
+    val clearLocalWatchListAction = stringResource(Res.string.desktop_clear_local_watch_list_action)
     val confidenceLabel = stringResource(Res.string.desktop_confidence_label)
     val statusLabel = stringResource(Res.string.desktop_status_label)
     val conflictLabel = stringResource(Res.string.desktop_conflict_label)
@@ -1249,6 +1254,11 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
             this.providerProgressLabel = providerProgressLabel
             this.providerListStatusLabel = providerListStatusLabel
             this.providerScoreLabel = providerScoreLabel
+            this.localWatchListTitle = localWatchListTitle
+            this.localScoreLabel = localScoreLabel
+            this.localNotesLabel = localNotesLabel
+            this.saveLocalWatchListAction = saveLocalWatchListAction
+            this.clearLocalWatchListAction = clearLocalWatchListAction
             this.confidenceLabel = confidenceLabel
             this.statusLabel = statusLabel
             this.conflictLabel = conflictLabel

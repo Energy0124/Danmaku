@@ -25,6 +25,7 @@ internal class DesktopShellLibraryState(
     var libraryMetadataVersion by mutableStateOf(0)
     var playbackProgresses by mutableStateOf(catalogStore.loadPlaybackProgress())
     var favoriteMediaIds by mutableStateOf(catalogStore.loadFavoriteMediaIds())
+    var localAnimeListEntries by mutableStateOf(catalogStore.loadLocalAnimeListEntries())
     var downloadQueueItems by mutableStateOf(catalogStore.loadDownloads())
     var selectedLocalPlaybackPreparation by mutableStateOf<DesktopLocalPlaybackPreparation?>(null)
     var libraryError by mutableStateOf<String?>(null)

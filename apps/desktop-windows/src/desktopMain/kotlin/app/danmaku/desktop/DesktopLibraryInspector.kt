@@ -146,6 +146,8 @@ import app.danmaku.domain.LibrarySeriesWatchSummary
 import app.danmaku.domain.LibrarySubtitleFilter
 import app.danmaku.domain.LibraryWatchState
 import app.danmaku.domain.LibraryWatchStatus
+import app.danmaku.domain.LocalAnimeListEntry
+import app.danmaku.domain.LocalAnimeListStatus
 import app.danmaku.domain.PlaybackCommand
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.domain.PlaybackSnapshot
@@ -212,11 +214,14 @@ internal fun LibraryInspectorPane(
     watchSummary: LibrarySeriesWatchSummary?,
     watchStatusById: Map<String, LibraryWatchStatus>,
     favoriteMediaIds: Set<String>,
+    localAnimeListEntry: LocalAnimeListEntry?,
     isPreparing: Boolean,
     compact: Boolean,
     onShowDetails: (LibraryMediaItem) -> Unit,
     onInspectCachedDandanplay: (LibraryMediaItem) -> Unit,
     onSetFavorite: (LibraryMediaItem, Boolean) -> Unit,
+    onSaveLocalAnimeListEntry: (LibrarySeries, LocalAnimeListStatus, Int?, String?) -> Unit,
+    onDeleteLocalAnimeListEntry: (LibrarySeries) -> Unit,
     onSetAutoNextLocalPlayback: (Boolean) -> Unit,
     onRefreshDandanplay: (DesktopLocalPlaybackPreparation) -> Unit,
     onSelectDandanplayMatch: (DesktopLocalPlaybackPreparation, DandanplayMatch) -> Unit,
@@ -426,6 +431,13 @@ internal fun LibraryInspectorPane(
                 }
             }
         }
+        LocalAnimeListEditor(
+            strings = strings,
+            series = selectedSeries,
+            entry = localAnimeListEntry,
+            onSave = onSaveLocalAnimeListEntry,
+            onDelete = onDeleteLocalAnimeListEntry,
+        )
         Divider(color = DanmakuColors.SurfaceRaised)
         Text(strings.readinessTitle, fontWeight = FontWeight.Bold)
         InspectorStatusRow(
@@ -568,6 +580,93 @@ internal fun LibraryInspectorPane(
                     isPreparing = isPreparing,
                     onSelectDandanplayMatch = onSelectDandanplayMatch,
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LocalAnimeListEditor(
+    strings: DesktopStrings,
+    series: LibrarySeries,
+    entry: LocalAnimeListEntry?,
+    onSave: (LibrarySeries, LocalAnimeListStatus, Int?, String?) -> Unit,
+    onDelete: (LibrarySeries) -> Unit,
+) {
+    var status by remember(series.id, entry) { mutableStateOf(entry?.status ?: LocalAnimeListStatus.WATCHING) }
+    var scoreText by remember(series.id, entry) { mutableStateOf(entry?.score?.toString().orEmpty()) }
+    var notesText by remember(series.id, entry) { mutableStateOf(entry?.notes.orEmpty()) }
+    var statusMenuExpanded by remember(series.id) { mutableStateOf(false) }
+    val score = scoreText.trim().takeIf(String::isNotBlank)?.toIntOrNull()
+    val scoreIsValid = scoreText.isBlank() || score?.let { it in 0..10 } == true
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(DanmakuColors.SurfaceRaised.copy(alpha = 0.58f))
+            .padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(strings.localWatchListTitle, fontWeight = FontWeight.Bold)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(modifier = Modifier.weight(1f)) {
+                Button(onClick = { statusMenuExpanded = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text(status.localizedLabel(strings), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                DropdownMenu(
+                    expanded = statusMenuExpanded,
+                    onDismissRequest = { statusMenuExpanded = false },
+                ) {
+                    LocalAnimeListStatus.entries.forEach { option ->
+                        DropdownMenuItem(
+                            onClick = {
+                                status = option
+                                statusMenuExpanded = false
+                            },
+                        ) {
+                            Text(option.localizedLabel(strings))
+                        }
+                    }
+                }
+            }
+            OutlinedTextField(
+                value = scoreText,
+                onValueChange = { value -> scoreText = value.filter(Char::isDigit).take(2) },
+                label = { Text(strings.localScoreLabel) },
+                isError = !scoreIsValid,
+                singleLine = true,
+                modifier = Modifier.weight(0.72f),
+            )
+        }
+        OutlinedTextField(
+            value = notesText,
+            onValueChange = { notesText = it.take(240) },
+            label = { Text(strings.localNotesLabel) },
+            modifier = Modifier.fillMaxWidth(),
+            maxLines = 3,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                enabled = scoreIsValid,
+                onClick = {
+                    onSave(
+                        series,
+                        status,
+                        score,
+                        notesText.trim().takeIf(String::isNotBlank),
+                    )
+                },
+                modifier = Modifier.weight(1f),
+            ) {
+                Text(strings.saveLocalWatchListAction)
+            }
+            Button(
+                enabled = entry != null,
+                onClick = { onDelete(series) },
+                modifier = Modifier.weight(1f),
+            ) {
+                Text(strings.clearLocalWatchListAction)
             }
         }
     }

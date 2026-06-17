@@ -3,6 +3,7 @@ package app.danmaku.desktop
 import app.danmaku.domain.ExternalAnimeListStatus
 import app.danmaku.domain.ExternalAnimeTrackingPlanConflictReason
 import app.danmaku.domain.ExternalAnimeTrackingPlanSkipReason
+import app.danmaku.domain.LocalAnimeListStatus
 import app.danmaku.domain.ExternalAnimeTrackingPlanSummary
 import app.danmaku.domain.PlaybackStatus
 
@@ -64,6 +65,15 @@ internal fun ExternalAnimeListStatus?.localizedLabel(strings: DesktopStrings): S
         ExternalAnimeListStatus.DROPPED -> strings.externalListDroppedStatus
         ExternalAnimeListStatus.PLAN_TO_WATCH -> strings.externalListPlanToWatchStatus
         null -> strings.externalListUnchangedStatus
+    }
+
+internal fun LocalAnimeListStatus.localizedLabel(strings: DesktopStrings): String =
+    when (this) {
+        LocalAnimeListStatus.WATCHING -> strings.externalListWatchingStatus
+        LocalAnimeListStatus.COMPLETED -> strings.externalListCompletedStatus
+        LocalAnimeListStatus.ON_HOLD -> strings.externalListOnHoldStatus
+        LocalAnimeListStatus.DROPPED -> strings.externalListDroppedStatus
+        LocalAnimeListStatus.PLAN_TO_WATCH -> strings.externalListPlanToWatchStatus
     }
 
 internal fun DandanplayAuthenticationMode.localizedLabel(strings: DesktopStrings): String =

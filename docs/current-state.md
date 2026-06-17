@@ -236,9 +236,9 @@ trusted-LAN clients.
   string changes should happen in XML resources plus the resource adapter.
 - From an anime-viewer workflow perspective, the current foundation covers
   local library playback, posters/metadata, progress, favorites, external
-  mapping/sync, local watch-list status/score/notes persistence, provider
+  mapping/sync, desktop local watch-list status/score/notes editing, provider
   readback status/score visibility, and danmaku basics. Missing high-value
-  viewer workflows include watch status list editing/filtering,
+  viewer workflows include watch status list filtering,
   seasonal/release-calendar views, OP/ED or recap skip
   markers, per-series subtitle/audio preferences, richer danmaku filtering and
   blocklists, duplicate/missing-episode library cleanup, richer external

@@ -147,6 +147,8 @@ import app.danmaku.domain.LibrarySeriesWatchSummary
 import app.danmaku.domain.LibrarySubtitleFilter
 import app.danmaku.domain.LibraryWatchState
 import app.danmaku.domain.LibraryWatchStatus
+import app.danmaku.domain.LocalAnimeListEntry
+import app.danmaku.domain.LocalAnimeListStatus
 import app.danmaku.domain.PlaybackCommand
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.domain.PlaybackSnapshot
@@ -210,6 +212,7 @@ internal fun MediaLibraryTab(
     refreshingMetadataSeriesIds: Set<String>,
     playbackProgresses: List<PlaybackProgress>,
     externalAnimeListEntries: List<ExternalAnimeListEntry>,
+    localAnimeListEntries: List<LocalAnimeListEntry>,
     favoriteMediaIds: Set<String>,
     externalAnimeSyncFailures: List<ExternalAnimeSyncFailure>,
     isExternalAnimeSyncing: Boolean,
@@ -228,6 +231,8 @@ internal fun MediaLibraryTab(
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
     onInspectCachedDandanplay: (LibraryMediaItem) -> Unit,
     onSetFavorite: (LibraryMediaItem, Boolean) -> Unit,
+    onSaveLocalAnimeListEntry: (LibrarySeries, LocalAnimeListStatus, Int?, String?) -> Unit,
+    onDeleteLocalAnimeListEntry: (LibrarySeries) -> Unit,
     onSetAutoNextLocalPlayback: (Boolean) -> Unit,
     onRefreshDandanplay: (DesktopLocalPlaybackPreparation) -> Unit,
     onSelectDandanplayMatch: (DesktopLocalPlaybackPreparation, DandanplayMatch) -> Unit,
@@ -261,6 +266,9 @@ internal fun MediaLibraryTab(
         }
         val seriesWatchSummaryById = remember(indexedLibrary, playbackProgresses) {
             indexedLibrary?.catalog?.seriesWatchSummaryById(playbackProgresses).orEmpty()
+        }
+        val localAnimeListEntryBySeriesId = remember(localAnimeListEntries) {
+            localAnimeListEntries.associateBy(LocalAnimeListEntry::localSeriesId)
         }
         var selectedSeriesId by remember(indexedLibrary?.catalog) { mutableStateOf<String?>(null) }
         var selectedEpisodeId by remember(indexedLibrary?.catalog) { mutableStateOf<String?>(null) }
@@ -336,6 +344,7 @@ internal fun MediaLibraryTab(
             watchStatusById = watchStatusById,
             seriesWatchSummaryById = seriesWatchSummaryById,
             favoriteMediaIds = favoriteMediaIds,
+            localAnimeListEntryBySeriesId = localAnimeListEntryBySeriesId,
             isIndexing = isIndexing,
             isPreparing = isPreparingLocalPlayback,
             libraryError = libraryError,
@@ -348,6 +357,8 @@ internal fun MediaLibraryTab(
             onShowDetails = ::showEpisodeDetails,
             onInspectCachedDandanplay = onInspectCachedDandanplay,
             onSetFavorite = onSetFavorite,
+            onSaveLocalAnimeListEntry = onSaveLocalAnimeListEntry,
+            onDeleteLocalAnimeListEntry = onDeleteLocalAnimeListEntry,
             onSetAutoNextLocalPlayback = onSetAutoNextLocalPlayback,
             onRefreshDandanplay = onRefreshDandanplay,
             onSelectDandanplayMatch = onSelectDandanplayMatch,

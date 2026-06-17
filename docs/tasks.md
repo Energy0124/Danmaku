@@ -264,8 +264,8 @@ Full review date: 2026-06-15.
 - `[ ]` P1: Add first-class watch status workflows: Plan to Watch, Watching,
   Completed, Dropped, On Hold, Rewatching, score/rating, private notes, and
   status filters across desktop/mobile/TV. Shared local status/score/notes
-  domain state and desktop persistence are in place; UI editing, filtering,
-  rewatching semantics, and mobile/TV surfaces remain.
+  domain state, desktop persistence, and desktop Library inspector editing are
+  in place; filtering, rewatching semantics, and mobile/TV surfaces remain.
 - `[~]` P1: Add external list import/readback so MAL/Bangumi can seed local
   watch status, watched episode counts, scores, and conflicts before writes.
   Desktop mapped-list readback, durable import history, and conflict-row local

@@ -146,6 +146,8 @@ import app.danmaku.domain.LibrarySeriesWatchSummary
 import app.danmaku.domain.LibrarySubtitleFilter
 import app.danmaku.domain.LibraryWatchState
 import app.danmaku.domain.LibraryWatchStatus
+import app.danmaku.domain.LocalAnimeListEntry
+import app.danmaku.domain.LocalAnimeListStatus
 import app.danmaku.domain.PlaybackCommand
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.domain.PlaybackSnapshot
@@ -221,6 +223,7 @@ internal fun WindowsLibraryWorkspace(
     watchStatusById: Map<String, LibraryWatchStatus>,
     seriesWatchSummaryById: Map<String, LibrarySeriesWatchSummary>,
     favoriteMediaIds: Set<String>,
+    localAnimeListEntryBySeriesId: Map<String, LocalAnimeListEntry>,
     isIndexing: Boolean,
     isPreparing: Boolean,
     libraryError: String?,
@@ -233,6 +236,8 @@ internal fun WindowsLibraryWorkspace(
     onShowDetails: (LibraryMediaItem) -> Unit,
     onInspectCachedDandanplay: (LibraryMediaItem) -> Unit,
     onSetFavorite: (LibraryMediaItem, Boolean) -> Unit,
+    onSaveLocalAnimeListEntry: (LibrarySeries, LocalAnimeListStatus, Int?, String?) -> Unit,
+    onDeleteLocalAnimeListEntry: (LibrarySeries) -> Unit,
     onSetAutoNextLocalPlayback: (Boolean) -> Unit,
     onRefreshDandanplay: (DesktopLocalPlaybackPreparation) -> Unit,
     onSelectDandanplayMatch: (DesktopLocalPlaybackPreparation, DandanplayMatch) -> Unit,
@@ -445,11 +450,14 @@ internal fun WindowsLibraryWorkspace(
                 watchSummary = selectedInspectorSeries?.let { seriesWatchSummaryById[it.id] },
                 watchStatusById = watchStatusById,
                 favoriteMediaIds = favoriteMediaIds,
+                localAnimeListEntry = selectedInspectorSeries?.id?.let(localAnimeListEntryBySeriesId::get),
                 isPreparing = isPreparing,
                 compact = compactWorkspace,
                 onShowDetails = onShowDetails,
                 onInspectCachedDandanplay = onInspectCachedDandanplay,
                 onSetFavorite = onSetFavorite,
+                onSaveLocalAnimeListEntry = onSaveLocalAnimeListEntry,
+                onDeleteLocalAnimeListEntry = onDeleteLocalAnimeListEntry,
                 onSetAutoNextLocalPlayback = onSetAutoNextLocalPlayback,
                 onRefreshDandanplay = onRefreshDandanplay,
                 onSelectDandanplayMatch = onSelectDandanplayMatch,

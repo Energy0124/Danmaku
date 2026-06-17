@@ -13,6 +13,8 @@ import app.danmaku.domain.ExternalAnimeTrackingPlanConflict
 import app.danmaku.domain.ExternalAnimeTrackingPlanUpdate
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySeries
+import app.danmaku.domain.LocalAnimeListEntry
+import app.danmaku.domain.LocalAnimeListStatus
 import app.danmaku.domain.displayName
 import app.danmaku.domain.externalAnimeSyncRetryAfterEpochMs
 import app.danmaku.domain.groupedSeries
@@ -544,6 +546,45 @@ internal class DesktopShellLibraryActions(
         }.onFailure { error ->
             libraryState.libraryError = error.message
             appendDiagnostic("library", "Failed to update favorite ${item.id}: ${error.message}")
+        }
+    }
+
+    fun saveLocalAnimeListEntry(
+        series: LibrarySeries,
+        status: LocalAnimeListStatus,
+        score: Int?,
+        notes: String?,
+    ) {
+        runCatching {
+            catalogStore.saveLocalAnimeListEntry(
+                LocalAnimeListEntry(
+                    localSeriesId = series.id,
+                    status = status,
+                    score = score,
+                    notes = notes?.trim()?.takeIf(String::isNotBlank),
+                    updatedAtEpochMs = System.currentTimeMillis(),
+                ),
+            )
+            catalogStore.loadLocalAnimeListEntries()
+        }.onSuccess { entries ->
+            libraryState.localAnimeListEntries = entries
+            appendDiagnostic("library", "Saved local watch-list state for ${series.id}")
+        }.onFailure { error ->
+            libraryState.libraryError = error.message
+            appendDiagnostic("library", "Failed to save local watch-list state for ${series.id}: ${error.message}")
+        }
+    }
+
+    fun deleteLocalAnimeListEntry(series: LibrarySeries) {
+        runCatching {
+            catalogStore.deleteLocalAnimeListEntry(series.id)
+            catalogStore.loadLocalAnimeListEntries()
+        }.onSuccess { entries ->
+            libraryState.localAnimeListEntries = entries
+            appendDiagnostic("library", "Cleared local watch-list state for ${series.id}")
+        }.onFailure { error ->
+            libraryState.libraryError = error.message
+            appendDiagnostic("library", "Failed to clear local watch-list state for ${series.id}: ${error.message}")
         }
     }
 
