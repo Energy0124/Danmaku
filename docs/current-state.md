@@ -36,9 +36,11 @@ trusted-LAN clients.
   is split into routing/profile, danmaku controls, dialogs/cache/server, and
   provider-card files. Playback UI is split into tab composition, shortcuts,
   overlays, panels, and presentation helpers. Shell chrome is separated from
-  Home content. Shared primitives, local/remote library rows, library
-  workspace, and library inspector surfaces are further split into focused
-  files. `DesktopShell.kt` has diagnostics/server-event and
+  Home content, and desktop Home route orchestration now lives in
+  `DesktopHomeTab.kt` while reusable Home cards/status components live in
+  `DesktopHomeContent.kt`. Shared primitives, local/remote library rows,
+  library workspace, and library inspector surfaces are further split into
+  focused files. `DesktopShell.kt` has diagnostics/server-event and
   navigation/search/language state objects extracted, plus a playback session
   state object for queued playback/progress/smoke/autonext flags, and a
   settings state object for preferences/provider statuses/cache entries.
