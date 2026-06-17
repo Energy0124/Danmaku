@@ -1,24 +1,13 @@
 package app.danmaku.tv
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.tv.material3.Surface
-import app.danmaku.domain.LibraryFavoriteFilter
-import app.danmaku.domain.PlaybackCommand
 import app.danmaku.library.LanLibraryConnectionSession
 import app.danmaku.library.LanPlaybackPreparer
 import app.danmaku.library.LanPlaybackProgressSync
@@ -113,118 +102,10 @@ internal fun TvPlayerScreen() {
         discoverPcFocusRequester.requestFocus()
     }
 
-    Surface(modifier = Modifier.fillMaxSize()) {
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(TvAppBackground)
-                .padding(32.dp),
-            horizontalArrangement = Arrangement.spacedBy(20.dp),
-        ) {
-            TvAppNavigationRail(
-                selectedDestination = state.selectedDestination,
-                catalog = state.catalog,
-                favoriteCount = state.favoriteMediaIds.size,
-                onSelectDestination = { state.selectedDestination = it },
-            )
-            LazyColumn(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-                item {
-                    TvDestinationHeader(
-                        selectedDestination = state.selectedDestination,
-                        catalog = state.catalog,
-                        snapshot = state.snapshot,
-                    )
-                }
-                if (state.selectedDestination != TvDestination.Pc) {
-                    item {
-                        TvPlayerPanel(
-                            controller = state.controller,
-                            snapshot = state.snapshot,
-                            playbackError = state.playbackError,
-                            onSeekTo = { state.controller?.dispatch(PlaybackCommand.SeekTo(it)) },
-                            onSelectAudio = {
-                                state.controller?.dispatch(PlaybackCommand.SelectAudioTrack(it))
-                            },
-                            onSelectSubtitle = {
-                                state.controller?.dispatch(PlaybackCommand.SelectSubtitleTrack(it))
-                            },
-                            onPlay = { state.controller?.dispatch(PlaybackCommand.Play) },
-                            onPause = { state.controller?.dispatch(PlaybackCommand.Pause) },
-                            onVolumeDown = {
-                                state.controller?.dispatch(
-                                    PlaybackCommand.SetVolume((state.snapshot.volumePercent - 10).coerceAtLeast(0)),
-                                )
-                            },
-                            onVolumeUp = {
-                                state.controller?.dispatch(
-                                    PlaybackCommand.SetVolume((state.snapshot.volumePercent + 10).coerceAtMost(100)),
-                                )
-                            },
-                        )
-                    }
-                }
-
-                when (state.selectedDestination) {
-                    TvDestination.Pc -> {
-                        item {
-                            TvPcConnectionPanel(
-                                serverUrl = state.serverUrl,
-                                onServerUrlChange = { state.serverUrl = it },
-                                pairingToken = state.pairingToken,
-                                onPairingTokenChange = { state.pairingToken = it },
-                                savedConnections = state.savedConnections,
-                                selectedBaseUrl = state.serverUrl.trim().trimEnd('/'),
-                                libraryError = state.libraryError,
-                                refreshPcFocusRequester = refreshPcFocusRequester,
-                                discoverPcFocusRequester = discoverPcFocusRequester,
-                                onRefresh = actionHandler::refreshLibrary,
-                                onDiscover = actionHandler::discoverPc,
-                                onSave = actionHandler::saveConnection,
-                                onSelectConnection = actionHandler::selectConnection,
-                                onForgetConnection = actionHandler::forgetConnection,
-                            )
-                        }
-                    }
-                    TvDestination.Home -> {
-                        item {
-                            TvHomePanel(
-                                catalog = state.catalog,
-                                playbackProgresses = state.playbackProgresses,
-                                posterEndpoint = state.posterEndpoint,
-                                onShowLibrary = { state.selectedDestination = TvDestination.Library },
-                                onShowPc = { state.selectedDestination = TvDestination.Pc },
-                                onPlay = actionHandler::playItem,
-                            )
-                        }
-                    }
-                    TvDestination.Library,
-                    TvDestination.Search,
-                    TvDestination.Favorites,
-                    -> {
-                        item {
-                            LibraryItems(
-                                catalog = state.catalog,
-                                posterEndpoint = state.posterEndpoint,
-                                playbackProgresses = state.playbackProgresses,
-                                favoriteMediaIds = state.favoriteMediaIds,
-                                initialFavoriteFilter = if (state.selectedDestination == TvDestination.Favorites) {
-                                    LibraryFavoriteFilter.FAVORITES_ONLY
-                                } else {
-                                    LibraryFavoriteFilter.ANY
-                                },
-                                focusSearchOnStart = state.selectedDestination == TvDestination.Search,
-                                onSetFavorite = actionHandler::setFavorite,
-                                onPlay = actionHandler::playItem,
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
+    TvPlayerContent(
+        state = state,
+        actionHandler = actionHandler,
+        refreshPcFocusRequester = refreshPcFocusRequester,
+        discoverPcFocusRequester = discoverPcFocusRequester,
+    )
 }

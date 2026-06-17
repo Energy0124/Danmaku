@@ -122,8 +122,9 @@ Status legend:
   refresh, catalog errors, saved connections, selection/forget actions,
   favorites, PC discovery success/no-server/failure paths, and playback
   preparation/dispatch with and without resume lookup. Top-level TV screen
-  composition now lives in `TvPlayerScreen.kt`, leaving `MainActivity.kt` as a
-  17-line app entrypoint.
+  lifecycle/effect wiring now lives in `TvPlayerScreen.kt`, and route rendering
+  now lives in `TvPlayerContent.kt`, leaving `MainActivity.kt` as a 17-line app
+  entrypoint.
 - `[ ]` P1: Add connected Android test runs to the release checklist and record
   the required device/emulator matrix for mobile playback, LAN sync, TV focus,
   and Media3 streaming.

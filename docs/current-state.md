@@ -201,10 +201,11 @@ trusted-LAN clients.
   refresh, catalog errors, saved connections, selection/forget actions,
   favorites, PC discovery success/no-server/failure paths, and playback
   preparation/dispatch with and without resume lookup. Top-level TV screen
-  composition is split into `TvPlayerScreen.kt`, leaving `MainActivity.kt` as a
-  17-line app entrypoint. Larger TV component splits remain. Both compile and
-  have instrumentation-source coverage, but Android TV should be split further
-  before more feature work lands there.
+  lifecycle/effect wiring is split into `TvPlayerScreen.kt`, route rendering is
+  split into `TvPlayerContent.kt`, and `MainActivity.kt` is a 17-line app
+  entrypoint. Larger TV component splits remain. Both compile and have
+  instrumentation-source coverage, but Android TV should be split further before
+  more feature work lands there.
 - Desktop localization now routes through generated resources. The duplicated
   Kotlin fallback initializer has been reduced to the small set of non-Compose
   error/default strings used by tests and default action paths, so normal UI
