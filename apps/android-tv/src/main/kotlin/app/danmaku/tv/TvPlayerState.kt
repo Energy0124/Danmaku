@@ -7,13 +7,12 @@ import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.library.LanLibraryConnectionProfile
-import app.danmaku.player.android.Media3PlaybackController
 
 internal class TvPlayerState(
     initialSavedConnections: List<LanLibraryConnectionProfile>,
     initialFavoriteMediaIds: Set<String>,
 ) {
-    var controller by mutableStateOf<Media3PlaybackController?>(null)
+    var controller by mutableStateOf<TvPlaybackController?>(null)
     var snapshot by mutableStateOf(PlaybackSnapshot())
     var playbackError by mutableStateOf<String?>(null)
     var serverUrl by mutableStateOf("http://10.0.2.2:8686")

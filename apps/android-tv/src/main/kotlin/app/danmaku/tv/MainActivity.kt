@@ -113,8 +113,9 @@ private fun TvPlayerScreen() {
         playbackConnection.connect(
             executor = ContextCompat.getMainExecutor(context),
             onConnected = {
-                state.controller = it
-                state.snapshot = it.snapshot()
+                val controller = Media3TvPlaybackController(it)
+                state.controller = controller
+                state.snapshot = controller.snapshot()
                 state.playbackError = null
             },
             onFailure = {

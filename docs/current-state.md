@@ -195,10 +195,12 @@ trusted-LAN clients.
   remembered TV player/library state and PC/library/favorite/playback actions
   are split into `TvPlayerState.kt` and `TvPlayerActionHandler.kt`; shared TV
   colors, poster endpoint construction, and focus halo styling are split into
-  `TvUiPrimitives.kt`; `TvPlayerActionHandler` has instrumentation-source
-  coverage for catalog refresh, catalog errors, saved connections,
-  selection/forget actions, favorites, and PC discovery success/no-server/
-  failure paths through a testable `TvLibraryDiscovery` boundary. Larger TV
+  `TvUiPrimitives.kt`; `TvPlaybackController` gives TV action code a testable
+  playback boundary while the Media3 adapter remains at the app edge.
+  `TvPlayerActionHandler` has instrumentation-source coverage for catalog
+  refresh, catalog errors, saved connections, selection/forget actions,
+  favorites, PC discovery success/no-server/failure paths, and playback
+  preparation/dispatch with and without resume lookup. Larger TV
   screen/component splits remain. Both compile and have instrumentation-source
   coverage, but Android TV should be split further before more feature work
   lands there.

@@ -5,12 +5,11 @@ import app.danmaku.domain.PlaybackCommand
 import app.danmaku.library.LanPlaybackPreparer
 import app.danmaku.library.LanPlaybackProgressSync
 import app.danmaku.library.LanPlaybackTarget
-import app.danmaku.player.android.Media3PlaybackController
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 internal suspend fun playTvLibraryItem(
-    controller: Media3PlaybackController,
+    controller: TvPlaybackController,
     progressSync: LanPlaybackProgressSync,
     playbackPreparer: LanPlaybackPreparer,
     baseUrl: String,

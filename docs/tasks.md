@@ -116,10 +116,12 @@ Status legend:
   `TvPlayerState.kt`, and PC discovery, library refresh, saved-connection,
   favorite, and playback item actions now live in `TvPlayerActionHandler.kt`.
   Shared TV colors, poster endpoint construction, and focus halo styling now
-  live in `TvUiPrimitives.kt`. `TvPlayerActionHandler` now has androidTest
-  source coverage for catalog refresh, catalog errors, saved connections,
-  selection/forget actions, favorites, and PC discovery success/no-server/
-  failure paths through a testable `TvLibraryDiscovery` boundary.
+  live in `TvUiPrimitives.kt`. `TvPlaybackController` now gives TV action code
+  a testable playback boundary while the Media3 adapter remains at the app
+  edge. `TvPlayerActionHandler` now has androidTest source coverage for catalog
+  refresh, catalog errors, saved connections, selection/forget actions,
+  favorites, PC discovery success/no-server/failure paths, and playback
+  preparation/dispatch with and without resume lookup.
 - `[ ]` P1: Add connected Android test runs to the release checklist and record
   the required device/emulator matrix for mobile playback, LAN sync, TV focus,
   and Media3 streaming.
@@ -225,7 +227,8 @@ Full review date: 2026-06-15.
   keep adding JVM/unit-level coverage for presentation/state logic as it is
   extracted from Compose entrypoints. Android TV action-handler instrumentation
   coverage now protects catalog refresh, saved connection, favorite state, and
-  PC discovery behavior after the TV state/action split.
+  PC discovery behavior after the TV state/action split; playback preparation
+  and dispatch are now covered behind `TvPlaybackController`.
 
 ## Anime Lover Feature Backlog
 

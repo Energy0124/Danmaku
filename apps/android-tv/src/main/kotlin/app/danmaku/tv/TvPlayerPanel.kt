@@ -24,11 +24,10 @@ import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.PlaybackTrack
 import app.danmaku.domain.PlaybackTrackKind
 import app.danmaku.domain.seekTargetBy
-import app.danmaku.player.android.Media3PlaybackController
 
 @Composable
 internal fun TvPlayerPanel(
-    controller: Media3PlaybackController?,
+    controller: TvPlaybackController?,
     snapshot: PlaybackSnapshot,
     playbackError: String?,
     onSeekTo: (Long) -> Unit,
@@ -49,7 +48,7 @@ internal fun TvPlayerPanel(
     ) {
         AndroidView(
             factory = { PlayerView(it) },
-            update = { it.player = controller?.player },
+            update = { it.player = controller?.androidPlayer },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(300.dp),
