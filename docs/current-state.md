@@ -187,11 +187,13 @@ trusted-LAN clients.
   `TvShellUi.kt`; Home route composition and Home-only rails are split into
   `TvHomePanel.kt`; PC connection route UI, text input, and saved-PC cards are
   split into `TvPcConnectionPanel.kt`; library navigation and empty-state
-  panels are split into `TvLibraryPanels.kt`; Library route state/search/filter
-  composition is split into `TvLibraryScreen.kt`; library poster rendering is
-  split into `TvLibraryPosterComponents.kt`; episode/detail rows and series
-  detail are split into `TvLibraryEpisodeComponents.kt`; progress and next-up
-  rails are split into `TvLibraryRails.kt`; duplicated remote playback
+  panels are split into `TvLibraryPanels.kt`; Library route state and
+  selection composition are split into `TvLibraryScreen.kt`; header/search/filter
+  controls and series picker rendering are split into
+  `TvLibraryFilterComponents.kt`; library poster rendering is split into
+  `TvLibraryPosterComponents.kt`; episode/detail rows and series detail are
+  split into `TvLibraryEpisodeComponents.kt`; progress and next-up rails are
+  split into `TvLibraryRails.kt`; duplicated remote playback
   preparation and resume handling are split into `TvPlaybackActions.kt`;
   remembered TV player/library state and PC/library/favorite/playback actions
   are split into `TvPlayerState.kt` and `TvPlayerActionHandler.kt`; shared TV

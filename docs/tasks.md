@@ -107,11 +107,12 @@ Status legend:
   composition and Home-only rails now live in `TvHomePanel.kt`. PC connection
   route UI, text input, and saved-PC cards now live in
   `TvPcConnectionPanel.kt`. Library navigation and empty-state panels now live
-  in `TvLibraryPanels.kt`, and the Library route state/search/filter
-  composition now lives in `TvLibraryScreen.kt`. Library poster rendering now
-  lives in `TvLibraryPosterComponents.kt`; episode/detail rows and series
-  detail now live in `TvLibraryEpisodeComponents.kt`; progress and next-up
-  rails now live in `TvLibraryRails.kt`. Shared TV remote playback
+  in `TvLibraryPanels.kt`. Library route state and selection composition now
+  lives in `TvLibraryScreen.kt`; header/search/filter controls and series
+  picker rendering now live in `TvLibraryFilterComponents.kt`. Library poster
+  rendering now lives in `TvLibraryPosterComponents.kt`; episode/detail rows
+  and series detail now live in `TvLibraryEpisodeComponents.kt`; progress and
+  next-up rails now live in `TvLibraryRails.kt`. Shared TV remote playback
   preparation, resume lookup, seek, and play dispatch now live in
   `TvPlaybackActions.kt`. Remembered TV player/library state now lives in
   `TvPlayerState.kt`, and PC discovery, library refresh, saved-connection,
