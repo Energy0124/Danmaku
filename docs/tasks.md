@@ -139,12 +139,11 @@ Status legend:
 - `[ ]` P1: Add connected Android test runs to the release checklist and record
   the required device/emulator matrix for mobile playback, LAN sync, TV focus,
   and Media3 streaming.
-- `[ ]` Decide whether external anime sync failures should be persisted in the
-  desktop database or kept session-only.
-- `[~]` Add durable external list entry fetch/readback so sync plans can compare
+- `[x]` Persist external anime sync failures in the desktop database.
+- `[x]` Add durable external list entry fetch/readback so sync plans can compare
   current provider state before writing. Desktop now imports MAL/Bangumi
-  readback into session state and rechecks provider progress before writes;
-  persistence/relaunch policy is still open.
+  readback, persists provider list entries across relaunch, and rechecks
+  provider progress before writes.
 - `[ ]` Extend user-facing danmaku controls beyond the current desktop offset
   path: add richer filters/blocklists/presets and bring quick controls to
   mobile and TV where practical.
@@ -243,9 +242,8 @@ Full review date: 2026-06-15.
   live MAL/Bangumi sync.
 - `[ ]` P1: Download queue storage exists, but authorized download source
   contracts and queue execution behavior are not implemented.
-- `[~]` P1: External sync can write updates and now performs MAL/Bangumi
-  provider readback before writes, but durable failure/readback persistence
-  still needs a product decision.
+- `[x]` P1: External sync can write updates, performs MAL/Bangumi provider
+  readback before writes, and persists readback/failure state across relaunch.
 - `[x]` P2: Desktop localization resource migration is functionally wired, and
   screenshot QA flushed and fixed dynamic status/watch-summary leaks. The
   duplicated fallback Kotlin initializer has been reduced to the small
@@ -268,8 +266,8 @@ Full review date: 2026-06-15.
   status filters across desktop/mobile/TV.
 - `[~]` P1: Add external list import/readback so MAL/Bangumi can seed local
   watch status, watched episode counts, scores, and conflicts before writes.
-  Desktop mapped-list readback is implemented; local watch-status seeding and
-  durable import history remain.
+  Desktop mapped-list readback and durable import history are implemented;
+  local watch-status seeding remains.
 - `[ ]` P1: Add release-calendar and seasonal anime views for "new this week",
   airing day, next episode, season/year, and recently updated local episodes.
 - `[ ]` P1: Add library quality tools for duplicate files, missing episodes,

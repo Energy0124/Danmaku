@@ -382,8 +382,9 @@ Status legend:
 - `[ ]` Add model-level tests for download queue state once source contracts
   exist.
 - `[~]` Add tests for tracking readback/plan/conflict/retry behavior. MAL and
-  Bangumi provider readback parsing/header coverage exists; action-level
-  readback and relaunch persistence tests remain.
+  Bangumi provider readback parsing/header coverage exists, and catalog-store
+  persistence/relaunch coverage now protects imported entries and sync
+  failures. Action-level readback tests remain.
 - `[ ]` Add tests for cache-state persistence and episode selection readback.
 - `[x]` Run `:apps:desktop-windows:compileKotlinDesktop` after UI wiring.
 - `[x]` Run `:apps:desktop-windows:desktopTest` after behavior changes.

@@ -2,9 +2,12 @@ package app.danmaku.desktop
 
 import app.danmaku.domain.ExternalAnimeId
 import app.danmaku.domain.ExternalAnimeInfo
+import app.danmaku.domain.ExternalAnimeListEntry
+import app.danmaku.domain.ExternalAnimeListStatus
 import app.danmaku.domain.ExternalAnimeMapping
 import app.danmaku.domain.ExternalAnimeMappingSource
 import app.danmaku.domain.ExternalAnimeProvider
+import app.danmaku.domain.ExternalAnimeSyncFailure
 import app.danmaku.domain.ExternalAnimeTitleSet
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySubtitleTrack
@@ -124,6 +127,30 @@ internal object DesktopLibraryCatalogStoreSchema {
           confidence REAL NOT NULL,
           mapped_at_epoch_ms INTEGER NOT NULL,
           PRIMARY KEY(local_media_id, provider)
+        )
+    """.trimIndent()
+
+    val CREATE_EXTERNAL_ANIME_LIST_ENTRY_TABLE_SQL = """
+        CREATE TABLE IF NOT EXISTS external_anime_list_entry (
+          provider TEXT NOT NULL,
+          anime_id INTEGER NOT NULL,
+          status TEXT,
+          watched_episodes INTEGER,
+          score INTEGER,
+          updated_at_epoch_ms INTEGER,
+          PRIMARY KEY(provider, anime_id)
+        )
+    """.trimIndent()
+
+    val CREATE_EXTERNAL_ANIME_SYNC_FAILURE_TABLE_SQL = """
+        CREATE TABLE IF NOT EXISTS external_anime_sync_failure (
+          provider TEXT NOT NULL,
+          anime_id INTEGER NOT NULL,
+          message TEXT NOT NULL,
+          failed_at_epoch_ms INTEGER NOT NULL,
+          attempt_count INTEGER NOT NULL,
+          retry_after_epoch_ms INTEGER NOT NULL,
+          PRIMARY KEY(provider, anime_id)
         )
     """.trimIndent()
 }
@@ -290,5 +317,43 @@ internal object DesktopLibraryCatalogStoreRowMappers {
             source = ExternalAnimeMappingSource.valueOf(source),
             confidence = confidence,
             mappedAtEpochMs = mappedAtEpochMs,
+        )
+
+    fun externalAnimeListEntry(
+        provider: String,
+        animeId: Long,
+        status: String?,
+        watchedEpisodes: Long?,
+        score: Long?,
+        updatedAtEpochMs: Long?,
+    ): ExternalAnimeListEntry =
+        ExternalAnimeListEntry(
+            animeId = ExternalAnimeId(
+                provider = ExternalAnimeProvider.valueOf(provider),
+                value = animeId,
+            ),
+            status = status?.let(ExternalAnimeListStatus::valueOf),
+            watchedEpisodes = watchedEpisodes?.toInt(),
+            score = score?.toInt(),
+            updatedAtEpochMs = updatedAtEpochMs,
+        )
+
+    fun externalAnimeSyncFailure(
+        provider: String,
+        animeId: Long,
+        message: String,
+        failedAtEpochMs: Long,
+        attemptCount: Long,
+        retryAfterEpochMs: Long,
+    ): ExternalAnimeSyncFailure =
+        ExternalAnimeSyncFailure(
+            animeId = ExternalAnimeId(
+                provider = ExternalAnimeProvider.valueOf(provider),
+                value = animeId,
+            ),
+            message = message,
+            failedAtEpochMs = failedAtEpochMs,
+            attemptCount = attemptCount.toInt(),
+            retryAfterEpochMs = retryAfterEpochMs,
         )
 }

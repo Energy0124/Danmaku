@@ -4,9 +4,11 @@ import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import app.danmaku.desktop.db.DesktopLibraryDatabase
 import app.danmaku.domain.ExternalAnimeId
 import app.danmaku.domain.ExternalAnimeInfo
+import app.danmaku.domain.ExternalAnimeListEntry
 import app.danmaku.domain.ExternalAnimeMapping
 import app.danmaku.domain.ExternalAnimeMappingSource
 import app.danmaku.domain.ExternalAnimeProvider
+import app.danmaku.domain.ExternalAnimeSyncFailure
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySubtitleTrack
@@ -72,6 +74,16 @@ class DesktopLibraryCatalogStore(
         driver.execute(
             identifier = null,
             sql = DesktopLibraryCatalogStoreSchema.CREATE_EXTERNAL_ANIME_ITEM_MAPPING_TABLE_SQL,
+            parameters = 0,
+        )
+        driver.execute(
+            identifier = null,
+            sql = DesktopLibraryCatalogStoreSchema.CREATE_EXTERNAL_ANIME_LIST_ENTRY_TABLE_SQL,
+            parameters = 0,
+        )
+        driver.execute(
+            identifier = null,
+            sql = DesktopLibraryCatalogStoreSchema.CREATE_EXTERNAL_ANIME_SYNC_FAILURE_TABLE_SQL,
             parameters = 0,
         )
         addColumnIfMissing("local_media_item", "subtitles_json", "TEXT NOT NULL DEFAULT '[]'")
@@ -523,6 +535,76 @@ class DesktopLibraryCatalogStore(
     fun deleteExternalAnimeItemMapping(localMediaId: String, provider: ExternalAnimeProvider) {
         require(localMediaId.isNotBlank()) { "localMediaId must not be blank" }
         database.libraryCatalogQueries.deleteExternalAnimeItemMapping(localMediaId, provider.name)
+    }
+
+    @Synchronized
+    fun loadExternalAnimeListEntry(id: ExternalAnimeId): ExternalAnimeListEntry? =
+        database.libraryCatalogQueries
+            .selectExternalAnimeListEntry(
+                id.provider.name,
+                id.value,
+                DesktopLibraryCatalogStoreRowMappers::externalAnimeListEntry,
+            )
+            .executeAsOneOrNull()
+
+    @Synchronized
+    fun loadExternalAnimeListEntries(): List<ExternalAnimeListEntry> =
+        database.libraryCatalogQueries
+            .selectAllExternalAnimeListEntries(DesktopLibraryCatalogStoreRowMappers::externalAnimeListEntry)
+            .executeAsList()
+
+    @Synchronized
+    fun saveExternalAnimeListEntry(entry: ExternalAnimeListEntry) {
+        database.libraryCatalogQueries.upsertExternalAnimeListEntry(
+            entry.animeId.provider.name,
+            entry.animeId.value,
+            entry.status?.name,
+            entry.watchedEpisodes?.toLong(),
+            entry.score?.toLong(),
+            entry.updatedAtEpochMs,
+        )
+    }
+
+    @Synchronized
+    fun saveExternalAnimeListEntries(entries: List<ExternalAnimeListEntry>) {
+        database.libraryCatalogQueries.transaction {
+            entries.forEach(::saveExternalAnimeListEntry)
+        }
+    }
+
+    @Synchronized
+    fun deleteExternalAnimeListEntry(id: ExternalAnimeId) {
+        database.libraryCatalogQueries.deleteExternalAnimeListEntry(id.provider.name, id.value)
+    }
+
+    @Synchronized
+    fun deleteExternalAnimeListEntries(ids: Set<ExternalAnimeId>) {
+        database.libraryCatalogQueries.transaction {
+            ids.forEach(::deleteExternalAnimeListEntry)
+        }
+    }
+
+    @Synchronized
+    fun loadExternalAnimeSyncFailures(): List<ExternalAnimeSyncFailure> =
+        database.libraryCatalogQueries
+            .selectAllExternalAnimeSyncFailures(DesktopLibraryCatalogStoreRowMappers::externalAnimeSyncFailure)
+            .executeAsList()
+
+    @Synchronized
+    fun replaceExternalAnimeSyncFailures(failures: List<ExternalAnimeSyncFailure>) {
+        database.libraryCatalogQueries.transaction {
+            database.libraryCatalogQueries.deleteAllExternalAnimeSyncFailures()
+            failures.forEach { failure ->
+                database.libraryCatalogQueries.upsertExternalAnimeSyncFailure(
+                    failure.animeId.provider.name,
+                    failure.animeId.value,
+                    failure.message,
+                    failure.failedAtEpochMs,
+                    failure.attemptCount.toLong(),
+                    failure.retryAfterEpochMs,
+                )
+            }
+        }
     }
 
     override fun close() {

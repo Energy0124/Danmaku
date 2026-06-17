@@ -43,11 +43,12 @@ Status legend:
 - `[x]` Add an explicit desktop sync action that writes ready updates and surfaces failures.
 - `[x]` Add conflict handling for external progress ahead of local progress.
 - `[x]` Add retry/backoff and user-visible sync failure state.
+- `[x]` Persist external list readback and sync failure state across desktop relaunch.
 
 ## Phase 5 - QA
 
 - `[x]` Unit-test mapping ranking and tracking update derivation.
-- `[x]` Unit-test desktop mapping persistence migrations with MAL and Bangumi IDs.
+- `[x]` Unit-test desktop mapping, readback, and sync-failure persistence migrations with MAL and Bangumi IDs.
 - `[x]` Integration-test provider clients with recorded/fake responses.
 - `[ ]` Manual QA: map series to MAL and Bangumi, play episodes, sync progress, relaunch, and verify persisted state.
 
@@ -67,3 +68,4 @@ Status legend:
 - 2026-06-10: Added provider write clients for MyAnimeList `my_list_status` updates and Bangumi collection progress updates, plus fake HTTP coverage for auth headers, payload mapping, and response parsing. `:apps:desktop-windows:desktopTest` passed.
 - 2026-06-10: Wired the desktop External Sync screen to a deliberate `Sync ready updates` action backed by saved MAL/Bangumi tokens, with session-visible failures and retry timing. `:apps:desktop-windows:compileKotlinDesktop` and `:apps:desktop-windows:desktopTest` passed.
 - 2026-06-17: Added MyAnimeList/Bangumi list readback/import for mapped anime, tracking-table provider progress, manual readback refresh, and pre-write readback conflict checks so newer provider progress is not overwritten. `:apps:desktop-windows:compileKotlinDesktop` and `:apps:desktop-windows:desktopTest` passed.
+- 2026-06-17: Persisted external list entries and sync failures in the desktop catalog database, loaded them into shell state on startup, and added migration/relaunch-style store coverage. `:apps:desktop-windows:compileKotlinDesktop` and `:apps:desktop-windows:desktopTest` passed.

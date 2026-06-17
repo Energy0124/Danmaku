@@ -2,9 +2,12 @@ package app.danmaku.desktop
 
 import app.danmaku.domain.ExternalAnimeId
 import app.danmaku.domain.ExternalAnimeInfo
+import app.danmaku.domain.ExternalAnimeListEntry
+import app.danmaku.domain.ExternalAnimeListStatus
 import app.danmaku.domain.ExternalAnimeMapping
 import app.danmaku.domain.ExternalAnimeMappingSource
 import app.danmaku.domain.ExternalAnimeProvider
+import app.danmaku.domain.ExternalAnimeSyncFailure
 import app.danmaku.domain.ExternalAnimeTitleSet
 import app.danmaku.domain.PlaybackProgress
 import kotlin.io.path.createDirectories
@@ -626,6 +629,57 @@ class DesktopLibraryCatalogStoreTest {
     }
 
     @Test
+    fun persistsExternalAnimeListEntriesAndSyncFailures() {
+        val temp = createTempDirectory("danmaku-external-anime-readback")
+        val databasePath = temp.resolve("catalog.db")
+        val malId = ExternalAnimeId(ExternalAnimeProvider.MY_ANIME_LIST, 52991)
+        val bangumiId = ExternalAnimeId(ExternalAnimeProvider.BANGUMI, 400602)
+        val malEntry = ExternalAnimeListEntry(
+            animeId = malId,
+            status = ExternalAnimeListStatus.WATCHING,
+            watchedEpisodes = 4,
+            score = 8,
+            updatedAtEpochMs = 1_704_164_645_000,
+        )
+        val bangumiEntry = ExternalAnimeListEntry(
+            animeId = bangumiId,
+            status = ExternalAnimeListStatus.COMPLETED,
+            watchedEpisodes = 28,
+            score = 9,
+        )
+        val failure = ExternalAnimeSyncFailure(
+            animeId = malId,
+            message = "HTTP 429",
+            failedAtEpochMs = 1_000,
+            attemptCount = 2,
+            retryAfterEpochMs = 61_000,
+        )
+
+        DesktopLibraryCatalogStore(databasePath).use { store ->
+            store.saveExternalAnimeListEntries(listOf(bangumiEntry, malEntry))
+            store.replaceExternalAnimeSyncFailures(listOf(failure))
+
+            assertEquals(malEntry, store.loadExternalAnimeListEntry(malId))
+            assertEquals(listOf(bangumiEntry, malEntry), store.loadExternalAnimeListEntries())
+            assertEquals(listOf(failure), store.loadExternalAnimeSyncFailures())
+
+            store.saveExternalAnimeListEntry(malEntry.copy(watchedEpisodes = 5))
+            store.deleteExternalAnimeListEntry(bangumiId)
+            store.replaceExternalAnimeSyncFailures(emptyList())
+        }
+
+        DesktopLibraryCatalogStore(databasePath).use { store ->
+            assertEquals(
+                listOf(malEntry.copy(watchedEpisodes = 5)),
+                store.loadExternalAnimeListEntries(),
+            )
+            assertEquals(emptyList(), store.loadExternalAnimeSyncFailures())
+        }
+
+        temp.toFile().deleteRecursively()
+    }
+
+    @Test
     fun replacingExternalAnimeItemMappingOnlyUpdatesSelectedEpisode() {
         val temp = createTempDirectory("danmaku-external-anime-item-scope")
         val databasePath = temp.resolve("catalog.db")
@@ -689,6 +743,22 @@ class DesktopLibraryCatalogStoreTest {
         DesktopLibraryCatalogStore(databasePath).use { store ->
             store.saveExternalAnimeMapping(mapping)
             assertEquals(listOf(mapping), store.loadExternalAnimeMappings("frieren"))
+            val entry = ExternalAnimeListEntry(
+                animeId = mapping.animeId,
+                status = ExternalAnimeListStatus.WATCHING,
+                watchedEpisodes = 3,
+            )
+            val failure = ExternalAnimeSyncFailure(
+                animeId = mapping.animeId,
+                message = "HTTP 500",
+                failedAtEpochMs = 1_000,
+                attemptCount = 1,
+                retryAfterEpochMs = 31_000,
+            )
+            store.saveExternalAnimeListEntry(entry)
+            store.replaceExternalAnimeSyncFailures(listOf(failure))
+            assertEquals(listOf(entry), store.loadExternalAnimeListEntries())
+            assertEquals(listOf(failure), store.loadExternalAnimeSyncFailures())
         }
 
         temp.toFile().deleteRecursively()

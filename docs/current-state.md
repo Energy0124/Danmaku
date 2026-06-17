@@ -93,7 +93,9 @@ trusted-LAN clients.
 - MyAnimeList and Bangumi provider settings, manual mapping UI, metadata
   search/cache clients, MAL OAuth callback flow, encrypted token storage,
   provider readback/write clients, External Sync preview, and explicit sync
-  action with pre-write external-progress conflict checks.
+  action with pre-write external-progress conflict checks. Imported provider
+  list entries and sync failures persist in the desktop catalog database across
+  relaunch.
 
 ### Android Mobile
 
@@ -236,8 +238,8 @@ trusted-LAN clients.
   mapping/sync, and danmaku basics. Missing high-value viewer workflows include
   watch status lists, seasonal/release-calendar views, OP/ED or recap skip
   markers, per-series subtitle/audio preferences, richer danmaku filtering and
-  blocklists, duplicate/missing-episode library cleanup, durable external list
-  import/local status seeding, and custom collections/tags.
+  blocklists, duplicate/missing-episode library cleanup, external list-driven
+  local status seeding, and custom collections/tags.
 
 ## Not Implemented
 

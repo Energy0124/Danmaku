@@ -116,6 +116,26 @@ CREATE TABLE external_anime_item_mapping (
   PRIMARY KEY(local_media_id, provider)
 );
 
+CREATE TABLE external_anime_list_entry (
+  provider TEXT NOT NULL,
+  anime_id INTEGER NOT NULL,
+  status TEXT,
+  watched_episodes INTEGER,
+  score INTEGER,
+  updated_at_epoch_ms INTEGER,
+  PRIMARY KEY(provider, anime_id)
+);
+
+CREATE TABLE external_anime_sync_failure (
+  provider TEXT NOT NULL,
+  anime_id INTEGER NOT NULL,
+  message TEXT NOT NULL,
+  failed_at_epoch_ms INTEGER NOT NULL,
+  attempt_count INTEGER NOT NULL,
+  retry_after_epoch_ms INTEGER NOT NULL,
+  PRIMARY KEY(provider, anime_id)
+);
+
 selectMetadata:
 SELECT root_path, root_name, indexed_at_epoch_ms
 FROM library_metadata
@@ -478,3 +498,65 @@ VALUES (?, ?, ?, ?, ?, ?);
 deleteExternalAnimeItemMapping:
 DELETE FROM external_anime_item_mapping
 WHERE local_media_id = ? AND provider = ?;
+
+selectExternalAnimeListEntry:
+SELECT
+  provider,
+  anime_id,
+  status,
+  watched_episodes,
+  score,
+  updated_at_epoch_ms
+FROM external_anime_list_entry
+WHERE provider = ? AND anime_id = ?;
+
+selectAllExternalAnimeListEntries:
+SELECT
+  provider,
+  anime_id,
+  status,
+  watched_episodes,
+  score,
+  updated_at_epoch_ms
+FROM external_anime_list_entry
+ORDER BY provider, anime_id;
+
+upsertExternalAnimeListEntry:
+INSERT OR REPLACE INTO external_anime_list_entry(
+  provider,
+  anime_id,
+  status,
+  watched_episodes,
+  score,
+  updated_at_epoch_ms
+)
+VALUES (?, ?, ?, ?, ?, ?);
+
+deleteExternalAnimeListEntry:
+DELETE FROM external_anime_list_entry
+WHERE provider = ? AND anime_id = ?;
+
+selectAllExternalAnimeSyncFailures:
+SELECT
+  provider,
+  anime_id,
+  message,
+  failed_at_epoch_ms,
+  attempt_count,
+  retry_after_epoch_ms
+FROM external_anime_sync_failure
+ORDER BY retry_after_epoch_ms, provider, anime_id;
+
+upsertExternalAnimeSyncFailure:
+INSERT OR REPLACE INTO external_anime_sync_failure(
+  provider,
+  anime_id,
+  message,
+  failed_at_epoch_ms,
+  attempt_count,
+  retry_after_epoch_ms
+)
+VALUES (?, ?, ?, ?, ?, ?);
+
+deleteAllExternalAnimeSyncFailures:
+DELETE FROM external_anime_sync_failure;

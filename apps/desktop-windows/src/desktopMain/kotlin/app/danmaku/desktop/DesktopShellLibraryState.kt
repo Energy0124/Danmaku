@@ -35,8 +35,8 @@ internal class DesktopShellLibraryState(
     var isRefreshingSeriesPosters by mutableStateOf(false)
     var refreshingMetadataMediaIds by mutableStateOf<Set<String>>(emptySet())
     var refreshingMetadataSeriesIds by mutableStateOf<Set<String>>(emptySet())
-    var externalAnimeSyncFailures by mutableStateOf<List<ExternalAnimeSyncFailure>>(emptyList())
-    var externalAnimeListEntries by mutableStateOf<List<ExternalAnimeListEntry>>(emptyList())
+    var externalAnimeSyncFailures by mutableStateOf(catalogStore.loadExternalAnimeSyncFailures())
+    var externalAnimeListEntries by mutableStateOf(catalogStore.loadExternalAnimeListEntries())
     var isExternalAnimeSyncing by mutableStateOf(false)
     var isExternalAnimeReadbackRefreshing by mutableStateOf(false)
 }

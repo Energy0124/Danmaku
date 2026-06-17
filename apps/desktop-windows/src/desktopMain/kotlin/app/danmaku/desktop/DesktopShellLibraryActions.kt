@@ -116,20 +116,23 @@ internal class DesktopShellLibraryActions(
                         }
                         runCatching {
                             client.fetchListEntry(update.mapping.animeId)?.let { entry ->
-                                readbackEntries += entry
                                 val externalWatched = entry.watchedEpisodes
                                 val localWatched = update.update.watchedEpisodes
                                 if (externalWatched != null && localWatched != null && externalWatched > localWatched) {
-                                    return@runCatching false
+                                    return@runCatching ExternalAnimeSyncWriteResult.Conflict(entry)
                                 }
                             }
-                            client.updateListEntry(update.update)
-                            true
-                        }.onSuccess { didWrite ->
-                            if (didWrite) {
-                                successCount += 1
-                            } else {
-                                conflictCount += 1
+                            ExternalAnimeSyncWriteResult.Written(client.updateListEntry(update.update))
+                        }.onSuccess { writeResult ->
+                            when (writeResult) {
+                                is ExternalAnimeSyncWriteResult.Conflict -> {
+                                    conflictCount += 1
+                                    readbackEntries += writeResult.entry
+                                }
+                                is ExternalAnimeSyncWriteResult.Written -> {
+                                    successCount += 1
+                                    readbackEntries += writeResult.entry
+                                }
                             }
                         }.onFailure { error ->
                             failures += externalAnimeSyncFailure(
@@ -140,18 +143,16 @@ internal class DesktopShellLibraryActions(
                             )
                         }
                     }
+                    catalogStore.saveExternalAnimeListEntries(readbackEntries)
+                    catalogStore.replaceExternalAnimeSyncFailures(failures)
                     ExternalAnimeSyncResult(
                         successCount = successCount,
                         conflictCount = conflictCount,
                         failures = failures,
-                        readbackEntries = readbackEntries,
+                        listEntries = catalogStore.loadExternalAnimeListEntries(),
                     )
                 }
-                libraryState.externalAnimeListEntries = mergeExternalAnimeListEntries(
-                    existing = libraryState.externalAnimeListEntries,
-                    replacements = result.readbackEntries,
-                    removeMissing = emptySet(),
-                )
+                libraryState.externalAnimeListEntries = result.listEntries
                 libraryState.externalAnimeSyncFailures = result.failures
                 appendDiagnostic(
                     "external-sync",
@@ -198,18 +199,17 @@ internal class DesktopShellLibraryActions(
                                 (error.message ?: error.javaClass.simpleName.ifBlank { "readback failed" })
                         }
                     }
+                    catalogStore.saveExternalAnimeListEntries(entries)
+                    catalogStore.deleteExternalAnimeListEntries(missing)
                     ExternalAnimeReadbackResult(
                         requestedAnimeIds = animeIds.toSet(),
                         entries = entries,
+                        persistedEntries = catalogStore.loadExternalAnimeListEntries(),
                         missingAnimeIds = missing,
                         failures = failures,
                     )
                 }
-                libraryState.externalAnimeListEntries = mergeExternalAnimeListEntries(
-                    existing = libraryState.externalAnimeListEntries,
-                    replacements = result.entries,
-                    removeMissing = result.missingAnimeIds,
-                )
+                libraryState.externalAnimeListEntries = result.persistedEntries
                 result.failures.take(3).forEach { failure ->
                     appendDiagnostic("external-sync", "External list readback failed for $failure")
                 }
@@ -650,32 +650,23 @@ internal class DesktopShellLibraryActions(
                 ?.let { put(it.provider, it) }
         }
 
-    private fun mergeExternalAnimeListEntries(
-        existing: List<ExternalAnimeListEntry>,
-        replacements: List<ExternalAnimeListEntry>,
-        removeMissing: Set<ExternalAnimeId>,
-    ): List<ExternalAnimeListEntry> {
-        val replacementIds = replacements.mapTo(mutableSetOf(), ExternalAnimeListEntry::animeId)
-        return existing
-            .filterNot { entry -> entry.animeId in replacementIds || entry.animeId in removeMissing }
-            .plus(replacements)
-            .sortedWith(
-                compareBy<ExternalAnimeListEntry> { it.animeId.provider.name }
-                    .thenBy { it.animeId.value },
-            )
-    }
-
     private data class ExternalAnimeSyncResult(
         val successCount: Int,
         val conflictCount: Int,
         val failures: List<ExternalAnimeSyncFailure>,
-        val readbackEntries: List<ExternalAnimeListEntry>,
+        val listEntries: List<ExternalAnimeListEntry>,
     )
 
     private data class ExternalAnimeReadbackResult(
         val requestedAnimeIds: Set<ExternalAnimeId>,
         val entries: List<ExternalAnimeListEntry>,
+        val persistedEntries: List<ExternalAnimeListEntry>,
         val missingAnimeIds: Set<ExternalAnimeId>,
         val failures: List<String>,
     )
+
+    private sealed interface ExternalAnimeSyncWriteResult {
+        data class Written(val entry: ExternalAnimeListEntry) : ExternalAnimeSyncWriteResult
+        data class Conflict(val entry: ExternalAnimeListEntry) : ExternalAnimeSyncWriteResult
+    }
 }
