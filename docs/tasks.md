@@ -170,7 +170,9 @@ Status legend:
   tab presentation, and remaining large library/settings/playback surfaces
   where it improves testability. Window/fullscreen lifecycle has moved behind
   `DesktopShellWindowState.kt`, and QA screenshot launch handling has moved
-  behind `DesktopShellQaEffects.kt`.
+  behind `DesktopShellQaEffects.kt`. Catalog-store schema DDL and SQLDelight
+  row mappers now live in `DesktopLibraryCatalogStoreSchema.kt`; deeper
+  store-operation splits remain available if the database layer keeps growing.
 - `[ ]` Add release checklist automation for Android APKs and Windows portable
   archives.
 - `[x]` Move the remaining desktop player surface out of `Main.kt`; playback
@@ -243,7 +245,7 @@ Full review date: 2026-06-15.
   non-Compose fallback set after the final accepted cross-language screenshot
   review proved the XML resources.
 - `[ ]` P2: Desktop code is much healthier than the original monolith, but
-  `DesktopShell.kt`, `DesktopLibraryCatalogStore.kt`, Home, Library,
+  `DesktopShell.kt`, desktop catalog-store operations, Home, Library,
   Settings, Playback, and string-resource adapter files remain review-heavy.
 - `[ ]` P2: Mobile/TV unit-test tasks are sparse or `NO-SOURCE` in places;
   keep adding JVM/unit-level coverage for presentation/state logic as it is

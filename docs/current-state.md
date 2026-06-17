@@ -53,9 +53,12 @@ trusted-LAN clients.
   scan/import/remove, published-library application, poster/metadata refresh,
   favorites, external mapping/search, and tracking sync actions are in a
   library action object. Persisted download queue refresh/removal and output
-  folder opening are in a download action object. Window/fullscreen lifecycle
-  and mpv OSC fullscreen sync are now owned by `DesktopShellWindowState.kt`,
-  while QA screenshot launch handling is owned by `DesktopShellQaEffects.kt`.
+  folder opening are in a download action object. Desktop catalog-store schema
+  DDL and SQLDelight row mappers now live in
+  `DesktopLibraryCatalogStoreSchema.kt`, leaving `DesktopLibraryCatalogStore.kt`
+  focused on persistence operations. Window/fullscreen lifecycle and mpv OSC
+  fullscreen sync are now owned by `DesktopShellWindowState.kt`, while QA
+  screenshot launch handling is owned by `DesktopShellQaEffects.kt`.
   `DesktopShell.kt` remains the main orchestration hotspot for tab assembly,
   but it is now below the planned 1,000-line threshold. Desktop localization
   strings are initialized through a small DSL-backed holder instead of a giant
