@@ -12,10 +12,13 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.pressKey
 import androidx.tv.material3.MaterialTheme
 import app.danmaku.domain.LibraryCatalog
+import app.danmaku.domain.LibraryCatalogSort
 import app.danmaku.domain.LibraryFavoriteFilter
 import app.danmaku.domain.LibraryItemMetadataStatus
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySubtitleTrack
+import app.danmaku.domain.LibrarySubtitleFilter
+import app.danmaku.domain.LibraryWatchState
 import app.danmaku.domain.PlaybackProgress
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -374,6 +377,37 @@ class TvLibraryItemsTest {
         composeRule.runOnIdle {
             assertEquals("example-1", playedItemId)
         }
+    }
+
+    @Test
+    fun libraryViewStateBuildsFilteredSelectionAndProgressSlices() {
+        val viewState = buildTvLibraryViewState(
+            catalog = seededCatalog(),
+            playbackProgresses = listOf(
+                PlaybackProgress(
+                    mediaId = "example-1",
+                    positionMs = 1_190_000,
+                    durationMs = 1_200_000,
+                    updatedAtEpochMs = 1_700_000_000_100,
+                ),
+            ),
+            favoriteMediaIds = setOf("example-2"),
+            searchText = "Example",
+            sort = LibraryCatalogSort.TITLE,
+            subtitleFilter = LibrarySubtitleFilter.ANY,
+            favoriteFilter = LibraryFavoriteFilter.ANY,
+            selectedSeriesId = "example-show",
+            selectedEpisodeId = "other-1",
+        )
+
+        assertEquals(3, viewState.totalItems.size)
+        assertEquals(listOf("example-1", "example-2"), viewState.filteredItems.map { it.id })
+        assertEquals("Example Show", viewState.selectedSeries?.title)
+        assertEquals("example-1", viewState.selectedEpisodeDetail?.mediaItem?.id)
+        assertEquals("example-2", viewState.nextUpItems.single().mediaItem.id)
+        assertEquals("example-1", viewState.recentlyWatchedItems.single().mediaItem.id)
+        assertEquals(LibraryWatchState.WATCHED, viewState.watchStatusById.getValue("example-1").state)
+        assertEquals(true, viewState.hasActiveFilters)
     }
 
     private fun seededCatalog(): LibraryCatalog =

@@ -22,20 +22,11 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.danmaku.domain.LibraryCatalog
-import app.danmaku.domain.LibraryCatalogQuery
 import app.danmaku.domain.LibraryCatalogSort
 import app.danmaku.domain.LibraryFavoriteFilter
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySubtitleFilter
 import app.danmaku.domain.PlaybackProgress
-import app.danmaku.domain.continueWatchingItems
-import app.danmaku.domain.episodeDetail
-import app.danmaku.domain.filteredItems
-import app.danmaku.domain.groupedSeries
-import app.danmaku.domain.nextUpItems
-import app.danmaku.domain.recentlyWatchedItems
-import app.danmaku.domain.seriesWatchSummaryById
-import app.danmaku.domain.watchStatusByMediaId
 
 @Composable
 internal fun LibraryItems(
@@ -54,35 +45,22 @@ internal fun LibraryItems(
     var favoriteFilter by remember(catalog, initialFavoriteFilter) { mutableStateOf(initialFavoriteFilter) }
     var selectedSeriesId by remember(catalog) { mutableStateOf<String?>(null) }
     var selectedEpisodeId by remember(catalog) { mutableStateOf<String?>(null) }
-    val totalItems = catalog?.items.orEmpty()
-    val filteredItems = catalog
-        ?.filteredItems(
-            LibraryCatalogQuery(
-                searchText = searchText,
-                sort = sort,
-                subtitleFilter = subtitleFilter,
-                favoriteFilter = favoriteFilter,
-                favoriteMediaIds = favoriteMediaIds,
-            ),
-        )
-        .orEmpty()
-    val series = catalog?.groupedSeries().orEmpty().take(10)
-    val nextUpItems = catalog?.nextUpItems(playbackProgresses, limit = 6).orEmpty()
-    val continueWatchingItems = catalog?.continueWatchingItems(playbackProgresses, limit = 6).orEmpty()
-    val recentlyWatchedItems = catalog?.recentlyWatchedItems(playbackProgresses, limit = 6).orEmpty()
+    val libraryViewState = buildTvLibraryViewState(
+        catalog = catalog,
+        playbackProgresses = playbackProgresses,
+        favoriteMediaIds = favoriteMediaIds,
+        searchText = searchText,
+        sort = sort,
+        subtitleFilter = subtitleFilter,
+        favoriteFilter = favoriteFilter,
+        selectedSeriesId = selectedSeriesId,
+        selectedEpisodeId = selectedEpisodeId,
+    )
     val nextUpFocusRequester = remember { FocusRequester() }
     val searchFocusRequester = remember { FocusRequester() }
-    val watchStatusById = catalog?.watchStatusByMediaId(playbackProgresses).orEmpty()
-    val seriesWatchSummaryById = catalog?.seriesWatchSummaryById(playbackProgresses).orEmpty()
-    val selectedSeries = series.firstOrNull { it.id == selectedSeriesId }
-    val selectedDetailId = selectedEpisodeId
-        ?.takeIf { id -> filteredItems.any { it.id == id } }
-        ?: filteredItems.firstOrNull()?.id
-    val selectedEpisodeDetail = selectedDetailId
-        ?.let { id -> catalog?.episodeDetail(id, playbackProgresses) }
 
-    LaunchedEffect(nextUpItems.firstOrNull()?.mediaItem?.id, focusSearchOnStart) {
-        if (!focusSearchOnStart && nextUpItems.isNotEmpty()) {
+    LaunchedEffect(libraryViewState.nextUpItems.firstOrNull()?.mediaItem?.id, focusSearchOnStart) {
+        if (!focusSearchOnStart && libraryViewState.nextUpItems.isNotEmpty()) {
             nextUpFocusRequester.requestFocus()
         }
     }
@@ -103,13 +81,10 @@ internal fun LibraryItems(
     ) {
         TvLibraryNavigationRail(
             catalog = catalog,
-            filteredCount = filteredItems.size,
-            totalCount = totalItems.size,
+            filteredCount = libraryViewState.filteredItems.size,
+            totalCount = libraryViewState.totalItems.size,
             favoriteCount = favoriteMediaIds.size,
-            hasActiveFilters = searchText.isNotBlank() ||
-                sort != LibraryCatalogSort.TITLE ||
-                subtitleFilter != LibrarySubtitleFilter.ANY ||
-                favoriteFilter != LibraryFavoriteFilter.ANY,
+            hasActiveFilters = libraryViewState.hasActiveFilters,
             searchActive = searchText.isNotBlank(),
             favoritesActive = favoriteFilter == LibraryFavoriteFilter.FAVORITES_ONLY,
             subtitlesActive = subtitleFilter == LibrarySubtitleFilter.WITH_SUBTITLES,
@@ -143,8 +118,8 @@ internal fun LibraryItems(
         ) {
             TvLibraryHeader(
                 catalog = catalog,
-                filteredCount = filteredItems.size,
-                totalCount = totalItems.size,
+                filteredCount = libraryViewState.filteredItems.size,
+                totalCount = libraryViewState.totalItems.size,
             )
             TvLibrarySearchField(
                 searchText = searchText,
@@ -171,43 +146,43 @@ internal fun LibraryItems(
                     }
                 },
             )
-            if (nextUpItems.isNotEmpty()) {
+            if (libraryViewState.nextUpItems.isNotEmpty()) {
                 TvNextUpRail(
-                    items = nextUpItems,
+                    items = libraryViewState.nextUpItems,
                     posterEndpoint = posterEndpoint,
                     initialFocusRequester = nextUpFocusRequester,
                     onShowDetails = { selectedEpisodeId = it.id },
                     onPlay = onPlay,
                 )
             }
-            if (continueWatchingItems.isNotEmpty()) {
+            if (libraryViewState.continueWatchingItems.isNotEmpty()) {
                 TvProgressRail(
                     title = stringResource(R.string.home_continue_watching),
                     tag = "library-continue-watching",
                     itemTagPrefix = "continue-watching",
-                    items = continueWatchingItems,
+                    items = libraryViewState.continueWatchingItems,
                     posterEndpoint = posterEndpoint,
                     onShowDetails = { selectedEpisodeId = it.id },
                     onPlay = onPlay,
                 )
             }
-            if (recentlyWatchedItems.isNotEmpty()) {
+            if (libraryViewState.recentlyWatchedItems.isNotEmpty()) {
                 TvProgressRail(
                     title = stringResource(R.string.home_recently_watched),
                     tag = "library-recently-watched",
                     itemTagPrefix = "recently-watched",
-                    items = recentlyWatchedItems,
+                    items = libraryViewState.recentlyWatchedItems,
                     posterEndpoint = posterEndpoint,
                     onShowDetails = { selectedEpisodeId = it.id },
                     onPlay = onPlay,
                 )
             }
-            if (series.isNotEmpty()) {
+            if (libraryViewState.series.isNotEmpty()) {
                 TvSeriesPickerRail(
-                    series = series,
+                    series = libraryViewState.series,
                     canClearSelection = searchText.isNotBlank() || selectedSeriesId != null,
                     posterEndpoint = posterEndpoint,
-                    seriesWatchSummaryById = seriesWatchSummaryById,
+                    seriesWatchSummaryById = libraryViewState.seriesWatchSummaryById,
                     onShowAllSeries = {
                         selectedSeriesId = null
                         searchText = ""
@@ -223,14 +198,14 @@ internal fun LibraryItems(
                     },
                 )
             }
-            selectedSeries?.let { summary ->
+            libraryViewState.selectedSeries?.let { summary ->
                 TvSeriesDetail(
                     series = summary,
-                    watchSummary = seriesWatchSummaryById[summary.id],
+                    watchSummary = libraryViewState.seriesWatchSummaryById[summary.id],
                     onPlay = onPlay,
                 )
             }
-            selectedEpisodeDetail?.let { detail ->
+            libraryViewState.selectedEpisodeDetail?.let { detail ->
                 TvEpisodeDetail(
                     detail = detail,
                     posterEndpoint = posterEndpoint,
@@ -241,13 +216,13 @@ internal fun LibraryItems(
                 )
             }
             when {
-                catalog == null || totalItems.isEmpty() -> {
+                catalog == null || libraryViewState.totalItems.isEmpty() -> {
                     TvLibraryEmptyPanel(
                         title = stringResource(R.string.library_no_pc_title),
                         body = stringResource(R.string.library_no_pc_body),
                     )
                 }
-                filteredItems.isEmpty() -> {
+                libraryViewState.filteredItems.isEmpty() -> {
                     TvLibraryEmptyPanel(
                         title = stringResource(R.string.library_no_results_title),
                         body = stringResource(R.string.library_no_results_body),
@@ -267,11 +242,11 @@ internal fun LibraryItems(
                         modifier = Modifier.height(320.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        items(filteredItems, key = LibraryMediaItem::id) { item ->
+                        items(libraryViewState.filteredItems, key = LibraryMediaItem::id) { item ->
                             TvEpisodeButton(
                                 item = item,
                                 posterEndpoint = posterEndpoint,
-                                watchStatus = watchStatusById[item.id],
+                                watchStatus = libraryViewState.watchStatusById[item.id],
                                 isFavorite = item.id in favoriteMediaIds,
                                 onSetFavorite = { onSetFavorite(item, it) },
                                 onShowDetails = { selectedEpisodeId = item.id },

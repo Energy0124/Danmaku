@@ -109,11 +109,12 @@ Status legend:
   route UI, text input, and saved-PC cards now live in
   `TvPcConnectionPanel.kt`. Library navigation and empty-state panels now live
   in `TvLibraryPanels.kt`. Library route state and selection composition now
-  lives in `TvLibraryScreen.kt`; header/search/filter controls and series
-  picker rendering now live in `TvLibraryFilterComponents.kt`. Library poster
-  rendering now lives in `TvLibraryPosterComponents.kt`; episode/detail rows
-  and series detail now live in `TvLibraryEpisodeComponents.kt`; progress and
-  next-up rails now live in `TvLibraryRails.kt`. Shared TV remote playback
+  lives in `TvLibraryScreen.kt`, while derived catalog/filter/progress view
+  state now lives in `TvLibraryViewState.kt`; header/search/filter controls and
+  series picker rendering now live in `TvLibraryFilterComponents.kt`. Library
+  poster rendering now lives in `TvLibraryPosterComponents.kt`; episode/detail
+  rows and series detail now live in `TvLibraryEpisodeComponents.kt`; progress
+  and next-up rails now live in `TvLibraryRails.kt`. Shared TV remote playback
   preparation, resume lookup, seek, and play dispatch now live in
   `TvPlaybackActions.kt`. Remembered TV player/library state now lives in
   `TvPlayerState.kt`, and PC discovery, library refresh, saved-connection,
@@ -208,9 +209,9 @@ Full review date: 2026-06-15.
   in `TvHomePanel.kt`, and Home-only rails in `TvHomeRailComponents.kt`, plus
   PC connection UI in `TvPcConnectionPanel.kt` and library navigation/empty
   states in `TvLibraryPanels.kt`; Library route state and selection composition
-  now lives in `TvLibraryScreen.kt`, filter controls in
-  `TvLibraryFilterComponents.kt`, poster rendering in
-  `TvLibraryPosterComponents.kt`, episode/series detail in
+  now lives in `TvLibraryScreen.kt`, derived catalog view state in
+  `TvLibraryViewState.kt`, filter controls in `TvLibraryFilterComponents.kt`,
+  poster rendering in `TvLibraryPosterComponents.kt`, episode/series detail in
   `TvLibraryEpisodeComponents.kt`, and progress rails in `TvLibraryRails.kt`;
   duplicated remote playback
   preparation and resume handling now live in `TvPlaybackActions.kt`; remembered
