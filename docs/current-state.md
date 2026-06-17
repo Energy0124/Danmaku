@@ -239,9 +239,11 @@ trusted-LAN clients.
   lifecycle/effect wiring is split into `TvPlayerScreen.kt`, route rendering is
   split into `TvPlayerContent.kt`, playback chrome and destination body
   rendering are separated into focused content helpers, and `MainActivity.kt`
-  is a 17-line app entrypoint. Larger TV component splits remain. Both compile and have
-  instrumentation-source coverage, but Android TV should be split further before
-  more feature work lands there.
+  is a 17-line app entrypoint. TV Library state/focus/top-level layout is now
+  separated from Library content-section rendering in
+  `TvLibraryContentSections.kt`. Larger TV component splits remain. Both
+  compile and have instrumentation-source coverage, but Android TV should be
+  split further before more feature work lands there.
 - Desktop localization now routes through generated resources. The duplicated
   Kotlin fallback initializer has been reduced to the small set of non-Compose
   error/default strings used by tests and default action paths, so normal UI
