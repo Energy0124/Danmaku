@@ -123,8 +123,9 @@ Status legend:
   favorites, PC discovery success/no-server/failure paths, and playback
   preparation/dispatch with and without resume lookup. Top-level TV screen
   lifecycle/effect wiring now lives in `TvPlayerScreen.kt`, and route rendering
-  now lives in `TvPlayerContent.kt`, leaving `MainActivity.kt` as a 17-line app
-  entrypoint.
+  now lives in `TvPlayerContent.kt`; playback chrome and destination body
+  rendering are separated into focused content helpers, leaving
+  `MainActivity.kt` as a 17-line app entrypoint.
 - `[ ]` P1: Add connected Android test runs to the release checklist and record
   the required device/emulator matrix for mobile playback, LAN sync, TV focus,
   and Media3 streaming.

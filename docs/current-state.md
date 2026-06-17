@@ -202,8 +202,9 @@ trusted-LAN clients.
   favorites, PC discovery success/no-server/failure paths, and playback
   preparation/dispatch with and without resume lookup. Top-level TV screen
   lifecycle/effect wiring is split into `TvPlayerScreen.kt`, route rendering is
-  split into `TvPlayerContent.kt`, and `MainActivity.kt` is a 17-line app
-  entrypoint. Larger TV component splits remain. Both compile and have
+  split into `TvPlayerContent.kt`, playback chrome and destination body
+  rendering are separated into focused content helpers, and `MainActivity.kt`
+  is a 17-line app entrypoint. Larger TV component splits remain. Both compile and have
   instrumentation-source coverage, but Android TV should be split further before
   more feature work lands there.
 - Desktop localization now routes through generated resources. The duplicated
