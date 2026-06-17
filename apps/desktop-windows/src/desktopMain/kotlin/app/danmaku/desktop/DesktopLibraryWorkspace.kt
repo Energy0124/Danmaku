@@ -401,7 +401,7 @@ internal fun WindowsLibraryWorkspace(
                     }
                 },
                 localWatchListFilter = localWatchListFilter,
-                onCycleLocalWatchListFilter = { localWatchListFilter = localWatchListFilter.next() },
+                onLocalWatchListFilterChange = { localWatchListFilter = it },
                 catalog = catalog,
                 visibleSeries = visibleSeries,
                 selectedSeries = selectedSeries,

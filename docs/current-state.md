@@ -98,9 +98,9 @@ trusted-LAN clients.
   relaunch, and provider-ahead conflicts can seed local watched progress from
   the Tracking inspector.
 - Desktop local watch-list entries persist with status, score, and notes; the
-  Library inspector can edit them, the Library toolbar can filter browsing by
-  local watch-list status including untracked series, and summary chips expose
-  the current saved watch-list count.
+  Library inspector can edit them, the Library toolbar has a direct status
+  menu for browsing by local watch-list state including untracked series, and
+  summary chips expose the current saved watch-list count.
 
 ### Android Mobile
 

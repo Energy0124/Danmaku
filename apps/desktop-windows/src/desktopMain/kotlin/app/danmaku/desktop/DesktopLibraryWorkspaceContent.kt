@@ -2,6 +2,7 @@ package app.danmaku.desktop
 
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.Divider
+import androidx.compose.material.DropdownMenu
+import androidx.compose.material.DropdownMenuItem
 import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.OutlinedTextField
@@ -25,6 +28,10 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Subtitles
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -55,7 +62,7 @@ internal fun LibraryCenterWorkspace(
     favoriteFilter: LibraryFavoriteFilter,
     onToggleFavoriteFilter: () -> Unit,
     localWatchListFilter: LocalWatchListFilter,
-    onCycleLocalWatchListFilter: () -> Unit,
+    onLocalWatchListFilterChange: (LocalWatchListFilter) -> Unit,
     catalog: LibraryCatalog?,
     visibleSeries: List<LibrarySeries>,
     selectedSeries: LibrarySeries?,
@@ -109,7 +116,7 @@ internal fun LibraryCenterWorkspace(
             favoriteFilter = favoriteFilter,
             onToggleFavoriteFilter = onToggleFavoriteFilter,
             localWatchListFilter = localWatchListFilter,
-            onCycleLocalWatchListFilter = onCycleLocalWatchListFilter,
+            onLocalWatchListFilterChange = onLocalWatchListFilterChange,
             compact = compact,
         )
         Row(
@@ -249,11 +256,13 @@ internal fun LibraryWorkspaceToolbar(
     favoriteFilter: LibraryFavoriteFilter,
     onToggleFavoriteFilter: () -> Unit,
     localWatchListFilter: LocalWatchListFilter,
-    onCycleLocalWatchListFilter: () -> Unit,
+    onLocalWatchListFilterChange: (LocalWatchListFilter) -> Unit,
     compact: Boolean,
 ) {
     @Composable
     fun ToolbarActions() {
+        var localWatchListMenuExpanded by remember { mutableStateOf(false) }
+
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             PlayerIconButton(
                 imageVector = Icons.Filled.FilterList,
@@ -275,12 +284,32 @@ internal fun LibraryWorkspaceToolbar(
                 active = selectedView == WindowsLibraryView.FAVORITES || favoriteFilter != LibraryFavoriteFilter.ANY,
                 onClick = onToggleFavoriteFilter,
             )
-            PlayerIconButton(
-                imageVector = Icons.Filled.CheckCircle,
-                contentDescription = localWatchListFilter.localizedLabel(strings),
-                active = localWatchListFilter != LocalWatchListFilter.ANY,
-                onClick = onCycleLocalWatchListFilter,
-            )
+            Box {
+                PlayerIconButton(
+                    imageVector = Icons.Filled.CheckCircle,
+                    contentDescription = localWatchListFilter.localizedLabel(strings),
+                    active = localWatchListFilter != LocalWatchListFilter.ANY,
+                    onClick = { localWatchListMenuExpanded = true },
+                )
+                DropdownMenu(
+                    expanded = localWatchListMenuExpanded,
+                    onDismissRequest = { localWatchListMenuExpanded = false },
+                ) {
+                    LocalWatchListFilter.entries.forEach { option ->
+                        DropdownMenuItem(
+                            onClick = {
+                                onLocalWatchListFilterChange(option)
+                                localWatchListMenuExpanded = false
+                            },
+                        ) {
+                            Text(
+                                option.localizedLabel(strings),
+                                fontWeight = if (option == localWatchListFilter) FontWeight.Bold else FontWeight.Normal,
+                            )
+                        }
+                    }
+                }
+            }
             PlayerIconButton(
                 imageVector = if (sort == LibraryCatalogSort.TITLE) Icons.Filled.GridView else Icons.AutoMirrored.Filled.ViewList,
                 contentDescription = if (sort == LibraryCatalogSort.TITLE) strings.sortByPathAction else strings.sortByTitleAction,

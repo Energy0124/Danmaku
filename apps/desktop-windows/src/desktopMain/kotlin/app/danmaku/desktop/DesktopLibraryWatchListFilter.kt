@@ -26,17 +26,6 @@ internal fun LocalWatchListFilter.localizedLabel(strings: DesktopStrings): Strin
         LocalWatchListFilter.UNTRACKED -> strings.untrackedWatchListStatusAction
     }
 
-internal fun LocalWatchListFilter.next(): LocalWatchListFilter =
-    when (this) {
-        LocalWatchListFilter.ANY -> LocalWatchListFilter.PLAN_TO_WATCH
-        LocalWatchListFilter.PLAN_TO_WATCH -> LocalWatchListFilter.WATCHING
-        LocalWatchListFilter.WATCHING -> LocalWatchListFilter.COMPLETED
-        LocalWatchListFilter.COMPLETED -> LocalWatchListFilter.ON_HOLD
-        LocalWatchListFilter.ON_HOLD -> LocalWatchListFilter.DROPPED
-        LocalWatchListFilter.DROPPED -> LocalWatchListFilter.UNTRACKED
-        LocalWatchListFilter.UNTRACKED -> LocalWatchListFilter.ANY
-    }
-
 internal fun LocalWatchListFilter.matches(entry: LocalAnimeListEntry?): Boolean =
     when (this) {
         LocalWatchListFilter.ANY -> true

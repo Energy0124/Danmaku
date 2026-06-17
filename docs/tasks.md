@@ -38,8 +38,8 @@ Status legend:
 - `[~]` Continue library UI polish where details, title clarity, poster states,
   watch-list browsing, and focus behavior affect everyday use. The desktop
   Library now has local watch-list persistence, inspector editing, summary
-  count chips, and a browse filter that cycles through local watch-list
-  statuses including untracked series.
+  count chips, and a direct browse filter menu for local watch-list statuses
+  including untracked series.
 - `[~]` Continue decomposing desktop `Main.kt` into focused shell, tab,
   settings, player, library, and shared UI modules while preserving behavior.
 - `[~]` Introduce a desktop shell state/action boundary so orchestration moves
