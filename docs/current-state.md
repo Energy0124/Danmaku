@@ -100,8 +100,9 @@ trusted-LAN clients.
 - Desktop local watch-list entries persist with status, score, and notes; the
   Library inspector can edit them, the Library toolbar has a direct status
   menu for browsing by local watch-list state including untracked series,
-  series cards show saved local watch-list status badges, and summary chips
-  expose the current saved watch-list count.
+  series cards show saved local watch-list status badges and expose a quick
+  status/clear menu, and summary chips expose the current saved watch-list
+  count.
 
 ### Android Mobile
 

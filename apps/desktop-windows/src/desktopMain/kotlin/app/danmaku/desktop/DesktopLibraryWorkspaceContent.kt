@@ -48,6 +48,7 @@ import app.danmaku.domain.LibrarySeriesWatchSummary
 import app.danmaku.domain.LibrarySubtitleFilter
 import app.danmaku.domain.LibraryWatchStatus
 import app.danmaku.domain.LocalAnimeListEntry
+import app.danmaku.domain.LocalAnimeListStatus
 import java.nio.file.Path
 
 @Composable
@@ -88,6 +89,8 @@ internal fun LibraryCenterWorkspace(
     onSelectSeries: (LibrarySeries) -> Unit,
     onShowDetails: (LibraryMediaItem) -> Unit,
     onSetFavorite: (LibraryMediaItem, Boolean) -> Unit,
+    onSaveLocalAnimeListEntry: (LibrarySeries, LocalAnimeListStatus, Int?, String?) -> Unit,
+    onDeleteLocalAnimeListEntry: (LibrarySeries) -> Unit,
     onRefreshEpisodeMetadata: (LibraryMediaItem) -> Unit,
     onRefreshSeriesMetadata: (LibrarySeries) -> Unit,
     onPrepareLocalPlayback: (LibraryMediaItem) -> Unit,
@@ -239,6 +242,8 @@ internal fun LibraryCenterWorkspace(
                 onResetFilters = onResetFilters,
                 onSelectSeries = onSelectSeries,
                 onShowDetails = onShowDetails,
+                onSaveLocalAnimeListEntry = onSaveLocalAnimeListEntry,
+                onDeleteLocalAnimeListEntry = onDeleteLocalAnimeListEntry,
                 onRefreshSeriesMetadata = onRefreshSeriesMetadata,
                 onPlayLocalPlayback = onPlayLocalPlayback,
             )

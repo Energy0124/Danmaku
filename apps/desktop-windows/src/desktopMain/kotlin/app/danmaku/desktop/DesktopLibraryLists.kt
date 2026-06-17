@@ -147,6 +147,7 @@ import app.danmaku.domain.LibrarySubtitleFilter
 import app.danmaku.domain.LibraryWatchState
 import app.danmaku.domain.LibraryWatchStatus
 import app.danmaku.domain.LocalAnimeListEntry
+import app.danmaku.domain.LocalAnimeListStatus
 import app.danmaku.domain.PlaybackCommand
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.domain.PlaybackSnapshot
@@ -212,6 +213,8 @@ internal fun AllSeriesView(
     onResetFilters: () -> Unit,
     onSelectSeries: (LibrarySeries) -> Unit,
     onShowDetails: (LibraryMediaItem) -> Unit,
+    onSaveLocalAnimeListEntry: (LibrarySeries, LocalAnimeListStatus, Int?, String?) -> Unit,
+    onDeleteLocalAnimeListEntry: (LibrarySeries) -> Unit,
     onRefreshSeriesMetadata: (LibrarySeries) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
 ) {
@@ -274,6 +277,10 @@ internal fun AllSeriesView(
                     isPreparing = isPreparing,
                     isRefreshingMetadata = librarySeries.id in refreshingMetadataSeriesIds,
                     onSelect = { onSelectSeries(librarySeries) },
+                    onSaveLocalAnimeListEntry = { status, score, notes ->
+                        onSaveLocalAnimeListEntry(librarySeries, status, score, notes)
+                    },
+                    onDeleteLocalAnimeListEntry = { onDeleteLocalAnimeListEntry(librarySeries) },
                     onRefreshMetadata = { onRefreshSeriesMetadata(librarySeries) },
                     onPlay = {
                         onPlayLocalPlayback(

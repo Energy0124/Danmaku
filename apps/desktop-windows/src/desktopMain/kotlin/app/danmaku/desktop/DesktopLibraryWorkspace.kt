@@ -426,6 +426,8 @@ internal fun WindowsLibraryWorkspace(
                 onSelectSeries = onSelectSeries,
                 onShowDetails = onShowDetails,
                 onSetFavorite = onSetFavorite,
+                onSaveLocalAnimeListEntry = onSaveLocalAnimeListEntry,
+                onDeleteLocalAnimeListEntry = onDeleteLocalAnimeListEntry,
                 onRefreshEpisodeMetadata = onRefreshEpisodeMetadata,
                 onRefreshSeriesMetadata = onRefreshSeriesMetadata,
                 onPrepareLocalPlayback = onPrepareLocalPlayback,

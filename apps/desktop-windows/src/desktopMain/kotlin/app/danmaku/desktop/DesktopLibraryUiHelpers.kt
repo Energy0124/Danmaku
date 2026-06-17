@@ -147,6 +147,7 @@ import app.danmaku.domain.LibrarySubtitleFilter
 import app.danmaku.domain.LibraryWatchState
 import app.danmaku.domain.LibraryWatchStatus
 import app.danmaku.domain.LocalAnimeListEntry
+import app.danmaku.domain.LocalAnimeListStatus
 import app.danmaku.domain.PlaybackCommand
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.domain.PlaybackSnapshot
@@ -404,9 +405,12 @@ internal fun SeriesPosterCard(
     isPreparing: Boolean,
     isRefreshingMetadata: Boolean,
     onSelect: () -> Unit,
+    onSaveLocalAnimeListEntry: (LocalAnimeListStatus, Int?, String?) -> Unit,
+    onDeleteLocalAnimeListEntry: () -> Unit,
     onRefreshMetadata: () -> Unit,
     onPlay: () -> Unit,
 ) {
+    var watchListMenuExpanded by remember(series.id) { mutableStateOf(false) }
     val metadataReadiness = series.metadataReadiness(
         strings = strings,
         isRefreshing = isRefreshingMetadata,
@@ -482,17 +486,58 @@ internal fun SeriesPosterCard(
             overflow = TextOverflow.Ellipsis,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Box(modifier = Modifier.weight(0.28f)) {
+                Button(
+                    onClick = { watchListMenuExpanded = true },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Icon(Icons.Filled.CheckCircle, contentDescription = strings.localWatchListTitle, modifier = Modifier.size(16.dp))
+                }
+                DropdownMenu(
+                    expanded = watchListMenuExpanded,
+                    onDismissRequest = { watchListMenuExpanded = false },
+                ) {
+                    LocalAnimeListStatus.entries.forEach { status ->
+                        DropdownMenuItem(
+                            onClick = {
+                                onSaveLocalAnimeListEntry(
+                                    status,
+                                    localAnimeListEntry?.score,
+                                    localAnimeListEntry?.notes,
+                                )
+                                watchListMenuExpanded = false
+                            },
+                        ) {
+                            Text(
+                                status.localizedLabel(strings),
+                                fontWeight = if (status == localAnimeListEntry?.status) FontWeight.Bold else FontWeight.Normal,
+                            )
+                        }
+                    }
+                    if (localAnimeListEntry != null) {
+                        Divider(color = DanmakuColors.SurfaceRaised)
+                        DropdownMenuItem(
+                            onClick = {
+                                onDeleteLocalAnimeListEntry()
+                                watchListMenuExpanded = false
+                            },
+                        ) {
+                            Text(strings.clearLocalWatchListAction)
+                        }
+                    }
+                }
+            }
             Button(
                 onClick = onRefreshMetadata,
                 enabled = !isPreparing && !isRefreshingMetadata,
-                modifier = Modifier.weight(0.46f),
+                modifier = Modifier.weight(0.28f),
             ) {
                 Icon(Icons.Filled.Refresh, contentDescription = strings.refreshSeriesMetadataAction, modifier = Modifier.size(16.dp))
             }
             LibraryActionButton(
                 imageVector = Icons.Filled.PlayArrow,
                 label = if (isPreparing) strings.loadingAction else strings.playAction,
-                modifier = Modifier.weight(0.54f),
+                modifier = Modifier.weight(0.44f),
                 enabled = !isPreparing,
                 onClick = onPlay,
             )
