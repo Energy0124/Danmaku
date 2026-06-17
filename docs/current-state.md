@@ -132,6 +132,9 @@ trusted-LAN clients.
 - Rust `rust-core` timeline/indexing foundation.
 - Windows scripts for pinned libmpv install, bundle verification, portable
   release preparation, mpv runtime verification, and GUI playback smoke tests.
+- Desktop app-level QA screenshot capture now raises the app window, waits for
+  focus to settle, and restores the previous always-on-top state so captures are
+  less likely to include unrelated foreground Windows apps.
 - Cloudflare Worker proxy for dandanplay match/comment requests without
   shipping a dandanplay AppSecret in public clients.
 - CI on Windows, Rust, Worker proxy, and macOS desktop build/test paths.
@@ -152,6 +155,9 @@ trusted-LAN clients.
   dandanplay auth-mode labels. A final full English/`zh-TW` screenshot pass was
   accepted after trimming the Kotlin fallback initializer down to the
   non-Compose error/default strings that still need direct access.
+- A focused English Library screenshot pass on 2026-06-17 validated the new
+  desktop series-card local watch-list quick actions after hardening app-window
+  focus during capture.
 - Android mobile/tablet layouts need final viewport QA on phone and tablet
   sizes.
 - Android TV layouts need 1080p and 4K safe-area/focus QA on real or emulated

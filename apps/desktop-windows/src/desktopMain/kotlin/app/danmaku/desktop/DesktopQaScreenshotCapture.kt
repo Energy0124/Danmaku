@@ -5,6 +5,7 @@ import java.awt.GraphicsEnvironment
 import java.awt.Rectangle
 import java.awt.Robot
 import java.awt.Window as AwtWindow
+import java.awt.image.BufferedImage
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
@@ -32,9 +33,18 @@ internal object DesktopQaScreenshotCapture {
         val imagePath = options.outputPath(language, selectedTab)
         Files.createDirectories(imagePath.parent)
 
-        val bounds = readWindowBounds(window)
-        val image = Robot().createScreenCapture(bounds)
-        ImageIO.write(image, "png", imagePath.toFile())
+        val wasAlwaysOnTop = prepareWindowForCapture(window)
+        val capture = try {
+            Thread.sleep(WINDOW_FOCUS_SETTLE_MS)
+            val bounds = readWindowBounds(window)
+            DesktopWindowCapture(
+                image = Robot().createScreenCapture(bounds),
+                bounds = bounds,
+            )
+        } finally {
+            restoreWindowAfterCapture(window, wasAlwaysOnTop)
+        }
+        ImageIO.write(capture.image, "png", imagePath.toFile())
 
         val manifestPath = options.outputDirectory.resolve("manifest.txt").toAbsolutePath().normalize()
         Files.createDirectories(manifestPath.parent)
@@ -45,7 +55,7 @@ internal object DesktopQaScreenshotCapture {
                 appendLine("Captured: ${Instant.now()}")
                 appendLine("Language: ${language.storageValue}")
                 appendLine("Tab: ${selectedTab.qaFileSegment()}")
-                appendLine("Window: ${bounds.width}x${bounds.height}")
+                appendLine("Window: ${capture.bounds.width}x${capture.bounds.height}")
                 appendLine("Screenshot: $imagePath")
                 appendLine()
             },
@@ -56,9 +66,35 @@ internal object DesktopQaScreenshotCapture {
         return DesktopQaScreenshotResult(
             imagePath = imagePath,
             manifestPath = manifestPath,
-            width = image.width,
-            height = image.height,
+            width = capture.image.width,
+            height = capture.image.height,
         )
+    }
+
+    private fun prepareWindowForCapture(window: AwtWindow): Boolean =
+        onAwtEventThread {
+            check(window.isDisplayable && window.isShowing) {
+                "Danmaku window is not displayable or showing yet."
+            }
+            val wasAlwaysOnTop = window.isAlwaysOnTop
+            runCatching {
+                window.isAlwaysOnTop = true
+            }
+            window.toFront()
+            window.requestFocus()
+            window.requestFocusInWindow()
+            window.repaint()
+            wasAlwaysOnTop
+        }
+
+    private fun restoreWindowAfterCapture(window: AwtWindow, wasAlwaysOnTop: Boolean) {
+        onAwtEventThread {
+            if (window.isDisplayable) {
+                runCatching {
+                    window.isAlwaysOnTop = wasAlwaysOnTop
+                }
+            }
+        }
     }
 
     private fun readWindowBounds(window: AwtWindow): Rectangle =
@@ -66,8 +102,6 @@ internal object DesktopQaScreenshotCapture {
             check(window.isDisplayable && window.isShowing) {
                 "Danmaku window is not displayable or showing yet."
             }
-            window.toFront()
-            window.requestFocus()
             val location = window.locationOnScreen
             val size = window.size
             check(size.width > 0 && size.height > 0) {
@@ -110,3 +144,10 @@ internal object DesktopQaScreenshotCapture {
     private fun DesktopShellTab.qaFileSegment(): String =
         name.lowercase().replace('_', '-')
 }
+
+private data class DesktopWindowCapture(
+    val image: BufferedImage,
+    val bounds: Rectangle,
+)
+
+private const val WINDOW_FOCUS_SETTLE_MS = 750L

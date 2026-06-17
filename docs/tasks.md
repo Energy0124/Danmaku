@@ -40,7 +40,9 @@ Status legend:
   Library now has local watch-list persistence, inspector editing, summary
   count chips, visible series-card status badges, a card-level quick status
   menu, and a direct browse filter menu for local watch-list statuses including
-  untracked series.
+  untracked series. A focused 2026-06-17 desktop Library screenshot pass
+  confirmed the card-level quick actions fit without overlap at the default QA
+  window size.
 - `[~]` Continue decomposing desktop `Main.kt` into focused shell, tab,
   settings, player, library, and shared UI modules while preserving behavior.
 - `[~]` Introduce a desktop shell state/action boundary so orchestration moves
@@ -160,6 +162,8 @@ Status legend:
   Tracking, and Settings. A full English/`zh-TW` desktop baseline pass was run
   on 2026-06-16, then `zh-TW` Home, Library, Tracking, and Settings were
   recaptured after fixing dynamic provider/status/watch-summary localization.
+  The app-level capture now raises the Danmaku window and restores the previous
+  always-on-top state after capture, reducing foreground-window contamination.
   Remaining: final accepted cross-language desktop review plus mobile/TV
   screenshots.
 - `[x]` P2: Finish English and `zh-TW` screenshot QA for desktop generated
