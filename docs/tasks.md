@@ -42,7 +42,8 @@ Status legend:
   menu, and a direct browse filter menu for local watch-list statuses including
   untracked series. A focused 2026-06-17 desktop Library screenshot pass
   confirmed the card-level quick actions fit without overlap at the default QA
-  window size.
+  window size, and the center summary chip strip now wraps instead of clipping
+  longer external-sync summaries.
 - `[~]` Continue decomposing desktop `Main.kt` into focused shell, tab,
   settings, player, library, and shared UI modules while preserving behavior.
 - `[~]` Introduce a desktop shell state/action boundary so orchestration moves
