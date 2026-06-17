@@ -130,6 +130,7 @@ import app.danmaku.domain.ExternalAnimeMappingSource
 import app.danmaku.domain.ExternalAnimeProvider
 import app.danmaku.domain.ExternalAnimeSyncFailure
 import app.danmaku.domain.ExternalAnimeTrackingPlan
+import app.danmaku.domain.ExternalAnimeTrackingPlanConflict
 import app.danmaku.domain.ExternalAnimeTrackingPlanUpdate
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryCatalogQuery
@@ -204,9 +205,11 @@ internal fun TrackingTab(
     externalAnimeSyncFailures: List<ExternalAnimeSyncFailure>,
     isExternalAnimeSyncing: Boolean,
     isExternalAnimeReadbackRefreshing: Boolean,
+    isExternalAnimeProgressImporting: Boolean,
     externalAnimeProviderSettings: ExternalAnimeProviderSettings,
     onSyncExternalAnimePlan: (ExternalAnimeTrackingPlan) -> Unit,
     onRefreshExternalAnimeReadback: (List<ExternalAnimeMapping>) -> Unit,
+    onApplyExternalAnimeProgressImport: (List<ExternalAnimeTrackingPlanConflict>) -> Unit,
     onOpenSettings: () -> Unit,
     onOpenLibrary: () -> Unit,
 ) {
@@ -308,9 +311,11 @@ internal fun TrackingTab(
                 selectedRow = selectedTrackingRow,
                 isSyncing = isExternalAnimeSyncing,
                 isReadbackRefreshing = isExternalAnimeReadbackRefreshing,
+                isProgressImporting = isExternalAnimeProgressImporting,
                 onSelectRow = { row -> selectedTrackingRowId = row.id },
                 onSync = onSyncExternalAnimePlan,
                 onRefreshReadback = onRefreshExternalAnimeReadback,
+                onApplyProgressImport = onApplyExternalAnimeProgressImport,
             )
         }
     }
@@ -339,7 +344,7 @@ internal data class TrackingTableRow(
     val statusColor: Color,
     val mapping: ExternalAnimeMapping?,
     val update: ExternalAnimeTrackingPlanUpdate? = null,
-    val conflict: app.danmaku.domain.ExternalAnimeTrackingPlanConflict? = null,
+    val conflict: ExternalAnimeTrackingPlanConflict? = null,
     val skip: app.danmaku.domain.ExternalAnimeTrackingPlanSkip? = null,
     val failure: ExternalAnimeSyncFailure? = null,
 )
@@ -468,9 +473,11 @@ internal fun TrackingWorkspace(
     selectedRow: TrackingTableRow?,
     isSyncing: Boolean,
     isReadbackRefreshing: Boolean,
+    isProgressImporting: Boolean,
     onSelectRow: (TrackingTableRow) -> Unit,
     onSync: (ExternalAnimeTrackingPlan) -> Unit,
     onRefreshReadback: (List<ExternalAnimeMapping>) -> Unit,
+    onApplyProgressImport: (List<ExternalAnimeTrackingPlanConflict>) -> Unit,
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         val compact = maxWidth < 1180.dp
@@ -483,17 +490,21 @@ internal fun TrackingWorkspace(
                     selectedRow = selectedRow,
                     isSyncing = isSyncing,
                     isReadbackRefreshing = isReadbackRefreshing,
+                    isProgressImporting = isProgressImporting,
                     onSelectRow = onSelectRow,
                     onSync = onSync,
                     onRefreshReadback = onRefreshReadback,
+                    onApplyProgressImport = onApplyProgressImport,
                 )
                 TrackingInspectorPanel(
                     strings = strings,
                     selectedRow = selectedRow,
                     isSyncing = isSyncing,
                     isReadbackRefreshing = isReadbackRefreshing,
+                    isProgressImporting = isProgressImporting,
                     onSync = onSync,
                     onRefreshReadback = onRefreshReadback,
+                    onApplyProgressImport = onApplyProgressImport,
                 )
                 ExternalSyncPreviewView(strings = strings, plan = plan, isSyncing = isSyncing, onSync = onSync)
             }
@@ -510,9 +521,11 @@ internal fun TrackingWorkspace(
                         selectedRow = selectedRow,
                         isSyncing = isSyncing,
                         isReadbackRefreshing = isReadbackRefreshing,
+                        isProgressImporting = isProgressImporting,
                         onSelectRow = onSelectRow,
                         onSync = onSync,
                         onRefreshReadback = onRefreshReadback,
+                        onApplyProgressImport = onApplyProgressImport,
                     )
                     ExternalSyncPreviewView(strings = strings, plan = plan, isSyncing = isSyncing, onSync = onSync)
                 }
@@ -521,8 +534,10 @@ internal fun TrackingWorkspace(
                     selectedRow = selectedRow,
                     isSyncing = isSyncing,
                     isReadbackRefreshing = isReadbackRefreshing,
+                    isProgressImporting = isProgressImporting,
                     onSync = onSync,
                     onRefreshReadback = onRefreshReadback,
+                    onApplyProgressImport = onApplyProgressImport,
                     modifier = Modifier.width(380.dp),
                 )
             }
@@ -538,9 +553,11 @@ internal fun TrackingTablePanel(
     selectedRow: TrackingTableRow?,
     isSyncing: Boolean,
     isReadbackRefreshing: Boolean,
+    isProgressImporting: Boolean,
     onSelectRow: (TrackingTableRow) -> Unit,
     onSync: (ExternalAnimeTrackingPlan) -> Unit,
     onRefreshReadback: (List<ExternalAnimeMapping>) -> Unit,
+    onApplyProgressImport: (List<ExternalAnimeTrackingPlanConflict>) -> Unit,
 ) {
     SectionCard(strings.trackingTableTitle) {
         Row(
@@ -550,7 +567,10 @@ internal fun TrackingTablePanel(
         ) {
             Text(strings.trackingTableDescription, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             Button(
-                enabled = plan?.updates?.isNotEmpty() == true && !isSyncing && !isReadbackRefreshing,
+                enabled = plan?.updates?.isNotEmpty() == true &&
+                    !isSyncing &&
+                    !isReadbackRefreshing &&
+                    !isProgressImporting,
                 onClick = { plan?.let(onSync) },
             ) {
                 Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -558,7 +578,11 @@ internal fun TrackingTablePanel(
                 Text(if (isSyncing) strings.syncingAction else strings.syncAllReadyAction)
             }
             Button(
-                enabled = plan != null && rows.any { it.mapping != null } && !isSyncing && !isReadbackRefreshing,
+                enabled = plan != null &&
+                    rows.any { it.mapping != null } &&
+                    !isSyncing &&
+                    !isReadbackRefreshing &&
+                    !isProgressImporting,
                 onClick = {
                     rows
                         .mapNotNull(TrackingTableRow::mapping)
@@ -646,8 +670,10 @@ internal fun TrackingInspectorPanel(
     selectedRow: TrackingTableRow?,
     isSyncing: Boolean,
     isReadbackRefreshing: Boolean,
+    isProgressImporting: Boolean,
     onSync: (ExternalAnimeTrackingPlan) -> Unit,
     onRefreshReadback: (List<ExternalAnimeMapping>) -> Unit,
+    onApplyProgressImport: (List<ExternalAnimeTrackingPlanConflict>) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     SectionCard(strings.mappingInspectorTitle, modifier = modifier) {
@@ -677,7 +703,10 @@ internal fun TrackingInspectorPanel(
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
-                enabled = selectedRow.update != null && !isSyncing && !isReadbackRefreshing,
+                enabled = selectedRow.update != null &&
+                    !isSyncing &&
+                    !isReadbackRefreshing &&
+                    !isProgressImporting,
                 onClick = {
                     selectedRow.update?.let { update ->
                         onSync(
@@ -694,7 +723,10 @@ internal fun TrackingInspectorPanel(
                 Text(if (isSyncing) strings.syncingAction else strings.syncSelectedAction)
             }
             Button(
-                enabled = selectedRow.mapping != null && !isSyncing && !isReadbackRefreshing,
+                enabled = selectedRow.mapping != null &&
+                    !isSyncing &&
+                    !isReadbackRefreshing &&
+                    !isProgressImporting,
                 onClick = {
                     selectedRow.mapping?.let { mapping ->
                         onRefreshReadback(listOf(mapping))
@@ -710,7 +742,17 @@ internal fun TrackingInspectorPanel(
             Button(enabled = false, onClick = {}) {
                 Text(strings.removeMappingAction)
             }
-            Button(enabled = false, onClick = {}) {
+            Button(
+                enabled = selectedRow.conflict != null &&
+                    !isSyncing &&
+                    !isReadbackRefreshing &&
+                    !isProgressImporting,
+                onClick = {
+                    selectedRow.conflict?.let { conflict ->
+                        onApplyProgressImport(listOf(conflict))
+                    }
+                },
+            ) {
                 Text(strings.resolveConflictAction)
             }
         }

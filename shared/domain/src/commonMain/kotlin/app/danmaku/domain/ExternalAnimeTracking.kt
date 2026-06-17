@@ -205,6 +205,20 @@ data class ExternalAnimeSyncFailure(
     }
 }
 
+data class ExternalAnimeLocalProgressImport(
+    val series: LibrarySeries,
+    val mapping: ExternalAnimeMapping,
+    val externalEntry: ExternalAnimeListEntry,
+    val localWatchedEpisodes: Int,
+    val externalWatchedEpisodes: Int,
+    val progressUpdates: List<PlaybackProgress>,
+) {
+    init {
+        require(localWatchedEpisodes >= 0) { "localWatchedEpisodes must not be negative" }
+        require(externalWatchedEpisodes >= 0) { "externalWatchedEpisodes must not be negative" }
+    }
+}
+
 data class ExternalAnimeTrackingPlanSummary(
     val updateCount: Int,
     val skippedCount: Int,
@@ -378,6 +392,58 @@ fun externalAnimeSyncRetryAfterEpochMs(
     val multiplier = 1L shl (attemptCount - 1).coerceAtMost(30)
     val delay = (baseDelayMs * multiplier).coerceAtMost(maxDelayMs)
     return failedAtEpochMs + delay
+}
+
+fun ExternalAnimeTrackingPlanConflict.toLocalProgressImport(
+    progresses: List<PlaybackProgress>,
+    updatedAtEpochMs: Long,
+    importedWatchedDurationMs: Long = 60_000,
+    watchedRemainingMs: Long = 30_000,
+): ExternalAnimeLocalProgressImport? {
+    require(updatedAtEpochMs >= 0) { "updatedAtEpochMs must not be negative" }
+    require(importedWatchedDurationMs > 0) { "importedWatchedDurationMs must be positive" }
+    require(watchedRemainingMs >= 0) { "watchedRemainingMs must not be negative" }
+    val externalWatchedEpisodes = externalEntry.watchedEpisodes
+        ?.coerceIn(0, series.episodeCount)
+        ?: return null
+    val localWatchedEpisodes = localUpdate.watchedEpisodes ?: 0
+    if (externalWatchedEpisodes <= localWatchedEpisodes) {
+        return null
+    }
+    val progressByMediaId = progresses.latestByMediaId()
+    val updates = series.seasons
+        .flatMap(LibrarySeason::items)
+        .take(externalWatchedEpisodes)
+        .filter { item ->
+            item.watchStatus(
+                progress = progressByMediaId[item.id],
+                watchedRemainingMs = watchedRemainingMs,
+            ).state != LibraryWatchState.WATCHED
+        }
+        .map { item ->
+            val existingProgress = progressByMediaId[item.id]
+            val durationMs = existingProgress
+                ?.durationMs
+                ?.takeIf { it > 0 }
+                ?: importedWatchedDurationMs
+            PlaybackProgress(
+                mediaId = item.id,
+                positionMs = durationMs,
+                durationMs = durationMs,
+                updatedAtEpochMs = updatedAtEpochMs,
+            )
+        }
+    if (updates.isEmpty()) {
+        return null
+    }
+    return ExternalAnimeLocalProgressImport(
+        series = series,
+        mapping = mapping,
+        externalEntry = externalEntry,
+        localWatchedEpisodes = localWatchedEpisodes,
+        externalWatchedEpisodes = externalWatchedEpisodes,
+        progressUpdates = updates,
+    )
 }
 
 fun LibrarySeries.externalAnimeTrackingUpdate(

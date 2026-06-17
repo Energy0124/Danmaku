@@ -39,6 +39,7 @@ internal class DesktopShellLibraryState(
     var externalAnimeListEntries by mutableStateOf(catalogStore.loadExternalAnimeListEntries())
     var isExternalAnimeSyncing by mutableStateOf(false)
     var isExternalAnimeReadbackRefreshing by mutableStateOf(false)
+    var isExternalAnimeProgressImporting by mutableStateOf(false)
 }
 
 @Composable

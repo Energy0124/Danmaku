@@ -9,12 +9,14 @@ import app.danmaku.domain.ExternalAnimeMatchQuery
 import app.danmaku.domain.ExternalAnimeProvider
 import app.danmaku.domain.ExternalAnimeSyncFailure
 import app.danmaku.domain.ExternalAnimeTrackingPlan
+import app.danmaku.domain.ExternalAnimeTrackingPlanConflict
 import app.danmaku.domain.ExternalAnimeTrackingPlanUpdate
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySeries
 import app.danmaku.domain.displayName
 import app.danmaku.domain.externalAnimeSyncRetryAfterEpochMs
 import app.danmaku.domain.groupedSeries
+import app.danmaku.domain.toLocalProgressImport
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -223,6 +225,41 @@ internal class DesktopShellLibraryActions(
                 )
             } finally {
                 libraryState.isExternalAnimeReadbackRefreshing = false
+            }
+        }
+    }
+
+    fun applyExternalAnimeProgressImport(conflicts: List<ExternalAnimeTrackingPlanConflict>) {
+        if (libraryState.isExternalAnimeProgressImporting || conflicts.isEmpty()) {
+            return
+        }
+        libraryState.isExternalAnimeProgressImporting = true
+        scope.launch {
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    val updatedAtEpochMs = System.currentTimeMillis()
+                    val imports = conflicts.mapNotNull { conflict ->
+                        conflict.toLocalProgressImport(
+                            progresses = libraryState.playbackProgresses,
+                            updatedAtEpochMs = updatedAtEpochMs,
+                        )
+                    }
+                    val progressUpdates = imports.flatMap { it.progressUpdates }
+                    progressUpdates.forEach(catalogStore::saveProgress)
+                    ExternalAnimeProgressImportResult(
+                        importCount = imports.size,
+                        progressUpdateCount = progressUpdates.size,
+                        playbackProgresses = catalogStore.loadPlaybackProgress(),
+                    )
+                }
+                libraryState.playbackProgresses = result.playbackProgresses
+                appendDiagnostic(
+                    "external-sync",
+                    "Imported provider progress for ${result.progressUpdateCount} local episode(s) " +
+                        "from ${result.importCount} external conflict(s)",
+                )
+            } finally {
+                libraryState.isExternalAnimeProgressImporting = false
             }
         }
     }
@@ -669,4 +706,10 @@ internal class DesktopShellLibraryActions(
         data class Written(val entry: ExternalAnimeListEntry) : ExternalAnimeSyncWriteResult
         data class Conflict(val entry: ExternalAnimeListEntry) : ExternalAnimeSyncWriteResult
     }
+
+    private data class ExternalAnimeProgressImportResult(
+        val importCount: Int,
+        val progressUpdateCount: Int,
+        val playbackProgresses: List<app.danmaku.domain.PlaybackProgress>,
+    )
 }

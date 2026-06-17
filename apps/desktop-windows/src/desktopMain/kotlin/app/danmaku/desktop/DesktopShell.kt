@@ -843,9 +843,11 @@ internal fun DesktopShell(
                             externalAnimeSyncFailures = libraryState.externalAnimeSyncFailures,
                             isExternalAnimeSyncing = libraryState.isExternalAnimeSyncing,
                             isExternalAnimeReadbackRefreshing = libraryState.isExternalAnimeReadbackRefreshing,
+                            isExternalAnimeProgressImporting = libraryState.isExternalAnimeProgressImporting,
                             externalAnimeProviderSettings = settingsState.externalAnimeProviderSettings,
                             onSyncExternalAnimePlan = libraryActions::syncExternalAnimePlan,
                             onRefreshExternalAnimeReadback = libraryActions::refreshExternalAnimeReadback,
+                            onApplyExternalAnimeProgressImport = libraryActions::applyExternalAnimeProgressImport,
                             onOpenSettings = { navigationState.selectedTab = DesktopShellTab.PROFILE },
                             onOpenLibrary = { navigationState.selectedTab = DesktopShellTab.MEDIA_LIBRARY },
                         )

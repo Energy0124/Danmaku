@@ -272,6 +272,78 @@ class ExternalAnimeTrackingTest {
     }
 
     @Test
+    fun convertsExternalProgressConflictIntoLocalWatchedProgressImport() {
+        val catalog = libraryCatalog(librarySeries())
+        val mapping = externalMapping("frieren", ExternalAnimeProvider.MY_ANIME_LIST, 52991)
+        val progresses = listOf(
+            playbackProgress("episode-1", positionMs = 20_000, durationMs = 1_500_000),
+            playbackProgress("episode-2", positionMs = 20_000, durationMs = 1_500_000),
+        )
+        val plan = catalog.externalAnimeTrackingPlan(
+            mappings = listOf(mapping),
+            progresses = progresses,
+            externalEntries = listOf(
+                ExternalAnimeListEntry(
+                    animeId = mapping.animeId,
+                    status = ExternalAnimeListStatus.COMPLETED,
+                    watchedEpisodes = 2,
+                ),
+            ),
+        )
+
+        val import = plan.conflicts.single().toLocalProgressImport(
+            progresses = progresses,
+            updatedAtEpochMs = 999,
+        )
+
+        requireNotNull(import)
+        assertEquals(0, import.localWatchedEpisodes)
+        assertEquals(2, import.externalWatchedEpisodes)
+        assertEquals(
+            listOf(
+                PlaybackProgress("episode-1", 1_500_000, 1_500_000, 999),
+                PlaybackProgress("episode-2", 1_500_000, 1_500_000, 999),
+            ),
+            import.progressUpdates,
+        )
+        val statuses = catalog.watchStatusByMediaId(progresses + import.progressUpdates)
+        assertEquals(LibraryWatchState.WATCHED, statuses.getValue("episode-1").state)
+        assertEquals(LibraryWatchState.WATCHED, statuses.getValue("episode-2").state)
+    }
+
+    @Test
+    fun localProgressImportSkipsAlreadyWatchedEpisodesAndUsesSyntheticDurationWhenMissing() {
+        val catalog = libraryCatalog(librarySeries())
+        val mapping = externalMapping("frieren", ExternalAnimeProvider.BANGUMI, 400602)
+        val progresses = listOf(
+            playbackProgress("episode-1", positionMs = 1_500_000, durationMs = 1_500_000),
+            PlaybackProgress("episode-2", positionMs = 20_000, durationMs = null, updatedAtEpochMs = 123),
+        )
+        val plan = catalog.externalAnimeTrackingPlan(
+            mappings = listOf(mapping),
+            progresses = progresses,
+            externalEntries = listOf(
+                ExternalAnimeListEntry(
+                    animeId = mapping.animeId,
+                    status = ExternalAnimeListStatus.COMPLETED,
+                    watchedEpisodes = 2,
+                ),
+            ),
+        )
+
+        val import = plan.conflicts.single().toLocalProgressImport(
+            progresses = progresses,
+            updatedAtEpochMs = 999,
+        )
+
+        requireNotNull(import)
+        assertEquals(
+            listOf(PlaybackProgress("episode-2", 60_000, 60_000, 999)),
+            import.progressUpdates,
+        )
+    }
+
+    @Test
     fun externalTrackingPlanKeepsFailuresForSelectedProviders() {
         val catalog = libraryCatalog(librarySeries())
         val malFailure = ExternalAnimeSyncFailure(

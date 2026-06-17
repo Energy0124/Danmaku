@@ -283,8 +283,9 @@ Status legend:
   - Tracking now has selectable rows for conflicts, ready updates, failures,
     and skipped mappings, plus an inspector showing provider IDs, URLs, local
     series IDs, local/provider progress, confidence, status, scoped sync for
-    ready rows, and provider readback refresh; mapping removal and conflict
-    resolution remain planned controls.
+    ready rows, provider readback refresh, and conflict resolution that imports
+    provider watched counts into local progress; mapping removal remains a
+    planned control.
   - Tracking page chrome now has English / `zh-TW` strings for provider cards,
     summary cards, table headers/actions, generated app-owned row labels,
     inspector labels, and planned disabled controls while provider/anime values
@@ -384,7 +385,8 @@ Status legend:
 - `[~]` Add tests for tracking readback/plan/conflict/retry behavior. MAL and
   Bangumi provider readback parsing/header coverage exists, and catalog-store
   persistence/relaunch coverage now protects imported entries and sync
-  failures. Action-level readback tests remain.
+  failures. Domain coverage now protects local progress import from provider
+  conflicts; action-level readback tests remain.
 - `[ ]` Add tests for cache-state persistence and episode selection readback.
 - `[x]` Run `:apps:desktop-windows:compileKotlinDesktop` after UI wiring.
 - `[x]` Run `:apps:desktop-windows:desktopTest` after behavior changes.

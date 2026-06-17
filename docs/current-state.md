@@ -95,7 +95,8 @@ trusted-LAN clients.
   provider readback/write clients, External Sync preview, and explicit sync
   action with pre-write external-progress conflict checks. Imported provider
   list entries and sync failures persist in the desktop catalog database across
-  relaunch.
+  relaunch, and provider-ahead conflicts can seed local watched progress from
+  the Tracking inspector.
 
 ### Android Mobile
 
@@ -238,8 +239,8 @@ trusted-LAN clients.
   mapping/sync, and danmaku basics. Missing high-value viewer workflows include
   watch status lists, seasonal/release-calendar views, OP/ED or recap skip
   markers, per-series subtitle/audio preferences, richer danmaku filtering and
-  blocklists, duplicate/missing-episode library cleanup, external list-driven
-  local status seeding, and custom collections/tags.
+  blocklists, duplicate/missing-episode library cleanup, richer external
+  list-driven status/score workflows, and custom collections/tags.
 
 ## Not Implemented
 
