@@ -183,7 +183,8 @@ Status legend:
 - `[x]` Move the desktop library workspace and shared library row/card
   composables out of `Main.kt`; library UI is now split into tab, workspace,
   lists, inspector, and helper files. External-sync preview rows are also split
-  into `DesktopLibraryExternalSyncPreview.kt`.
+  into `DesktopLibraryExternalSyncPreview.kt`, and metadata match dialog/candidate
+  rendering is split into `DesktopLibraryMetadataMatchDialog.kt`.
 - `[x]` Move desktop settings, server dashboard, and cache-management surfaces
   out of `Main.kt`; settings UI is now split into tab, danmaku, dialogs, and
   provider-card files.
@@ -248,7 +249,7 @@ Full review date: 2026-06-15.
   non-Compose fallback set after the final accepted cross-language screenshot
   review proved the XML resources.
 - `[ ]` P2: Desktop code is much healthier than the original monolith, but
-  `DesktopShell.kt`, desktop catalog-store operations, Library mapping/details,
+  `DesktopShell.kt`, desktop catalog-store operations, Library details,
   Settings, Playback, and string-resource adapter files remain review-heavy.
 - `[ ]` P2: Mobile/TV unit-test tasks are sparse or `NO-SOURCE` in places;
   keep adding JVM/unit-level coverage for presentation/state logic as it is
