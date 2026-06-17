@@ -53,8 +53,10 @@ trusted-LAN clients.
   scan/import/remove, published-library application, poster/metadata refresh,
   favorites, external mapping/search, and tracking sync actions are in a
   library action object. Persisted download queue refresh/removal and output
-  folder opening are in a download action object. `DesktopShell.kt` remains
-  the main orchestration hotspot for shell/window effects and tab assembly,
+  folder opening are in a download action object. Window/fullscreen lifecycle
+  and mpv OSC fullscreen sync are now owned by `DesktopShellWindowState.kt`,
+  while QA screenshot launch handling is owned by `DesktopShellQaEffects.kt`.
+  `DesktopShell.kt` remains the main orchestration hotspot for tab assembly,
   but it is now below the planned 1,000-line threshold. Desktop localization
   strings are initialized through a small DSL-backed holder instead of a giant
   constructor, avoiding JVM method-signature limits as English/`zh-TW` coverage
@@ -142,10 +144,11 @@ trusted-LAN clients.
   composition and release packaging are not first-class yet.
 - Download queue storage exists; a full authorized download engine is not
   implemented.
-- The desktop shell still has orchestration blocks for shell/window effects
-  and tab assembly; ongoing refactoring is moving them behind typed action
-  boundaries without changing behavior. The immediate file-size target is met,
-  so remaining work should be driven by coupling and testability.
+- The desktop shell still has orchestration blocks for tab assembly; ongoing
+  refactoring is moving them behind typed action/state boundaries without
+  changing behavior. Window/fullscreen lifecycle and QA screenshot launch
+  handling are now extracted. The immediate file-size target is met, so
+  remaining work should be driven by coupling and testability.
 - A 2026-06-15 full review found no local build/test blocker across Rust,
   Gradle, and Worker proxy checks. Expected user-facing failure paths are being
   moved out of crash-style control flow: LAN discovery/client HTTP failures,

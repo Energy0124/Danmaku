@@ -55,9 +55,12 @@ Status legend:
 - `[~]` Reduce shell/lifecycle/window wiring in `DesktopShell.kt`; UI
   files, state holders, settings actions, playback actions, local
   playback/danmaku actions, library actions, and download actions are now
-  split, playback command callbacks are delegated, and stale monolith imports
-  have been trimmed. `DesktopShell.kt` is now below the 1,000-line milestone;
-  remaining work is about coupling, not only file length.
+  split, playback command callbacks are delegated, window/fullscreen lifecycle
+  and mpv OSC fullscreen sync now live in `DesktopShellWindowState.kt`, QA
+  screenshot launch handling lives in `DesktopShellQaEffects.kt`, and stale
+  monolith imports have been trimmed. `DesktopShell.kt` is now below the
+  1,000-line milestone; remaining work is about tab assembly coupling, not
+  only file length.
 
 ## Next Engineering Work
 
@@ -162,10 +165,12 @@ Status legend:
 - `[ ]` P2: After cross-platform localization QA passes, audit residual
   hardcoded mobile/TV/desktop literals and move user-visible copy into the
   platform resource layers.
-- `[ ]` P2: Continue reducing desktop orchestration hotspots by extracting
-  shell lifecycle/window effects, catalog-store persistence helpers, Home tab
-  presentation, and remaining large library/settings/playback surfaces where
-  it improves testability.
+- `[~]` P2: Continue reducing desktop orchestration hotspots by extracting
+  catalog-store persistence helpers, tab assembly/presentation handoff, Home
+  tab presentation, and remaining large library/settings/playback surfaces
+  where it improves testability. Window/fullscreen lifecycle has moved behind
+  `DesktopShellWindowState.kt`, and QA screenshot launch handling has moved
+  behind `DesktopShellQaEffects.kt`.
 - `[ ]` Add release checklist automation for Android APKs and Windows portable
   archives.
 - `[x]` Move the remaining desktop player surface out of `Main.kt`; playback

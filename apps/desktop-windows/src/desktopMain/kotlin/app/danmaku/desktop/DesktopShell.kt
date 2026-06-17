@@ -31,7 +31,6 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
-import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowState
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
@@ -48,11 +47,8 @@ import app.danmaku.library.jvm.JvmLanLibraryClient
 import app.danmaku.server.LocalLibraryDiscoveryAnnouncer
 import app.danmaku.server.LocalLibraryServerEvent
 import app.danmaku.server.PublicGetHookResponse
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.awt.Rectangle
 import java.awt.Window as AwtWindow
 import java.nio.file.Files
 import java.nio.file.Path
@@ -260,67 +256,14 @@ internal fun DesktopShell(
     val legacySelectedLibraryRoot = remember { selectionStore.load() }
     val libraryState = rememberDesktopShellLibraryState(rootRegistry, catalogStore, legacySelectedLibraryRoot)
     var playbackSnapshot by remember(playbackController) { mutableStateOf(playbackController.snapshot()) }
-    val isFullscreen = windowState.placement == WindowPlacement.Fullscreen
-    var floatingWindowBounds by remember { mutableStateOf(Rectangle(awtWindow.bounds)) }
-    var pendingFloatingWindowRestore by remember { mutableStateOf(false) }
-    LaunchedEffect(isFullscreen, pendingFloatingWindowRestore) {
-        if (!isFullscreen && pendingFloatingWindowRestore) {
-            delay(150)
-            awtWindow.bounds = awtWindow.scaledRestoreBounds(floatingWindowBounds)
-            awtWindow.validate()
-            delay(150)
-            awtWindow.bounds = awtWindow.scaledRestoreBounds(floatingWindowBounds)
-            awtWindow.validate()
-            pendingFloatingWindowRestore = false
-        }
-    }
-    fun setWindowFullscreen(enabled: Boolean, source: String) {
-        appendDiagnostic("playback", "$source set window fullscreen ${if (enabled) "on" else "off"}")
-        if (enabled) {
-            pendingFloatingWindowRestore = false
-            floatingWindowBounds = Rectangle(awtWindow.bounds)
-            windowState.placement = WindowPlacement.Fullscreen
-        } else {
-            windowState.placement = WindowPlacement.Floating
-            pendingFloatingWindowRestore = true
-        }
-    }
-    LaunchedEffect(mpvRuntime, hostPlatform, isFullscreen) {
-        if (hostPlatform != DesktopHostPlatform.WINDOWS) {
-            return@LaunchedEffect
-        }
-        runCatching {
-            mpvRuntime.executor.execute(
-                DesktopMpvCommand(
-                    listOf(
-                        "script-binding",
-                        if (isFullscreen) {
-                            MPV_OSC_APP_FULLSCREEN_ON_BINDING
-                        } else {
-                            MPV_OSC_APP_FULLSCREEN_OFF_BINDING
-                        },
-                    ),
-                ),
-            )
-        }.onFailure { error ->
-            appendDiagnostic("mpv", "Custom OSC fullscreen state sync failed: ${error.message ?: error::class.simpleName}")
-        }
-    }
-    LaunchedEffect(mpvRuntime, hostPlatform, isFullscreen) {
-        if (hostPlatform != DesktopHostPlatform.WINDOWS) {
-            return@LaunchedEffect
-        }
-        val reader = mpvRuntime.propertyReader ?: return@LaunchedEffect
-        var lastRequest = reader.readProperty(MPV_OSC_FULLSCREEN_REQUEST_PROPERTY)
-        while (true) {
-            delay(200)
-            val nextRequest = reader.readProperty(MPV_OSC_FULLSCREEN_REQUEST_PROPERTY)
-            if (!nextRequest.isNullOrBlank() && nextRequest != lastRequest) {
-                lastRequest = nextRequest
-                setWindowFullscreen(!isFullscreen, "mpv OSC")
-            }
-        }
-    }
+    val desktopWindowState = rememberDesktopShellWindowState(
+        awtWindow = awtWindow,
+        windowState = windowState,
+        hostPlatform = hostPlatform,
+        mpvRuntime = mpvRuntime,
+        appendDiagnostic = ::appendDiagnostic,
+    )
+    val isFullscreen = desktopWindowState.isFullscreen
     var videoAspectMode by remember(playbackController) { mutableStateOf(playbackController.videoAspectMode) }
     val displayIndexedLibrary = remember(libraryState.indexedLibrary, libraryState.libraryMetadataVersion, animeMetadataResolver) {
         libraryState.indexedLibrary?.withExternalAnimeMetadata(animeMetadataResolver)
@@ -627,40 +570,13 @@ internal fun DesktopShell(
         playbackActions.queueSmokePlayback(smokePlayback)
     }
 
-    LaunchedEffect(launchOptions.qaScreenshot) {
-        val qaScreenshot = launchOptions.qaScreenshot ?: return@LaunchedEffect
-        appendDiagnostic(
-            "qa",
-            "Waiting ${qaScreenshot.delay.inWholeSeconds}s before desktop screenshot capture",
-        )
-        delay(qaScreenshot.delay)
-        runCatching {
-            withContext(Dispatchers.IO) {
-                DesktopQaScreenshotCapture.capture(
-                    window = awtWindow,
-                    options = qaScreenshot,
-                    language = navigationState.desktopLanguage,
-                    selectedTab = navigationState.selectedTab,
-                )
-            }
-        }.onSuccess { result ->
-            appendDiagnostic(
-                "qa",
-                "Captured desktop screenshot ${result.width}x${result.height}: ${result.imagePath}",
-            )
-            if (qaScreenshot.autoExit) {
-                onRequestExit()
-            }
-        }.onFailure { error ->
-            appendDiagnostic(
-                "qa",
-                "Desktop screenshot capture failed: ${error.message ?: error::class.simpleName}",
-            )
-            if (qaScreenshot.autoExit) {
-                onRequestExit()
-            }
-        }
-    }
+    DesktopShellQaScreenshotEffect(
+        awtWindow = awtWindow,
+        launchOptions = launchOptions,
+        navigationState = navigationState,
+        onRequestExit = onRequestExit,
+        appendDiagnostic = ::appendDiagnostic,
+    )
 
     LaunchedEffect(navigationState.selectedTab, nativeVideoHostReady, playbackState.pendingPlaybackRequest, playbackSession) {
         val request = playbackState.pendingPlaybackRequest ?: return@LaunchedEffect
@@ -871,7 +787,7 @@ internal fun DesktopShell(
                             onSelectSubtitleTrack = playbackActions::selectSubtitleTrack,
                             isFullscreen = isFullscreen,
                             videoAspectMode = videoAspectMode,
-                            onSetFullscreen = { enabled -> setWindowFullscreen(enabled, "playback") },
+                            onSetFullscreen = { enabled -> desktopWindowState.setFullscreen(enabled, "playback") },
                             onSetVideoAspectMode = playbackActions::setVideoAspectMode,
                             onSaveDanmakuSettings = settingsActions::saveDanmakuSettings,
                             onShowHome = { navigationState.selectedTab = DesktopShellTab.HOME },
