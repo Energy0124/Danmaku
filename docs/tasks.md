@@ -108,9 +108,10 @@ Status legend:
   series, and status rails now live in `TvHomeRailComponents.kt`. PC connection
   route UI, text input, and saved-PC cards now live in
   `TvPcConnectionPanel.kt`. Library navigation and empty-state panels now live
-  in `TvLibraryPanels.kt`. Library route state and selection composition now
-  lives in `TvLibraryScreen.kt`, while derived catalog/filter/progress view
-  state now lives in `TvLibraryViewState.kt`; header/search/filter controls and
+  in `TvLibraryPanels.kt`. Library route composition now lives in
+  `TvLibraryScreen.kt`, mutable filter/selection controls now live in
+  `TvLibraryControlsState.kt`, and derived catalog/filter/progress view state
+  now lives in `TvLibraryViewState.kt`; header/search/filter controls and
   series picker rendering now live in `TvLibraryFilterComponents.kt`. Library
   poster rendering now lives in `TvLibraryPosterComponents.kt`; episode list
   rows now live in `TvEpisodeRowComponents.kt`; episode/series detail panels
@@ -210,8 +211,9 @@ Full review date: 2026-06-15.
   `TvPlayerPanel.kt`, shell chrome in `TvShellUi.kt`, Home route composition
   in `TvHomePanel.kt`, and Home-only rails in `TvHomeRailComponents.kt`, plus
   PC connection UI in `TvPcConnectionPanel.kt` and library navigation/empty
-  states in `TvLibraryPanels.kt`; Library route state and selection composition
-  now lives in `TvLibraryScreen.kt`, derived catalog view state in
+  states in `TvLibraryPanels.kt`; Library route composition now lives in
+  `TvLibraryScreen.kt`, mutable filter/selection controls in
+  `TvLibraryControlsState.kt`, derived catalog view state in
   `TvLibraryViewState.kt`, filter controls in `TvLibraryFilterComponents.kt`,
   poster rendering in `TvLibraryPosterComponents.kt`, episode list rows in
   `TvEpisodeRowComponents.kt`, episode/series detail in

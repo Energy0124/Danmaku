@@ -20,6 +20,7 @@ import app.danmaku.domain.LibrarySubtitleTrack
 import app.danmaku.domain.LibrarySubtitleFilter
 import app.danmaku.domain.LibraryWatchState
 import app.danmaku.domain.PlaybackProgress
+import app.danmaku.domain.groupedSeries
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -408,6 +409,43 @@ class TvLibraryItemsTest {
         assertEquals("example-1", viewState.recentlyWatchedItems.single().mediaItem.id)
         assertEquals(LibraryWatchState.WATCHED, viewState.watchStatusById.getValue("example-1").state)
         assertEquals(true, viewState.hasActiveFilters)
+    }
+
+    @Test
+    fun libraryControlsStateOwnsFilterAndSelectionTransitions() {
+        val controls = TvLibraryControlsState(LibraryFavoriteFilter.FAVORITES_ONLY)
+        val series = seededCatalog().groupedSeries().first { it.title == "Example Show" }
+        val episode = seededCatalog().items.first { it.id == "example-1" }
+
+        assertEquals(LibraryFavoriteFilter.FAVORITES_ONLY, controls.favoriteFilter)
+
+        controls.toggleFavorites()
+        controls.toggleSubtitles()
+        controls.sort = LibraryCatalogSort.PATH
+        controls.toggleSeries(series)
+        controls.selectEpisode(episode)
+
+        assertEquals(LibraryFavoriteFilter.ANY, controls.favoriteFilter)
+        assertEquals(LibrarySubtitleFilter.WITH_SUBTITLES, controls.subtitleFilter)
+        assertEquals(LibraryCatalogSort.PATH, controls.sort)
+        assertEquals(series.id, controls.selectedSeriesId)
+        assertEquals(series.title, controls.searchText)
+        assertEquals(episode.id, controls.selectedEpisodeId)
+
+        controls.showAllSeries()
+
+        assertEquals(null, controls.selectedSeriesId)
+        assertEquals("", controls.searchText)
+
+        controls.toggleSeries(series)
+        controls.resetFilters()
+
+        assertEquals("", controls.searchText)
+        assertEquals(LibraryCatalogSort.TITLE, controls.sort)
+        assertEquals(LibrarySubtitleFilter.ANY, controls.subtitleFilter)
+        assertEquals(LibraryFavoriteFilter.ANY, controls.favoriteFilter)
+        assertEquals(null, controls.selectedSeriesId)
+        assertEquals(null, controls.selectedEpisodeId)
     }
 
     private fun seededCatalog(): LibraryCatalog =

@@ -188,8 +188,9 @@ trusted-LAN clients.
   Home-only recently-added, series, and status rails are split into
   `TvHomeRailComponents.kt`; PC connection route UI, text input, and saved-PC
   cards are split into `TvPcConnectionPanel.kt`; library navigation and
-  empty-state panels are split into `TvLibraryPanels.kt`; Library route state
-  and selection composition are split into `TvLibraryScreen.kt`, while derived
+  empty-state panels are split into `TvLibraryPanels.kt`; Library route
+  composition is split into `TvLibraryScreen.kt`, mutable filter/selection
+  controls are split into `TvLibraryControlsState.kt`, and derived
   catalog/filter/progress view state is split into `TvLibraryViewState.kt`;
   header/search/filter controls and series picker rendering are split into
   `TvLibraryFilterComponents.kt`; library poster rendering is split into
