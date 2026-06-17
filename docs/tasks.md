@@ -114,8 +114,9 @@ Status legend:
   series picker rendering now live in `TvLibraryFilterComponents.kt`. Library
   poster rendering now lives in `TvLibraryPosterComponents.kt`; episode list
   rows now live in `TvEpisodeRowComponents.kt`; episode/series detail panels
-  now live in `TvLibraryEpisodeComponents.kt`; progress and next-up rails now
-  live in `TvLibraryRails.kt`. Shared TV remote playback
+  now live in `TvLibraryEpisodeComponents.kt`; progress and next-up rail
+  containers now live in `TvLibraryRails.kt`, while their focusable cards live
+  in `TvLibraryRailCards.kt`. Shared TV remote playback
   preparation, resume lookup, seek, and play dispatch now live in
   `TvPlaybackActions.kt`. Remembered TV player/library state now lives in
   `TvPlayerState.kt`, and PC discovery, library refresh, saved-connection,
@@ -214,7 +215,8 @@ Full review date: 2026-06-15.
   `TvLibraryViewState.kt`, filter controls in `TvLibraryFilterComponents.kt`,
   poster rendering in `TvLibraryPosterComponents.kt`, episode list rows in
   `TvEpisodeRowComponents.kt`, episode/series detail in
-  `TvLibraryEpisodeComponents.kt`, and progress rails in `TvLibraryRails.kt`;
+  `TvLibraryEpisodeComponents.kt`, progress rail containers in
+  `TvLibraryRails.kt`, and rail cards in `TvLibraryRailCards.kt`;
   duplicated remote playback
   preparation and resume handling now live in `TvPlaybackActions.kt`; remembered
   TV state and PC/library/favorite/playback actions now live in

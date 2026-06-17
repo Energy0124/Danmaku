@@ -195,8 +195,9 @@ trusted-LAN clients.
   `TvLibraryFilterComponents.kt`; library poster rendering is split into
   `TvLibraryPosterComponents.kt`; episode list rows are split into
   `TvEpisodeRowComponents.kt`; episode/series detail panels are split into
-  `TvLibraryEpisodeComponents.kt`; progress and next-up rails are split into
-  `TvLibraryRails.kt`; duplicated remote playback
+  `TvLibraryEpisodeComponents.kt`; progress and next-up rail containers are
+  split into `TvLibraryRails.kt`, while their focusable cards are split into
+  `TvLibraryRailCards.kt`; duplicated remote playback
   preparation and resume handling are split into `TvPlaybackActions.kt`;
   remembered TV player/library state and PC/library/favorite/playback actions
   are split into `TvPlayerState.kt` and `TvPlayerActionHandler.kt`; shared TV
