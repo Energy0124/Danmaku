@@ -33,11 +33,10 @@ Status legend:
 - `[~]` Complete Android mobile/tablet library viewport QA at phone and tablet
   sizes.
 - `[~]` Complete Android TV safe-area, 1080p/4K, and D-pad focus QA. The
-  1080p `Danmaku_TV_API_36` emulator is set up and passed
-  `:apps:android-tv:connectedDebugAndroidTest` on 2026-06-18 after fixing TV
-  library selection, TV test input semantics, and PC-screen pill sizing.
-  Remaining: 4K safe-area/focus traversal and preferably one real Android TV
-  device pass.
+  `Danmaku_TV_API_36` 1080p emulator and `Danmaku_TV_4K_API_36` 4K emulator
+  are set up and both passed `:apps:android-tv:connectedDebugAndroidTest` on
+  2026-06-18 after fixing TV library selection, TV test input semantics, and
+  PC-screen pill sizing. Remaining: preferably one real Android TV device pass.
 - `[~]` Live QA for MyAnimeList/Bangumi mapping, OAuth, sync, conflict handling,
   relaunch behavior, and external list state.
 - `[~]` Continue library UI polish where details, title clarity, poster states,
@@ -260,12 +259,12 @@ Full review date: 2026-06-15.
   TV Library content-section rendering now lives in
   `TvLibraryContentSections.kt`, keeping `TvLibraryScreen.kt` focused on state,
   focus, and top-level layout. Android TV 1080p emulator QA now covers the full
-  connected test suite, and visual screenshot QA fixed row-level status pills
-  that could starve adjacent title/body text.
+  connected test suite at both 1080p and 4K, and visual screenshot QA fixed
+  row-level status pills that could starve adjacent title/body text.
 - `[ ]` P1: Release confidence still depends on manual QA for Windows
   fullscreen/resize/4K/hardware decoding, Android phone/tablet layouts,
-  Android TV 4K focus traversal, desktop localization screenshots, and live
-  MAL/Bangumi sync.
+  Android TV real-device focus traversal, desktop localization screenshots, and
+  live MAL/Bangumi sync.
 - `[ ]` P1: Download queue storage exists, but authorized download source
   contracts and queue execution behavior are not implemented.
 - `[x]` P1: External sync can write updates, performs MAL/Bangumi provider
@@ -331,8 +330,9 @@ Full review date: 2026-06-15.
   practical.
 - Android playback changes should run connected tests on a real device or
   emulator before release.
-- Android TV 1080p emulator coverage should use the `Danmaku_TV_API_36` AVD
-  with `ANDROID_SERIAL=emulator-5554` when multiple emulators are attached.
+- Android TV emulator coverage should use `Danmaku_TV_API_36` for 1080p and
+  `Danmaku_TV_4K_API_36` for 4K, with `ANDROID_SERIAL=emulator-5554` when
+  multiple emulators are attached.
 
 ## Standard Verification
 

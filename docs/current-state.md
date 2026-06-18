@@ -125,9 +125,11 @@ trusted-LAN clients.
 - Media3 playback and LAN progress sync through the shared Android playback
   module.
 - Android TV emulator QA is now set up with `Danmaku_TV_API_36`
-  (`system-images;android-36;android-tv;x86_64`). The 1080p TV emulator run on
-  2026-06-18 passed `:apps:android-tv:connectedDebugAndroidTest` and caught a
-  PC-screen pill layout collapse that is now fixed.
+  (`tv_1080p`) and `Danmaku_TV_4K_API_36` (`tv_4k`) using
+  `system-images;android-36;android-tv;x86_64`. The 2026-06-18 emulator runs
+  passed `:apps:android-tv:connectedDebugAndroidTest` at both 1080p and 4K, and
+  visual screenshot QA caught a PC-screen pill layout collapse that is now
+  fixed.
 
 ### Native And Tooling
 
@@ -164,8 +166,8 @@ trusted-LAN clients.
   focus during capture.
 - Android mobile/tablet layouts need final viewport QA on phone and tablet
   sizes.
-- Android TV 1080p emulator QA passed on 2026-06-18. Android TV still needs a
-  4K safe-area/focus pass on real or emulated TV hardware before release.
+- Android TV 1080p and 4K emulator QA passed on 2026-06-18. Android TV still
+  needs one real-device focus/safe-area pass before release.
 - External MAL/Bangumi sync has fake/integration-style client coverage and UI
   wiring, but still needs live-account manual QA.
 - macOS desktop can build and run through the shared shell, but embedded video
@@ -297,8 +299,8 @@ Recent Android TV emulator QA checks:
 ```
 
 The 2026-06-18 run used `ANDROID_SERIAL=emulator-5554` against
-`Danmaku_TV_API_36`; a local visual QA screenshot was captured under
-`build/qa/android-tv/`.
+`Danmaku_TV_API_36` and `Danmaku_TV_4K_API_36`; local visual QA screenshots
+were captured under `build/qa/android-tv/`.
 
 Full project review checks run on 2026-06-15:
 
