@@ -1,6 +1,6 @@
 # Current State
 
-Last reviewed: 2026-06-17.
+Last reviewed: 2026-06-18.
 
 Danmaku is in active foundation work. The strongest vertical slice is Windows
 desktop as the local library host/player, with Android mobile and Android TV as
@@ -113,6 +113,12 @@ trusted-LAN clients.
 - Media3 playback through the shared Android playback module with sidecar
   subtitles, resume lookup, progress upload, seek, volume, audio/subtitle track
   controls, and background service support.
+- Android mobile emulator QA is now set up with
+  `Pixel_3a_API_34_extension_level_7_x86_64` for phone layout and
+  `Danmaku_Tablet_API_34` (`pixel_tablet`) for tablet layout using
+  `system-images;android-34;google_apis;x86_64`. The 2026-06-18 emulator runs
+  passed `:apps:android-mobile:connectedDebugAndroidTest` on both form factors;
+  visual screenshots were captured under `build/qa/android-mobile/`.
 
 ### Android TV
 
@@ -164,8 +170,9 @@ trusted-LAN clients.
 - A focused English Library screenshot pass on 2026-06-17 validated the new
   desktop series-card local watch-list quick actions after hardening app-window
   focus during capture.
-- Android mobile/tablet layouts need final viewport QA on phone and tablet
-  sizes.
+- Android mobile/tablet emulator viewport QA passed on 2026-06-18. Mobile still
+  needs one real-device smoke pass before release, preferably including LAN
+  playback against a Windows library server.
 - Android TV 1080p and 4K emulator QA passed on 2026-06-18. Android TV still
   needs one real-device focus/safe-area pass before release.
 - External MAL/Bangumi sync has fake/integration-style client coverage and UI
@@ -301,6 +308,21 @@ Recent Android TV emulator QA checks:
 The 2026-06-18 run used `ANDROID_SERIAL=emulator-5554` against
 `Danmaku_TV_API_36` and `Danmaku_TV_4K_API_36`; local visual QA screenshots
 were captured under `build/qa/android-tv/`.
+
+Recent Android mobile emulator QA checks:
+
+```powershell
+$env:ANDROID_SERIAL='emulator-5554'
+.\gradlew.bat --no-daemon :apps:android-mobile:connectedDebugAndroidTest
+$env:ANDROID_SERIAL='emulator-5556'
+.\gradlew.bat --no-daemon :apps:android-mobile:connectedDebugAndroidTest
+.\gradlew.bat --no-daemon :apps:android-mobile:installDebug
+```
+
+The 2026-06-18 mobile run used
+`Pixel_3a_API_34_extension_level_7_x86_64` at 1080x2220 / 440 dpi and
+`Danmaku_Tablet_API_34` at 2560x1600 / 320 dpi. Local visual QA screenshots
+were captured under `build/qa/android-mobile/`.
 
 Full project review checks run on 2026-06-15:
 

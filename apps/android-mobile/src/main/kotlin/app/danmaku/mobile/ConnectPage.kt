@@ -106,7 +106,7 @@ internal fun ConnectPage(
 }
 
 @Composable
-private fun ConnectionPanel(
+internal fun ConnectionPanel(
     catalog: LibraryCatalog?,
     serverUrl: String,
     pairingToken: String,

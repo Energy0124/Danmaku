@@ -107,8 +107,6 @@ internal fun LibraryPage(
         }
     val selectedDetailId = selectedEpisodeId
         ?.takeIf { id -> filteredItems.any { it.id == id } }
-        ?: nowPlaying?.id?.takeIf { id -> filteredItems.any { it.id == id } }
-        ?: filteredItems.firstOrNull()?.id
     val selectedEpisodeDetail = selectedDetailId
         ?.let { id -> catalog?.episodeDetail(id, playbackProgresses) }
 
@@ -209,20 +207,6 @@ internal fun LibraryPage(
                 }
             }
         }
-        if (showInlineEpisodeDetail) {
-            selectedEpisodeDetail?.let { detail ->
-                item(key = "episode-detail-${detail.mediaItem.id}") {
-                    EpisodeDetailPanel(
-                        detail = detail,
-                        posterEndpoint = posterEndpoint,
-                        isFavorite = detail.mediaItem.id in favoriteMediaIds,
-                        onSetFavorite = { onSetFavorite(detail.mediaItem, it) },
-                        onPlay = onPlay,
-                        onSelectEpisode = { selectedEpisodeId = it.id },
-                    )
-                }
-            }
-        }
         if (catalog == null) {
             item(key = "library-empty") {
                 EmptyLibraryState(onConnect = onConnect)
@@ -250,6 +234,20 @@ internal fun LibraryPage(
                     onShowDetails = { selectedEpisodeId = item.id },
                     onPlay = { onPlay(item) },
                 )
+            }
+        }
+        if (showInlineEpisodeDetail) {
+            selectedEpisodeDetail?.let { detail ->
+                item(key = "episode-detail-${detail.mediaItem.id}") {
+                    EpisodeDetailPanel(
+                        detail = detail,
+                        posterEndpoint = posterEndpoint,
+                        isFavorite = detail.mediaItem.id in favoriteMediaIds,
+                        onSetFavorite = { onSetFavorite(detail.mediaItem, it) },
+                        onPlay = onPlay,
+                        onSelectEpisode = { selectedEpisodeId = it.id },
+                    )
+                }
             }
         }
     }
@@ -299,7 +297,9 @@ internal fun LibraryPage(
             }
         } else {
             LazyColumn(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .testTag("library-feed"),
                 contentPadding = PaddingValues(start = 16.dp, top = 14.dp, end = 16.dp, bottom = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
@@ -582,7 +582,9 @@ private fun EmptyLibraryState(
     onConnect: () -> Unit,
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("library-empty-state"),
         shape = RoundedCornerShape(18.dp),
         color = Color(0xFF15191D),
         border = BorderStroke(1.dp, Color(0xFF2B3239)),
@@ -609,6 +611,7 @@ private fun EmptyLibraryState(
 @Composable
 private fun EmptyResultsState(onResetFilters: () -> Unit) {
     EmptyPanel(
+        modifier = Modifier.testTag("library-empty-results"),
         title = stringResource(R.string.library_no_results_title),
         body = stringResource(R.string.library_no_results_body),
         actionLabel = stringResource(R.string.action_reset_filters),

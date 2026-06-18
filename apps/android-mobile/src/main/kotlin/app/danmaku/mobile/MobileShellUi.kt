@@ -92,7 +92,8 @@ internal fun PageColumn(
             .fillMaxSize()
             .background(AppBackground)
             .padding(contentPadding)
-            .safeDrawingPadding(),
+            .safeDrawingPadding()
+            .testTag("page-column"),
         contentPadding = PaddingValues(start = 16.dp, top = 14.dp, end = 16.dp, bottom = 20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
         content = content,

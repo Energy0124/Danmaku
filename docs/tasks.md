@@ -30,8 +30,11 @@ Status legend:
   `commonMain/composeResources`.
 - `[~]` Finish desktop playback QA for fullscreen, resize, aspect, 4K media,
   hardware decoding, and multi-display behavior.
-- `[~]` Complete Android mobile/tablet library viewport QA at phone and tablet
-  sizes.
+- `[x]` Complete Android mobile/tablet library viewport QA at phone and tablet
+  sizes. The `Pixel_3a_API_34_extension_level_7_x86_64` phone emulator and
+  `Danmaku_Tablet_API_34` Pixel Tablet emulator passed
+  `:apps:android-mobile:connectedDebugAndroidTest` on 2026-06-18, with visual
+  screenshots captured under `build/qa/android-mobile/`.
 - `[~]` Complete Android TV safe-area, 1080p/4K, and D-pad focus QA. The
   `Danmaku_TV_API_36` 1080p emulator and `Danmaku_TV_4K_API_36` 4K emulator
   are set up and both passed `:apps:android-tv:connectedDebugAndroidTest` on
@@ -153,9 +156,12 @@ Status legend:
   recently-added, series, and operational-status files.
   PC connection text input and saved-connection card rendering are split out of
   the PC route panel.
-- `[ ]` P1: Add connected Android test runs to the release checklist and record
+- `[x]` P1: Add connected Android test runs to the release checklist and record
   the required device/emulator matrix for mobile playback, LAN sync, TV focus,
-  and Media3 streaming.
+  and Media3 streaming. The current emulator matrix is Android mobile phone
+  (`Pixel_3a_API_34_extension_level_7_x86_64`), Android mobile tablet
+  (`Danmaku_Tablet_API_34`), Android TV 1080p (`Danmaku_TV_API_36`), and
+  Android TV 4K (`Danmaku_TV_4K_API_36`).
 - `[x]` Persist external anime sync failures in the desktop database.
 - `[x]` Add durable external list entry fetch/readback so sync plans can compare
   current provider state before writing. Desktop now imports MAL/Bangumi
@@ -262,9 +268,9 @@ Full review date: 2026-06-15.
   connected test suite at both 1080p and 4K, and visual screenshot QA fixed
   row-level status pills that could starve adjacent title/body text.
 - `[ ]` P1: Release confidence still depends on manual QA for Windows
-  fullscreen/resize/4K/hardware decoding, Android phone/tablet layouts,
-  Android TV real-device focus traversal, desktop localization screenshots, and
-  live MAL/Bangumi sync.
+  fullscreen/resize/4K/hardware decoding, one real Android phone/tablet smoke
+  pass with LAN playback, Android TV real-device focus traversal, desktop
+  localization screenshots, and live MAL/Bangumi sync.
 - `[ ]` P1: Download queue storage exists, but authorized download source
   contracts and queue execution behavior are not implemented.
 - `[x]` P1: External sync can write updates, performs MAL/Bangumi provider
@@ -329,7 +335,9 @@ Full review date: 2026-06-15.
 - TV UI changes should include D-pad/focus instrumentation coverage where
   practical.
 - Android playback changes should run connected tests on a real device or
-  emulator before release.
+  emulator before release. Mobile emulator coverage should use
+  `Pixel_3a_API_34_extension_level_7_x86_64` for phone layout and
+  `Danmaku_Tablet_API_34` for tablet layout.
 - Android TV emulator coverage should use `Danmaku_TV_API_36` for 1080p and
   `Danmaku_TV_4K_API_36` for 4K, with `ANDROID_SERIAL=emulator-5554` when
   multiple emulators are attached.

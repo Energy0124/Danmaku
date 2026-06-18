@@ -275,11 +275,12 @@ private fun PosterPill(
 internal fun EmptyPanel(
     title: String,
     body: String,
+    modifier: Modifier = Modifier,
     actionLabel: String? = null,
     onAction: (() -> Unit)? = null,
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
         color = Color(0xFF15191D),
         border = BorderStroke(1.dp, Color(0xFF2B3239)),

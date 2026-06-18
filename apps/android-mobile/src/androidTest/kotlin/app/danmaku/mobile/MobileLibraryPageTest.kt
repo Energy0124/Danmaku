@@ -6,12 +6,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToIndex
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.unit.dp
 import app.danmaku.domain.ExternalAnimeId
 import app.danmaku.domain.ExternalAnimeProvider
@@ -32,6 +37,7 @@ import app.danmaku.domain.filteredItems
 import app.danmaku.library.LanLibraryConnectionProfile
 import app.danmaku.library.lanLibraryConnectionProfile
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -66,7 +72,7 @@ class MobileLibraryPageTest {
         }
 
         composeRule.onNodeWithText("Library").assertExists()
-        composeRule.onNodeWithText("Connect a Windows library to browse episodes").assertExists()
+        composeRule.onAllNodesWithText("Connect a Windows library to browse episodes").assertCountEquals(2)
         composeRule.onNodeWithText("Connect library").assertExists()
     }
 
@@ -108,16 +114,17 @@ class MobileLibraryPageTest {
             }
         }
 
-        composeRule.onNodeWithText("3 of 3 episodes").assertExists()
+        composeRule.onAllNodesWithText("3 of 3 episodes").assertCountEquals(2)
+        scrollLibraryFeedTo(2)
         composeRule.onNodeWithTag("library-series-rail").assertExists()
-        composeRule.onNodeWithTag("series:Example Show").performClick()
+        selectSeries("Example Show")
 
-        composeRule.onNodeWithText("2 of 3 episodes").assertExists()
+        scrollLibraryFeedTo(3)
         composeRule.onNodeWithTag("series-detail:Example Show").assertExists()
         composeRule.onNodeWithText("2 episodes across 1 seasons").assertExists()
-        composeRule.onNodeWithText("0 watched · 0 watching · 2 new").assertExists()
+        composeRule.onAllNodesWithText("0 watched · 0 watching · 2 new", substring = true).assertCountEquals(2)
         composeRule.onNodeWithText("3 subtitles").assertExists()
-        composeRule.onNodeWithTag("episode-detail:example-1").assertExists()
+        scrollLibraryFeedTo(4)
         composeRule.onNodeWithTag("episode:example-1").assertExists()
         composeRule.onNodeWithTag("episode:example-2").assertExists()
         composeRule.onNodeWithTag("episode:other-1").assertDoesNotExist()
@@ -194,19 +201,23 @@ class MobileLibraryPageTest {
             }
         }
 
-        composeRule.onNodeWithTag("library-series-rail").assertExists()
         composeRule.onNodeWithText("Favorites only").assertExists()
         composeRule.onNodeWithText("Subtitles only").assertExists()
         composeRule.onNodeWithText("Path sort").assertExists()
-        composeRule.onNodeWithTag("series:Matched Anime").performClick()
+        scrollLibraryFeedTo(2)
+        composeRule.onNodeWithTag("library-series-rail").assertExists()
+        selectSeries("Matched Anime")
 
-        composeRule.onNodeWithText("1 of 3 episodes").assertExists()
+        scrollLibraryFeedTo(3)
         composeRule.onNodeWithTag("series-detail:Matched Anime").assertExists()
-        composeRule.onNodeWithTag("episode:example-1").performClick()
+        scrollLibraryFeedTo(4)
+        composeRule.onNodeWithTag("episode:example-1").performSemanticsAction(SemanticsActions.OnClick)
+        scrollLibraryFeedTo(5)
         composeRule.onNodeWithTag("episode-detail:example-1").assertExists()
         composeRule.onNodeWithText("Matched anime: Matched Anime").assertExists()
-        composeRule.onAllNodesWithText("Poster ready").assertCountEquals(2)
+        composeRule.onNodeWithText("Poster ready").assertExists()
         composeRule.onAllNodesWithText("Poster/metadata loading", substring = true).assertCountEquals(2)
+        scrollLibraryFeedTo(4)
         composeRule.onNodeWithTag("episode:example-1").assertExists()
         composeRule.onNodeWithTag("episode:example-2").assertDoesNotExist()
     }
@@ -262,7 +273,8 @@ class MobileLibraryPageTest {
         composeRule.onNodeWithText("1 favorites").assertExists()
         composeRule.onNodeWithTag("library-favorites-filter").performClick()
 
-        composeRule.onNodeWithText("1 of 3 episodes").assertExists()
+        composeRule.onAllNodesWithText("1 of 3 episodes").assertCountEquals(2)
+        scrollLibraryFeedTo(3)
         composeRule.onNodeWithTag("episode:example-2").assertExists()
         composeRule.onNodeWithTag("episode:example-1").assertDoesNotExist()
 
@@ -317,10 +329,14 @@ class MobileLibraryPageTest {
             }
         }
 
+        scrollLibraryFeedTo(3)
+        composeRule.onNodeWithTag("library-empty-results").assertExists()
         composeRule.onNodeWithText("No matching episodes").assertExists()
         composeRule.onNodeWithText("Reset filters").performClick()
 
-        composeRule.onNodeWithText("3 of 3 episodes").assertExists()
+        scrollLibraryFeedTo(1)
+        assertTextVisible("3 of 3 episodes")
+        scrollLibraryFeedTo(3)
         composeRule.onNodeWithTag("episode:example-1").assertExists()
         composeRule.onNodeWithTag("episode:other-1").assertExists()
     }
@@ -352,7 +368,9 @@ class MobileLibraryPageTest {
             }
         }
 
-        composeRule.onNodeWithTag("episode:example-2").performClick()
+        scrollLibraryFeedTo(4)
+        composeRule.onNodeWithTag("episode:example-2").performSemanticsAction(SemanticsActions.OnClick)
+        scrollLibraryFeedTo(6)
         composeRule.onNodeWithTag("episode-detail:example-2").assertExists()
         composeRule.onNodeWithText("Example Show · Season unknown · New").assertExists()
         composeRule.onNodeWithText("Next").performClick()
@@ -394,11 +412,14 @@ class MobileLibraryPageTest {
             }
         }
 
+        scrollLibraryFeedTo(2)
         composeRule.onNodeWithTag("library-next-up").assertExists()
         composeRule.onNodeWithText("Next Up").assertExists()
         composeRule.onNodeWithText("Next episode").assertExists()
         composeRule.onNodeWithTag("next-up-details:example-2").performClick()
+        scrollLibraryFeedTo(7)
         composeRule.onNodeWithTag("episode-detail:example-2").assertExists()
+        scrollLibraryFeedTo(2)
         composeRule.onNodeWithTag("next-up:example-2").performClick()
 
         composeRule.runOnIdle {
@@ -446,8 +467,10 @@ class MobileLibraryPageTest {
             }
         }
 
+        scrollLibraryFeedTo(6)
         composeRule.onNodeWithText("In progress · 1:00 / 20:00", substring = true).assertExists()
-        composeRule.onNodeWithText("Watched", substring = true).assertExists()
+        scrollLibraryFeedTo(8)
+        composeRule.onNodeWithText("Watched · 700.0 MB", substring = true).assertExists()
     }
 
     @Test
@@ -491,10 +514,14 @@ class MobileLibraryPageTest {
             }
         }
 
+        scrollLibraryFeedTo(3)
         composeRule.onNodeWithTag("library-continue-watching").assertExists()
+        scrollLibraryFeedTo(4)
         composeRule.onNodeWithTag("library-recently-watched").assertExists()
         composeRule.onNodeWithTag("recently-watched-details:other-1").performClick()
+        scrollLibraryFeedTo(9)
         composeRule.onNodeWithTag("episode-detail:other-1").assertExists()
+        scrollLibraryFeedTo(3)
         composeRule.onNodeWithTag("continue-watching:example-1").performClick()
 
         composeRule.runOnIdle {
@@ -534,9 +561,11 @@ class MobileLibraryPageTest {
         }
 
         composeRule.onNodeWithTag("mini-player").assertExists()
-        composeRule.onNodeWithText("Example Show").assertExists()
-        composeRule.onNodeWithText("Episode 01").assertExists()
-        composeRule.onNodeWithTag("episode:example-2").performClick()
+        composeRule.onAllNodesWithText("Example Show").assertCountEquals(2)
+        composeRule.onAllNodesWithText("Episode 01").assertCountEquals(2)
+        scrollLibraryFeedTo(5)
+        composeRule.onNodeWithTag("episode:example-2").performSemanticsAction(SemanticsActions.OnClick)
+        scrollLibraryFeedTo(7)
         composeRule.onNodeWithTag("episode-detail:example-2").assertExists()
 
         composeRule.runOnIdle {
@@ -668,4 +697,26 @@ class MobileLibraryPageTest {
             episodeCount = 2,
             startYear = 2026,
         )
+
+    private fun scrollLibraryFeedTo(index: Int) {
+        val isPhoneFeed = composeRule.onAllNodesWithTag("library-feed").fetchSemanticsNodes().isNotEmpty()
+        val feedTag = if (isPhoneFeed) {
+            "library-feed"
+        } else {
+            "library-master-pane"
+        }
+        val targetIndex = if (isPhoneFeed) index else minOf(index, 8)
+        composeRule.onNodeWithTag(feedTag).performScrollToIndex(targetIndex)
+    }
+
+    private fun selectSeries(title: String) {
+        composeRule.onNodeWithTag("series:$title")
+            .performScrollTo()
+            .performSemanticsAction(SemanticsActions.OnClick)
+        composeRule.waitForIdle()
+    }
+
+    private fun assertTextVisible(text: String) {
+        assertTrue(composeRule.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty())
+    }
 }

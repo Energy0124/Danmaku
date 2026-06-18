@@ -456,7 +456,8 @@ private fun TrackControls(
                         FilterChip(
                             selected = subtitleTracks.none(PlaybackTrack::selected),
                             onClick = { onSelectSubtitle(null) },
-                            enabled = subtitleTracks.any(PlaybackTrack::selected),
+                            enabled = true,
+                            modifier = Modifier.testTag("subtitle-off"),
                             label = { Text(stringResource(R.string.subtitle_off)) },
                         )
                     }
@@ -465,6 +466,7 @@ private fun TrackControls(
                             selected = track.selected,
                             onClick = { onSelectSubtitle(track.id) },
                             enabled = track.supported && !track.selected,
+                            modifier = Modifier.testTag("subtitle-track:${track.id}"),
                             label = { Text(track.buttonLabel()) },
                         )
                     }
@@ -488,6 +490,7 @@ private fun TrackButtons(
                 selected = track.selected,
                 onClick = { onSelect(track.id) },
                 enabled = track.supported && !track.selected,
+                modifier = Modifier.testTag("track:${track.id}"),
                 label = { Text(track.buttonLabel()) },
             )
         }

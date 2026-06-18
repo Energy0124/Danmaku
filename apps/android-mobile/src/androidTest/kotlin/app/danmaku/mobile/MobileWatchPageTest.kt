@@ -2,12 +2,16 @@ package app.danmaku.mobile
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToIndex
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.unit.dp
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.PlaybackPosition
@@ -57,8 +61,10 @@ class MobileWatchPageTest {
         composeRule.onNodeWithText("Select a video to start watching").assertExists()
         composeRule.onNodeWithTag("watch-play-pause").assertIsNotEnabled()
 
-        composeRule.onNodeWithTag("watch-open-video").performClick()
-        composeRule.onNodeWithText("Browse").performClick()
+        composeRule.onNodeWithTag("watch-open-video").performSemanticsAction(SemanticsActions.OnClick)
+        composeRule.onNodeWithTag("page-column").performScrollToIndex(1)
+        composeRule.onNodeWithTag("watch-library-actions").assertExists()
+        composeRule.onNodeWithText("Browse").performSemanticsAction(SemanticsActions.OnClick)
 
         composeRule.runOnIdle {
             assertTrue(openedVideo)
@@ -99,6 +105,11 @@ class MobileWatchPageTest {
                                 label = "English subs",
                                 selected = true,
                             ),
+                            PlaybackTrack(
+                                id = "subtitle-ja",
+                                kind = PlaybackTrackKind.SUBTITLE,
+                                label = "Japanese subs",
+                            ),
                         ),
                     ),
                     nowPlaying = seededItem(),
@@ -123,12 +134,19 @@ class MobileWatchPageTest {
         composeRule.onNodeWithText("Audio").assertExists()
         composeRule.onNodeWithText("Subtitles").assertExists()
 
-        composeRule.onNodeWithText("Japanese").performClick()
-        composeRule.onNodeWithText("Off").performClick()
+        composeRule.onNodeWithTag("track:audio-ja")
+            .performScrollTo()
+            .assertIsEnabled()
+            .performSemanticsAction(SemanticsActions.OnClick)
+        composeRule.onNodeWithTag("subtitle-off").performScrollTo().assertIsEnabled()
+        composeRule.onNodeWithTag("subtitle-track:subtitle-ja")
+            .performScrollTo()
+            .assertIsEnabled()
+            .performSemanticsAction(SemanticsActions.OnClick)
 
         composeRule.runOnIdle {
             assertEquals("audio-ja", selectedAudio)
-            assertEquals("off", selectedSubtitle)
+            assertEquals("subtitle-ja", selectedSubtitle)
         }
     }
 
@@ -165,13 +183,20 @@ class MobileWatchPageTest {
         composeRule.onNodeWithText("Playing").assertExists()
         composeRule.onNodeWithText("Pause").assertExists()
         composeRule.onNodeWithText("Playback connection error: Transient test error").assertExists()
-        composeRule.onNodeWithTag("watch-play-pause").assertIsEnabled().performClick()
-        composeRule.onNodeWithTag("watch-seek:+10s").performClick()
-        composeRule.onNodeWithTag("watch-volume-up").performClick()
+        composeRule.onNodeWithTag("watch-play-pause")
+            .performScrollTo()
+            .assertIsEnabled()
+            .performSemanticsAction(SemanticsActions.OnClick)
+        composeRule.onNodeWithTag("watch-seek:+10s")
+            .performScrollTo()
+            .performSemanticsAction(SemanticsActions.OnClick)
+        composeRule.onNodeWithTag("watch-volume-up")
+            .performScrollTo()
+            .performSemanticsAction(SemanticsActions.OnClick)
 
         composeRule.runOnIdle {
             assertEquals(1, playPauseCount)
-            assertEquals(70_000, seekTarget)
+            assertEquals(70_000L, seekTarget)
             assertEquals(50, volumeTarget)
         }
     }
