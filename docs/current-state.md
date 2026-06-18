@@ -118,7 +118,9 @@ trusted-LAN clients.
   `Danmaku_Tablet_API_34` (`pixel_tablet`) for tablet layout using
   `system-images;android-34;google_apis;x86_64`. The 2026-06-18 emulator runs
   passed `:apps:android-mobile:connectedDebugAndroidTest` on both form factors;
-  visual screenshots were captured under `build/qa/android-mobile/`.
+  visual screenshots were captured under `build/qa/android-mobile/`. The
+  repeatable Windows wrapper is
+  `tools/windows/run-android-mobile-emulator-qa.ps1`.
 
 ### Android TV
 
@@ -312,6 +314,9 @@ were captured under `build/qa/android-tv/`.
 Recent Android mobile emulator QA checks:
 
 ```powershell
+.\tools\windows\run-android-mobile-emulator-qa.ps1
+
+# Equivalent manual commands:
 $env:ANDROID_SERIAL='emulator-5554'
 .\gradlew.bat --no-daemon :apps:android-mobile:connectedDebugAndroidTest
 $env:ANDROID_SERIAL='emulator-5556'

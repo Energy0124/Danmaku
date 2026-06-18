@@ -34,7 +34,8 @@ Status legend:
   sizes. The `Pixel_3a_API_34_extension_level_7_x86_64` phone emulator and
   `Danmaku_Tablet_API_34` Pixel Tablet emulator passed
   `:apps:android-mobile:connectedDebugAndroidTest` on 2026-06-18, with visual
-  screenshots captured under `build/qa/android-mobile/`.
+  screenshots captured under `build/qa/android-mobile/`. The repeatable Windows
+  wrapper is `tools/windows/run-android-mobile-emulator-qa.ps1`.
 - `[~]` Complete Android TV safe-area, 1080p/4K, and D-pad focus QA. The
   `Danmaku_TV_API_36` 1080p emulator and `Danmaku_TV_4K_API_36` 4K emulator
   are set up and both passed `:apps:android-tv:connectedDebugAndroidTest` on
@@ -337,7 +338,9 @@ Full review date: 2026-06-15.
 - Android playback changes should run connected tests on a real device or
   emulator before release. Mobile emulator coverage should use
   `Pixel_3a_API_34_extension_level_7_x86_64` for phone layout and
-  `Danmaku_Tablet_API_34` for tablet layout.
+  `Danmaku_Tablet_API_34` for tablet layout, or run
+  `.\tools\windows\run-android-mobile-emulator-qa.ps1` to execute both and
+  capture screenshots.
 - Android TV emulator coverage should use `Danmaku_TV_API_36` for 1080p and
   `Danmaku_TV_4K_API_36` for 4K, with `ANDROID_SERIAL=emulator-5554` when
   multiple emulators are attached.
