@@ -243,8 +243,10 @@ trusted-LAN clients.
   separated from Library content-section rendering in
   `TvLibraryContentSections.kt`. TV Home recently-added, series, and status
   panels now live in separate files instead of the former catch-all Home rail
-  component file. Larger TV component splits remain. Both compile and have
-  instrumentation-source coverage, but Android TV should be split further
+  component file. TV PC connection text input and saved-connection card
+  rendering are also split into focused files, leaving the PC connection panel
+  as the form/layout owner. Larger TV component splits remain. Both compile and
+  have instrumentation-source coverage, but Android TV should be split further
   before more feature work lands there.
 - Desktop localization now routes through generated resources. The duplicated
   Kotlin fallback initializer has been reduced to the small set of non-Compose

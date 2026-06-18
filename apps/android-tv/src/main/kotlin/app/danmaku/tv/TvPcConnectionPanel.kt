@@ -1,17 +1,14 @@
 package app.danmaku.tv
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -20,11 +17,8 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Button
 import androidx.tv.material3.MaterialTheme
@@ -143,81 +137,6 @@ internal fun TvPcConnectionPanel(
         }
         libraryError?.let {
             Text(stringResource(R.string.library_error_prefix, it), color = Color(0xFFFCA5A5))
-        }
-    }
-}
-
-@Composable
-private fun TvTextInput(
-    value: String,
-    onValueChange: (String) -> Unit,
-    placeholder: String,
-    modifier: Modifier = Modifier,
-) {
-    BasicTextField(
-        value = value,
-        onValueChange = onValueChange,
-        singleLine = true,
-        textStyle = TextStyle(color = Color.White),
-        modifier = modifier
-            .clip(RoundedCornerShape(16.dp))
-            .background(TvCardColor)
-            .padding(horizontal = 14.dp, vertical = 12.dp)
-            .focusable(),
-        decorationBox = { innerTextField ->
-            if (value.isBlank()) {
-                Text(placeholder, color = TvMutedText)
-            }
-            innerTextField()
-        },
-    )
-}
-
-@Composable
-private fun TvSavedConnectionCard(
-    connection: LanLibraryConnectionProfile,
-    isSelected: Boolean,
-    onSelect: () -> Unit,
-    onForget: () -> Unit,
-) {
-    Column(
-        modifier = Modifier
-            .width(320.dp)
-            .clip(RoundedCornerShape(20.dp))
-            .background(if (isSelected) Color(0xFF273747) else TvCardColor)
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Text(
-            connection.displayName,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Text(connection.normalizedBaseUrl, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(
-                onClick = onSelect,
-                modifier = Modifier
-                    .tvFocusHalo(RoundedCornerShape(16.dp))
-                    .testTag("saved-connection:${connection.id}"),
-            ) {
-                Text(
-                    if (isSelected) {
-                        stringResource(R.string.status_selected)
-                    } else {
-                        stringResource(R.string.action_open)
-                    },
-                )
-            }
-            Button(
-                onClick = onForget,
-                modifier = Modifier
-                    .tvFocusHalo(RoundedCornerShape(16.dp))
-                    .testTag("saved-connection-forget:${connection.id}"),
-            ) {
-                Text(stringResource(R.string.action_forget))
-            }
         }
     }
 }

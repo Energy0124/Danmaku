@@ -116,9 +116,9 @@ Status legend:
   shared rail pill/navigation items now live in `TvShellUi.kt`. Home route
   composition now lives in `TvHomePanel.kt`, while Home-only recently-added,
   series, and status panels now live in separate focused files. PC connection
-  route UI, text input, and saved-PC cards now live in
-  `TvPcConnectionPanel.kt`. Library navigation and empty-state panels now live
-  in `TvLibraryPanels.kt`. Library route composition now lives in
+  route UI now lives in `TvPcConnectionPanel.kt`, while TV text input and
+  saved-PC cards live in focused files. Library navigation and empty-state
+  panels now live in `TvLibraryPanels.kt`. Library route composition now lives in
   `TvLibraryScreen.kt`, mutable filter/selection controls now live in
   `TvLibraryControlsState.kt`, and derived catalog/filter/progress view state
   now lives in `TvLibraryViewState.kt`; header/search/filter controls and
@@ -147,6 +147,8 @@ Status legend:
   `TvLibraryScreen.kt` focused on state, focus requesters, and top-level layout.
   The former Home rail catch-all has also been split into focused
   recently-added, series, and operational-status files.
+  PC connection text input and saved-connection card rendering are split out of
+  the PC route panel.
 - `[ ]` P1: Add connected Android test runs to the release checklist and record
   the required device/emulator matrix for mobile playback, LAN sync, TV focus,
   and Media3 streaming.
@@ -235,9 +237,9 @@ Full review date: 2026-06-15.
   has started with shared UI helpers in `TvUiHelpers.kt`, player controls in
   `TvPlayerPanel.kt`, shell chrome in `TvShellUi.kt`, Home route composition
   in `TvHomePanel.kt`, and focused Home recently-added, series, and status
-  panel files, plus
-  PC connection UI in `TvPcConnectionPanel.kt` and library navigation/empty
-  states in `TvLibraryPanels.kt`; Library route composition now lives in
+  panel files, plus PC connection UI in `TvPcConnectionPanel.kt` with text input
+  and saved-PC card rendering split out, and library navigation/empty states in
+  `TvLibraryPanels.kt`; Library route composition now lives in
   `TvLibraryScreen.kt`, mutable filter/selection controls in
   `TvLibraryControlsState.kt`, derived catalog view state in
   `TvLibraryViewState.kt`, filter controls in `TvLibraryFilterComponents.kt`,
