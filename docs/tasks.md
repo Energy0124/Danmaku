@@ -116,7 +116,8 @@ Status legend:
   `LibraryRailComponents.kt`, `LibraryPage.kt` owns the mobile Library route,
   and `ConnectPage.kt` owns the Connect route plus connection form/rows. The
   remaining entrypoint refactor work should move to Android TV.
-- `[~]` P1: Split Android TV `MainActivity.kt` into focused TV shell,
+- `[~]` P1: Continue Android TV route/component decomposition now that
+  `MainActivity.kt` is a tiny app entrypoint. Keep splitting focused TV shell,
   PC connection, home, library/search/favorites, playback controls, and shared
   focus/visual primitives before adding more TV features. First low-risk split
   moved poster loading, URL encoding, playback-time formatting, progress/watch
@@ -131,9 +132,10 @@ Status legend:
   panels now live in `TvLibraryPanels.kt`. Library route composition now lives in
   `TvLibraryScreen.kt`, mutable filter/selection controls now live in
   `TvLibraryControlsState.kt`, and derived catalog/filter/progress view state
-  now lives in `TvLibraryViewState.kt`; header/search/filter controls and
-  series picker rendering now live in `TvLibraryFilterComponents.kt`. Library
-  poster rendering now lives in `TvLibraryPosterComponents.kt`; episode list
+  now lives in `TvLibraryViewState.kt`; header/search/filter controls now live
+  in `TvLibraryFilterComponents.kt`, and series picker rendering now lives in
+  `TvSeriesPickerRail.kt`. Library poster rendering now lives in
+  `TvLibraryPosterComponents.kt`; episode list
   rows now live in `TvEpisodeRowComponents.kt`; episode/series detail panels
   now live in `TvLibraryEpisodeComponents.kt`; progress and next-up rail
   containers now live in `TvLibraryRails.kt`, while their focusable cards live
@@ -242,12 +244,13 @@ Full review date: 2026-06-15.
   use localized English/`zh-TW` copy, and local playback preparation plus paired
   library catalog/remote playback failures now use localized visible error copy.
   Broader diagnostic-log localization and screenshot QA remain.
-- `[~]` P1: Android mobile and Android TV app entrypoints are monolithic
-  enough to slow safe feature work and review. Android mobile helper,
-  formatting, shell-chrome, top-level route mapping, remembered state,
-  service/store action handling, and Home/Watch/Library/Connect route
-  composition are now split out of `MainActivity.kt`. Android TV decomposition
-  has started with shared UI helpers in `TvUiHelpers.kt`, player controls in
+- `[~]` P1: Android mobile and Android TV entrypoint decomposition is largely
+  complete, but larger extracted route/component files still slow safe feature
+  work and review. Android mobile helper, formatting, shell-chrome, top-level
+  route mapping, remembered state, service/store action handling, and
+  Home/Watch/Library/Connect route composition are now split out of
+  `MainActivity.kt`. Android TV decomposition has started with shared UI
+  helpers in `TvUiHelpers.kt`, player controls in
   `TvPlayerPanel.kt`, shell chrome in `TvShellUi.kt`, Home route composition
   in `TvHomePanel.kt`, and focused Home recently-added, series, and status
   panel files, plus PC connection UI in `TvPcConnectionPanel.kt` with text input
@@ -256,7 +259,8 @@ Full review date: 2026-06-15.
   `TvLibraryScreen.kt`, mutable filter/selection controls in
   `TvLibraryControlsState.kt`, derived catalog view state in
   `TvLibraryViewState.kt`, filter controls in `TvLibraryFilterComponents.kt`,
-  poster rendering in `TvLibraryPosterComponents.kt`, episode list rows in
+  series picker rendering in `TvSeriesPickerRail.kt`, poster rendering in
+  `TvLibraryPosterComponents.kt`, episode list rows in
   `TvEpisodeRowComponents.kt`, episode/series detail in
   `TvLibraryEpisodeComponents.kt`, progress rail containers in
   `TvLibraryRails.kt`, and rail cards in `TvLibraryRailCards.kt`;

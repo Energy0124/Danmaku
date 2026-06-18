@@ -204,8 +204,11 @@ trusted-LAN clients.
   Desktop screenshot QA also localized the remaining visible provider/status
   summaries on Home, Library, Tracking, and Settings. Broader diagnostic-log
   localization still needs release polish.
-- Android mobile and Android TV still have very large `MainActivity.kt`
-  entrypoints. Android mobile has started decomposition with poster loading,
+- Android mobile and Android TV entrypoint decomposition has moved the old
+  monolithic screens into focused route, state, action, and component files.
+  The remaining refactor risk is in larger extracted route/component files
+  rather than in `MainActivity.kt`. Android mobile has started decomposition
+  with poster loading,
   URL encoding, display-label, watch-status, size, and playback-time helpers
   extracted into `MobileUiHelpers.kt`; tab metadata, bottom navigation, shared
   page chrome, and the mini-player bar are also split into
@@ -235,10 +238,10 @@ trusted-LAN clients.
   composition is split into `TvLibraryScreen.kt`, mutable filter/selection
   controls are split into `TvLibraryControlsState.kt`, and derived
   catalog/filter/progress view state is split into `TvLibraryViewState.kt`;
-  header/search/filter controls and series picker rendering are split into
-  `TvLibraryFilterComponents.kt`; library poster rendering is split into
-  `TvLibraryPosterComponents.kt`; episode list rows are split into
-  `TvEpisodeRowComponents.kt`; episode/series detail panels are split into
+  header/search/filter controls are split into `TvLibraryFilterComponents.kt`;
+  series picker rendering is split into `TvSeriesPickerRail.kt`; library
+  poster rendering is split into `TvLibraryPosterComponents.kt`; episode list
+  rows are split into `TvEpisodeRowComponents.kt`; episode/series detail panels are split into
   `TvLibraryEpisodeComponents.kt`; progress and next-up rail containers are
   split into `TvLibraryRails.kt`, while their focusable cards are split into
   `TvLibraryRailCards.kt`; duplicated remote playback
