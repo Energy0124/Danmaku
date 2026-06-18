@@ -102,7 +102,10 @@ internal fun TvEpisodeDetail(
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Button(onClick = { onPlay(detail.mediaItem) }) {
+            Button(
+                onClick = { onPlay(detail.mediaItem) },
+                modifier = Modifier.testTag("episode-detail-play:${detail.mediaItem.id}"),
+            ) {
                 Text(stringResource(R.string.action_play))
             }
             Button(

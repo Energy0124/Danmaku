@@ -111,7 +111,11 @@ internal fun TvDestinationHeader(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        TvRailPill(stringResource(R.string.player_status, snapshot.status.toString()), active = snapshot.source != null)
+        TvRailPill(
+            stringResource(R.string.player_status, snapshot.status.toString()),
+            active = snapshot.source != null,
+            modifier = Modifier.width(180.dp),
+        )
     }
 }
 
@@ -137,10 +141,10 @@ internal fun TvRailNavigationItem(
 internal fun TvRailPill(
     label: String,
     active: Boolean = false,
+    modifier: Modifier = Modifier.fillMaxWidth(),
 ) {
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
+        modifier = modifier
             .clip(CircleShape)
             .background(if (active) Color(0xFF273747) else TvPanelRaisedColor)
             .padding(horizontal = 12.dp, vertical = 8.dp),

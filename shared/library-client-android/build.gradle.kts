@@ -1,5 +1,6 @@
 plugins {
     id("com.android.library")
+    kotlin("plugin.serialization")
 }
 
 android {

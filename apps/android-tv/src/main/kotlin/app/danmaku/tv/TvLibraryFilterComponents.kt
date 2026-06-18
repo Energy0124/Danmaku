@@ -64,6 +64,7 @@ internal fun TvLibraryHeader(
         TvRailPill(
             stringResource(R.string.library_episode_count, filteredCount, totalCount),
             active = totalCount > 0,
+            modifier = Modifier.width(170.dp),
         )
     }
 }
@@ -185,7 +186,7 @@ internal fun TvSeriesPickerRail(
                         posterEndpoint = posterEndpoint,
                         label = seriesWatchSummaryById[summary.id].shortProgressLabel(),
                         modifier = Modifier
-                            .width(180.dp)
+                            .width(132.dp)
                             .aspectRatio(0.75f),
                     )
                     Spacer(modifier = Modifier.height(8.dp))

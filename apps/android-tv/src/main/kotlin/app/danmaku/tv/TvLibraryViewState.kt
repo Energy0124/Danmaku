@@ -62,7 +62,6 @@ internal fun buildTvLibraryViewState(
     val series = catalog?.groupedSeries().orEmpty().take(10)
     val selectedDetailId = selectedEpisodeId
         ?.takeIf { id -> filteredItems.any { it.id == id } }
-        ?: filteredItems.firstOrNull()?.id
     return TvLibraryViewState(
         totalItems = totalItems,
         filteredItems = filteredItems,

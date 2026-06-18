@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -69,6 +70,7 @@ internal fun TvPcConnectionPanel(
                     stringResource(R.string.pc_server_set)
                 },
                 active = serverUrl.isNotBlank(),
+                modifier = Modifier.width(180.dp),
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {

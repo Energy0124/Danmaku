@@ -260,7 +260,7 @@ class TvPlayerActionHandlerTest {
         assertEquals("http://tv.test:8686", loadedPreparation.target.baseUrl)
         assertEquals("pairing-token", loadedPreparation.target.pairingToken)
         assertEquals(item.id, loadedPreparation.target.mediaId)
-        assertEquals(42_000, loadedPreparation.resumePositionMs)
+        assertEquals(42_000L, loadedPreparation.resumePositionMs)
         assertEquals(
             PlaybackSource.RemoteStream("http://tv.test:8686/media/episode-1"),
             loadedPreparation.source,
