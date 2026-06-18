@@ -40,7 +40,9 @@ Status legend:
   `Danmaku_TV_API_36` 1080p emulator and `Danmaku_TV_4K_API_36` 4K emulator
   are set up and both passed `:apps:android-tv:connectedDebugAndroidTest` on
   2026-06-18 after fixing TV library selection, TV test input semantics, and
-  PC-screen pill sizing. Remaining: preferably one real Android TV device pass.
+  PC-screen pill sizing. The repeatable Windows wrapper is
+  `tools/windows/run-android-tv-emulator-qa.ps1`. Remaining: preferably one
+  real Android TV device pass.
 - `[~]` Live QA for MyAnimeList/Bangumi mapping, OAuth, sync, conflict handling,
   relaunch behavior, and external list state.
 - `[~]` Continue library UI polish where details, title clarity, poster states,
@@ -342,8 +344,9 @@ Full review date: 2026-06-15.
   `.\tools\windows\run-android-mobile-emulator-qa.ps1` to execute both and
   capture screenshots.
 - Android TV emulator coverage should use `Danmaku_TV_API_36` for 1080p and
-  `Danmaku_TV_4K_API_36` for 4K, with `ANDROID_SERIAL=emulator-5554` when
-  multiple emulators are attached.
+  `Danmaku_TV_4K_API_36` for 4K, or run
+  `.\tools\windows\run-android-tv-emulator-qa.ps1` to execute both and capture
+  screenshots.
 
 ## Standard Verification
 
@@ -359,4 +362,6 @@ Connected Android checks:
 .\gradlew.bat --no-daemon :shared:player-android-media3:connectedDebugAndroidTest
 .\gradlew.bat --no-daemon :apps:android-mobile:connectedDebugAndroidTest
 .\gradlew.bat --no-daemon :apps:android-tv:connectedDebugAndroidTest
+.\tools\windows\run-android-mobile-emulator-qa.ps1
+.\tools\windows\run-android-tv-emulator-qa.ps1
 ```

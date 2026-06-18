@@ -137,7 +137,8 @@ trusted-LAN clients.
   `system-images;android-36;android-tv;x86_64`. The 2026-06-18 emulator runs
   passed `:apps:android-tv:connectedDebugAndroidTest` at both 1080p and 4K, and
   visual screenshot QA caught a PC-screen pill layout collapse that is now
-  fixed.
+  fixed. The repeatable Windows wrapper is
+  `tools/windows/run-android-tv-emulator-qa.ps1`.
 
 ### Native And Tooling
 
@@ -301,15 +302,18 @@ git diff --check
 Recent Android TV emulator QA checks:
 
 ```powershell
-.\gradlew.bat --no-daemon :apps:android-tv:compileDebugKotlin
-.\gradlew.bat --no-daemon :apps:android-tv:compileDebugAndroidTestKotlin
+.\tools\windows\run-android-tv-emulator-qa.ps1
+
+# Equivalent manual commands per emulator:
+$env:ANDROID_SERIAL='emulator-5554'
 .\gradlew.bat --no-daemon :apps:android-tv:connectedDebugAndroidTest
 .\gradlew.bat --no-daemon :apps:android-tv:installDebug
 ```
 
 The 2026-06-18 run used `ANDROID_SERIAL=emulator-5554` against
 `Danmaku_TV_API_36` and `Danmaku_TV_4K_API_36`; local visual QA screenshots
-were captured under `build/qa/android-tv/`.
+were captured under `build/qa/android-tv/`. The wrapper captures
+`danmaku-tv-1080p.png` and `danmaku-tv-4k.png`.
 
 Recent Android mobile emulator QA checks:
 
