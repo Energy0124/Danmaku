@@ -55,6 +55,11 @@ private fun fallbackDesktopStrings(language: DesktopUiLanguage): DesktopStrings 
                 libraryQualityIgnoreAction = "Ignore"
                 libraryQualityResolveAction = "Resolve"
                 libraryQualityReopenAction = "Reopen"
+                libraryQualityOpenInspectorAction = "Open in inspector"
+                libraryQualitySplitSeriesGuidance =
+                    "Files here match different anime; inspect the affected files before resolving."
+                libraryQualityMergeSeriesGuidance =
+                    "Different local titles match the same anime; inspect the affected files before resolving."
                 libraryQualityActionsPlannedText = "Ignore and resolve actions will be added after issue persistence."
                 libraryQualityIssueTypeLabels = mapOf(
                     LibraryQualityIssueType.FOLDER_FILE_EPISODE_MISMATCH to "Folder/file episode mismatch",
@@ -111,6 +116,11 @@ private fun fallbackDesktopStrings(language: DesktopUiLanguage): DesktopStrings 
                 libraryQualityIgnoreAction = "忽略"
                 libraryQualityResolveAction = "解決"
                 libraryQualityReopenAction = "重新開啟"
+                libraryQualityOpenInspectorAction = "在檢視器開啟"
+                libraryQualitySplitSeriesGuidance =
+                    "這些檔案對應到不同動畫；解決前請檢查受影響檔案。"
+                libraryQualityMergeSeriesGuidance =
+                    "不同本機標題對應到同一動畫；解決前請檢查受影響檔案。"
                 libraryQualityActionsPlannedText = "忽略與解決動作會在問題持久化後加入。"
                 libraryQualityIssueTypeLabels = mapOf(
                     LibraryQualityIssueType.FOLDER_FILE_EPISODE_MISMATCH to "資料夾/檔名集數不一致",
@@ -333,6 +343,9 @@ internal class DesktopStrings {
     var libraryQualityIgnoreAction: String = ""
     var libraryQualityResolveAction: String = ""
     var libraryQualityReopenAction: String = ""
+    var libraryQualityOpenInspectorAction: String = ""
+    var libraryQualitySplitSeriesGuidance: String = ""
+    var libraryQualityMergeSeriesGuidance: String = ""
     var libraryQualityActionsPlannedText: String = ""
     var libraryQualityIssueTypeLabels: Map<LibraryQualityIssueType, String> = emptyMap()
     var libraryQualitySeverityLabels: Map<LibraryQualityIssueSeverity, String> = emptyMap()
@@ -786,5 +799,11 @@ internal class DesktopStrings {
         libraryQualitySeverityLabels[severity] ?: severity.name
     fun libraryQualityDecisionStateLabel(state: DesktopLibraryQualityIssueDecisionState): String =
         libraryQualityDecisionStateLabels[state] ?: state.name
+    fun libraryQualityIssueGuidance(type: LibraryQualityIssueType): String? =
+        when (type) {
+            LibraryQualityIssueType.SPLIT_SERIES_CANDIDATE -> libraryQualitySplitSeriesGuidance
+            LibraryQualityIssueType.MERGE_SERIES_CANDIDATE -> libraryQualityMergeSeriesGuidance
+            else -> null
+        }
     fun downloadFilterTitle(filter: DownloadQueueFilter): String = downloadFilterTitles[filter] ?: filter.label
 }

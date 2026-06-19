@@ -212,6 +212,9 @@
     <string name="desktop_library_quality_ignore_action">Ignore</string>
     <string name="desktop_library_quality_resolve_action">Resolve</string>
     <string name="desktop_library_quality_reopen_action">Reopen</string>
+    <string name="desktop_library_quality_open_inspector_action">Open in inspector</string>
+    <string name="desktop_library_quality_split_series_guidance">Files here match different anime; inspect the affected files before resolving.</string>
+    <string name="desktop_library_quality_merge_series_guidance">Different local titles match the same anime; inspect the affected files before resolving.</string>
     <string name="desktop_library_quality_actions_planned_text">Ignore and resolve actions will be added after issue persistence.</string>
     <string name="desktop_library_quality_type_folder_file_episode_mismatch">Folder/file episode mismatch</string>
     <string name="desktop_library_quality_type_duplicate_episode_number">Duplicate episode number</string>

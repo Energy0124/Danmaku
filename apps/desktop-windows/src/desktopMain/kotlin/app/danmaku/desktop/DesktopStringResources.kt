@@ -251,6 +251,12 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
     val libraryQualityIgnoreAction = stringResource(Res.string.desktop_library_quality_ignore_action)
     val libraryQualityResolveAction = stringResource(Res.string.desktop_library_quality_resolve_action)
     val libraryQualityReopenAction = stringResource(Res.string.desktop_library_quality_reopen_action)
+    val libraryQualityOpenInspectorAction =
+        stringResource(Res.string.desktop_library_quality_open_inspector_action)
+    val libraryQualitySplitSeriesGuidance =
+        stringResource(Res.string.desktop_library_quality_split_series_guidance)
+    val libraryQualityMergeSeriesGuidance =
+        stringResource(Res.string.desktop_library_quality_merge_series_guidance)
     val libraryQualityActionsPlannedText = stringResource(Res.string.desktop_library_quality_actions_planned_text)
     val libraryQualityTypeFolderFileEpisodeMismatch =
         stringResource(Res.string.desktop_library_quality_type_folder_file_episode_mismatch)
@@ -959,6 +965,9 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
             this.libraryQualityIgnoreAction = libraryQualityIgnoreAction
             this.libraryQualityResolveAction = libraryQualityResolveAction
             this.libraryQualityReopenAction = libraryQualityReopenAction
+            this.libraryQualityOpenInspectorAction = libraryQualityOpenInspectorAction
+            this.libraryQualitySplitSeriesGuidance = libraryQualitySplitSeriesGuidance
+            this.libraryQualityMergeSeriesGuidance = libraryQualityMergeSeriesGuidance
             this.libraryQualityActionsPlannedText = libraryQualityActionsPlannedText
             this.libraryQualityIssueTypeLabels = mapOf(
                 LibraryQualityIssueType.FOLDER_FILE_EPISODE_MISMATCH to libraryQualityTypeFolderFileEpisodeMismatch,

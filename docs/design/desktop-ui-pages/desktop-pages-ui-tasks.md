@@ -393,7 +393,10 @@ Status legend:
   - Metadata matches now suggest both split candidates when one local title maps
     to multiple anime and merge candidates when several local titles map to the
     same anime.
-  - Remaining: add guided apply actions and live QA against mapped catalog data.
+  - Split/merge rows now include localized guidance and an inspector jump to the
+    first affected file so the user can review existing mapping/detail tools in
+    context.
+  - Remaining: add actual apply actions and live QA against mapped catalog data.
 - `[ ]` Standardize destructive, retry, confirmation, and error dialogs.
 
 ## Tests and QA

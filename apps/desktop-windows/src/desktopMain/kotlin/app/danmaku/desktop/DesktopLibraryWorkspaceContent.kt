@@ -245,9 +245,11 @@ internal fun LibraryCenterWorkspace(
             )
             WindowsLibraryView.QUALITY -> LibraryQualityReviewView(
                 strings = strings,
+                catalog = catalog,
                 report = libraryQualityReport,
                 decisionByKey = libraryQualityDecisionByKey,
                 onSetDecision = onSetLibraryQualityIssueDecision,
+                onReviewItem = onShowDetails,
             )
             WindowsLibraryView.ALL_SERIES,
             WindowsLibraryView.PAIRED -> AllSeriesView(

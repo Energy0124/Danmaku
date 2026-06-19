@@ -17,6 +17,7 @@ import androidx.compose.material.Icon
 import androidx.compose.material.Text
 import androidx.compose.material.TextButton
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Refresh
@@ -32,21 +33,29 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import app.danmaku.domain.LibraryCatalog
+import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibraryQualityIssue
 import app.danmaku.domain.LibraryQualityIssueSeverity
+import app.danmaku.domain.LibraryQualityIssueType
 import app.danmaku.domain.LibraryQualityReport
 import app.danmaku.domain.stableKey
 
 @Composable
 internal fun LibraryQualityReviewView(
     strings: DesktopStrings,
+    catalog: LibraryCatalog?,
     report: LibraryQualityReport?,
     decisionByKey: Map<String, DesktopLibraryQualityIssueDecision>,
     onSetDecision: (LibraryQualityIssue, DesktopLibraryQualityIssueDecisionState?) -> Unit,
+    onReviewItem: (LibraryMediaItem) -> Unit,
 ) {
     if (report == null) {
         EmptyState(strings.libraryQualityNoLibraryText)
         return
+    }
+    val mediaItemById = remember(catalog) {
+        catalog?.items?.associateBy(LibraryMediaItem::id).orEmpty()
     }
     var showHandledIssues by remember { mutableStateOf(false) }
     val openIssues = remember(report, decisionByKey) {
@@ -130,8 +139,10 @@ internal fun LibraryQualityReviewView(
                 LibraryQualityIssueRow(
                     strings = strings,
                     issue = issue,
+                    reviewItem = issue.firstExistingItem(mediaItemById),
                     decision = decisionByKey[issue.stableKey()],
                     onSetDecision = onSetDecision,
+                    onReviewItem = onReviewItem,
                 )
             }
         }
@@ -142,8 +153,10 @@ internal fun LibraryQualityReviewView(
 private fun LibraryQualityIssueRow(
     strings: DesktopStrings,
     issue: LibraryQualityIssue,
+    reviewItem: LibraryMediaItem?,
     decision: DesktopLibraryQualityIssueDecision?,
     onSetDecision: (LibraryQualityIssue, DesktopLibraryQualityIssueDecisionState?) -> Unit,
+    onReviewItem: (LibraryMediaItem) -> Unit,
 ) {
     val issueColor = issue.severity.issueColor()
     val stateColor = decision?.state?.decisionColor() ?: issueColor
@@ -200,6 +213,14 @@ private fun LibraryQualityIssueRow(
                 color = DanmakuColors.TextMuted,
                 maxLines = 1,
             )
+            strings.libraryQualityIssueGuidance(issue.type)?.let { guidance ->
+                Text(
+                    guidance,
+                    color = DanmakuColors.Info,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             issue.relativePaths.take(3).forEach { path ->
                 Text(
                     path,
@@ -244,6 +265,17 @@ private fun LibraryQualityIssueRow(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Spacer(modifier = Modifier.weight(1f))
+                reviewItem?.let { item ->
+                    TextButton(onClick = { onReviewItem(item) }) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ViewList,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(modifier = Modifier.size(6.dp))
+                        Text(strings.libraryQualityOpenInspectorAction)
+                    }
+                }
                 if (decision == null) {
                     TextButton(
                         onClick = { onSetDecision(issue, DesktopLibraryQualityIssueDecisionState.IGNORED) },
@@ -294,3 +326,11 @@ private fun DesktopLibraryQualityIssueDecisionState.decisionColor(): Color =
         DesktopLibraryQualityIssueDecisionState.IGNORED -> DanmakuColors.TextMuted
         DesktopLibraryQualityIssueDecisionState.RESOLVED -> DanmakuColors.Accent
     }
+
+private fun LibraryQualityIssue.firstExistingItem(
+    mediaItemById: Map<String, LibraryMediaItem>,
+): LibraryMediaItem? =
+    mediaItemIds
+        .asSequence()
+        .mapNotNull(mediaItemById::get)
+        .firstOrNull()

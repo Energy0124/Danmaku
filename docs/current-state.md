@@ -278,14 +278,15 @@ trusted-LAN clients.
   shared library-quality scanner for duplicate/missing episodes, suspicious
   episode numbering, unmatched series, metadata episode-count mismatches, and
   metadata-assisted split/merge candidates, plus a desktop Library > Quality
-  review view with persisted ignore/resolve state. Live `W:/Anime` QA covered
+  review view with persisted ignore/resolve state, localized split/merge
+  guidance, and inspector jumps for affected files. Live `W:/Anime` QA covered
   1,973 media items;
   after root-level title inference and release-name parser tuning, the scanner
   reports 130 review candidates, including 45 episode variant groups separated
   from 18 hard duplicate-number issues. Missing high-value viewer workflows include
   seasonal/release-calendar views, OP/ED or recap skip markers, per-series
   subtitle/audio preferences, richer danmaku filtering and blocklists,
-  guided split/merge apply actions, richer external list-driven status/score
+  automated split/merge apply actions, richer external list-driven status/score
   workflows, and custom collections/tags.
 
 ## Not Implemented
