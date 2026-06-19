@@ -16,17 +16,27 @@ internal class DesktopExternalAnimeMappingSuggester(
         existingMappings: List<ExternalAnimeMapping>,
         providers: Set<ExternalAnimeProvider>,
         limitPerProvider: Int = DEFAULT_SUGGESTION_SEARCH_LIMIT,
+        onProviderFailure: (ExternalAnimeProvider, Throwable) -> Unit = { _, _ -> },
     ): List<ExternalAnimeMappingSuggestion> {
         val mappedProviders = existingMappings.mapTo(mutableSetOf()) { mapping -> mapping.animeId.provider }
         val searchableProviders = providers - mappedProviders
         if (searchableProviders.isEmpty()) {
             return emptyList()
         }
-        return searchService.searchAndCache(
-            query = series.externalAnimeMatchQuery(),
-            providers = searchableProviders,
-            limitPerProvider = limitPerProvider,
-        )
+        val query = series.externalAnimeMatchQuery().forSuggestionSearch() ?: return emptyList()
+        return searchableProviders
+            .flatMap { provider ->
+                try {
+                    searchService.searchAndCache(
+                        query = query,
+                        providers = setOf(provider),
+                        limitPerProvider = limitPerProvider,
+                    )
+                } catch (error: ExternalAnimeProviderException) {
+                    onProviderFailure(provider, error)
+                    emptyList()
+                }
+            }
             .groupBy { candidate -> candidate.anime.id.provider }
             .mapNotNull { (provider, candidates) ->
                 val sortedCandidates = candidates.sortedWith(
@@ -117,6 +127,19 @@ private fun List<Int>.mostCommonMetadataValue(): Int? =
         .maxWithOrNull(compareBy<Map.Entry<Int, Int>> { it.value }.thenByDescending { it.key })
         ?.key
 
+private fun ExternalAnimeMatchQuery.forSuggestionSearch(): ExternalAnimeMatchQuery? {
+    val titles = searchTitles
+        .map(String::trim)
+        .filter { title -> title.length <= MAX_PROVIDER_SEARCH_TITLE_LENGTH }
+        .filter { title -> title.any(Char::isLetterOrDigit) }
+        .distinctBy(String::normalizedDesktopAnimeTitle)
+    val primary = titles.firstOrNull() ?: return null
+    return copy(
+        title = primary,
+        alternateTitles = titles.drop(1),
+    )
+}
+
 private fun ExternalAnimeMatchCandidate.suggestionDisposition(
     margin: Double,
 ): ExternalAnimeMappingSuggestionDisposition? {
@@ -150,6 +173,7 @@ private fun String.normalizedDesktopAnimeTitle(): String =
 private const val DEFAULT_SUGGESTION_SEARCH_LIMIT = 8
 private const val MAX_METADATA_SEARCH_TITLES = 12
 private const val MAX_METADATA_EXTERNAL_LINKS = 8
+private const val MAX_PROVIDER_SEARCH_TITLE_LENGTH = 64
 private const val AUTO_LINK_CONFIDENCE_THRESHOLD = 0.93
 private const val AUTO_LINK_MARGIN_THRESHOLD = 0.12
 private const val REVIEW_CONFIDENCE_THRESHOLD = 0.60

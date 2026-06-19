@@ -122,6 +122,85 @@ class DesktopExternalAnimeMappingSuggesterTest {
             assertEquals(0.0, suggestions.single().margin, 0.0001)
         }
     }
+
+    @Test
+    fun keepsSuggestionsFromHealthyProvidersWhenOneProviderFails() {
+        val temp = createTempDirectory("danmaku-external-suggester-failure")
+        DesktopLibraryCatalogStore(temp.resolve("catalog.db")).use { store ->
+            val suggester = DesktopExternalAnimeMappingSuggester(
+                ExternalAnimeSearchService(
+                    clients = listOf(
+                        FailingSearchClient(ExternalAnimeProvider.MY_ANIME_LIST),
+                        RecordingSearchClient(
+                            provider = ExternalAnimeProvider.BANGUMI,
+                            results = listOf(
+                                animeInfo(
+                                    id = ExternalAnimeId(ExternalAnimeProvider.BANGUMI, 10),
+                                    primary = "Short Anime",
+                                    episodeCount = 12,
+                                ),
+                            ),
+                        ),
+                    ),
+                    catalogStore = store,
+                    nowEpochMs = { 123 },
+                ),
+            )
+            val failures = mutableListOf<ExternalAnimeProvider>()
+
+            val suggestions = suggester.suggestForSeries(
+                series = librarySeries(title = "Short Anime"),
+                existingMappings = emptyList(),
+                providers = setOf(ExternalAnimeProvider.MY_ANIME_LIST, ExternalAnimeProvider.BANGUMI),
+                onProviderFailure = { provider, _ -> failures += provider },
+            )
+
+            assertEquals(listOf(ExternalAnimeProvider.MY_ANIME_LIST), failures)
+            assertEquals(1, suggestions.size)
+            assertEquals(ExternalAnimeProvider.BANGUMI, suggestions.single().provider)
+        }
+    }
+
+    @Test
+    fun skipsTooLongBulkSuggestionSearchTitles() {
+        val temp = createTempDirectory("danmaku-external-suggester-long-title")
+        DesktopLibraryCatalogStore(temp.resolve("catalog.db")).use { store ->
+            val client = RecordingSearchClient(
+                provider = ExternalAnimeProvider.MY_ANIME_LIST,
+                results = listOf(
+                    animeInfo(
+                        id = ExternalAnimeId(ExternalAnimeProvider.MY_ANIME_LIST, 20),
+                        primary = "Short Anime",
+                    ),
+                ),
+            )
+            val suggester = DesktopExternalAnimeMappingSuggester(
+                ExternalAnimeSearchService(
+                    clients = listOf(client),
+                    catalogStore = store,
+                    nowEpochMs = { 123 },
+                ),
+            )
+            val longTitle = "A".repeat(80)
+
+            suggester.suggestForSeries(
+                series = librarySeries(
+                    title = longTitle,
+                    metadata = LibraryAnimeMetadata(
+                        animeId = ExternalAnimeId(ExternalAnimeProvider.DANDANPLAY, 12345),
+                        displayTitle = "Short Anime",
+                        primaryTitle = "Short Anime",
+                    ),
+                ),
+                existingMappings = emptyList(),
+                providers = setOf(ExternalAnimeProvider.MY_ANIME_LIST),
+            )
+
+            assertTrue(client.queries.isNotEmpty())
+            assertTrue(client.queries.none { query -> query.title == longTitle })
+            assertEquals("Short Anime", client.queries.first().title)
+        }
+    }
 }
 
 private class RecordingSearchClient(
@@ -133,6 +212,14 @@ private class RecordingSearchClient(
     override fun search(query: ExternalAnimeMatchQuery, limit: Int): List<ExternalAnimeInfo> {
         queries += query
         return results.take(limit)
+    }
+}
+
+private class FailingSearchClient(
+    override val provider: ExternalAnimeProvider,
+) : ExternalAnimeSearchClient {
+    override fun search(query: ExternalAnimeMatchQuery, limit: Int): List<ExternalAnimeInfo> {
+        throw ExternalAnimeProviderException("provider failed")
     }
 }
 

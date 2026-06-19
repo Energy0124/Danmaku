@@ -44,7 +44,12 @@ Status legend:
   `tools/windows/run-android-tv-emulator-qa.ps1`. Remaining: preferably one
   real Android TV device pass.
 - `[~]` Live QA for MyAnimeList/Bangumi mapping, OAuth, sync, conflict handling,
-  relaunch behavior, and external list state.
+  relaunch behavior, and external list state. A 2026-06-19 read-only live
+  suggestion pass against the current desktop catalog found and fixed a bulk
+  suggestion abort when one MyAnimeList title query returns `invalid q`; provider
+  failures are now isolated and reported while other provider suggestions
+  continue. Remaining: deliberate real-account mapping write/readback/sync and
+  relaunch verification.
 - `[x]` Add conservative auto mapping suggestions for MyAnimeList and Bangumi.
   The Tracking tab now has a "Suggest missing" scan that enriches
   MAL/Bangumi/dandanplay titles and external links, ranks with

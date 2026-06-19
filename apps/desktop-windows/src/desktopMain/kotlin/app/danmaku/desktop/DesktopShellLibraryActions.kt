@@ -538,6 +538,7 @@ internal class DesktopShellLibraryActions(
                     val displayLibrary = indexedLibrary.withExternalAnimeMetadata(animeMetadataResolver)
                     val autoLinked = mutableListOf<ExternalAnimeMappingSuggestion>()
                     val reviewNeeded = mutableListOf<ExternalAnimeMappingSuggestion>()
+                    val providerFailures = mutableListOf<ExternalAnimeSuggestionFailure>()
                     displayLibrary.catalog.groupedSeries().forEach { series ->
                         val existingMappings = catalogStore.loadExternalAnimeMappings(series.id)
                         suggester
@@ -545,6 +546,13 @@ internal class DesktopShellLibraryActions(
                                 series = series,
                                 existingMappings = existingMappings,
                                 providers = providers,
+                                onProviderFailure = { provider, error ->
+                                    providerFailures += ExternalAnimeSuggestionFailure(
+                                        seriesTitle = series.title,
+                                        provider = provider,
+                                        message = error.message ?: error::class.simpleName.orEmpty(),
+                                    )
+                                },
                             )
                             .forEach { suggestion ->
                                 when (suggestion.disposition) {
@@ -569,6 +577,7 @@ internal class DesktopShellLibraryActions(
                     ExternalAnimeSuggestionResult(
                         autoLinked = autoLinked,
                         reviewNeeded = reviewNeeded,
+                        providerFailures = providerFailures,
                     )
                 }
                 libraryState.libraryMetadataVersion += 1
@@ -586,6 +595,20 @@ internal class DesktopShellLibraryActions(
                     appendDiagnostic(
                         "metadata",
                         "External anime suggestions had $omittedReviewCount additional review candidate(s)",
+                    )
+                }
+                result.providerFailures.take(3).forEach { failure ->
+                    appendDiagnostic(
+                        "metadata",
+                        "External anime suggestion skipped ${failure.seriesTitle} on " +
+                            "${failure.provider.displayName}: ${failure.message}",
+                    )
+                }
+                val omittedFailureCount = result.providerFailures.size - 3
+                if (omittedFailureCount > 0) {
+                    appendDiagnostic(
+                        "metadata",
+                        "External anime suggestions had $omittedFailureCount additional provider failure(s)",
                     )
                 }
                 appendDiagnostic(
@@ -859,5 +882,12 @@ internal class DesktopShellLibraryActions(
     private data class ExternalAnimeSuggestionResult(
         val autoLinked: List<ExternalAnimeMappingSuggestion>,
         val reviewNeeded: List<ExternalAnimeMappingSuggestion>,
+        val providerFailures: List<ExternalAnimeSuggestionFailure>,
+    )
+
+    private data class ExternalAnimeSuggestionFailure(
+        val seriesTitle: String,
+        val provider: ExternalAnimeProvider,
+        val message: String,
     )
 }

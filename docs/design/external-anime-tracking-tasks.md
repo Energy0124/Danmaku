@@ -134,3 +134,16 @@ Default thresholds:
   with only one downloaded episode is not treated as a one-episode anime.
   Verification after the fix: `.\gradlew.bat --no-daemon :shared:domain:jvmTest
   :apps:desktop-windows:desktopTest`.
+- 2026-06-19: Ran app-level Tracking-tab screenshot QA and a non-mutating live
+  suggestion pass against the current desktop catalog. The live pass found that
+  one MyAnimeList `invalid q` provider response could abort the whole bulk
+  suggestion scan; the suggester now bounds bulk title variants, queries each
+  provider independently, and records provider failures as diagnostics while
+  preserving suggestions from healthy providers. Current live read-only result:
+  3 cached dandanplay-backed series scanned, 2 safe auto-link suggestions for
+  Witch Hat Atelier, and 4 review suggestions where episode counts disagree.
+  Verification: `.\gradlew.bat --no-daemon :shared:domain:jvmTest
+  :apps:desktop-windows:compileKotlinDesktop :apps:desktop-windows:desktopTest`
+  plus `:apps:desktop-windows:run --args="--tab=Tracking
+  --qa-screenshot-dir=S:\Projects\Danmaku\build\qa-screenshots
+  --qa-screenshot-name=tracking-qa-after-fix.png --qa-screenshot-delay-seconds=4"`.
