@@ -215,6 +215,7 @@
     <string name="desktop_library_quality_actions_planned_text">Ignore and resolve actions will be added after issue persistence.</string>
     <string name="desktop_library_quality_type_folder_file_episode_mismatch">Folder/file episode mismatch</string>
     <string name="desktop_library_quality_type_duplicate_episode_number">Duplicate episode number</string>
+    <string name="desktop_library_quality_type_episode_variant_group">Episode variant group</string>
     <string name="desktop_library_quality_type_missing_episode_number">Missing episode number</string>
     <string name="desktop_library_quality_type_unparsed_episode_number">Unparsed episode number</string>
     <string name="desktop_library_quality_type_unmatched_series">Unmatched series</string>

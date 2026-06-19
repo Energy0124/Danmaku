@@ -256,6 +256,8 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
         stringResource(Res.string.desktop_library_quality_type_folder_file_episode_mismatch)
     val libraryQualityTypeDuplicateEpisodeNumber =
         stringResource(Res.string.desktop_library_quality_type_duplicate_episode_number)
+    val libraryQualityTypeEpisodeVariantGroup =
+        stringResource(Res.string.desktop_library_quality_type_episode_variant_group)
     val libraryQualityTypeMissingEpisodeNumber =
         stringResource(Res.string.desktop_library_quality_type_missing_episode_number)
     val libraryQualityTypeUnparsedEpisodeNumber =
@@ -959,6 +961,7 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
             this.libraryQualityIssueTypeLabels = mapOf(
                 LibraryQualityIssueType.FOLDER_FILE_EPISODE_MISMATCH to libraryQualityTypeFolderFileEpisodeMismatch,
                 LibraryQualityIssueType.DUPLICATE_EPISODE_NUMBER to libraryQualityTypeDuplicateEpisodeNumber,
+                LibraryQualityIssueType.EPISODE_VARIANT_GROUP to libraryQualityTypeEpisodeVariantGroup,
                 LibraryQualityIssueType.MISSING_EPISODE_NUMBER to libraryQualityTypeMissingEpisodeNumber,
                 LibraryQualityIssueType.UNPARSED_EPISODE_NUMBER to libraryQualityTypeUnparsedEpisodeNumber,
                 LibraryQualityIssueType.UNMATCHED_SERIES to libraryQualityTypeUnmatchedSeries,

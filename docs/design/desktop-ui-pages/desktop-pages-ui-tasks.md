@@ -387,9 +387,11 @@ Status legend:
     candidates after scanner/indexer tuning for metadata-empty imports,
     supplemental clips, versioned episode tags, root-level release files, and
     bracketed fansub release names.
-  - Remaining: add variant-aware duplicate classification for fansub,
-    subtitle-language, and quality variants, then use metadata matches to
-    suggest split/merge actions instead of only listing duplicate episodes.
+  - Variant-aware duplicate classification now separates 45
+    fansub/subtitle-language/quality alternates from 18 hard duplicate-number
+    issues on the live library.
+  - Remaining: use metadata matches to suggest split/merge actions instead of
+    only listing duplicate episodes.
 - `[ ]` Standardize destructive, retry, confirmation, and error dialogs.
 
 ## Tests and QA

@@ -333,9 +333,10 @@ Full review date: 2026-06-15.
   and persisted ignore/resolve/reopen actions. Live `W:/Anime` QA covered
   1,973 media items and now reports 130 review candidates after suppressing
   metadata-empty unmatched floods, supplemental clips, root-level mega-series
-  grouping, and common release-name parser false positives. Remaining:
-  variant-aware duplicate classification for fansub, subtitle-language, and
-  quality variants, plus metadata-assisted split/merge suggestions.
+  grouping, and common release-name parser false positives. Variant-aware
+  duplicate classification separates 45 fansub/subtitle-language/quality
+  alternates from 18 hard duplicate-number issues. Remaining:
+  metadata-assisted split/merge suggestions.
 - `[ ]` P1: Add per-series playback preferences for preferred subtitle track,
   audio track, subtitle requirement, playback speed, danmaku visibility, and
   resume/autonext behavior.

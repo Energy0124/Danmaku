@@ -38,6 +38,7 @@ enum class LibraryQualityIssueSeverity {
 enum class LibraryQualityIssueType {
     FOLDER_FILE_EPISODE_MISMATCH,
     DUPLICATE_EPISODE_NUMBER,
+    EPISODE_VARIANT_GROUP,
     MISSING_EPISODE_NUMBER,
     UNPARSED_EPISODE_NUMBER,
     UNMATCHED_SERIES,
@@ -180,17 +181,61 @@ object LibraryQualityScanner {
             .filterValues { matches -> matches.size > 1 }
             .map { (key, matches) ->
                 val items = matches.map { (item, _) -> item }
+                val variantEvidence = episodeVariantEvidence(items)
+                val isVariantGroup = variantEvidence != null
                 LibraryQualityIssue(
-                    type = LibraryQualityIssueType.DUPLICATE_EPISODE_NUMBER,
+                    type = if (isVariantGroup) {
+                        LibraryQualityIssueType.EPISODE_VARIANT_GROUP
+                    } else {
+                        LibraryQualityIssueType.DUPLICATE_EPISODE_NUMBER
+                    },
                     severity = LibraryQualityIssueSeverity.REVIEW,
                     seriesId = series.id,
                     seriesTitle = series.title,
                     mediaItemIds = items.map(LibraryMediaItem::id),
                     relativePaths = items.map(LibraryMediaItem::relativePath),
-                    message = "Multiple files appear to represent the same episode.",
-                    evidence = listOf("episode=${key.describe()}"),
+                    message = if (isVariantGroup) {
+                        "Multiple alternate files appear to represent the same episode."
+                    } else {
+                        "Multiple files appear to represent the same episode."
+                    },
+                    evidence = listOf("episode=${key.describe()}") + variantEvidence.orEmpty(),
                 )
             }
+
+    private fun episodeVariantEvidence(items: List<LibraryMediaItem>): List<String>? {
+        val variants = items.map(EpisodeVariant::from)
+        val signatures = variants.map(EpisodeVariant::signature)
+        if (signatures.distinct().size != signatures.size) return null
+        val evidence = buildList {
+            add("variants=${variants.size}")
+            variants.fieldEvidence(
+                label = "releaseGroups",
+                values = variants.mapNotNull(EpisodeVariant::releaseGroup),
+            )?.let(::add)
+            variants.fieldEvidence(
+                label = "resolutions",
+                values = variants.mapNotNull(EpisodeVariant::resolution),
+            )?.let(::add)
+            variants.fieldEvidence(
+                label = "subtitleTags",
+                values = variants.flatMap(EpisodeVariant::subtitleTags),
+            )?.let(::add)
+            variants.fieldEvidence(
+                label = "sources",
+                values = variants.flatMap(EpisodeVariant::sourceTags),
+            )?.let(::add)
+            variants.fieldEvidence(
+                label = "codecs",
+                values = variants.flatMap(EpisodeVariant::codecTags),
+            )?.let(::add)
+            variants.fieldEvidence(
+                label = "containers",
+                values = variants.mapNotNull(EpisodeVariant::container),
+            )?.let(::add)
+        }
+        return evidence.takeIf { it.size > 1 }
+    }
 
     private fun missingEpisodeIssues(
         series: LibrarySeries,
@@ -271,6 +316,76 @@ private data class EpisodeKey(
     fun describe(): String =
         season?.let { "S${it.toString().padStart(2, '0')}E${episode.toString().padStart(2, '0')}" }
             ?: episode.toString()
+}
+
+private data class EpisodeVariant(
+    val releaseGroup: String?,
+    val resolution: String?,
+    val subtitleTags: List<String>,
+    val sourceTags: List<String>,
+    val codecTags: List<String>,
+    val container: String?,
+) {
+    val signature: String =
+        listOf(
+            releaseGroup.normalizedVariantPart(),
+            resolution.normalizedVariantPart(),
+            subtitleTags.joinToString(separator = "+"),
+            sourceTags.joinToString(separator = "+"),
+            codecTags.joinToString(separator = "+"),
+            container.normalizedVariantPart(),
+        ).joinToString(separator = "|")
+
+    companion object {
+        fun from(item: LibraryMediaItem): EpisodeVariant {
+            val fileName = item.relativePath.substringAfterLast('/')
+            val text = "${item.episodeTitle} $fileName"
+            return EpisodeVariant(
+                releaseGroup = releaseGroup(item),
+                resolution = resolution(text),
+                subtitleTags = tagValues(text, subtitleTagRegex),
+                sourceTags = tagValues(text, sourceTagRegex),
+                codecTags = tagValues(text, codecTagRegex),
+                container = fileName.substringAfterLast('.', missingDelimiterValue = "")
+                    .lowercase()
+                    .takeIf { extension -> extension in variantContainerExtensions },
+            )
+        }
+
+        private fun releaseGroup(item: LibraryMediaItem): String? {
+            val title = item.episodeTitle.trim()
+            val first = leadingBracketVariantTokenRegex.find(title) ?: return null
+            val firstToken = first.groupValues[1].trim()
+            if (firstToken.isEpisodeToken() || firstToken.variantComparable() == item.seriesTitle.variantComparable()) {
+                return null
+            }
+            val afterFirst = title.substring(first.range.last + 1).trimStart()
+            val second = leadingBracketVariantTokenRegex.find(afterFirst)
+            val secondToken = second?.groupValues?.get(1)?.trim()
+            return when {
+                secondToken != null && secondToken.variantComparable() == item.seriesTitle.variantComparable() ->
+                    firstToken
+                afterFirst.variantComparable().startsWith(item.seriesTitle.variantComparable()) ->
+                    firstToken
+                firstToken.looksLikeReleaseGroup() ->
+                    firstToken
+                else ->
+                    null
+            }
+        }
+
+        private fun resolution(text: String): String? =
+            resolutionHeightRegex.find(text)?.groupValues?.get(1)?.let { height -> "${height.lowercase()}p" }
+                ?: resolutionDimensionRegex.find(text)?.groupValues?.get(1)?.let { height -> "${height.lowercase()}p" }
+
+        private fun tagValues(text: String, regex: Regex): List<String> =
+            regex.findAll(text)
+                .map { match -> match.value.normalizedVariantPart() }
+                .filter(String::isNotBlank)
+                .distinct()
+                .sorted()
+                .toList()
+    }
 }
 
 private data class EpisodeHint(
@@ -390,6 +505,17 @@ private val supplementalEpisodeRegex = Regex(
     """(?i)(?:^|[^a-z0-9])(?:pv|op|ed|ncop|nced|menu|menus|trailer|teaser|cm|creditless|yokoku|preview|remix)(?:[0-9]+(?:\.[0-9]+)?)?(?:[^a-z0-9]|$)""",
 )
 private val knownMediaExtensionRegex = Regex("""(?i)\.(?:avi|flv|m2ts|m4v|mkv|mov|mp4|mpeg|mpg|ts|webm|wmv)$""")
+private val leadingBracketVariantTokenRegex = Regex("""^\[([^]]+)]""")
+private val variantEpisodeTokenRegex = Regex("""(?i)^(?:s[0-9]{1,2}\s*e)?[0-9]{1,4}(?:v[0-9]+|\s*(?:end|fin|final))?$""")
+private val resolutionHeightRegex = Regex("""(?i)\b([0-9]{3,4})p\b""")
+private val resolutionDimensionRegex = Regex("""(?i)\b[0-9]{3,4}\s*[x×]\s*([0-9]{3,4})\b""")
+private val subtitleTagRegex = Regex(
+    """(?i)\b(?:big5|gb|gb-cn|gb_cn|chs|cht|cht-jp|cht_jp|jp|jpn|jpsc|jptc|eng|en|multi-audio|multi-subs?|multiple subtitle)\b""",
+)
+private val sourceTagRegex = Regex("""(?i)\b(?:baha|web-dl|webrip|bdrip|bd|bluray|blu-ray|hdtv|tv)\b""")
+private val codecTagRegex = Regex("""(?i)\b(?:avc|hevc|x264|x265|h264|h265|aac|flac|opus|dts-hd|dts)\b""")
+private val releaseGroupHintRegex = Regex("""(?i)(?:sub|subs|raw|raws|fansub|studio|house|kissaten|caso|ktxp|vcb|erai|lilith|moozzi|kamigami|hysub|jysub|jyfansub)""")
+private val variantContainerExtensions = setOf("avi", "flv", "m2ts", "m4v", "mkv", "mov", "mp4", "mpeg", "mpg", "ts", "webm", "wmv")
 
 private fun String.stableQualityId(): String {
     val normalized = trim()
@@ -413,3 +539,44 @@ private fun String.qualityKeyPart(): String =
 
 private fun String.withoutKnownMediaExtension(): String =
     replace(knownMediaExtensionRegex, "")
+
+private fun List<EpisodeVariant>.fieldEvidence(
+    label: String,
+    values: List<String>,
+): String? {
+    val distinctValues = values
+        .map(String::trim)
+        .filter(String::isNotBlank)
+        .distinct()
+        .sorted()
+    return if (distinctValues.size > 1) {
+        "$label=${distinctValues.joinToString(separator = "; ")}"
+    } else {
+        null
+    }
+}
+
+private fun String?.normalizedVariantPart(): String =
+    this?.variantComparable().orEmpty()
+
+private fun String.variantComparable(): String =
+    trim()
+        .lowercase()
+        .replace('_', ' ')
+        .map { char ->
+            when {
+                char.isLetterOrDigit() -> char
+                else -> ' '
+            }
+        }
+        .joinToString(separator = "")
+        .replace(Regex("\\s+"), " ")
+        .trim()
+
+private fun String.isEpisodeToken(): Boolean =
+    variantEpisodeTokenRegex.matches(trim())
+
+private fun String.looksLikeReleaseGroup(): Boolean =
+    contains('&') ||
+        contains('+') ||
+        releaseGroupHintRegex.containsMatchIn(this)

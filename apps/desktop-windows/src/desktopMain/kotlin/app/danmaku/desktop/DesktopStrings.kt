@@ -59,6 +59,7 @@ private fun fallbackDesktopStrings(language: DesktopUiLanguage): DesktopStrings 
                 libraryQualityIssueTypeLabels = mapOf(
                     LibraryQualityIssueType.FOLDER_FILE_EPISODE_MISMATCH to "Folder/file episode mismatch",
                     LibraryQualityIssueType.DUPLICATE_EPISODE_NUMBER to "Duplicate episode number",
+                    LibraryQualityIssueType.EPISODE_VARIANT_GROUP to "Episode variant group",
                     LibraryQualityIssueType.MISSING_EPISODE_NUMBER to "Missing episode number",
                     LibraryQualityIssueType.UNPARSED_EPISODE_NUMBER to "Unparsed episode number",
                     LibraryQualityIssueType.UNMATCHED_SERIES to "Unmatched series",
@@ -113,6 +114,7 @@ private fun fallbackDesktopStrings(language: DesktopUiLanguage): DesktopStrings 
                 libraryQualityIssueTypeLabels = mapOf(
                     LibraryQualityIssueType.FOLDER_FILE_EPISODE_MISMATCH to "資料夾/檔名集數不一致",
                     LibraryQualityIssueType.DUPLICATE_EPISODE_NUMBER to "重複集數",
+                    LibraryQualityIssueType.EPISODE_VARIANT_GROUP to "集數版本群組",
                     LibraryQualityIssueType.MISSING_EPISODE_NUMBER to "缺少集數",
                     LibraryQualityIssueType.UNPARSED_EPISODE_NUMBER to "無法解析集數",
                     LibraryQualityIssueType.UNMATCHED_SERIES to "未對應系列",

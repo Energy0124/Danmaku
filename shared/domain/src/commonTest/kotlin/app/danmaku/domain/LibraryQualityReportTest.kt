@@ -55,6 +55,89 @@ class LibraryQualityReportTest {
     }
 
     @Test
+    fun classifiesReleaseLanguageAndQualityAlternatesAsEpisodeVariants() {
+        val catalog = catalogOf(
+            item(
+                id = "eighty-six-comicat-11",
+                seriesTitle = "86 - Eighty Six",
+                episodeTitle = "[Comicat&KissSub][86 - Eighty Six][11][1080P][BIG5][MP4]",
+                relativePath = "[Comicat&KissSub][86 - Eighty Six][11][1080P][BIG5][MP4].mp4",
+            ),
+            item(
+                id = "eighty-six-lilith-11",
+                seriesTitle = "86 - Eighty Six",
+                episodeTitle = "[Lilith-Raws] 86 - Eighty Six - 11 [Baha][WEB-DL][1080p][AVC AAC][CHT][MP4]",
+                relativePath = "[Lilith-Raws] 86 - Eighty Six - 11 [Baha][WEB-DL][1080p][AVC AAC][CHT][MP4].mp4",
+            ),
+            item(
+                id = "appare-jpsc-01",
+                seriesTitle = "Appare-Ranman!",
+                episodeTitle = "[Nekomoe kissaten][Appare-Ranman!][01][1080p][JPSC]",
+                relativePath = "[Nekomoe kissaten][Appare-Ranman!][01][1080p][JPSC].mp4",
+            ),
+            item(
+                id = "appare-jptc-01",
+                seriesTitle = "Appare-Ranman!",
+                episodeTitle = "[Nekomoe kissaten][Appare-Ranman!][01][1080p][JPTC]",
+                relativePath = "[Nekomoe kissaten][Appare-Ranman!][01][1080p][JPTC].mp4",
+            ),
+            item(
+                id = "higurashi-720-13",
+                seriesTitle = "Higurashi_Gou",
+                episodeTitle = "[KTXP][Higurashi_Gou][13][GB_CN][HEVC_opus][720p]",
+                relativePath = "[KTXP][Higurashi_Gou][13][GB_CN][HEVC_opus][720p].mkv",
+            ),
+            item(
+                id = "higurashi-1080-13",
+                seriesTitle = "Higurashi_Gou",
+                episodeTitle = "[KTXP][Higurashi_Gou][13][GB_CN][HEVC_opus][1080p]",
+                relativePath = "[KTXP][Higurashi_Gou][13][GB_CN][HEVC_opus][1080p].mkv",
+            ),
+        )
+
+        val issues = catalog.libraryQualityReport().issues
+        val variants = issues.filter { issue -> issue.type == LibraryQualityIssueType.EPISODE_VARIANT_GROUP }
+
+        assertEquals(3, variants.size)
+        assertTrue(issues.none { issue -> issue.type == LibraryQualityIssueType.DUPLICATE_EPISODE_NUMBER })
+        assertTrue(
+            variants.single { issue -> issue.seriesTitle == "86 - Eighty Six" }
+                .evidence.any { evidence -> evidence.startsWith("releaseGroups=") },
+        )
+        assertTrue(
+            variants.single { issue -> issue.seriesTitle == "Appare-Ranman!" }
+                .evidence.any { evidence -> evidence == "subtitleTags=jpsc; jptc" },
+        )
+        assertTrue(
+            variants.single { issue -> issue.seriesTitle == "Higurashi_Gou" }
+                .evidence.any { evidence -> evidence == "resolutions=1080p; 720p" },
+        )
+    }
+
+    @Test
+    fun keepsSameSignatureSideArcsAsDuplicateEpisodeReview() {
+        val catalog = catalogOf(
+            item(
+                id = "danganronpa-despair-01",
+                seriesTitle = "[SumiSora&CASO][DanganRonpa3][BIG5][720p]",
+                episodeTitle = "[SumiSora&CASO][DanganRonpa3][Despair_Side][01][BIG5][720p]",
+            ),
+            item(
+                id = "danganronpa-future-01",
+                seriesTitle = "[SumiSora&CASO][DanganRonpa3][BIG5][720p]",
+                episodeTitle = "[SumiSora&CASO][DanganRonpa3][Future_Side][01][BIG5][720p]",
+            ),
+        )
+
+        val issues = catalog.libraryQualityReport().issues
+
+        assertEquals(
+            listOf(LibraryQualityIssueType.DUPLICATE_EPISODE_NUMBER),
+            issues.map(LibraryQualityIssue::type),
+        )
+    }
+
+    @Test
     fun detectsMetadataCountMismatchAndUnmatchedSeries() {
         val catalog = catalogOf(
             (1..10).map { episode ->

@@ -215,6 +215,7 @@
     <string name="desktop_library_quality_actions_planned_text">忽略與解決動作會在問題持久化後加入。</string>
     <string name="desktop_library_quality_type_folder_file_episode_mismatch">資料夾/檔名集數不一致</string>
     <string name="desktop_library_quality_type_duplicate_episode_number">重複集數</string>
+    <string name="desktop_library_quality_type_episode_variant_group">集數版本群組</string>
     <string name="desktop_library_quality_type_missing_episode_number">缺少集數</string>
     <string name="desktop_library_quality_type_unparsed_episode_number">無法解析集數</string>
     <string name="desktop_library_quality_type_unmatched_series">未對應系列</string>
