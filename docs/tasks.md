@@ -340,8 +340,13 @@ Full review date: 2026-06-15.
   localized guidance, an inspector jump to review the first affected file, and
   a non-destructive Apply mappings action that persists metadata-derived item
   and series mappings before marking the issue resolved; its plan-application
-  persistence path is covered by desktop tests. Remaining: live QA against
-  mapped catalog data and optional filesystem organization/rename flows.
+  persistence path is covered by desktop tests. Live QA is now repeatable via
+  `tools/windows/run-library-quality-live-qa.ps1`: the full `W:/Anime` scan
+  still reports 1,973 items and 130 structural review candidates with no
+  apply-capable rows because it is a fresh metadata-empty scan, while the
+  copied mapped registered catalog applied one split-series plan with 20 item
+  mappings and 2 series mappings, reducing open mapped issues from 39 to 38.
+  Remaining: optional preview-first filesystem organization/rename flows.
 - `[ ]` P1: Add per-series playback preferences for preferred subtitle track,
   audio track, subtitle requirement, playback speed, danmaku visibility, and
   resume/autonext behavior.
@@ -395,4 +400,11 @@ Connected Android checks:
 .\gradlew.bat --no-daemon :apps:android-tv:connectedDebugAndroidTest
 .\tools\windows\run-android-mobile-emulator-qa.ps1
 .\tools\windows\run-android-tv-emulator-qa.ps1
+```
+
+Desktop live QA helpers:
+
+```powershell
+.\tools\windows\run-library-quality-live-qa.ps1
+.\tools\windows\run-library-quality-live-qa.ps1 -LibraryRoot '' -OutputDir build\qa\library-quality-registered
 ```

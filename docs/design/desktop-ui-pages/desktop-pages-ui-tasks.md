@@ -399,8 +399,14 @@ Status legend:
   - Split/merge rows now expose a non-destructive Apply mappings action that
     persists metadata-derived item and series mappings before marking the issue
     resolved; the apply-plan persistence path now has desktop test coverage.
-  - Remaining: live QA against mapped catalog data and optional filesystem
-    organization/rename flows.
+  - Live Library Quality QA is now repeatable with
+    `tools/windows/run-library-quality-live-qa.ps1`. The full `W:/Anime` scan
+    still covers 1,973 items and 130 structural review rows, but has no
+    apply-capable split/merge row because it is a fresh metadata-empty scan.
+    Running the same harness against copied registered database roots applied
+    one mapped split-series plan with 20 item mappings and 2 series mappings,
+    reducing open mapped issues from 39 to 38.
+  - Remaining: optional preview-first filesystem organization/rename flows.
 - `[ ]` Standardize destructive, retry, confirmation, and error dialogs.
 
 ## Tests and QA
@@ -417,3 +423,5 @@ Status legend:
 - `[ ]` Add tests for cache-state persistence and episode selection readback.
 - `[x]` Run `:apps:desktop-windows:compileKotlinDesktop` after UI wiring.
 - `[x]` Run `:apps:desktop-windows:desktopTest` after behavior changes.
+- `[x]` Add repeatable live QA for Library Quality Apply mappings against a
+  copied desktop database.

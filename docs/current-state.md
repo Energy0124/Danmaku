@@ -285,7 +285,13 @@ trusted-LAN clients.
   QA covered 1,973 media items;
   after root-level title inference and release-name parser tuning, the scanner
   reports 130 review candidates, including 45 episode variant groups separated
-  from 18 hard duplicate-number issues. Missing high-value viewer workflows include
+  from 18 hard duplicate-number issues. Library Quality live QA is repeatable
+  with `tools/windows/run-library-quality-live-qa.ps1`; the full `W:/Anime`
+  fresh scan has no apply-capable split/merge rows because cached metadata is
+  absent, while the copied mapped registered catalog applied one split-series
+  plan with 20 item mappings and 2 series mappings and reduced open mapped
+  issues from 39 to 38. Filesystem organization/rename tooling is still
+  optional and should be preview-first. Missing high-value viewer workflows include
   seasonal/release-calendar views, OP/ED or recap skip markers, per-series
   subtitle/audio preferences, richer danmaku filtering and blocklists,
   optional filesystem organization/rename flows, richer external list-driven
@@ -301,12 +307,14 @@ trusted-LAN clients.
 
 ## Last Verified Commands
 
-Recent local checks during the 2026-06-15 desktop localization refactor work:
+Recent local checks:
 
 ```powershell
 .\gradlew.bat --no-daemon :apps:desktop-windows:compileKotlinDesktop
 .\gradlew.bat --no-daemon :apps:desktop-windows:desktopTest
 git diff --check
+.\tools\windows\run-library-quality-live-qa.ps1
+.\tools\windows\run-library-quality-live-qa.ps1 -LibraryRoot '' -OutputDir build\qa\library-quality-registered
 .\tools\windows\capture-desktop-localization-screenshots.ps1
 .\tools\windows\capture-desktop-localization-screenshots.ps1 -Languages zh-TW -Tabs home,library,tracking,settings
 .\gradlew.bat --no-daemon :apps:android-mobile:assembleDebug
