@@ -329,9 +329,9 @@ Full review date: 2026-06-15.
   folder/file episode mismatches, duplicate episode numbers, missing episode
   gaps, unmatched series, local-vs-metadata episode count mismatches, and local
   folder split candidates with realistic release filename examples. Desktop now
-  exposes a read-only Library > Quality review view with issue counts, affected
-  files, and evidence. Remaining: persist quality issues, add ignore/resolve
-  actions, and run live-library QA against large folders.
+  exposes Library > Quality with open/handled counts, affected files, evidence,
+  and persisted ignore/resolve/reopen actions. Remaining: run live-library QA
+  against large folders.
 - `[ ]` P1: Add per-series playback preferences for preferred subtitle track,
   audio track, subtitle requirement, playback speed, danmaku visibility, and
   resume/autonext behavior.

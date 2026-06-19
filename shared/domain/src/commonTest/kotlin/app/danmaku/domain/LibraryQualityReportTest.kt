@@ -115,6 +115,27 @@ class LibraryQualityReportTest {
         assertTrue(issue.evidence.contains("DANDANPLAY#2"))
     }
 
+    @Test
+    fun issueStableKeyIgnoresItemAndPathOrdering() {
+        val first = LibraryQualityIssue(
+            type = LibraryQualityIssueType.DUPLICATE_EPISODE_NUMBER,
+            severity = LibraryQualityIssueSeverity.REVIEW,
+            seriesId = "example|show",
+            seriesTitle = "Example Show",
+            mediaItemIds = listOf("episode,b", "episode\\a"),
+            relativePaths = listOf("Example Show/02.mkv", "Example Show/01,alt.mkv"),
+            message = "Multiple files appear to represent the same episode.",
+        )
+        val second = first.copy(
+            mediaItemIds = listOf("episode\\a", "episode,b"),
+            relativePaths = listOf("Example Show/01,alt.mkv", "Example Show/02.mkv"),
+            message = "Scanner wording changed.",
+            evidence = listOf("episode=1"),
+        )
+
+        assertEquals(first.stableKey(), second.stableKey())
+    }
+
     private fun catalogOf(items: List<LibraryMediaItem>): LibraryCatalog =
         LibraryCatalog(
             rootName = "Anime",

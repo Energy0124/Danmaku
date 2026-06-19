@@ -217,6 +217,60 @@ class DesktopLibraryCatalogStoreTest {
     }
 
     @Test
+    fun persistsLibraryQualityIssueDecisions() {
+        val temp = createTempDirectory("danmaku-library-quality-decisions")
+        val databasePath = temp.resolve("catalog.db")
+        val older = DesktopLibraryQualityIssueDecision(
+            issueKey = "DUPLICATE_EPISODE_NUMBER|example-show|episode-a,episode-b|Example Show/01.mkv",
+            state = DesktopLibraryQualityIssueDecisionState.IGNORED,
+            updatedAtEpochMs = 100,
+        )
+        val newer = DesktopLibraryQualityIssueDecision(
+            issueKey = "UNMATCHED_SERIES|mystery-show|episode-1|Mystery Show/01.mkv",
+            state = DesktopLibraryQualityIssueDecisionState.RESOLVED,
+            updatedAtEpochMs = 200,
+        )
+
+        DesktopLibraryCatalogStore(databasePath).use { store ->
+            store.saveLibraryQualityIssueDecision(older)
+            store.saveLibraryQualityIssueDecision(newer)
+
+            assertEquals(older, store.loadLibraryQualityIssueDecision(older.issueKey))
+            assertEquals(listOf(newer, older), store.loadLibraryQualityIssueDecisions())
+        }
+
+        DesktopLibraryCatalogStore(databasePath).use { store ->
+            assertEquals(newer, store.loadLibraryQualityIssueDecision(newer.issueKey))
+            store.deleteLibraryQualityIssueDecision(newer.issueKey)
+            assertNull(store.loadLibraryQualityIssueDecision(newer.issueKey))
+        }
+
+        temp.toFile().deleteRecursively()
+    }
+
+    @Test
+    fun rejectsBlankLibraryQualityIssueDecisionKeys() {
+        val temp = createTempDirectory("danmaku-library-quality-decisions-invalid")
+
+        DesktopLibraryCatalogStore(temp.resolve("catalog.db")).use { store ->
+            assertFailsWith<IllegalArgumentException> {
+                store.saveLibraryQualityIssueDecision(
+                    DesktopLibraryQualityIssueDecision(
+                        issueKey = " ",
+                        state = DesktopLibraryQualityIssueDecisionState.IGNORED,
+                        updatedAtEpochMs = 100,
+                    ),
+                )
+            }
+            assertFailsWith<IllegalArgumentException> {
+                store.loadLibraryQualityIssueDecision(" ")
+            }
+        }
+
+        temp.toFile().deleteRecursively()
+    }
+
+    @Test
     fun persistsLibraryRootsWithProvenanceAndMissingState() {
         val temp = createTempDirectory("danmaku-library-roots")
         val databasePath = temp.resolve("catalog.db")
@@ -808,6 +862,13 @@ class DesktopLibraryCatalogStoreTest {
             )
             store.saveLocalAnimeListEntry(localEntry)
             assertEquals(localEntry, store.loadLocalAnimeListEntry("frieren"))
+            val qualityDecision = DesktopLibraryQualityIssueDecision(
+                issueKey = "UNMATCHED_SERIES|frieren|frieren-01|Frieren/01.mkv",
+                state = DesktopLibraryQualityIssueDecisionState.RESOLVED,
+                updatedAtEpochMs = 456,
+            )
+            store.saveLibraryQualityIssueDecision(qualityDecision)
+            assertEquals(qualityDecision, store.loadLibraryQualityIssueDecision(qualityDecision.issueKey))
         }
 
         temp.toFile().deleteRecursively()

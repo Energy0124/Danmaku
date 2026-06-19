@@ -144,6 +144,12 @@ CREATE TABLE local_anime_list_entry (
   updated_at_epoch_ms INTEGER NOT NULL
 );
 
+CREATE TABLE library_quality_issue_decision (
+  issue_key TEXT NOT NULL PRIMARY KEY,
+  state TEXT NOT NULL,
+  updated_at_epoch_ms INTEGER NOT NULL
+);
+
 selectMetadata:
 SELECT root_path, root_name, indexed_at_epoch_ms
 FROM library_metadata
@@ -602,3 +608,25 @@ VALUES (?, ?, ?, ?, ?);
 deleteLocalAnimeListEntry:
 DELETE FROM local_anime_list_entry
 WHERE local_series_id = ?;
+
+selectLibraryQualityIssueDecision:
+SELECT issue_key, state, updated_at_epoch_ms
+FROM library_quality_issue_decision
+WHERE issue_key = ?;
+
+selectAllLibraryQualityIssueDecisions:
+SELECT issue_key, state, updated_at_epoch_ms
+FROM library_quality_issue_decision
+ORDER BY updated_at_epoch_ms DESC, issue_key;
+
+upsertLibraryQualityIssueDecision:
+INSERT OR REPLACE INTO library_quality_issue_decision(
+  issue_key,
+  state,
+  updated_at_epoch_ms
+)
+VALUES (?, ?, ?);
+
+deleteLibraryQualityIssueDecision:
+DELETE FROM library_quality_issue_decision
+WHERE issue_key = ?;

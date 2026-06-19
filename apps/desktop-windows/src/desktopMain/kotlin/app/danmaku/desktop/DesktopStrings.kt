@@ -45,8 +45,16 @@ private fun fallbackDesktopStrings(language: DesktopUiLanguage): DesktopStrings 
                 libraryQualityReviewCaption = "Needs attention"
                 libraryQualityWarningCaption = "Check when convenient"
                 libraryQualityIssueCountSummary = { count -> "$count quality issues" }
+                libraryQualityOpenCountSummary = { count -> "$count open" }
+                libraryQualityHandledCountSummary = { count -> "$count handled" }
                 libraryQualityAffectedFilesLabel = { count -> "$count affected files" }
                 libraryQualityEvidenceLabel = "Evidence"
+                libraryQualityAllHandledText = "All current quality issues have been handled."
+                libraryQualityShowHandledAction = "Show handled"
+                libraryQualityHideHandledAction = "Hide handled"
+                libraryQualityIgnoreAction = "Ignore"
+                libraryQualityResolveAction = "Resolve"
+                libraryQualityReopenAction = "Reopen"
                 libraryQualityActionsPlannedText = "Ignore and resolve actions will be added after issue persistence."
                 libraryQualityIssueTypeLabels = mapOf(
                     LibraryQualityIssueType.FOLDER_FILE_EPISODE_MISMATCH to "Folder/file episode mismatch",
@@ -60,6 +68,10 @@ private fun fallbackDesktopStrings(language: DesktopUiLanguage): DesktopStrings 
                 libraryQualitySeverityLabels = mapOf(
                     LibraryQualityIssueSeverity.REVIEW to "Review",
                     LibraryQualityIssueSeverity.WARNING to "Warning",
+                )
+                libraryQualityDecisionStateLabels = mapOf(
+                    DesktopLibraryQualityIssueDecisionState.IGNORED to "Ignored",
+                    DesktopLibraryQualityIssueDecisionState.RESOLVED to "Resolved",
                 )
                 metadataMatchNoConfiguredProvidersError = "No metadata search provider is configured. Add MyAnimeList or Bangumi settings first."
                 metadataMatchProviderSearchFailed = "Provider search failed. Check provider settings and try again."
@@ -87,8 +99,16 @@ private fun fallbackDesktopStrings(language: DesktopUiLanguage): DesktopStrings 
                 libraryQualityReviewCaption = "需要處理"
                 libraryQualityWarningCaption = "有空時檢查"
                 libraryQualityIssueCountSummary = { count -> "$count 個品質問題" }
+                libraryQualityOpenCountSummary = { count -> "$count 個未處理" }
+                libraryQualityHandledCountSummary = { count -> "$count 個已處理" }
                 libraryQualityAffectedFilesLabel = { count -> "$count 個受影響檔案" }
                 libraryQualityEvidenceLabel = "證據"
+                libraryQualityAllHandledText = "目前的媒體庫品質問題都已處理。"
+                libraryQualityShowHandledAction = "顯示已處理"
+                libraryQualityHideHandledAction = "隱藏已處理"
+                libraryQualityIgnoreAction = "忽略"
+                libraryQualityResolveAction = "解決"
+                libraryQualityReopenAction = "重新開啟"
                 libraryQualityActionsPlannedText = "忽略與解決動作會在問題持久化後加入。"
                 libraryQualityIssueTypeLabels = mapOf(
                     LibraryQualityIssueType.FOLDER_FILE_EPISODE_MISMATCH to "資料夾/檔名集數不一致",
@@ -102,6 +122,10 @@ private fun fallbackDesktopStrings(language: DesktopUiLanguage): DesktopStrings 
                 libraryQualitySeverityLabels = mapOf(
                     LibraryQualityIssueSeverity.REVIEW to "需檢查",
                     LibraryQualityIssueSeverity.WARNING to "警告",
+                )
+                libraryQualityDecisionStateLabels = mapOf(
+                    DesktopLibraryQualityIssueDecisionState.IGNORED to "已忽略",
+                    DesktopLibraryQualityIssueDecisionState.RESOLVED to "已解決",
                 )
                 metadataMatchNoConfiguredProvidersError = "尚未設定中繼資料搜尋服務。請先新增 MyAnimeList 或 Bangumi 設定。"
                 metadataMatchProviderSearchFailed = "服務搜尋失敗。請檢查服務設定後再試一次。"
@@ -289,6 +313,8 @@ internal class DesktopStrings {
     var libraryQualityNoLibraryText: String = ""
     var libraryQualityEmptyText: String = ""
     var libraryQualityIssueCountSummary: (Int) -> String = { _ -> "" }
+    var libraryQualityOpenCountSummary: (Int) -> String = { _ -> "" }
+    var libraryQualityHandledCountSummary: (Int) -> String = { _ -> "" }
     var libraryQualityTotalTitle: String = ""
     var libraryQualityReviewTitle: String = ""
     var libraryQualityWarningTitle: String = ""
@@ -297,9 +323,16 @@ internal class DesktopStrings {
     var libraryQualityWarningCaption: String = ""
     var libraryQualityAffectedFilesLabel: (Int) -> String = { _ -> "" }
     var libraryQualityEvidenceLabel: String = ""
+    var libraryQualityAllHandledText: String = ""
+    var libraryQualityShowHandledAction: String = ""
+    var libraryQualityHideHandledAction: String = ""
+    var libraryQualityIgnoreAction: String = ""
+    var libraryQualityResolveAction: String = ""
+    var libraryQualityReopenAction: String = ""
     var libraryQualityActionsPlannedText: String = ""
     var libraryQualityIssueTypeLabels: Map<LibraryQualityIssueType, String> = emptyMap()
     var libraryQualitySeverityLabels: Map<LibraryQualityIssueSeverity, String> = emptyMap()
+    var libraryQualityDecisionStateLabels: Map<DesktopLibraryQualityIssueDecisionState, String> = emptyMap()
     var libraryImportTitle: String = ""
     var aniRssRootCountLabel: (Int) -> String = { _ -> "" }
     var scanRunningLabel: String = ""
@@ -747,5 +780,7 @@ internal class DesktopStrings {
         libraryQualityIssueTypeLabels[type] ?: type.name
     fun libraryQualitySeverityLabel(severity: LibraryQualityIssueSeverity): String =
         libraryQualitySeverityLabels[severity] ?: severity.name
+    fun libraryQualityDecisionStateLabel(state: DesktopLibraryQualityIssueDecisionState): String =
+        libraryQualityDecisionStateLabels[state] ?: state.name
     fun downloadFilterTitle(filter: DownloadQueueFilter): String = downloadFilterTitles[filter] ?: filter.label
 }

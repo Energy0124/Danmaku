@@ -196,6 +196,8 @@
     <string name="desktop_library_quality_no_library_text">Index a library before reviewing quality issues.</string>
     <string name="desktop_library_quality_empty_text">No library quality issues found.</string>
     <string name="desktop_library_quality_issue_count_summary">%1$d quality issues</string>
+    <string name="desktop_library_quality_open_count_summary">%1$d open</string>
+    <string name="desktop_library_quality_handled_count_summary">%1$d handled</string>
     <string name="desktop_library_quality_total_title">Issues</string>
     <string name="desktop_library_quality_review_title">Review</string>
     <string name="desktop_library_quality_warning_title">Warnings</string>
@@ -204,6 +206,12 @@
     <string name="desktop_library_quality_warning_caption">Check when convenient</string>
     <string name="desktop_library_quality_affected_files_label">%1$d affected files</string>
     <string name="desktop_library_quality_evidence_label">Evidence</string>
+    <string name="desktop_library_quality_all_handled_text">All current quality issues have been handled.</string>
+    <string name="desktop_library_quality_show_handled_action">Show handled</string>
+    <string name="desktop_library_quality_hide_handled_action">Hide handled</string>
+    <string name="desktop_library_quality_ignore_action">Ignore</string>
+    <string name="desktop_library_quality_resolve_action">Resolve</string>
+    <string name="desktop_library_quality_reopen_action">Reopen</string>
     <string name="desktop_library_quality_actions_planned_text">Ignore and resolve actions will be added after issue persistence.</string>
     <string name="desktop_library_quality_type_folder_file_episode_mismatch">Folder/file episode mismatch</string>
     <string name="desktop_library_quality_type_duplicate_episode_number">Duplicate episode number</string>
@@ -214,6 +222,8 @@
     <string name="desktop_library_quality_type_split_series_candidate">Split series candidate</string>
     <string name="desktop_library_quality_severity_review">Review</string>
     <string name="desktop_library_quality_severity_warning">Warning</string>
+    <string name="desktop_library_quality_decision_ignored">Ignored</string>
+    <string name="desktop_library_quality_decision_resolved">Resolved</string>
     <string name="desktop_library_import_title">Library Import</string>
     <string name="desktop_scan_running_label">scan running</string>
     <string name="desktop_published_label">published</string>

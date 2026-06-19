@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -11,12 +12,20 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.Button
 import androidx.compose.material.Icon
 import androidx.compose.material.Text
+import androidx.compose.material.TextButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -26,34 +35,45 @@ import androidx.compose.ui.unit.dp
 import app.danmaku.domain.LibraryQualityIssue
 import app.danmaku.domain.LibraryQualityIssueSeverity
 import app.danmaku.domain.LibraryQualityReport
+import app.danmaku.domain.stableKey
 
 @Composable
 internal fun LibraryQualityReviewView(
     strings: DesktopStrings,
     report: LibraryQualityReport?,
+    decisionByKey: Map<String, DesktopLibraryQualityIssueDecision>,
+    onSetDecision: (LibraryQualityIssue, DesktopLibraryQualityIssueDecisionState?) -> Unit,
 ) {
     if (report == null) {
         EmptyState(strings.libraryQualityNoLibraryText)
         return
     }
+    var showHandledIssues by remember { mutableStateOf(false) }
+    val openIssues = remember(report, decisionByKey) {
+        report.issues.filter { issue -> issue.stableKey() !in decisionByKey }
+    }
+    val handledIssues = remember(report, decisionByKey) {
+        report.issues.filter { issue -> issue.stableKey() in decisionByKey }
+    }
+    val visibleIssues = if (showHandledIssues) report.issues else openIssues
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             SummaryCard(
                 title = strings.libraryQualityTotalTitle,
-                value = report.issueCount.toString(),
+                value = openIssues.size.toString(),
                 caption = strings.libraryQualityTotalCaption,
                 modifier = Modifier.weight(1f),
             )
             SummaryCard(
                 title = strings.libraryQualityReviewTitle,
-                value = report.reviewCount.toString(),
+                value = openIssues.count { it.severity == LibraryQualityIssueSeverity.REVIEW }.toString(),
                 caption = strings.libraryQualityReviewCaption,
                 modifier = Modifier.weight(1f),
             )
             SummaryCard(
                 title = strings.libraryQualityWarningTitle,
-                value = report.warningCount.toString(),
+                value = openIssues.count { it.severity == LibraryQualityIssueSeverity.WARNING }.toString(),
                 caption = strings.libraryQualityWarningCaption,
                 modifier = Modifier.weight(1f),
             )
@@ -63,29 +83,58 @@ internal fun LibraryQualityReviewView(
             EmptyState(strings.libraryQualityEmptyText)
             return@Column
         }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            StatusPill(
+                strings.libraryQualityOpenCountSummary(openIssues.size),
+                active = openIssues.isNotEmpty(),
+                color = if (openIssues.isNotEmpty()) DanmakuColors.Warning else DanmakuColors.TextMuted,
+            )
+            StatusPill(strings.libraryQualityHandledCountSummary(handledIssues.size))
+            Spacer(modifier = Modifier.weight(1f))
+            if (handledIssues.isNotEmpty()) {
+                TextButton(onClick = { showHandledIssues = !showHandledIssues }) {
+                    Icon(
+                        Icons.Filled.Refresh,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(modifier = Modifier.size(6.dp))
+                    Text(
+                        if (showHandledIssues) {
+                            strings.libraryQualityHideHandledAction
+                        } else {
+                            strings.libraryQualityShowHandledAction
+                        },
+                    )
+                }
+            }
+        }
+
+        if (visibleIssues.isEmpty()) {
+            EmptyState(strings.libraryQualityAllHandledText)
+            return@Column
+        }
 
         LazyColumn(
             modifier = Modifier.heightIn(max = 560.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(
-                report.issues,
-                key = { issue ->
-                    "${issue.type}-${issue.seriesId}-${issue.relativePaths.firstOrNull().orEmpty()}"
-                },
+                visibleIssues,
+                key = { issue -> issue.stableKey() },
             ) { issue ->
                 LibraryQualityIssueRow(
                     strings = strings,
                     issue = issue,
+                    decision = decisionByKey[issue.stableKey()],
+                    onSetDecision = onSetDecision,
                 )
             }
         }
-        Text(
-            strings.libraryQualityActionsPlannedText,
-            color = DanmakuColors.TextMuted,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
     }
 }
 
@@ -93,8 +142,11 @@ internal fun LibraryQualityReviewView(
 private fun LibraryQualityIssueRow(
     strings: DesktopStrings,
     issue: LibraryQualityIssue,
+    decision: DesktopLibraryQualityIssueDecision?,
+    onSetDecision: (LibraryQualityIssue, DesktopLibraryQualityIssueDecisionState?) -> Unit,
 ) {
     val issueColor = issue.severity.issueColor()
+    val stateColor = decision?.state?.decisionColor() ?: issueColor
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -131,9 +183,10 @@ private fun LibraryQualityIssueRow(
                     modifier = Modifier.weight(1f),
                 )
                 StatusPill(
-                    text = strings.libraryQualitySeverityLabel(issue.severity),
+                    text = decision?.state?.let(strings::libraryQualityDecisionStateLabel)
+                        ?: strings.libraryQualitySeverityLabel(issue.severity),
                     active = true,
-                    color = issueColor,
+                    color = stateColor,
                 )
             }
             Text(
@@ -185,6 +238,47 @@ private fun LibraryQualityIssueRow(
                     )
                 }
             }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Spacer(modifier = Modifier.weight(1f))
+                if (decision == null) {
+                    TextButton(
+                        onClick = { onSetDecision(issue, DesktopLibraryQualityIssueDecisionState.IGNORED) },
+                    ) {
+                        Icon(
+                            Icons.Filled.Delete,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(modifier = Modifier.size(6.dp))
+                        Text(strings.libraryQualityIgnoreAction)
+                    }
+                    Button(
+                        onClick = { onSetDecision(issue, DesktopLibraryQualityIssueDecisionState.RESOLVED) },
+                    ) {
+                        Icon(
+                            Icons.Filled.CheckCircle,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(modifier = Modifier.size(6.dp))
+                        Text(strings.libraryQualityResolveAction)
+                    }
+                } else {
+                    TextButton(onClick = { onSetDecision(issue, null) }) {
+                        Icon(
+                            Icons.Filled.Refresh,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(modifier = Modifier.size(6.dp))
+                        Text(strings.libraryQualityReopenAction)
+                    }
+                }
+            }
         }
     }
 }
@@ -193,4 +287,10 @@ private fun LibraryQualityIssueSeverity.issueColor(): Color =
     when (this) {
         LibraryQualityIssueSeverity.REVIEW -> DanmakuColors.Accent
         LibraryQualityIssueSeverity.WARNING -> DanmakuColors.Warning
+    }
+
+private fun DesktopLibraryQualityIssueDecisionState.decisionColor(): Color =
+    when (this) {
+        DesktopLibraryQualityIssueDecisionState.IGNORED -> DanmakuColors.TextMuted
+        DesktopLibraryQualityIssueDecisionState.RESOLVED -> DanmakuColors.Accent
     }

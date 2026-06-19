@@ -12,12 +12,14 @@ import app.danmaku.domain.ExternalAnimeTrackingPlan
 import app.danmaku.domain.ExternalAnimeTrackingPlanConflict
 import app.danmaku.domain.ExternalAnimeTrackingPlanUpdate
 import app.danmaku.domain.LibraryMediaItem
+import app.danmaku.domain.LibraryQualityIssue
 import app.danmaku.domain.LibrarySeries
 import app.danmaku.domain.LocalAnimeListEntry
 import app.danmaku.domain.LocalAnimeListStatus
 import app.danmaku.domain.displayName
 import app.danmaku.domain.externalAnimeSyncRetryAfterEpochMs
 import app.danmaku.domain.groupedSeries
+import app.danmaku.domain.stableKey
 import app.danmaku.domain.toLocalProgressImport
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -658,6 +660,43 @@ internal class DesktopShellLibraryActions(
         }.onFailure { error ->
             libraryState.libraryError = error.message
             appendDiagnostic("library", "Failed to update favorite ${item.id}: ${error.message}")
+        }
+    }
+
+    fun setLibraryQualityIssueDecision(
+        issue: LibraryQualityIssue,
+        state: DesktopLibraryQualityIssueDecisionState?,
+    ) {
+        val issueKey = issue.stableKey()
+        runCatching {
+            if (state == null) {
+                catalogStore.deleteLibraryQualityIssueDecision(issueKey)
+            } else {
+                catalogStore.saveLibraryQualityIssueDecision(
+                    DesktopLibraryQualityIssueDecision(
+                        issueKey = issueKey,
+                        state = state,
+                        updatedAtEpochMs = System.currentTimeMillis(),
+                    ),
+                )
+            }
+            catalogStore.loadLibraryQualityIssueDecisions()
+        }.onSuccess { decisions ->
+            libraryState.libraryQualityIssueDecisions = decisions
+            appendDiagnostic(
+                "library-quality",
+                when (state) {
+                    DesktopLibraryQualityIssueDecisionState.IGNORED -> "Ignored ${issue.type.name} for ${issue.seriesTitle}"
+                    DesktopLibraryQualityIssueDecisionState.RESOLVED -> "Resolved ${issue.type.name} for ${issue.seriesTitle}"
+                    null -> "Reopened ${issue.type.name} for ${issue.seriesTitle}"
+                },
+            )
+        }.onFailure { error ->
+            libraryState.libraryError = error.message
+            appendDiagnostic(
+                "library-quality",
+                "Failed to update ${issue.type.name} for ${issue.seriesTitle}: ${error.message}",
+            )
         }
     }
 

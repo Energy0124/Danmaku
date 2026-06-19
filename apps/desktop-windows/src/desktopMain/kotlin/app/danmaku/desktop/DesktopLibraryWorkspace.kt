@@ -141,6 +141,7 @@ import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibraryNextUpItem
 import app.danmaku.domain.LibraryNextUpReason
 import app.danmaku.domain.LibraryPlaybackProgressItem
+import app.danmaku.domain.LibraryQualityIssue
 import app.danmaku.domain.LibrarySeries
 import app.danmaku.domain.LibrarySeriesWatchSummary
 import app.danmaku.domain.LibrarySubtitleFilter
@@ -166,6 +167,7 @@ import app.danmaku.domain.nextItem
 import app.danmaku.domain.nextUpItems
 import app.danmaku.domain.previousItem
 import app.danmaku.domain.recentlyWatchedItems
+import app.danmaku.domain.stableKey
 import app.danmaku.domain.toPlaybackProgress
 import app.danmaku.domain.seriesWatchSummaryById
 import app.danmaku.domain.watchStatusByMediaId
@@ -225,6 +227,7 @@ internal fun WindowsLibraryWorkspace(
     seriesWatchSummaryById: Map<String, LibrarySeriesWatchSummary>,
     favoriteMediaIds: Set<String>,
     localAnimeListEntryBySeriesId: Map<String, LocalAnimeListEntry>,
+    libraryQualityIssueDecisions: List<DesktopLibraryQualityIssueDecision>,
     isIndexing: Boolean,
     isPreparing: Boolean,
     libraryError: String?,
@@ -237,6 +240,7 @@ internal fun WindowsLibraryWorkspace(
     onShowDetails: (LibraryMediaItem) -> Unit,
     onInspectCachedDandanplay: (LibraryMediaItem) -> Unit,
     onSetFavorite: (LibraryMediaItem, Boolean) -> Unit,
+    onSetLibraryQualityIssueDecision: (LibraryQualityIssue, DesktopLibraryQualityIssueDecisionState?) -> Unit,
     onSaveLocalAnimeListEntry: (LibrarySeries, LocalAnimeListStatus, Int?, String?) -> Unit,
     onDeleteLocalAnimeListEntry: (LibrarySeries) -> Unit,
     onSetAutoNextLocalPlayback: (Boolean) -> Unit,
@@ -276,6 +280,15 @@ internal fun WindowsLibraryWorkspace(
     val catalog = indexedLibrary?.catalog
     val libraryQualityReport = remember(catalog) {
         catalog?.libraryQualityReport()
+    }
+    val libraryQualityDecisionByKey = remember(libraryQualityIssueDecisions) {
+        libraryQualityIssueDecisions.associateBy(DesktopLibraryQualityIssueDecision::issueKey)
+    }
+    val openLibraryQualityIssueCount = remember(libraryQualityReport, libraryQualityDecisionByKey) {
+        libraryQualityReport
+            ?.issues
+            ?.count { issue -> issue.stableKey() !in libraryQualityDecisionByKey }
+            ?: 0
     }
     val effectiveFavoriteFilter = if (selectedView == WindowsLibraryView.FAVORITES) {
         LibraryFavoriteFilter.FAVORITES_ONLY
@@ -371,7 +384,7 @@ internal fun WindowsLibraryWorkspace(
                 recentlyWatchedCount = recentlyWatchedItems.size,
                 favoriteCount = favoriteMediaIds.size,
                 seriesCount = series.size,
-                libraryQualityIssueCount = libraryQualityReport?.issueCount ?: 0,
+                libraryQualityIssueCount = openLibraryQualityIssueCount,
                 externalTrackingPlan = externalTrackingPlan,
                 isIndexing = isIndexing,
                 libraryError = libraryError,
@@ -425,6 +438,7 @@ internal fun WindowsLibraryWorkspace(
                 localAnimeListEntryBySeriesId = localAnimeListEntryBySeriesId,
                 localWatchListCount = localAnimeListEntryBySeriesId.size,
                 libraryQualityReport = libraryQualityReport,
+                libraryQualityDecisionByKey = libraryQualityDecisionByKey,
                 externalTrackingPlan = externalTrackingPlan,
                 isExternalAnimeSyncing = isExternalAnimeSyncing,
                 isPreparing = isPreparing,
@@ -432,6 +446,7 @@ internal fun WindowsLibraryWorkspace(
                 onSelectSeries = onSelectSeries,
                 onShowDetails = onShowDetails,
                 onSetFavorite = onSetFavorite,
+                onSetLibraryQualityIssueDecision = onSetLibraryQualityIssueDecision,
                 onSaveLocalAnimeListEntry = onSaveLocalAnimeListEntry,
                 onDeleteLocalAnimeListEntry = onDeleteLocalAnimeListEntry,
                 onRefreshEpisodeMetadata = onRefreshEpisodeMetadata,

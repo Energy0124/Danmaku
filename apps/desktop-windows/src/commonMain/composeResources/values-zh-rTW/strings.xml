@@ -196,6 +196,8 @@
     <string name="desktop_library_quality_no_library_text">請先建立媒體庫索引，再檢查品質問題。</string>
     <string name="desktop_library_quality_empty_text">未發現媒體庫品質問題。</string>
     <string name="desktop_library_quality_issue_count_summary">%1$d 個品質問題</string>
+    <string name="desktop_library_quality_open_count_summary">%1$d 個未處理</string>
+    <string name="desktop_library_quality_handled_count_summary">%1$d 個已處理</string>
     <string name="desktop_library_quality_total_title">問題</string>
     <string name="desktop_library_quality_review_title">需檢查</string>
     <string name="desktop_library_quality_warning_title">警告</string>
@@ -204,6 +206,12 @@
     <string name="desktop_library_quality_warning_caption">有空時檢查</string>
     <string name="desktop_library_quality_affected_files_label">%1$d 個受影響檔案</string>
     <string name="desktop_library_quality_evidence_label">證據</string>
+    <string name="desktop_library_quality_all_handled_text">目前的媒體庫品質問題都已處理。</string>
+    <string name="desktop_library_quality_show_handled_action">顯示已處理</string>
+    <string name="desktop_library_quality_hide_handled_action">隱藏已處理</string>
+    <string name="desktop_library_quality_ignore_action">忽略</string>
+    <string name="desktop_library_quality_resolve_action">解決</string>
+    <string name="desktop_library_quality_reopen_action">重新開啟</string>
     <string name="desktop_library_quality_actions_planned_text">忽略與解決動作會在問題持久化後加入。</string>
     <string name="desktop_library_quality_type_folder_file_episode_mismatch">資料夾/檔名集數不一致</string>
     <string name="desktop_library_quality_type_duplicate_episode_number">重複集數</string>
@@ -214,6 +222,8 @@
     <string name="desktop_library_quality_type_split_series_candidate">可能需要拆分系列</string>
     <string name="desktop_library_quality_severity_review">需檢查</string>
     <string name="desktop_library_quality_severity_warning">警告</string>
+    <string name="desktop_library_quality_decision_ignored">已忽略</string>
+    <string name="desktop_library_quality_decision_resolved">已解決</string>
     <string name="desktop_library_import_title">媒體庫匯入</string>
     <string name="desktop_scan_running_label">掃描中</string>
     <string name="desktop_published_label">已發佈</string>

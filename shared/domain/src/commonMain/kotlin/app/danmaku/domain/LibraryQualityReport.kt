@@ -48,6 +48,14 @@ enum class LibraryQualityIssueType {
 fun LibraryCatalog.libraryQualityReport(): LibraryQualityReport =
     LibraryQualityScanner.scan(this)
 
+fun LibraryQualityIssue.stableKey(): String =
+    listOf(
+        type.name.qualityKeyPart(),
+        seriesId.qualityKeyPart(),
+        mediaItemIds.sorted().joinToString(separator = ",") { id -> id.qualityKeyPart() },
+        relativePaths.sorted().joinToString(separator = ",") { path -> path.qualityKeyPart() },
+    ).joinToString(separator = "|")
+
 object LibraryQualityScanner {
     fun scan(catalog: LibraryCatalog): LibraryQualityReport {
         val itemIssues = catalog.items.flatMap(::itemIssues)
@@ -329,3 +337,8 @@ private fun String.stableQualityId(): String {
         .trim('-')
     return normalized.ifBlank { "series" }
 }
+
+private fun String.qualityKeyPart(): String =
+    replace("\\", "\\\\")
+        .replace(",", "\\,")
+        .replace("|", "\\|")

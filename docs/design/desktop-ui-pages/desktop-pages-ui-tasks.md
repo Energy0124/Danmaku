@@ -380,10 +380,10 @@ Status legend:
     and missing episode numbers, unmatched series, local-vs-metadata episode
     count mismatches, and local folder split candidates with realistic release
     filename coverage.
-  - Desktop now renders a read-only Library > Quality rail view with summary
-    counts, issue type, affected files, and scanner evidence.
-  - Remaining: persist quality issues, add ignore/resolve actions, and run
-    live `W:/Anime` QA.
+  - Desktop now renders Library > Quality with summary counts, issue type,
+    affected files, scanner evidence, open/handled filtering, and persisted
+    ignore/resolve/reopen actions.
+  - Remaining: run live `W:/Anime` QA.
 - `[ ]` Standardize destructive, retry, confirmation, and error dialogs.
 
 ## Tests and QA

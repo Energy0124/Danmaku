@@ -235,6 +235,8 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
     val libraryQualityNoLibraryText = stringResource(Res.string.desktop_library_quality_no_library_text)
     val libraryQualityEmptyText = stringResource(Res.string.desktop_library_quality_empty_text)
     val libraryQualityIssueCountSummary = stringResource(Res.string.desktop_library_quality_issue_count_summary)
+    val libraryQualityOpenCountSummary = stringResource(Res.string.desktop_library_quality_open_count_summary)
+    val libraryQualityHandledCountSummary = stringResource(Res.string.desktop_library_quality_handled_count_summary)
     val libraryQualityTotalTitle = stringResource(Res.string.desktop_library_quality_total_title)
     val libraryQualityReviewTitle = stringResource(Res.string.desktop_library_quality_review_title)
     val libraryQualityWarningTitle = stringResource(Res.string.desktop_library_quality_warning_title)
@@ -243,6 +245,12 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
     val libraryQualityWarningCaption = stringResource(Res.string.desktop_library_quality_warning_caption)
     val libraryQualityAffectedFilesLabel = stringResource(Res.string.desktop_library_quality_affected_files_label)
     val libraryQualityEvidenceLabel = stringResource(Res.string.desktop_library_quality_evidence_label)
+    val libraryQualityAllHandledText = stringResource(Res.string.desktop_library_quality_all_handled_text)
+    val libraryQualityShowHandledAction = stringResource(Res.string.desktop_library_quality_show_handled_action)
+    val libraryQualityHideHandledAction = stringResource(Res.string.desktop_library_quality_hide_handled_action)
+    val libraryQualityIgnoreAction = stringResource(Res.string.desktop_library_quality_ignore_action)
+    val libraryQualityResolveAction = stringResource(Res.string.desktop_library_quality_resolve_action)
+    val libraryQualityReopenAction = stringResource(Res.string.desktop_library_quality_reopen_action)
     val libraryQualityActionsPlannedText = stringResource(Res.string.desktop_library_quality_actions_planned_text)
     val libraryQualityTypeFolderFileEpisodeMismatch =
         stringResource(Res.string.desktop_library_quality_type_folder_file_episode_mismatch)
@@ -260,6 +268,8 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
         stringResource(Res.string.desktop_library_quality_type_split_series_candidate)
     val libraryQualitySeverityReview = stringResource(Res.string.desktop_library_quality_severity_review)
     val libraryQualitySeverityWarning = stringResource(Res.string.desktop_library_quality_severity_warning)
+    val libraryQualityDecisionIgnored = stringResource(Res.string.desktop_library_quality_decision_ignored)
+    val libraryQualityDecisionResolved = stringResource(Res.string.desktop_library_quality_decision_resolved)
     val libraryImportTitle = stringResource(Res.string.desktop_library_import_title)
     val scanRunningLabel = stringResource(Res.string.desktop_scan_running_label)
     val publishedLabel = stringResource(Res.string.desktop_published_label)
@@ -923,6 +933,12 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
             this.libraryQualityIssueCountSummary = { count ->
                 libraryQualityIssueCountSummary.formatResourceString(count)
             }
+            this.libraryQualityOpenCountSummary = { count ->
+                libraryQualityOpenCountSummary.formatResourceString(count)
+            }
+            this.libraryQualityHandledCountSummary = { count ->
+                libraryQualityHandledCountSummary.formatResourceString(count)
+            }
             this.libraryQualityTotalTitle = libraryQualityTotalTitle
             this.libraryQualityReviewTitle = libraryQualityReviewTitle
             this.libraryQualityWarningTitle = libraryQualityWarningTitle
@@ -933,6 +949,12 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
                 libraryQualityAffectedFilesLabel.formatResourceString(count)
             }
             this.libraryQualityEvidenceLabel = libraryQualityEvidenceLabel
+            this.libraryQualityAllHandledText = libraryQualityAllHandledText
+            this.libraryQualityShowHandledAction = libraryQualityShowHandledAction
+            this.libraryQualityHideHandledAction = libraryQualityHideHandledAction
+            this.libraryQualityIgnoreAction = libraryQualityIgnoreAction
+            this.libraryQualityResolveAction = libraryQualityResolveAction
+            this.libraryQualityReopenAction = libraryQualityReopenAction
             this.libraryQualityActionsPlannedText = libraryQualityActionsPlannedText
             this.libraryQualityIssueTypeLabels = mapOf(
                 LibraryQualityIssueType.FOLDER_FILE_EPISODE_MISMATCH to libraryQualityTypeFolderFileEpisodeMismatch,
@@ -946,6 +968,10 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
             this.libraryQualitySeverityLabels = mapOf(
                 LibraryQualityIssueSeverity.REVIEW to libraryQualitySeverityReview,
                 LibraryQualityIssueSeverity.WARNING to libraryQualitySeverityWarning,
+            )
+            this.libraryQualityDecisionStateLabels = mapOf(
+                DesktopLibraryQualityIssueDecisionState.IGNORED to libraryQualityDecisionIgnored,
+                DesktopLibraryQualityIssueDecisionState.RESOLVED to libraryQualityDecisionResolved,
             )
             this.libraryImportTitle = libraryImportTitle
             this.scanRunningLabel = scanRunningLabel

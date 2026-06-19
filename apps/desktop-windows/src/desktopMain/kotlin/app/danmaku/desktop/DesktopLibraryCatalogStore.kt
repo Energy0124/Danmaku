@@ -92,6 +92,11 @@ class DesktopLibraryCatalogStore(
             sql = DesktopLibraryCatalogStoreSchema.CREATE_LOCAL_ANIME_LIST_ENTRY_TABLE_SQL,
             parameters = 0,
         )
+        driver.execute(
+            identifier = null,
+            sql = DesktopLibraryCatalogStoreSchema.CREATE_LIBRARY_QUALITY_ISSUE_DECISION_TABLE_SQL,
+            parameters = 0,
+        )
         addColumnIfMissing("local_media_item", "subtitles_json", "TEXT NOT NULL DEFAULT '[]'")
         addColumnIfMissing("library_root_media_item", "subtitles_json", "TEXT NOT NULL DEFAULT '[]'")
         addColumnIfMissing("local_media_item", "indexed_at_epoch_ms", "INTEGER NOT NULL DEFAULT 0")
@@ -644,6 +649,40 @@ class DesktopLibraryCatalogStore(
         database.libraryCatalogQueries.deleteLocalAnimeListEntry(localSeriesId)
     }
 
+    @Synchronized
+    fun loadLibraryQualityIssueDecision(issueKey: String): DesktopLibraryQualityIssueDecision? {
+        require(issueKey.isNotBlank()) { "issueKey must not be blank" }
+        return database.libraryCatalogQueries
+            .selectLibraryQualityIssueDecision(
+                issueKey,
+                DesktopLibraryCatalogStoreRowMappers::desktopLibraryQualityIssueDecision,
+            )
+            .executeAsOneOrNull()
+    }
+
+    @Synchronized
+    fun loadLibraryQualityIssueDecisions(): List<DesktopLibraryQualityIssueDecision> =
+        database.libraryCatalogQueries
+            .selectAllLibraryQualityIssueDecisions(
+                DesktopLibraryCatalogStoreRowMappers::desktopLibraryQualityIssueDecision,
+            )
+            .executeAsList()
+
+    @Synchronized
+    fun saveLibraryQualityIssueDecision(decision: DesktopLibraryQualityIssueDecision) {
+        database.libraryCatalogQueries.upsertLibraryQualityIssueDecision(
+            decision.issueKey,
+            decision.state.name,
+            decision.updatedAtEpochMs,
+        )
+    }
+
+    @Synchronized
+    fun deleteLibraryQualityIssueDecision(issueKey: String) {
+        require(issueKey.isNotBlank()) { "issueKey must not be blank" }
+        database.libraryCatalogQueries.deleteLibraryQualityIssueDecision(issueKey)
+    }
+
     override fun close() {
         driver.close()
     }
@@ -808,6 +847,22 @@ data class DesktopExternalAnimeItemMapping(
         require(confidence in 0.0..1.0) { "confidence must be between 0 and 1" }
         require(mappedAtEpochMs >= 0) { "mappedAtEpochMs must not be negative" }
     }
+}
+
+data class DesktopLibraryQualityIssueDecision(
+    val issueKey: String,
+    val state: DesktopLibraryQualityIssueDecisionState,
+    val updatedAtEpochMs: Long,
+) {
+    init {
+        require(issueKey.isNotBlank()) { "issueKey must not be blank" }
+        require(updatedAtEpochMs >= 0) { "updatedAtEpochMs must not be negative" }
+    }
+}
+
+enum class DesktopLibraryQualityIssueDecisionState {
+    IGNORED,
+    RESOLVED,
 }
 
 private data class StoredLibraryMetadata(

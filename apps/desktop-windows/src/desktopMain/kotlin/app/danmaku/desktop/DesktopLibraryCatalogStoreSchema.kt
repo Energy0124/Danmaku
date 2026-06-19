@@ -165,6 +165,14 @@ internal object DesktopLibraryCatalogStoreSchema {
           updated_at_epoch_ms INTEGER NOT NULL
         )
     """.trimIndent()
+
+    val CREATE_LIBRARY_QUALITY_ISSUE_DECISION_TABLE_SQL = """
+        CREATE TABLE IF NOT EXISTS library_quality_issue_decision (
+          issue_key TEXT NOT NULL PRIMARY KEY,
+          state TEXT NOT NULL,
+          updated_at_epoch_ms INTEGER NOT NULL
+        )
+    """.trimIndent()
 }
 
 internal object DesktopLibraryCatalogStoreRowMappers {
@@ -381,6 +389,17 @@ internal object DesktopLibraryCatalogStoreRowMappers {
             status = LocalAnimeListStatus.valueOf(status),
             score = score?.toInt(),
             notes = notes,
+            updatedAtEpochMs = updatedAtEpochMs,
+        )
+
+    fun desktopLibraryQualityIssueDecision(
+        issueKey: String,
+        state: String,
+        updatedAtEpochMs: Long,
+    ): DesktopLibraryQualityIssueDecision =
+        DesktopLibraryQualityIssueDecision(
+            issueKey = issueKey,
+            state = DesktopLibraryQualityIssueDecisionState.valueOf(state),
             updatedAtEpochMs = updatedAtEpochMs,
         )
 }

@@ -277,11 +277,11 @@ trusted-LAN clients.
   filtering, provider readback status/score visibility, danmaku basics, and a
   shared library-quality scanner for duplicate/missing episodes, suspicious
   episode numbering, unmatched series, metadata episode-count mismatches, and
-  split-folder candidates, plus a read-only desktop Library > Quality review
-  view. Missing high-value viewer workflows include
+  split-folder candidates, plus a desktop Library > Quality review view with
+  persisted ignore/resolve state. Missing high-value viewer workflows include
   seasonal/release-calendar views, OP/ED or recap skip markers, per-series
-  subtitle/audio preferences, richer danmaku filtering and blocklists, desktop
-  library-quality ignore/resolve actions, richer external list-driven status/score
+  subtitle/audio preferences, richer danmaku filtering and blocklists, live
+  library-quality QA against large folders, richer external list-driven status/score
   workflows, and custom collections/tags.
 
 ## Not Implemented

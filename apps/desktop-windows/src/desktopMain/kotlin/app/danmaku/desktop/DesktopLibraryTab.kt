@@ -142,6 +142,7 @@ import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibraryNextUpItem
 import app.danmaku.domain.LibraryNextUpReason
 import app.danmaku.domain.LibraryPlaybackProgressItem
+import app.danmaku.domain.LibraryQualityIssue
 import app.danmaku.domain.LibrarySeries
 import app.danmaku.domain.LibrarySeriesWatchSummary
 import app.danmaku.domain.LibrarySubtitleFilter
@@ -213,6 +214,7 @@ internal fun MediaLibraryTab(
     playbackProgresses: List<PlaybackProgress>,
     externalAnimeListEntries: List<ExternalAnimeListEntry>,
     localAnimeListEntries: List<LocalAnimeListEntry>,
+    libraryQualityIssueDecisions: List<DesktopLibraryQualityIssueDecision>,
     favoriteMediaIds: Set<String>,
     externalAnimeSyncFailures: List<ExternalAnimeSyncFailure>,
     isExternalAnimeSyncing: Boolean,
@@ -231,6 +233,7 @@ internal fun MediaLibraryTab(
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
     onInspectCachedDandanplay: (LibraryMediaItem) -> Unit,
     onSetFavorite: (LibraryMediaItem, Boolean) -> Unit,
+    onSetLibraryQualityIssueDecision: (LibraryQualityIssue, DesktopLibraryQualityIssueDecisionState?) -> Unit,
     onSaveLocalAnimeListEntry: (LibrarySeries, LocalAnimeListStatus, Int?, String?) -> Unit,
     onDeleteLocalAnimeListEntry: (LibrarySeries) -> Unit,
     onSetAutoNextLocalPlayback: (Boolean) -> Unit,
@@ -345,6 +348,7 @@ internal fun MediaLibraryTab(
             seriesWatchSummaryById = seriesWatchSummaryById,
             favoriteMediaIds = favoriteMediaIds,
             localAnimeListEntryBySeriesId = localAnimeListEntryBySeriesId,
+            libraryQualityIssueDecisions = libraryQualityIssueDecisions,
             isIndexing = isIndexing,
             isPreparing = isPreparingLocalPlayback,
             libraryError = libraryError,
@@ -357,6 +361,7 @@ internal fun MediaLibraryTab(
             onShowDetails = ::showEpisodeDetails,
             onInspectCachedDandanplay = onInspectCachedDandanplay,
             onSetFavorite = onSetFavorite,
+            onSetLibraryQualityIssueDecision = onSetLibraryQualityIssueDecision,
             onSaveLocalAnimeListEntry = onSaveLocalAnimeListEntry,
             onDeleteLocalAnimeListEntry = onDeleteLocalAnimeListEntry,
             onSetAutoNextLocalPlayback = onSetAutoNextLocalPlayback,

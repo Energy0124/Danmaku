@@ -43,6 +43,7 @@ import app.danmaku.domain.LibraryFavoriteFilter
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibraryNextUpItem
 import app.danmaku.domain.LibraryPlaybackProgressItem
+import app.danmaku.domain.LibraryQualityIssue
 import app.danmaku.domain.LibraryQualityReport
 import app.danmaku.domain.LibrarySeries
 import app.danmaku.domain.LibrarySeriesWatchSummary
@@ -50,6 +51,7 @@ import app.danmaku.domain.LibrarySubtitleFilter
 import app.danmaku.domain.LibraryWatchStatus
 import app.danmaku.domain.LocalAnimeListEntry
 import app.danmaku.domain.LocalAnimeListStatus
+import app.danmaku.domain.stableKey
 import java.nio.file.Path
 
 @Composable
@@ -84,6 +86,7 @@ internal fun LibraryCenterWorkspace(
     localAnimeListEntryBySeriesId: Map<String, LocalAnimeListEntry>,
     localWatchListCount: Int,
     libraryQualityReport: LibraryQualityReport?,
+    libraryQualityDecisionByKey: Map<String, DesktopLibraryQualityIssueDecision>,
     externalTrackingPlan: ExternalAnimeTrackingPlan?,
     isExternalAnimeSyncing: Boolean,
     isPreparing: Boolean,
@@ -91,6 +94,7 @@ internal fun LibraryCenterWorkspace(
     onSelectSeries: (LibrarySeries) -> Unit,
     onShowDetails: (LibraryMediaItem) -> Unit,
     onSetFavorite: (LibraryMediaItem, Boolean) -> Unit,
+    onSetLibraryQualityIssueDecision: (LibraryQualityIssue, DesktopLibraryQualityIssueDecisionState?) -> Unit,
     onSaveLocalAnimeListEntry: (LibrarySeries, LocalAnimeListStatus, Int?, String?) -> Unit,
     onDeleteLocalAnimeListEntry: (LibrarySeries) -> Unit,
     onRefreshEpisodeMetadata: (LibraryMediaItem) -> Unit,
@@ -102,6 +106,12 @@ internal fun LibraryCenterWorkspace(
     remoteBrowser: @Composable () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val openLibraryQualityIssueCount = remember(libraryQualityReport, libraryQualityDecisionByKey) {
+        libraryQualityReport
+            ?.issues
+            ?.count { issue -> issue.stableKey() !in libraryQualityDecisionByKey }
+            ?: 0
+    }
     WorkspacePanel(modifier = modifier.fillMaxHeight()) {
         if (selectedView == WindowsLibraryView.PAIRED) {
             Text(strings.pairedLibraryTitle, style = MaterialTheme.typography.h6, fontWeight = FontWeight.Bold)
@@ -139,10 +149,10 @@ internal fun LibraryCenterWorkspace(
             StatusPill(strings.localWatchListCountSummary(localWatchListCount), icon = Icons.Filled.CheckCircle)
             libraryQualityReport?.let { report ->
                 StatusPill(
-                    strings.libraryQualityIssueCountSummary(report.issueCount),
+                    strings.libraryQualityIssueCountSummary(openLibraryQualityIssueCount),
                     icon = Icons.Filled.Warning,
-                    active = report.issueCount > 0,
-                    color = if (report.issueCount > 0) DanmakuColors.Warning else DanmakuColors.TextMuted,
+                    active = openLibraryQualityIssueCount > 0,
+                    color = if (openLibraryQualityIssueCount > 0) DanmakuColors.Warning else DanmakuColors.TextMuted,
                 )
             }
             externalTrackingPlan?.summary?.let { summary ->
@@ -236,6 +246,8 @@ internal fun LibraryCenterWorkspace(
             WindowsLibraryView.QUALITY -> LibraryQualityReviewView(
                 strings = strings,
                 report = libraryQualityReport,
+                decisionByKey = libraryQualityDecisionByKey,
+                onSetDecision = onSetLibraryQualityIssueDecision,
             )
             WindowsLibraryView.ALL_SERIES,
             WindowsLibraryView.PAIRED -> AllSeriesView(
