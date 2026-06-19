@@ -91,6 +91,8 @@ data class LibraryAnimeMetadata(
     val chineseTitle: String? = null,
     val englishTitle: String? = null,
     val japaneseTitle: String? = null,
+    val alternateNames: List<String> = emptyList(),
+    val externalLinks: List<ExternalAnimeExternalLink> = emptyList(),
     val imageUrl: String? = null,
     val episodeCount: Int? = null,
     val startYear: Int? = null,
@@ -101,6 +103,10 @@ data class LibraryAnimeMetadata(
         require(chineseTitle == null || chineseTitle.isNotBlank()) { "chineseTitle must not be blank" }
         require(englishTitle == null || englishTitle.isNotBlank()) { "englishTitle must not be blank" }
         require(japaneseTitle == null || japaneseTitle.isNotBlank()) { "japaneseTitle must not be blank" }
+        require(alternateNames.none { it.isBlank() }) { "alternateNames must not contain blank titles" }
+        require(externalLinks.distinctBy(ExternalAnimeExternalLink::animeId).size == externalLinks.size) {
+            "externalLinks must be unique by anime ID"
+        }
         require(imageUrl == null || imageUrl.startsWith("https://")) { "imageUrl must be HTTPS" }
         require(episodeCount == null || episodeCount > 0) { "episodeCount must be positive" }
         require(startYear == null || startYear in 1900..2200) { "startYear must be reasonable" }

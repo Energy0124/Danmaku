@@ -96,10 +96,7 @@ internal fun MetadataMatchDialog(
         searchError = null
         scope.launch {
             val result = onSearchExternalAnimeMatches(
-                ExternalAnimeMatchQuery(
-                    title = title,
-                    episodeCount = selectedSeries.episodeCount.takeIf { it > 0 },
-                ),
+                selectedSeries.externalAnimeMatchQuery(searchTitle = title),
                 providers,
             )
             result.onSuccess {
@@ -332,6 +329,14 @@ internal fun MetadataMatchCandidateRow(
             )
             anime.summary?.let {
                 Text(it, color = DanmakuColors.TextMuted, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+            if (candidate.evidence.isNotEmpty()) {
+                Text(
+                    candidate.evidence.take(3).joinToString(" - "),
+                    color = DanmakuColors.Good,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
         }
         StatusPill(

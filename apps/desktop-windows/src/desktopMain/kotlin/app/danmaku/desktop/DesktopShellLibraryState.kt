@@ -41,6 +41,7 @@ internal class DesktopShellLibraryState(
     var isExternalAnimeSyncing by mutableStateOf(false)
     var isExternalAnimeReadbackRefreshing by mutableStateOf(false)
     var isExternalAnimeProgressImporting by mutableStateOf(false)
+    var isExternalAnimeMappingSuggesting by mutableStateOf(false)
 }
 
 @Composable

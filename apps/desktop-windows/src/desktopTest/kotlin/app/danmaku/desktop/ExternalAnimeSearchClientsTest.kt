@@ -56,11 +56,13 @@ class ExternalAnimeSearchClientsTest {
         assertEquals("Frieren: Beyond Journey's End", anime.titles.english)
         assertEquals(28, anime.episodeCount)
         assertEquals(2023, anime.startYear)
+        assertEquals(ExternalAnimeId(ExternalAnimeProvider.MY_ANIME_LIST, 52991), anime.externalLinks.single().animeId)
     }
 
     @Test
     fun bangumiClientNormalizesSearchResultsAndFiltersAnimeSubjects() {
         var requestBody = ""
+        var detailFetchCount = 0
         val client = BangumiAnimeSearchClient(
             baseUri = "https://example.test/".toUri(),
             userAgent = "DanmakuTest/1.0",
@@ -86,6 +88,34 @@ class ExternalAnimeSearchClientsTest {
                 }
                 """.trimIndent()
             },
+            httpGet = ExternalAnimeHttpGet { url, headers ->
+                detailFetchCount += 1
+                assertEquals("https://example.test/v0/subjects/400602", url.toString())
+                assertEquals("DanmakuTest/1.0", headers["User-Agent"])
+                """
+                {
+                  "id": 400602,
+                  "type": 2,
+                  "name": "葬送のフリーレン",
+                  "name_cn": "葬送的芙莉莲",
+                  "summary": "勇者一行打倒魔王之后。",
+                  "date": "2023-09-29",
+                  "eps": 28,
+                  "images": {
+                    "common": "https://lain.bgm.tv/pic/cover/c/ef/50/400602.jpg"
+                  },
+                  "infobox": [
+                    {
+                      "key": "别名",
+                      "value": [
+                        {"v": "Sousou no Frieren"},
+                        {"v": "Frieren: Beyond Journey's End"}
+                      ]
+                    }
+                  ]
+                }
+                """.trimIndent()
+            },
         )
 
         val results = client.search(ExternalAnimeMatchQuery("芙莉莲"), limit = 5)
@@ -97,8 +127,11 @@ class ExternalAnimeSearchClientsTest {
         assertEquals(400602, anime.id.value)
         assertEquals("葬送のフリーレン", anime.titles.primary)
         assertEquals("葬送的芙莉莲", anime.titles.chinese)
+        assertEquals("Sousou no Frieren", anime.titles.english)
         assertEquals(28, anime.episodeCount)
         assertEquals(2023, anime.startYear)
+        assertEquals(ExternalAnimeId(ExternalAnimeProvider.BANGUMI, 400602), anime.externalLinks.single().animeId)
+        assertEquals(1, detailFetchCount)
     }
 
     @Test

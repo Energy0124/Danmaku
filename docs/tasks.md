@@ -45,11 +45,12 @@ Status legend:
   real Android TV device pass.
 - `[~]` Live QA for MyAnimeList/Bangumi mapping, OAuth, sync, conflict handling,
   relaunch behavior, and external list state.
-- `[ ]` Add conservative auto mapping suggestions for MyAnimeList and Bangumi.
-  The logged plan is in `docs/design/external-anime-tracking-tasks.md`: enrich
-  MAL/Bangumi/dandanplay titles and external links, rank with confidence/evidence
-  bands, auto-save only high-confidence `AUTO` mappings, and keep ambiguous
-  matches in review without overwriting manual mappings.
+- `[x]` Add conservative auto mapping suggestions for MyAnimeList and Bangumi.
+  The Tracking tab now has a "Suggest missing" scan that enriches
+  MAL/Bangumi/dandanplay titles and external links, ranks with
+  confidence/evidence bands, auto-saves only high-confidence `AUTO` mappings,
+  and keeps ambiguous matches in review diagnostics without overwriting manual
+  mappings. Live MAL/Bangumi QA remains tracked separately.
 - `[~]` Continue library UI polish where details, title clarity, poster states,
   watch-list browsing, and focus behavior affect everyday use. The desktop
   Library now has local watch-list persistence, inspector editing, summary

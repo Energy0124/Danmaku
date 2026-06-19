@@ -49,26 +49,26 @@ Status legend:
 
 ## Phase 5 - Auto Mapping Suggestions
 
-- `[ ]` Extend provider-neutral match queries so a local series can search by
+- `[x]` Extend provider-neutral match queries so a local series can search by
   primary title plus alternate dandanplay/Bangumi/MAL titles.
-- `[ ]` Preserve provider external links in metadata models, including
+- `[x]` Preserve provider external links in metadata models, including
   dandanplay `bangumiUrl`/`onlineDatabases` and parsed MAL/Bangumi URLs when
   present.
-- `[ ]` Improve title parsing: keep MAL `alternative_titles.en`,
+- `[x]` Improve title parsing: keep MAL `alternative_titles.en`,
   `alternative_titles.ja`, and synonyms; enrich Bangumi candidates by fetching
   `/v0/subjects/{id}` and parsing `infobox` aliases such as `别名`; classify
   dandanplay language-tagged titles into Japanese, English, Chinese, and
   alternates.
-- `[ ]` Upgrade match ranking to score across all query/candidate titles and
+- `[x]` Upgrade match ranking to score across all query/candidate titles and
   emit evidence labels for title, episode-count, year, and trusted external-link
   matches.
-- `[ ]` Add a desktop suggestion service that scans unmapped series on demand,
+- `[x]` Add a desktop suggestion service that scans unmapped series on demand,
   uses cached dandanplay metadata as an extra signal, searches configured MAL
   and Bangumi providers, and returns provider-grouped candidates.
-- `[ ]` Auto-save only high-confidence suggestions as
+- `[x]` Auto-save only high-confidence suggestions as
   `ExternalAnimeMappingSource.AUTO`; never overwrite manual mappings, and send
   ambiguous or medium-confidence candidates to review.
-- `[ ]` Add desktop UI actions for selected-series suggestions and a bulk
+- `[x]` Add desktop UI actions for selected-series suggestions and a bulk
   "suggest missing mappings" workflow with confidence/evidence display.
 
 Default thresholds:
@@ -85,7 +85,7 @@ Default thresholds:
 - `[x]` Unit-test external-progress conflict import into local watched progress.
 - `[x]` Unit-test desktop mapping, readback, and sync-failure persistence migrations with MAL and Bangumi IDs.
 - `[x]` Integration-test provider clients with recorded/fake responses.
-- `[ ]` Unit-test auto-mapping confidence bands, ambiguous-result rejection,
+- `[x]` Unit-test auto-mapping confidence bands, ambiguous-result rejection,
   provider alias parsing, and manual-mapping overwrite protection.
 - `[ ]` Manual QA: map series to MAL and Bangumi, play episodes, sync progress, relaunch, and verify persisted state.
 
@@ -111,3 +111,13 @@ Default thresholds:
   pass should enrich MAL/Bangumi/dandanplay aliases, add confidence/evidence
   scoring, add an on-demand suggestion service, and keep auto-save conservative
   with manual mappings protected.
+- 2026-06-19: Implemented auto mapping suggestions. Match queries now carry
+  alternate titles and trusted MAL/Bangumi links from cached metadata; MAL,
+  Bangumi, and dandanplay parsers preserve richer titles/provider links;
+  candidate ranking emits evidence and trusts exact external links; the desktop
+  metadata dialog shows evidence; and the Tracking tab can run a conservative
+  "Suggest missing" scan that auto-saves only safe `AUTO` mappings while
+  keeping ambiguous matches in diagnostics for review. Targeted verification:
+  `:shared:domain:jvmTest` and `:apps:desktop-windows:desktopTest` with
+  `ExternalAnimeTrackingTest`, `ExternalAnimeSearchClientsTest`,
+  `DandanplayDanmakuClientTest`, and `DesktopExternalAnimeMappingSuggesterTest`.

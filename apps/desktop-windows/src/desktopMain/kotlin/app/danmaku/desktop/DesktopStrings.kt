@@ -35,6 +35,8 @@ private fun fallbackDesktopStrings(language: DesktopUiLanguage): DesktopStrings 
                 dandanplayPrepareFailedSummary = "dandanplay preparation failed"
                 metadataMatchNoConfiguredProvidersError = "No metadata search provider is configured. Add MyAnimeList or Bangumi settings first."
                 metadataMatchProviderSearchFailed = "Provider search failed. Check provider settings and try again."
+                suggestMissingMappingsAction = "Suggest missing"
+                suggestingMappingsAction = "Suggesting..."
                 pairedLibraryServerRejectedError = "The paired library server rejected the request. Check the server URL and pairing code."
                 pairedLibraryUnreachableError = "Could not reach the paired library server. Make sure the PC is online and on this network."
                 remotePlaybackPrepareFailedError = "Could not prepare remote playback. Reload the paired catalog and try again."
@@ -50,6 +52,8 @@ private fun fallbackDesktopStrings(language: DesktopUiLanguage): DesktopStrings 
                 dandanplayPrepareFailedSummary = "dandanplay 準備失敗"
                 metadataMatchNoConfiguredProvidersError = "尚未設定中繼資料搜尋服務。請先新增 MyAnimeList 或 Bangumi 設定。"
                 metadataMatchProviderSearchFailed = "服務搜尋失敗。請檢查服務設定後再試一次。"
+                suggestMissingMappingsAction = "建議缺少對應"
+                suggestingMappingsAction = "建議中..."
                 pairedLibraryServerRejectedError = "配對媒體庫伺服器拒絕請求。請檢查伺服器 URL 與配對碼。"
                 pairedLibraryUnreachableError = "無法連線到配對媒體庫伺服器。請確認 PC 已開機且位於同一網路。"
                 remotePlaybackPrepareFailedError = "無法準備遠端播放。請重新載入配對目錄後再試一次。"
@@ -666,6 +670,8 @@ internal class DesktopStrings {
     var metadataMatchCurrentMappingsPrefix: String = ""
     var metadataMatchEmptyState: String = ""
     var metadataMatchMatchedTitlePrefix: String = ""
+    var suggestMissingMappingsAction: String = ""
+    var suggestingMappingsAction: String = ""
     fun tabTitle(tab: DesktopShellTab): String = tabTitles[tab] ?: tab.title
     fun settingsSectionTitle(section: DesktopSettingsSection): String =
         settingsSectionTitles[section] ?: section.title

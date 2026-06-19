@@ -2,6 +2,7 @@ package app.danmaku.desktop
 
 import app.danmaku.domain.DanmakuEvent
 import app.danmaku.domain.ExternalAnimeId
+import app.danmaku.domain.ExternalAnimeExternalLink
 import app.danmaku.domain.ExternalAnimeInfo
 import app.danmaku.domain.ExternalAnimeProvider
 import app.danmaku.domain.ExternalAnimeTitleSet
@@ -413,17 +414,46 @@ private fun JsonObject.toExternalAnimeInfo(fallbackAnimeId: Long): ExternalAnime
         .mapNotNull(JsonElement::asObjectOrNull)
         .mapNotNull { titleObject ->
             val title = titleObject.string("title") ?: return@mapNotNull null
-            title to (titleObject.string("language") ?: "")
+            DandanplayTitle(title = title, language = titleObject.string("language") ?: "")
         }
     val chineseTitle = parsedTitles
-        .firstOrNull { (_, language) ->
-            language.contains("zh", ignoreCase = true) || language.contains("cn", ignoreCase = true)
+        .firstOrNull { parsedTitle ->
+            parsedTitle.language.contains("zh", ignoreCase = true) ||
+                parsedTitle.language.contains("cn", ignoreCase = true)
         }
-        ?.first
+        ?.title
+    val englishTitle = parsedTitles
+        .firstOrNull { parsedTitle ->
+            parsedTitle.language.contains("en", ignoreCase = true) ||
+                parsedTitle.title.looksEnglishTitle()
+        }
+        ?.title
+    val japaneseTitle = parsedTitles
+        .firstOrNull { parsedTitle ->
+            parsedTitle.language.contains("ja", ignoreCase = true) ||
+                parsedTitle.language.contains("jp", ignoreCase = true) ||
+                parsedTitle.title.containsJapanese()
+        }
+        ?.title
     val alternateNames = parsedTitles
-        .map { it.first }
-        .filterNot { it.equals(primaryTitle, ignoreCase = true) || it == chineseTitle }
+        .map(DandanplayTitle::title)
+        .filterNot { title ->
+            title.equals(primaryTitle, ignoreCase = true) ||
+                title == chineseTitle ||
+                title == englishTitle ||
+                title == japaneseTitle
+        }
         .distinct()
+    val externalLinks = buildList {
+        (string("bangumiUrl") ?: string("BangumiUrl"))
+            ?.parseExternalAnimeLinkFromUrl()
+            ?.let(::add)
+        array("onlineDatabases")
+            .mapNotNull(JsonElement::asObjectOrNull)
+            .mapNotNull { database -> database.string("url") ?: database.string("Url") }
+            .mapNotNull(String::parseExternalAnimeLinkFromUrl)
+            .forEach(::add)
+    }.distinctBy(ExternalAnimeExternalLink::animeId)
     val imageUrl = (string("imageUrl") ?: string("ImageUrl"))
         ?.toHttpsUrlOrNull()
     val episodeCount = array("episodes")
@@ -440,14 +470,22 @@ private fun JsonObject.toExternalAnimeInfo(fallbackAnimeId: Long): ExternalAnime
         titles = ExternalAnimeTitleSet(
             primary = primaryTitle,
             chinese = chineseTitle,
+            english = englishTitle,
+            japanese = japaneseTitle,
             alternateNames = alternateNames,
         ),
         episodeCount = episodeCount,
         startYear = startYear,
         imageUrl = imageUrl,
         summary = (string("summary") ?: string("Summary"))?.takeIf(String::isNotBlank),
+        externalLinks = externalLinks,
     )
 }
+
+private data class DandanplayTitle(
+    val title: String,
+    val language: String,
+)
 
 private fun JsonObject.toDanmakuEvent(index: Int): DanmakuEvent? {
     val parameter = string("p")
@@ -528,3 +566,36 @@ private fun String.toHttpsUrlOrNull(): String? =
                 else -> null
             }
         }
+
+private fun String.parseExternalAnimeLinkFromUrl(): ExternalAnimeExternalLink? {
+    val normalizedUrl = toHttpsUrlOrNull() ?: return null
+    val normalized = normalizedUrl.lowercase()
+    val animeId = when {
+        "myanimelist.net/anime/" in normalized -> normalized.extractFirstIdAfter("/anime/")
+            ?.let { ExternalAnimeId(ExternalAnimeProvider.MY_ANIME_LIST, it) }
+        "bangumi.tv/subject/" in normalized -> normalized.extractFirstIdAfter("/subject/")
+            ?.let { ExternalAnimeId(ExternalAnimeProvider.BANGUMI, it) }
+        "bgm.tv/subject/" in normalized -> normalized.extractFirstIdAfter("/subject/")
+            ?.let { ExternalAnimeId(ExternalAnimeProvider.BANGUMI, it) }
+        else -> null
+    } ?: return null
+    return ExternalAnimeExternalLink(animeId = animeId, url = animeId.webUrl)
+}
+
+private fun String.extractFirstIdAfter(marker: String): Long? =
+    substringAfter(marker, "")
+        .takeWhile(Char::isDigit)
+        .toLongOrNull()
+        ?.takeIf { it > 0 }
+
+private fun String.looksEnglishTitle(): Boolean =
+    any { it in 'A'..'Z' || it in 'a'..'z' } && none { it.isCjkOrKana() }
+
+private fun String.containsJapanese(): Boolean =
+    any { it in '\u3040'..'\u30ff' || it in '\u31f0'..'\u31ff' }
+
+private fun Char.isCjkOrKana(): Boolean =
+    this in '\u3040'..'\u30ff' ||
+        this in '\u31f0'..'\u31ff' ||
+        this in '\u3400'..'\u4dbf' ||
+        this in '\u4e00'..'\u9fff'

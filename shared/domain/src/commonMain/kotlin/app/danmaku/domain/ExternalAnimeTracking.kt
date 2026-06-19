@@ -49,6 +49,16 @@ data class ExternalAnimeTitleSet(
 }
 
 @Serializable
+data class ExternalAnimeExternalLink(
+    val animeId: ExternalAnimeId,
+    val url: String = animeId.webUrl,
+) {
+    init {
+        require(url.startsWith("https://")) { "external anime link URL must be HTTPS" }
+    }
+}
+
+@Serializable
 data class ExternalAnimeInfo(
     val id: ExternalAnimeId,
     val titles: ExternalAnimeTitleSet,
@@ -56,12 +66,16 @@ data class ExternalAnimeInfo(
     val startYear: Int? = null,
     val imageUrl: String? = null,
     val summary: String? = null,
+    val externalLinks: List<ExternalAnimeExternalLink> = emptyList(),
 ) {
     init {
         require(episodeCount == null || episodeCount > 0) { "episodeCount must be positive" }
         require(startYear == null || startYear in 1900..2200) { "startYear must be reasonable" }
         require(imageUrl == null || imageUrl.startsWith("https://")) { "imageUrl must be HTTPS" }
         require(summary == null || summary.isNotBlank()) { "summary must not be blank" }
+        require(externalLinks.distinctBy(ExternalAnimeExternalLink::animeId).size == externalLinks.size) {
+            "external anime links must be unique by anime ID"
+        }
     }
 }
 
@@ -482,18 +496,30 @@ data class ExternalAnimeMatchQuery(
     val title: String,
     val episodeCount: Int? = null,
     val startYear: Int? = null,
+    val alternateTitles: List<String> = emptyList(),
+    val externalLinks: List<ExternalAnimeExternalLink> = emptyList(),
 ) {
     init {
         require(title.isNotBlank()) { "title must not be blank" }
         require(episodeCount == null || episodeCount > 0) { "episodeCount must be positive" }
         require(startYear == null || startYear in 1900..2200) { "startYear must be reasonable" }
+        require(alternateTitles.none { it.isBlank() }) { "alternateTitles must not contain blank titles" }
+        require(externalLinks.distinctBy(ExternalAnimeExternalLink::animeId).size == externalLinks.size) {
+            "externalLinks must be unique by anime ID"
+        }
     }
+
+    val searchTitles: List<String> =
+        listOf(title)
+            .plus(alternateTitles)
+            .distinctBy(String::normalizedAnimeTitle)
 }
 
 data class ExternalAnimeMatchCandidate(
     val anime: ExternalAnimeInfo,
     val confidence: Double,
     val matchedTitle: String?,
+    val evidence: List<String> = emptyList(),
 )
 
 fun rankExternalAnimeMatches(
@@ -511,10 +537,19 @@ fun rankExternalAnimeMatches(
         )
 
 private fun ExternalAnimeInfo.toMatchCandidate(query: ExternalAnimeMatchQuery): ExternalAnimeMatchCandidate {
-    val normalizedQueryTitle = query.title.normalizedAnimeTitle()
-    val titleScore = titles.displayNames
-        .map { title -> title to title.matchTitleScore(normalizedQueryTitle) }
-        .maxBy { it.second }
+    val trustedExternalMatch = trustedExternalLinkMatch(query)
+    val titleScore = query.searchTitles
+        .flatMap { queryTitle ->
+            val normalizedQueryTitle = queryTitle.normalizedAnimeTitle()
+            titles.displayNames.map { title ->
+                TitleMatchScore(
+                    candidateTitle = title,
+                    queryTitle = queryTitle,
+                    score = title.matchTitleScore(normalizedQueryTitle),
+                )
+            }
+        }
+        .maxBy { it.score }
     val episodeScore = when {
         query.episodeCount == null || episodeCount == null -> 0.0
         query.episodeCount == episodeCount -> 0.15
@@ -525,11 +560,64 @@ private fun ExternalAnimeInfo.toMatchCandidate(query: ExternalAnimeMatchQuery): 
         query.startYear == startYear -> 0.05
         else -> -0.03
     }
+    val linkScore = when {
+        trustedExternalMatch == null -> 0.0
+        episodeScore < 0.0 || yearScore < 0.0 -> 0.9
+        else -> 1.0
+    }
+    val evidence = buildList {
+        trustedExternalMatch?.let { animeId ->
+            add("trusted external link matches: ${animeId.provider.displayName} #${animeId.value}")
+        }
+        titleScore.evidenceLabel?.let(::add)
+        if (episodeScore > 0.0) {
+            add("episode count matches")
+        } else if (episodeScore < 0.0) {
+            add("episode count differs")
+        }
+        if (yearScore > 0.0) {
+            add("start year matches")
+        } else if (yearScore < 0.0) {
+            add("start year differs")
+        }
+    }
     return ExternalAnimeMatchCandidate(
         anime = this,
-        confidence = (titleScore.second + episodeScore + yearScore).coerceIn(0.0, 1.0),
-        matchedTitle = titleScore.first.takeIf { titleScore.second > 0.0 },
+        confidence = maxOf(titleScore.score + episodeScore + yearScore, linkScore).coerceIn(0.0, 1.0),
+        matchedTitle = titleScore.candidateTitle.takeIf { titleScore.score > 0.0 },
+        evidence = evidence,
     )
+}
+
+private fun ExternalAnimeInfo.trustedExternalLinkMatch(query: ExternalAnimeMatchQuery): ExternalAnimeId? {
+    val queryAnimeIds = query.externalLinks
+        .mapTo(mutableSetOf(), ExternalAnimeExternalLink::animeId)
+    if (queryAnimeIds.isEmpty()) {
+        return null
+    }
+    return sequenceOf(id)
+        .plus(externalLinks.asSequence().map(ExternalAnimeExternalLink::animeId))
+        .firstOrNull { animeId -> animeId in queryAnimeIds }
+}
+
+private data class TitleMatchScore(
+    val candidateTitle: String,
+    val queryTitle: String,
+    val score: Double,
+) {
+    val evidenceLabel: String?
+        get() = when (score) {
+            0.8 -> "title matches: $candidateTitle"
+            0.55 -> "title contains search: $candidateTitle"
+            0.5 -> "search contains title: $candidateTitle"
+            else -> null
+        }?.let { label ->
+            if (queryTitle == candidateTitle) {
+                label
+            } else {
+                "$label from \"$queryTitle\""
+            }
+        }
 }
 
 private fun String.matchTitleScore(normalizedQueryTitle: String): Double {

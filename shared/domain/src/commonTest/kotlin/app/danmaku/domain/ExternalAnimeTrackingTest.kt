@@ -3,6 +3,7 @@ package app.danmaku.domain
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 
 class ExternalAnimeTrackingTest {
     @Test
@@ -70,7 +71,82 @@ class ExternalAnimeTrackingTest {
         assertEquals(3, ranked.size)
         assertEquals(52991, ranked.first().anime.id.value)
         assertEquals("Frieren: Beyond Journey's End", ranked.first().matchedTitle)
-        assertEquals(1.0, ranked.first().confidence)
+        assertEquals(1.0, ranked.first().confidence, 0.0001)
+        assertTrue(ranked.first().evidence.any { it.contains("title") })
+        assertTrue(ranked.first().evidence.any { it == "episode count matches" })
+        assertTrue(ranked.first().evidence.any { it == "start year matches" })
+    }
+
+    @Test
+    fun ranksCandidatesAcrossAlternateQueryTitles() {
+        val query = ExternalAnimeMatchQuery(
+            title = "葬送的芙莉莲",
+            alternateTitles = listOf("Sousou no Frieren", "Frieren"),
+            episodeCount = 28,
+        )
+        val candidates = listOf(
+            animeInfo(
+                id = ExternalAnimeId(ExternalAnimeProvider.MY_ANIME_LIST, 52991),
+                primary = "Sousou no Frieren",
+                english = "Frieren: Beyond Journey's End",
+                episodeCount = 28,
+            ),
+            animeInfo(
+                id = ExternalAnimeId(ExternalAnimeProvider.BANGUMI, 1),
+                primary = "Different Anime",
+                episodeCount = 28,
+            ),
+        )
+
+        val ranked = rankExternalAnimeMatches(query, candidates)
+
+        assertEquals(52991, ranked.first().anime.id.value)
+        assertEquals("Sousou no Frieren", ranked.first().matchedTitle)
+        assertEquals(0.95, ranked.first().confidence, 0.0001)
+        assertTrue(ranked.first().evidence.any { it.contains("Sousou no Frieren") })
+    }
+
+    @Test
+    fun validatesExternalAnimeLinks() {
+        val link = ExternalAnimeExternalLink(
+            animeId = ExternalAnimeId(ExternalAnimeProvider.BANGUMI, 400602),
+        )
+
+        assertEquals("https://bangumi.tv/subject/400602", link.url)
+        assertFailsWith<IllegalArgumentException> {
+            ExternalAnimeExternalLink(
+                animeId = ExternalAnimeId(ExternalAnimeProvider.BANGUMI, 400602),
+                url = "http://bangumi.tv/subject/400602",
+            )
+        }
+    }
+
+    @Test
+    fun trustedExternalLinksRankCandidatesEvenWhenTitleDoesNotMatch() {
+        val query = ExternalAnimeMatchQuery(
+            title = "bad local folder name",
+            externalLinks = listOf(
+                ExternalAnimeExternalLink(
+                    animeId = ExternalAnimeId(ExternalAnimeProvider.BANGUMI, 400602),
+                ),
+            ),
+        )
+        val candidates = listOf(
+            animeInfo(
+                id = ExternalAnimeId(ExternalAnimeProvider.BANGUMI, 400602),
+                primary = "葬送のフリーレン",
+            ),
+            animeInfo(
+                id = ExternalAnimeId(ExternalAnimeProvider.MY_ANIME_LIST, 52991),
+                primary = "bad local folder name",
+            ),
+        )
+
+        val ranked = rankExternalAnimeMatches(query, candidates)
+
+        assertEquals(ExternalAnimeId(ExternalAnimeProvider.BANGUMI, 400602), ranked.first().anime.id)
+        assertEquals(1.0, ranked.first().confidence, 0.0001)
+        assertTrue(ranked.first().evidence.any { it.contains("trusted external link") })
     }
 
     @Test

@@ -844,10 +844,12 @@ internal fun DesktopShell(
                             isExternalAnimeSyncing = libraryState.isExternalAnimeSyncing,
                             isExternalAnimeReadbackRefreshing = libraryState.isExternalAnimeReadbackRefreshing,
                             isExternalAnimeProgressImporting = libraryState.isExternalAnimeProgressImporting,
+                            isExternalAnimeMappingSuggesting = libraryState.isExternalAnimeMappingSuggesting,
                             externalAnimeProviderSettings = settingsState.externalAnimeProviderSettings,
                             onSyncExternalAnimePlan = libraryActions::syncExternalAnimePlan,
                             onRefreshExternalAnimeReadback = libraryActions::refreshExternalAnimeReadback,
                             onApplyExternalAnimeProgressImport = libraryActions::applyExternalAnimeProgressImport,
+                            onSuggestMissingExternalAnimeMappings = libraryActions::suggestMissingExternalAnimeMappings,
                             onOpenSettings = { navigationState.selectedTab = DesktopShellTab.PROFILE },
                             onOpenLibrary = { navigationState.selectedTab = DesktopShellTab.MEDIA_LIBRARY },
                         )

@@ -206,10 +206,12 @@ internal fun TrackingTab(
     isExternalAnimeSyncing: Boolean,
     isExternalAnimeReadbackRefreshing: Boolean,
     isExternalAnimeProgressImporting: Boolean,
+    isExternalAnimeMappingSuggesting: Boolean,
     externalAnimeProviderSettings: ExternalAnimeProviderSettings,
     onSyncExternalAnimePlan: (ExternalAnimeTrackingPlan) -> Unit,
     onRefreshExternalAnimeReadback: (List<ExternalAnimeMapping>) -> Unit,
     onApplyExternalAnimeProgressImport: (List<ExternalAnimeTrackingPlanConflict>) -> Unit,
+    onSuggestMissingExternalAnimeMappings: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenLibrary: () -> Unit,
 ) {
@@ -301,6 +303,18 @@ internal fun TrackingTab(
             actionLabel = strings.openLibraryAction,
             onAction = onOpenLibrary,
         )
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            LibraryActionButton(
+                imageVector = Icons.Filled.Search,
+                label = if (isExternalAnimeMappingSuggesting) {
+                    strings.suggestingMappingsAction
+                } else {
+                    strings.suggestMissingMappingsAction
+                },
+                enabled = catalog != null && !isExternalAnimeMappingSuggesting,
+                onClick = onSuggestMissingExternalAnimeMappings,
+            )
+        }
         if (catalog == null) {
             EmptyState(strings.trackingNoLibraryText, strings.openLibraryAction, onOpenLibrary)
         } else {

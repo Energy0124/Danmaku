@@ -2,6 +2,7 @@ package app.danmaku.desktop
 
 import app.danmaku.domain.DanmakuMode
 import app.danmaku.domain.DanmakuSize
+import app.danmaku.domain.ExternalAnimeId
 import app.danmaku.domain.ExternalAnimeProvider
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
@@ -116,10 +117,20 @@ class DandanplayDanmakuClientTest {
             assertEquals(12345, anime.id.value)
             assertEquals("Example Anime", anime.titles.primary)
             assertEquals("示例动画", anime.titles.chinese)
+            assertEquals("Example Anime", anime.titles.english)
+            assertEquals("サンプルアニメ", anime.titles.japanese)
+            assertEquals(listOf("Sample Anime"), anime.titles.alternateNames)
             assertEquals(2, anime.episodeCount)
             assertEquals(2024, anime.startYear)
             assertEquals("https://img.example.test/poster.jpg", anime.imageUrl)
             assertEquals("Example summary", anime.summary)
+            assertEquals(
+                listOf(
+                    ExternalAnimeId(ExternalAnimeProvider.BANGUMI, 400602),
+                    ExternalAnimeId(ExternalAnimeProvider.MY_ANIME_LIST, 52991),
+                ),
+                anime.externalLinks.map { it.animeId },
+            )
 
             val detailRequest = fixture.requests.first { it.path == "/api/v2/bangumi/12345" }
             assertEquals("GET", detailRequest.method)
@@ -299,7 +310,13 @@ class DandanplayDanmakuClientTest {
                 "airDate": "2024-01-05",
                 "titles": [
                   {"title": "示例动画", "language": "zh-CN"},
-                  {"title": "Example Anime", "language": "en"}
+                  {"title": "Example Anime", "language": "en"},
+                  {"title": "サンプルアニメ", "language": "ja"},
+                  {"title": "Sample Anime", "language": ""}
+                ],
+                "bangumiUrl": "https://bangumi.tv/subject/400602",
+                "onlineDatabases": [
+                  {"name": "MyAnimeList", "url": "https://myanimelist.net/anime/52991/example"}
                 ],
                 "episodes": [
                   {"episodeId": 123450001, "episodeTitle": "Episode 01"},

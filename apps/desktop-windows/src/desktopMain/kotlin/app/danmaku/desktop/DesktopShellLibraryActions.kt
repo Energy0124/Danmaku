@@ -490,15 +490,7 @@ internal class DesktopShellLibraryActions(
     ): Result<List<ExternalAnimeMatchCandidate>> =
         withContext(Dispatchers.IO) {
             runCatching {
-                val clients = buildList {
-                    if (ExternalAnimeProvider.MY_ANIME_LIST in providers) {
-                        externalAnimeCredentialStore.loadMyAnimeListSearchConnection()
-                            ?.let { add(MyAnimeListAnimeSearchClient(it)) }
-                    }
-                    if (ExternalAnimeProvider.BANGUMI in providers) {
-                        add(externalAnimeCredentialStore.loadBangumiSearchClient())
-                    }
-                }
+                val clients = buildExternalAnimeSearchClients(providers)
                 if (clients.isEmpty()) {
                     throw DesktopUserActionException(
                         "No external anime search providers are configured. Add a MyAnimeList client ID or enable Bangumi settings.",
@@ -514,6 +506,103 @@ internal class DesktopShellLibraryActions(
                 )
             }
         }
+
+    fun suggestMissingExternalAnimeMappings() {
+        val indexedLibrary = libraryState.indexedLibrary
+        if (libraryState.isExternalAnimeMappingSuggesting) {
+            return
+        }
+        if (indexedLibrary == null) {
+            appendDiagnostic("metadata", "Cannot suggest external anime mappings; library is not indexed")
+            return
+        }
+        libraryState.isExternalAnimeMappingSuggesting = true
+        scope.launch {
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    val clients = buildExternalAnimeSearchClients(
+                        setOf(ExternalAnimeProvider.MY_ANIME_LIST, ExternalAnimeProvider.BANGUMI),
+                    )
+                    if (clients.isEmpty()) {
+                        throw DesktopUserActionException(
+                            "No external anime search providers are configured. Add a MyAnimeList client ID or enable Bangumi settings.",
+                        )
+                    }
+                    val providers = clients.mapTo(mutableSetOf(), ExternalAnimeSearchClient::provider)
+                    val suggester = DesktopExternalAnimeMappingSuggester(
+                        ExternalAnimeSearchService(
+                            clients = clients,
+                            catalogStore = catalogStore,
+                        ),
+                    )
+                    val displayLibrary = indexedLibrary.withExternalAnimeMetadata(animeMetadataResolver)
+                    val autoLinked = mutableListOf<ExternalAnimeMappingSuggestion>()
+                    val reviewNeeded = mutableListOf<ExternalAnimeMappingSuggestion>()
+                    displayLibrary.catalog.groupedSeries().forEach { series ->
+                        val existingMappings = catalogStore.loadExternalAnimeMappings(series.id)
+                        suggester
+                            .suggestForSeries(
+                                series = series,
+                                existingMappings = existingMappings,
+                                providers = providers,
+                            )
+                            .forEach { suggestion ->
+                                when (suggestion.disposition) {
+                                    ExternalAnimeMappingSuggestionDisposition.AUTO_LINK -> {
+                                        catalogStore.saveExternalAnimeMapping(
+                                            ExternalAnimeMapping(
+                                                localSeriesId = series.id,
+                                                animeId = suggestion.candidate.anime.id,
+                                                source = ExternalAnimeMappingSource.AUTO,
+                                                confidence = suggestion.candidate.confidence,
+                                                mappedAtEpochMs = System.currentTimeMillis(),
+                                            ),
+                                        )
+                                        autoLinked += suggestion
+                                    }
+                                    ExternalAnimeMappingSuggestionDisposition.REVIEW -> {
+                                        reviewNeeded += suggestion
+                                    }
+                                }
+                            }
+                    }
+                    ExternalAnimeSuggestionResult(
+                        autoLinked = autoLinked,
+                        reviewNeeded = reviewNeeded,
+                    )
+                }
+                libraryState.libraryMetadataVersion += 1
+                result.reviewNeeded.take(3).forEach { suggestion ->
+                    appendDiagnostic(
+                        "metadata",
+                        "External anime suggestion needs review: ${suggestion.series.title} -> " +
+                            "${suggestion.provider.displayName} #${suggestion.candidate.anime.id.value} " +
+                            "(${suggestion.candidate.confidence.formatConfidence()}, margin " +
+                            suggestion.margin.formatConfidence() + ")",
+                    )
+                }
+                val omittedReviewCount = result.reviewNeeded.size - 3
+                if (omittedReviewCount > 0) {
+                    appendDiagnostic(
+                        "metadata",
+                        "External anime suggestions had $omittedReviewCount additional review candidate(s)",
+                    )
+                }
+                appendDiagnostic(
+                    "metadata",
+                    "External anime suggestions complete: ${result.autoLinked.size} auto-linked, " +
+                        "${result.reviewNeeded.size} need review",
+                )
+            } catch (error: Throwable) {
+                appendDiagnostic(
+                    "metadata",
+                    "External anime suggestions failed: ${error.message ?: error::class.simpleName}",
+                )
+            } finally {
+                libraryState.isExternalAnimeMappingSuggesting = false
+            }
+        }
+    }
 
     suspend fun fetchMetadataMatchPoster(imageUrl: String?): Path? =
         withContext(Dispatchers.IO) {
@@ -728,6 +817,19 @@ internal class DesktopShellLibraryActions(
                 ?.let { put(it.provider, it) }
         }
 
+    private fun buildExternalAnimeSearchClients(
+        providers: Set<ExternalAnimeProvider>,
+    ): List<ExternalAnimeSearchClient> =
+        buildList {
+            if (ExternalAnimeProvider.MY_ANIME_LIST in providers) {
+                externalAnimeCredentialStore.loadMyAnimeListSearchConnection()
+                    ?.let { add(MyAnimeListAnimeSearchClient(it)) }
+            }
+            if (ExternalAnimeProvider.BANGUMI in providers) {
+                add(externalAnimeCredentialStore.loadBangumiSearchClient())
+            }
+        }
+
     private data class ExternalAnimeSyncResult(
         val successCount: Int,
         val conflictCount: Int,
@@ -752,5 +854,10 @@ internal class DesktopShellLibraryActions(
         val importCount: Int,
         val progressUpdateCount: Int,
         val playbackProgresses: List<app.danmaku.domain.PlaybackProgress>,
+    )
+
+    private data class ExternalAnimeSuggestionResult(
+        val autoLinked: List<ExternalAnimeMappingSuggestion>,
+        val reviewNeeded: List<ExternalAnimeMappingSuggestion>,
     )
 }

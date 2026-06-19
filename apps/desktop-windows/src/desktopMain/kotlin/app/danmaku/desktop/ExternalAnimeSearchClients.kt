@@ -1,6 +1,7 @@
 package app.danmaku.desktop
 
 import app.danmaku.domain.ExternalAnimeId
+import app.danmaku.domain.ExternalAnimeExternalLink
 import app.danmaku.domain.ExternalAnimeInfo
 import app.danmaku.domain.ExternalAnimeMatchQuery
 import app.danmaku.domain.ExternalAnimeProvider
@@ -49,7 +50,17 @@ class ExternalAnimeSearchService(
         require(limitPerProvider in 1..50) { "limitPerProvider must be between 1 and 50" }
         val results = clients
             .filter { client -> client.provider in providers }
-            .flatMap { client -> client.search(query, limitPerProvider) }
+            .flatMap { client ->
+                query.searchTitles.flatMap { searchTitle ->
+                    client.search(
+                        query.copy(
+                            title = searchTitle,
+                            alternateTitles = emptyList(),
+                        ),
+                        limitPerProvider,
+                    )
+                }
+            }
             .distinctBy { anime -> anime.id }
         results.forEach { anime ->
             catalogStore.saveExternalAnimeMetadataCache(
@@ -103,6 +114,7 @@ class BangumiAnimeSearchClient(
     private val baseUri: URI = URI(DEFAULT_BANGUMI_BASE_URL),
     private val userAgent: String = DEFAULT_BANGUMI_USER_AGENT,
     private val httpPost: ExternalAnimeHttpPost = ExternalAnimeHttpPost.default(),
+    private val httpGet: ExternalAnimeHttpGet = ExternalAnimeHttpGet.default(),
     private val json: Json = externalAnimeSearchJson,
 ) : ExternalAnimeSearchClient {
     override val provider: ExternalAnimeProvider = ExternalAnimeProvider.BANGUMI
@@ -131,12 +143,33 @@ class BangumiAnimeSearchClient(
             ),
             body = body,
         )
-        return json.parseToJsonElement(response)
+        val searchResults = json.parseToJsonElement(response)
             .asObject()
             .array("data")
             .mapNotNull(JsonElement::asObjectOrNull)
             .mapNotNull(JsonObject::toBangumiAnimeInfo)
+        return searchResults.mapIndexed { index, anime ->
+            if (index < BANGUMI_DETAIL_ENRICH_LIMIT) {
+                fetchBangumiSubject(anime.id.value) ?: anime
+            } else {
+                anime
+            }
+        }
     }
+
+    private fun fetchBangumiSubject(animeId: Long): ExternalAnimeInfo? =
+        runCatching {
+            val response = httpGet.get(
+                url = baseUri.resolve("v0/subjects/$animeId").toURL(),
+                headers = mapOf(
+                    "Accept" to "application/json",
+                    "User-Agent" to userAgent,
+                ),
+            )
+            json.parseToJsonElement(response)
+                .asObject()
+                .toBangumiAnimeInfo()
+        }.getOrNull()
 }
 
 fun interface ExternalAnimeHttpGet {
@@ -222,26 +255,53 @@ private fun JsonObject.toMyAnimeListAnimeInfo(): ExternalAnimeInfo? {
         imageUrl = get("main_picture")?.asObjectOrNull()?.string("large")?.toHttpsUrlOrNull()
             ?: get("main_picture")?.asObjectOrNull()?.string("medium")?.toHttpsUrlOrNull(),
         summary = string("synopsis")?.takeIf(String::isNotBlank),
+        externalLinks = listOf(
+            ExternalAnimeExternalLink(ExternalAnimeId(ExternalAnimeProvider.MY_ANIME_LIST, id)),
+        ),
     )
 }
 
 private fun JsonObject.toBangumiAnimeInfo(): ExternalAnimeInfo? {
     val id = long("id")?.takeIf { it > 0 } ?: return null
     val primaryTitle = string("name")?.takeIf(String::isNotBlank) ?: return null
+    val infoboxAliases = infoboxValues("别名", "英文名", "英语名", "日文名", "原名")
     val chineseTitle = string("name_cn")?.takeIf(String::isNotBlank)
+        ?: infoboxValues("中文名").firstOrNull()
+    val englishTitle = infoboxAliases.firstOrNull(String::looksEnglishTitle)
+    val japaneseTitle = infoboxAliases.firstOrNull(String::containsJapanese)
+        ?: primaryTitle.takeIf(String::containsJapanese)
+    val alternateNames = infoboxAliases
+        .plus(infoboxValues("中文名"))
+        .filterNot { title ->
+            title == primaryTitle ||
+                title == chineseTitle ||
+                title == englishTitle ||
+                title == japaneseTitle
+        }
+        .distinctBy { it.trim().lowercase() }
     val imageObject = get("images")?.asObjectOrNull()
     return ExternalAnimeInfo(
         id = ExternalAnimeId(ExternalAnimeProvider.BANGUMI, id),
         titles = ExternalAnimeTitleSet(
             primary = primaryTitle,
             chinese = chineseTitle,
+            english = englishTitle,
+            japanese = japaneseTitle,
+            alternateNames = alternateNames,
         ),
         episodeCount = int("eps")?.takeIf { it > 0 },
-        startYear = string("date")?.take(4)?.toIntOrNull()?.takeIf { it in 1900..2200 },
+        startYear = (string("date") ?: string("air_date"))
+            ?.take(4)
+            ?.toIntOrNull()
+            ?.takeIf { it in 1900..2200 },
         imageUrl = imageObject?.string("large")?.toHttpsUrlOrNull()
             ?: imageObject?.string("common")?.toHttpsUrlOrNull()
             ?: imageObject?.string("medium")?.toHttpsUrlOrNull(),
-        summary = string("summary")?.takeIf(String::isNotBlank),
+        summary = string("summary")?.takeIf(String::isNotBlank)
+            ?: string("short_summary")?.takeIf(String::isNotBlank),
+        externalLinks = listOf(
+            ExternalAnimeExternalLink(ExternalAnimeId(ExternalAnimeProvider.BANGUMI, id)),
+        ),
     )
 }
 
@@ -269,6 +329,44 @@ private fun JsonObject.long(key: String): Long? =
 private fun JsonObject.int(key: String): Int? =
     (get(key) as? JsonPrimitive)?.intOrNull
 
+private fun JsonObject.infoboxValues(vararg keys: String): List<String> =
+    array("infobox")
+        .mapNotNull(JsonElement::asObjectOrNull)
+        .filter { item -> item.string("key") in keys }
+        .flatMap { item -> item["value"]?.infoboxTextValues().orEmpty() }
+        .map(String::trim)
+        .filter(String::isNotBlank)
+        .distinct()
+
+private fun JsonElement.infoboxTextValues(): List<String> =
+    when (this) {
+        is JsonPrimitive -> listOfNotNull(contentOrNull)
+        is JsonArray -> mapNotNull { element ->
+            when (element) {
+                is JsonPrimitive -> element.contentOrNull
+                is JsonObject -> element.string("v")
+                    ?: element.string("value")
+                    ?: element.string("name")
+                else -> null
+            }
+        }
+        is JsonObject -> listOfNotNull(
+            string("v") ?: string("value") ?: string("name"),
+        )
+    }
+
+private fun String.looksEnglishTitle(): Boolean =
+    any { it in 'A'..'Z' || it in 'a'..'z' } && none { it.isCjkOrKana() }
+
+private fun String.containsJapanese(): Boolean =
+    any { it in '\u3040'..'\u30ff' || it in '\u31f0'..'\u31ff' }
+
+private fun Char.isCjkOrKana(): Boolean =
+    this in '\u3040'..'\u30ff' ||
+        this in '\u31f0'..'\u31ff' ||
+        this in '\u3400'..'\u4dbf' ||
+        this in '\u4e00'..'\u9fff'
+
 private fun String.urlEncode(): String =
     URLEncoder.encode(this, Charsets.UTF_8)
 
@@ -282,6 +380,7 @@ private val externalAnimeSearchJson = Json {
 }
 
 private const val BANGUMI_ANIME_SUBJECT_TYPE = 2
+private const val BANGUMI_DETAIL_ENRICH_LIMIT = 5
 private const val DEFAULT_SEARCH_LIMIT = 10
 private const val DEFAULT_CONNECT_TIMEOUT_MILLIS = 10_000
 private const val DEFAULT_READ_TIMEOUT_MILLIS = 20_000

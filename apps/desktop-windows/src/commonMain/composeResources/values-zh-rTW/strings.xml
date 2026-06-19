@@ -535,6 +535,8 @@
     <string name="desktop_failures_summary_title">失敗</string>
     <string name="desktop_failures_summary_caption">已追蹤重試</string>
     <string name="desktop_tracking_sync_preview_title">追蹤同步預覽</string>
+    <string name="desktop_suggest_missing_mappings_action">建議缺少對應</string>
+    <string name="desktop_suggesting_mappings_action">建議中...</string>
     <string name="desktop_open_library_action">開啟媒體庫</string>
     <string name="desktop_no_external_sync_library_text">沒有可用於外部同步預覽的已索引媒體庫。</string>
     <string name="desktop_provider_updates_caption">服務更新</string>

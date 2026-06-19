@@ -535,6 +535,8 @@
     <string name="desktop_failures_summary_title">Failures</string>
     <string name="desktop_failures_summary_caption">retry tracked</string>
     <string name="desktop_tracking_sync_preview_title">Tracking Sync Preview</string>
+    <string name="desktop_suggest_missing_mappings_action">Suggest missing</string>
+    <string name="desktop_suggesting_mappings_action">Suggesting...</string>
     <string name="desktop_open_library_action">Open Library</string>
     <string name="desktop_no_external_sync_library_text">No indexed library is available for external sync preview.</string>
     <string name="desktop_provider_updates_caption">provider updates</string>

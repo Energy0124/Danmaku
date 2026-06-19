@@ -329,6 +329,8 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
         stringResource(Res.string.desktop_metadata_match_current_mappings_prefix)
     val metadataMatchEmptyState = stringResource(Res.string.desktop_metadata_match_empty_state)
     val metadataMatchMatchedTitlePrefix = stringResource(Res.string.desktop_metadata_match_matched_title_prefix)
+    val suggestMissingMappingsAction = stringResource(Res.string.desktop_suggest_missing_mappings_action)
+    val suggestingMappingsAction = stringResource(Res.string.desktop_suggesting_mappings_action)
     val favoriteStatusLabel = stringResource(Res.string.desktop_favorite_status_label)
     val downloadFilterAll = stringResource(Res.string.desktop_download_filter_all)
     val downloadFilterActive = stringResource(Res.string.desktop_download_filter_active)
@@ -979,6 +981,8 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
             this.metadataMatchCurrentMappingsPrefix = metadataMatchCurrentMappingsPrefix
             this.metadataMatchEmptyState = metadataMatchEmptyState
             this.metadataMatchMatchedTitlePrefix = metadataMatchMatchedTitlePrefix
+            this.suggestMissingMappingsAction = suggestMissingMappingsAction
+            this.suggestingMappingsAction = suggestingMappingsAction
             this.favoriteStatusLabel = favoriteStatusLabel
             downloadFilterTitles = mapOf(
                 DownloadQueueFilter.ALL to downloadFilterAll,
