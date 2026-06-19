@@ -70,7 +70,7 @@ internal fun LibrarySeries.externalAnimeMatchQuery(searchTitle: String = title):
     val signals = externalAnimeSearchSignals()
     return ExternalAnimeMatchQuery(
         title = searchTitle.trim().ifBlank { title },
-        episodeCount = episodeCount.takeIf { it > 0 },
+        episodeCount = signals.episodeCount,
         startYear = signals.startYear,
         alternateTitles = signals.alternateTitles
             .filterNot { alternateTitle -> alternateTitle.equals(searchTitle, ignoreCase = true) },
@@ -81,6 +81,7 @@ internal fun LibrarySeries.externalAnimeMatchQuery(searchTitle: String = title):
 private data class ExternalAnimeSearchSignals(
     val alternateTitles: List<String>,
     val externalLinks: List<ExternalAnimeExternalLink>,
+    val episodeCount: Int?,
     val startYear: Int?,
 )
 
@@ -101,14 +102,20 @@ private fun LibrarySeries.externalAnimeSearchSignals(): ExternalAnimeSearchSigna
             }
             .distinctBy(ExternalAnimeExternalLink::animeId)
             .take(MAX_METADATA_EXTERNAL_LINKS),
+        episodeCount = metadata
+            .mapNotNull(LibraryAnimeMetadata::episodeCount)
+            .mostCommonMetadataValue(),
         startYear = metadata
             .mapNotNull(LibraryAnimeMetadata::startYear)
-            .groupingBy { it }
-            .eachCount()
-            .maxWithOrNull(compareBy<Map.Entry<Int, Int>> { it.value }.thenByDescending { it.key })
-            ?.key,
+            .mostCommonMetadataValue(),
     )
 }
+
+private fun List<Int>.mostCommonMetadataValue(): Int? =
+    groupingBy { it }
+        .eachCount()
+        .maxWithOrNull(compareBy<Map.Entry<Int, Int>> { it.value }.thenByDescending { it.key })
+        ?.key
 
 private fun ExternalAnimeMatchCandidate.suggestionDisposition(
     margin: Double,

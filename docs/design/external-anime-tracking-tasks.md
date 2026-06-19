@@ -121,3 +121,16 @@ Default thresholds:
   `:shared:domain:jvmTest` and `:apps:desktop-windows:desktopTest` with
   `ExternalAnimeTrackingTest`, `ExternalAnimeSearchClientsTest`,
   `DandanplayDanmakuClientTest`, and `DesktopExternalAnimeMappingSuggesterTest`.
+- 2026-06-19: Ran non-mutating live provider QA against MyAnimeList and
+  Bangumi search. Raw provider search found expected candidates for Frieren
+  English/romaji/Chinese cases, but also proved raw title order is not reliable:
+  MAL ranks Chinese Frieren fourth, Bangumi ranks Frieren season 2 above season
+  1 for romaji-only search, and a messy Apothecary Diaries S02 release filename
+  ranks season 1 above season 2 on MAL while Bangumi returns no useful result.
+  This confirms auto-link should depend on enriched metadata titles, trusted
+  provider links, and conservative margins rather than raw search order. The QA
+  pass also found and fixed a partial-library issue: suggestion queries now use
+  cached provider metadata episode counts, not local file counts, so a folder
+  with only one downloaded episode is not treated as a one-episode anime.
+  Verification after the fix: `.\gradlew.bat --no-daemon :shared:domain:jvmTest
+  :apps:desktop-windows:desktopTest`.

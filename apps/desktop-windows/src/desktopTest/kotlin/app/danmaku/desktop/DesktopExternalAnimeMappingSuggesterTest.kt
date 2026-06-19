@@ -46,6 +46,7 @@ class DesktopExternalAnimeMappingSuggesterTest {
                     primaryTitle = "葬送のフリーレン",
                     englishTitle = "Frieren: Beyond Journey's End",
                     alternateNames = listOf("Sousou no Frieren"),
+                    episodeCount = 28,
                     externalLinks = listOf(
                         ExternalAnimeExternalLink(ExternalAnimeId(ExternalAnimeProvider.BANGUMI, 400602)),
                     ),
@@ -62,7 +63,7 @@ class DesktopExternalAnimeMappingSuggesterTest {
             assertEquals(ExternalAnimeMappingSuggestionDisposition.AUTO_LINK, suggestions.single().disposition)
             assertEquals(400602, suggestions.single().candidate.anime.id.value)
             assertTrue(suggestions.single().candidate.evidence.any { it.contains("trusted external link") })
-            assertTrue(client.queries.any { it.title == "Sousou no Frieren" })
+            assertTrue(client.queries.any { it.title == "Sousou no Frieren" && it.episodeCount == 28 })
 
             val protectedSuggestions = suggester.suggestForSeries(
                 series = series,
