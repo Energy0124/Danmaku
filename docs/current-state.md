@@ -274,12 +274,14 @@ trusted-LAN clients.
 - From an anime-viewer workflow perspective, the current foundation covers
   local library playback, posters/metadata, progress, favorites, external
   mapping/sync, desktop local watch-list status/score/notes editing and
-  filtering, provider readback status/score visibility, and danmaku basics.
-  Missing high-value viewer workflows include seasonal/release-calendar views,
-  OP/ED or recap skip markers, per-series subtitle/audio preferences, richer
-  danmaku filtering and blocklists, duplicate/missing-episode library cleanup,
-  richer external list-driven status/score workflows, and custom
-  collections/tags.
+  filtering, provider readback status/score visibility, danmaku basics, and a
+  shared library-quality scanner for duplicate/missing episodes, suspicious
+  episode numbering, unmatched series, metadata episode-count mismatches, and
+  split-folder candidates. Missing high-value viewer workflows include
+  seasonal/release-calendar views, OP/ED or recap skip markers, per-series
+  subtitle/audio preferences, richer danmaku filtering and blocklists, desktop
+  library-quality review/resolve UI, richer external list-driven status/score
+  workflows, and custom collections/tags.
 
 ## Not Implemented
 

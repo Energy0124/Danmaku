@@ -374,6 +374,14 @@ Status legend:
     that drops indexed rows without deleting files from disk.
   - Remaining: add per-root rescan, richer scan progress percentages, and
     visual QA for compact/wide layouts.
+- `[~]` Build Library Quality review surface for suspicious local library
+  structure and mapping problems.
+  - Shared-domain scanner now reports folder/file episode mismatches, duplicate
+    and missing episode numbers, unmatched series, local-vs-metadata episode
+    count mismatches, and local folder split candidates with realistic release
+    filename coverage.
+  - Remaining: render a desktop review queue with issue type, affected files,
+    evidence, ignore/resolve actions, and live `W:/Anime` QA.
 - `[ ]` Standardize destructive, retry, confirmation, and error dialogs.
 
 ## Tests and QA

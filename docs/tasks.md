@@ -323,9 +323,14 @@ Full review date: 2026-06-15.
   part of the broader watch-list feature.
 - `[ ]` P1: Add release-calendar and seasonal anime views for "new this week",
   airing day, next episode, season/year, and recently updated local episodes.
-- `[ ]` P1: Add library quality tools for duplicate files, missing episodes,
+- `[~]` P1: Add library quality tools for duplicate files, missing episodes,
   suspicious episode numbering, unmatched files, bad filenames, and local
-  series split/merge review.
+  series split/merge review. Shared-domain scanner coverage now detects
+  folder/file episode mismatches, duplicate episode numbers, missing episode
+  gaps, unmatched series, local-vs-metadata episode count mismatches, and local
+  folder split candidates with realistic release filename examples. Remaining:
+  desktop review queue UI, ignore/resolve actions, and live-library QA against
+  large folders.
 - `[ ]` P1: Add per-series playback preferences for preferred subtitle track,
   audio track, subtitle requirement, playback speed, danmaku visibility, and
   resume/autonext behavior.
