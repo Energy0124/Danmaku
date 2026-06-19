@@ -396,7 +396,11 @@ Status legend:
   - Split/merge rows now include localized guidance and an inspector jump to the
     first affected file so the user can review existing mapping/detail tools in
     context.
-  - Remaining: add actual apply actions and live QA against mapped catalog data.
+  - Split/merge rows now expose a non-destructive Apply mappings action that
+    persists metadata-derived item and series mappings before marking the issue
+    resolved.
+  - Remaining: live QA against mapped catalog data and optional filesystem
+    organization/rename flows.
 - `[ ]` Standardize destructive, retry, confirmation, and error dialogs.
 
 ## Tests and QA

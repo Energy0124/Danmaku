@@ -11,6 +11,7 @@ import app.danmaku.domain.ExternalAnimeSyncFailure
 import app.danmaku.domain.ExternalAnimeTrackingPlan
 import app.danmaku.domain.ExternalAnimeTrackingPlanConflict
 import app.danmaku.domain.ExternalAnimeTrackingPlanUpdate
+import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibraryQualityIssue
 import app.danmaku.domain.LibrarySeries
@@ -697,6 +698,48 @@ internal class DesktopShellLibraryActions(
                 "library-quality",
                 "Failed to update ${issue.type.name} for ${issue.seriesTitle}: ${error.message}",
             )
+        }
+    }
+
+    fun applyLibraryQualityIssueMappings(
+        issue: LibraryQualityIssue,
+        catalog: LibraryCatalog,
+    ) {
+        val issueKey = issue.stableKey()
+        scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val now = System.currentTimeMillis()
+                    val plan = issue.libraryQualityMappingApplyPlan(catalog, mappedAtEpochMs = now)
+                        ?: throw DesktopUserActionException(
+                            message = "No metadata mapping apply plan is available for ${issue.type.name}",
+                        )
+                    plan.itemMappings.forEach(catalogStore::saveExternalAnimeItemMapping)
+                    plan.seriesMappings.forEach(catalogStore::saveExternalAnimeMapping)
+                    catalogStore.saveLibraryQualityIssueDecision(
+                        DesktopLibraryQualityIssueDecision(
+                            issueKey = issueKey,
+                            state = DesktopLibraryQualityIssueDecisionState.RESOLVED,
+                            updatedAtEpochMs = now,
+                        ),
+                    )
+                    plan to catalogStore.loadLibraryQualityIssueDecisions()
+                }
+            }
+            result.onSuccess { (plan, decisions) ->
+                libraryState.libraryQualityIssueDecisions = decisions
+                libraryState.libraryMetadataVersion += 1
+                appendDiagnostic(
+                    "library-quality",
+                    "Applied ${plan.mappingCount} metadata mapping(s) for ${issue.type.name} in ${issue.seriesTitle}",
+                )
+            }.onFailure { error ->
+                libraryState.libraryError = error.message
+                appendDiagnostic(
+                    "library-quality",
+                    "Failed to apply mappings for ${issue.type.name} in ${issue.seriesTitle}: ${error.message}",
+                )
+            }
         }
     }
 

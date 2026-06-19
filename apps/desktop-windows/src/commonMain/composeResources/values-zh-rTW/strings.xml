@@ -212,6 +212,7 @@
     <string name="desktop_library_quality_ignore_action">忽略</string>
     <string name="desktop_library_quality_resolve_action">解決</string>
     <string name="desktop_library_quality_reopen_action">重新開啟</string>
+    <string name="desktop_library_quality_apply_mappings_action">套用對應</string>
     <string name="desktop_library_quality_open_inspector_action">在檢視器開啟</string>
     <string name="desktop_library_quality_split_series_guidance">這些檔案對應到不同動畫；解決前請檢查受影響檔案。</string>
     <string name="desktop_library_quality_merge_series_guidance">不同本機標題對應到同一動畫；解決前請檢查受影響檔案。</string>

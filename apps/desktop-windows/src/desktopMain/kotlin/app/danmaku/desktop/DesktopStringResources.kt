@@ -251,6 +251,8 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
     val libraryQualityIgnoreAction = stringResource(Res.string.desktop_library_quality_ignore_action)
     val libraryQualityResolveAction = stringResource(Res.string.desktop_library_quality_resolve_action)
     val libraryQualityReopenAction = stringResource(Res.string.desktop_library_quality_reopen_action)
+    val libraryQualityApplyMappingsAction =
+        stringResource(Res.string.desktop_library_quality_apply_mappings_action)
     val libraryQualityOpenInspectorAction =
         stringResource(Res.string.desktop_library_quality_open_inspector_action)
     val libraryQualitySplitSeriesGuidance =
@@ -965,6 +967,7 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
             this.libraryQualityIgnoreAction = libraryQualityIgnoreAction
             this.libraryQualityResolveAction = libraryQualityResolveAction
             this.libraryQualityReopenAction = libraryQualityReopenAction
+            this.libraryQualityApplyMappingsAction = libraryQualityApplyMappingsAction
             this.libraryQualityOpenInspectorAction = libraryQualityOpenInspectorAction
             this.libraryQualitySplitSeriesGuidance = libraryQualitySplitSeriesGuidance
             this.libraryQualityMergeSeriesGuidance = libraryQualityMergeSeriesGuidance

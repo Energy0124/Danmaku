@@ -899,6 +899,11 @@ internal fun DesktopShell(
                             onInspectCachedDandanplay = localPlaybackActions::inspectCachedDandanplay,
                             onSetFavorite = libraryActions::setFavorite,
                             onSetLibraryQualityIssueDecision = libraryActions::setLibraryQualityIssueDecision,
+                            onApplyLibraryQualityIssueMappings = { issue ->
+                                displayIndexedLibrary?.catalog?.let { catalog ->
+                                    libraryActions.applyLibraryQualityIssueMappings(issue, catalog)
+                                }
+                            },
                             onSaveLocalAnimeListEntry = libraryActions::saveLocalAnimeListEntry,
                             onDeleteLocalAnimeListEntry = libraryActions::deleteLocalAnimeListEntry,
                             onSetAutoNextLocalPlayback = playbackActions::setAutoNextLocalPlayback,

@@ -337,9 +337,10 @@ Full review date: 2026-06-15.
   positives. Variant-aware
   duplicate classification separates 45 fansub/subtitle-language/quality
   alternates from 18 hard duplicate-number issues. Split/merge rows now include
-  localized guidance and an inspector jump to review the first affected file.
-  Remaining: actual apply actions for split/merge decisions and live QA against
-  mapped catalog data.
+  localized guidance, an inspector jump to review the first affected file, and
+  a non-destructive Apply mappings action that persists metadata-derived item
+  and series mappings before marking the issue resolved. Remaining: live QA
+  against mapped catalog data and optional filesystem organization/rename flows.
 - `[ ]` P1: Add per-series playback preferences for preferred subtitle track,
   audio track, subtitle requirement, playback speed, danmaku visibility, and
   resume/autonext behavior.

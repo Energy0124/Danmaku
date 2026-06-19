@@ -48,6 +48,7 @@ internal fun LibraryQualityReviewView(
     report: LibraryQualityReport?,
     decisionByKey: Map<String, DesktopLibraryQualityIssueDecision>,
     onSetDecision: (LibraryQualityIssue, DesktopLibraryQualityIssueDecisionState?) -> Unit,
+    onApplyMappings: (LibraryQualityIssue) -> Unit,
     onReviewItem: (LibraryMediaItem) -> Unit,
 ) {
     if (report == null) {
@@ -140,8 +141,10 @@ internal fun LibraryQualityReviewView(
                     strings = strings,
                     issue = issue,
                     reviewItem = issue.firstExistingItem(mediaItemById),
+                    canApplyMappings = catalog?.let { issue.libraryQualityMappingApplyPlan(it, 0) } != null,
                     decision = decisionByKey[issue.stableKey()],
                     onSetDecision = onSetDecision,
+                    onApplyMappings = onApplyMappings,
                     onReviewItem = onReviewItem,
                 )
             }
@@ -154,8 +157,10 @@ private fun LibraryQualityIssueRow(
     strings: DesktopStrings,
     issue: LibraryQualityIssue,
     reviewItem: LibraryMediaItem?,
+    canApplyMappings: Boolean,
     decision: DesktopLibraryQualityIssueDecision?,
     onSetDecision: (LibraryQualityIssue, DesktopLibraryQualityIssueDecisionState?) -> Unit,
+    onApplyMappings: (LibraryQualityIssue) -> Unit,
     onReviewItem: (LibraryMediaItem) -> Unit,
 ) {
     val issueColor = issue.severity.issueColor()
@@ -277,6 +282,19 @@ private fun LibraryQualityIssueRow(
                     }
                 }
                 if (decision == null) {
+                    if (canApplyMappings) {
+                        Button(
+                            onClick = { onApplyMappings(issue) },
+                        ) {
+                            Icon(
+                                Icons.Filled.CheckCircle,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Spacer(modifier = Modifier.size(6.dp))
+                            Text(strings.libraryQualityApplyMappingsAction)
+                        }
+                    }
                     TextButton(
                         onClick = { onSetDecision(issue, DesktopLibraryQualityIssueDecisionState.IGNORED) },
                     ) {
@@ -288,16 +306,18 @@ private fun LibraryQualityIssueRow(
                         Spacer(modifier = Modifier.size(6.dp))
                         Text(strings.libraryQualityIgnoreAction)
                     }
-                    Button(
-                        onClick = { onSetDecision(issue, DesktopLibraryQualityIssueDecisionState.RESOLVED) },
-                    ) {
-                        Icon(
-                            Icons.Filled.CheckCircle,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                        )
-                        Spacer(modifier = Modifier.size(6.dp))
-                        Text(strings.libraryQualityResolveAction)
+                    if (!canApplyMappings) {
+                        Button(
+                            onClick = { onSetDecision(issue, DesktopLibraryQualityIssueDecisionState.RESOLVED) },
+                        ) {
+                            Icon(
+                                Icons.Filled.CheckCircle,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Spacer(modifier = Modifier.size(6.dp))
+                            Text(strings.libraryQualityResolveAction)
+                        }
                     }
                 } else {
                     TextButton(onClick = { onSetDecision(issue, null) }) {
