@@ -32,6 +32,7 @@ internal enum class WindowsLibraryView(
     RECENTLY_WATCHED("History"),
     FAVORITES("Favorites"),
     FILES("Files"),
+    QUALITY("Quality"),
     EXTERNAL_SYNC("External Sync"),
     PAIRED("Paired"),
 }

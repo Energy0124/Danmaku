@@ -1,6 +1,8 @@
 package app.danmaku.desktop
 
 import androidx.compose.runtime.Composable
+import app.danmaku.domain.LibraryQualityIssueSeverity
+import app.danmaku.domain.LibraryQualityIssueType
 import danmaku.apps.desktop_windows.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
 import java.util.Locale as JavaLocale
@@ -159,6 +161,7 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
     val libraryViewHistory = stringResource(Res.string.desktop_library_view_history)
     val libraryViewFavorites = stringResource(Res.string.desktop_library_view_favorites)
     val libraryViewFiles = stringResource(Res.string.desktop_library_view_files)
+    val libraryViewQuality = stringResource(Res.string.desktop_library_view_quality)
     val libraryViewExternalSync = stringResource(Res.string.desktop_library_view_external_sync)
     val libraryViewPaired = stringResource(Res.string.desktop_library_view_paired)
     val pairedLibraryTitle = stringResource(Res.string.desktop_paired_library_title)
@@ -229,6 +232,34 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
     val lanBrowserReadyLabel = stringResource(Res.string.desktop_lan_browser_ready_label)
     val foldersLabel = stringResource(Res.string.desktop_folders_label)
     val noFoldersLabel = stringResource(Res.string.desktop_no_folders_label)
+    val libraryQualityNoLibraryText = stringResource(Res.string.desktop_library_quality_no_library_text)
+    val libraryQualityEmptyText = stringResource(Res.string.desktop_library_quality_empty_text)
+    val libraryQualityIssueCountSummary = stringResource(Res.string.desktop_library_quality_issue_count_summary)
+    val libraryQualityTotalTitle = stringResource(Res.string.desktop_library_quality_total_title)
+    val libraryQualityReviewTitle = stringResource(Res.string.desktop_library_quality_review_title)
+    val libraryQualityWarningTitle = stringResource(Res.string.desktop_library_quality_warning_title)
+    val libraryQualityTotalCaption = stringResource(Res.string.desktop_library_quality_total_caption)
+    val libraryQualityReviewCaption = stringResource(Res.string.desktop_library_quality_review_caption)
+    val libraryQualityWarningCaption = stringResource(Res.string.desktop_library_quality_warning_caption)
+    val libraryQualityAffectedFilesLabel = stringResource(Res.string.desktop_library_quality_affected_files_label)
+    val libraryQualityEvidenceLabel = stringResource(Res.string.desktop_library_quality_evidence_label)
+    val libraryQualityActionsPlannedText = stringResource(Res.string.desktop_library_quality_actions_planned_text)
+    val libraryQualityTypeFolderFileEpisodeMismatch =
+        stringResource(Res.string.desktop_library_quality_type_folder_file_episode_mismatch)
+    val libraryQualityTypeDuplicateEpisodeNumber =
+        stringResource(Res.string.desktop_library_quality_type_duplicate_episode_number)
+    val libraryQualityTypeMissingEpisodeNumber =
+        stringResource(Res.string.desktop_library_quality_type_missing_episode_number)
+    val libraryQualityTypeUnparsedEpisodeNumber =
+        stringResource(Res.string.desktop_library_quality_type_unparsed_episode_number)
+    val libraryQualityTypeUnmatchedSeries =
+        stringResource(Res.string.desktop_library_quality_type_unmatched_series)
+    val libraryQualityTypeMetadataEpisodeCountMismatch =
+        stringResource(Res.string.desktop_library_quality_type_metadata_episode_count_mismatch)
+    val libraryQualityTypeSplitSeriesCandidate =
+        stringResource(Res.string.desktop_library_quality_type_split_series_candidate)
+    val libraryQualitySeverityReview = stringResource(Res.string.desktop_library_quality_severity_review)
+    val libraryQualitySeverityWarning = stringResource(Res.string.desktop_library_quality_severity_warning)
     val libraryImportTitle = stringResource(Res.string.desktop_library_import_title)
     val scanRunningLabel = stringResource(Res.string.desktop_scan_running_label)
     val publishedLabel = stringResource(Res.string.desktop_published_label)
@@ -814,6 +845,7 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
                 WindowsLibraryView.RECENTLY_WATCHED to libraryViewHistory,
                 WindowsLibraryView.FAVORITES to libraryViewFavorites,
                 WindowsLibraryView.FILES to libraryViewFiles,
+                WindowsLibraryView.QUALITY to libraryViewQuality,
                 WindowsLibraryView.EXTERNAL_SYNC to libraryViewExternalSync,
                 WindowsLibraryView.PAIRED to libraryViewPaired,
             )
@@ -886,6 +918,35 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
             this.lanBrowserReadyLabel = lanBrowserReadyLabel
             this.foldersLabel = foldersLabel
             this.noFoldersLabel = noFoldersLabel
+            this.libraryQualityNoLibraryText = libraryQualityNoLibraryText
+            this.libraryQualityEmptyText = libraryQualityEmptyText
+            this.libraryQualityIssueCountSummary = { count ->
+                libraryQualityIssueCountSummary.formatResourceString(count)
+            }
+            this.libraryQualityTotalTitle = libraryQualityTotalTitle
+            this.libraryQualityReviewTitle = libraryQualityReviewTitle
+            this.libraryQualityWarningTitle = libraryQualityWarningTitle
+            this.libraryQualityTotalCaption = libraryQualityTotalCaption
+            this.libraryQualityReviewCaption = libraryQualityReviewCaption
+            this.libraryQualityWarningCaption = libraryQualityWarningCaption
+            this.libraryQualityAffectedFilesLabel = { count ->
+                libraryQualityAffectedFilesLabel.formatResourceString(count)
+            }
+            this.libraryQualityEvidenceLabel = libraryQualityEvidenceLabel
+            this.libraryQualityActionsPlannedText = libraryQualityActionsPlannedText
+            this.libraryQualityIssueTypeLabels = mapOf(
+                LibraryQualityIssueType.FOLDER_FILE_EPISODE_MISMATCH to libraryQualityTypeFolderFileEpisodeMismatch,
+                LibraryQualityIssueType.DUPLICATE_EPISODE_NUMBER to libraryQualityTypeDuplicateEpisodeNumber,
+                LibraryQualityIssueType.MISSING_EPISODE_NUMBER to libraryQualityTypeMissingEpisodeNumber,
+                LibraryQualityIssueType.UNPARSED_EPISODE_NUMBER to libraryQualityTypeUnparsedEpisodeNumber,
+                LibraryQualityIssueType.UNMATCHED_SERIES to libraryQualityTypeUnmatchedSeries,
+                LibraryQualityIssueType.METADATA_EPISODE_COUNT_MISMATCH to libraryQualityTypeMetadataEpisodeCountMismatch,
+                LibraryQualityIssueType.SPLIT_SERIES_CANDIDATE to libraryQualityTypeSplitSeriesCandidate,
+            )
+            this.libraryQualitySeverityLabels = mapOf(
+                LibraryQualityIssueSeverity.REVIEW to libraryQualitySeverityReview,
+                LibraryQualityIssueSeverity.WARNING to libraryQualitySeverityWarning,
+            )
             this.libraryImportTitle = libraryImportTitle
             this.scanRunningLabel = scanRunningLabel
             this.publishedLabel = publishedLabel

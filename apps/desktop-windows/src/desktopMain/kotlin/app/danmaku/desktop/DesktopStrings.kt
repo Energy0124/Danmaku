@@ -1,5 +1,8 @@
 package app.danmaku.desktop
 
+import app.danmaku.domain.LibraryQualityIssueSeverity
+import app.danmaku.domain.LibraryQualityIssueType
+
 internal enum class DesktopUiLanguage(
     val storageValue: String,
     val displayName: String,
@@ -33,6 +36,31 @@ private fun fallbackDesktopStrings(language: DesktopUiLanguage): DesktopStrings 
                 localPlaybackPrepareFailedError = "Could not prepare local playback. Check the file and try again."
                 dandanplayLibraryNotIndexedSummary = "library is not indexed"
                 dandanplayPrepareFailedSummary = "dandanplay preparation failed"
+                libraryQualityNoLibraryText = "Index a library before reviewing quality issues."
+                libraryQualityEmptyText = "No library quality issues found."
+                libraryQualityTotalTitle = "Issues"
+                libraryQualityReviewTitle = "Review"
+                libraryQualityWarningTitle = "Warnings"
+                libraryQualityTotalCaption = "Scanner findings"
+                libraryQualityReviewCaption = "Needs attention"
+                libraryQualityWarningCaption = "Check when convenient"
+                libraryQualityIssueCountSummary = { count -> "$count quality issues" }
+                libraryQualityAffectedFilesLabel = { count -> "$count affected files" }
+                libraryQualityEvidenceLabel = "Evidence"
+                libraryQualityActionsPlannedText = "Ignore and resolve actions will be added after issue persistence."
+                libraryQualityIssueTypeLabels = mapOf(
+                    LibraryQualityIssueType.FOLDER_FILE_EPISODE_MISMATCH to "Folder/file episode mismatch",
+                    LibraryQualityIssueType.DUPLICATE_EPISODE_NUMBER to "Duplicate episode number",
+                    LibraryQualityIssueType.MISSING_EPISODE_NUMBER to "Missing episode number",
+                    LibraryQualityIssueType.UNPARSED_EPISODE_NUMBER to "Unparsed episode number",
+                    LibraryQualityIssueType.UNMATCHED_SERIES to "Unmatched series",
+                    LibraryQualityIssueType.METADATA_EPISODE_COUNT_MISMATCH to "Metadata episode-count mismatch",
+                    LibraryQualityIssueType.SPLIT_SERIES_CANDIDATE to "Split series candidate",
+                )
+                libraryQualitySeverityLabels = mapOf(
+                    LibraryQualityIssueSeverity.REVIEW to "Review",
+                    LibraryQualityIssueSeverity.WARNING to "Warning",
+                )
                 metadataMatchNoConfiguredProvidersError = "No metadata search provider is configured. Add MyAnimeList or Bangumi settings first."
                 metadataMatchProviderSearchFailed = "Provider search failed. Check provider settings and try again."
                 suggestMissingMappingsAction = "Suggest missing"
@@ -50,6 +78,31 @@ private fun fallbackDesktopStrings(language: DesktopUiLanguage): DesktopStrings 
                 localPlaybackPrepareFailedError = "無法準備本機播放。請檢查檔案後再試一次。"
                 dandanplayLibraryNotIndexedSummary = "媒體庫尚未建立索引"
                 dandanplayPrepareFailedSummary = "dandanplay 準備失敗"
+                libraryQualityNoLibraryText = "請先建立媒體庫索引，再檢查品質問題。"
+                libraryQualityEmptyText = "未發現媒體庫品質問題。"
+                libraryQualityTotalTitle = "問題"
+                libraryQualityReviewTitle = "需檢查"
+                libraryQualityWarningTitle = "警告"
+                libraryQualityTotalCaption = "掃描結果"
+                libraryQualityReviewCaption = "需要處理"
+                libraryQualityWarningCaption = "有空時檢查"
+                libraryQualityIssueCountSummary = { count -> "$count 個品質問題" }
+                libraryQualityAffectedFilesLabel = { count -> "$count 個受影響檔案" }
+                libraryQualityEvidenceLabel = "證據"
+                libraryQualityActionsPlannedText = "忽略與解決動作會在問題持久化後加入。"
+                libraryQualityIssueTypeLabels = mapOf(
+                    LibraryQualityIssueType.FOLDER_FILE_EPISODE_MISMATCH to "資料夾/檔名集數不一致",
+                    LibraryQualityIssueType.DUPLICATE_EPISODE_NUMBER to "重複集數",
+                    LibraryQualityIssueType.MISSING_EPISODE_NUMBER to "缺少集數",
+                    LibraryQualityIssueType.UNPARSED_EPISODE_NUMBER to "無法解析集數",
+                    LibraryQualityIssueType.UNMATCHED_SERIES to "未對應系列",
+                    LibraryQualityIssueType.METADATA_EPISODE_COUNT_MISMATCH to "中繼資料集數不一致",
+                    LibraryQualityIssueType.SPLIT_SERIES_CANDIDATE to "可能需要拆分系列",
+                )
+                libraryQualitySeverityLabels = mapOf(
+                    LibraryQualityIssueSeverity.REVIEW to "需檢查",
+                    LibraryQualityIssueSeverity.WARNING to "警告",
+                )
                 metadataMatchNoConfiguredProvidersError = "尚未設定中繼資料搜尋服務。請先新增 MyAnimeList 或 Bangumi 設定。"
                 metadataMatchProviderSearchFailed = "服務搜尋失敗。請檢查服務設定後再試一次。"
                 suggestMissingMappingsAction = "建議缺少對應"
@@ -233,6 +286,20 @@ internal class DesktopStrings {
     var moreItemsLabel: (Int) -> String = { _ -> "" }
     var lastScanSummary: (Int, Int) -> String = { _, _ -> "" }
     var lastScanCountsSummary: (Int, Int) -> String = { _, _ -> "" }
+    var libraryQualityNoLibraryText: String = ""
+    var libraryQualityEmptyText: String = ""
+    var libraryQualityIssueCountSummary: (Int) -> String = { _ -> "" }
+    var libraryQualityTotalTitle: String = ""
+    var libraryQualityReviewTitle: String = ""
+    var libraryQualityWarningTitle: String = ""
+    var libraryQualityTotalCaption: String = ""
+    var libraryQualityReviewCaption: String = ""
+    var libraryQualityWarningCaption: String = ""
+    var libraryQualityAffectedFilesLabel: (Int) -> String = { _ -> "" }
+    var libraryQualityEvidenceLabel: String = ""
+    var libraryQualityActionsPlannedText: String = ""
+    var libraryQualityIssueTypeLabels: Map<LibraryQualityIssueType, String> = emptyMap()
+    var libraryQualitySeverityLabels: Map<LibraryQualityIssueSeverity, String> = emptyMap()
     var libraryImportTitle: String = ""
     var aniRssRootCountLabel: (Int) -> String = { _ -> "" }
     var scanRunningLabel: String = ""
@@ -676,5 +743,9 @@ internal class DesktopStrings {
     fun settingsSectionTitle(section: DesktopSettingsSection): String =
         settingsSectionTitles[section] ?: section.title
     fun libraryViewTitle(view: WindowsLibraryView): String = libraryViewTitles[view] ?: view.label
+    fun libraryQualityIssueTypeLabel(type: LibraryQualityIssueType): String =
+        libraryQualityIssueTypeLabels[type] ?: type.name
+    fun libraryQualitySeverityLabel(severity: LibraryQualityIssueSeverity): String =
+        libraryQualitySeverityLabels[severity] ?: severity.name
     fun downloadFilterTitle(filter: DownloadQueueFilter): String = downloadFilterTitles[filter] ?: filter.label
 }

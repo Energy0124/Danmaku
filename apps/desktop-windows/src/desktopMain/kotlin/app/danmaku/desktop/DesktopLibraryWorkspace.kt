@@ -161,6 +161,7 @@ import app.danmaku.domain.externalAnimeTrackingPlan
 import app.danmaku.domain.externalAnimeSyncRetryAfterEpochMs
 import app.danmaku.domain.filteredItems
 import app.danmaku.domain.groupedSeries
+import app.danmaku.domain.libraryQualityReport
 import app.danmaku.domain.nextItem
 import app.danmaku.domain.nextUpItems
 import app.danmaku.domain.previousItem
@@ -273,6 +274,9 @@ internal fun WindowsLibraryWorkspace(
         }
     }
     val catalog = indexedLibrary?.catalog
+    val libraryQualityReport = remember(catalog) {
+        catalog?.libraryQualityReport()
+    }
     val effectiveFavoriteFilter = if (selectedView == WindowsLibraryView.FAVORITES) {
         LibraryFavoriteFilter.FAVORITES_ONLY
     } else {
@@ -367,6 +371,7 @@ internal fun WindowsLibraryWorkspace(
                 recentlyWatchedCount = recentlyWatchedItems.size,
                 favoriteCount = favoriteMediaIds.size,
                 seriesCount = series.size,
+                libraryQualityIssueCount = libraryQualityReport?.issueCount ?: 0,
                 externalTrackingPlan = externalTrackingPlan,
                 isIndexing = isIndexing,
                 libraryError = libraryError,
@@ -419,6 +424,7 @@ internal fun WindowsLibraryWorkspace(
                 favoriteMediaIds = favoriteMediaIds,
                 localAnimeListEntryBySeriesId = localAnimeListEntryBySeriesId,
                 localWatchListCount = localAnimeListEntryBySeriesId.size,
+                libraryQualityReport = libraryQualityReport,
                 externalTrackingPlan = externalTrackingPlan,
                 isExternalAnimeSyncing = isExternalAnimeSyncing,
                 isPreparing = isPreparing,

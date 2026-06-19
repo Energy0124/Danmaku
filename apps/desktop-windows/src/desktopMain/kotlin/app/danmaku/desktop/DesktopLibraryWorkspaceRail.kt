@@ -236,6 +236,7 @@ internal fun LibraryWorkspaceRail(
     recentlyWatchedCount: Int,
     favoriteCount: Int,
     seriesCount: Int,
+    libraryQualityIssueCount: Int,
     externalTrackingPlan: ExternalAnimeTrackingPlan?,
     isIndexing: Boolean,
     libraryError: String?,
@@ -293,6 +294,13 @@ internal fun LibraryWorkspaceRail(
             count = localEpisodeCount,
             selected = selectedView == WindowsLibraryView.FILES,
             onClick = { onSelectView(WindowsLibraryView.FILES) },
+        )
+        LibraryRailNavigationItem(
+            icon = Icons.Filled.Warning,
+            label = strings.libraryViewTitle(WindowsLibraryView.QUALITY),
+            count = libraryQualityIssueCount,
+            selected = selectedView == WindowsLibraryView.QUALITY,
+            onClick = { onSelectView(WindowsLibraryView.QUALITY) },
         )
         LibraryRailNavigationItem(
             icon = Icons.Filled.Refresh,

@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Subtitles
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,6 +43,7 @@ import app.danmaku.domain.LibraryFavoriteFilter
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibraryNextUpItem
 import app.danmaku.domain.LibraryPlaybackProgressItem
+import app.danmaku.domain.LibraryQualityReport
 import app.danmaku.domain.LibrarySeries
 import app.danmaku.domain.LibrarySeriesWatchSummary
 import app.danmaku.domain.LibrarySubtitleFilter
@@ -81,6 +83,7 @@ internal fun LibraryCenterWorkspace(
     favoriteMediaIds: Set<String>,
     localAnimeListEntryBySeriesId: Map<String, LocalAnimeListEntry>,
     localWatchListCount: Int,
+    libraryQualityReport: LibraryQualityReport?,
     externalTrackingPlan: ExternalAnimeTrackingPlan?,
     isExternalAnimeSyncing: Boolean,
     isPreparing: Boolean,
@@ -134,6 +137,14 @@ internal fun LibraryCenterWorkspace(
             )
             StatusPill(strings.favoriteCountSummary(favoriteMediaIds.size), icon = Icons.Filled.Star)
             StatusPill(strings.localWatchListCountSummary(localWatchListCount), icon = Icons.Filled.CheckCircle)
+            libraryQualityReport?.let { report ->
+                StatusPill(
+                    strings.libraryQualityIssueCountSummary(report.issueCount),
+                    icon = Icons.Filled.Warning,
+                    active = report.issueCount > 0,
+                    color = if (report.issueCount > 0) DanmakuColors.Warning else DanmakuColors.TextMuted,
+                )
+            }
             externalTrackingPlan?.summary?.let { summary ->
                 StatusPill(
                     summary.localizedLabel(strings),
@@ -221,6 +232,10 @@ internal fun LibraryCenterWorkspace(
                 plan = externalTrackingPlan,
                 isSyncing = isExternalAnimeSyncing,
                 onSync = onSyncExternalAnimePlan,
+            )
+            WindowsLibraryView.QUALITY -> LibraryQualityReviewView(
+                strings = strings,
+                report = libraryQualityReport,
             )
             WindowsLibraryView.ALL_SERIES,
             WindowsLibraryView.PAIRED -> AllSeriesView(

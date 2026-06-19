@@ -328,9 +328,10 @@ Full review date: 2026-06-15.
   series split/merge review. Shared-domain scanner coverage now detects
   folder/file episode mismatches, duplicate episode numbers, missing episode
   gaps, unmatched series, local-vs-metadata episode count mismatches, and local
-  folder split candidates with realistic release filename examples. Remaining:
-  desktop review queue UI, ignore/resolve actions, and live-library QA against
-  large folders.
+  folder split candidates with realistic release filename examples. Desktop now
+  exposes a read-only Library > Quality review view with issue counts, affected
+  files, and evidence. Remaining: persist quality issues, add ignore/resolve
+  actions, and run live-library QA against large folders.
 - `[ ]` P1: Add per-series playback preferences for preferred subtitle track,
   audio track, subtitle requirement, playback speed, danmaku visibility, and
   resume/autonext behavior.
