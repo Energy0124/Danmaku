@@ -47,12 +47,46 @@ Status legend:
 - `[x]` Add retry/backoff and user-visible sync failure state.
 - `[x]` Persist external list readback and sync failure state across desktop relaunch.
 
-## Phase 5 - QA
+## Phase 5 - Auto Mapping Suggestions
+
+- `[ ]` Extend provider-neutral match queries so a local series can search by
+  primary title plus alternate dandanplay/Bangumi/MAL titles.
+- `[ ]` Preserve provider external links in metadata models, including
+  dandanplay `bangumiUrl`/`onlineDatabases` and parsed MAL/Bangumi URLs when
+  present.
+- `[ ]` Improve title parsing: keep MAL `alternative_titles.en`,
+  `alternative_titles.ja`, and synonyms; enrich Bangumi candidates by fetching
+  `/v0/subjects/{id}` and parsing `infobox` aliases such as `别名`; classify
+  dandanplay language-tagged titles into Japanese, English, Chinese, and
+  alternates.
+- `[ ]` Upgrade match ranking to score across all query/candidate titles and
+  emit evidence labels for title, episode-count, year, and trusted external-link
+  matches.
+- `[ ]` Add a desktop suggestion service that scans unmapped series on demand,
+  uses cached dandanplay metadata as an extra signal, searches configured MAL
+  and Bangumi providers, and returns provider-grouped candidates.
+- `[ ]` Auto-save only high-confidence suggestions as
+  `ExternalAnimeMappingSource.AUTO`; never overwrite manual mappings, and send
+  ambiguous or medium-confidence candidates to review.
+- `[ ]` Add desktop UI actions for selected-series suggestions and a bulk
+  "suggest missing mappings" workflow with confidence/evidence display.
+
+Default thresholds:
+
+- Auto-link when confidence is at least `0.93` and the top-candidate margin is
+  at least `0.12`, or when a trusted provider URL maps exactly and no evidence
+  contradicts it.
+- Review when confidence is at least `0.60`.
+- Reject candidates below `0.60`.
+
+## Phase 6 - QA
 
 - `[x]` Unit-test mapping ranking and tracking update derivation.
 - `[x]` Unit-test external-progress conflict import into local watched progress.
 - `[x]` Unit-test desktop mapping, readback, and sync-failure persistence migrations with MAL and Bangumi IDs.
 - `[x]` Integration-test provider clients with recorded/fake responses.
+- `[ ]` Unit-test auto-mapping confidence bands, ambiguous-result rejection,
+  provider alias parsing, and manual-mapping overwrite protection.
 - `[ ]` Manual QA: map series to MAL and Bangumi, play episodes, sync progress, relaunch, and verify persisted state.
 
 ## Verification Log
@@ -73,3 +107,7 @@ Status legend:
 - 2026-06-17: Added MyAnimeList/Bangumi list readback/import for mapped anime, tracking-table provider progress, manual readback refresh, and pre-write readback conflict checks so newer provider progress is not overwritten. `:apps:desktop-windows:compileKotlinDesktop` and `:apps:desktop-windows:desktopTest` passed.
 - 2026-06-17: Persisted external list entries and sync failures in the desktop catalog database, loaded them into shell state on startup, and added migration/relaunch-style store coverage. `:apps:desktop-windows:compileKotlinDesktop` and `:apps:desktop-windows:desktopTest` passed.
 - 2026-06-17: Added a conservative local progress import for provider-ahead conflicts: the Tracking inspector's conflict resolution writes watched progress rows for the provider-reported watched episode count without changing unrelated local episodes. `:shared:domain:jvmTest`, `:apps:desktop-windows:compileKotlinDesktop`, and `:apps:desktop-windows:desktopTest` passed.
+- 2026-06-19: Logged the auto mapping/suggestions plan. The next implementation
+  pass should enrich MAL/Bangumi/dandanplay aliases, add confidence/evidence
+  scoring, add an on-demand suggestion service, and keep auto-save conservative
+  with manual mappings protected.
