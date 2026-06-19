@@ -280,8 +280,9 @@ trusted-LAN clients.
   metadata-assisted split/merge candidates, plus a desktop Library > Quality
   review view with persisted ignore/resolve state, localized split/merge
   guidance, inspector jumps for affected files, and a non-destructive Apply
-  mappings action that persists metadata-derived item/series mappings. Live
-  `W:/Anime` QA covered 1,973 media items;
+  mappings action that persists metadata-derived item/series mappings with
+  desktop test coverage for the apply-plan persistence path. Live `W:/Anime`
+  QA covered 1,973 media items;
   after root-level title inference and release-name parser tuning, the scanner
   reports 130 review candidates, including 45 episode variant groups separated
   from 18 hard duplicate-number issues. Missing high-value viewer workflows include

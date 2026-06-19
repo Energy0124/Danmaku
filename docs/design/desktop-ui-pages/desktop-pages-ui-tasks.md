@@ -398,7 +398,7 @@ Status legend:
     context.
   - Split/merge rows now expose a non-destructive Apply mappings action that
     persists metadata-derived item and series mappings before marking the issue
-    resolved.
+    resolved; the apply-plan persistence path now has desktop test coverage.
   - Remaining: live QA against mapped catalog data and optional filesystem
     organization/rename flows.
 - `[ ]` Standardize destructive, retry, confirmation, and error dialogs.

@@ -8,6 +8,8 @@ import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibraryQualityIssueType
 import app.danmaku.domain.libraryQualityReport
+import app.danmaku.domain.stableKey
+import kotlin.io.path.createTempDirectory
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -83,6 +85,48 @@ class DesktopLibraryQualityApplyPlanTest {
         assertEquals(listOf(41457L, 41457L, 41457L), plan.seriesMappings.map { mapping -> mapping.animeId.value })
         assertEquals(ExternalAnimeMappingSource.MANUAL, plan.seriesMappings.first().source)
         assertEquals(1234, plan.seriesMappings.first().mappedAtEpochMs)
+    }
+
+    @Test
+    fun appliesPlanToCatalogStoreAndResolvesIssue() {
+        val catalog = catalogOf(
+            item(
+                id = "despair-01",
+                seriesTitle = "Danganronpa 3",
+                episodeTitle = "Danganronpa 3 Despair Side - 01",
+                animeMetadata = animeMetadata(3001, "Danganronpa 3: Despair Arc"),
+            ),
+            item(
+                id = "future-01",
+                seriesTitle = "Danganronpa 3",
+                episodeTitle = "Danganronpa 3 Future Side - 01",
+                animeMetadata = animeMetadata(3002, "Danganronpa 3: Future Arc"),
+            ),
+        )
+        val issue = catalog.libraryQualityReport().issues
+            .single { issue -> issue.type == LibraryQualityIssueType.SPLIT_SERIES_CANDIDATE }
+        val plan = issue.libraryQualityMappingApplyPlan(catalog, mappedAtEpochMs = 777)!!
+        val temp = createTempDirectory("danmaku-library-quality-apply-plan")
+
+        DesktopLibraryCatalogStore(temp.resolve("catalog.db")).use { store ->
+            val decisions = store.applyLibraryQualityMappingPlan(issue, plan, appliedAtEpochMs = 777)
+
+            assertEquals(plan.itemMappings[0], store.loadExternalAnimeItemMappings("despair-01").single())
+            assertEquals(plan.itemMappings[1], store.loadExternalAnimeItemMappings("future-01").single())
+            assertEquals(
+                plan.seriesMappings[0],
+                store.loadExternalAnimeMappings("anime-dandanplay-3001").single(),
+            )
+            assertEquals(
+                plan.seriesMappings[1],
+                store.loadExternalAnimeMappings("anime-dandanplay-3002").single(),
+            )
+            assertEquals(issue.stableKey(), decisions.single().issueKey)
+            assertEquals(DesktopLibraryQualityIssueDecisionState.RESOLVED, decisions.single().state)
+            assertEquals(777, decisions.single().updatedAtEpochMs)
+        }
+
+        temp.toFile().deleteRecursively()
     }
 
     @Test

@@ -8,6 +8,7 @@ import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibraryQualityIssue
 import app.danmaku.domain.LibraryQualityIssueType
+import app.danmaku.domain.stableKey
 
 internal data class DesktopLibraryQualityMappingApplyPlan(
     val itemMappings: List<DesktopExternalAnimeItemMapping>,
@@ -31,6 +32,23 @@ internal fun LibraryQualityIssue.libraryQualityMappingApplyPlan(
         LibraryQualityIssueType.MERGE_SERIES_CANDIDATE -> mergeSeriesApplyPlan(catalog, mappedAtEpochMs)
         else -> null
     }
+
+internal fun DesktopLibraryCatalogStore.applyLibraryQualityMappingPlan(
+    issue: LibraryQualityIssue,
+    plan: DesktopLibraryQualityMappingApplyPlan,
+    appliedAtEpochMs: Long,
+): List<DesktopLibraryQualityIssueDecision> {
+    plan.itemMappings.forEach(::saveExternalAnimeItemMapping)
+    plan.seriesMappings.forEach(::saveExternalAnimeMapping)
+    saveLibraryQualityIssueDecision(
+        DesktopLibraryQualityIssueDecision(
+            issueKey = issue.stableKey(),
+            state = DesktopLibraryQualityIssueDecisionState.RESOLVED,
+            updatedAtEpochMs = appliedAtEpochMs,
+        ),
+    )
+    return loadLibraryQualityIssueDecisions()
+}
 
 private fun LibraryQualityIssue.splitSeriesApplyPlan(
     catalog: LibraryCatalog,

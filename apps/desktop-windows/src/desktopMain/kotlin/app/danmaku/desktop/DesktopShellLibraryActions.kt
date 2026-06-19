@@ -705,7 +705,6 @@ internal class DesktopShellLibraryActions(
         issue: LibraryQualityIssue,
         catalog: LibraryCatalog,
     ) {
-        val issueKey = issue.stableKey()
         scope.launch {
             val result = withContext(Dispatchers.IO) {
                 runCatching {
@@ -714,16 +713,7 @@ internal class DesktopShellLibraryActions(
                         ?: throw DesktopUserActionException(
                             message = "No metadata mapping apply plan is available for ${issue.type.name}",
                         )
-                    plan.itemMappings.forEach(catalogStore::saveExternalAnimeItemMapping)
-                    plan.seriesMappings.forEach(catalogStore::saveExternalAnimeMapping)
-                    catalogStore.saveLibraryQualityIssueDecision(
-                        DesktopLibraryQualityIssueDecision(
-                            issueKey = issueKey,
-                            state = DesktopLibraryQualityIssueDecisionState.RESOLVED,
-                            updatedAtEpochMs = now,
-                        ),
-                    )
-                    plan to catalogStore.loadLibraryQualityIssueDecisions()
+                    plan to catalogStore.applyLibraryQualityMappingPlan(issue, plan, appliedAtEpochMs = now)
                 }
             }
             result.onSuccess { (plan, decisions) ->

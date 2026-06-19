@@ -339,8 +339,9 @@ Full review date: 2026-06-15.
   alternates from 18 hard duplicate-number issues. Split/merge rows now include
   localized guidance, an inspector jump to review the first affected file, and
   a non-destructive Apply mappings action that persists metadata-derived item
-  and series mappings before marking the issue resolved. Remaining: live QA
-  against mapped catalog data and optional filesystem organization/rename flows.
+  and series mappings before marking the issue resolved; its plan-application
+  persistence path is covered by desktop tests. Remaining: live QA against
+  mapped catalog data and optional filesystem organization/rename flows.
 - `[ ]` P1: Add per-series playback preferences for preferred subtitle track,
   audio track, subtitle requirement, playback speed, danmaku visibility, and
   resume/autonext behavior.
