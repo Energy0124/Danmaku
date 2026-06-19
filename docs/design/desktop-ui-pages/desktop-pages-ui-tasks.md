@@ -383,7 +383,13 @@ Status legend:
   - Desktop now renders Library > Quality with summary counts, issue type,
     affected files, scanner evidence, open/handled filtering, and persisted
     ignore/resolve/reopen actions.
-  - Remaining: run live `W:/Anime` QA.
+  - Live `W:/Anime` QA covered 1,973 media items and now reports 130 review
+    candidates after scanner/indexer tuning for metadata-empty imports,
+    supplemental clips, versioned episode tags, root-level release files, and
+    bracketed fansub release names.
+  - Remaining: add variant-aware duplicate classification for fansub,
+    subtitle-language, and quality variants, then use metadata matches to
+    suggest split/merge actions instead of only listing duplicate episodes.
 - `[ ]` Standardize destructive, retry, confirmation, and error dialogs.
 
 ## Tests and QA

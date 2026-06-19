@@ -60,8 +60,14 @@ object LocalMediaLibraryIndexer {
                         videoPath = path,
                         idNamespace = idNamespace,
                     )
+                    val seriesTitle = seriesTitle(root = normalizedRoot, path = path)
+                    val episodeTitle = path.nameWithoutExtension
+                    val mediaType = mediaType(path.extension)
                     val item = cachedItem?.item
                         ?.copy(
+                            seriesTitle = seriesTitle,
+                            episodeTitle = episodeTitle,
+                            mediaType = mediaType,
                             indexedAtEpochMs = cachedItem.item.indexedAtEpochMs
                                 .takeIf { it > 0 }
                                 ?: lastModifiedEpochMs,
@@ -119,7 +125,7 @@ object LocalMediaLibraryIndexer {
         val id = sha256(idNamespace?.let { "$it/$relativePath" } ?: relativePath).take(24)
         return LibraryMediaItem(
             id = id,
-            seriesTitle = path.parent?.fileName?.toString() ?: root.fileName.toString(),
+            seriesTitle = seriesTitle(root = root, path = path),
             episodeTitle = path.nameWithoutExtension,
             relativePath = relativePath,
             sizeBytes = sizeBytes,
@@ -191,12 +197,68 @@ object LocalMediaLibraryIndexer {
             else -> "text/plain"
         }
 
+    private fun seriesTitle(root: Path, path: Path): String {
+        val parent = path.parent?.toAbsolutePath()?.normalize()
+        return if (parent == root) {
+            inferRootFileSeriesTitle(path.nameWithoutExtension)
+        } else {
+            path.parent?.fileName?.toString()
+                ?: root.fileName?.toString()
+                ?: root.toString()
+        }
+    }
+
+    private fun inferRootFileSeriesTitle(fileStem: String): String {
+        val candidate = stripLeadingReleaseGroup(fileStem.trim())
+        val marker = listOfNotNull(
+            rootFileHyphenEpisodeRegex.find(candidate),
+            rootFileBracketEpisodeRegex.find(candidate),
+            rootFileNamedEpisodeRegex.find(candidate),
+        ).minByOrNull { match -> match.range.first }
+        val title = marker?.let { match -> candidate.substring(0, match.range.first) } ?: candidate
+        return title
+            .trimSeriesTitleDelimiters()
+            .trimSingleEnclosingBrackets()
+            .ifBlank { fileStem.trim() }
+    }
+
+    private fun stripLeadingReleaseGroup(candidate: String): String {
+        val first = leadingBracketTokenRegex.find(candidate) ?: return candidate
+        val afterFirst = candidate.substring(first.range.last + 1).trimStart()
+        if (afterFirst.isBlank()) return candidate
+        if (!afterFirst.startsWith("[")) return afterFirst
+        val second = leadingBracketTokenRegex.find(afterFirst) ?: return candidate
+        val secondToken = second.groupValues[1]
+        return if (secondToken.isRootFileEpisodeToken()) candidate else afterFirst
+    }
+
     private fun sha256(value: String): String =
         MessageDigest
             .getInstance("SHA-256")
             .digest(value.toByteArray())
             .joinToString(separator = "") { byte -> "%02x".format(byte) }
 }
+
+private val leadingBracketTokenRegex = Regex("""^\[([^]]+)]""")
+private val rootFileHyphenEpisodeRegex =
+    Regex("""(?i)\s+-\s+(?:s[0-9]{1,2}\s*e)?[0-9]{1,4}(?:v[0-9]+)?(?:\s|\[|$)""")
+private val rootFileBracketEpisodeRegex =
+    Regex("""(?i)\[([0-9]{1,4})(?:v[0-9]+|\s*(?:end|fin|final))?]""")
+private val rootFileNamedEpisodeRegex =
+    Regex("""(?i)\b(?:episode|ep)\s*[0-9]{1,4}\b""")
+
+private fun String.trimSeriesTitleDelimiters(): String =
+    trim().trim('-', '_', '.', ' ')
+
+private fun String.trimSingleEnclosingBrackets(): String =
+    if (startsWith("[") && endsWith("]") && drop(1).dropLast(1).none { char -> char == '[' || char == ']' }) {
+        drop(1).dropLast(1).trim()
+    } else {
+        this
+    }
+
+private fun String.isRootFileEpisodeToken(): Boolean =
+    rootFileBracketEpisodeRegex.matches("[$this]")
 
 data class IndexedLocalLibrary(
     val catalog: LibraryCatalog,

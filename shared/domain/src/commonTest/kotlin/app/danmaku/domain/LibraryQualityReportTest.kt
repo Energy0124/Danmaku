@@ -90,6 +90,178 @@ class LibraryQualityReportTest {
     }
 
     @Test
+    fun suppressesUnmatchedSeriesWhenNoMetadataHasBeenImportedYet() {
+        val catalog = catalogOf(
+            item(id = "mystery-01", seriesTitle = "Mystery Fansub", episodeTitle = "Mystery Fansub - 01"),
+            item(id = "other-01", seriesTitle = "Other Fansub", episodeTitle = "Other Fansub - 01"),
+        )
+
+        val issues = catalog.libraryQualityReport().issues
+
+        assertTrue(issues.none { it.type == LibraryQualityIssueType.UNMATCHED_SERIES })
+    }
+
+    @Test
+    fun handlesVersionedEpisodesSpecialsAndFileExtensionsFromAnimeReleases() {
+        val catalog = catalogOf(
+            item(
+                id = "bisque-01v2",
+                seriesTitle = "[HYSUB]Sono Bisque Doll wa Koi wo Suru[01~12][BIG5_MP4][1920X1080]",
+                episodeTitle = "[HYSUB]Sono Bisque Doll wa Koi wo Suru[01v2][BIG5_MP4][1920X1080]",
+                relativePath = "[HYSUB]Sono Bisque Doll wa Koi wo Suru[01~12][BIG5_MP4][1920X1080]/[HYSUB]Sono Bisque Doll wa Koi wo Suru[01v2][BIG5_MP4][1920X1080].mp4",
+            ),
+            item(
+                id = "bisque-02",
+                seriesTitle = "[HYSUB]Sono Bisque Doll wa Koi wo Suru[01~12][BIG5_MP4][1920X1080]",
+                episodeTitle = "[HYSUB]Sono Bisque Doll wa Koi wo Suru[02][BIG5_MP4][1920X1080]",
+                relativePath = "[HYSUB]Sono Bisque Doll wa Koi wo Suru[01~12][BIG5_MP4][1920X1080]/[HYSUB]Sono Bisque Doll wa Koi wo Suru[02][BIG5_MP4][1920X1080].mp4",
+            ),
+            item(
+                id = "bisque-03",
+                seriesTitle = "[HYSUB]Sono Bisque Doll wa Koi wo Suru[01~12][BIG5_MP4][1920X1080]",
+                episodeTitle = "[HYSUB]Sono Bisque Doll wa Koi wo Suru[03][BIG5_MP4][1920X1080]",
+                relativePath = "[HYSUB]Sono Bisque Doll wa Koi wo Suru[01~12][BIG5_MP4][1920X1080]/[HYSUB]Sono Bisque Doll wa Koi wo Suru[03][BIG5_MP4][1920X1080].mp4",
+            ),
+            item(
+                id = "bisque-04",
+                seriesTitle = "[HYSUB]Sono Bisque Doll wa Koi wo Suru[01~12][BIG5_MP4][1920X1080]",
+                episodeTitle = "[HYSUB]Sono Bisque Doll wa Koi wo Suru[04][BIG5_MP4][1920X1080]",
+                relativePath = "[HYSUB]Sono Bisque Doll wa Koi wo Suru[01~12][BIG5_MP4][1920X1080]/[HYSUB]Sono Bisque Doll wa Koi wo Suru[04][BIG5_MP4][1920X1080].mp4",
+            ),
+            item(
+                id = "konosuba-04",
+                seriesTitle = "[JYFanSub][Kono_Subarashii_Sekai_ni_Shukufuku_o_2][01-10+OVA][GB][1080p]",
+                episodeTitle = "[JYFanSub][Kono_Subarashii_Sekai_ni_Shukufuku_o_2][04][GB][1080p]",
+                relativePath = "[JYFanSub][Kono_Subarashii_Sekai_ni_Shukufuku_o_2][01-10+OVA][GB][1080p]/[JYFanSub][Kono_Subarashii_Sekai_ni_Shukufuku_o_2][04][GB][1080p].mp4",
+            ),
+            item(
+                id = "konosuba-ova",
+                seriesTitle = "[JYFanSub][Kono_Subarashii_Sekai_ni_Shukufuku_o_2][01-10+OVA][GB][1080p]",
+                episodeTitle = "[JYFanSub][Kono_Subarashii_Sekai_ni_Shukufuku_o_2][OVA][GB][1080p]",
+                relativePath = "[JYFanSub][Kono_Subarashii_Sekai_ni_Shukufuku_o_2][01-10+OVA][GB][1080p]/[JYFanSub][Kono_Subarashii_Sekai_ni_Shukufuku_o_2][OVA][GB][1080p].mp4",
+            ),
+        )
+
+        val issues = catalog.libraryQualityReport().issues
+
+        assertTrue(issues.none { it.type == LibraryQualityIssueType.DUPLICATE_EPISODE_NUMBER })
+        assertTrue(issues.none { issue ->
+            issue.type == LibraryQualityIssueType.UNPARSED_EPISODE_NUMBER &&
+                issue.mediaItemIds == listOf("konosuba-ova")
+        })
+    }
+
+    @Test
+    fun ignoresSupplementalPreviewClipsInEpisodeContinuityChecks() {
+        val catalog = catalogOf(
+            item(
+                id = "tantei-01",
+                seriesTitle = "[Nekomoe kissaten][Tantei wa Mou, Shindeiru.][01-12][1080p][JPTC]",
+                episodeTitle = "[Nekomoe kissaten][Tantei wa Mou, Shindeiru.][01][1080p][JPTC]",
+            ),
+            item(
+                id = "tantei-yokoku-01",
+                seriesTitle = "[Nekomoe kissaten][Tantei wa Mou, Shindeiru.][01-12][1080p][JPTC]",
+                episodeTitle = "[Nekomoe kissaten][Tantei wa Mou, Shindeiru. Yokoku][01][1080p][JPTC]",
+            ),
+            item(
+                id = "deadman-cm1",
+                seriesTitle = "[YYDM-11FANS][Deadmen Wonderland][1-12+SP][720P]",
+                episodeTitle = "[YYDM-11FANS][Deadmen Wonderland][CM1][BDrip][720P]",
+            ),
+            item(
+                id = "deadman-menu",
+                seriesTitle = "[YYDM-11FANS][Deadmen Wonderland][1-12+SP][720P]",
+                episodeTitle = "[YYDM-11FANS][Deadmen Wonderland][Menu1.1][BDrip][720P]",
+            ),
+            item(
+                id = "fate-remix",
+                seriesTitle = "[VCB-Studio] Fate Zero [Ma10p_1080p]",
+                episodeTitle = "[VCB-Studio] Fate Zero [Remix01][Ma10p_1080p][x265_flac]",
+            ),
+        )
+
+        val issues = catalog.libraryQualityReport().issues
+
+        assertTrue(issues.none { it.type == LibraryQualityIssueType.DUPLICATE_EPISODE_NUMBER })
+        assertTrue(issues.none { it.type == LibraryQualityIssueType.UNPARSED_EPISODE_NUMBER })
+    }
+
+    @Test
+    fun handlesHyphenRangesAndMovieSequenceTitles() {
+        val catalog = catalogOf(
+            item(
+                id = "nihon-02",
+                seriesTitle = "[Erai-raws] Nihon Chinbotsu 2020 - 01 ~ 10 [1080p][Multiple Subtitle]",
+                episodeTitle = "[Erai-raws] Nihon Chinbotsu 2020 - 02 [1080p][Multiple Subtitle]",
+            ),
+            item(
+                id = "absolute-09",
+                seriesTitle = "[JYFanSub][Absolute Demonic Front Babylonia][09-10][BIG5][1080P][HEVC][V2]",
+                episodeTitle = "[JYFanSub][Absolute Demonic Front Babylonia][09][BIG5][1080P][HEVC][V2]",
+            ),
+            item(
+                id = "absolute-10",
+                seriesTitle = "[JYFanSub][Absolute Demonic Front Babylonia][09-10][BIG5][1080P][HEVC][V2]",
+                episodeTitle = "[JYFanSub][Absolute Demonic Front Babylonia][10][BIG5][1080P][HEVC][V2]",
+            ),
+            item(
+                id = "kyoukai-01",
+                seriesTitle = "[Kamigami] Kara no Kyoukai Movie 01-08 [BD x264 1920x1080 DTS-HD(5.1ch,2.0ch) Sub(Chs,Jap)]",
+                episodeTitle = "[Kamigami] Kara no Kyoukai 1 - Fukan Fuukei [BD 1920x1080 DTS-HD(5.1ch,2.0ch)]",
+            ),
+            item(
+                id = "kyoukai-02",
+                seriesTitle = "[Kamigami] Kara no Kyoukai Movie 01-08 [BD x264 1920x1080 DTS-HD(5.1ch,2.0ch) Sub(Chs,Jap)]",
+                episodeTitle = "[Kamigami] Kara no Kyoukai 2 - Satsujin Kousatsu Zen [BD 1920x1080 DTS-HD(5.1ch,2.0ch)]",
+            ),
+            item(
+                id = "haikyuu-s2-02",
+                seriesTitle = "[Kamigami] Haikyuu!! S2 [BD 1080p x265 Ma10p AAC]",
+                episodeTitle = "[Kamigami] Haikyuu!! S2 - 02 [BD 1080p x265 Ma10p AAC]",
+            ),
+            item(
+                id = "haikyuu-s2-03",
+                seriesTitle = "[Kamigami] Haikyuu!! S2 [BD 1080p x265 Ma10p AAC]",
+                episodeTitle = "[Kamigami] Haikyuu!! S2 - 03 [BD 1080p x265 Ma10p AAC]",
+            ),
+            item(
+                id = "gurazeni-24",
+                seriesTitle = "[UHA-WINGS][Gurazeni][01-24 END][x264 1080p][CHT]",
+                episodeTitle = "[UHA-WINGS][Gurazeni][24 END][x264 1080p][CHT]",
+            ),
+        )
+
+        val issues = catalog.libraryQualityReport().issues
+
+        assertTrue(issues.none { it.type == LibraryQualityIssueType.FOLDER_FILE_EPISODE_MISMATCH })
+        assertTrue(issues.none { it.type == LibraryQualityIssueType.DUPLICATE_EPISODE_NUMBER })
+        assertTrue(issues.none { it.type == LibraryQualityIssueType.UNPARSED_EPISODE_NUMBER })
+    }
+
+    @Test
+    fun doesNotTreatRootLevelInferredSeriesTitleAsFolderEpisodeHint() {
+        val catalog = catalogOf(
+            item(
+                id = "eighty-six-01",
+                seriesTitle = "86 - Eighty Six",
+                episodeTitle = "[Lilith-Raws] 86 - Eighty Six - 01 [Baha][WEB-DL][1080p][AVC AAC][CHT][MP4]",
+                relativePath = "[Lilith-Raws] 86 - Eighty Six - 01 [Baha][WEB-DL][1080p][AVC AAC][CHT][MP4].mp4",
+            ),
+            item(
+                id = "eighty-six-02",
+                seriesTitle = "86 - Eighty Six",
+                episodeTitle = "[Lilith-Raws] 86 - Eighty Six - 02 [Baha][WEB-DL][1080p][AVC AAC][CHT][MP4]",
+                relativePath = "[Lilith-Raws] 86 - Eighty Six - 02 [Baha][WEB-DL][1080p][AVC AAC][CHT][MP4].mp4",
+            ),
+        )
+
+        val issues = catalog.libraryQualityReport().issues
+
+        assertTrue(issues.none { it.type == LibraryQualityIssueType.FOLDER_FILE_EPISODE_MISMATCH })
+    }
+
+    @Test
     fun detectsLocalFolderSplitAcrossMultipleMatchedAnime() {
         val catalog = catalogOf(
             item(
@@ -150,13 +322,14 @@ class LibraryQualityReportTest {
         id: String,
         seriesTitle: String,
         episodeTitle: String,
+        relativePath: String = "$seriesTitle/$episodeTitle.mkv",
         animeMetadata: LibraryAnimeMetadata? = null,
     ): LibraryMediaItem =
         LibraryMediaItem(
             id = id,
             seriesTitle = seriesTitle,
             episodeTitle = episodeTitle,
-            relativePath = "$seriesTitle/$episodeTitle.mkv",
+            relativePath = relativePath,
             sizeBytes = 123,
             mediaType = "video/x-matroska",
             streamPath = "/media/$id",

@@ -28,6 +28,55 @@ class LocalMediaLibraryIndexerTest {
     }
 
     @Test
+    fun infersSeriesTitlesForRootLevelReleaseFilesAndRefreshesCachedTitles() {
+        val root = createTempDirectory("danmaku-library")
+        root.resolve("[BeanSub&FZSD&LoliHouse] Jujutsu Kaisen - 15 [WebRip 1080p].mkv")
+            .writeBytes(byteArrayOf(1, 2, 3))
+        root.resolve("[HYSUB]Sono Bisque Doll wa Koi wo Suru[15][BIG5_MP4][1920X1080].mp4")
+            .writeBytes(byteArrayOf(4, 5, 6))
+        root.resolve("[Re Zero kara Hajimeru Isekai Seikatsu S2][01][BIG5][1080P].mp4")
+            .writeBytes(byteArrayOf(7, 8, 9))
+        root.resolve("[Comicat&KissSub][86 - Eighty Six][04][1080P][BIG5][MP4].mp4")
+            .writeBytes(byteArrayOf(10, 11, 12))
+
+        val indexed = LocalMediaLibraryIndexer.index(root)
+        val titlesByEpisode = indexed.catalog.items.associate { item -> item.episodeTitle to item.seriesTitle }
+
+        assertEquals(
+            "Jujutsu Kaisen",
+            titlesByEpisode["[BeanSub&FZSD&LoliHouse] Jujutsu Kaisen - 15 [WebRip 1080p]"],
+        )
+        assertEquals(
+            "Sono Bisque Doll wa Koi wo Suru",
+            titlesByEpisode["[HYSUB]Sono Bisque Doll wa Koi wo Suru[15][BIG5_MP4][1920X1080]"],
+        )
+        assertEquals(
+            "Re Zero kara Hajimeru Isekai Seikatsu S2",
+            titlesByEpisode["[Re Zero kara Hajimeru Isekai Seikatsu S2][01][BIG5][1080P]"],
+        )
+        assertEquals(
+            "86 - Eighty Six",
+            titlesByEpisode["[Comicat&KissSub][86 - Eighty Six][04][1080P][BIG5][MP4]"],
+        )
+
+        val staleCache = indexed.fileMetadataByRelativePath.mapValues { (_, cached) ->
+            cached.copy(item = cached.item.copy(seriesTitle = "Anime"))
+        }
+        val cached = LocalMediaLibraryIndexer.index(
+            root = root,
+            cachedItems = staleCache,
+        )
+
+        assertEquals(4, cached.scanStats.reusedItemCount)
+        assertEquals(
+            indexed.catalog.items.map { item -> LibraryMediaItemTitle.from(item) },
+            cached.catalog.items.map { item -> LibraryMediaItemTitle.from(item) },
+        )
+
+        root.toFile().deleteRecursively()
+    }
+
+    @Test
     fun indexesMatchingSidecarSubtitlesAndDiscoversNewTracksForCachedVideos() {
         val root = createTempDirectory("danmaku-library")
         val series = root.resolve("Example Show").createDirectories()
@@ -112,5 +161,18 @@ class LocalMediaLibraryIndexerTest {
         assertTrue(firstItem.streamPath != secondItem.streamPath)
 
         temp.toFile().deleteRecursively()
+    }
+
+    private data class LibraryMediaItemTitle(
+        val episodeTitle: String,
+        val seriesTitle: String,
+    ) {
+        companion object {
+            fun from(item: app.danmaku.domain.LibraryMediaItem): LibraryMediaItemTitle =
+                LibraryMediaItemTitle(
+                    episodeTitle = item.episodeTitle,
+                    seriesTitle = item.seriesTitle,
+                )
+        }
     }
 }

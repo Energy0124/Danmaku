@@ -330,8 +330,12 @@ Full review date: 2026-06-15.
   gaps, unmatched series, local-vs-metadata episode count mismatches, and local
   folder split candidates with realistic release filename examples. Desktop now
   exposes Library > Quality with open/handled counts, affected files, evidence,
-  and persisted ignore/resolve/reopen actions. Remaining: run live-library QA
-  against large folders.
+  and persisted ignore/resolve/reopen actions. Live `W:/Anime` QA covered
+  1,973 media items and now reports 130 review candidates after suppressing
+  metadata-empty unmatched floods, supplemental clips, root-level mega-series
+  grouping, and common release-name parser false positives. Remaining:
+  variant-aware duplicate classification for fansub, subtitle-language, and
+  quality variants, plus metadata-assisted split/merge suggestions.
 - `[ ]` P1: Add per-series playback preferences for preferred subtitle track,
   audio track, subtitle requirement, playback speed, danmaku visibility, and
   resume/autonext behavior.
