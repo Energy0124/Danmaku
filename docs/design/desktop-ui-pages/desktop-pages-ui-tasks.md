@@ -378,8 +378,8 @@ Status legend:
   structure and mapping problems.
   - Shared-domain scanner now reports folder/file episode mismatches, duplicate
     and missing episode numbers, unmatched series, local-vs-metadata episode
-    count mismatches, and local folder split candidates with realistic release
-    filename coverage.
+    count mismatches, and metadata-assisted split/merge candidates with
+    realistic release filename coverage.
   - Desktop now renders Library > Quality with summary counts, issue type,
     affected files, scanner evidence, open/handled filtering, and persisted
     ignore/resolve/reopen actions.
@@ -390,8 +390,10 @@ Status legend:
   - Variant-aware duplicate classification now separates 45
     fansub/subtitle-language/quality alternates from 18 hard duplicate-number
     issues on the live library.
-  - Remaining: use metadata matches to suggest split/merge actions instead of
-    only listing duplicate episodes.
+  - Metadata matches now suggest both split candidates when one local title maps
+    to multiple anime and merge candidates when several local titles map to the
+    same anime.
+  - Remaining: add guided apply actions and live QA against mapped catalog data.
 - `[ ]` Standardize destructive, retry, confirmation, and error dialogs.
 
 ## Tests and QA

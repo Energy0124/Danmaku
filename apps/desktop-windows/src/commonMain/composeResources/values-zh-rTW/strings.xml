@@ -221,6 +221,7 @@
     <string name="desktop_library_quality_type_unmatched_series">未對應系列</string>
     <string name="desktop_library_quality_type_metadata_episode_count_mismatch">中繼資料集數不一致</string>
     <string name="desktop_library_quality_type_split_series_candidate">可能需要拆分系列</string>
+    <string name="desktop_library_quality_type_merge_series_candidate">可能需要合併系列</string>
     <string name="desktop_library_quality_severity_review">需檢查</string>
     <string name="desktop_library_quality_severity_warning">警告</string>
     <string name="desktop_library_quality_decision_ignored">已忽略</string>

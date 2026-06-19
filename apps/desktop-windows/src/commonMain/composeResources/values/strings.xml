@@ -221,6 +221,7 @@
     <string name="desktop_library_quality_type_unmatched_series">Unmatched series</string>
     <string name="desktop_library_quality_type_metadata_episode_count_mismatch">Metadata episode-count mismatch</string>
     <string name="desktop_library_quality_type_split_series_candidate">Split series candidate</string>
+    <string name="desktop_library_quality_type_merge_series_candidate">Merge series candidate</string>
     <string name="desktop_library_quality_severity_review">Review</string>
     <string name="desktop_library_quality_severity_warning">Warning</string>
     <string name="desktop_library_quality_decision_ignored">Ignored</string>

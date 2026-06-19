@@ -44,6 +44,7 @@ enum class LibraryQualityIssueType {
     UNMATCHED_SERIES,
     METADATA_EPISODE_COUNT_MISMATCH,
     SPLIT_SERIES_CANDIDATE,
+    MERGE_SERIES_CANDIDATE,
 }
 
 fun LibraryCatalog.libraryQualityReport(): LibraryQualityReport =
@@ -64,10 +65,13 @@ object LibraryQualityScanner {
         val localSeriesIssues = catalog.items
             .groupBy { it.seriesTitle }
             .flatMap(::localSeriesIssues)
+        val metadataSeriesIssues = catalog.items
+            .groupBy { item -> item.animeMetadata?.animeId }
+            .flatMap(::metadataSeriesIssues)
         val groupedSeriesIssues = catalog.groupedSeries()
             .flatMap { series -> groupedSeriesIssues(series, catalogHasAnimeMetadata) }
         return LibraryQualityReport(
-            issues = (itemIssues + localSeriesIssues + groupedSeriesIssues)
+            issues = (itemIssues + localSeriesIssues + metadataSeriesIssues + groupedSeriesIssues)
                 .sortedWith(
                     compareBy<LibraryQualityIssue> { it.seriesTitle.lowercase() }
                         .thenBy { it.type.name }
@@ -104,8 +108,10 @@ object LibraryQualityScanner {
 
     private fun localSeriesIssues(entry: Map.Entry<String, List<LibraryMediaItem>>): List<LibraryQualityIssue> {
         val (seriesTitle, items) = entry
-        val animeIds = items.mapNotNull { it.animeMetadata?.animeId }.distinct()
-        if (animeIds.size < 2) return emptyList()
+        val metadataByAnimeId = items
+            .mapNotNull(LibraryMediaItem::animeMetadata)
+            .groupBy(LibraryAnimeMetadata::animeId)
+        if (metadataByAnimeId.size < 2) return emptyList()
         return listOf(
             LibraryQualityIssue(
                 type = LibraryQualityIssueType.SPLIT_SERIES_CANDIDATE,
@@ -115,7 +121,43 @@ object LibraryQualityScanner {
                 mediaItemIds = items.map(LibraryMediaItem::id),
                 relativePaths = items.map(LibraryMediaItem::relativePath),
                 message = "One local folder contains files matched to multiple anime.",
-                evidence = animeIds.map { animeId -> "${animeId.provider.name}#${animeId.value}" },
+                evidence = metadataByAnimeId
+                    .map { (animeId, metadata) ->
+                        val titleSuffix = metadata
+                            .firstOrNull()
+                            ?.displayTitle
+                            ?.takeIf(String::isNotBlank)
+                            ?.let { title -> "=$title" }
+                            .orEmpty()
+                        "${animeId.provider.name}#${animeId.value}$titleSuffix"
+                    }
+                    .sorted(),
+            ),
+        )
+    }
+
+    private fun metadataSeriesIssues(entry: Map.Entry<ExternalAnimeId?, List<LibraryMediaItem>>): List<LibraryQualityIssue> {
+        val animeId = entry.key ?: return emptyList()
+        val items = entry.value
+        val localTitles = items.map(LibraryMediaItem::seriesTitle).distinct().sorted()
+        if (localTitles.size < 2) return emptyList()
+        val displayTitle = items
+            .mapNotNull { item -> item.animeMetadata?.displayTitle }
+            .firstOrNull()
+            ?: localTitles.first()
+        return listOf(
+            LibraryQualityIssue(
+                type = LibraryQualityIssueType.MERGE_SERIES_CANDIDATE,
+                severity = LibraryQualityIssueSeverity.REVIEW,
+                seriesId = "anime-${animeId.stableQualityId()}",
+                seriesTitle = displayTitle,
+                mediaItemIds = items.map(LibraryMediaItem::id),
+                relativePaths = items.map(LibraryMediaItem::relativePath),
+                message = "Multiple local folders or titles are matched to the same anime.",
+                evidence = listOf(
+                    "anime=${animeId.provider.name}#${animeId.value}",
+                    "localTitles=${localTitles.joinToString(separator = "; ")}",
+                ),
             ),
         )
     }
@@ -531,6 +573,9 @@ private fun String.stableQualityId(): String {
         .trim('-')
     return normalized.ifBlank { "series" }
 }
+
+private fun ExternalAnimeId.stableQualityId(): String =
+    "${provider.name.lowercase()}-$value"
 
 private fun String.qualityKeyPart(): String =
     replace("\\", "\\\\")

@@ -65,6 +65,7 @@ private fun fallbackDesktopStrings(language: DesktopUiLanguage): DesktopStrings 
                     LibraryQualityIssueType.UNMATCHED_SERIES to "Unmatched series",
                     LibraryQualityIssueType.METADATA_EPISODE_COUNT_MISMATCH to "Metadata episode-count mismatch",
                     LibraryQualityIssueType.SPLIT_SERIES_CANDIDATE to "Split series candidate",
+                    LibraryQualityIssueType.MERGE_SERIES_CANDIDATE to "Merge series candidate",
                 )
                 libraryQualitySeverityLabels = mapOf(
                     LibraryQualityIssueSeverity.REVIEW to "Review",
@@ -120,6 +121,7 @@ private fun fallbackDesktopStrings(language: DesktopUiLanguage): DesktopStrings 
                     LibraryQualityIssueType.UNMATCHED_SERIES to "未對應系列",
                     LibraryQualityIssueType.METADATA_EPISODE_COUNT_MISMATCH to "中繼資料集數不一致",
                     LibraryQualityIssueType.SPLIT_SERIES_CANDIDATE to "可能需要拆分系列",
+                    LibraryQualityIssueType.MERGE_SERIES_CANDIDATE to "可能需要合併系列",
                 )
                 libraryQualitySeverityLabels = mapOf(
                     LibraryQualityIssueSeverity.REVIEW to "需檢查",

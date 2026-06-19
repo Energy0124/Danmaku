@@ -268,6 +268,8 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
         stringResource(Res.string.desktop_library_quality_type_metadata_episode_count_mismatch)
     val libraryQualityTypeSplitSeriesCandidate =
         stringResource(Res.string.desktop_library_quality_type_split_series_candidate)
+    val libraryQualityTypeMergeSeriesCandidate =
+        stringResource(Res.string.desktop_library_quality_type_merge_series_candidate)
     val libraryQualitySeverityReview = stringResource(Res.string.desktop_library_quality_severity_review)
     val libraryQualitySeverityWarning = stringResource(Res.string.desktop_library_quality_severity_warning)
     val libraryQualityDecisionIgnored = stringResource(Res.string.desktop_library_quality_decision_ignored)
@@ -967,6 +969,7 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
                 LibraryQualityIssueType.UNMATCHED_SERIES to libraryQualityTypeUnmatchedSeries,
                 LibraryQualityIssueType.METADATA_EPISODE_COUNT_MISMATCH to libraryQualityTypeMetadataEpisodeCountMismatch,
                 LibraryQualityIssueType.SPLIT_SERIES_CANDIDATE to libraryQualityTypeSplitSeriesCandidate,
+                LibraryQualityIssueType.MERGE_SERIES_CANDIDATE to libraryQualityTypeMergeSeriesCandidate,
             )
             this.libraryQualitySeverityLabels = mapOf(
                 LibraryQualityIssueSeverity.REVIEW to libraryQualitySeverityReview,

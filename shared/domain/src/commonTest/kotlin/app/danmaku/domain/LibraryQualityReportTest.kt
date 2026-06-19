@@ -115,7 +115,7 @@ class LibraryQualityReportTest {
     }
 
     @Test
-    fun keepsSameSignatureSideArcsAsDuplicateEpisodeReview() {
+    fun keepsUnmatchedSameSignatureSideArcsAsDuplicateEpisodeReview() {
         val catalog = catalogOf(
             item(
                 id = "danganronpa-despair-01",
@@ -134,6 +134,63 @@ class LibraryQualityReportTest {
         assertEquals(
             listOf(LibraryQualityIssueType.DUPLICATE_EPISODE_NUMBER),
             issues.map(LibraryQualityIssue::type),
+        )
+    }
+
+    @Test
+    fun suggestsSplittingSameLocalTitleWhenMetadataPointsToDifferentAnime() {
+        val catalog = catalogOf(
+            item(
+                id = "danganronpa-despair-01",
+                seriesTitle = "[SumiSora&CASO][DanganRonpa3][BIG5][720p]",
+                episodeTitle = "[SumiSora&CASO][DanganRonpa3][Despair_Side][01][BIG5][720p]",
+                animeMetadata = animeMetadata(3001, "Danganronpa 3: Despair Arc"),
+            ),
+            item(
+                id = "danganronpa-future-01",
+                seriesTitle = "[SumiSora&CASO][DanganRonpa3][BIG5][720p]",
+                episodeTitle = "[SumiSora&CASO][DanganRonpa3][Future_Side][01][BIG5][720p]",
+                animeMetadata = animeMetadata(3002, "Danganronpa 3: Future Arc"),
+            ),
+        )
+
+        val issues = catalog.libraryQualityReport().issues
+
+        val split = issues.single { issue -> issue.type == LibraryQualityIssueType.SPLIT_SERIES_CANDIDATE }
+        assertEquals("[SumiSora&CASO][DanganRonpa3][BIG5][720p]", split.seriesTitle)
+        assertTrue(split.evidence.contains("DANDANPLAY#3001=Danganronpa 3: Despair Arc"))
+        assertTrue(split.evidence.contains("DANDANPLAY#3002=Danganronpa 3: Future Arc"))
+        assertTrue(issues.none { issue -> issue.type == LibraryQualityIssueType.DUPLICATE_EPISODE_NUMBER })
+    }
+
+    @Test
+    fun suggestsMergingDifferentLocalTitlesWhenMetadataPointsToSameAnime() {
+        val catalog = catalogOf(
+            item(
+                id = "eighty-six-comicat-04",
+                seriesTitle = "[Comicat&KissSub][86 - Eighty Six]",
+                episodeTitle = "[Comicat&KissSub][86 - Eighty Six][04][1080P][BIG5][MP4]",
+                animeMetadata = animeMetadata(41457, "86 EIGHTY-SIX"),
+            ),
+            item(
+                id = "eighty-six-lilith-01",
+                seriesTitle = "86 - Eighty Six",
+                episodeTitle = "[Lilith-Raws] 86 - Eighty Six - 01 [Baha][WEB-DL][1080p][AVC AAC][CHT][MP4]",
+                animeMetadata = animeMetadata(41457, "86 EIGHTY-SIX"),
+            ),
+        )
+
+        val issue = catalog.libraryQualityReport().issues
+            .single { issue -> issue.type == LibraryQualityIssueType.MERGE_SERIES_CANDIDATE }
+
+        assertEquals("86 EIGHTY-SIX", issue.seriesTitle)
+        assertEquals(listOf("eighty-six-comicat-04", "eighty-six-lilith-01"), issue.mediaItemIds)
+        assertEquals(
+            listOf(
+                "anime=DANDANPLAY#41457",
+                "localTitles=86 - Eighty Six; [Comicat&KissSub][86 - Eighty Six]",
+            ),
+            issue.evidence,
         )
     }
 
@@ -366,8 +423,8 @@ class LibraryQualityReportTest {
 
         assertEquals("Movie Collection", issue.seriesTitle)
         assertEquals(listOf("movie-one", "movie-two"), issue.mediaItemIds)
-        assertTrue(issue.evidence.contains("DANDANPLAY#1"))
-        assertTrue(issue.evidence.contains("DANDANPLAY#2"))
+        assertTrue(issue.evidence.contains("DANDANPLAY#1=First Movie"))
+        assertTrue(issue.evidence.contains("DANDANPLAY#2=Second Movie"))
     }
 
     @Test
