@@ -47,8 +47,10 @@ internal fun LibraryQualityReviewView(
     catalog: LibraryCatalog?,
     report: LibraryQualityReport?,
     decisionByKey: Map<String, DesktopLibraryQualityIssueDecision>,
+    refreshingMetadataMediaIds: Set<String>,
     onSetDecision: (LibraryQualityIssue, DesktopLibraryQualityIssueDecisionState?) -> Unit,
     onApplyMappings: (LibraryQualityIssue) -> Unit,
+    onRefreshIssueMetadata: (LibraryQualityIssue) -> Unit,
     onReviewItem: (LibraryMediaItem) -> Unit,
 ) {
     if (report == null) {
@@ -137,14 +139,18 @@ internal fun LibraryQualityReviewView(
                 visibleIssues,
                 key = { issue -> issue.stableKey() },
             ) { issue ->
+                val reviewItem = issue.firstExistingItem(mediaItemById)
                 LibraryQualityIssueRow(
                     strings = strings,
                     issue = issue,
-                    reviewItem = issue.firstExistingItem(mediaItemById),
+                    reviewItem = reviewItem,
                     canApplyMappings = catalog?.let { issue.libraryQualityMappingApplyPlan(it, 0) } != null,
+                    canRefreshMetadata = reviewItem != null,
+                    isRefreshingMetadata = issue.mediaItemIds.any { mediaId -> mediaId in refreshingMetadataMediaIds },
                     decision = decisionByKey[issue.stableKey()],
                     onSetDecision = onSetDecision,
                     onApplyMappings = onApplyMappings,
+                    onRefreshMetadata = onRefreshIssueMetadata,
                     onReviewItem = onReviewItem,
                 )
             }
@@ -158,9 +164,12 @@ private fun LibraryQualityIssueRow(
     issue: LibraryQualityIssue,
     reviewItem: LibraryMediaItem?,
     canApplyMappings: Boolean,
+    canRefreshMetadata: Boolean,
+    isRefreshingMetadata: Boolean,
     decision: DesktopLibraryQualityIssueDecision?,
     onSetDecision: (LibraryQualityIssue, DesktopLibraryQualityIssueDecisionState?) -> Unit,
     onApplyMappings: (LibraryQualityIssue) -> Unit,
+    onRefreshMetadata: (LibraryQualityIssue) -> Unit,
     onReviewItem: (LibraryMediaItem) -> Unit,
 ) {
     val issueColor = issue.severity.issueColor()
@@ -293,6 +302,26 @@ private fun LibraryQualityIssueRow(
                             )
                             Spacer(modifier = Modifier.size(6.dp))
                             Text(strings.libraryQualityApplyMappingsAction)
+                        }
+                    }
+                    if (!canApplyMappings && canRefreshMetadata) {
+                        Button(
+                            enabled = !isRefreshingMetadata,
+                            onClick = { onRefreshMetadata(issue) },
+                        ) {
+                            Icon(
+                                Icons.Filled.Refresh,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Spacer(modifier = Modifier.size(6.dp))
+                            Text(
+                                if (isRefreshingMetadata) {
+                                    strings.refreshingAction
+                                } else {
+                                    strings.libraryQualityRefreshMetadataAction
+                                },
+                            )
                         }
                     }
                     TextButton(

@@ -56,6 +56,7 @@ private fun fallbackDesktopStrings(language: DesktopUiLanguage): DesktopStrings 
                 libraryQualityResolveAction = "Resolve"
                 libraryQualityReopenAction = "Reopen"
                 libraryQualityApplyMappingsAction = "Apply mappings"
+                libraryQualityRefreshMetadataAction = "Refresh metadata"
                 libraryQualityOpenInspectorAction = "Open in inspector"
                 libraryQualitySplitSeriesGuidance =
                     "Files here match different anime; inspect the affected files before resolving."
@@ -118,6 +119,7 @@ private fun fallbackDesktopStrings(language: DesktopUiLanguage): DesktopStrings 
                 libraryQualityResolveAction = "解決"
                 libraryQualityReopenAction = "重新開啟"
                 libraryQualityApplyMappingsAction = "套用對應"
+                libraryQualityRefreshMetadataAction = "更新中繼資料"
                 libraryQualityOpenInspectorAction = "在檢視器開啟"
                 libraryQualitySplitSeriesGuidance =
                     "這些檔案對應到不同動畫；解決前請檢查受影響檔案。"
@@ -346,6 +348,7 @@ internal class DesktopStrings {
     var libraryQualityResolveAction: String = ""
     var libraryQualityReopenAction: String = ""
     var libraryQualityApplyMappingsAction: String = ""
+    var libraryQualityRefreshMetadataAction: String = ""
     var libraryQualityOpenInspectorAction: String = ""
     var libraryQualitySplitSeriesGuidance: String = ""
     var libraryQualityMergeSeriesGuidance: String = ""

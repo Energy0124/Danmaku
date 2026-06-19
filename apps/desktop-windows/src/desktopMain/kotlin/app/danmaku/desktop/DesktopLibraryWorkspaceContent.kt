@@ -96,6 +96,7 @@ internal fun LibraryCenterWorkspace(
     onSetFavorite: (LibraryMediaItem, Boolean) -> Unit,
     onSetLibraryQualityIssueDecision: (LibraryQualityIssue, DesktopLibraryQualityIssueDecisionState?) -> Unit,
     onApplyLibraryQualityIssueMappings: (LibraryQualityIssue) -> Unit,
+    onRefreshLibraryQualityIssueMetadata: (LibraryQualityIssue) -> Unit,
     onSaveLocalAnimeListEntry: (LibrarySeries, LocalAnimeListStatus, Int?, String?) -> Unit,
     onDeleteLocalAnimeListEntry: (LibrarySeries) -> Unit,
     onRefreshEpisodeMetadata: (LibraryMediaItem) -> Unit,
@@ -249,8 +250,10 @@ internal fun LibraryCenterWorkspace(
                 catalog = catalog,
                 report = libraryQualityReport,
                 decisionByKey = libraryQualityDecisionByKey,
+                refreshingMetadataMediaIds = refreshingMetadataMediaIds,
                 onSetDecision = onSetLibraryQualityIssueDecision,
                 onApplyMappings = onApplyLibraryQualityIssueMappings,
+                onRefreshIssueMetadata = onRefreshLibraryQualityIssueMetadata,
                 onReviewItem = onShowDetails,
             )
             WindowsLibraryView.ALL_SERIES,

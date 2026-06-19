@@ -213,6 +213,7 @@
     <string name="desktop_library_quality_resolve_action">Resolve</string>
     <string name="desktop_library_quality_reopen_action">Reopen</string>
     <string name="desktop_library_quality_apply_mappings_action">Apply mappings</string>
+    <string name="desktop_library_quality_refresh_metadata_action">Refresh metadata</string>
     <string name="desktop_library_quality_open_inspector_action">Open in inspector</string>
     <string name="desktop_library_quality_split_series_guidance">Files here match different anime; inspect the affected files before resolving.</string>
     <string name="desktop_library_quality_merge_series_guidance">Different local titles match the same anime; inspect the affected files before resolving.</string>

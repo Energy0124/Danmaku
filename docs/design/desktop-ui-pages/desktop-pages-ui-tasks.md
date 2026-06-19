@@ -406,6 +406,10 @@ Status legend:
     Running the same harness against copied registered database roots applied
     one mapped split-series plan with 20 item mappings and 2 series mappings,
     reducing open mapped issues from 39 to 38.
+  - Quality rows without an immediate apply plan now expose a scoped Refresh
+    metadata action that fetches dandanplay match/metadata for only the
+    affected files, so fresh metadata-empty findings can become mapping-backed
+    cleanup candidates without launching a full-library refresh.
   - Remaining: optional preview-first filesystem organization/rename flows.
 - `[ ]` Standardize destructive, retry, confirmation, and error dialogs.
 

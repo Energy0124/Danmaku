@@ -290,8 +290,11 @@ trusted-LAN clients.
   fresh scan has no apply-capable split/merge rows because cached metadata is
   absent, while the copied mapped registered catalog applied one split-series
   plan with 20 item mappings and 2 series mappings and reduced open mapped
-  issues from 39 to 38. Filesystem organization/rename tooling is still
-  optional and should be preview-first. Missing high-value viewer workflows include
+  issues from 39 to 38. Quality rows without an apply plan can now refresh
+  dandanplay metadata for only their affected files, giving fresh scans a path
+  from structural findings to metadata-backed mapping plans. Filesystem
+  organization/rename tooling is still optional and should be preview-first.
+  Missing high-value viewer workflows include
   seasonal/release-calendar views, OP/ED or recap skip markers, per-series
   subtitle/audio preferences, richer danmaku filtering and blocklists,
   optional filesystem organization/rename flows, richer external list-driven

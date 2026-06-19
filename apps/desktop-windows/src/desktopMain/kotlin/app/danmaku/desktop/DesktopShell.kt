@@ -904,6 +904,7 @@ internal fun DesktopShell(
                                     libraryActions.applyLibraryQualityIssueMappings(issue, catalog)
                                 }
                             },
+                            onRefreshLibraryQualityIssueMetadata = libraryActions::refreshLibraryQualityIssueMetadata,
                             onSaveLocalAnimeListEntry = libraryActions::saveLocalAnimeListEntry,
                             onDeleteLocalAnimeListEntry = libraryActions::deleteLocalAnimeListEntry,
                             onSetAutoNextLocalPlayback = playbackActions::setAutoNextLocalPlayback,

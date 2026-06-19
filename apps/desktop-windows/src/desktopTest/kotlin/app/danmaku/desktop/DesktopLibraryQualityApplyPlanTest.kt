@@ -6,6 +6,8 @@ import app.danmaku.domain.ExternalAnimeProvider
 import app.danmaku.domain.LibraryAnimeMetadata
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryMediaItem
+import app.danmaku.domain.LibraryQualityIssue
+import app.danmaku.domain.LibraryQualityIssueSeverity
 import app.danmaku.domain.LibraryQualityIssueType
 import app.danmaku.domain.libraryQualityReport
 import app.danmaku.domain.stableKey
@@ -147,6 +149,35 @@ class DesktopLibraryQualityApplyPlanTest {
             .single { issue -> issue.type == LibraryQualityIssueType.DUPLICATE_EPISODE_NUMBER }
 
         assertNull(issue.libraryQualityMappingApplyPlan(catalog, mappedAtEpochMs = 1234))
+    }
+
+    @Test
+    fun listsAffectedItemsInIssueOrderForMetadataRefresh() {
+        val first = item(
+            id = "episode-01",
+            seriesTitle = "Example Show",
+            episodeTitle = "Example Show - 01",
+        )
+        val second = item(
+            id = "episode-02",
+            seriesTitle = "Example Show",
+            episodeTitle = "Example Show - 02",
+        )
+        val catalog = catalogOf(second, first)
+        val issue = LibraryQualityIssue(
+            type = LibraryQualityIssueType.UNMATCHED_SERIES,
+            severity = LibraryQualityIssueSeverity.REVIEW,
+            seriesId = "example-show",
+            seriesTitle = "Example Show",
+            mediaItemIds = listOf(first.id, "missing-id", second.id),
+            relativePaths = listOf(first.relativePath, "missing.mkv", second.relativePath),
+            message = "Example issue",
+        )
+
+        assertEquals(
+            listOf(first.id, second.id),
+            issue.libraryQualityAffectedItems(catalog).map(LibraryMediaItem::id),
+        )
     }
 
     private fun catalogOf(vararg items: LibraryMediaItem): LibraryCatalog =

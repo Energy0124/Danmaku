@@ -733,6 +733,85 @@ internal class DesktopShellLibraryActions(
         }
     }
 
+    fun refreshLibraryQualityIssueMetadata(issue: LibraryQualityIssue) {
+        val library = libraryState.indexedLibrary
+        if (library == null) {
+            appendDiagnostic("library-quality", "Cannot refresh quality issue metadata; library is not indexed")
+            return
+        }
+        if (!settingsState.dandanplaySettings.isFetchEnabled) {
+            appendDiagnostic("library-quality", "Cannot refresh quality issue metadata; dandanplay provider is not configured")
+            return
+        }
+        val items = issue.libraryQualityAffectedItems(library.catalog)
+            .filter { item -> item.id !in libraryState.refreshingMetadataMediaIds }
+        if (items.isEmpty()) {
+            appendDiagnostic("library-quality", "No pending affected files to refresh for ${issue.type.name}")
+            return
+        }
+        val itemIds = items.mapTo(mutableSetOf(), LibraryMediaItem::id)
+
+        scope.launch {
+            libraryState.refreshingMetadataMediaIds = libraryState.refreshingMetadataMediaIds + itemIds
+            appendDiagnostic(
+                "library-quality",
+                "Refreshing metadata for ${items.size} affected file(s) in ${issue.type.name}",
+            )
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    runCatching {
+                        var firstFailureMessage: String? = null
+                        val refreshedCount = items.count { item ->
+                            runCatching {
+                                val mediaPath = library.filesById[item.id] ?: return@runCatching false
+                                val animeId = animeMetadataResolver.cachedDandanplayAnimeIdForItem(item)
+                                    ?: dandanplayDanmakuResolver
+                                        .resolve(mediaId = item.id, mediaPath = mediaPath, forceRefresh = false)
+                                        .match
+                                        ?.animeId
+                                    ?: return@runCatching false
+                                animeMetadataResolver.refreshDandanplayMetadataForItem(
+                                    item = item,
+                                    animeId = animeId,
+                                    forceRefresh = false,
+                                )
+                                true
+                            }.fold(
+                                onSuccess = { refreshed -> refreshed },
+                                onFailure = { error ->
+                                    firstFailureMessage = firstFailureMessage
+                                        ?: "${item.episodeTitle}: ${error.message ?: error::class.simpleName}"
+                                    false
+                                },
+                            )
+                        }
+                        if (refreshedCount == 0 && firstFailureMessage != null) {
+                            throw DesktopUserActionException(
+                                message = "No affected files refreshed; $firstFailureMessage",
+                            )
+                        }
+                        refreshedCount
+                    }
+                }
+                result.onSuccess { refreshedCount ->
+                    libraryState.libraryMetadataVersion += 1
+                    appendDiagnostic(
+                        "library-quality",
+                        "Quality metadata refresh complete: $refreshedCount/${items.size} affected file(s) updated",
+                    )
+                }.onFailure { error ->
+                    libraryState.libraryError = error.message
+                    appendDiagnostic(
+                        "library-quality",
+                        "Failed to refresh metadata for ${issue.type.name} in ${issue.seriesTitle}: ${error.message}",
+                    )
+                }
+            } finally {
+                libraryState.refreshingMetadataMediaIds = libraryState.refreshingMetadataMediaIds - itemIds
+            }
+        }
+    }
+
     fun saveLocalAnimeListEntry(
         series: LibrarySeries,
         status: LocalAnimeListStatus,

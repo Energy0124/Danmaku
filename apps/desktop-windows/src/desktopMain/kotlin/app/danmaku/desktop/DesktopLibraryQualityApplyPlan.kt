@@ -54,7 +54,7 @@ private fun LibraryQualityIssue.splitSeriesApplyPlan(
     catalog: LibraryCatalog,
     mappedAtEpochMs: Long,
 ): DesktopLibraryQualityMappingApplyPlan? {
-    val affectedItems = affectedItems(catalog)
+    val affectedItems = libraryQualityAffectedItems(catalog)
     val metadataByItem = affectedItems.mapNotNull { item ->
         item.animeMetadata?.let { metadata -> item to metadata }
     }
@@ -77,7 +77,7 @@ private fun LibraryQualityIssue.mergeSeriesApplyPlan(
     catalog: LibraryCatalog,
     mappedAtEpochMs: Long,
 ): DesktopLibraryQualityMappingApplyPlan? {
-    val affectedItems = affectedItems(catalog)
+    val affectedItems = libraryQualityAffectedItems(catalog)
     val metadataByItem = affectedItems.mapNotNull { item ->
         item.animeMetadata?.let { metadata -> item to metadata }
     }
@@ -108,7 +108,7 @@ private fun LibraryQualityIssue.mergeSeriesApplyPlan(
     )
 }
 
-private fun LibraryQualityIssue.affectedItems(catalog: LibraryCatalog): List<LibraryMediaItem> {
+internal fun LibraryQualityIssue.libraryQualityAffectedItems(catalog: LibraryCatalog): List<LibraryMediaItem> {
     val itemById = catalog.items.associateBy(LibraryMediaItem::id)
     return mediaItemIds.mapNotNull(itemById::get)
 }

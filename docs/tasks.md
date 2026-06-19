@@ -346,7 +346,10 @@ Full review date: 2026-06-15.
   apply-capable rows because it is a fresh metadata-empty scan, while the
   copied mapped registered catalog applied one split-series plan with 20 item
   mappings and 2 series mappings, reducing open mapped issues from 39 to 38.
-  Remaining: optional preview-first filesystem organization/rename flows.
+  Quality rows that lack an apply plan now expose a scoped metadata refresh
+  action, which fetches dandanplay matches/metadata for the affected files so
+  fresh metadata-empty scans can become apply-capable after refresh. Remaining:
+  optional preview-first filesystem organization/rename flows.
 - `[ ]` P1: Add per-series playback preferences for preferred subtitle track,
   audio track, subtitle requirement, playback speed, danmaku visibility, and
   resume/autonext behavior.
