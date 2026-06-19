@@ -12,6 +12,9 @@ import app.danmaku.domain.LibraryAnimeMetadata
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySeason
 import app.danmaku.domain.LibrarySeries
+import app.danmaku.domain.groupedSeries
+import java.nio.file.Files
+import java.nio.file.Path
 import kotlin.io.path.createTempDirectory
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -201,6 +204,136 @@ class DesktopExternalAnimeMappingSuggesterTest {
             assertEquals("Short Anime", client.queries.first().title)
         }
     }
+
+    @Test
+    fun mapsIndexedReleaseFilenameExamplesToExternalSuggestions() {
+        val temp = createTempDirectory("danmaku-external-suggester-file-examples")
+        val libraryRoot = temp.resolve("anime")
+        createSampleVideo(
+            libraryRoot,
+            "[Erai-raws] Cyberpunk - Edgerunners - 01 ~ 10 [1080p][Multiple Subtitle]",
+            "[Erai-raws] Cyberpunk - Edgerunners - 01 [1080p][Multiple Subtitle].mkv",
+        )
+        createSampleVideo(
+            libraryRoot,
+            "[CoolComic404][Kimetsu no Yaiba - Mugen Ressha-Hen][01][1080P][WebRip][CHT_JP][HEVC-10bit AAC][MKV]",
+            "[CoolComic404][Kimetsu no Yaiba - Mugen Ressha-Hen][01][1080P][WebRip][CHT_JP][HEVC-10bit AAC].mkv",
+        )
+        createSampleVideo(
+            libraryRoot,
+            "[DragsterPS] 7seeds S02E14 [1080p] [Multi-Audio] [Multi-Subs]",
+            "[DragsterPS] 7seeds S02E14 [1080p] [Multi-Audio] [Multi-Subs].mkv",
+        )
+
+        val indexedSeries = LocalMediaLibraryIndexer.index(libraryRoot).catalog.groupedSeries()
+        assertEquals(3, indexedSeries.size)
+        val cyberpunk = indexedSeries.single { series -> series.title.contains("Cyberpunk") }
+        assertEquals(
+            "[Erai-raws] Cyberpunk - Edgerunners - 01 ~ 10 [1080p][Multiple Subtitle]",
+            cyberpunk.title,
+        )
+        assertEquals(
+            "[Erai-raws] Cyberpunk - Edgerunners - 01 [1080p][Multiple Subtitle]",
+            cyberpunk.seasons.single().items.single().episodeTitle,
+        )
+
+        DesktopLibraryCatalogStore(temp.resolve("catalog.db")).use { store ->
+            val suggester = DesktopExternalAnimeMappingSuggester(
+                ExternalAnimeSearchService(
+                    clients = listOf(
+                        RecordingSearchClient(
+                            provider = ExternalAnimeProvider.MY_ANIME_LIST,
+                            results = listOf(
+                                animeInfo(
+                                    id = ExternalAnimeId(ExternalAnimeProvider.MY_ANIME_LIST, 42310),
+                                    primary = "Cyberpunk: Edgerunners",
+                                    episodeCount = 10,
+                                ),
+                                animeInfo(
+                                    id = ExternalAnimeId(ExternalAnimeProvider.MY_ANIME_LIST, 28735),
+                                    primary = "7SEEDS 2nd Season",
+                                    episodeCount = 24,
+                                ),
+                            ),
+                        ),
+                        RecordingSearchClient(
+                            provider = ExternalAnimeProvider.BANGUMI,
+                            results = listOf(
+                                animeInfo(
+                                    id = ExternalAnimeId(ExternalAnimeProvider.BANGUMI, 302766),
+                                    primary = "鬼滅の刃 無限列車編",
+                                    episodeCount = 7,
+                                ),
+                            ),
+                        ),
+                    ),
+                    catalogStore = store,
+                    nowEpochMs = { 123 },
+                ),
+            )
+
+            val suggestionsByTitle = listOf(
+                cyberpunk.withMetadata(
+                    LibraryAnimeMetadata(
+                        animeId = ExternalAnimeId(ExternalAnimeProvider.DANDANPLAY, 15447),
+                        displayTitle = "Cyberpunk: Edgerunners",
+                        primaryTitle = "Cyberpunk: Edgerunners",
+                        japaneseTitle = "サイバーパンク エッジランナーズ",
+                        episodeCount = 10,
+                    ),
+                ),
+                indexedSeries.single { series -> series.title.contains("Kimetsu") }
+                    .withMetadata(
+                        LibraryAnimeMetadata(
+                            animeId = ExternalAnimeId(ExternalAnimeProvider.DANDANPLAY, 14542),
+                            displayTitle = "鬼滅の刃 無限列車編",
+                            primaryTitle = "鬼滅の刃 無限列車編",
+                            englishTitle = "Demon Slayer: Kimetsu no Yaiba Mugen Train Arc",
+                            alternateNames = listOf("Kimetsu no Yaiba: Mugen Ressha-hen"),
+                            episodeCount = 7,
+                            externalLinks = listOf(
+                                ExternalAnimeExternalLink(
+                                    ExternalAnimeId(ExternalAnimeProvider.BANGUMI, 302766),
+                                ),
+                            ),
+                        ),
+                    ),
+                indexedSeries.single { series -> series.title.contains("7seeds", ignoreCase = true) }
+                    .withMetadata(
+                        LibraryAnimeMetadata(
+                            animeId = ExternalAnimeId(ExternalAnimeProvider.DANDANPLAY, 12295),
+                            displayTitle = "7SEEDS 2nd Season",
+                            primaryTitle = "7SEEDS 2nd Season",
+                            alternateNames = listOf("7seeds S02"),
+                            episodeCount = 12,
+                        ),
+                    ),
+            ).associate { series ->
+                series.title to suggester.suggestForSeries(
+                    series = series,
+                    existingMappings = emptyList(),
+                    providers = setOf(ExternalAnimeProvider.MY_ANIME_LIST, ExternalAnimeProvider.BANGUMI),
+                )
+            }
+
+            val cyberpunkSuggestion = suggestionsByTitle.getValue("Cyberpunk: Edgerunners").single()
+            assertEquals(ExternalAnimeProvider.MY_ANIME_LIST, cyberpunkSuggestion.provider)
+            assertEquals(42310, cyberpunkSuggestion.candidate.anime.id.value)
+            assertEquals(ExternalAnimeMappingSuggestionDisposition.AUTO_LINK, cyberpunkSuggestion.disposition)
+
+            val kimetsuSuggestion = suggestionsByTitle.getValue("鬼滅の刃 無限列車編").single()
+            assertEquals(ExternalAnimeProvider.BANGUMI, kimetsuSuggestion.provider)
+            assertEquals(302766, kimetsuSuggestion.candidate.anime.id.value)
+            assertEquals(ExternalAnimeMappingSuggestionDisposition.AUTO_LINK, kimetsuSuggestion.disposition)
+            assertTrue(kimetsuSuggestion.candidate.evidence.any { evidence -> evidence.contains("trusted external link") })
+
+            val sevenSeedsSuggestion = suggestionsByTitle.getValue("7SEEDS 2nd Season").single()
+            assertEquals(ExternalAnimeProvider.MY_ANIME_LIST, sevenSeedsSuggestion.provider)
+            assertEquals(28735, sevenSeedsSuggestion.candidate.anime.id.value)
+            assertEquals(ExternalAnimeMappingSuggestionDisposition.REVIEW, sevenSeedsSuggestion.disposition)
+            assertTrue(sevenSeedsSuggestion.candidate.evidence.any { evidence -> evidence == "episode count differs" })
+        }
+    }
 }
 
 private class RecordingSearchClient(
@@ -232,6 +365,26 @@ private fun animeInfo(
         id = id,
         titles = ExternalAnimeTitleSet(primary = primary),
         episodeCount = episodeCount,
+    )
+
+private fun createSampleVideo(
+    root: Path,
+    folder: String,
+    fileName: String,
+) {
+    val directory = root.resolve(folder)
+    Files.createDirectories(directory)
+    Files.write(directory.resolve(fileName), byteArrayOf(1))
+}
+
+private fun LibrarySeries.withMetadata(metadata: LibraryAnimeMetadata): LibrarySeries =
+    copy(
+        title = metadata.displayTitle,
+        seasons = seasons.map { season ->
+            season.copy(
+                items = season.items.map { item -> item.copy(animeMetadata = metadata) },
+            )
+        },
     )
 
 private fun librarySeries(
