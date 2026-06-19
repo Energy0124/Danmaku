@@ -348,7 +348,9 @@ Full review date: 2026-06-15.
   mappings and 2 series mappings, reducing open mapped issues from 39 to 38.
   Quality rows that lack an apply plan now expose a scoped metadata refresh
   action, which fetches dandanplay matches/metadata for the affected files so
-  fresh metadata-empty scans can become apply-capable after refresh. Remaining:
+  fresh metadata-empty scans can become apply-capable after refresh. The refresh
+  loop now has focused desktop regression coverage for cached IDs, resolver
+  matches, missing paths, no-match skips, and provider failures. Remaining:
   optional preview-first filesystem organization/rename flows.
 - `[ ]` P1: Add per-series playback preferences for preferred subtitle track,
   audio track, subtitle requirement, playback speed, danmaku visibility, and

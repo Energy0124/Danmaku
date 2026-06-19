@@ -760,44 +760,49 @@ internal class DesktopShellLibraryActions(
             try {
                 val result = withContext(Dispatchers.IO) {
                     runCatching {
-                        var firstFailureMessage: String? = null
-                        val refreshedCount = items.count { item ->
-                            runCatching {
-                                val mediaPath = library.filesById[item.id] ?: return@runCatching false
-                                val animeId = animeMetadataResolver.cachedDandanplayAnimeIdForItem(item)
-                                    ?: dandanplayDanmakuResolver
-                                        .resolve(mediaId = item.id, mediaPath = mediaPath, forceRefresh = false)
-                                        .match
-                                        ?.animeId
-                                    ?: return@runCatching false
+                        val refreshResult = DesktopLibraryQualityMetadataRefresher(
+                            cachedDandanplayAnimeIdForItem = animeMetadataResolver::cachedDandanplayAnimeIdForItem,
+                            resolveDandanplayAnimeId = { item, mediaPath ->
+                                dandanplayDanmakuResolver
+                                    .resolve(mediaId = item.id, mediaPath = mediaPath, forceRefresh = false)
+                                    .match
+                                    ?.animeId
+                            },
+                            refreshDandanplayMetadataForItem = { item, animeId ->
                                 animeMetadataResolver.refreshDandanplayMetadataForItem(
                                     item = item,
                                     animeId = animeId,
                                     forceRefresh = false,
                                 )
-                                true
-                            }.fold(
-                                onSuccess = { refreshed -> refreshed },
-                                onFailure = { error ->
-                                    firstFailureMessage = firstFailureMessage
-                                        ?: "${item.episodeTitle}: ${error.message ?: error::class.simpleName}"
-                                    false
-                                },
-                            )
-                        }
-                        if (refreshedCount == 0 && firstFailureMessage != null) {
+                            },
+                        ).refresh(
+                            items = items,
+                            mediaPathById = library.filesById,
+                        )
+                        if (refreshResult.refreshedCount == 0 && refreshResult.failureMessages.isNotEmpty()) {
                             throw DesktopUserActionException(
-                                message = "No affected files refreshed; $firstFailureMessage",
+                                message = "No affected files refreshed; ${refreshResult.failureMessages.first()}",
                             )
                         }
-                        refreshedCount
+                        refreshResult
                     }
                 }
-                result.onSuccess { refreshedCount ->
+                result.onSuccess { refreshResult ->
                     libraryState.libraryMetadataVersion += 1
+                    refreshResult.failureMessages.take(3).forEach { failure ->
+                        appendDiagnostic("library-quality", "Quality metadata refresh skipped failed item: $failure")
+                    }
+                    val omittedFailureCount = refreshResult.failureMessages.size - 3
+                    if (omittedFailureCount > 0) {
+                        appendDiagnostic(
+                            "library-quality",
+                            "Quality metadata refresh had $omittedFailureCount additional failed item(s)",
+                        )
+                    }
                     appendDiagnostic(
                         "library-quality",
-                        "Quality metadata refresh complete: $refreshedCount/${items.size} affected file(s) updated",
+                        "Quality metadata refresh complete: " +
+                            "${refreshResult.refreshedCount}/${refreshResult.attemptedCount} affected file(s) updated",
                     )
                 }.onFailure { error ->
                     libraryState.libraryError = error.message
