@@ -57,16 +57,21 @@ data class LibrarySeriesWatchSummary(
 
 fun LibraryCatalog.groupedSeries(): List<LibrarySeries> =
     items
-        .groupBy(LibrarySeriesIdentity::fromItem)
-        .map { (seriesIdentity, seriesItems) ->
+        .map { item -> LibrarySeriesIdentity.fromItem(item) to item }
+        .groupBy(
+            keySelector = { (seriesIdentity, _) -> seriesIdentity.id },
+            valueTransform = { it },
+        )
+        .map { (seriesId, identifiedItems) ->
+            val seriesItems = identifiedItems.map { (_, item) -> item }
             LibrarySeries(
-                id = seriesIdentity.id,
-                title = seriesIdentity.title,
+                id = seriesId,
+                title = identifiedItems.preferredSeriesTitle(),
                 seasons = seriesItems
                     .groupBy(LibraryMediaItem::seasonIdentity)
                     .map { (seasonIdentity, seasonItems) ->
                         LibrarySeason(
-                            id = "${seriesIdentity.id}-${seasonIdentity.id}",
+                            id = "$seriesId-${seasonIdentity.id}",
                             label = seasonIdentity.label,
                             sortKey = seasonIdentity.sortKey,
                             items = seasonItems.sortedWith(libraryItemTitleComparator()),
@@ -83,6 +88,19 @@ fun LibraryCatalog.groupedSeries(): List<LibrarySeries> =
                 .thenBy { it.title.lowercase() }
                 .thenBy { it.id },
         )
+
+private fun List<Pair<LibrarySeriesIdentity, LibraryMediaItem>>.preferredSeriesTitle(): String =
+    groupingBy { (seriesIdentity, _) -> seriesIdentity.title }
+        .eachCount()
+        .entries
+        .sortedWith(
+            compareByDescending<Map.Entry<String, Int>> { it.value }
+                .thenBy { it.key.length }
+                .thenBy { it.key },
+        )
+        .firstOrNull()
+        ?.key
+        ?: "Series"
 
 fun LibraryCatalog.seriesWatchSummaryById(
     progresses: List<PlaybackProgress>,

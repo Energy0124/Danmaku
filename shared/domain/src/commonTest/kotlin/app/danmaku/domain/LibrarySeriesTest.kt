@@ -19,6 +19,21 @@ class LibrarySeriesTest {
     }
 
     @Test
+    fun groupsLocalSeriesWithSameStableIdIntoSingleSeries() {
+        val catalog = catalogOf(
+            item(id = "space", seriesTitle = "Jujutsu Kaisen", episodeTitle = "Episode 01"),
+            item(id = "hyphen", seriesTitle = "Jujutsu-Kaisen", episodeTitle = "Episode 02"),
+        )
+
+        val series = catalog.groupedSeries().single()
+
+        assertEquals("jujutsu-kaisen", series.id)
+        assertEquals("Jujutsu Kaisen", series.title)
+        assertEquals(2, series.episodeCount)
+        assertEquals(listOf("space", "hyphen"), series.seasons.single().items.map { it.id })
+    }
+
+    @Test
     fun infersSeasonsFromEpisodeTitlesAndRelativePaths() {
         val catalog = catalogOf(
             item(
