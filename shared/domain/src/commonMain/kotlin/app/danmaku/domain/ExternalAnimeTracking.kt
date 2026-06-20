@@ -130,6 +130,7 @@ data class ExternalAnimeTrackingUpdate(
     }
 }
 
+@Serializable
 data class ExternalAnimeListEntry(
     val animeId: ExternalAnimeId,
     val status: ExternalAnimeListStatus? = null,

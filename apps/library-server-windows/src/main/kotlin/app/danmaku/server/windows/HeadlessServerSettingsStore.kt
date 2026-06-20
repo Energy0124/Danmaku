@@ -151,15 +151,24 @@ internal class HeadlessServerSettingsStore(
         )
     }
 
-    private fun JsonObject.toExternalAnimeSettings(): HeadlessExternalAnimeProviderSettings =
-        HeadlessExternalAnimeProviderSettings(
+    private fun JsonObject.toExternalAnimeSettings(): HeadlessExternalAnimeProviderSettings {
+        val myAnimeListClientSecret = stringOrNull("myAnimeListClientSecret")
+        val myAnimeListAccessToken = stringOrNull("myAnimeListAccessToken")
+        val bangumiAccessToken = stringOrNull("bangumiAccessToken")
+        return HeadlessExternalAnimeProviderSettings(
             myAnimeListClientId = stringOrNull("myAnimeListClientId"),
-            hasMyAnimeListClientSecret = booleanOrNull("hasMyAnimeListClientSecret") ?: false,
-            hasMyAnimeListAccessToken = booleanOrNull("hasMyAnimeListAccessToken") ?: false,
+            myAnimeListClientSecret = myAnimeListClientSecret,
+            hasMyAnimeListClientSecret = myAnimeListClientSecret != null ||
+                booleanOrNull("hasMyAnimeListClientSecret") == true,
+            myAnimeListAccessToken = myAnimeListAccessToken,
+            hasMyAnimeListAccessToken = myAnimeListAccessToken != null ||
+                booleanOrNull("hasMyAnimeListAccessToken") == true,
             bangumiBaseUrl = stringOrNull("bangumiBaseUrl") ?: DEFAULT_BANGUMI_BASE_URL,
             bangumiUserAgent = stringOrNull("bangumiUserAgent") ?: DEFAULT_BANGUMI_USER_AGENT,
-            hasBangumiAccessToken = booleanOrNull("hasBangumiAccessToken") ?: false,
+            bangumiAccessToken = bangumiAccessToken,
+            hasBangumiAccessToken = bangumiAccessToken != null || booleanOrNull("hasBangumiAccessToken") == true,
         )
+    }
 
     private fun JsonObject.stringOrNull(name: String): String? =
         runCatching {
@@ -226,18 +235,30 @@ internal enum class HeadlessDandanplayAuthenticationMode {
 
 internal data class HeadlessExternalAnimeProviderSettings(
     val myAnimeListClientId: String? = null,
-    val hasMyAnimeListClientSecret: Boolean = false,
-    val hasMyAnimeListAccessToken: Boolean = false,
+    val myAnimeListClientSecret: String? = null,
+    val hasMyAnimeListClientSecret: Boolean = myAnimeListClientSecret != null,
+    val myAnimeListAccessToken: String? = null,
+    val hasMyAnimeListAccessToken: Boolean = myAnimeListAccessToken != null,
     val bangumiBaseUrl: String = DEFAULT_BANGUMI_BASE_URL,
     val bangumiUserAgent: String = DEFAULT_BANGUMI_USER_AGENT,
-    val hasBangumiAccessToken: Boolean = false,
+    val bangumiAccessToken: String? = null,
+    val hasBangumiAccessToken: Boolean = bangumiAccessToken != null,
 ) {
     init {
         require(myAnimeListClientId == null || myAnimeListClientId.isNotBlank()) {
             "myAnimeListClientId must not be blank"
         }
+        require(myAnimeListClientSecret == null || myAnimeListClientSecret.isNotBlank()) {
+            "myAnimeListClientSecret must not be blank"
+        }
+        require(myAnimeListAccessToken == null || myAnimeListAccessToken.isNotBlank()) {
+            "myAnimeListAccessToken must not be blank"
+        }
         require(bangumiBaseUrl.isHttpsBaseUrl()) { "Bangumi base URL must be HTTPS" }
         require(bangumiUserAgent.isNotBlank()) { "Bangumi user agent must not be blank" }
+        require(bangumiAccessToken == null || bangumiAccessToken.isNotBlank()) {
+            "bangumiAccessToken must not be blank"
+        }
     }
 }
 

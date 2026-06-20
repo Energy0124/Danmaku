@@ -169,3 +169,9 @@ Default thresholds:
   leaving desktop compatibility typealiases in place and adding shared JVM tests
   for list readback/write payloads. Next headless step is route wiring around
   these shared clients, not another provider implementation.
+- 2026-06-20: Added the headless server's authenticated `/api/providers/list/entry`
+  route for MAL/Bangumi list readback and updates, backed by the shared tracking
+  clients. Headless settings can load raw provider access tokens in memory while
+  persisting only non-secret credential flags, and the web API module now has
+  typed read/write helpers for later provider admin controls. Verification:
+  `.\gradlew.bat --no-daemon :shared:domain:jvmTest :shared:library-server-core:jvmTest :apps:library-server-windows:test`.

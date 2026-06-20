@@ -1,7 +1,10 @@
 package app.danmaku.server.windows
 
+import app.danmaku.domain.ExternalAnimeId
+import app.danmaku.domain.ExternalAnimeListEntry
 import app.danmaku.domain.ExternalAnimeMatchQuery
 import app.danmaku.domain.ExternalAnimeProvider
+import app.danmaku.domain.ExternalAnimeTrackingUpdate
 import app.danmaku.domain.LanDandanplayProviderStatus
 import app.danmaku.domain.LanDandanplayRuntimeCapability
 import app.danmaku.domain.LanExternalAnimeProviderStatus
@@ -19,6 +22,8 @@ import app.danmaku.server.LocalLibraryDiscoveryAnnouncer
 import app.danmaku.server.LocalLibraryServer
 import app.danmaku.server.PublicGetHook
 import app.danmaku.server.PublicGetHookResponse
+import app.danmaku.server.PublicRequestHook
+import app.danmaku.server.PublicRequestHookRequest
 import app.danmaku.server.PublishedLibrary
 import app.danmaku.server.StaticWebAssets
 import kotlinx.serialization.encodeToString
@@ -155,6 +160,8 @@ internal class HeadlessLibraryServer(
     },
     private val externalAnimeSearchServiceFactory: (HeadlessServerSettings) -> HeadlessExternalAnimeSearchService =
         { settings -> settings.toExternalAnimeSearchService() },
+    private val externalAnimeTrackingServiceFactory: (HeadlessServerSettings) -> HeadlessExternalAnimeTrackingService =
+        { settings -> settings.toExternalAnimeTrackingService() },
     private val dandanplayProviderServiceFactory: (HeadlessServerSettings) -> HeadlessDandanplayProviderService =
         { settings -> settings.toDandanplayProviderService() },
 ) : AutoCloseable,
@@ -166,6 +173,7 @@ internal class HeadlessLibraryServer(
     private val settingsStore = HeadlessServerSettingsStore(options.dataDirectory.resolve("server-settings.json"))
     private val serverSettings = settingsStore.loadOrCreate(options.pairingToken)
     private val externalAnimeSearchService = externalAnimeSearchServiceFactory(serverSettings)
+    private val externalAnimeTrackingService = externalAnimeTrackingServiceFactory(serverSettings)
     private val dandanplayProviderService = dandanplayProviderServiceFactory(serverSettings)
     private val libraryRoots = options.libraryRoots.ifEmpty { serverSettings.libraryRoots }
     private val cachedLibrary = catalogStore.load()
@@ -306,6 +314,9 @@ internal class HeadlessLibraryServer(
                 serverSettings.providerSearchHook(externalAnimeSearchService),
                 serverSettings.dandanplayResolveHook(dandanplayProviderService) { publishedLibrary },
             ),
+            publicRequestHooks = listOf(
+                serverSettings.providerListEntryHook(externalAnimeTrackingService),
+            ),
             webAssets = options.webAssetsRoot?.let(::StaticWebAssets),
             hostMode = LanLibraryServerStatus.HOST_MODE_HEADLESS_SERVER,
             providerSettings = serverSettings.toLanProviderSettingsStatus(),
@@ -411,6 +422,110 @@ private fun String.toExternalAnimeProviderOrNull(): ExternalAnimeProvider? =
         else -> null
     }
 
+private fun HeadlessServerSettings.providerListEntryHook(
+    trackingService: HeadlessExternalAnimeTrackingService,
+): PublicRequestHook =
+    PublicRequestHook("/api/providers/list/entry") { request ->
+        if (!request.queryParameters.hasPairingToken(pairingToken)) {
+            PublicGetHookResponse(status = 401, body = "Unauthorized.")
+        } else {
+            request.toProviderListEntryResponse(trackingService)
+        }
+    }
+
+private fun PublicRequestHookRequest.toProviderListEntryResponse(
+    trackingService: HeadlessExternalAnimeTrackingService,
+): PublicGetHookResponse =
+    when (method) {
+        "GET" -> queryParameters.toProviderListReadResponse(trackingService)
+        "POST" -> toProviderListWriteResponse(trackingService)
+        else -> PublicGetHookResponse(status = 405, body = "Method not allowed.")
+    }
+
+private fun Map<String, String>.toProviderListReadResponse(
+    trackingService: HeadlessExternalAnimeTrackingService,
+): PublicGetHookResponse {
+    val animeId = toExternalAnimeIdQuery() ?: return invalidExternalAnimeIdResponse()
+    if (animeId.provider == ExternalAnimeProvider.DANDANPLAY) {
+        return PublicGetHookResponse(status = 400, body = "dandanplay does not support external list entries.")
+    }
+    return runCatching { trackingService.fetchListEntry(animeId) }
+        .fold(
+            onSuccess = { entry ->
+                if (entry == null) {
+                    PublicGetHookResponse(status = 404, body = "External list entry was not found.")
+                } else {
+                    entry.toProviderListSuccessResponse()
+                }
+            },
+            onFailure = { error -> error.toProviderListFailureResponse() },
+        )
+}
+
+private fun PublicRequestHookRequest.toProviderListWriteResponse(
+    trackingService: HeadlessExternalAnimeTrackingService,
+): PublicGetHookResponse {
+    val update = runCatching {
+        headlessServerJson.decodeFromString<ExternalAnimeTrackingUpdate>(body)
+    }.getOrNull()
+        ?: return PublicGetHookResponse(
+            status = 400,
+            body = "Request body must be an ExternalAnimeTrackingUpdate JSON object.",
+        )
+    if (update.animeId.provider == ExternalAnimeProvider.DANDANPLAY) {
+        return PublicGetHookResponse(status = 400, body = "dandanplay does not support external list entries.")
+    }
+    return runCatching { trackingService.updateListEntry(update) }
+        .fold(
+            onSuccess = ExternalAnimeListEntry::toProviderListSuccessResponse,
+            onFailure = Throwable::toProviderListFailureResponse,
+        )
+}
+
+private fun Map<String, String>.toExternalAnimeIdQuery(): ExternalAnimeId? {
+    val provider = get("provider")
+        ?.trim()
+        ?.takeIf(String::isNotBlank)
+        ?.toExternalAnimeProviderOrNull()
+        ?: return null
+    val value = get("animeId")
+        ?.trim()
+        ?.toLongOrNull()
+        ?.takeIf { it > 0 }
+        ?: return null
+    return ExternalAnimeId(provider, value)
+}
+
+private fun Map<String, String>.invalidExternalAnimeIdResponse(): PublicGetHookResponse {
+    val provider = get("provider")?.trim()
+    if (provider.isNullOrBlank()) {
+        return PublicGetHookResponse(status = 400, body = "Query parameter 'provider' is required.")
+    }
+    if (provider.toExternalAnimeProviderOrNull() == null) {
+        return PublicGetHookResponse(status = 400, body = "Unsupported provider '$provider'.")
+    }
+    return PublicGetHookResponse(status = 400, body = "Query parameter 'animeId' must be positive.")
+}
+
+private fun ExternalAnimeListEntry.toProviderListSuccessResponse(): PublicGetHookResponse =
+    PublicGetHookResponse(
+        status = 200,
+        contentType = "application/json; charset=utf-8",
+        body = headlessServerJson.encodeToString(this),
+    )
+
+private fun Throwable.toProviderListFailureResponse(): PublicGetHookResponse =
+    when (this) {
+        is HeadlessExternalAnimeTrackingUnavailableException -> PublicGetHookResponse(
+            status = 409,
+            body = message ?: "Provider list sync credentials are not configured.",
+        )
+        else -> PublicGetHookResponse(
+            status = 502,
+            body = "external list request failed: ${message ?: this::class.simpleName}",
+        )
+    }
+
 private fun HeadlessServerSettings.dandanplayResolveHook(
     providerService: HeadlessDandanplayProviderService,
     publishedLibraryProvider: () -> PublishedLibrary,
@@ -499,13 +614,14 @@ private fun HeadlessDandanplayProviderSettings.toLanRuntimeCapability(): LanDand
 
 private fun HeadlessExternalAnimeProviderSettings.toMyAnimeListRuntimeCapability(): LanExternalAnimeRuntimeCapability {
     val searchAvailable = myAnimeListClientId != null
+    val listAvailable = myAnimeListAccessToken != null
     return LanExternalAnimeRuntimeCapability(
         searchAvailable = searchAvailable,
-        listReadAvailable = hasMyAnimeListAccessToken,
-        listWriteAvailable = hasMyAnimeListAccessToken,
-        authenticated = hasMyAnimeListAccessToken,
+        listReadAvailable = listAvailable,
+        listWriteAvailable = listAvailable,
+        authenticated = listAvailable,
         reasonCode = when {
-            hasMyAnimeListAccessToken -> "oauth-token-saved"
+            listAvailable -> "oauth-token-saved"
             searchAvailable && hasMyAnimeListClientSecret -> "client-secret-saved"
             searchAvailable -> "client-id-saved"
             else -> "missing-client-id"
@@ -513,14 +629,16 @@ private fun HeadlessExternalAnimeProviderSettings.toMyAnimeListRuntimeCapability
     )
 }
 
-private fun HeadlessExternalAnimeProviderSettings.toBangumiRuntimeCapability(): LanExternalAnimeRuntimeCapability =
-    LanExternalAnimeRuntimeCapability(
+private fun HeadlessExternalAnimeProviderSettings.toBangumiRuntimeCapability(): LanExternalAnimeRuntimeCapability {
+    val listAvailable = bangumiAccessToken != null
+    return LanExternalAnimeRuntimeCapability(
         searchAvailable = true,
-        listReadAvailable = hasBangumiAccessToken,
-        listWriteAvailable = hasBangumiAccessToken,
-        authenticated = hasBangumiAccessToken,
-        reasonCode = if (hasBangumiAccessToken) "access-token-saved" else "public-search",
+        listReadAvailable = listAvailable,
+        listWriteAvailable = listAvailable,
+        authenticated = listAvailable,
+        reasonCode = if (listAvailable) "access-token-saved" else "public-search",
     )
+}
 
 private fun Map<String, String>.hasPairingToken(expectedToken: String): Boolean {
     val suppliedToken = this["token"] ?: return false

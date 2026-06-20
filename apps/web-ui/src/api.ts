@@ -61,6 +61,30 @@ export interface ExternalAnimeId {
   value: number;
 }
 
+export type ExternalAnimeListStatus =
+  | "WATCHING"
+  | "COMPLETED"
+  | "ON_HOLD"
+  | "DROPPED"
+  | "PLAN_TO_WATCH";
+
+export interface ExternalAnimeListEntry {
+  animeId: ExternalAnimeId;
+  status?: ExternalAnimeListStatus | null;
+  watchedEpisodes?: number | null;
+  score?: number | null;
+  updatedAtEpochMs?: number | null;
+}
+
+export interface ExternalAnimeTrackingUpdate {
+  animeId: ExternalAnimeId;
+  status?: ExternalAnimeListStatus | null;
+  watchedEpisodes?: number | null;
+  score?: number | null;
+  trackingEnabled?: boolean;
+  ratingEnabled?: boolean;
+}
+
 export interface ExternalAnimeTitleSet {
   primary: string;
   chinese?: string | null;
@@ -225,6 +249,42 @@ export async function fetchProviderSearch(
   return readJson<ExternalAnimeMatchCandidate[]>(
     `${normalizeBaseUrl(baseUrl)}/api/providers/search?${params.toString()}`
   );
+}
+
+export async function fetchExternalListEntry(
+  baseUrl: string,
+  token: string,
+  animeId: ExternalAnimeId
+): Promise<ExternalAnimeListEntry> {
+  const params = new URLSearchParams({
+    token,
+    provider: animeId.provider,
+    animeId: String(animeId.value)
+  });
+  return readJson<ExternalAnimeListEntry>(
+    `${normalizeBaseUrl(baseUrl)}/api/providers/list/entry?${params.toString()}`
+  );
+}
+
+export async function saveExternalListEntry(
+  baseUrl: string,
+  token: string,
+  update: ExternalAnimeTrackingUpdate
+): Promise<ExternalAnimeListEntry> {
+  const url =
+    `${normalizeBaseUrl(baseUrl)}/api/providers/list/entry?token=${encodeURIComponent(token)}`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json; charset=utf-8"
+    },
+    body: JSON.stringify(update)
+  });
+  if (!response.ok) {
+    throw new DanmakuApiError(`Request failed with HTTP ${response.status}`, response.status);
+  }
+  return response.json() as Promise<ExternalAnimeListEntry>;
 }
 
 export async function fetchDandanplayResolve(

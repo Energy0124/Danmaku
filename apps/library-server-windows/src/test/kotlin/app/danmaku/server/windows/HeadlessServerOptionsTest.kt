@@ -140,6 +140,7 @@ class HeadlessServerOptionsTest {
                 "myAnimeListClientId": "mal-client-id",
                 "myAnimeListClientSecret": "raw-mal-secret",
                 "hasMyAnimeListClientSecret": true,
+                "myAnimeListAccessToken": "raw-mal-token",
                 "hasMyAnimeListAccessToken": true,
                 "bangumiBaseUrl": "https://api.bgm.tv/",
                 "bangumiUserAgent": "Danmaku QA",
@@ -201,6 +202,7 @@ class HeadlessServerOptionsTest {
             val rewritten = settingsFile.toFile().readText()
             assertEquals(false, rewritten.contains("raw-secret"))
             assertEquals(false, rewritten.contains("raw-mal-secret"))
+            assertEquals(false, rewritten.contains("raw-mal-token"))
             assertEquals(false, rewritten.contains("raw-bangumi-token"))
         } finally {
             dataDirectory.toFile().deleteRecursively()

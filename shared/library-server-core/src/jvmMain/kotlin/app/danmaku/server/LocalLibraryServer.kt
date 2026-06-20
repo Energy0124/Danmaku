@@ -26,6 +26,7 @@ class LocalLibraryServer(
     private val progressStore: PlaybackProgressStore = InMemoryPlaybackProgressStore(),
     authenticatedPostHooks: List<AuthenticatedPostHook> = emptyList(),
     publicGetHooks: List<PublicGetHook> = emptyList(),
+    publicRequestHooks: List<PublicRequestHook> = emptyList(),
     private val webAssets: StaticWebAssets? = null,
     private val hostMode: String = LanLibraryServerStatus.HOST_MODE_EMBEDDED_DESKTOP,
     private val providerSettings: LanProviderSettingsStatus? = null,
@@ -47,6 +48,15 @@ class LocalLibraryServer(
         require(publicGetHooks.map(PublicGetHook::path).distinct().size == publicGetHooks.size) {
             "public GET hook paths must be unique"
         }
+        require(publicRequestHooks.map(PublicRequestHook::path).distinct().size == publicRequestHooks.size) {
+            "public request hook paths must be unique"
+        }
+        val hookPaths = authenticatedPostHooks.map(AuthenticatedPostHook::path) +
+            publicGetHooks.map(PublicGetHook::path) +
+            publicRequestHooks.map(PublicRequestHook::path)
+        require(hookPaths.distinct().size == hookPaths.size) {
+            "server hook paths must be unique"
+        }
         server.executor = executor
         server.createContext("/api/server/status", ::handleServerStatus)
         server.createContext("/api/library", ::handleCatalog)
@@ -63,6 +73,11 @@ class LocalLibraryServer(
         publicGetHooks.forEach { hook ->
             server.createContext(hook.path) { exchange ->
                 handlePublicGetHook(exchange, hook)
+            }
+        }
+        publicRequestHooks.forEach { hook ->
+            server.createContext(hook.path) { exchange ->
+                handlePublicRequestHook(exchange, hook)
             }
         }
         webAssets?.let { assets ->
@@ -420,6 +435,37 @@ class LocalLibraryServer(
             }
     }
 
+    private fun handlePublicRequestHook(
+        exchange: HttpExchange,
+        hook: PublicRequestHook,
+    ) {
+        val body = if (exchange.requestMethod in setOf("POST", "PUT", "PATCH")) {
+            exchange.requestBody.bufferedReader().use { it.readText() }
+        } else {
+            ""
+        }
+        runCatching {
+            hook.handle(
+                PublicRequestHookRequest(
+                    method = exchange.requestMethod,
+                    queryParameters = exchange.requestURI.rawQuery.parseQueryParameters(),
+                    body = body,
+                ),
+            )
+        }
+            .onSuccess { response ->
+                exchange.recordRequest("public-hook", response.status, "path=${hook.path}")
+                exchange.sendText(response.status, response.contentType, response.body)
+            }
+            .onFailure { error ->
+                exchange.recordRequest("public-hook", 500, "path=${hook.path}; error=${error.message}")
+                exchange.sendText(
+                    status = 500,
+                    contentType = "text/plain; charset=utf-8",
+                    body = "Request failed.",
+                )
+            }
+    }
     private fun handleWebAsset(exchange: HttpExchange) {
         if (exchange.requestMethod !in setOf("GET", "HEAD")) {
             exchange.recordRequest("web", 405, "method=${exchange.requestMethod}")
@@ -645,6 +691,23 @@ data class PublicGetHookResponse(
     }
 }
 
+data class PublicRequestHook(
+    val path: String,
+    val onAccepted: (PublicRequestHookRequest) -> PublicGetHookResponse,
+) {
+    init {
+        require(path.startsWith("/")) { "public request hook path must be absolute" }
+    }
+
+    fun handle(request: PublicRequestHookRequest): PublicGetHookResponse =
+        onAccepted(request)
+}
+
+data class PublicRequestHookRequest(
+    val method: String,
+    val queryParameters: Map<String, String>,
+    val body: String,
+)
 data class LocalLibraryServerEvent(
     val occurredAtEpochMs: Long,
     val category: String,

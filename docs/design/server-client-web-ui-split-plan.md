@@ -57,7 +57,8 @@ host boundary grows.
   `/api/server/status`, `/api/library`, `/api/progress`, `/media`,
   `/subtitles`, and `/posters`.
 - Implement pairing, catalog browsing, poster display, detail view, HTML5 video
-  playback, progress read/write, provider readiness, and dandanplay match/comment preview first.
+  playback, progress read/write, provider readiness, external-list API helpers,
+  and dandanplay match/comment preview first.
 - Keep web danmaku overlay, admin settings, provider sync controls, and library
   quality workflows as follow-up web features.
 
@@ -77,6 +78,7 @@ host boundary grows.
   `server-settings.json` when CLI roots are absent, expose non-secret provider
   summaries through server status, expose authenticated provider runtime readiness,
   expose authenticated read-only provider mapping search, expose authenticated
+  external list entry read/write for MAL/Bangumi IDs, expose authenticated
   dandanplay match/comment resolve for catalog media, and serve a cached catalog
   when no roots are configured.
 - Headless hosts announce themselves through the existing LAN discovery
@@ -84,10 +86,9 @@ host boundary grows.
 - The dandanplay JVM API client/parsers and MAL/Bangumi external list tracking
   clients now live in `shared:library-server-core`, keeping desktop behavior
   intact while giving the headless host the same provider implementations for
-  authenticated match/comment resolve routes and upcoming list-sync routes.
-- Later work wires the remaining provider settings into headless external list
-  sync operations, adds provider/admin web UI controls, then adds release
-  packaging.
+  authenticated match/comment resolve and external list entry routes.
+- Later work adds provider/admin web UI controls, live-account list-sync QA,
+  remote-only desktop packaging/migration behavior, then release packaging.
 
 ### Phase 5: Desktop Remote Client
 
@@ -114,7 +115,9 @@ host boundary grows.
 - Android mobile and Android TV connect to both embedded and headless hosts.
 - Desktop embedded playback still works.
 - Desktop remote playback streams from a host.
-- Web UI works against embedded and headless hosts, including catalog playback and dandanplay preview controls. The headless path is covered
+- Web UI works against embedded and headless hosts, including catalog playback,
+  external list entry API helpers, and dandanplay preview controls. The
+  headless path is covered
   by `tools/windows/run-headless-web-ui-qa.ps1`, including a restart probe for
   cached catalog and persisted progress readback; embedded-host browser QA
   still needs a dedicated pass before release.

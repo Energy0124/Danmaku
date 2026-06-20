@@ -21,7 +21,8 @@ Status legend:
   matching sidecar subtitles, streams media/subtitles over the existing
   routes, exposes non-secret provider summaries through server status, exposes
   authenticated provider runtime readiness, read-only provider mapping search,
-  and dandanplay match/comment resolve for catalog media,
+  authenticated external list entry read/write for MAL/Bangumi IDs, and
+  dandanplay match/comment resolve for catalog media,
   persists catalog snapshots, stable pairing tokens, provider setting summaries,
   and LAN playback progress under the locked data directory, can load persisted root settings, can boot from the
   cached catalog when roots are not configured, and announces itself through
@@ -41,8 +42,9 @@ Status legend:
   now has an authenticated dandanplay match/comment resolve route for catalog
   media, and the web player shows provider readiness plus a dandanplay
   match/comment preview for the selected episode. Remaining
-  split work: external list-sync provider network actions, remote-only desktop
-  packaging/migration, richer browser interaction QA, and web UI polish.
+  split work: provider/admin web UI controls for external list sync, live-account
+  read/write QA, remote-only desktop packaging/migration, richer browser
+  interaction QA, and web UI polish.
 - `[~]` Resolve P1 review findings from the 2026-06-15 full project review:
   convert expected LAN/provider/media failures away from hard
   `error(...)`/`check(...)` paths, split oversized Android entrypoints, and

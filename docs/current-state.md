@@ -170,8 +170,9 @@ trusted-LAN clients.
   durable catalog snapshots for startup readback, sidecar subtitle discovery,
   shared LAN media/subtitle streaming, non-secret provider status summaries,
   authenticated provider runtime readiness, authenticated read-only provider
-  mapping search, authenticated dandanplay match/comment resolve for catalog
-  media, settings-file root/provider readback, and file-backed playback
+  mapping search, authenticated external list entry read/write for MAL/Bangumi
+  IDs, authenticated dandanplay match/comment resolve for catalog media,
+  settings-file root/provider readback, and file-backed playback
   progress plus stable pairing-token persistence under
   the locked data directory. Headless hosts also announce themselves through
   the existing LAN discovery
@@ -330,8 +331,9 @@ trusted-LAN clients.
 
 ## Not Implemented
 
-- Release-ready headless standalone library server with external list-sync
-  routes/web controls, packaging, and remote-only desktop migration.
+- Release-ready headless standalone library server with provider/admin web
+  controls, live-account external sync QA, packaging, and remote-only desktop
+  migration.
 - Release-ready macOS/Linux/iOS/iPadOS/web targets.
 - Broad provider plugin marketplace or plugin sandboxing.
 - DRM circumvention, unauthorized source scraping, or torrent/search behavior.
