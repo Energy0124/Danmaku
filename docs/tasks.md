@@ -42,7 +42,8 @@ Status legend:
   now has an authenticated dandanplay match/comment resolve route for catalog
   media, and the web player shows provider readiness, dandanplay
   match/comment preview, and manual MAL/Bangumi external-list read/write
-  controls for the selected episode. Remaining split work: mapped-series
+  controls that auto-fill IDs from catalog metadata links for the selected
+  episode. Remaining split work: mapped-series
   provider admin flows, live-account read/write QA, remote-only desktop
   packaging/migration, richer browser interaction QA, and web UI polish.
 - `[~]` Resolve P1 review findings from the 2026-06-15 full project review:

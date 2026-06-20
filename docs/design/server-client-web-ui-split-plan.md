@@ -58,7 +58,8 @@ host boundary grows.
   `/subtitles`, and `/posters`.
 - Implement pairing, catalog browsing, poster display, detail view, HTML5 video
   playback, progress read/write, provider readiness, manual external-list
-  read/write controls, and dandanplay match/comment preview first.
+  read/write controls with metadata-link ID auto-fill, and dandanplay
+  match/comment preview first.
 - Keep web danmaku overlay, admin settings, provider sync controls, and library
   quality workflows as follow-up web features.
 
@@ -116,8 +117,8 @@ host boundary grows.
 - Desktop embedded playback still works.
 - Desktop remote playback streams from a host.
 - Web UI works against embedded and headless hosts, including catalog playback,
-  manual external list entry controls, and dandanplay preview controls. The
-  headless path is covered
+  manual external list entry controls with metadata-link ID auto-fill, and
+  dandanplay preview controls. The headless path is covered
   by `tools/windows/run-headless-web-ui-qa.ps1`, including a restart probe for
   cached catalog and persisted progress readback; embedded-host browser QA
   still needs a dedicated pass before release.

@@ -164,7 +164,8 @@ trusted-LAN clients.
   plan, `shared:library-host-core` host contracts, opt-in desktop
   `--web-assets-dir`/`DANMAKU_WEB_UI_DIST` serving, a Vite TypeScript web UI
   scaffold for pairing/catalog/video/progress, provider readiness, manual
-  external-list read/write controls, and dandanplay match/comment preview, and an
+  external-list read/write controls with metadata-link ID auto-fill,
+  dandanplay match/comment preview, and an
   `apps:library-server-windows` headless JVM host with data-directory locking,
   startup scanning for configured `--root` folders, JSON catalog publishing,
   durable catalog snapshots for startup readback, sidecar subtitle discovery,

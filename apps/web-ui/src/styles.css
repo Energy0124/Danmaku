@@ -424,6 +424,17 @@ video {
   gap: 14px;
 }
 
+.external-list-mappings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.external-list-mappings button {
+  background: #eef7f4;
+  color: #155044;
+  border: 1px solid #9acbb9;
+}
 .external-list-form {
   display: grid;
   grid-template-columns: repeat(5, minmax(110px, 1fr)) auto;

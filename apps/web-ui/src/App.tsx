@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DanmakuApiError,
   DandanplayResolveResult,
+  ExternalAnimeId,
   ExternalAnimeListEntry,
   ExternalAnimeListStatus,
   ExternalAnimeProvider,
@@ -241,6 +242,7 @@ function PlayerPanel({
   const [externalListEntry, setExternalListEntry] = useState<ExternalAnimeListEntry | null>(null);
   const [externalListMessage, setExternalListMessage] = useState("");
   const [isExternalListLoading, setIsExternalListLoading] = useState(false);
+  const mappedExternalAnimeIds = useMemo(() => trackableExternalAnimeIds(item), [item]);
   const externalListCapability = externalListProvider === "MY_ANIME_LIST"
     ? providerRuntime?.myAnimeList
     : providerRuntime?.bangumi;
@@ -261,7 +263,14 @@ function PlayerPanel({
     setDandanplayMessage("");
     setExternalListEntry(null);
     setExternalListMessage("");
-  }, [item.id]);
+    const mappedAnimeId = mappedExternalAnimeIds[0];
+    if (mappedAnimeId) {
+      setExternalListProvider(mappedAnimeId.provider);
+      setExternalAnimeId(String(mappedAnimeId.value));
+    } else {
+      setExternalAnimeId("");
+    }
+  }, [item.id, mappedExternalAnimeIds]);
 
   useEffect(() => {
     setExternalListEntry(null);
@@ -435,6 +444,22 @@ function PlayerPanel({
             </p>
           </div>
         </div>
+        {mappedExternalAnimeIds.length > 0 ? (
+          <div className="external-list-mappings" aria-label="Mapped external IDs">
+            {mappedExternalAnimeIds.map((animeId) => (
+              <button
+                key={`${animeId.provider}-${animeId.value}`}
+                onClick={() => {
+                  setExternalListProvider(animeId.provider);
+                  setExternalAnimeId(String(animeId.value));
+                }}
+                type="button"
+              >
+                {formatExternalAnimeId(animeId)}
+              </button>
+            ))}
+          </div>
+        ) : null}
         <div className="external-list-form">
           <label>
             Provider
@@ -581,6 +606,40 @@ function parsePositiveExternalAnimeId(value: string): number | null {
   const parsed = Number(value.trim());
   if (!Number.isInteger(parsed) || parsed <= 0) return null;
   return parsed;
+}
+
+function trackableExternalAnimeIds(item: LibraryMediaItem): ExternalAnimeId[] {
+  const ids = [
+    item.animeMetadata?.animeId,
+    ...(item.animeMetadata?.externalLinks ?? []).map((link) => link.animeId)
+  ];
+  const seen = new Set<string>();
+  return ids.filter((animeId): animeId is ExternalAnimeId => {
+    if (!animeId || !isExternalListProvider(animeId.provider)) return false;
+    const key = `${animeId.provider}:${animeId.value}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function isExternalListProvider(provider: ExternalAnimeProvider): boolean {
+  return provider === "MY_ANIME_LIST" || provider === "BANGUMI";
+}
+
+function formatExternalAnimeId(animeId: ExternalAnimeId): string {
+  return `${providerLabel(animeId.provider)} ${animeId.value}`;
+}
+
+function providerLabel(provider: ExternalAnimeProvider): string {
+  switch (provider) {
+    case "MY_ANIME_LIST":
+      return "MAL";
+    case "BANGUMI":
+      return "Bangumi";
+    case "DANDANPLAY":
+      return "Dandanplay";
+  }
 }
 
 function parseOptionalInteger(value: string, min: number, max: number, label: string): number | undefined {

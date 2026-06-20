@@ -183,6 +183,21 @@ export interface LibraryMediaItem {
   subtitles?: LibrarySubtitleTrack[];
   durationMs?: number | null;
   episodeNumber?: number | null;
+  animeMetadata?: LibraryAnimeMetadata | null;
+}
+
+export interface LibraryAnimeMetadata {
+  animeId: ExternalAnimeId;
+  displayTitle: string;
+  primaryTitle: string;
+  chineseTitle?: string | null;
+  englishTitle?: string | null;
+  japaneseTitle?: string | null;
+  alternateNames?: string[];
+  externalLinks?: ExternalAnimeExternalLink[];
+  imageUrl?: string | null;
+  episodeCount?: number | null;
+  startYear?: number | null;
 }
 
 export interface LibrarySubtitleTrack {

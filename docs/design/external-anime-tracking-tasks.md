@@ -178,3 +178,7 @@ Default thresholds:
 - 2026-06-20: Added manual MAL/Bangumi external-list read/write controls to
   the web player panel, gated by provider runtime list readiness and backed by
   the typed web API helpers. Verification: `npm run build` in `apps/web-ui`.
+- 2026-06-20: Made the web external-list panel mapping-aware by using
+  catalog `animeMetadata.externalLinks` to auto-fill MAL/Bangumi IDs and expose
+  quick-select mapped-ID buttons when a selected episode has provider links.
+  Verification: `npm run build` in `apps/web-ui`.
