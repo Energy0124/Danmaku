@@ -176,6 +176,13 @@ try {
     if ($dandanplayBaseUrl -ne "https://api.dandanplay.net") {
         throw "Unexpected dandanplay status base URL: $dandanplayBaseUrl"
     }
+    $providerRuntime = (Invoke-JsonRequest -Uri "$baseUrl/api/providers/runtime?token=$PairingToken").Content | ConvertFrom-Json
+    if ($providerRuntime.dandanplay.reasonCode -ne "missing-credentials") {
+        throw "Unexpected dandanplay runtime reason: $($providerRuntime.dandanplay.reasonCode)"
+    }
+    if ($providerRuntime.bangumi.searchAvailable -ne $true) {
+        throw "Expected Bangumi public search readiness."
+    }
 
     $webIndex = Invoke-WebRequest -Uri "$baseUrl/web/" -UseBasicParsing
     if ($webIndex.StatusCode -ne 200 -or $webIndex.Content -notmatch "Danmaku") {
@@ -251,6 +258,7 @@ try {
         "- First item: $($item.seriesTitle) / $($item.episodeTitle)",
         "- Subtitle tracks: $($item.subtitles.Count)",
         "- Provider status: dandanplay $dandanplayBaseUrl",
+        "- Provider runtime: dandanplay $($providerRuntime.dandanplay.reasonCode), bangumiSearch=$($providerRuntime.bangumi.searchAvailable)",
         "- Progress readback: $($saved.positionMs) ms",
         "- Restart catalog items: $($restartCatalog.items.Count)",
         "- Restart progress readback: $($restartSaved.positionMs) ms",

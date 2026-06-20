@@ -19,12 +19,12 @@ Status legend:
   The headless server now starts the shared LAN server, locks its data
   directory, scans configured `--root` folders into a basic catalog, discovers
   matching sidecar subtitles, streams media/subtitles over the existing
-  routes, exposes non-secret provider summaries through server status, persists
-  catalog snapshots, stable pairing tokens, provider setting summaries, and LAN
-  playback progress under the locked data directory, can
-  load persisted root settings, can boot from the cached catalog when roots are
-  not configured, and announces itself through the existing LAN discovery
-  protocol.
+  routes, exposes non-secret provider summaries through server status, exposes
+  authenticated provider runtime readiness, persists catalog snapshots, stable
+  pairing tokens, provider setting summaries, and LAN playback progress under the
+  locked data directory, can load persisted root settings, can boot from the
+  cached catalog when roots are not configured, and announces itself through
+  the existing LAN discovery protocol.
   Desktop now has
   launch-driven remote-client mode using `--remote-server-url`,
   `--remote-pairing-token`, `DANMAKU_REMOTE_SERVER_URL`, and
@@ -34,7 +34,7 @@ Status legend:
   media, subtitle metadata, and progress readback, then restarts without
   explicit roots/token to verify cached catalog and persisted progress readback
   before writing a PASS report.
-  Remaining split work: provider runtime actions, remote-only desktop
+  Remaining split work: provider network actions, remote-only desktop
   packaging/migration, richer browser interaction QA, and web UI polish.
 - `[~]` Resolve P1 review findings from the 2026-06-15 full project review:
   convert expected LAN/provider/media failures away from hard

@@ -2,6 +2,7 @@ package app.danmaku.server.windows
 
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LanLibraryServerStatus
+import app.danmaku.domain.LanProviderRuntimeStatus
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.host.LibraryHostMode
 import app.danmaku.host.LibraryHostOperationStatus
@@ -177,8 +178,9 @@ class HeadlessServerOptionsTest {
                 ),
             ).use { server ->
                 server.start()
+                val baseUrl = server.runtimeStatus.baseUrls.first()
                 val status = Json.decodeFromString<LanLibraryServerStatus>(
-                    connection("${server.runtimeStatus.baseUrls.first()}/api/server/status")
+                    connection("$baseUrl/api/server/status")
                         .inputStream
                         .bufferedReader()
                         .use { it.readText() },
@@ -197,6 +199,26 @@ class HeadlessServerOptionsTest {
                 assertEquals(settings.externalAnime.bangumiBaseUrl, status.providerSettings?.externalAnime?.bangumiBaseUrl)
                 assertEquals(settings.externalAnime.bangumiUserAgent, status.providerSettings?.externalAnime?.bangumiUserAgent)
                 assertEquals(settings.externalAnime.hasBangumiAccessToken, status.providerSettings?.externalAnime?.hasBangumiAccessToken)
+
+                assertEquals(401, connection("$baseUrl/api/providers/runtime").responseCode)
+                val runtime = Json.decodeFromString<LanProviderRuntimeStatus>(
+                    connection("$baseUrl/api/providers/runtime?token=${settings.pairingToken}")
+                        .inputStream
+                        .bufferedReader()
+                        .use { it.readText() },
+                )
+                assertEquals(true, runtime.dandanplay.matchAvailable)
+                assertEquals(true, runtime.dandanplay.commentFetchAvailable)
+                assertEquals(true, runtime.dandanplay.authenticated)
+                assertEquals("credentials-configured", runtime.dandanplay.reasonCode)
+                assertEquals(true, runtime.myAnimeList.searchAvailable)
+                assertEquals(true, runtime.myAnimeList.listReadAvailable)
+                assertEquals(true, runtime.myAnimeList.listWriteAvailable)
+                assertEquals("oauth-token-saved", runtime.myAnimeList.reasonCode)
+                assertEquals(true, runtime.bangumi.searchAvailable)
+                assertEquals(true, runtime.bangumi.listReadAvailable)
+                assertEquals(true, runtime.bangumi.listWriteAvailable)
+                assertEquals("access-token-saved", runtime.bangumi.reasonCode)
             }
         } finally {
             dataDirectory.toFile().deleteRecursively()

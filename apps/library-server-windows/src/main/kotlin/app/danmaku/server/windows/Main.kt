@@ -1,8 +1,11 @@
 package app.danmaku.server.windows
 
 import app.danmaku.domain.LanDandanplayProviderStatus
+import app.danmaku.domain.LanDandanplayRuntimeCapability
 import app.danmaku.domain.LanExternalAnimeProviderStatus
+import app.danmaku.domain.LanExternalAnimeRuntimeCapability
 import app.danmaku.domain.LanLibraryServerStatus
+import app.danmaku.domain.LanProviderRuntimeStatus
 import app.danmaku.domain.LanProviderSettingsStatus
 import app.danmaku.host.LibraryHostMode
 import app.danmaku.host.LibraryHostOperationResult
@@ -12,10 +15,15 @@ import app.danmaku.host.LibraryHostService
 import app.danmaku.server.FilePlaybackProgressStore
 import app.danmaku.server.LocalLibraryDiscoveryAnnouncer
 import app.danmaku.server.LocalLibraryServer
+import app.danmaku.server.PublicGetHook
+import app.danmaku.server.PublicGetHookResponse
 import app.danmaku.server.PublishedLibrary
 import app.danmaku.server.StaticWebAssets
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import java.nio.channels.FileChannel
 import java.nio.channels.FileLock
+import java.security.MessageDigest
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
@@ -281,6 +289,7 @@ internal class HeadlessLibraryServer(
             port = options.port,
             pairingToken = serverSettings.pairingToken,
             progressStore = progressStore,
+            publicGetHooks = listOf(serverSettings.providerRuntimeHook()),
             webAssets = options.webAssetsRoot?.let(::StaticWebAssets),
             hostMode = LanLibraryServerStatus.HOST_MODE_HEADLESS_SERVER,
             providerSettings = serverSettings.toLanProviderSettingsStatus(),
@@ -305,6 +314,72 @@ private fun HeadlessServerSettings.toLanProviderSettingsStatus(): LanProviderSet
             hasBangumiAccessToken = externalAnime.hasBangumiAccessToken,
         ),
     )
+
+private val headlessServerJson = Json {
+    encodeDefaults = true
+}
+
+private fun HeadlessServerSettings.providerRuntimeHook(): PublicGetHook =
+    PublicGetHook("/api/providers/runtime") { queryParameters ->
+        if (!queryParameters.hasPairingToken(pairingToken)) {
+            PublicGetHookResponse(status = 401, body = "Unauthorized.")
+        } else {
+            PublicGetHookResponse(
+                status = 200,
+                contentType = "application/json; charset=utf-8",
+                body = headlessServerJson.encodeToString(toLanProviderRuntimeStatus()),
+            )
+        }
+    }
+
+private fun HeadlessServerSettings.toLanProviderRuntimeStatus(): LanProviderRuntimeStatus =
+    LanProviderRuntimeStatus(
+        dandanplay = dandanplay.toLanRuntimeCapability(),
+        myAnimeList = externalAnime.toMyAnimeListRuntimeCapability(),
+        bangumi = externalAnime.toBangumiRuntimeCapability(),
+    )
+
+private fun HeadlessDandanplayProviderSettings.toLanRuntimeCapability(): LanDandanplayRuntimeCapability =
+    LanDandanplayRuntimeCapability(
+        matchAvailable = isFetchEnabled,
+        commentFetchAvailable = isFetchEnabled,
+        authenticated = hasCredentials,
+        reasonCode = when {
+            hasCredentials -> "credentials-configured"
+            isFetchEnabled -> "compatible-api-server"
+            else -> "missing-credentials"
+        },
+    )
+
+private fun HeadlessExternalAnimeProviderSettings.toMyAnimeListRuntimeCapability(): LanExternalAnimeRuntimeCapability {
+    val searchAvailable = myAnimeListClientId != null
+    return LanExternalAnimeRuntimeCapability(
+        searchAvailable = searchAvailable,
+        listReadAvailable = hasMyAnimeListAccessToken,
+        listWriteAvailable = hasMyAnimeListAccessToken,
+        authenticated = hasMyAnimeListAccessToken,
+        reasonCode = when {
+            hasMyAnimeListAccessToken -> "oauth-token-saved"
+            searchAvailable && hasMyAnimeListClientSecret -> "client-secret-saved"
+            searchAvailable -> "client-id-saved"
+            else -> "missing-client-id"
+        },
+    )
+}
+
+private fun HeadlessExternalAnimeProviderSettings.toBangumiRuntimeCapability(): LanExternalAnimeRuntimeCapability =
+    LanExternalAnimeRuntimeCapability(
+        searchAvailable = true,
+        listReadAvailable = hasBangumiAccessToken,
+        listWriteAvailable = hasBangumiAccessToken,
+        authenticated = hasBangumiAccessToken,
+        reasonCode = if (hasBangumiAccessToken) "access-token-saved" else "public-search",
+    )
+
+private fun Map<String, String>.hasPairingToken(expectedToken: String): Boolean {
+    val suppliedToken = this["token"] ?: return false
+    return MessageDigest.isEqual(expectedToken.toByteArray(), suppliedToken.toByteArray())
+}
 
 private class DataDirectoryLock private constructor(
     private val channel: FileChannel,

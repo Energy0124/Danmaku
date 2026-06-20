@@ -166,8 +166,8 @@ trusted-LAN clients.
   startup scanning for configured `--root` folders, JSON catalog publishing,
   durable catalog snapshots for startup readback, sidecar subtitle discovery,
   shared LAN media/subtitle streaming, non-secret provider status summaries,
-  settings-file root/provider readback, and file-backed playback progress plus
-  stable pairing-token persistence under
+  authenticated provider runtime readiness, settings-file root/provider readback,
+  and file-backed playback progress plus stable pairing-token persistence under
   the locked data directory. Headless hosts also announce themselves through
   the existing LAN discovery
   protocol after the HTTP server binds. The repeatable

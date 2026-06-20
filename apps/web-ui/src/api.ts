@@ -33,6 +33,27 @@ export interface LanExternalAnimeProviderStatus {
   hasBangumiAccessToken: boolean;
 }
 
+export interface LanProviderRuntimeStatus {
+  dandanplay: LanDandanplayRuntimeCapability;
+  myAnimeList: LanExternalAnimeRuntimeCapability;
+  bangumi: LanExternalAnimeRuntimeCapability;
+}
+
+export interface LanDandanplayRuntimeCapability {
+  matchAvailable: boolean;
+  commentFetchAvailable: boolean;
+  authenticated: boolean;
+  reasonCode: string;
+}
+
+export interface LanExternalAnimeRuntimeCapability {
+  searchAvailable: boolean;
+  listReadAvailable: boolean;
+  listWriteAvailable: boolean;
+  authenticated: boolean;
+  reasonCode: string;
+}
+
 export interface LibraryCatalog {
   rootName: string;
   indexedAtEpochMs: number;
@@ -84,6 +105,15 @@ export class DanmakuApiError extends Error {
 
 export async function fetchServerStatus(baseUrl: string): Promise<LanLibraryServerStatus> {
   return readJson<LanLibraryServerStatus>(`${normalizeBaseUrl(baseUrl)}/api/server/status`);
+}
+
+export async function fetchProviderRuntime(
+  baseUrl: string,
+  token: string
+): Promise<LanProviderRuntimeStatus> {
+  return readJson<LanProviderRuntimeStatus>(
+    `${normalizeBaseUrl(baseUrl)}/api/providers/runtime?token=${encodeURIComponent(token)}`
+  );
 }
 
 export async function fetchLibrarySnapshot(baseUrl: string, token: string): Promise<LibrarySnapshot> {

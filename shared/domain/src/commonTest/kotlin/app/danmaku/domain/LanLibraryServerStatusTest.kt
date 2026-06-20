@@ -30,6 +30,12 @@ class LanLibraryServerStatusTest {
         assertFailsWith<IllegalArgumentException> {
             LanExternalAnimeProviderStatus(bangumiUserAgent = " ")
         }
+        assertFailsWith<IllegalArgumentException> {
+            LanDandanplayRuntimeCapability(reasonCode = " ")
+        }
+        assertFailsWith<IllegalArgumentException> {
+            LanExternalAnimeRuntimeCapability(reasonCode = " ")
+        }
     }
 
     @Test

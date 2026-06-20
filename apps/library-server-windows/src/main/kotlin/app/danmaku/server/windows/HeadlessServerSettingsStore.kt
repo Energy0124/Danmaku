@@ -206,6 +206,12 @@ internal data class HeadlessDandanplayProviderSettings(
             "dandanplay cache max age must be at least $MIN_DANDANPLAY_CACHE_MAX_AGE_DAYS day"
         }
     }
+
+    val hasCredentials: Boolean
+        get() = appId != null && hasAppSecret
+
+    val isFetchEnabled: Boolean
+        get() = hasCredentials || baseUrl != DEFAULT_DANDANPLAY_BASE_URL
 }
 
 internal enum class HeadlessDandanplayAuthenticationMode {
