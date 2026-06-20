@@ -13,9 +13,12 @@ import java.util.Collections
 import java.util.concurrent.Callable
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.io.path.createDirectories
+import kotlin.io.path.createTempDirectory
 import kotlin.io.path.createTempFile
 import kotlin.io.path.deleteIfExists
 import kotlin.io.path.writeBytes
+import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -37,6 +40,70 @@ class LocalLibraryServerTest {
                     response.inputStream.bufferedReader().use { it.readText() },
                 ),
             )
+        }
+    }
+
+    @Test
+    fun servesOptionalWebUiAssetsWithoutChangingApiRoutes() {
+        val temp = createTempDirectory("danmaku-web-assets")
+        val webRoot = temp.resolve("dist").createDirectories()
+        webRoot.resolve("index.html").writeText("<!doctype html><title>Danmaku</title><div id=\"root\"></div>")
+        webRoot.resolve("assets").createDirectories()
+            .resolve("app.js")
+            .writeText("window.__danmaku = true;")
+
+        try {
+            LocalLibraryServer(
+                port = 0,
+                pairingToken = "123456",
+                webAssets = StaticWebAssets(webRoot),
+            ).use { server ->
+                server.start()
+
+                val statusResponse = connection("${server.baseUrl()}/api/server/status")
+                assertEquals(200, statusResponse.responseCode)
+                assertEquals(
+                    LanLibraryServerStatus(
+                        webUiAvailable = true,
+                        webUiPath = "/web",
+                    ),
+                    Json.decodeFromString<LanLibraryServerStatus>(
+                        statusResponse.inputStream.bufferedReader().use { it.readText() },
+                    ),
+                )
+                assertEquals(listOf("${server.baseUrl()}/web/"), server.webUiUrls().take(1))
+
+                val redirect = connection("${server.baseUrl()}/web").apply {
+                    instanceFollowRedirects = false
+                }
+                assertEquals(302, redirect.responseCode)
+                assertEquals("/web/", redirect.getHeaderField("Location"))
+
+                val index = connection("${server.baseUrl()}/web/")
+                assertEquals(200, index.responseCode)
+                assertEquals("text/html; charset=utf-8", index.getHeaderField("Content-Type"))
+                assertEquals("no-store", index.getHeaderField("Cache-Control"))
+                assertTrue(index.inputStream.bufferedReader().use { it.readText() }.contains("Danmaku"))
+
+                val asset = connection("${server.baseUrl()}/web/assets/app.js")
+                assertEquals(200, asset.responseCode)
+                assertEquals("text/javascript; charset=utf-8", asset.getHeaderField("Content-Type"))
+                assertEquals("public, max-age=3600", asset.getHeaderField("Cache-Control"))
+                assertTrue(asset.inputStream.bufferedReader().use { it.readText() }.contains("__danmaku"))
+
+                val fallback = connection(
+                    url = "${server.baseUrl()}/web/series/example",
+                    headers = mapOf("Accept" to "text/html"),
+                )
+                assertEquals(200, fallback.responseCode)
+                assertTrue(fallback.inputStream.bufferedReader().use { it.readText() }.contains("Danmaku"))
+
+                assertEquals(404, connection("${server.baseUrl()}/web/assets/missing.js").responseCode)
+                assertEquals(405, connection("${server.baseUrl()}/web/", method = "POST").responseCode)
+                assertEquals(401, connection("${server.baseUrl()}/api/library").responseCode)
+            }
+        } finally {
+            temp.toFile().deleteRecursively()
         }
     }
 

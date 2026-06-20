@@ -1,0 +1,277 @@
+:root {
+  color-scheme: light;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #f6f7f8;
+  color: #1d252c;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+
+.top-bar {
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+  align-items: end;
+  padding: 18px 24px;
+  background: #ffffff;
+  border-bottom: 1px solid #dce2e8;
+}
+
+.top-bar h1,
+.top-bar p {
+  margin: 0;
+}
+
+.top-bar h1 {
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.top-bar p {
+  margin-top: 4px;
+  color: #596873;
+}
+
+.connection-form {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) 130px auto;
+  gap: 10px;
+  align-items: end;
+  min-width: min(680px, 100%);
+}
+
+.connection-form label {
+  display: grid;
+  gap: 5px;
+  color: #4b5a64;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.connection-form input,
+.search {
+  width: 100%;
+  border: 1px solid #c9d2da;
+  border-radius: 6px;
+  padding: 9px 10px;
+  background: #ffffff;
+  color: #1d252c;
+}
+
+.connection-form button {
+  border: 0;
+  border-radius: 6px;
+  padding: 10px 14px;
+  background: #176b5d;
+  color: #ffffff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.connection-form button:disabled {
+  background: #99aaa5;
+  cursor: default;
+}
+
+.workspace {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(300px, 420px) minmax(0, 1fr);
+}
+
+.library-pane {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  gap: 10px;
+  padding: 16px;
+  border-right: 1px solid #dce2e8;
+  background: #eef2f4;
+}
+
+.library-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.library-toolbar span {
+  color: #596873;
+  font-size: 13px;
+}
+
+.episode-list {
+  min-height: 0;
+  overflow: auto;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.episode-row {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  text-align: left;
+  border: 1px solid #d4dde3;
+  border-radius: 6px;
+  padding: 10px;
+  background: #ffffff;
+  color: inherit;
+  cursor: pointer;
+}
+
+.episode-row.selected {
+  border-color: #176b5d;
+  box-shadow: inset 3px 0 0 #176b5d;
+}
+
+.episode-row span {
+  font-weight: 700;
+}
+
+.episode-row small {
+  color: #596873;
+}
+
+.episode-row progress {
+  width: 100%;
+  height: 5px;
+}
+
+.detail-pane {
+  min-width: 0;
+  min-height: 0;
+  padding: 22px;
+  overflow: auto;
+}
+
+.player-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.media-header {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.media-header img,
+.poster-fallback {
+  width: 112px;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: 6px;
+  background: #21313b;
+  color: #ffffff;
+}
+
+.poster-fallback {
+  display: grid;
+  place-items: center;
+  font-size: 30px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.media-header h2,
+.media-header p {
+  margin: 0;
+}
+
+.media-header h2 {
+  font-size: 26px;
+  line-height: 1.2;
+}
+
+.media-header p {
+  margin-top: 6px;
+  color: #596873;
+}
+
+dl {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0 0;
+}
+
+dl div {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr);
+  gap: 10px;
+}
+
+dt {
+  color: #596873;
+  font-weight: 700;
+}
+
+dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+video {
+  width: 100%;
+  max-height: calc(100vh - 260px);
+  background: #0b0f12;
+  border-radius: 6px;
+}
+
+.empty-state {
+  min-height: 260px;
+  display: grid;
+  place-items: center;
+  color: #596873;
+  border: 1px dashed #b8c4cc;
+  border-radius: 6px;
+}
+
+@media (max-width: 860px) {
+  .top-bar,
+  .workspace,
+  .connection-form,
+  .media-header {
+    grid-template-columns: 1fr;
+  }
+
+  .top-bar {
+    align-items: stretch;
+  }
+
+  .workspace {
+    display: block;
+  }
+
+  .library-pane {
+    border-right: 0;
+    border-bottom: 1px solid #dce2e8;
+    max-height: 46vh;
+  }
+
+  video {
+    max-height: 55vh;
+  }
+}

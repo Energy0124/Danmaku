@@ -9,11 +9,13 @@ internal data class DesktopLaunchOptions(
     val initialLanguage: DesktopUiLanguage? = null,
     val initialTab: DesktopShellTab? = null,
     val serverPort: Int? = null,
+    val webAssetsRoot: Path? = null,
     val qaScreenshot: DesktopQaScreenshotOptions? = null,
 ) {
     companion object {
         const val SMOKE_PLAYBACK_MEDIA_ENV = "DANMAKU_SMOKE_PLAYBACK_MEDIA"
         const val SMOKE_PLAYBACK_SECONDS_ENV = "DANMAKU_SMOKE_PLAYBACK_SECONDS"
+        const val WEB_UI_DIST_ENV = "DANMAKU_WEB_UI_DIST"
 
         fun parse(args: Array<String>): DesktopLaunchOptions =
             parse(args.asList(), System.getenv())
@@ -32,6 +34,9 @@ internal data class DesktopLaunchOptions(
             var initialLanguage: DesktopUiLanguage? = null
             var initialTab: DesktopShellTab? = null
             var serverPort: Int? = null
+            var webAssetsRoot = environment[WEB_UI_DIST_ENV]
+                ?.takeIf(String::isNotBlank)
+                ?.let(Path::of)
             var qaScreenshotDirectory: Path? = null
             var qaScreenshotName: String? = null
             var qaScreenshotDelay = DEFAULT_QA_SCREENSHOT_DELAY
@@ -67,6 +72,16 @@ internal data class DesktopLaunchOptions(
                     }
                     arg.startsWith("--server-port=") -> {
                         serverPort = arg.substringAfter("=").toServerPort()
+                    }
+                    arg == "--web-assets-dir" || arg == "--web-ui-dist" -> {
+                        webAssetsRoot = args.valueAfter(arg, index)?.let(Path::of)
+                        index += 1
+                    }
+                    arg.startsWith("--web-assets-dir=") -> {
+                        webAssetsRoot = arg.substringAfter("=").takeIf(String::isNotBlank)?.let(Path::of)
+                    }
+                    arg.startsWith("--web-ui-dist=") -> {
+                        webAssetsRoot = arg.substringAfter("=").takeIf(String::isNotBlank)?.let(Path::of)
                     }
                     arg == "--qa-screenshot-dir" -> {
                         qaScreenshotDirectory = args.valueAfter(arg, index)?.let(Path::of)
@@ -147,6 +162,7 @@ internal data class DesktopLaunchOptions(
                 initialLanguage = initialLanguage,
                 initialTab = initialTab,
                 serverPort = serverPort,
+                webAssetsRoot = webAssetsRoot,
                 qaScreenshot = qaScreenshotDirectory?.let { outputDirectory ->
                     DesktopQaScreenshotOptions(
                         outputDirectory = outputDirectory,

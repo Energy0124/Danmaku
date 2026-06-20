@@ -53,12 +53,14 @@ class DesktopLaunchOptionsTest {
                 "--ui-language=zh-TW",
                 "--initial-tab=library",
                 "--server-port=0",
+                "--web-assets-dir=apps/web-ui/dist",
             ),
         )
 
         assertEquals(DesktopUiLanguage.ZH_TW, options.initialLanguage)
         assertEquals(DesktopShellTab.MEDIA_LIBRARY, options.initialTab)
         assertEquals(0, options.serverPort)
+        assertEquals(Path.of("apps/web-ui/dist"), options.webAssetsRoot)
     }
 
     @Test
@@ -101,11 +103,13 @@ class DesktopLaunchOptionsTest {
             environment = mapOf(
                 DesktopLaunchOptions.SMOKE_PLAYBACK_MEDIA_ENV to "D:/AniRss/Anime/黄泉使者/S01E01.mkv",
                 DesktopLaunchOptions.SMOKE_PLAYBACK_SECONDS_ENV to "4",
+                DesktopLaunchOptions.WEB_UI_DIST_ENV to "apps/web-ui/dist",
             ),
         )
 
         assertEquals(Path.of("D:/AniRss/Anime/黄泉使者/S01E01.mkv"), options.smokePlayback?.mediaPath)
         assertEquals(4.seconds, options.smokePlayback?.playbackDuration)
+        assertEquals(Path.of("apps/web-ui/dist"), options.webAssetsRoot)
     }
 
     @Test

@@ -295,6 +295,7 @@ internal fun DesktopShell(
             metadataResolver = animeMetadataResolver,
             port = launchOptions.serverPort ?: app.danmaku.server.LocalLibraryServer.DEFAULT_PORT,
             aniRssWebhookToken = aniRssCredentialStore.loadOrCreateWebhookToken(),
+            webAssetsRoot = launchOptions.webAssetsRoot,
             onLibraryPublished = { library ->
                 scope.launch {
                     libraryState.indexedLibrary = library
@@ -357,7 +358,7 @@ internal fun DesktopShell(
             updateOverlayStatus = { overlayStatus = it },
         )
     }
-    val libraryActions = remember(server, settingsState, libraryState) {
+    val libraryActions = remember(serverRuntime, server, settingsState, libraryState) {
         DesktopShellLibraryActions(
             scope = scope,
             catalogStore = catalogStore,
@@ -370,7 +371,10 @@ internal fun DesktopShell(
             posterCache = posterCache,
             settingsState = settingsState,
             libraryState = libraryState,
-            publishLibrary = { library -> server.publish(library.toPublishedLibrary(animeMetadataResolver)) },
+            publishLibrary = { library ->
+                server.publish(library.toPublishedLibrary(animeMetadataResolver))
+                serverRuntime.recordPublishedLibrary(library.catalog.items.size)
+            },
             appendDiagnostic = ::appendDiagnostic,
         )
     }

@@ -12,6 +12,12 @@ class LanLibraryServerStatusTest {
         assertFailsWith<IllegalArgumentException> {
             LanLibraryServerStatus(apiVersion = 0)
         }
+        assertFailsWith<IllegalArgumentException> {
+            LanLibraryServerStatus(webUiPath = "web")
+        }
+        assertFailsWith<IllegalArgumentException> {
+            LanLibraryServerStatus(hostMode = " ")
+        }
     }
 
     @Test

@@ -18,9 +18,10 @@ The Windows desktop app is currently the primary host:
 - plays local and paired LAN media through libmpv;
 - resolves metadata/posters/danmaku from configured providers.
 
-The desktop process is also the library server. A separate headless server is a
-later step after API shape, lifecycle, diagnostics, settings, and firewall
-behavior settle.
+The desktop process is also the default embedded library host. The planned
+split is boundary-first: shared host contracts, then a web UI, then an opt-in
+headless server, then desktop remote-client mode. The embedded desktop path
+must remain compatible while the split is introduced.
 
 ### Android Mobile And Tablet
 
@@ -39,6 +40,26 @@ library-client, and Media3 playback code with mobile where practical.
 macOS reuses the Compose desktop shell and native mpv command bridge as an
 experimental development path. It is not yet a first-class release target.
 
+### Web UI
+
+The web UI is a planned trusted-LAN client served by the library server under
+`/web/`. It uses the same HTTP JSON catalog/progress API and normal HTTP media,
+subtitle, and poster URLs as Android/TV. Browser support is additive; existing
+clients must not require the web UI to be present.
+
+### Headless Library Server
+
+A standalone headless server is planned after the host boundary is stable. It
+should reuse the same indexing, catalog, progress, provider, and HTTP serving
+contracts as the embedded desktop host, guarded by a data-directory lock so two
+processes do not write the same catalog database concurrently.
+
+### Rust Native Client
+
+A Rust native client is a later experiment for native playback feel. It should
+consume the same LAN HTTP API as other clients and hand media URLs to mpv/libmpv
+rather than duplicating library hosting, provider sync, or metadata storage.
+
 ## Module Boundaries
 
 ```text
@@ -48,6 +69,10 @@ shared:domain
 shared:library-server-core
   JVM LAN server primitives, HTTP routes, discovery announcements, hooks, and
   progress-store contracts.
+
+shared:library-host-core
+  Shared host lifecycle/config/status contracts used by embedded and future
+  headless host implementations.
 
 shared:library-client
   Common LAN client models, connection sessions, playback preparation, and
@@ -70,6 +95,12 @@ apps:android-mobile
 apps:android-tv
   Compose TV UI and focus/navigation behavior.
 
+apps:web-ui
+  Planned Vite TypeScript browser client served by the trusted-LAN server.
+
+apps:library-server-windows
+  Planned opt-in headless JVM host for Windows library/server workflows.
+
 native:player-windows-mpv
   libmpv loader/probe and C ABI used by the desktop app.
 
@@ -82,8 +113,9 @@ native:rust-core
 1. Desktop indexes local folders into normalized `LibraryCatalog` data.
 2. Desktop enriches catalog items with cached provider metadata/poster state.
 3. Desktop publishes the catalog over trusted LAN with a pairing token.
-4. Android clients fetch catalog/progress and prepare playback URLs.
-5. Media3 clients stream over HTTP byte ranges and upload progress.
+4. Android, TV, web, desktop-remote, and future Rust clients fetch
+   catalog/progress and prepare playback URLs over HTTP.
+5. Clients stream over HTTP byte ranges and upload progress.
 6. Desktop local playback uses the same catalog/progress concepts and writes
    local progress directly.
 7. External tracking derives provider-neutral updates from local progress and
@@ -108,6 +140,8 @@ uses normalized domain models and provider IDs.
 - The LAN server is for trusted local networks only.
 - Pairing tokens protect catalog/media/progress routes but are not an
   internet-facing auth design.
+- The web UI shell may be served without a token, but data/media/progress
+  routes still require the pairing token.
 - Do not log credentials, pairing tokens, cookies, signed URLs, or raw provider
   secrets.
 - Store credentials through DPAPI/encrypted app settings or ignored local
@@ -120,3 +154,10 @@ uses normalized domain models and provider IDs.
 Rust APIs must stay coarse-grained. Do not cross the Kotlin/Rust boundary per
 frame or per danmaku comment. Use Rust for native loading/probing, high-throughput
 parsing/indexing, and platform helper APIs only when it earns the complexity.
+
+## Process Boundary
+
+Danmaku uses shared Kotlin modules inside one process and HTTP JSON plus normal
+byte-range media URLs across process/device boundaries. gRPC is not part of the
+main split because browsers, Media3, and mpv already handle HTTP media streams
+well, while gRPC would add friction for browser playback and LAN debugging.

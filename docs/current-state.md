@@ -78,7 +78,8 @@ trusted-LAN clients.
   output-folder import, and persistent SQLDelight/SQLite storage.
 - Trusted-LAN library server with pairing token, JSON catalog, byte-range media
   streaming, subtitle streaming, poster serving, progress API, authenticated
-  hooks, and UDP discovery.
+  hooks, optional `/web/` static asset serving, additive web/status capability
+  fields, and UDP discovery.
 - Local and paired-LAN playback preparation, one-click play/resume, progress
   persistence, previous/next episode navigation, and optional auto-next.
 - libmpv playback through a Rust/JNA bridge, embedded Windows video host,
@@ -153,6 +154,16 @@ trusted-LAN clients.
 - Cloudflare Worker proxy for dandanplay match/comment requests without
   shipping a dandanplay AppSecret in public clients.
 - CI on Windows, Rust, Worker proxy, and macOS desktop build/test paths.
+- A first server/client/web split foundation is in place: documented split
+  plan, `shared:library-host-core` host contracts, opt-in desktop
+  `--web-assets-dir`/`DANMAKU_WEB_UI_DIST` serving, a Vite TypeScript web UI
+  scaffold for pairing/catalog/video/progress, and an
+  `apps:library-server-windows` headless JVM host with data-directory locking,
+  startup scanning for configured `--root` folders, JSON catalog publishing,
+  sidecar subtitle discovery, shared LAN media/subtitle streaming, and
+  file-backed playback progress persistence under the locked data directory.
+  Headless hosts also announce themselves through the existing LAN discovery
+  protocol after the HTTP server binds.
 
 ## Partial Or Needs More QA
 
@@ -302,7 +313,8 @@ trusted-LAN clients.
 
 ## Not Implemented
 
-- Headless standalone library server separate from the desktop app.
+- Release-ready headless standalone library server with durable catalog
+  storage, provider settings, packaging, and desktop-remote migration.
 - Release-ready macOS/Linux/iOS/iPadOS/web targets.
 - Broad provider plugin marketplace or plugin sandboxing.
 - DRM circumvention, unauthorized source scraping, or torrent/search behavior.

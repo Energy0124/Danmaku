@@ -1,6 +1,7 @@
 package app.danmaku.desktop
 
 import app.danmaku.domain.LibraryCatalog
+import app.danmaku.host.LibraryHostMode
 import app.danmaku.server.LocalLibraryServer
 import kotlinx.serialization.json.Json
 import java.net.HttpURLConnection
@@ -53,6 +54,9 @@ class DesktopLibraryServerRuntimeTest {
                 val catalog = waitForCatalog(runtime.server.baseUrl())
                 assertEquals(1, catalog.items.size)
                 assertEquals("Example Show", catalog.items.single().seriesTitle)
+                assertEquals(LibraryHostMode.EMBEDDED_DESKTOP, runtime.runtimeStatus.mode)
+                assertEquals(1, runtime.runtimeStatus.itemCount)
+                assertEquals(emptyList(), runtime.runtimeStatus.webUiUrls)
                 assertFalse(runtime.toString().contains(runtime.aniRssWebhookToken))
             }
         }

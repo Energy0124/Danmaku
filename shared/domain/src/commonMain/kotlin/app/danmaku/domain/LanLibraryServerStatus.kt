@@ -10,14 +10,21 @@ data class LanLibraryServerStatus(
     val mediaStreaming: Boolean = true,
     val progressSync: Boolean = true,
     val trustedDeviceManagement: Boolean = false,
+    val webUiAvailable: Boolean = false,
+    val webUiPath: String? = null,
+    val hostMode: String = HOST_MODE_EMBEDDED_DESKTOP,
 ) {
     init {
         require(appName.isNotBlank()) { "appName must not be blank" }
         require(apiVersion > 0) { "apiVersion must be positive" }
+        require(webUiPath == null || webUiPath.startsWith("/")) { "webUiPath must be absolute when present" }
+        require(hostMode.isNotBlank()) { "hostMode must not be blank" }
     }
 
     companion object {
         const val CURRENT_API_VERSION = 1
+        const val HOST_MODE_EMBEDDED_DESKTOP = "embedded-desktop"
+        const val HOST_MODE_HEADLESS_SERVER = "headless-server"
     }
 }
 

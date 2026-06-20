@@ -25,6 +25,8 @@ class LocalLibraryServer(
     private val progressStore: PlaybackProgressStore = InMemoryPlaybackProgressStore(),
     authenticatedPostHooks: List<AuthenticatedPostHook> = emptyList(),
     publicGetHooks: List<PublicGetHook> = emptyList(),
+    private val webAssets: StaticWebAssets? = null,
+    private val hostMode: String = LanLibraryServerStatus.HOST_MODE_EMBEDDED_DESKTOP,
     private val eventSink: (LocalLibraryServerEvent) -> Unit = {},
 ) : AutoCloseable {
     private val server = HttpServer.create(InetSocketAddress(port), 0)
@@ -61,6 +63,9 @@ class LocalLibraryServer(
                 handlePublicGetHook(exchange, hook)
             }
         }
+        webAssets?.let { assets ->
+            server.createContext(assets.pathPrefix, ::handleWebAsset)
+        }
     }
 
     fun start() {
@@ -79,7 +84,11 @@ class LocalLibraryServer(
             return
         }
 
-        val status = LanLibraryServerStatus()
+        val status = LanLibraryServerStatus(
+            webUiAvailable = webAssets != null,
+            webUiPath = webAssets?.pathPrefix,
+            hostMode = hostMode,
+        )
         exchange.recordRequest(
             "server-status",
             200,
@@ -101,6 +110,11 @@ class LocalLibraryServer(
 
     fun baseUrl(host: String = "127.0.0.1"): String =
         "http://$host:$localPort"
+
+    fun webUiUrls(): List<String> =
+        webAssets
+            ?.let { assets -> networkUrls().map { url -> "$url${assets.pathPrefix}/" } }
+            .orEmpty()
 
     override fun close() {
         server.stop(1)
@@ -403,6 +417,61 @@ class LocalLibraryServer(
             }
     }
 
+    private fun handleWebAsset(exchange: HttpExchange) {
+        if (exchange.requestMethod !in setOf("GET", "HEAD")) {
+            exchange.recordRequest("web", 405, "method=${exchange.requestMethod}")
+            exchange.sendStatus(405)
+            return
+        }
+
+        val assets = webAssets
+        if (assets == null) {
+            exchange.recordRequest("web", 404, "disabled")
+            exchange.sendStatus(404)
+            return
+        }
+
+        val requestPath = exchange.requestURI.path
+        if (requestPath == assets.pathPrefix) {
+            exchange.responseHeaders["Location"] = listOf("${assets.pathPrefix}/")
+            exchange.recordRequest("web", 302, "redirect")
+            exchange.sendResponseHeaders(302, -1)
+            exchange.close()
+            return
+        }
+        if (requestPath != "${assets.pathPrefix}/" && !requestPath.startsWith("${assets.pathPrefix}/")) {
+            exchange.recordRequest("web", 404, "path=$requestPath")
+            exchange.sendStatus(404)
+            return
+        }
+
+        val relativePath = requestPath
+            .removePrefix("${assets.pathPrefix}/")
+            .ifBlank { assets.indexFileName }
+            .let { URLDecoder.decode(it, Charsets.UTF_8) }
+        val target = assets.normalizedRoot
+            .resolve(relativePath)
+            .normalize()
+        if (!target.startsWith(assets.normalizedRoot)) {
+            exchange.recordRequest("web", 404, "path=$requestPath; escaped-root")
+            exchange.sendStatus(404)
+            return
+        }
+
+        val file = when {
+            Files.isRegularFile(target) -> target
+            exchange.shouldServeWebIndex(relativePath) -> assets.indexFilePath.takeIf(Files::isRegularFile)
+            else -> null
+        }
+        if (file == null) {
+            exchange.recordRequest("web", 404, "path=$requestPath")
+            exchange.sendStatus(404)
+            return
+        }
+
+        exchange.sendWebFile(file, noStore = file == assets.indexFilePath)
+    }
+
     private fun parseRange(header: String, fileSize: Long): LongRange? {
         if (!header.startsWith("bytes=") || fileSize == 0L) return null
         val value = header.removePrefix("bytes=")
@@ -430,11 +499,46 @@ class LocalLibraryServer(
     private fun contentType(path: Path): String =
         when (path.fileName.toString().substringAfterLast('.', "").lowercase()) {
             "ass" -> "text/x-ass"
+            "css" -> "text/css; charset=utf-8"
+            "html" -> "text/html; charset=utf-8"
+            "js" -> "text/javascript; charset=utf-8"
+            "json" -> "application/json; charset=utf-8"
             "srt" -> "application/x-subrip"
             "ssa" -> "text/x-ssa"
+            "svg" -> "image/svg+xml"
             "vtt" -> "text/vtt"
             else -> Files.probeContentType(path) ?: "application/octet-stream"
         }
+
+    private fun HttpExchange.shouldServeWebIndex(relativePath: String): Boolean =
+        requestMethod == "GET" &&
+            (
+                requestHeaders.getFirst("Accept")?.contains("text/html") == true ||
+                    !relativePath.substringAfterLast('/').contains('.')
+                )
+
+    private fun HttpExchange.sendWebFile(
+        path: Path,
+        noStore: Boolean,
+    ) {
+        val bodyLength = Files.size(path)
+        responseHeaders["Content-Type"] = listOf(contentType(path))
+        responseHeaders["Cache-Control"] = listOf(
+            if (noStore) "no-store" else "public, max-age=3600",
+        )
+        if (requestMethod == "HEAD") {
+            responseHeaders["Content-Length"] = listOf(bodyLength.toString())
+            recordRequest("web", 200, "file=${path.fileName}; method=HEAD; bytes=$bodyLength")
+            sendResponseHeaders(200, -1)
+            close()
+            return
+        }
+        sendResponseHeaders(200, bodyLength)
+        recordRequest("web", 200, "file=${path.fileName}; bytes=$bodyLength")
+        Files.newInputStream(path).use { input ->
+            responseBody.use(input::copyTo)
+        }
+    }
 
     private fun HttpExchange.isAuthorized(): Boolean {
         val suppliedToken = requestURI.rawQuery
@@ -546,6 +650,28 @@ data class LocalLibraryServerEvent(
     val status: Int,
     val detail: String,
 )
+
+data class StaticWebAssets(
+    val root: Path,
+    val pathPrefix: String = "/web",
+    val indexFileName: String = "index.html",
+) {
+    init {
+        require(pathPrefix.startsWith("/")) { "pathPrefix must be absolute" }
+        require(pathPrefix != "/") { "pathPrefix must not be the root path" }
+        require(!pathPrefix.endsWith("/")) { "pathPrefix must not end with '/'" }
+        require(indexFileName.isNotBlank()) { "indexFileName must not be blank" }
+        require('/' !in indexFileName && '\\' !in indexFileName) {
+            "indexFileName must be a file name, not a path"
+        }
+    }
+
+    val normalizedRoot: Path =
+        root.toAbsolutePath().normalize()
+
+    val indexFilePath: Path =
+        normalizedRoot.resolve(indexFileName).normalize()
+}
 
 private fun String?.parseQueryParameters(): Map<String, String> =
     this

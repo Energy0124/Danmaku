@@ -21,6 +21,7 @@ kotlin {
 
         desktopMain.dependencies {
             implementation(project(":shared:domain"))
+            implementation(project(":shared:library-host-core"))
             implementation(project(":shared:library-client"))
             implementation(project(":shared:library-server-core"))
             implementation(compose.desktop.currentOs)

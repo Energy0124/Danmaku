@@ -5,7 +5,8 @@
 Danmaku is a cross-platform anime media app in active foundation work. The
 current product focus is a Windows desktop library/server/player, Android
 mobile and tablet clients, Android TV playback, synchronized watch progress,
-provider metadata, and danmaku overlays.
+provider metadata, danmaku overlays, and a compatibility-preserving split
+toward a reusable library host plus a trusted-LAN web UI.
 
 This is not a finished media player yet. The repository currently contains a
 working vertical slice for local Windows libraries, trusted-LAN streaming to
@@ -35,10 +36,12 @@ apps/
   desktop-windows/       Compose Multiplatform desktop shell and library host
   android-mobile/        Android phone/tablet app
   android-tv/            Dedicated Android TV app
+  web-ui/                Planned trusted-LAN TypeScript browser client
 
 shared/
   domain/                Core models, catalog logic, playback contracts, danmaku logic
   library-server-core/   Trusted-LAN HTTP server and discovery primitives
+  library-host-core/     Shared host lifecycle/config/status contracts
   library-client/        Shared LAN client/session/progress policy
   library-client-android Android HTTP/discovery/storage adapters
   player-android-media3/ Shared Media3 playback adapter/service
@@ -73,6 +76,7 @@ Active design/task tracks:
 - [Desktop UI page mockups and specs](docs/design/desktop-ui-pages/README.md)
 - [Android mobile and TV library UI tasks](docs/design/android-mobile-tv-library-ui-tasks.md)
 - [External anime mapping and tracking tasks](docs/design/external-anime-tracking-tasks.md)
+- [Server, client, and web UI split](docs/design/server-client-web-ui-split-plan.md)
 
 ## Requirements
 
@@ -81,7 +85,7 @@ Active design/task tracks:
 - Stable Rust toolchain for native crates
 - Windows for the release desktop target
 - Android emulator or device for connected instrumentation tests
-- Optional: Node 22 for the dandanplay Worker proxy
+- Optional: Node 22 for the web UI and dandanplay Worker proxy
 
 `local.properties` is intentionally ignored. At minimum, point it at the
 Android SDK:
@@ -141,6 +145,14 @@ npm run typecheck
 npm test
 ```
 
+Web UI checks:
+
+```powershell
+cd apps\web-ui
+npm install
+npm run build
+```
+
 ## Run Locally
 
 Windows desktop development shell:
@@ -170,6 +182,18 @@ Windows app workflow:
 4. On Android or Android TV, use discovery or manual connection to pair with
    the Windows library server.
 5. Browse, stream, and save playback progress from the client.
+
+Experimental headless Windows server:
+
+```powershell
+.\gradlew.bat --no-daemon :apps:library-server-windows:run --args="--data-dir build/headless-data --root W:/Anime --port 8686 --pairing-token 123456 --web-assets-dir apps/web-ui/dist"
+```
+
+The headless server currently scans configured roots into an in-memory catalog,
+streams media/subtitles through the same trusted-LAN routes as desktop, and
+persists playback progress under the locked data directory. It also uses the
+same LAN discovery announcements as the embedded desktop host. Durable headless
+catalog storage and provider settings are still planned work.
 
 ## Security And Source Policy
 

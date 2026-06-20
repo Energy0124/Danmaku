@@ -11,6 +11,18 @@ Status legend:
 
 ## Active Priorities
 
+- `[~]` Split the desktop library host into compatibility-preserving host,
+  client, and web surfaces. The accepted direction is boundary-first:
+  `shared:library-host-core` contracts, optional `/web/` static serving on the
+  existing LAN server, a Vite TypeScript web UI, an opt-in headless Windows
+  server, desktop remote-client mode, and a later Rust native client spike.
+  The headless server now starts the shared LAN server, locks its data
+  directory, scans configured `--root` folders into a basic catalog, discovers
+  matching sidecar subtitles, streams media/subtitles over the existing
+  routes, persists LAN playback progress under the locked data directory, and
+  announces itself through the existing LAN discovery protocol.
+  Remaining split work: durable headless catalog storage, provider/settings
+  support, desktop remote-client mode, and web UI QA/polish.
 - `[~]` Resolve P1 review findings from the 2026-06-15 full project review:
   convert expected LAN/provider/media failures away from hard
   `error(...)`/`check(...)` paths, split oversized Android entrypoints, and
@@ -237,6 +249,7 @@ Status legend:
 - [Desktop pages UI tasks](design/desktop-ui-pages/desktop-pages-ui-tasks.md)
 - [Android mobile and TV library UI tasks](design/android-mobile-tv-library-ui-tasks.md)
 - [External anime mapping and tracking tasks](design/external-anime-tracking-tasks.md)
+- [Server, client, and web UI split](design/server-client-web-ui-split-plan.md)
 
 ## Review Findings
 
@@ -375,6 +388,8 @@ Full review date: 2026-06-15.
 - Shared domain changes should include common tests.
 - LAN server/client behavior should include JVM tests and Android adapter tests
   where relevant.
+- Web UI changes should run `npm run build` in `apps/web-ui` and server-side
+  route changes should keep JVM LAN server compatibility tests green.
 - Desktop storage/provider/native changes should include desktop tests.
 - TV UI changes should include D-pad/focus instrumentation coverage where
   practical.
