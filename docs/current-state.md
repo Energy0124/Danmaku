@@ -90,7 +90,8 @@ trusted-LAN clients.
   command planning, fullscreen/aspect controls, volume/rate controls, seeking,
   and runtime audio/subtitle track selection.
 - dandanplay provider settings, signed/credential auth modes, optional Worker
-  proxy usage, shared JVM API client/parsing code, media matching, comment
+  proxy usage, shared JVM API client/parsing code, shared MAL/Bangumi list
+  tracking clients, media matching, comment
   fetching, ASS overlay generation, cached match/comment storage, cache
   cleanup, and manual match correction.
 - Manual local danmaku attachment path and cached/synthetic overlay rendering.
@@ -330,7 +331,7 @@ trusted-LAN clients.
 ## Not Implemented
 
 - Release-ready headless standalone library server with external list-sync
-  provider actions, packaging, and remote-only desktop migration.
+  routes/web controls, packaging, and remote-only desktop migration.
 - Release-ready macOS/Linux/iOS/iPadOS/web targets.
 - Broad provider plugin marketplace or plugin sandboxing.
 - DRM circumvention, unauthorized source scraping, or torrent/search behavior.

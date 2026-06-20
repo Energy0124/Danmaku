@@ -206,11 +206,6 @@ fun interface ExternalAnimeHttpPost {
     }
 }
 
-class ExternalAnimeProviderException(
-    message: String,
-    cause: Throwable? = null,
-) : RuntimeException(message, cause)
-
 private fun HttpURLConnection.readExternalAnimeResponse(): String =
     try {
         val status = responseCode

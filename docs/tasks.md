@@ -35,12 +35,12 @@ Status legend:
   media, subtitle metadata, and progress readback, then restarts without
   explicit roots/token to verify cached catalog and persisted progress readback
   before writing a PASS report.
-  Dandanplay API client/parsing code is now shared through
-  `shared:library-server-core` so desktop and headless can use one JVM
-  provider implementation, the headless server now has an authenticated
-  dandanplay match/comment resolve route for catalog media, and the web player
-  shows provider readiness plus a dandanplay match/comment preview for the
-  selected episode. Remaining
+  Dandanplay API client/parsing code and MAL/Bangumi external list tracking
+  clients are now shared through `shared:library-server-core`, so desktop and
+  headless can use the same JVM provider implementations. The headless server
+  now has an authenticated dandanplay match/comment resolve route for catalog
+  media, and the web player shows provider readiness plus a dandanplay
+  match/comment preview for the selected episode. Remaining
   split work: external list-sync provider network actions, remote-only desktop
   packaging/migration, richer browser interaction QA, and web UI polish.
 - `[~]` Resolve P1 review findings from the 2026-06-15 full project review:

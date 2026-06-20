@@ -81,10 +81,10 @@ host boundary grows.
   when no roots are configured.
 - Headless hosts announce themselves through the existing LAN discovery
   protocol after the HTTP server binds.
-- The dandanplay JVM API client/parsers now live in
-  `shared:library-server-core`, keeping desktop behavior intact while giving
-  the headless host the same implementation for authenticated match/comment
-  resolve routes.
+- The dandanplay JVM API client/parsers and MAL/Bangumi external list tracking
+  clients now live in `shared:library-server-core`, keeping desktop behavior
+  intact while giving the headless host the same provider implementations for
+  authenticated match/comment resolve routes and upcoming list-sync routes.
 - Later work wires the remaining provider settings into headless external list
   sync operations, adds provider/admin web UI controls, then adds release
   packaging.

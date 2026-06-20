@@ -164,3 +164,8 @@ Default thresholds:
   resolve route plus provider runtime readiness chips and a web player dandanplay
   preview panel that shows selected match, match count, comment count, and
   sample comments for the current media.
+- 2026-06-20: Moved MAL/Bangumi external list tracking clients from the desktop
+  package into `shared:library-server-core` under `app.danmaku.provider.external`,
+  leaving desktop compatibility typealiases in place and adding shared JVM tests
+  for list readback/write payloads. Next headless step is route wiring around
+  these shared clients, not another provider implementation.
