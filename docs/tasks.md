@@ -20,7 +20,8 @@ Status legend:
   directory, scans configured `--root` folders into a basic catalog, discovers
   matching sidecar subtitles, streams media/subtitles over the existing
   routes, exposes non-secret provider summaries through server status, exposes
-  authenticated provider runtime readiness, persists catalog snapshots, stable
+  authenticated provider runtime readiness and read-only provider mapping search,
+  persists catalog snapshots, stable
   pairing tokens, provider setting summaries, and LAN playback progress under the
   locked data directory, can load persisted root settings, can boot from the
   cached catalog when roots are not configured, and announces itself through
@@ -34,8 +35,9 @@ Status legend:
   media, subtitle metadata, and progress readback, then restarts without
   explicit roots/token to verify cached catalog and persisted progress readback
   before writing a PASS report.
-  Remaining split work: provider network actions, remote-only desktop
-  packaging/migration, richer browser interaction QA, and web UI polish.
+  Remaining split work: dandanplay fetch/list-sync provider network actions,
+  remote-only desktop packaging/migration, richer browser interaction QA, and
+  web UI polish.
 - `[~]` Resolve P1 review findings from the 2026-06-15 full project review:
   convert expected LAN/provider/media failures away from hard
   `error(...)`/`check(...)` paths, split oversized Android entrypoints, and

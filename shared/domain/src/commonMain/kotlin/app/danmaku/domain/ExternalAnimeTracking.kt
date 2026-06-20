@@ -515,6 +515,7 @@ data class ExternalAnimeMatchQuery(
             .distinctBy(String::normalizedAnimeTitle)
 }
 
+@Serializable
 data class ExternalAnimeMatchCandidate(
     val anime: ExternalAnimeInfo,
     val confidence: Double,

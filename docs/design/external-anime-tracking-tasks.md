@@ -65,6 +65,9 @@ Status legend:
 - `[x]` Add a desktop suggestion service that scans unmapped series on demand,
   uses cached dandanplay metadata as an extra signal, searches configured MAL
   and Bangumi providers, and returns provider-grouped candidates.
+- `[x]` Expose read-only MAL/Bangumi mapping search through the headless
+  server as authenticated `/api/providers/search`, with a typed web API
+  helper for later web UI mapping controls.
 - `[x]` Auto-save only high-confidence suggestions as
   `ExternalAnimeMappingSource.AUTO`; never overwrite manual mappings, and send
   ambiguous or medium-confidence candidates to review.
@@ -147,3 +150,8 @@ Default thresholds:
   plus `:apps:desktop-windows:run --args="--tab=Tracking
   --qa-screenshot-dir=S:\Projects\Danmaku\build\qa-screenshots
   --qa-screenshot-name=tracking-qa-after-fix.png --qa-screenshot-delay-seconds=4"`.
+- 2026-06-20: Added the headless server's authenticated read-only provider
+  mapping search endpoint for MAL/Bangumi suggestions, a typed web API helper,
+  and server tests for token/parameter validation plus provider-failure
+  isolation. Remaining provider network work is dandanplay fetch and external
+  list read/write actions.

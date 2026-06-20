@@ -1,5 +1,7 @@
 package app.danmaku.server.windows
 
+import app.danmaku.domain.ExternalAnimeMatchQuery
+import app.danmaku.domain.ExternalAnimeProvider
 import app.danmaku.domain.LanDandanplayProviderStatus
 import app.danmaku.domain.LanDandanplayRuntimeCapability
 import app.danmaku.domain.LanExternalAnimeProviderStatus
@@ -150,6 +152,8 @@ internal class HeadlessLibraryServer(
     private val discoveryAnnouncerFactory: (Int) -> AutoCloseable = { port ->
         LocalLibraryDiscoveryAnnouncer(port).apply { start() }
     },
+    private val externalAnimeSearchServiceFactory: (HeadlessServerSettings) -> HeadlessExternalAnimeSearchService =
+        { settings -> settings.toExternalAnimeSearchService() },
 ) : AutoCloseable,
     LibraryHostService {
     private val startedAtEpochMs = System.currentTimeMillis()
@@ -158,6 +162,7 @@ internal class HeadlessLibraryServer(
     private val catalogStore = HeadlessLibraryCatalogStore(options.dataDirectory.resolve("catalog.json"))
     private val settingsStore = HeadlessServerSettingsStore(options.dataDirectory.resolve("server-settings.json"))
     private val serverSettings = settingsStore.loadOrCreate(options.pairingToken)
+    private val externalAnimeSearchService = externalAnimeSearchServiceFactory(serverSettings)
     private val libraryRoots = options.libraryRoots.ifEmpty { serverSettings.libraryRoots }
     private val cachedLibrary = catalogStore.load()
     private val server = createServer()
@@ -289,7 +294,10 @@ internal class HeadlessLibraryServer(
             port = options.port,
             pairingToken = serverSettings.pairingToken,
             progressStore = progressStore,
-            publicGetHooks = listOf(serverSettings.providerRuntimeHook()),
+            publicGetHooks = listOf(
+                serverSettings.providerRuntimeHook(),
+                serverSettings.providerSearchHook(externalAnimeSearchService),
+            ),
             webAssets = options.webAssetsRoot?.let(::StaticWebAssets),
             hostMode = LanLibraryServerStatus.HOST_MODE_HEADLESS_SERVER,
             providerSettings = serverSettings.toLanProviderSettingsStatus(),
@@ -330,6 +338,69 @@ private fun HeadlessServerSettings.providerRuntimeHook(): PublicGetHook =
                 body = headlessServerJson.encodeToString(toLanProviderRuntimeStatus()),
             )
         }
+    }
+
+private fun HeadlessServerSettings.providerSearchHook(
+    searchService: HeadlessExternalAnimeSearchService,
+): PublicGetHook =
+    PublicGetHook("/api/providers/search") { queryParameters ->
+        if (!queryParameters.hasPairingToken(pairingToken)) {
+            PublicGetHookResponse(status = 401, body = "Unauthorized.")
+        } else {
+            queryParameters.toProviderSearchResponse(searchService)
+        }
+    }
+
+private fun Map<String, String>.toProviderSearchResponse(
+    searchService: HeadlessExternalAnimeSearchService,
+): PublicGetHookResponse {
+    val title = get("title")?.trim()
+        ?.takeIf(String::isNotBlank)
+        ?: return PublicGetHookResponse(status = 400, body = "Query parameter 'title' is required.")
+    val limit = get("limit")?.toIntOrNull()?.takeIf { it in 1..50 } ?: 10
+    val episodeCount = get("episodeCount")?.toIntOrNull()?.takeIf { it > 0 }
+    val startYear = get("startYear")?.toIntOrNull()?.takeIf { it in 1900..2200 }
+    if (containsKey("limit") && get("limit")?.toIntOrNull()?.takeIf { it in 1..50 } == null) {
+        return PublicGetHookResponse(status = 400, body = "Query parameter 'limit' must be between 1 and 50.")
+    }
+    if (containsKey("episodeCount") && episodeCount == null) {
+        return PublicGetHookResponse(status = 400, body = "Query parameter 'episodeCount' must be positive.")
+    }
+    if (containsKey("startYear") && startYear == null) {
+        return PublicGetHookResponse(status = 400, body = "Query parameter 'startYear' must be between 1900 and 2200.")
+    }
+    val providers = get("providers")
+        ?.split(",")
+        ?.map(String::trim)
+        ?.filter(String::isNotBlank)
+        ?.map { provider ->
+            provider.toExternalAnimeProviderOrNull()
+                ?: return PublicGetHookResponse(status = 400, body = "Unsupported provider '$provider'.")
+        }
+        ?.toSet()
+        .orEmpty()
+    val matches = searchService.search(
+        query = ExternalAnimeMatchQuery(
+            title = title,
+            episodeCount = episodeCount,
+            startYear = startYear,
+        ),
+        providers = providers,
+        limitPerProvider = limit,
+    )
+    return PublicGetHookResponse(
+        status = 200,
+        contentType = "application/json; charset=utf-8",
+        body = headlessServerJson.encodeToString(matches),
+    )
+}
+
+private fun String.toExternalAnimeProviderOrNull(): ExternalAnimeProvider? =
+    when (trim().lowercase().replace("-", "_")) {
+        "myanimelist", "my_anime_list", "mal" -> ExternalAnimeProvider.MY_ANIME_LIST
+        "bangumi", "bgm" -> ExternalAnimeProvider.BANGUMI
+        "dandanplay", "dan_dan_play" -> ExternalAnimeProvider.DANDANPLAY
+        else -> null
     }
 
 private fun HeadlessServerSettings.toLanProviderRuntimeStatus(): LanProviderRuntimeStatus =

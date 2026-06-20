@@ -54,6 +54,50 @@ export interface LanExternalAnimeRuntimeCapability {
   reasonCode: string;
 }
 
+export type ExternalAnimeProvider = "MY_ANIME_LIST" | "BANGUMI" | "DANDANPLAY";
+
+export interface ExternalAnimeId {
+  provider: ExternalAnimeProvider;
+  value: number;
+}
+
+export interface ExternalAnimeTitleSet {
+  primary: string;
+  chinese?: string | null;
+  english?: string | null;
+  japanese?: string | null;
+  alternateNames: string[];
+}
+
+export interface ExternalAnimeExternalLink {
+  animeId: ExternalAnimeId;
+  url: string;
+}
+
+export interface ExternalAnimeInfo {
+  id: ExternalAnimeId;
+  titles: ExternalAnimeTitleSet;
+  episodeCount?: number | null;
+  startYear?: number | null;
+  imageUrl?: string | null;
+  summary?: string | null;
+  externalLinks: ExternalAnimeExternalLink[];
+}
+
+export interface ExternalAnimeMatchCandidate {
+  anime: ExternalAnimeInfo;
+  confidence: number;
+  matchedTitle?: string | null;
+  evidence: string[];
+}
+
+export interface ProviderSearchOptions {
+  providers?: ExternalAnimeProvider[];
+  limit?: number;
+  episodeCount?: number;
+  startYear?: number;
+}
+
 export interface LibraryCatalog {
   rootName: string;
   indexedAtEpochMs: number;
@@ -113,6 +157,30 @@ export async function fetchProviderRuntime(
 ): Promise<LanProviderRuntimeStatus> {
   return readJson<LanProviderRuntimeStatus>(
     `${normalizeBaseUrl(baseUrl)}/api/providers/runtime?token=${encodeURIComponent(token)}`
+  );
+}
+
+export async function fetchProviderSearch(
+  baseUrl: string,
+  token: string,
+  title: string,
+  options: ProviderSearchOptions = {}
+): Promise<ExternalAnimeMatchCandidate[]> {
+  const params = new URLSearchParams({ token, title });
+  if (options.providers?.length) {
+    params.set("providers", options.providers.join(","));
+  }
+  if (options.limit !== undefined) {
+    params.set("limit", String(options.limit));
+  }
+  if (options.episodeCount !== undefined) {
+    params.set("episodeCount", String(options.episodeCount));
+  }
+  if (options.startYear !== undefined) {
+    params.set("startYear", String(options.startYear));
+  }
+  return readJson<ExternalAnimeMatchCandidate[]>(
+    `${normalizeBaseUrl(baseUrl)}/api/providers/search?${params.toString()}`
   );
 }
 

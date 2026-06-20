@@ -76,12 +76,13 @@ host boundary grows.
 - Headless hosts can read roots and non-secret provider settings from
   `server-settings.json` when CLI roots are absent, expose non-secret provider
   summaries through server status, expose authenticated provider runtime readiness,
-  and serve a cached catalog when no roots are configured.
+  expose authenticated read-only provider mapping search, and serve a cached
+  catalog when no roots are configured.
 - Headless hosts announce themselves through the existing LAN discovery
   protocol after the HTTP server binds.
-- Later work wires those provider settings into headless provider network
-  operations such as mapping suggestions, danmaku fetch, and list sync, and adds
-  release packaging.
+- Later work wires the remaining provider settings into headless provider
+  network operations such as danmaku fetch and list sync, then adds release
+  packaging.
 
 ### Phase 5: Desktop Remote Client
 
