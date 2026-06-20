@@ -198,6 +198,7 @@ internal fun RemoteLibraryBrowser(
     strings: DesktopStrings,
     defaultServerUrl: String,
     defaultPairingToken: String,
+    autoLoadOnStart: Boolean = false,
     appendDiagnostic: (String, String) -> Unit,
     onLoadPreparedPlayback: (LanPlaybackPreparation) -> Unit,
 ) {
@@ -303,6 +304,14 @@ internal fun RemoteLibraryBrowser(
                 appendDiagnostic("remote-client", "Prepare remote playback failed: ${it.message}")
             }
             isPreparingPlayback = false
+        }
+    }
+
+    var didAutoLoad by remember(defaultServerUrl, defaultPairingToken) { mutableStateOf(false) }
+    LaunchedEffect(autoLoadOnStart, defaultServerUrl, defaultPairingToken) {
+        if (autoLoadOnStart && !didAutoLoad && serverUrl.isNotBlank() && pairingToken.isNotBlank()) {
+            didAutoLoad = true
+            refreshCatalog()
         }
     }
 

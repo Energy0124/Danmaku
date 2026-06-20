@@ -113,6 +113,48 @@ class DesktopLaunchOptionsTest {
     }
 
     @Test
+    fun parsesRemoteClientLaunchOptions() {
+        val options = DesktopLaunchOptions.parse(
+            listOf(
+                "--remote-server-url=http://192.168.1.20:8686/",
+                "--remote-pairing-token",
+                "123456",
+            ),
+        )
+
+        assertEquals(DesktopShellTab.MEDIA_LIBRARY, options.initialTab)
+        assertEquals("http://192.168.1.20:8686", options.remoteClient?.normalizedServerUrl)
+        assertEquals("123456", options.remoteClient?.pairingToken)
+        assertTrue(options.remoteClient?.autoLoad == true)
+    }
+
+    @Test
+    fun parsesRemoteClientEnvironmentAndCanSkipAutoLoad() {
+        val options = DesktopLaunchOptions.parse(
+            args = listOf("--remote-no-auto-load"),
+            environment = mapOf(
+                DesktopLaunchOptions.REMOTE_SERVER_URL_ENV to "http://127.0.0.1:8686",
+                DesktopLaunchOptions.REMOTE_PAIRING_TOKEN_ENV to "654321",
+            ),
+        )
+
+        assertEquals(DesktopShellTab.MEDIA_LIBRARY, options.initialTab)
+        assertEquals("http://127.0.0.1:8686", options.remoteClient?.normalizedServerUrl)
+        assertEquals("654321", options.remoteClient?.pairingToken)
+        assertFalse(options.remoteClient?.autoLoad ?: true)
+    }
+
+    @Test
+    fun remoteClientWithoutTokenDoesNotAutoLoad() {
+        val options = DesktopLaunchOptions.parse(listOf("--remote-url=http://127.0.0.1:8686"))
+
+        assertEquals(DesktopShellTab.MEDIA_LIBRARY, options.initialTab)
+        assertEquals("http://127.0.0.1:8686", options.remoteClient?.normalizedServerUrl)
+        assertEquals("", options.remoteClient?.pairingToken)
+        assertFalse(options.remoteClient?.autoLoad ?: true)
+    }
+
+    @Test
     fun clampsSmokeDuration() {
         val options = DesktopLaunchOptions.parse(
             listOf(

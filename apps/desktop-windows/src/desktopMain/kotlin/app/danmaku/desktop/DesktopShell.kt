@@ -928,10 +928,12 @@ internal fun DesktopShell(
                             onSyncExternalAnimePlan = libraryActions::syncExternalAnimePlan,
                             onLoadPreparedPlayback = playbackActions::loadPreparedLocalPlayback,
                             remoteBrowser = {
+                                val remoteClient = launchOptions.remoteClient
                                 RemoteLibraryBrowser(
                                     strings = desktopStrings,
-                                    defaultServerUrl = server.baseUrl(),
-                                    defaultPairingToken = server.pairingToken,
+                                    defaultServerUrl = remoteClient?.normalizedServerUrl ?: server.baseUrl(),
+                                    defaultPairingToken = remoteClient?.pairingToken ?: server.pairingToken,
+                                    autoLoadOnStart = remoteClient?.autoLoad == true,
                                     appendDiagnostic = ::appendDiagnostic,
                                     onLoadPreparedPlayback = playbackActions::loadPreparedRemotePlayback,
                                 )

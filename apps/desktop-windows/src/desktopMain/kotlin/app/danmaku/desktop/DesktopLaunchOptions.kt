@@ -10,12 +10,15 @@ internal data class DesktopLaunchOptions(
     val initialTab: DesktopShellTab? = null,
     val serverPort: Int? = null,
     val webAssetsRoot: Path? = null,
+    val remoteClient: DesktopRemoteClientOptions? = null,
     val qaScreenshot: DesktopQaScreenshotOptions? = null,
 ) {
     companion object {
         const val SMOKE_PLAYBACK_MEDIA_ENV = "DANMAKU_SMOKE_PLAYBACK_MEDIA"
         const val SMOKE_PLAYBACK_SECONDS_ENV = "DANMAKU_SMOKE_PLAYBACK_SECONDS"
         const val WEB_UI_DIST_ENV = "DANMAKU_WEB_UI_DIST"
+        const val REMOTE_SERVER_URL_ENV = "DANMAKU_REMOTE_SERVER_URL"
+        const val REMOTE_PAIRING_TOKEN_ENV = "DANMAKU_REMOTE_PAIRING_TOKEN"
 
         fun parse(args: Array<String>): DesktopLaunchOptions =
             parse(args.asList(), System.getenv())
@@ -37,6 +40,14 @@ internal data class DesktopLaunchOptions(
             var webAssetsRoot = environment[WEB_UI_DIST_ENV]
                 ?.takeIf(String::isNotBlank)
                 ?.let(Path::of)
+            var remoteClientRequested = false
+            var remoteServerUrl = environment[REMOTE_SERVER_URL_ENV]
+                ?.takeIf(String::isNotBlank)
+                ?.also { remoteClientRequested = true }
+            var remotePairingToken = environment[REMOTE_PAIRING_TOKEN_ENV]
+                ?.takeIf(String::isNotBlank)
+                ?.also { remoteClientRequested = true }
+            var remoteAutoLoad = true
             var qaScreenshotDirectory: Path? = null
             var qaScreenshotName: String? = null
             var qaScreenshotDelay = DEFAULT_QA_SCREENSHOT_DELAY
@@ -82,6 +93,49 @@ internal data class DesktopLaunchOptions(
                     }
                     arg.startsWith("--web-ui-dist=") -> {
                         webAssetsRoot = arg.substringAfter("=").takeIf(String::isNotBlank)?.let(Path::of)
+                    }
+                    arg == "--remote-client" -> {
+                        remoteClientRequested = true
+                    }
+                    arg == "--remote-server-url" || arg == "--remote-url" || arg == "--paired-server-url" -> {
+                        remoteServerUrl = args.valueAfter(arg, index)
+                        remoteClientRequested = true
+                        index += 1
+                    }
+                    arg.startsWith("--remote-server-url=") -> {
+                        remoteServerUrl = arg.substringAfter("=").takeIf(String::isNotBlank)
+                        remoteClientRequested = true
+                    }
+                    arg.startsWith("--remote-url=") -> {
+                        remoteServerUrl = arg.substringAfter("=").takeIf(String::isNotBlank)
+                        remoteClientRequested = true
+                    }
+                    arg.startsWith("--paired-server-url=") -> {
+                        remoteServerUrl = arg.substringAfter("=").takeIf(String::isNotBlank)
+                        remoteClientRequested = true
+                    }
+                    arg == "--remote-pairing-token" || arg == "--remote-token" || arg == "--paired-token" -> {
+                        remotePairingToken = args.valueAfter(arg, index)
+                        remoteClientRequested = true
+                        index += 1
+                    }
+                    arg.startsWith("--remote-pairing-token=") -> {
+                        remotePairingToken = arg.substringAfter("=").takeIf(String::isNotBlank)
+                        remoteClientRequested = true
+                    }
+                    arg.startsWith("--remote-token=") -> {
+                        remotePairingToken = arg.substringAfter("=").takeIf(String::isNotBlank)
+                        remoteClientRequested = true
+                    }
+                    arg.startsWith("--paired-token=") -> {
+                        remotePairingToken = arg.substringAfter("=").takeIf(String::isNotBlank)
+                        remoteClientRequested = true
+                    }
+                    arg == "--remote-auto-load" -> {
+                        remoteAutoLoad = true
+                    }
+                    arg == "--remote-no-auto-load" -> {
+                        remoteAutoLoad = false
                     }
                     arg == "--qa-screenshot-dir" -> {
                         qaScreenshotDirectory = args.valueAfter(arg, index)?.let(Path::of)
@@ -160,9 +214,16 @@ internal data class DesktopLaunchOptions(
                     )
                 },
                 initialLanguage = initialLanguage,
-                initialTab = initialTab,
+                initialTab = initialTab ?: DesktopShellTab.MEDIA_LIBRARY.takeIf { remoteClientRequested },
                 serverPort = serverPort,
                 webAssetsRoot = webAssetsRoot,
+                remoteClient = remoteServerUrl?.let { serverUrl ->
+                    DesktopRemoteClientOptions(
+                        serverUrl = serverUrl,
+                        pairingToken = remotePairingToken.orEmpty(),
+                        autoLoad = remoteAutoLoad && !remotePairingToken.isNullOrBlank(),
+                    )
+                },
                 qaScreenshot = qaScreenshotDirectory?.let { outputDirectory ->
                     DesktopQaScreenshotOptions(
                         outputDirectory = outputDirectory,
@@ -212,6 +273,19 @@ internal data class DesktopLaunchOptions(
                 ?.takeIf { it in 0..65_535 }
                 ?: error("Server port must be between 0 and 65535: $this")
     }
+}
+
+internal data class DesktopRemoteClientOptions(
+    val serverUrl: String,
+    val pairingToken: String = "",
+    val autoLoad: Boolean = false,
+) {
+    init {
+        require(serverUrl.isNotBlank()) { "serverUrl must not be blank" }
+    }
+
+    val normalizedServerUrl: String =
+        serverUrl.trim().trimEnd('/')
 }
 
 internal data class DesktopSmokePlaybackOptions(

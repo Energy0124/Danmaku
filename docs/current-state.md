@@ -81,7 +81,11 @@ trusted-LAN clients.
   hooks, optional `/web/` static asset serving, additive web/status capability
   fields, and UDP discovery.
 - Local and paired-LAN playback preparation, one-click play/resume, progress
-  persistence, previous/next episode navigation, and optional auto-next.
+  persistence, previous/next episode navigation, and optional auto-next. Desktop
+  can also launch into the remote-library browser with
+  `--remote-server-url`/`--remote-pairing-token` or the matching
+  `DANMAKU_REMOTE_*` environment variables, auto-load a remote catalog, and
+  stream remote media URLs through the libmpv-backed controller.
 - libmpv playback through a Rust/JNA bridge, embedded Windows video host,
   command planning, fullscreen/aspect controls, volume/rate controls, seeking,
   and runtime audio/subtitle track selection.
@@ -314,7 +318,7 @@ trusted-LAN clients.
 ## Not Implemented
 
 - Release-ready headless standalone library server with durable catalog
-  storage, provider settings, packaging, and desktop-remote migration.
+  storage, provider settings, packaging, and remote-only desktop migration.
 - Release-ready macOS/Linux/iOS/iPadOS/web targets.
 - Broad provider plugin marketplace or plugin sandboxing.
 - DRM circumvention, unauthorized source scraping, or torrent/search behavior.

@@ -80,9 +80,14 @@ host boundary grows.
 ### Phase 5: Desktop Remote Client
 
 - Keep embedded desktop host as default.
-- Add a desktop mode that connects to an existing host URL/token using
-  `JvmLanLibraryClient`.
-- Local desktop playback may stream remote media URLs through libmpv.
+- Desktop now accepts `--remote-server-url`/`--remote-pairing-token` and
+  `DANMAKU_REMOTE_SERVER_URL`/`DANMAKU_REMOTE_PAIRING_TOKEN` launch settings,
+  opens the Library tab, and auto-loads the remote catalog when a token is
+  provided.
+- The desktop remote browser uses `JvmLanLibraryClient`, prepares remote media
+  URLs, and can load those URLs into the libmpv-backed desktop controller.
+- Later work can add a stricter remote-only mode that skips starting the
+  embedded desktop host after the UX and packaging behavior are validated.
 
 ### Phase 6: Rust Native Client Spike
 

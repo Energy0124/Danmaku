@@ -195,6 +195,13 @@ persists playback progress under the locked data directory. It also uses the
 same LAN discovery announcements as the embedded desktop host. Durable headless
 catalog storage and provider settings are still planned work.
 
+Desktop can launch directly into the remote-library browser against a running
+headless or embedded host:
+
+```powershell
+.\gradlew.bat --no-daemon :apps:desktop-windows:run --args="--remote-server-url http://127.0.0.1:8686 --remote-pairing-token 123456"
+```
+
 ## Security And Source Policy
 
 - Support authorized media sources only.

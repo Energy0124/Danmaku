@@ -20,9 +20,12 @@ Status legend:
   directory, scans configured `--root` folders into a basic catalog, discovers
   matching sidecar subtitles, streams media/subtitles over the existing
   routes, persists LAN playback progress under the locked data directory, and
-  announces itself through the existing LAN discovery protocol.
+  announces itself through the existing LAN discovery protocol. Desktop now has
+  launch-driven remote-client mode using `--remote-server-url`,
+  `--remote-pairing-token`, `DANMAKU_REMOTE_SERVER_URL`, and
+  `DANMAKU_REMOTE_PAIRING_TOKEN` to open and optionally auto-load a remote host.
   Remaining split work: durable headless catalog storage, provider/settings
-  support, desktop remote-client mode, and web UI QA/polish.
+  support, remote-only desktop packaging/migration, and web UI QA/polish.
 - `[~]` Resolve P1 review findings from the 2026-06-15 full project review:
   convert expected LAN/provider/media failures away from hard
   `error(...)`/`check(...)` paths, split oversized Android entrypoints, and
