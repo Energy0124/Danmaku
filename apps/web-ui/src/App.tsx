@@ -3,6 +3,7 @@ import {
   DanmakuApiError,
   DandanplayResolveResult,
   ExternalAnimeId,
+  ExternalAnimeMatchCandidate,
   ExternalAnimeListEntry,
   ExternalAnimeListStatus,
   ExternalAnimeProvider,
@@ -14,6 +15,7 @@ import {
   fetchExternalListEntry,
   fetchLibrarySnapshot,
   fetchProviderRuntime,
+  fetchProviderSearch,
   mediaUrl,
   normalizeBaseUrl,
   posterUrl,
@@ -229,6 +231,7 @@ function PlayerPanel({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const lastSavedAtRef = useRef(0);
   const poster = posterUrl(baseUrl, token, item);
+  const defaultSearchQuery = useMemo(() => defaultProviderSearchQuery(item), [item]);
   const [dandanplay, setDandanplay] = useState<DandanplayResolveResult | null>(null);
   const [dandanplayMessage, setDandanplayMessage] = useState("");
   const [isDandanplayLoading, setIsDandanplayLoading] = useState(false);
@@ -242,12 +245,22 @@ function PlayerPanel({
   const [externalListEntry, setExternalListEntry] = useState<ExternalAnimeListEntry | null>(null);
   const [externalListMessage, setExternalListMessage] = useState("");
   const [isExternalListLoading, setIsExternalListLoading] = useState(false);
+  const [providerSearchQuery, setProviderSearchQuery] = useState(defaultSearchQuery);
+  const [providerSearchProvider, setProviderSearchProvider] =
+    useState<ExternalAnimeProvider>("MY_ANIME_LIST");
+  const [providerSearchResults, setProviderSearchResults] = useState<ExternalAnimeMatchCandidate[]>([]);
+  const [providerSearchMessage, setProviderSearchMessage] = useState("");
+  const [isProviderSearchLoading, setIsProviderSearchLoading] = useState(false);
   const mappedExternalAnimeIds = useMemo(() => trackableExternalAnimeIds(item), [item]);
   const externalListCapability = externalListProvider === "MY_ANIME_LIST"
     ? providerRuntime?.myAnimeList
     : providerRuntime?.bangumi;
   const externalListCanRead = externalListCapability?.listReadAvailable ?? false;
   const externalListCanWrite = externalListCapability?.listWriteAvailable ?? false;
+  const providerSearchCapability = providerSearchProvider === "MY_ANIME_LIST"
+    ? providerRuntime?.myAnimeList
+    : providerRuntime?.bangumi;
+  const providerSearchAvailable = providerSearchCapability?.searchAvailable ?? false;
   const parsedExternalAnimeId = parsePositiveExternalAnimeId(externalAnimeId);
 
   useEffect(() => {
@@ -263,6 +276,9 @@ function PlayerPanel({
     setDandanplayMessage("");
     setExternalListEntry(null);
     setExternalListMessage("");
+    setProviderSearchQuery(defaultSearchQuery);
+    setProviderSearchResults([]);
+    setProviderSearchMessage("");
     const mappedAnimeId = mappedExternalAnimeIds[0];
     if (mappedAnimeId) {
       setExternalListProvider(mappedAnimeId.provider);
@@ -270,7 +286,7 @@ function PlayerPanel({
     } else {
       setExternalAnimeId("");
     }
-  }, [item.id, mappedExternalAnimeIds]);
+  }, [item.id, defaultSearchQuery, mappedExternalAnimeIds]);
 
   useEffect(() => {
     setExternalListEntry(null);
@@ -294,6 +310,40 @@ function PlayerPanel({
     } finally {
       setIsDandanplayLoading(false);
     }
+  }
+
+  async function searchProviderMappings() {
+    const title = providerSearchQuery.trim();
+    if (!title) {
+      setProviderSearchMessage("Enter a title to search.");
+      return;
+    }
+    setIsProviderSearchLoading(true);
+    setProviderSearchMessage("Searching provider catalog...");
+    try {
+      const candidates = await fetchProviderSearch(baseUrl, token, title, {
+        providers: [providerSearchProvider],
+        limit: 6,
+        episodeCount: item.animeMetadata?.episodeCount ?? undefined,
+        startYear: item.animeMetadata?.startYear ?? undefined
+      });
+      setProviderSearchResults(candidates);
+      setProviderSearchMessage(
+        candidates.length > 0 ? `${candidates.length} candidate${candidates.length === 1 ? "" : "s"} found.` : "No provider candidates found."
+      );
+    } catch (error) {
+      setProviderSearchResults([]);
+      setProviderSearchMessage(error instanceof DanmakuApiError ? error.message : "Provider search failed.");
+    } finally {
+      setIsProviderSearchLoading(false);
+    }
+  }
+
+  function selectProviderCandidate(candidate: ExternalAnimeMatchCandidate) {
+    setExternalListProvider(candidate.anime.id.provider);
+    setExternalAnimeId(String(candidate.anime.id.value));
+    setExternalListEntry(null);
+    setExternalListMessage(`${formatProviderCandidateTitle(candidate)} selected for list controls.`);
   }
 
   async function readExternalListEntry() {
@@ -460,6 +510,52 @@ function PlayerPanel({
             ))}
           </div>
         ) : null}
+        <div className="provider-search-form">
+          <label>
+            Search provider
+            <select
+              value={providerSearchProvider}
+              onChange={(event) => setProviderSearchProvider(event.target.value as ExternalAnimeProvider)}
+            >
+              <option value="MY_ANIME_LIST">MyAnimeList</option>
+              <option value="BANGUMI">Bangumi</option>
+            </select>
+          </label>
+          <label className="provider-search-title">
+            Title
+            <input
+              value={providerSearchQuery}
+              onChange={(event) => setProviderSearchQuery(event.target.value)}
+              placeholder={item.seriesTitle}
+            />
+          </label>
+          <button
+            disabled={isProviderSearchLoading || !providerSearchAvailable || !providerSearchQuery.trim()}
+            onClick={() => void searchProviderMappings()}
+            type="button"
+          >
+            {isProviderSearchLoading ? "Searching" : "Search"}
+          </button>
+        </div>
+        {providerSearchMessage ? <p className="provider-search-message">{providerSearchMessage}</p> : null}
+        {providerSearchResults.length > 0 ? (
+          <ol className="provider-search-results" aria-label="Provider search candidates">
+            {providerSearchResults.map((candidate) => (
+              <li key={`${candidate.anime.id.provider}-${candidate.anime.id.value}`}>
+                <div>
+                  <strong>{formatProviderCandidateTitle(candidate)}</strong>
+                  <small>
+                    {formatExternalAnimeId(candidate.anime.id)} | {formatProviderCandidateMeta(candidate)}
+                  </small>
+                  {candidate.evidence.length > 0 ? <p>{candidate.evidence.slice(0, 3).join(" | ")}</p> : null}
+                </div>
+                <button onClick={() => selectProviderCandidate(candidate)} type="button">
+                  Use ID
+                </button>
+              </li>
+            ))}
+          </ol>
+        ) : null}
         <div className="external-list-form">
           <label>
             Provider
@@ -585,6 +681,31 @@ function formatProgress(progress?: PlaybackProgress): string {
 function formatDandanplayMatch(match?: DandanplayResolveResult["selectedMatch"]): string {
   if (!match) return "None";
   return match.displayTitle;
+}
+
+function defaultProviderSearchQuery(item: LibraryMediaItem): string {
+  return item.animeMetadata?.displayTitle || item.animeMetadata?.primaryTitle || item.seriesTitle;
+}
+
+function formatProviderCandidateTitle(candidate: ExternalAnimeMatchCandidate): string {
+  return (
+    candidate.anime.titles.english ||
+    candidate.anime.titles.japanese ||
+    candidate.anime.titles.chinese ||
+    candidate.anime.titles.primary
+  );
+}
+
+function formatProviderCandidateMeta(candidate: ExternalAnimeMatchCandidate): string {
+  const details = [formatConfidenceScore(candidate.confidence)];
+  if (candidate.matchedTitle) details.push(`matched ${candidate.matchedTitle}`);
+  if (candidate.anime.episodeCount != null) details.push(`${candidate.anime.episodeCount} eps`);
+  if (candidate.anime.startYear != null) details.push(String(candidate.anime.startYear));
+  return details.join(" | ");
+}
+
+function formatConfidenceScore(confidence: number): string {
+  return Number.isFinite(confidence) ? `score ${confidence.toFixed(2)}` : "score unknown";
 }
 
 function formatExternalListEntry(entry: ExternalAnimeListEntry): string {

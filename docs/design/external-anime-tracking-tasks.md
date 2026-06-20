@@ -182,3 +182,9 @@ Default thresholds:
   catalog `animeMetadata.externalLinks` to auto-fill MAL/Bangumi IDs and expose
   quick-select mapped-ID buttons when a selected episode has provider links.
   Verification: `npm run build` in `apps/web-ui`.
+- 2026-06-20: Added web provider mapping search controls for the selected
+  episode. The web player can query MAL/Bangumi through the authenticated
+  headless provider search route, show candidate titles/evidence, and copy a
+  chosen candidate into the external-list read/write controls. Verification:
+  `npm run build` in `apps/web-ui` and
+  `tools/windows/run-headless-web-ui-qa.ps1`.

@@ -41,10 +41,10 @@ Status legend:
   headless can use the same JVM provider implementations. The headless server
   now has an authenticated dandanplay match/comment resolve route for catalog
   media, and the web player shows provider readiness, dandanplay
-  match/comment preview, and manual MAL/Bangumi external-list read/write
-  controls that auto-fill IDs from catalog metadata links for the selected
-  episode. Remaining split work: mapped-series
-  provider admin flows, live-account read/write QA, remote-only desktop
+  match/comment preview, provider mapping search, and manual MAL/Bangumi
+  external-list read/write controls that auto-fill IDs from catalog metadata
+  links for the selected episode. Remaining split work: mapped-series
+  provider admin write flows, live-account read/write QA, remote-only desktop
   packaging/migration, richer browser interaction QA, and web UI polish.
 - `[~]` Resolve P1 review findings from the 2026-06-15 full project review:
   convert expected LAN/provider/media failures away from hard
