@@ -57,7 +57,7 @@ host boundary grows.
   `/api/server/status`, `/api/library`, `/api/progress`, `/media`,
   `/subtitles`, and `/posters`.
 - Implement pairing, catalog browsing, poster display, detail view, HTML5 video
-  playback, progress read/write, and dandanplay match/comment preview first.
+  playback, progress read/write, provider readiness, and dandanplay match/comment preview first.
 - Keep web danmaku overlay, admin settings, provider sync controls, and library
   quality workflows as follow-up web features.
 

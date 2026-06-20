@@ -50,6 +50,37 @@ input {
   color: #596873;
 }
 
+.provider-runtime-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.provider-runtime-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  border: 1px solid #c9d2da;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.provider-runtime-pill.ready {
+  border-color: #9acbb9;
+  background: #dff3eb;
+  color: #155044;
+}
+
+.provider-runtime-pill.limited {
+  border-color: #dfbf99;
+  background: #f5e8dd;
+  color: #735029;
+}
+
 .connection-form {
   display: grid;
   grid-template-columns: minmax(260px, 1fr) 130px auto;

@@ -2,11 +2,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DanmakuApiError,
   DandanplayResolveResult,
+  LanProviderRuntimeStatus,
   LibraryCatalog,
   LibraryMediaItem,
   PlaybackProgress,
   fetchDandanplayResolve,
   fetchLibrarySnapshot,
+  fetchProviderRuntime,
   mediaUrl,
   normalizeBaseUrl,
   posterUrl,
@@ -22,6 +24,7 @@ export function App() {
   const [pairingToken, setPairingToken] = useState(() => loadStoredToken(defaultBaseUrl));
   const [catalog, setCatalog] = useState<LibraryCatalog | null>(null);
   const [progress, setProgress] = useState<PlaybackProgress[]>([]);
+  const [providerRuntime, setProviderRuntime] = useState<LanProviderRuntimeStatus | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -45,16 +48,22 @@ export function App() {
     setIsLoading(true);
     setMessage("Connecting...");
     try {
-      const snapshot = await fetchLibrarySnapshot(normalizedBaseUrl, pairingToken.trim());
+      const token = pairingToken.trim();
+      const [snapshot, runtime] = await Promise.all([
+        fetchLibrarySnapshot(normalizedBaseUrl, token),
+        fetchProviderRuntime(normalizedBaseUrl, token).catch(() => null)
+      ]);
       setCatalog(snapshot.catalog);
       setProgress(snapshot.progress);
+      setProviderRuntime(runtime);
       setSelectedId((current) => current ?? snapshot.catalog.items[0]?.id ?? null);
-      storeToken(normalizedBaseUrl, pairingToken.trim());
+      storeToken(normalizedBaseUrl, token);
       setMessage(
         `${snapshot.status.appName} ${snapshot.status.hostMode ?? "embedded-desktop"}: ` +
           `${snapshot.catalog.items.length} media items`
       );
     } catch (error) {
+      setProviderRuntime(null);
       setMessage(error instanceof DanmakuApiError ? error.message : "Could not connect to the library host.");
     } finally {
       setIsLoading(false);
@@ -67,6 +76,7 @@ export function App() {
         <div>
           <h1>Danmaku</h1>
           <p>{message}</p>
+          {providerRuntime ? <ProviderRuntimeStrip runtime={providerRuntime} /> : null}
         </div>
         <form
           className="connection-form"
@@ -146,6 +156,45 @@ export function App() {
       </section>
     </main>
   );
+}
+
+function ProviderRuntimeStrip({ runtime }: { runtime: LanProviderRuntimeStatus }) {
+  const providers = [
+    {
+      name: "Dandanplay",
+      ready: runtime.dandanplay.matchAvailable && runtime.dandanplay.commentFetchAvailable,
+      detail: runtime.dandanplay.reasonCode
+    },
+    {
+      name: "MAL",
+      ready: runtime.myAnimeList.searchAvailable,
+      detail: externalRuntimeDetail(runtime.myAnimeList)
+    },
+    {
+      name: "Bangumi",
+      ready: runtime.bangumi.searchAvailable,
+      detail: externalRuntimeDetail(runtime.bangumi)
+    }
+  ];
+  return (
+    <div className="provider-runtime-strip" aria-label="Provider runtime status">
+      {providers.map((provider) => (
+        <span
+          key={provider.name}
+          className={provider.ready ? "provider-runtime-pill ready" : "provider-runtime-pill limited"}
+          title={provider.detail}
+        >
+          {provider.name}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function externalRuntimeDetail(runtime: LanProviderRuntimeStatus["myAnimeList"]): string {
+  if (runtime.listReadAvailable && runtime.listWriteAvailable) return "list-sync-ready";
+  if (runtime.searchAvailable) return runtime.reasonCode;
+  return runtime.reasonCode;
 }
 
 function PlayerPanel({

@@ -39,7 +39,8 @@ Status legend:
   `shared:library-server-core` so desktop and headless can use one JVM
   provider implementation, the headless server now has an authenticated
   dandanplay match/comment resolve route for catalog media, and the web player
-  can load a dandanplay match/comment preview for the selected episode. Remaining
+  shows provider readiness plus a dandanplay match/comment preview for the
+  selected episode. Remaining
   split work: external list-sync provider network actions, remote-only desktop
   packaging/migration, richer browser interaction QA, and web UI polish.
 - `[~]` Resolve P1 review findings from the 2026-06-15 full project review:
