@@ -73,11 +73,13 @@ host boundary grows.
 - Headless catalog snapshots, stable pairing tokens, and playback progress are
   persisted under the locked data directory so catalog readback, existing
   pairings, and web/mobile/TV resume points survive server restarts.
-- Headless hosts can read roots from `server-settings.json` when CLI roots are
-  absent, and can serve a cached catalog when no roots are configured.
+- Headless hosts can read roots and non-secret provider settings from
+  `server-settings.json` when CLI roots are absent, and can serve a cached
+  catalog when no roots are configured.
 - Headless hosts announce themselves through the existing LAN discovery
   protocol after the HTTP server binds.
-- Later work adds provider settings and release packaging.
+- Later work wires those provider settings into headless provider runtime
+  actions and adds release packaging.
 
 ### Phase 5: Desktop Remote Client
 

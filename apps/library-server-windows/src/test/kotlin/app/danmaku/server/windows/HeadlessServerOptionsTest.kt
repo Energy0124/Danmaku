@@ -118,6 +118,62 @@ class HeadlessServerOptionsTest {
     }
 
     @Test
+    fun loadsProviderSettingsFromHeadlessSettingsWithoutPersistingSecrets() {
+        val dataDirectory = createTempDirectory("danmaku-headless-provider-settings")
+        val settingsFile = dataDirectory.resolve("server-settings.json")
+        settingsFile.writeText(
+            """
+            {
+              "schemaVersion": 1,
+              "pairingToken": "123456",
+              "dandanplay": {
+                "baseUrl": "https://worker.example/dandanplay",
+                "appId": "app-id",
+                "appSecret": "raw-secret",
+                "hasAppSecret": true,
+                "authenticationMode": "credential",
+                "cacheMaxAgeDays": 7
+              },
+              "externalAnime": {
+                "myAnimeListClientId": "mal-client-id",
+                "myAnimeListClientSecret": "raw-mal-secret",
+                "hasMyAnimeListClientSecret": true,
+                "hasMyAnimeListAccessToken": true,
+                "bangumiBaseUrl": "https://api.bgm.tv/",
+                "bangumiUserAgent": "Danmaku QA",
+                "bangumiAccessToken": "raw-bangumi-token",
+                "hasBangumiAccessToken": true
+              }
+            }
+            """.trimIndent(),
+        )
+
+        try {
+            val settings = HeadlessServerSettingsStore(settingsFile).loadOrCreate(explicitPairingToken = null)
+
+            assertEquals("123456", settings.pairingToken)
+            assertEquals("https://worker.example/dandanplay", settings.dandanplay.baseUrl)
+            assertEquals("app-id", settings.dandanplay.appId)
+            assertEquals(true, settings.dandanplay.hasAppSecret)
+            assertEquals(HeadlessDandanplayAuthenticationMode.CREDENTIAL, settings.dandanplay.authenticationMode)
+            assertEquals(7, settings.dandanplay.cacheMaxAgeDays)
+            assertEquals("mal-client-id", settings.externalAnime.myAnimeListClientId)
+            assertEquals(true, settings.externalAnime.hasMyAnimeListClientSecret)
+            assertEquals(true, settings.externalAnime.hasMyAnimeListAccessToken)
+            assertEquals("https://api.bgm.tv/", settings.externalAnime.bangumiBaseUrl)
+            assertEquals("Danmaku QA", settings.externalAnime.bangumiUserAgent)
+            assertEquals(true, settings.externalAnime.hasBangumiAccessToken)
+
+            val rewritten = settingsFile.toFile().readText()
+            assertEquals(false, rewritten.contains("raw-secret"))
+            assertEquals(false, rewritten.contains("raw-mal-secret"))
+            assertEquals(false, rewritten.contains("raw-bangumi-token"))
+        } finally {
+            dataDirectory.toFile().deleteRecursively()
+        }
+    }
+
+    @Test
     fun startsWithDataDirectoryLockAndHeadlessStatus() {
         val dataDirectory = createTempDirectory("danmaku-headless-server")
         headlessServer(

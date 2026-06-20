@@ -165,10 +165,10 @@ trusted-LAN clients.
   `apps:library-server-windows` headless JVM host with data-directory locking,
   startup scanning for configured `--root` folders, JSON catalog publishing,
   durable catalog snapshots for startup readback, sidecar subtitle discovery,
-  shared LAN media/subtitle streaming, settings-file root readback, and
-  file-backed playback progress plus stable pairing-token persistence under
-  the locked data directory. Headless
-  hosts also announce themselves through the existing LAN discovery
+  shared LAN media/subtitle streaming, settings-file root/provider readback,
+  and file-backed playback progress plus stable pairing-token persistence under
+  the locked data directory. Headless hosts also announce themselves through
+  the existing LAN discovery
   protocol after the HTTP server binds. The repeatable
   `tools/windows/run-headless-web-ui-qa.ps1` helper builds the web UI, launches a
   fixture-backed headless host, verifies the served `/web/` shell plus catalog,
@@ -324,8 +324,8 @@ trusted-LAN clients.
 
 ## Not Implemented
 
-- Release-ready headless standalone library server with provider settings,
-  packaging, and remote-only desktop migration.
+- Release-ready headless standalone library server with provider runtime
+  wiring, packaging, and remote-only desktop migration.
 - Release-ready macOS/Linux/iOS/iPadOS/web targets.
 - Broad provider plugin marketplace or plugin sandboxing.
 - DRM circumvention, unauthorized source scraping, or torrent/search behavior.
