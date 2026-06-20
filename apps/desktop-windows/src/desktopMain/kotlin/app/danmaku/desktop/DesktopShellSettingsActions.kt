@@ -1,5 +1,7 @@
 package app.danmaku.desktop
 
+import app.danmaku.provider.dandanplay.DandanplayAuthenticationMode
+import app.danmaku.provider.dandanplay.DandanplayDanmakuClient
 import app.danmaku.domain.DanmakuDisplaySettings
 import app.danmaku.domain.ExternalAnimeMatchQuery
 import app.danmaku.library.LanLibraryConnectionSession

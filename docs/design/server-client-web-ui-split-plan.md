@@ -80,6 +80,9 @@ host boundary grows.
   catalog when no roots are configured.
 - Headless hosts announce themselves through the existing LAN discovery
   protocol after the HTTP server binds.
+- The dandanplay JVM API client/parsers now live in
+  `shared:library-server-core`, keeping desktop behavior intact while giving
+  the headless host the same implementation for upcoming danmaku fetch routes.
 - Later work wires the remaining provider settings into headless provider
   network operations such as danmaku fetch and list sync, then adds release
   packaging.

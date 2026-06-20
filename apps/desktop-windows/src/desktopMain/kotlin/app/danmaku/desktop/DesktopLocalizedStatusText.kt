@@ -1,5 +1,6 @@
 package app.danmaku.desktop
 
+import app.danmaku.provider.dandanplay.DandanplayAuthenticationMode
 import app.danmaku.domain.ExternalAnimeListStatus
 import app.danmaku.domain.ExternalAnimeTrackingPlanConflictReason
 import app.danmaku.domain.ExternalAnimeTrackingPlanSkipReason

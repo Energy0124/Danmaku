@@ -1,5 +1,7 @@
 package app.danmaku.desktop
 
+import app.danmaku.provider.dandanplay.DandanplayAuthenticationMode
+import app.danmaku.provider.dandanplay.DandanplayConnection
 import kotlin.io.path.createTempDirectory
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -39,8 +41,9 @@ class DandanplayCredentialStoreTest {
 
             val connection = credentialStore.loadConnection()
             assertEquals("http://127.0.0.1:8732/", connection.baseUri.toString())
-            assertEquals("app-id-value", connection.appId)
-            assertEquals(appSecret, connection.appSecret)
+            assertTrue(connection.hasCredentials)
+            assertTrue(connection.toString().contains("app-id-value"))
+            assertFalse(connection.toString().contains(appSecret))
             assertEquals(DandanplayAuthenticationMode.CREDENTIAL, connection.authenticationMode)
 
             val storedSettings = catalogStore.loadSettings()
@@ -55,7 +58,7 @@ class DandanplayCredentialStoreTest {
             )
             assertEquals("http://127.0.0.1:8733", updatedSettings.baseUrl)
             assertEquals(7, updatedSettings.cacheMaxAgeDays)
-            assertEquals(appSecret, credentialStore.loadConnection().appSecret)
+            assertTrue(credentialStore.loadConnection().hasCredentials)
             assertEquals(DandanplayAuthenticationMode.SIGNED, credentialStore.loadConnection().authenticationMode)
         }
 
@@ -66,7 +69,7 @@ class DandanplayCredentialStoreTest {
                 localDefaultsProvider = { null },
             )
 
-            assertEquals(appSecret, credentialStore.loadConnection().appSecret)
+            assertTrue(credentialStore.loadConnection().hasCredentials)
             credentialStore.deleteSettings()
 
             val resetSettings = credentialStore.loadSettings()
@@ -105,7 +108,7 @@ class DandanplayCredentialStoreTest {
             assertTrue(settings.hasCredentials)
             assertEquals(DandanplayAuthenticationMode.CREDENTIAL, settings.authenticationMode)
             assertEquals(21, settings.cacheMaxAgeDays)
-            assertEquals("local-secret", credentialStore.loadConnection().appSecret)
+            assertTrue(credentialStore.loadConnection().hasCredentials)
             assertFalse(catalogStore.loadSettings().any { it.value.contains("local-secret") })
 
             credentialStore.saveSettings(
@@ -116,7 +119,7 @@ class DandanplayCredentialStoreTest {
             )
 
             assertNull(credentialStore.loadSettings().appId)
-            assertNull(credentialStore.loadConnection().appSecret)
+            assertFalse(credentialStore.loadConnection().hasCredentials)
         }
 
         temp.toFile().deleteRecursively()
@@ -223,8 +226,7 @@ class DandanplayCredentialStoreTest {
             assertFalse(settings.hasCredentials)
             assertTrue(settings.isFetchEnabled)
             assertEquals("http://127.0.0.1:9000/", credentialStore.loadConnection().baseUri.toString())
-            assertNull(credentialStore.loadConnection().appId)
-            assertNull(credentialStore.loadConnection().appSecret)
+            assertFalse(credentialStore.loadConnection().hasCredentials)
         }
 
         temp.toFile().deleteRecursively()

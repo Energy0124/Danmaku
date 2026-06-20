@@ -1,5 +1,8 @@
 package app.danmaku.desktop
 
+import app.danmaku.provider.dandanplay.DandanplayConnection
+import app.danmaku.provider.dandanplay.DandanplayDanmakuClient
+import app.danmaku.provider.dandanplay.DandanplayMediaFingerprint
 import app.danmaku.domain.ExternalAnimeId
 import app.danmaku.domain.ExternalAnimeInfo
 import app.danmaku.domain.ExternalAnimeMappingSource

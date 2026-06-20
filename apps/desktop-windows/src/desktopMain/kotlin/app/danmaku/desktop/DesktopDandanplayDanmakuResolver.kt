@@ -1,5 +1,10 @@
 package app.danmaku.desktop
 
+import app.danmaku.provider.dandanplay.DandanplayCommentTrack
+import app.danmaku.provider.dandanplay.DandanplayConnection
+import app.danmaku.provider.dandanplay.DandanplayDanmakuClient
+import app.danmaku.provider.dandanplay.DandanplayMatch
+import app.danmaku.provider.dandanplay.DandanplayMediaFingerprint
 import app.danmaku.domain.DanmakuEvent
 import app.danmaku.domain.DanmakuDisplaySettings
 import app.danmaku.domain.DanmakuMode

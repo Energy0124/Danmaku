@@ -1,5 +1,7 @@
 package app.danmaku.desktop
 
+import app.danmaku.provider.dandanplay.DandanplayConnection
+import app.danmaku.provider.dandanplay.DandanplayDanmakuClient
 import kotlin.test.Test
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue

@@ -35,9 +35,11 @@ Status legend:
   media, subtitle metadata, and progress readback, then restarts without
   explicit roots/token to verify cached catalog and persisted progress readback
   before writing a PASS report.
-  Remaining split work: dandanplay fetch/list-sync provider network actions,
-  remote-only desktop packaging/migration, richer browser interaction QA, and
-  web UI polish.
+  Dandanplay API client/parsing code is now shared through
+  `shared:library-server-core` so desktop and headless can use one JVM
+  provider implementation. Remaining split work: headless dandanplay
+  fetch/list-sync provider network actions, remote-only desktop
+  packaging/migration, richer browser interaction QA, and web UI polish.
 - `[~]` Resolve P1 review findings from the 2026-06-15 full project review:
   convert expected LAN/provider/media failures away from hard
   `error(...)`/`check(...)` paths, split oversized Android entrypoints, and

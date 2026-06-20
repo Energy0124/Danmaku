@@ -1,5 +1,6 @@
 package app.danmaku.desktop
 
+import app.danmaku.provider.dandanplay.DandanplayAuthenticationMode
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable

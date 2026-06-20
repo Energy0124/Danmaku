@@ -90,8 +90,9 @@ trusted-LAN clients.
   command planning, fullscreen/aspect controls, volume/rate controls, seeking,
   and runtime audio/subtitle track selection.
 - dandanplay provider settings, signed/credential auth modes, optional Worker
-  proxy usage, media matching, comment fetching, ASS overlay generation,
-  cached match/comment storage, cache cleanup, and manual match correction.
+  proxy usage, shared JVM API client/parsing code, media matching, comment
+  fetching, ASS overlay generation, cached match/comment storage, cache
+  cleanup, and manual match correction.
 - Manual local danmaku attachment path and cached/synthetic overlay rendering.
 - Anime metadata/poster resolution and cache, poster loading states, and manual
   metadata refresh on series/episode surfaces.

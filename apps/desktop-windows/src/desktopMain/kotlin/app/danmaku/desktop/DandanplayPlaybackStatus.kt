@@ -1,5 +1,6 @@
 package app.danmaku.desktop
 
+import app.danmaku.provider.dandanplay.DandanplayMatch
 import kotlin.io.path.absolutePathString
 
 data class DandanplayPlaybackUiStatus(

@@ -1,4 +1,4 @@
-package app.danmaku.desktop
+package app.danmaku.provider.dandanplay
 
 import app.danmaku.domain.DanmakuEvent
 import app.danmaku.domain.ExternalAnimeId

@@ -1,5 +1,7 @@
 package app.danmaku.desktop
 
+import app.danmaku.provider.dandanplay.DandanplayConnection
+import app.danmaku.provider.dandanplay.DandanplayMatch
 import app.danmaku.domain.DanmakuEvent
 import java.nio.file.Files
 import kotlin.io.path.createTempDirectory

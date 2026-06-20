@@ -1,5 +1,7 @@
 package app.danmaku.desktop
 
+import app.danmaku.provider.dandanplay.DandanplayAuthenticationMode
+import app.danmaku.provider.dandanplay.DandanplayConnection
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.Base64
@@ -75,8 +77,8 @@ class DandanplayCredentialStore(
 
         saveSetting(BASE_URL_SETTING_KEY, validatedConnection.baseUri.toString().trimEnd('/'))
         if (validatedConnection.hasCredentials) {
-            saveSetting(APP_ID_SETTING_KEY, validatedConnection.appId ?: error("validated app id missing"))
-            saveSecret(APP_SECRET_SETTING_KEY, validatedConnection.appSecret ?: error("validated app secret missing"))
+            saveSetting(APP_ID_SETTING_KEY, trimmedAppId ?: error("validated app id missing"))
+            saveSecret(APP_SECRET_SETTING_KEY, trimmedAppSecret ?: error("validated app secret missing"))
             saveSetting(AUTHENTICATION_MODE_SETTING_KEY, validatedConnection.authenticationMode.name)
         } else {
             store.deleteSetting(APP_ID_SETTING_KEY)
