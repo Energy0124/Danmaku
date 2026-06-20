@@ -24,8 +24,12 @@ Status legend:
   launch-driven remote-client mode using `--remote-server-url`,
   `--remote-pairing-token`, `DANMAKU_REMOTE_SERVER_URL`, and
   `DANMAKU_REMOTE_PAIRING_TOKEN` to open and optionally auto-load a remote host.
+  The repeatable `tools/windows/run-headless-web-ui-qa.ps1` helper now builds
+  the web UI, starts a fixture-backed headless host, verifies `/web/`, catalog,
+  media, subtitle metadata, and progress readback, and writes a PASS report.
   Remaining split work: durable headless catalog storage, provider/settings
-  support, remote-only desktop packaging/migration, and web UI QA/polish.
+  support, remote-only desktop packaging/migration, richer browser interaction
+  QA, and web UI polish.
 - `[~]` Resolve P1 review findings from the 2026-06-15 full project review:
   convert expected LAN/provider/media failures away from hard
   `error(...)`/`check(...)` paths, split oversized Android entrypoints, and
@@ -391,8 +395,9 @@ Full review date: 2026-06-15.
 - Shared domain changes should include common tests.
 - LAN server/client behavior should include JVM tests and Android adapter tests
   where relevant.
-- Web UI changes should run `npm run build` in `apps/web-ui` and server-side
-  route changes should keep JVM LAN server compatibility tests green.
+- Web UI changes should run `npm run build` in `apps/web-ui`; server-side route
+  changes should keep JVM LAN server compatibility tests green; headless/web
+  integration changes should run `tools/windows/run-headless-web-ui-qa.ps1`.
 - Desktop storage/provider/native changes should include desktop tests.
 - TV UI changes should include D-pad/focus instrumentation coverage where
   practical.

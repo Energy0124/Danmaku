@@ -1,0 +1,185 @@
+[CmdletBinding()]
+param(
+    [int]$Port = 18686,
+    [string]$PairingToken = "123456",
+    [string]$OutputDir
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
+
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+if ([string]::IsNullOrWhiteSpace($OutputDir)) {
+    $OutputDir = Join-Path $repoRoot "build\qa\headless-web-ui"
+}
+$OutputDir = [System.IO.Path]::GetFullPath($OutputDir)
+$fixtureRoot = Join-Path $OutputDir "fixture-library"
+$dataDir = Join-Path $OutputDir "server-data"
+$reportPath = Join-Path $OutputDir "headless-web-ui-qa.md"
+$webUiDir = Join-Path $repoRoot "apps\web-ui"
+$webDist = Join-Path $webUiDir "dist"
+$gradle = Join-Path $repoRoot "gradlew.bat"
+
+function Invoke-RequiredCommand {
+    param(
+        [scriptblock]$Command,
+        [string]$FailureMessage
+    )
+
+    & $Command
+    if ($LASTEXITCODE -ne 0) {
+        throw "$FailureMessage Exit code: $LASTEXITCODE"
+    }
+}
+
+function Invoke-JsonRequest {
+    param(
+        [string]$Uri,
+        [string]$Method = "GET",
+        [object]$Body = $null
+    )
+
+    $parameters = @{
+        Uri = $Uri
+        Method = $Method
+        UseBasicParsing = $true
+        Headers = @{ Accept = "application/json" }
+    }
+    if ($null -ne $Body) {
+        $parameters.Body = ($Body | ConvertTo-Json -Depth 8)
+        $parameters.ContentType = "application/json; charset=utf-8"
+    }
+    Invoke-WebRequest @parameters
+}
+
+function Wait-ForServer {
+    param(
+        [string]$BaseUrl,
+        [int]$Attempts = 60
+    )
+
+    for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
+        try {
+            $response = Invoke-WebRequest -Uri "$BaseUrl/api/server/status" -UseBasicParsing
+            if ($response.StatusCode -eq 200) {
+                return
+            }
+        } catch {
+            Start-Sleep -Milliseconds 500
+        }
+    }
+    throw "Timed out waiting for headless server at $BaseUrl"
+}
+
+function Get-FirstItem {
+    param([object]$Catalog)
+
+    if ($null -eq $Catalog.items -or $Catalog.items.Count -lt 1) {
+        throw "Catalog did not contain any media items."
+    }
+    $Catalog.items[0]
+}
+
+if (-not (Test-Path -LiteralPath $gradle -PathType Leaf)) {
+    throw "Gradle wrapper does not exist: $gradle"
+}
+if (-not (Test-Path -LiteralPath (Join-Path $webUiDir "package.json") -PathType Leaf)) {
+    throw "Web UI package does not exist: $webUiDir"
+}
+
+New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
+if (Test-Path -LiteralPath $fixtureRoot) {
+    Remove-Item -LiteralPath $fixtureRoot -Recurse -Force
+}
+if (Test-Path -LiteralPath $dataDir) {
+    Remove-Item -LiteralPath $dataDir -Recurse -Force
+}
+
+$showDir = Join-Path $fixtureRoot "QA Show"
+New-Item -ItemType Directory -Force -Path $showDir | Out-Null
+[System.IO.File]::WriteAllBytes((Join-Path $showDir "Episode 01.mp4"), [byte[]](0, 0, 0, 24, 102, 116, 121, 112))
+Set-Content -LiteralPath (Join-Path $showDir "Episode 01.en.vtt") -Value "WEBVTT`n`n00:00:00.000 --> 00:00:01.000`nHello from QA`n" -Encoding UTF8
+
+Push-Location $webUiDir
+try {
+    Invoke-RequiredCommand -Command { npm run build } -FailureMessage "Web UI build failed."
+} finally {
+    Pop-Location
+}
+
+$arguments = @(
+    "--no-daemon",
+    ":apps:library-server-windows:run",
+    "--args=`"--data-dir `"$dataDir`" --root `"$fixtureRoot`" --port $Port --pairing-token $PairingToken --web-assets-dir `"$webDist`"`""
+)
+$serverProcess = Start-Process -FilePath $gradle -ArgumentList $arguments -WorkingDirectory $repoRoot -PassThru -WindowStyle Hidden
+$baseUrl = "http://127.0.0.1:$Port"
+
+try {
+    Wait-ForServer -BaseUrl $baseUrl
+
+    $status = (Invoke-JsonRequest -Uri "$baseUrl/api/server/status").Content | ConvertFrom-Json
+    if ($status.hostMode -ne "headless-server") {
+        throw "Expected headless-server host mode but got: $($status.hostMode)"
+    }
+    if ($status.webUiAvailable -ne $true) {
+        throw "Expected webUiAvailable=true"
+    }
+
+    $webIndex = Invoke-WebRequest -Uri "$baseUrl/web/" -UseBasicParsing
+    if ($webIndex.StatusCode -ne 200 -or $webIndex.Content -notmatch "Danmaku") {
+        throw "Web UI index did not render expected shell content."
+    }
+
+    $catalog = (Invoke-JsonRequest -Uri "$baseUrl/api/library?token=$PairingToken").Content | ConvertFrom-Json
+    $item = Get-FirstItem -Catalog $catalog
+    if ($item.seriesTitle -ne "QA Show") {
+        throw "Unexpected series title: $($item.seriesTitle)"
+    }
+    if ($item.subtitles.Count -ne 1) {
+        throw "Expected one sidecar subtitle track."
+    }
+
+    $mediaHead = Invoke-WebRequest -Uri "$baseUrl$($item.streamPath)?token=$PairingToken" -Method Head -UseBasicParsing
+    if ($mediaHead.StatusCode -ne 200) {
+        throw "Media HEAD failed with HTTP $($mediaHead.StatusCode)"
+    }
+
+    $progress = @{
+        mediaId = $item.id
+        positionMs = 42000
+        durationMs = 90000
+        updatedAtEpochMs = 1234567890
+    }
+    $progressResponse = Invoke-JsonRequest -Uri "$baseUrl/api/progress/$($item.id)?token=$PairingToken" -Method PUT -Body $progress
+    if ($progressResponse.StatusCode -ne 204) {
+        throw "Progress PUT failed with HTTP $($progressResponse.StatusCode)"
+    }
+
+    $progressReadback = (Invoke-JsonRequest -Uri "$baseUrl/api/progress?token=$PairingToken").Content | ConvertFrom-Json
+    $saved = @($progressReadback) | Where-Object { $_.mediaId -eq $item.id } | Select-Object -First 1
+    if ($null -eq $saved -or $saved.positionMs -ne 42000) {
+        throw "Progress readback did not contain the saved QA position."
+    }
+
+    $report = @(
+        "# Headless Web UI QA",
+        "",
+        "- Base URL: $baseUrl",
+        "- Web UI: $baseUrl/web/",
+        "- Catalog items: $($catalog.items.Count)",
+        "- First item: $($item.seriesTitle) / $($item.episodeTitle)",
+        "- Subtitle tracks: $($item.subtitles.Count)",
+        "- Progress readback: $($saved.positionMs) ms",
+        "",
+        "Result: PASS"
+    ) -join "`n"
+    Set-Content -LiteralPath $reportPath -Value $report -Encoding UTF8
+    Write-Host "Headless Web UI QA complete."
+    Write-Host "Report: $reportPath"
+} finally {
+    if ($null -ne $serverProcess -and -not $serverProcess.HasExited) {
+        Stop-Process -Id $serverProcess.Id -Force
+        $serverProcess.WaitForExit()
+    }
+}

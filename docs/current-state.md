@@ -167,7 +167,11 @@ trusted-LAN clients.
   sidecar subtitle discovery, shared LAN media/subtitle streaming, and
   file-backed playback progress persistence under the locked data directory.
   Headless hosts also announce themselves through the existing LAN discovery
-  protocol after the HTTP server binds.
+  protocol after the HTTP server binds. The repeatable
+  `tools/windows/run-headless-web-ui-qa.ps1` helper builds the web UI, launches a
+  fixture-backed headless host, verifies the served `/web/` shell plus catalog,
+  media, subtitle metadata, and progress readback routes, and writes a PASS/FAIL
+  report under `build/qa/headless-web-ui/`.
 
 ## Partial Or Needs More QA
 
@@ -337,6 +341,7 @@ git diff --check
 .\tools\windows\capture-desktop-localization-screenshots.ps1
 .\tools\windows\capture-desktop-localization-screenshots.ps1 -Languages zh-TW -Tabs home,library,tracking,settings
 .\gradlew.bat --no-daemon :apps:android-mobile:assembleDebug
+.\tools\windows\run-headless-web-ui-qa.ps1
 ```
 
 Recent Android TV emulator QA checks:

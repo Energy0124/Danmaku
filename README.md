@@ -202,6 +202,12 @@ headless or embedded host:
 .\gradlew.bat --no-daemon :apps:desktop-windows:run --args="--remote-server-url http://127.0.0.1:8686 --remote-pairing-token 123456"
 ```
 
+Repeatable headless web UI QA:
+
+```powershell
+.\tools\windows\run-headless-web-ui-qa.ps1
+```
+
 ## Security And Source Policy
 
 - Support authorized media sources only.
