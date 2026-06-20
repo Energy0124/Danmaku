@@ -2,21 +2,33 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DanmakuApiError,
   DandanplayResolveResult,
+  ExternalAnimeListEntry,
+  ExternalAnimeListStatus,
+  ExternalAnimeProvider,
   LanProviderRuntimeStatus,
   LibraryCatalog,
   LibraryMediaItem,
   PlaybackProgress,
   fetchDandanplayResolve,
+  fetchExternalListEntry,
   fetchLibrarySnapshot,
   fetchProviderRuntime,
   mediaUrl,
   normalizeBaseUrl,
   posterUrl,
+  saveExternalListEntry,
   saveProgress,
   subtitleUrl
 } from "./api";
 
 const tokenStoragePrefix = "danmaku.web.pairing.";
+const externalListStatuses: ExternalAnimeListStatus[] = [
+  "WATCHING",
+  "COMPLETED",
+  "ON_HOLD",
+  "DROPPED",
+  "PLAN_TO_WATCH"
+];
 
 export function App() {
   const defaultBaseUrl = window.location.origin;
@@ -140,6 +152,7 @@ export function App() {
             <PlayerPanel
               baseUrl={normalizedBaseUrl}
               token={pairingToken.trim()}
+              providerRuntime={providerRuntime}
               item={selectedItem}
               savedProgress={progressById.get(selectedItem.id)}
               onProgressSaved={(entry) => {
@@ -200,12 +213,14 @@ function externalRuntimeDetail(runtime: LanProviderRuntimeStatus["myAnimeList"])
 function PlayerPanel({
   baseUrl,
   token,
+  providerRuntime,
   item,
   savedProgress,
   onProgressSaved
 }: {
   baseUrl: string;
   token: string;
+  providerRuntime: LanProviderRuntimeStatus | null;
   item: LibraryMediaItem;
   savedProgress?: PlaybackProgress;
   onProgressSaved: (progress: PlaybackProgress) => void;
@@ -216,6 +231,22 @@ function PlayerPanel({
   const [dandanplay, setDandanplay] = useState<DandanplayResolveResult | null>(null);
   const [dandanplayMessage, setDandanplayMessage] = useState("");
   const [isDandanplayLoading, setIsDandanplayLoading] = useState(false);
+  const [externalListProvider, setExternalListProvider] =
+    useState<ExternalAnimeProvider>("MY_ANIME_LIST");
+  const [externalAnimeId, setExternalAnimeId] = useState("");
+  const [externalListStatus, setExternalListStatus] =
+    useState<ExternalAnimeListStatus>("WATCHING");
+  const [externalWatchedEpisodes, setExternalWatchedEpisodes] = useState("");
+  const [externalScore, setExternalScore] = useState("");
+  const [externalListEntry, setExternalListEntry] = useState<ExternalAnimeListEntry | null>(null);
+  const [externalListMessage, setExternalListMessage] = useState("");
+  const [isExternalListLoading, setIsExternalListLoading] = useState(false);
+  const externalListCapability = externalListProvider === "MY_ANIME_LIST"
+    ? providerRuntime?.myAnimeList
+    : providerRuntime?.bangumi;
+  const externalListCanRead = externalListCapability?.listReadAvailable ?? false;
+  const externalListCanWrite = externalListCapability?.listWriteAvailable ?? false;
+  const parsedExternalAnimeId = parsePositiveExternalAnimeId(externalAnimeId);
 
   useEffect(() => {
     lastSavedAtRef.current = 0;
@@ -228,7 +259,14 @@ function PlayerPanel({
   useEffect(() => {
     setDandanplay(null);
     setDandanplayMessage("");
+    setExternalListEntry(null);
+    setExternalListMessage("");
   }, [item.id]);
+
+  useEffect(() => {
+    setExternalListEntry(null);
+    setExternalListMessage("");
+  }, [externalListProvider, externalAnimeId]);
 
   async function loadDandanplay() {
     setIsDandanplayLoading(true);
@@ -247,6 +285,61 @@ function PlayerPanel({
     } finally {
       setIsDandanplayLoading(false);
     }
+  }
+
+  async function readExternalListEntry() {
+    if (parsedExternalAnimeId == null) {
+      setExternalListMessage("Enter a positive MAL or Bangumi anime ID.");
+      return;
+    }
+    setIsExternalListLoading(true);
+    setExternalListMessage("Reading external list entry...");
+    try {
+      const entry = await fetchExternalListEntry(baseUrl, token, {
+        provider: externalListProvider,
+        value: parsedExternalAnimeId
+      });
+      applyExternalListEntry(entry);
+      setExternalListMessage(formatExternalListEntry(entry));
+    } catch (error) {
+      setExternalListEntry(null);
+      setExternalListMessage(error instanceof DanmakuApiError ? error.message : "External list readback failed.");
+    } finally {
+      setIsExternalListLoading(false);
+    }
+  }
+
+  async function writeExternalListEntry() {
+    if (parsedExternalAnimeId == null) {
+      setExternalListMessage("Enter a positive MAL or Bangumi anime ID.");
+      return;
+    }
+    setIsExternalListLoading(true);
+    setExternalListMessage("Updating external list entry...");
+    try {
+      const entry = await saveExternalListEntry(baseUrl, token, {
+        animeId: {
+          provider: externalListProvider,
+          value: parsedExternalAnimeId
+        },
+        status: externalListStatus,
+        watchedEpisodes: parseOptionalInteger(externalWatchedEpisodes, 0, 10_000, "Episodes"),
+        score: parseOptionalInteger(externalScore, 0, 10, "Score")
+      });
+      applyExternalListEntry(entry);
+      setExternalListMessage(formatExternalListEntry(entry));
+    } catch (error) {
+      setExternalListMessage(error instanceof Error ? error.message : "External list update failed.");
+    } finally {
+      setIsExternalListLoading(false);
+    }
+  }
+
+  function applyExternalListEntry(entry: ExternalAnimeListEntry) {
+    setExternalListEntry(entry);
+    setExternalListStatus(entry.status ?? externalListStatus);
+    setExternalWatchedEpisodes(entry.watchedEpisodes == null ? "" : String(entry.watchedEpisodes));
+    setExternalScore(entry.score == null ? "" : String(entry.score));
   }
 
   async function persist(video: HTMLVideoElement) {
@@ -328,6 +421,110 @@ function PlayerPanel({
         ) : null}
       </section>
 
+      <section className="provider-panel external-list-panel">
+        <div className="provider-panel-header">
+          <div>
+            <h3>External list</h3>
+            <p>
+              {externalListMessage ||
+                (externalListCapability
+                  ? externalListCanRead || externalListCanWrite
+                    ? "List sync credentials are ready."
+                    : `List sync unavailable: ${externalListCapability.reasonCode}`
+                  : "Connect to see list sync readiness.")}
+            </p>
+          </div>
+        </div>
+        <div className="external-list-form">
+          <label>
+            Provider
+            <select
+              value={externalListProvider}
+              onChange={(event) => setExternalListProvider(event.target.value as ExternalAnimeProvider)}
+            >
+              <option value="MY_ANIME_LIST">MyAnimeList</option>
+              <option value="BANGUMI">Bangumi</option>
+            </select>
+          </label>
+          <label>
+            Anime ID
+            <input
+              value={externalAnimeId}
+              onChange={(event) => setExternalAnimeId(event.target.value)}
+              inputMode="numeric"
+              placeholder="52991"
+            />
+          </label>
+          <label>
+            Status
+            <select
+              value={externalListStatus}
+              onChange={(event) => setExternalListStatus(event.target.value as ExternalAnimeListStatus)}
+            >
+              {externalListStatuses.map((status) => (
+                <option key={status} value={status}>
+                  {formatListStatus(status)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Episodes
+            <input
+              value={externalWatchedEpisodes}
+              onChange={(event) => setExternalWatchedEpisodes(event.target.value)}
+              inputMode="numeric"
+              placeholder="12"
+            />
+          </label>
+          <label>
+            Score
+            <input
+              value={externalScore}
+              onChange={(event) => setExternalScore(event.target.value)}
+              inputMode="numeric"
+              placeholder="0-10"
+            />
+          </label>
+          <div className="external-list-actions">
+            <button
+              disabled={isExternalListLoading || parsedExternalAnimeId == null || !externalListCanRead}
+              onClick={() => void readExternalListEntry()}
+              type="button"
+            >
+              {isExternalListLoading ? "Working" : "Read"}
+            </button>
+            <button
+              disabled={isExternalListLoading || parsedExternalAnimeId == null || !externalListCanWrite}
+              onClick={() => void writeExternalListEntry()}
+              type="button"
+            >
+              Save
+            </button>
+          </div>
+        </div>
+        {externalListEntry ? (
+          <dl className="provider-summary external-list-summary">
+            <div>
+              <dt>Provider</dt>
+              <dd>{externalListEntry.animeId.provider}</dd>
+            </div>
+            <div>
+              <dt>Status</dt>
+              <dd>{externalListEntry.status ? formatListStatus(externalListEntry.status) : "None"}</dd>
+            </div>
+            <div>
+              <dt>Episodes</dt>
+              <dd>{externalListEntry.watchedEpisodes ?? "None"}</dd>
+            </div>
+            <div>
+              <dt>Score</dt>
+              <dd>{externalListEntry.score ?? "None"}</dd>
+            </div>
+          </dl>
+        ) : null}
+      </section>
+
       <video
         ref={videoRef}
         controls
@@ -363,6 +560,37 @@ function formatProgress(progress?: PlaybackProgress): string {
 function formatDandanplayMatch(match?: DandanplayResolveResult["selectedMatch"]): string {
   if (!match) return "None";
   return match.displayTitle;
+}
+
+function formatExternalListEntry(entry: ExternalAnimeListEntry): string {
+  const status = entry.status ? formatListStatus(entry.status) : "no status";
+  const episodes = entry.watchedEpisodes == null ? "unknown episodes" : `${entry.watchedEpisodes} episodes`;
+  const score = entry.score == null ? "no score" : `score ${entry.score}`;
+  return `${status}, ${episodes}, ${score}`;
+}
+
+function formatListStatus(status: ExternalAnimeListStatus): string {
+  return status
+    .toLocaleLowerCase()
+    .split("_")
+    .map((part) => part.charAt(0).toLocaleUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function parsePositiveExternalAnimeId(value: string): number | null {
+  const parsed = Number(value.trim());
+  if (!Number.isInteger(parsed) || parsed <= 0) return null;
+  return parsed;
+}
+
+function parseOptionalInteger(value: string, min: number, max: number, label: string): number | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const parsed = Number(trimmed);
+  if (!Number.isInteger(parsed) || parsed < min || parsed > max) {
+    throw new Error(`${label} must be an integer between ${min} and ${max}.`);
+  }
+  return parsed;
 }
 
 function formatTimestamp(timestampMs: number): string {

@@ -175,3 +175,6 @@ Default thresholds:
   persisting only non-secret credential flags, and the web API module now has
   typed read/write helpers for later provider admin controls. Verification:
   `.\gradlew.bat --no-daemon :shared:domain:jvmTest :shared:library-server-core:jvmTest :apps:library-server-windows:test`.
+- 2026-06-20: Added manual MAL/Bangumi external-list read/write controls to
+  the web player panel, gated by provider runtime list readiness and backed by
+  the typed web API helpers. Verification: `npm run build` in `apps/web-ui`.
