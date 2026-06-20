@@ -189,11 +189,12 @@ Experimental headless Windows server:
 .\gradlew.bat --no-daemon :apps:library-server-windows:run --args="--data-dir build/headless-data --root W:/Anime --port 8686 --pairing-token 123456 --web-assets-dir apps/web-ui/dist"
 ```
 
-The headless server currently scans configured roots into an in-memory catalog,
-streams media/subtitles through the same trusted-LAN routes as desktop, and
-persists playback progress under the locked data directory. It also uses the
-same LAN discovery announcements as the embedded desktop host. Durable headless
-catalog storage and provider settings are still planned work.
+The headless server scans configured roots into a JSON catalog, streams
+media/subtitles through the same trusted-LAN routes as desktop, and persists
+catalog snapshots plus playback progress under the locked data directory. It
+can boot from the cached catalog when no roots are configured and uses the same
+LAN discovery announcements as the embedded desktop host. Provider settings are
+still planned work.
 
 Desktop can launch directly into the remote-library browser against a running
 headless or embedded host:

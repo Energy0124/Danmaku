@@ -1,6 +1,6 @@
 # Server, Client, And Web UI Split Plan
 
-Last updated: 2026-06-19.
+Last updated: 2026-06-20.
 
 ## Direction
 
@@ -70,12 +70,14 @@ host boundary grows.
 - First implementation scans configured `--root` folders at startup and on
   `rescan`, publishes a basic catalog, and streams media/subtitles through the
   existing LAN routes.
-- Headless playback progress is persisted under the locked data directory so
-  web/mobile/TV resume points survive server restarts.
+- Headless catalog snapshots and playback progress are persisted under the
+  locked data directory so catalog readback and web/mobile/TV resume points
+  survive server restarts.
+- Headless hosts can serve a cached catalog without configured roots, which
+  supports service-style restarts where roots are supplied later by settings.
 - Headless hosts announce themselves through the existing LAN discovery
   protocol after the HTTP server binds.
-- Later work adds durable catalog storage, provider settings, and release
-  packaging.
+- Later work adds provider settings and release packaging.
 
 ### Phase 5: Desktop Remote Client
 

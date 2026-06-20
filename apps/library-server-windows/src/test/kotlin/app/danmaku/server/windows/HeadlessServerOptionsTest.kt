@@ -179,6 +179,58 @@ class HeadlessServerOptionsTest {
     }
 
     @Test
+    fun persistsCatalogAcrossHeadlessRestartsWithoutConfiguredRoots() {
+        val temp = createTempDirectory("danmaku-headless-catalog")
+        val dataDirectory = temp.resolve("data")
+        val root = temp.resolve("Anime").createDirectories()
+        val show = root.resolve("Example Show").createDirectories()
+        val mediaBytes = byteArrayOf(10, 20, 30, 40)
+        show.resolve("Episode 01.mp4").writeBytes(mediaBytes)
+        show.resolve("Episode 01.en.vtt").writeText("WEBVTT\n\n00:00:00.000 --> 00:00:01.000\nCached\n")
+
+        try {
+            headlessServer(
+                HeadlessServerOptions(
+                    dataDirectory = dataDirectory,
+                    libraryRoots = listOf(root),
+                    port = 0,
+                    pairingToken = "123456",
+                ),
+            ).use { server ->
+                val start = server.start()
+                assertEquals(LibraryHostOperationStatus.SUCCEEDED, start.status)
+                assertEquals(1, fetchCatalog(server).items.size)
+                assertEquals(true, dataDirectory.resolve("catalog.json").toFile().isFile)
+            }
+
+            headlessServer(
+                HeadlessServerOptions(
+                    dataDirectory = dataDirectory,
+                    port = 0,
+                    pairingToken = "123456",
+                ),
+            ).use { server ->
+                val start = server.start()
+                assertEquals(LibraryHostOperationStatus.SUCCEEDED, start.status)
+                assertEquals(1, start.itemCount)
+                assertEquals(1, server.runtimeStatus.itemCount)
+
+                val catalog = fetchCatalog(server)
+                val item = catalog.items.single()
+                assertEquals("Example Show", item.seriesTitle)
+                assertEquals("Episode 01", item.episodeTitle)
+                assertEquals(1, item.subtitles.size)
+
+                val mediaResponse = connection("${server.runtimeStatus.baseUrls.first()}${item.streamPath}?token=123456")
+                assertEquals(200, mediaResponse.responseCode)
+                assertContentEquals(mediaBytes, mediaResponse.inputStream.use { it.readBytes() })
+            }
+        } finally {
+            temp.toFile().deleteRecursively()
+        }
+    }
+
+    @Test
     fun startsAndClosesDiscoveryAnnouncements() {
         val dataDirectory = createTempDirectory("danmaku-headless-discovery")
         val announcedPorts = mutableListOf<Int>()

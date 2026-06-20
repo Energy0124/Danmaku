@@ -144,6 +144,8 @@ internal class HeadlessLibraryServer(
     private val startedAtEpochMs = System.currentTimeMillis()
     private val lockHandle = DataDirectoryLock.acquire(options.dataDirectory)
     private val progressStore = FilePlaybackProgressStore(options.dataDirectory.resolve("progress.json"))
+    private val catalogStore = HeadlessLibraryCatalogStore(options.dataDirectory.resolve("catalog.json"))
+    private val cachedLibrary = catalogStore.load()
     private val server = createServer()
     private val closed = AtomicBoolean(false)
     private var discoveryAnnouncer: AutoCloseable? = null
@@ -161,7 +163,12 @@ internal class HeadlessLibraryServer(
         get() = server.pairingToken
 
     init {
-        server.publish(PublishedLibrary.EMPTY)
+        val storedLibrary = cachedLibrary
+        if (storedLibrary == null) {
+            server.publish(PublishedLibrary.EMPTY)
+        } else {
+            publishStoredLibrary(storedLibrary)
+        }
     }
 
     override val runtimeStatus: LibraryHostRuntimeStatus
@@ -207,14 +214,30 @@ internal class HeadlessLibraryServer(
         publishCurrentLibrary(reason = "manual")
 
     private fun publishCurrentLibrary(reason: String): LibraryHostOperationResult {
+        val storedLibrary = cachedLibrary
+        if (options.libraryRoots.isEmpty() && storedLibrary != null) {
+            lastScanStatus = LibraryHostOperationStatus.SUCCEEDED
+            return LibraryHostOperationResult(
+                status = LibraryHostOperationStatus.SUCCEEDED,
+                message = "Using cached headless catalog with ${publishedItemCount} items; no roots configured ($reason).",
+                itemCount = publishedItemCount,
+            )
+        }
+
         lastScanStatus = LibraryHostOperationStatus.RUNNING
         return runCatching {
             HeadlessLocalLibraryScanner.scan(options.libraryRoots)
         }.fold(
             onSuccess = { scan ->
-                server.publish(scan.publishedLibrary)
-                publishedItemCount = scan.publishedLibrary.catalog.items.size
-                lastPublishedAtEpochMs = System.currentTimeMillis()
+                val stored = if (scan.scannedRootCount == 0 && scan.publishedLibrary.catalog.items.isEmpty()) {
+                    HeadlessStoredLibrary(
+                        publishedLibrary = scan.publishedLibrary,
+                        savedAtEpochMs = System.currentTimeMillis(),
+                    )
+                } else {
+                    catalogStore.save(scan.publishedLibrary)
+                }
+                publishStoredLibrary(stored)
                 lastScanStatus = LibraryHostOperationStatus.SUCCEEDED
                 LibraryHostOperationResult(
                     status = LibraryHostOperationStatus.SUCCEEDED,
@@ -231,6 +254,12 @@ internal class HeadlessLibraryServer(
                 )
             },
         )
+    }
+
+    private fun publishStoredLibrary(stored: HeadlessStoredLibrary) {
+        server.publish(stored.publishedLibrary)
+        publishedItemCount = stored.publishedLibrary.catalog.items.size
+        lastPublishedAtEpochMs = stored.savedAtEpochMs
     }
 
     override fun close() {
