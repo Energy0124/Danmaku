@@ -29,7 +29,9 @@ Status legend:
   `DANMAKU_REMOTE_PAIRING_TOKEN` to open and optionally auto-load a remote host.
   The repeatable `tools/windows/run-headless-web-ui-qa.ps1` helper now builds
   the web UI, starts a fixture-backed headless host, verifies `/web/`, catalog,
-  media, subtitle metadata, and progress readback, and writes a PASS report.
+  media, subtitle metadata, and progress readback, then restarts without
+  explicit roots/token to verify cached catalog and persisted progress readback
+  before writing a PASS report.
   Remaining split work: provider settings support, remote-only desktop
   packaging/migration, richer browser interaction QA, and web UI polish.
 - `[~]` Resolve P1 review findings from the 2026-06-15 full project review:

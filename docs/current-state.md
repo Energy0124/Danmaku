@@ -172,8 +172,9 @@ trusted-LAN clients.
   protocol after the HTTP server binds. The repeatable
   `tools/windows/run-headless-web-ui-qa.ps1` helper builds the web UI, launches a
   fixture-backed headless host, verifies the served `/web/` shell plus catalog,
-  media, subtitle metadata, and progress readback routes, and writes a PASS/FAIL
-  report under `build/qa/headless-web-ui/`.
+  media, subtitle metadata, and progress readback routes, then restarts without
+  explicit roots/token to verify cached catalog and persisted progress readback
+  before writing a PASS/FAIL report under `build/qa/headless-web-ui/`.
 
 ## Partial Or Needs More QA
 

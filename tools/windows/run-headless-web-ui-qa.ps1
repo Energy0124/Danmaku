@@ -80,6 +80,15 @@ function Get-FirstItem {
     $Catalog.items[0]
 }
 
+function Stop-HeadlessServer {
+    param([System.Diagnostics.Process]$Process)
+
+    if ($null -ne $Process -and -not $Process.HasExited) {
+        Stop-Process -Id $Process.Id -Force
+        $Process.WaitForExit()
+    }
+}
+
 if (-not (Test-Path -LiteralPath $gradle -PathType Leaf)) {
     throw "Gradle wrapper does not exist: $gradle"
 }
@@ -107,12 +116,12 @@ try {
     Pop-Location
 }
 
-$arguments = @(
+$firstStartArguments = @(
     "--no-daemon",
     ":apps:library-server-windows:run",
     "--args=`"--data-dir `"$dataDir`" --root `"$fixtureRoot`" --port $Port --pairing-token $PairingToken --web-assets-dir `"$webDist`"`""
 )
-$serverProcess = Start-Process -FilePath $gradle -ArgumentList $arguments -WorkingDirectory $repoRoot -PassThru -WindowStyle Hidden
+$serverProcess = Start-Process -FilePath $gradle -ArgumentList $firstStartArguments -WorkingDirectory $repoRoot -PassThru -WindowStyle Hidden
 $baseUrl = "http://127.0.0.1:$Port"
 
 try {
@@ -162,6 +171,35 @@ try {
         throw "Progress readback did not contain the saved QA position."
     }
 
+    Stop-HeadlessServer -Process $serverProcess
+    $serverProcess = $null
+    Start-Sleep -Milliseconds 500
+
+    $restartArguments = @(
+        "--no-daemon",
+        ":apps:library-server-windows:run",
+        "--args=`"--data-dir `"$dataDir`" --port $Port --web-assets-dir `"$webDist`"`""
+    )
+    $serverProcess = Start-Process -FilePath $gradle -ArgumentList $restartArguments -WorkingDirectory $repoRoot -PassThru -WindowStyle Hidden
+    Wait-ForServer -BaseUrl $baseUrl
+
+    $restartCatalog = (Invoke-JsonRequest -Uri "$baseUrl/api/library?token=$PairingToken").Content | ConvertFrom-Json
+    $restartItem = Get-FirstItem -Catalog $restartCatalog
+    if ($restartItem.id -ne $item.id) {
+        throw "Restart catalog did not preserve the expected first media item."
+    }
+
+    $restartMediaHead = Invoke-WebRequest -Uri "$baseUrl$($restartItem.streamPath)?token=$PairingToken" -Method Head -UseBasicParsing
+    if ($restartMediaHead.StatusCode -ne 200) {
+        throw "Restart media HEAD failed with HTTP $($restartMediaHead.StatusCode)"
+    }
+
+    $restartProgressReadback = (Invoke-JsonRequest -Uri "$baseUrl/api/progress?token=$PairingToken").Content | ConvertFrom-Json
+    $restartSaved = @($restartProgressReadback) | Where-Object { $_.mediaId -eq $item.id } | Select-Object -First 1
+    if ($null -eq $restartSaved -or $restartSaved.positionMs -ne 42000) {
+        throw "Restart progress readback did not contain the saved QA position."
+    }
+
     $report = @(
         "# Headless Web UI QA",
         "",
@@ -171,6 +209,8 @@ try {
         "- First item: $($item.seriesTitle) / $($item.episodeTitle)",
         "- Subtitle tracks: $($item.subtitles.Count)",
         "- Progress readback: $($saved.positionMs) ms",
+        "- Restart catalog items: $($restartCatalog.items.Count)",
+        "- Restart progress readback: $($restartSaved.positionMs) ms",
         "",
         "Result: PASS"
     ) -join "`n"
@@ -178,8 +218,5 @@ try {
     Write-Host "Headless Web UI QA complete."
     Write-Host "Report: $reportPath"
 } finally {
-    if ($null -ne $serverProcess -and -not $serverProcess.HasExited) {
-        Stop-Process -Id $serverProcess.Id -Force
-        $serverProcess.WaitForExit()
-    }
+    Stop-HeadlessServer -Process $serverProcess
 }

@@ -105,7 +105,8 @@ host boundary grows.
 - Desktop embedded playback still works.
 - Desktop remote playback streams from a host.
 - Web UI works against embedded and headless hosts. The headless path is covered
-  by `tools/windows/run-headless-web-ui-qa.ps1`; embedded-host browser QA still
-  needs a dedicated pass before release.
+  by `tools/windows/run-headless-web-ui-qa.ps1`, including a restart probe for
+  cached catalog and persisted progress readback; embedded-host browser QA
+  still needs a dedicated pass before release.
 - Rust tests remain green, and any Rust client prototype stays behind a
   separate experimental target.
