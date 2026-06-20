@@ -196,7 +196,8 @@ locked data directory. It can read roots and non-secret provider setting
 summaries from `server-settings.json`, exposes those summaries through server
 status, exposes provider runtime readiness, read-only provider mapping
 search, and dandanplay match/comment resolve for catalog media through
-authenticated endpoints, and boots from cached catalog when no roots are
+authenticated endpoints, and the web UI can trigger dandanplay preview lookups
+for selected catalog media. The server boots from cached catalog when no roots are
 configured while using the same LAN discovery announcements as the embedded
 desktop host. External list-sync network actions and broader provider admin UX
 are still planned work.

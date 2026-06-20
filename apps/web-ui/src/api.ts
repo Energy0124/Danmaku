@@ -98,6 +98,49 @@ export interface ProviderSearchOptions {
   startYear?: number;
 }
 
+export interface DandanplayResolveOptions {
+  episodeId?: number;
+  withRelated?: boolean;
+}
+
+export interface DandanplayMediaFingerprint {
+  fileName: string;
+  fileHash: string;
+  fileSizeBytes: number;
+  videoDurationSeconds?: number | null;
+}
+
+export interface DandanplayMatch {
+  episodeId: number;
+  animeId?: number | null;
+  animeTitle?: string | null;
+  episodeTitle?: string | null;
+  shiftSeconds?: number | null;
+  displayTitle: string;
+}
+
+export interface DandanplayCommentStyle {
+  colorArgb: string;
+  mode: string;
+  size: string;
+}
+
+export interface DandanplayComment {
+  id: string;
+  timestampMs: number;
+  text: string;
+  style: DandanplayCommentStyle;
+}
+
+export interface DandanplayResolveResult {
+  mediaId: string;
+  fingerprint: DandanplayMediaFingerprint;
+  matches: DandanplayMatch[];
+  selectedMatch?: DandanplayMatch | null;
+  commentCount: number;
+  comments: DandanplayComment[];
+}
+
 export interface LibraryCatalog {
   rootName: string;
   indexedAtEpochMs: number;
@@ -181,6 +224,24 @@ export async function fetchProviderSearch(
   }
   return readJson<ExternalAnimeMatchCandidate[]>(
     `${normalizeBaseUrl(baseUrl)}/api/providers/search?${params.toString()}`
+  );
+}
+
+export async function fetchDandanplayResolve(
+  baseUrl: string,
+  token: string,
+  mediaId: string,
+  options: DandanplayResolveOptions = {}
+): Promise<DandanplayResolveResult> {
+  const params = new URLSearchParams({ token, mediaId });
+  if (options.episodeId !== undefined) {
+    params.set("episodeId", String(options.episodeId));
+  }
+  if (options.withRelated !== undefined) {
+    params.set("withRelated", String(options.withRelated));
+  }
+  return readJson<DandanplayResolveResult>(
+    `${normalizeBaseUrl(baseUrl)}/api/providers/dandanplay/resolve?${params.toString()}`
   );
 }
 

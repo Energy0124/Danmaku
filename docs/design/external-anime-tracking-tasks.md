@@ -159,4 +159,7 @@ Default thresholds:
   resolve endpoint for catalog media, backed by the shared JVM dandanplay client
   and covered by server tests for auth, parameter validation, library lookup,
   selected match, and serialized comments. Remaining provider network work is
-  external list read/write actions plus web UI controls around provider flows.
+  external list read/write actions plus broader provider admin controls.
+- 2026-06-20: Added typed web API models/helpers for the headless dandanplay
+  resolve route and a web player dandanplay preview panel that shows selected
+  match, match count, comment count, and sample comments for the current media.

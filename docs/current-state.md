@@ -162,7 +162,8 @@ trusted-LAN clients.
 - A first server/client/web split foundation is in place: documented split
   plan, `shared:library-host-core` host contracts, opt-in desktop
   `--web-assets-dir`/`DANMAKU_WEB_UI_DIST` serving, a Vite TypeScript web UI
-  scaffold for pairing/catalog/video/progress, and an
+  scaffold for pairing/catalog/video/progress plus dandanplay match/comment
+  preview, and an
   `apps:library-server-windows` headless JVM host with data-directory locking,
   startup scanning for configured `--root` folders, JSON catalog publishing,
   durable catalog snapshots for startup readback, sidecar subtitle discovery,

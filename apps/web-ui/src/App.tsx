@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DanmakuApiError,
+  DandanplayResolveResult,
   LibraryCatalog,
   LibraryMediaItem,
   PlaybackProgress,
+  fetchDandanplayResolve,
   fetchLibrarySnapshot,
   mediaUrl,
   normalizeBaseUrl,
@@ -162,6 +164,9 @@ function PlayerPanel({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const lastSavedAtRef = useRef(0);
   const poster = posterUrl(baseUrl, token, item);
+  const [dandanplay, setDandanplay] = useState<DandanplayResolveResult | null>(null);
+  const [dandanplayMessage, setDandanplayMessage] = useState("");
+  const [isDandanplayLoading, setIsDandanplayLoading] = useState(false);
 
   useEffect(() => {
     lastSavedAtRef.current = 0;
@@ -170,6 +175,30 @@ function PlayerPanel({
       video.currentTime = savedProgress.positionMs / 1000;
     }
   }, [item.id, savedProgress?.positionMs]);
+
+  useEffect(() => {
+    setDandanplay(null);
+    setDandanplayMessage("");
+  }, [item.id]);
+
+  async function loadDandanplay() {
+    setIsDandanplayLoading(true);
+    setDandanplayMessage("Loading dandanplay...");
+    try {
+      const result = await fetchDandanplayResolve(baseUrl, token, item.id);
+      setDandanplay(result);
+      setDandanplayMessage(
+        result.selectedMatch
+          ? `${result.selectedMatch.displayTitle}: ${result.commentCount} comments`
+          : "No dandanplay match returned."
+      );
+    } catch (error) {
+      setDandanplay(null);
+      setDandanplayMessage(error instanceof DanmakuApiError ? error.message : "Dandanplay lookup failed.");
+    } finally {
+      setIsDandanplayLoading(false);
+    }
+  }
 
   async function persist(video: HTMLVideoElement) {
     const now = Date.now();
@@ -205,6 +234,51 @@ function PlayerPanel({
         </div>
       </div>
 
+      <section className="provider-panel">
+        <div className="provider-panel-header">
+          <div>
+            <h3>Dandanplay</h3>
+            <p>{dandanplayMessage || "No danmaku loaded for this episode."}</p>
+          </div>
+          <button disabled={isDandanplayLoading} onClick={() => void loadDandanplay()} type="button">
+            {isDandanplayLoading ? "Loading" : "Load danmaku"}
+          </button>
+        </div>
+        {dandanplay ? (
+          <div className="provider-result">
+            <dl className="provider-summary">
+              <div>
+                <dt>File</dt>
+                <dd>{dandanplay.fingerprint.fileName}</dd>
+              </div>
+              <div>
+                <dt>Matches</dt>
+                <dd>{dandanplay.matches.length}</dd>
+              </div>
+              <div>
+                <dt>Selected</dt>
+                <dd>{formatDandanplayMatch(dandanplay.selectedMatch)}</dd>
+              </div>
+              <div>
+                <dt>Comments</dt>
+                <dd>{dandanplay.commentCount}</dd>
+              </div>
+            </dl>
+            {dandanplay.comments.length > 0 ? (
+              <ol className="danmaku-preview">
+                {dandanplay.comments.slice(0, 6).map((comment) => (
+                  <li key={comment.id}>
+                    <time>{formatTimestamp(comment.timestampMs)}</time>
+                    <span>{comment.text}</span>
+                    <small>{comment.style.mode}</small>
+                  </li>
+                ))}
+              </ol>
+            ) : null}
+          </div>
+        ) : null}
+      </section>
+
       <video
         ref={videoRef}
         controls
@@ -235,6 +309,18 @@ function formatProgress(progress?: PlaybackProgress): string {
   const position = Math.round(progress.positionMs / 60_000);
   const duration = progress.durationMs ? Math.round(progress.durationMs / 60_000) : null;
   return duration ? `${position} / ${duration} min` : `${position} min`;
+}
+
+function formatDandanplayMatch(match?: DandanplayResolveResult["selectedMatch"]): string {
+  if (!match) return "None";
+  return match.displayTitle;
+}
+
+function formatTimestamp(timestampMs: number): string {
+  const totalSeconds = Math.max(0, Math.floor(timestampMs / 1000));
+  const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, "0");
+  const seconds = (totalSeconds % 60).toString().padStart(2, "0");
+  return `${minutes}:${seconds}`;
 }
 
 function loadStoredToken(baseUrl: string): string {

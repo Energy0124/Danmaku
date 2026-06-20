@@ -1,6 +1,6 @@
 # Danmaku Web UI
 
-Trusted-LAN browser client for the Danmaku library server.
+Trusted-LAN browser client for the Danmaku library server. It supports pairing, catalog playback, progress sync, and dandanplay match/comment preview for selected media when the host has provider access configured.
 
 ## Local Development
 
