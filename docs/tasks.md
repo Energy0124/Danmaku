@@ -20,10 +20,10 @@ Status legend:
   directory, scans configured `--root` folders into a basic catalog, discovers
   matching sidecar subtitles, streams media/subtitles over the existing
   routes, exposes non-secret provider summaries through server status, exposes
-  authenticated provider runtime readiness and read-only provider mapping search,
-  persists catalog snapshots, stable
-  pairing tokens, provider setting summaries, and LAN playback progress under the
-  locked data directory, can load persisted root settings, can boot from the
+  authenticated provider runtime readiness, read-only provider mapping search,
+  and dandanplay match/comment resolve for catalog media,
+  persists catalog snapshots, stable pairing tokens, provider setting summaries,
+  and LAN playback progress under the locked data directory, can load persisted root settings, can boot from the
   cached catalog when roots are not configured, and announces itself through
   the existing LAN discovery protocol.
   Desktop now has
@@ -37,8 +37,9 @@ Status legend:
   before writing a PASS report.
   Dandanplay API client/parsing code is now shared through
   `shared:library-server-core` so desktop and headless can use one JVM
-  provider implementation. Remaining split work: headless dandanplay
-  fetch/list-sync provider network actions, remote-only desktop
+  provider implementation, and the headless server now has an authenticated
+  dandanplay match/comment resolve route for catalog media. Remaining split
+  work: external list-sync provider network actions, remote-only desktop
   packaging/migration, richer browser interaction QA, and web UI polish.
 - `[~]` Resolve P1 review findings from the 2026-06-15 full project review:
   convert expected LAN/provider/media failures away from hard

@@ -194,10 +194,11 @@ media/subtitles through the same trusted-LAN routes as desktop, and persists
 catalog snapshots, stable pairing tokens, and playback progress under the
 locked data directory. It can read roots and non-secret provider setting
 summaries from `server-settings.json`, exposes those summaries through server
-status, exposes provider runtime readiness and read-only provider mapping
-search through authenticated endpoints, and boots from cached catalog when no
-roots are configured while using the same LAN discovery announcements as the
-embedded desktop host. Dandanplay fetch and external list-sync network actions
+status, exposes provider runtime readiness, read-only provider mapping
+search, and dandanplay match/comment resolve for catalog media through
+authenticated endpoints, and boots from cached catalog when no roots are
+configured while using the same LAN discovery announcements as the embedded
+desktop host. External list-sync network actions and broader provider admin UX
 are still planned work.
 
 Desktop can launch directly into the remote-library browser against a running

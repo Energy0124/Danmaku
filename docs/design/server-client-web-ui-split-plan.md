@@ -76,15 +76,17 @@ host boundary grows.
 - Headless hosts can read roots and non-secret provider settings from
   `server-settings.json` when CLI roots are absent, expose non-secret provider
   summaries through server status, expose authenticated provider runtime readiness,
-  expose authenticated read-only provider mapping search, and serve a cached
-  catalog when no roots are configured.
+  expose authenticated read-only provider mapping search, expose authenticated
+  dandanplay match/comment resolve for catalog media, and serve a cached catalog
+  when no roots are configured.
 - Headless hosts announce themselves through the existing LAN discovery
   protocol after the HTTP server binds.
 - The dandanplay JVM API client/parsers now live in
   `shared:library-server-core`, keeping desktop behavior intact while giving
-  the headless host the same implementation for upcoming danmaku fetch routes.
-- Later work wires the remaining provider settings into headless provider
-  network operations such as danmaku fetch and list sync, then adds release
+  the headless host the same implementation for authenticated match/comment
+  resolve routes.
+- Later work wires the remaining provider settings into headless external list
+  sync operations, adds provider/admin web UI controls, then adds release
   packaging.
 
 ### Phase 5: Desktop Remote Client

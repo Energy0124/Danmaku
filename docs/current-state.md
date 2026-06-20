@@ -1,6 +1,6 @@
 # Current State
 
-Last reviewed: 2026-06-18.
+Last reviewed: 2026-06-20.
 
 Danmaku is in active foundation work. The strongest vertical slice is Windows
 desktop as the local library host/player, with Android mobile and Android TV as
@@ -168,7 +168,8 @@ trusted-LAN clients.
   durable catalog snapshots for startup readback, sidecar subtitle discovery,
   shared LAN media/subtitle streaming, non-secret provider status summaries,
   authenticated provider runtime readiness, authenticated read-only provider
-  mapping search, settings-file root/provider readback, and file-backed playback
+  mapping search, authenticated dandanplay match/comment resolve for catalog
+  media, settings-file root/provider readback, and file-backed playback
   progress plus stable pairing-token persistence under
   the locked data directory. Headless hosts also announce themselves through
   the existing LAN discovery
@@ -327,8 +328,8 @@ trusted-LAN clients.
 
 ## Not Implemented
 
-- Release-ready headless standalone library server with provider runtime
-  actions, packaging, and remote-only desktop migration.
+- Release-ready headless standalone library server with external list-sync
+  provider actions, packaging, and remote-only desktop migration.
 - Release-ready macOS/Linux/iOS/iPadOS/web targets.
 - Broad provider plugin marketplace or plugin sandboxing.
 - DRM circumvention, unauthorized source scraping, or torrent/search behavior.

@@ -153,5 +153,10 @@ Default thresholds:
 - 2026-06-20: Added the headless server's authenticated read-only provider
   mapping search endpoint for MAL/Bangumi suggestions, a typed web API helper,
   and server tests for token/parameter validation plus provider-failure
-  isolation. Remaining provider network work is dandanplay fetch and external
-  list read/write actions.
+  isolation. Dandanplay resolve is now covered by a follow-up endpoint;
+  remaining provider network work is external list read/write actions.
+- 2026-06-20: Added the headless server's authenticated dandanplay match/comment
+  resolve endpoint for catalog media, backed by the shared JVM dandanplay client
+  and covered by server tests for auth, parameter validation, library lookup,
+  selected match, and serialized comments. Remaining provider network work is
+  external list read/write actions plus web UI controls around provider flows.

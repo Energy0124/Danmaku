@@ -135,11 +135,13 @@ internal class HeadlessServerSettingsStore(
     private fun JsonElement?.asObjectOrNull(): JsonObject? =
         this as? JsonObject
 
-    private fun JsonObject.toDandanplaySettings(): HeadlessDandanplayProviderSettings =
-        HeadlessDandanplayProviderSettings(
+    private fun JsonObject.toDandanplaySettings(): HeadlessDandanplayProviderSettings {
+        val appSecret = stringOrNull("appSecret")
+        return HeadlessDandanplayProviderSettings(
             baseUrl = stringOrNull("baseUrl") ?: DEFAULT_DANDANPLAY_BASE_URL,
             appId = stringOrNull("appId"),
-            hasAppSecret = booleanOrNull("hasAppSecret") ?: false,
+            appSecret = appSecret,
+            hasAppSecret = appSecret != null || booleanOrNull("hasAppSecret") == true,
             authenticationMode = stringOrNull("authenticationMode")
                 ?.let(::headlessDandanplayAuthenticationModeOrDefault)
                 ?: HeadlessDandanplayAuthenticationMode.SIGNED,
@@ -147,6 +149,7 @@ internal class HeadlessServerSettingsStore(
                 ?.takeIf { it >= MIN_DANDANPLAY_CACHE_MAX_AGE_DAYS }
                 ?: DEFAULT_DANDANPLAY_CACHE_MAX_AGE_DAYS,
         )
+    }
 
     private fun JsonObject.toExternalAnimeSettings(): HeadlessExternalAnimeProviderSettings =
         HeadlessExternalAnimeProviderSettings(
@@ -195,20 +198,22 @@ internal data class HeadlessServerSettings(
 internal data class HeadlessDandanplayProviderSettings(
     val baseUrl: String = DEFAULT_DANDANPLAY_BASE_URL,
     val appId: String? = null,
-    val hasAppSecret: Boolean = false,
+    val appSecret: String? = null,
+    val hasAppSecret: Boolean = appSecret != null,
     val authenticationMode: HeadlessDandanplayAuthenticationMode = HeadlessDandanplayAuthenticationMode.SIGNED,
     val cacheMaxAgeDays: Int = DEFAULT_DANDANPLAY_CACHE_MAX_AGE_DAYS,
 ) {
     init {
         require(baseUrl.isHttpBaseUrl()) { "dandanplay base URL must be HTTP(S)" }
         require(appId == null || appId.isNotBlank()) { "dandanplay appId must not be blank" }
+        require(appSecret == null || appSecret.isNotBlank()) { "dandanplay appSecret must not be blank" }
         require(cacheMaxAgeDays >= MIN_DANDANPLAY_CACHE_MAX_AGE_DAYS) {
             "dandanplay cache max age must be at least $MIN_DANDANPLAY_CACHE_MAX_AGE_DAYS day"
         }
     }
 
     val hasCredentials: Boolean
-        get() = appId != null && hasAppSecret
+        get() = appId != null && appSecret != null
 
     val isFetchEnabled: Boolean
         get() = hasCredentials || baseUrl != DEFAULT_DANDANPLAY_BASE_URL

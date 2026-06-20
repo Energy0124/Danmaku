@@ -151,26 +151,6 @@ class HeadlessServerOptionsTest {
         )
 
         try {
-            val settings = HeadlessServerSettingsStore(settingsFile).loadOrCreate(explicitPairingToken = null)
-
-            assertEquals("123456", settings.pairingToken)
-            assertEquals("https://worker.example/dandanplay", settings.dandanplay.baseUrl)
-            assertEquals("app-id", settings.dandanplay.appId)
-            assertEquals(true, settings.dandanplay.hasAppSecret)
-            assertEquals(HeadlessDandanplayAuthenticationMode.CREDENTIAL, settings.dandanplay.authenticationMode)
-            assertEquals(7, settings.dandanplay.cacheMaxAgeDays)
-            assertEquals("mal-client-id", settings.externalAnime.myAnimeListClientId)
-            assertEquals(true, settings.externalAnime.hasMyAnimeListClientSecret)
-            assertEquals(true, settings.externalAnime.hasMyAnimeListAccessToken)
-            assertEquals("https://api.bgm.tv/", settings.externalAnime.bangumiBaseUrl)
-            assertEquals("Danmaku QA", settings.externalAnime.bangumiUserAgent)
-            assertEquals(true, settings.externalAnime.hasBangumiAccessToken)
-
-            val rewritten = settingsFile.toFile().readText()
-            assertEquals(false, rewritten.contains("raw-secret"))
-            assertEquals(false, rewritten.contains("raw-mal-secret"))
-            assertEquals(false, rewritten.contains("raw-bangumi-token"))
-
             headlessServer(
                 HeadlessServerOptions(
                     dataDirectory = dataDirectory,
@@ -186,23 +166,20 @@ class HeadlessServerOptionsTest {
                         .use { it.readText() },
                 )
 
-                assertEquals(settings.dandanplay.baseUrl, status.providerSettings?.dandanplay?.baseUrl)
-                assertEquals(settings.dandanplay.appId, status.providerSettings?.dandanplay?.appId)
-                assertEquals(settings.dandanplay.hasAppSecret, status.providerSettings?.dandanplay?.hasAppSecret)
-                assertEquals(settings.dandanplay.authenticationMode.name, status.providerSettings?.dandanplay?.authenticationMode)
-                assertEquals(settings.dandanplay.cacheMaxAgeDays, status.providerSettings?.dandanplay?.cacheMaxAgeDays)
-                assertEquals(settings.externalAnime.myAnimeListClientId, status.providerSettings?.externalAnime?.myAnimeListClientId)
-                assertEquals(
-                    settings.externalAnime.hasMyAnimeListAccessToken,
-                    status.providerSettings?.externalAnime?.hasMyAnimeListAccessToken,
-                )
-                assertEquals(settings.externalAnime.bangumiBaseUrl, status.providerSettings?.externalAnime?.bangumiBaseUrl)
-                assertEquals(settings.externalAnime.bangumiUserAgent, status.providerSettings?.externalAnime?.bangumiUserAgent)
-                assertEquals(settings.externalAnime.hasBangumiAccessToken, status.providerSettings?.externalAnime?.hasBangumiAccessToken)
+                assertEquals("https://worker.example/dandanplay", status.providerSettings?.dandanplay?.baseUrl)
+                assertEquals("app-id", status.providerSettings?.dandanplay?.appId)
+                assertEquals(true, status.providerSettings?.dandanplay?.hasAppSecret)
+                assertEquals(HeadlessDandanplayAuthenticationMode.CREDENTIAL.name, status.providerSettings?.dandanplay?.authenticationMode)
+                assertEquals(7, status.providerSettings?.dandanplay?.cacheMaxAgeDays)
+                assertEquals("mal-client-id", status.providerSettings?.externalAnime?.myAnimeListClientId)
+                assertEquals(true, status.providerSettings?.externalAnime?.hasMyAnimeListAccessToken)
+                assertEquals("https://api.bgm.tv/", status.providerSettings?.externalAnime?.bangumiBaseUrl)
+                assertEquals("Danmaku QA", status.providerSettings?.externalAnime?.bangumiUserAgent)
+                assertEquals(true, status.providerSettings?.externalAnime?.hasBangumiAccessToken)
 
                 assertEquals(401, connection("$baseUrl/api/providers/runtime").responseCode)
                 val runtime = Json.decodeFromString<LanProviderRuntimeStatus>(
-                    connection("$baseUrl/api/providers/runtime?token=${settings.pairingToken}")
+                    connection("$baseUrl/api/providers/runtime?token=123456")
                         .inputStream
                         .bufferedReader()
                         .use { it.readText() },
@@ -220,6 +197,11 @@ class HeadlessServerOptionsTest {
                 assertEquals(true, runtime.bangumi.listWriteAvailable)
                 assertEquals("access-token-saved", runtime.bangumi.reasonCode)
             }
+
+            val rewritten = settingsFile.toFile().readText()
+            assertEquals(false, rewritten.contains("raw-secret"))
+            assertEquals(false, rewritten.contains("raw-mal-secret"))
+            assertEquals(false, rewritten.contains("raw-bangumi-token"))
         } finally {
             dataDirectory.toFile().deleteRecursively()
         }

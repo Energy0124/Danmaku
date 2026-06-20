@@ -23,6 +23,7 @@ import app.danmaku.server.PublishedLibrary
 import app.danmaku.server.StaticWebAssets
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 import java.nio.channels.FileChannel
 import java.nio.channels.FileLock
 import java.security.MessageDigest
@@ -154,6 +155,8 @@ internal class HeadlessLibraryServer(
     },
     private val externalAnimeSearchServiceFactory: (HeadlessServerSettings) -> HeadlessExternalAnimeSearchService =
         { settings -> settings.toExternalAnimeSearchService() },
+    private val dandanplayProviderServiceFactory: (HeadlessServerSettings) -> HeadlessDandanplayProviderService =
+        { settings -> settings.toDandanplayProviderService() },
 ) : AutoCloseable,
     LibraryHostService {
     private val startedAtEpochMs = System.currentTimeMillis()
@@ -163,8 +166,11 @@ internal class HeadlessLibraryServer(
     private val settingsStore = HeadlessServerSettingsStore(options.dataDirectory.resolve("server-settings.json"))
     private val serverSettings = settingsStore.loadOrCreate(options.pairingToken)
     private val externalAnimeSearchService = externalAnimeSearchServiceFactory(serverSettings)
+    private val dandanplayProviderService = dandanplayProviderServiceFactory(serverSettings)
     private val libraryRoots = options.libraryRoots.ifEmpty { serverSettings.libraryRoots }
     private val cachedLibrary = catalogStore.load()
+    @Volatile
+    private var publishedLibrary = cachedLibrary?.publishedLibrary ?: PublishedLibrary.EMPTY
     private val server = createServer()
     private val closed = AtomicBoolean(false)
     private var discoveryAnnouncer: AutoCloseable? = null
@@ -277,6 +283,7 @@ internal class HeadlessLibraryServer(
 
     private fun publishStoredLibrary(stored: HeadlessStoredLibrary) {
         server.publish(stored.publishedLibrary)
+        publishedLibrary = stored.publishedLibrary
         publishedItemCount = stored.publishedLibrary.catalog.items.size
         lastPublishedAtEpochMs = stored.savedAtEpochMs
     }
@@ -297,6 +304,7 @@ internal class HeadlessLibraryServer(
             publicGetHooks = listOf(
                 serverSettings.providerRuntimeHook(),
                 serverSettings.providerSearchHook(externalAnimeSearchService),
+                serverSettings.dandanplayResolveHook(dandanplayProviderService) { publishedLibrary },
             ),
             webAssets = options.webAssetsRoot?.let(::StaticWebAssets),
             hostMode = LanLibraryServerStatus.HOST_MODE_HEADLESS_SERVER,
@@ -400,6 +408,73 @@ private fun String.toExternalAnimeProviderOrNull(): ExternalAnimeProvider? =
         "myanimelist", "my_anime_list", "mal" -> ExternalAnimeProvider.MY_ANIME_LIST
         "bangumi", "bgm" -> ExternalAnimeProvider.BANGUMI
         "dandanplay", "dan_dan_play" -> ExternalAnimeProvider.DANDANPLAY
+        else -> null
+    }
+
+private fun HeadlessServerSettings.dandanplayResolveHook(
+    providerService: HeadlessDandanplayProviderService,
+    publishedLibraryProvider: () -> PublishedLibrary,
+): PublicGetHook =
+    PublicGetHook("/api/providers/dandanplay/resolve") { queryParameters ->
+        if (!queryParameters.hasPairingToken(pairingToken)) {
+            PublicGetHookResponse(status = 401, body = "Unauthorized.")
+        } else {
+            queryParameters.toDandanplayResolveResponse(providerService, publishedLibraryProvider())
+        }
+    }
+
+private fun Map<String, String>.toDandanplayResolveResponse(
+    providerService: HeadlessDandanplayProviderService,
+    library: PublishedLibrary,
+): PublicGetHookResponse {
+    val mediaId = get("mediaId")?.trim()
+        ?.takeIf(String::isNotBlank)
+        ?: return PublicGetHookResponse(status = 400, body = "Query parameter 'mediaId' is required.")
+    val preferredEpisodeId = get("episodeId")?.toLongOrNull()?.takeIf { it > 0 }
+    if (containsKey("episodeId") && preferredEpisodeId == null) {
+        return PublicGetHookResponse(status = 400, body = "Query parameter 'episodeId' must be positive.")
+    }
+    val withRelated = get("withRelated")?.toBooleanQueryParameter()
+        ?: if (containsKey("withRelated")) {
+            return PublicGetHookResponse(status = 400, body = "Query parameter 'withRelated' must be true or false.")
+        } else {
+            true
+        }
+    val mediaPath = library.filesById[mediaId]?.toAbsolutePath()?.normalize()
+        ?: return PublicGetHookResponse(status = 404, body = "Media item was not found.")
+    if (!Files.isRegularFile(mediaPath)) {
+        return PublicGetHookResponse(status = 404, body = "Media file was not found.")
+    }
+    return runCatching {
+        providerService.resolve(
+            mediaPath = mediaPath,
+            preferredEpisodeId = preferredEpisodeId,
+            withRelated = withRelated,
+        )
+    }.fold(
+        onSuccess = { result ->
+            PublicGetHookResponse(
+                status = 200,
+                contentType = "application/json; charset=utf-8",
+                body = headlessServerJson.encodeToString(
+                    JsonObject.serializer(),
+                    result.toJsonObject(mediaId),
+                ),
+            )
+        },
+        onFailure = { error ->
+            PublicGetHookResponse(
+                status = 502,
+                body = "dandanplay request failed: ${error.message ?: error::class.simpleName}",
+            )
+        },
+    )
+}
+
+private fun String.toBooleanQueryParameter(): Boolean? =
+    when (trim().lowercase()) {
+        "true", "1", "yes" -> true
+        "false", "0", "no" -> false
         else -> null
     }
 
