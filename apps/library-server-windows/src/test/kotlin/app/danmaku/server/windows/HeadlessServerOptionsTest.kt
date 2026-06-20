@@ -49,6 +49,39 @@ class HeadlessServerOptionsTest {
     }
 
     @Test
+    fun persistsGeneratedPairingTokenAcrossHeadlessRestarts() {
+        val dataDirectory = createTempDirectory("danmaku-headless-token")
+        lateinit var token: String
+
+        try {
+            headlessServer(
+                HeadlessServerOptions(
+                    dataDirectory = dataDirectory,
+                    port = 0,
+                ),
+            ).use { server ->
+                server.start()
+                token = server.pairingToken
+                assertEquals(6, token.length)
+                assertEquals(true, token.all { it.isDigit() })
+                assertEquals(true, dataDirectory.resolve("server-settings.json").toFile().isFile)
+            }
+
+            headlessServer(
+                HeadlessServerOptions(
+                    dataDirectory = dataDirectory,
+                    port = 0,
+                ),
+            ).use { server ->
+                server.start()
+                assertEquals(token, server.pairingToken)
+            }
+        } finally {
+            dataDirectory.toFile().deleteRecursively()
+        }
+    }
+
+    @Test
     fun startsWithDataDirectoryLockAndHeadlessStatus() {
         val dataDirectory = createTempDirectory("danmaku-headless-server")
         headlessServer(

@@ -145,6 +145,8 @@ internal class HeadlessLibraryServer(
     private val lockHandle = DataDirectoryLock.acquire(options.dataDirectory)
     private val progressStore = FilePlaybackProgressStore(options.dataDirectory.resolve("progress.json"))
     private val catalogStore = HeadlessLibraryCatalogStore(options.dataDirectory.resolve("catalog.json"))
+    private val settingsStore = HeadlessServerSettingsStore(options.dataDirectory.resolve("server-settings.json"))
+    private val serverSettings = settingsStore.loadOrCreate(options.pairingToken)
     private val cachedLibrary = catalogStore.load()
     private val server = createServer()
     private val closed = AtomicBoolean(false)
@@ -271,22 +273,13 @@ internal class HeadlessLibraryServer(
     }
 
     private fun createServer(): LocalLibraryServer =
-        if (options.pairingToken == null) {
-            LocalLibraryServer(
-                port = options.port,
-                progressStore = progressStore,
-                webAssets = options.webAssetsRoot?.let(::StaticWebAssets),
-                hostMode = LanLibraryServerStatus.HOST_MODE_HEADLESS_SERVER,
-            )
-        } else {
-            LocalLibraryServer(
-                port = options.port,
-                pairingToken = options.pairingToken,
-                progressStore = progressStore,
-                webAssets = options.webAssetsRoot?.let(::StaticWebAssets),
-                hostMode = LanLibraryServerStatus.HOST_MODE_HEADLESS_SERVER,
-            )
-        }
+        LocalLibraryServer(
+            port = options.port,
+            pairingToken = serverSettings.pairingToken,
+            progressStore = progressStore,
+            webAssets = options.webAssetsRoot?.let(::StaticWebAssets),
+            hostMode = LanLibraryServerStatus.HOST_MODE_HEADLESS_SERVER,
+        )
 }
 
 private class DataDirectoryLock private constructor(

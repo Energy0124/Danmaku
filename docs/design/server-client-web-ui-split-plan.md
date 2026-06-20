@@ -70,9 +70,9 @@ host boundary grows.
 - First implementation scans configured `--root` folders at startup and on
   `rescan`, publishes a basic catalog, and streams media/subtitles through the
   existing LAN routes.
-- Headless catalog snapshots and playback progress are persisted under the
-  locked data directory so catalog readback and web/mobile/TV resume points
-  survive server restarts.
+- Headless catalog snapshots, stable pairing tokens, and playback progress are
+  persisted under the locked data directory so catalog readback, existing
+  pairings, and web/mobile/TV resume points survive server restarts.
 - Headless hosts can serve a cached catalog without configured roots, which
   supports service-style restarts where roots are supplied later by settings.
 - Headless hosts announce themselves through the existing LAN discovery
