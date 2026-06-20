@@ -1,6 +1,9 @@
 package app.danmaku.server.windows
 
+import app.danmaku.domain.LanDandanplayProviderStatus
+import app.danmaku.domain.LanExternalAnimeProviderStatus
 import app.danmaku.domain.LanLibraryServerStatus
+import app.danmaku.domain.LanProviderSettingsStatus
 import app.danmaku.host.LibraryHostMode
 import app.danmaku.host.LibraryHostOperationResult
 import app.danmaku.host.LibraryHostOperationStatus
@@ -280,8 +283,28 @@ internal class HeadlessLibraryServer(
             progressStore = progressStore,
             webAssets = options.webAssetsRoot?.let(::StaticWebAssets),
             hostMode = LanLibraryServerStatus.HOST_MODE_HEADLESS_SERVER,
+            providerSettings = serverSettings.toLanProviderSettingsStatus(),
         )
 }
+
+private fun HeadlessServerSettings.toLanProviderSettingsStatus(): LanProviderSettingsStatus =
+    LanProviderSettingsStatus(
+        dandanplay = LanDandanplayProviderStatus(
+            baseUrl = dandanplay.baseUrl,
+            appId = dandanplay.appId,
+            hasAppSecret = dandanplay.hasAppSecret,
+            authenticationMode = dandanplay.authenticationMode.name,
+            cacheMaxAgeDays = dandanplay.cacheMaxAgeDays,
+        ),
+        externalAnime = LanExternalAnimeProviderStatus(
+            myAnimeListClientId = externalAnime.myAnimeListClientId,
+            hasMyAnimeListClientSecret = externalAnime.hasMyAnimeListClientSecret,
+            hasMyAnimeListAccessToken = externalAnime.hasMyAnimeListAccessToken,
+            bangumiBaseUrl = externalAnime.bangumiBaseUrl,
+            bangumiUserAgent = externalAnime.bangumiUserAgent,
+            hasBangumiAccessToken = externalAnime.hasBangumiAccessToken,
+        ),
+    )
 
 private class DataDirectoryLock private constructor(
     private val channel: FileChannel,

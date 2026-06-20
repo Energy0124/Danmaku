@@ -13,6 +13,7 @@ data class LanLibraryServerStatus(
     val webUiAvailable: Boolean = false,
     val webUiPath: String? = null,
     val hostMode: String = HOST_MODE_EMBEDDED_DESKTOP,
+    val providerSettings: LanProviderSettingsStatus? = null,
 ) {
     init {
         require(appName.isNotBlank()) { "appName must not be blank" }
@@ -25,6 +26,50 @@ data class LanLibraryServerStatus(
         const val CURRENT_API_VERSION = 1
         const val HOST_MODE_EMBEDDED_DESKTOP = "embedded-desktop"
         const val HOST_MODE_HEADLESS_SERVER = "headless-server"
+    }
+}
+
+@Serializable
+data class LanProviderSettingsStatus(
+    val dandanplay: LanDandanplayProviderStatus = LanDandanplayProviderStatus(),
+    val externalAnime: LanExternalAnimeProviderStatus = LanExternalAnimeProviderStatus(),
+)
+
+@Serializable
+data class LanDandanplayProviderStatus(
+    val baseUrl: String? = null,
+    val appId: String? = null,
+    val hasAppSecret: Boolean = false,
+    val authenticationMode: String? = null,
+    val cacheMaxAgeDays: Int? = null,
+) {
+    init {
+        require(baseUrl == null || baseUrl.isNotBlank()) { "dandanplay baseUrl must not be blank" }
+        require(appId == null || appId.isNotBlank()) { "dandanplay appId must not be blank" }
+        require(authenticationMode == null || authenticationMode.isNotBlank()) {
+            "dandanplay authenticationMode must not be blank"
+        }
+        require(cacheMaxAgeDays == null || cacheMaxAgeDays >= 1) {
+            "dandanplay cacheMaxAgeDays must be positive"
+        }
+    }
+}
+
+@Serializable
+data class LanExternalAnimeProviderStatus(
+    val myAnimeListClientId: String? = null,
+    val hasMyAnimeListClientSecret: Boolean = false,
+    val hasMyAnimeListAccessToken: Boolean = false,
+    val bangumiBaseUrl: String? = null,
+    val bangumiUserAgent: String? = null,
+    val hasBangumiAccessToken: Boolean = false,
+) {
+    init {
+        require(myAnimeListClientId == null || myAnimeListClientId.isNotBlank()) {
+            "myAnimeListClientId must not be blank"
+        }
+        require(bangumiBaseUrl == null || bangumiBaseUrl.isNotBlank()) { "bangumiBaseUrl must not be blank" }
+        require(bangumiUserAgent == null || bangumiUserAgent.isNotBlank()) { "bangumiUserAgent must not be blank" }
     }
 }
 

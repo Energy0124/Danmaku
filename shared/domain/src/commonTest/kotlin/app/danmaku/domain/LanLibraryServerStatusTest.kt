@@ -18,6 +18,18 @@ class LanLibraryServerStatusTest {
         assertFailsWith<IllegalArgumentException> {
             LanLibraryServerStatus(hostMode = " ")
         }
+        assertFailsWith<IllegalArgumentException> {
+            LanDandanplayProviderStatus(appId = " ")
+        }
+        assertFailsWith<IllegalArgumentException> {
+            LanDandanplayProviderStatus(cacheMaxAgeDays = 0)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            LanExternalAnimeProviderStatus(myAnimeListClientId = " ")
+        }
+        assertFailsWith<IllegalArgumentException> {
+            LanExternalAnimeProviderStatus(bangumiUserAgent = " ")
+        }
     }
 
     @Test

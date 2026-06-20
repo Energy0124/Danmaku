@@ -74,8 +74,9 @@ host boundary grows.
   persisted under the locked data directory so catalog readback, existing
   pairings, and web/mobile/TV resume points survive server restarts.
 - Headless hosts can read roots and non-secret provider settings from
-  `server-settings.json` when CLI roots are absent, and can serve a cached
-  catalog when no roots are configured.
+  `server-settings.json` when CLI roots are absent, expose non-secret provider
+  summaries through server status, and serve a cached catalog when no roots are
+  configured.
 - Headless hosts announce themselves through the existing LAN discovery
   protocol after the HTTP server binds.
 - Later work wires those provider settings into headless provider runtime

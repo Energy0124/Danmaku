@@ -71,6 +71,33 @@ function Wait-ForServer {
     throw "Timed out waiting for headless server at $BaseUrl"
 }
 
+function Test-TcpPortAvailable {
+    param([int]$Port)
+
+    $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, $Port)
+    try {
+        $listener.Start()
+        return $true
+    } catch [System.Net.Sockets.SocketException] {
+        return $false
+    } finally {
+        $listener.Stop()
+    }
+}
+
+function Get-RequiredJsonProperty {
+    param(
+        [object]$Object,
+        [string]$Name
+    )
+
+    $property = $Object.PSObject.Properties[$Name]
+    if ($null -eq $property) {
+        throw "Expected JSON property '$Name'."
+    }
+    $property.Value
+}
+
 function Get-FirstItem {
     param([object]$Catalog)
 
@@ -84,7 +111,10 @@ function Stop-HeadlessServer {
     param([System.Diagnostics.Process]$Process)
 
     if ($null -ne $Process -and -not $Process.HasExited) {
-        Stop-Process -Id $Process.Id -Force
+        & taskkill.exe /PID $Process.Id /T /F | Out-Null
+        if ($LASTEXITCODE -ne 0 -and -not $Process.HasExited) {
+            Stop-Process -Id $Process.Id -Force
+        }
         $Process.WaitForExit()
     }
 }
@@ -94,6 +124,9 @@ if (-not (Test-Path -LiteralPath $gradle -PathType Leaf)) {
 }
 if (-not (Test-Path -LiteralPath (Join-Path $webUiDir "package.json") -PathType Leaf)) {
     throw "Web UI package does not exist: $webUiDir"
+}
+if (-not (Test-TcpPortAvailable -Port $Port)) {
+    throw "Port $Port is already in use. Pass -Port with a free port or stop the existing server."
 }
 
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
@@ -133,6 +166,15 @@ try {
     }
     if ($status.webUiAvailable -ne $true) {
         throw "Expected webUiAvailable=true"
+    }
+    $providerSettings = Get-RequiredJsonProperty -Object $status -Name "providerSettings"
+    if ($null -eq $providerSettings) {
+        throw "Expected providerSettings summary in headless server status."
+    }
+    $dandanplayProvider = Get-RequiredJsonProperty -Object $providerSettings -Name "dandanplay"
+    $dandanplayBaseUrl = Get-RequiredJsonProperty -Object $dandanplayProvider -Name "baseUrl"
+    if ($dandanplayBaseUrl -ne "https://api.dandanplay.net") {
+        throw "Unexpected dandanplay status base URL: $dandanplayBaseUrl"
     }
 
     $webIndex = Invoke-WebRequest -Uri "$baseUrl/web/" -UseBasicParsing
@@ -208,6 +250,7 @@ try {
         "- Catalog items: $($catalog.items.Count)",
         "- First item: $($item.seriesTitle) / $($item.episodeTitle)",
         "- Subtitle tracks: $($item.subtitles.Count)",
+        "- Provider status: dandanplay $dandanplayBaseUrl",
         "- Progress readback: $($saved.positionMs) ms",
         "- Restart catalog items: $($restartCatalog.items.Count)",
         "- Restart progress readback: $($restartSaved.positionMs) ms",

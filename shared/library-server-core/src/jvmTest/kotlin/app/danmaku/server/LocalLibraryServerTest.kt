@@ -1,7 +1,10 @@
 package app.danmaku.server
 
 import app.danmaku.domain.LibraryCatalog
+import app.danmaku.domain.LanDandanplayProviderStatus
+import app.danmaku.domain.LanExternalAnimeProviderStatus
 import app.danmaku.domain.LanLibraryServerStatus
+import app.danmaku.domain.LanProviderSettingsStatus
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySubtitleTrack
 import app.danmaku.domain.PlaybackProgress
@@ -40,6 +43,44 @@ class LocalLibraryServerTest {
                     response.inputStream.bufferedReader().use { it.readText() },
                 ),
             )
+        }
+    }
+
+    @Test
+    fun exposesOptionalProviderSettingsStatus() {
+        val providerSettings = LanProviderSettingsStatus(
+            dandanplay = LanDandanplayProviderStatus(
+                baseUrl = "https://worker.example/dandanplay",
+                appId = "app-id",
+                hasAppSecret = true,
+                authenticationMode = "CREDENTIAL",
+                cacheMaxAgeDays = 7,
+            ),
+            externalAnime = LanExternalAnimeProviderStatus(
+                myAnimeListClientId = "mal-client-id",
+                hasMyAnimeListClientSecret = true,
+                hasMyAnimeListAccessToken = true,
+                bangumiBaseUrl = "https://api.bgm.tv/",
+                bangumiUserAgent = "Danmaku QA",
+                hasBangumiAccessToken = true,
+            ),
+        )
+
+        LocalLibraryServer(
+            port = 0,
+            pairingToken = "123456",
+            providerSettings = providerSettings,
+        ).use { server ->
+            server.start()
+
+            val status = Json.decodeFromString<LanLibraryServerStatus>(
+                connection("${server.baseUrl()}/api/server/status")
+                    .inputStream
+                    .bufferedReader()
+                    .use { it.readText() },
+            )
+
+            assertEquals(providerSettings, status.providerSettings)
         }
     }
 

@@ -2,6 +2,7 @@ package app.danmaku.server
 
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LanLibraryServerStatus
+import app.danmaku.domain.LanProviderSettingsStatus
 import app.danmaku.domain.PlaybackProgress
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
@@ -27,6 +28,7 @@ class LocalLibraryServer(
     publicGetHooks: List<PublicGetHook> = emptyList(),
     private val webAssets: StaticWebAssets? = null,
     private val hostMode: String = LanLibraryServerStatus.HOST_MODE_EMBEDDED_DESKTOP,
+    private val providerSettings: LanProviderSettingsStatus? = null,
     private val eventSink: (LocalLibraryServerEvent) -> Unit = {},
 ) : AutoCloseable {
     private val server = HttpServer.create(InetSocketAddress(port), 0)
@@ -88,6 +90,7 @@ class LocalLibraryServer(
             webUiAvailable = webAssets != null,
             webUiPath = webAssets?.pathPrefix,
             hostMode = hostMode,
+            providerSettings = providerSettings,
         )
         exchange.recordRequest(
             "server-status",

@@ -1,6 +1,7 @@
 package app.danmaku.server.windows
 
 import app.danmaku.domain.LibraryCatalog
+import app.danmaku.domain.LanLibraryServerStatus
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.host.LibraryHostMode
 import app.danmaku.host.LibraryHostOperationStatus
@@ -168,6 +169,35 @@ class HeadlessServerOptionsTest {
             assertEquals(false, rewritten.contains("raw-secret"))
             assertEquals(false, rewritten.contains("raw-mal-secret"))
             assertEquals(false, rewritten.contains("raw-bangumi-token"))
+
+            headlessServer(
+                HeadlessServerOptions(
+                    dataDirectory = dataDirectory,
+                    port = 0,
+                ),
+            ).use { server ->
+                server.start()
+                val status = Json.decodeFromString<LanLibraryServerStatus>(
+                    connection("${server.runtimeStatus.baseUrls.first()}/api/server/status")
+                        .inputStream
+                        .bufferedReader()
+                        .use { it.readText() },
+                )
+
+                assertEquals(settings.dandanplay.baseUrl, status.providerSettings?.dandanplay?.baseUrl)
+                assertEquals(settings.dandanplay.appId, status.providerSettings?.dandanplay?.appId)
+                assertEquals(settings.dandanplay.hasAppSecret, status.providerSettings?.dandanplay?.hasAppSecret)
+                assertEquals(settings.dandanplay.authenticationMode.name, status.providerSettings?.dandanplay?.authenticationMode)
+                assertEquals(settings.dandanplay.cacheMaxAgeDays, status.providerSettings?.dandanplay?.cacheMaxAgeDays)
+                assertEquals(settings.externalAnime.myAnimeListClientId, status.providerSettings?.externalAnime?.myAnimeListClientId)
+                assertEquals(
+                    settings.externalAnime.hasMyAnimeListAccessToken,
+                    status.providerSettings?.externalAnime?.hasMyAnimeListAccessToken,
+                )
+                assertEquals(settings.externalAnime.bangumiBaseUrl, status.providerSettings?.externalAnime?.bangumiBaseUrl)
+                assertEquals(settings.externalAnime.bangumiUserAgent, status.providerSettings?.externalAnime?.bangumiUserAgent)
+                assertEquals(settings.externalAnime.hasBangumiAccessToken, status.providerSettings?.externalAnime?.hasBangumiAccessToken)
+            }
         } finally {
             dataDirectory.toFile().deleteRecursively()
         }

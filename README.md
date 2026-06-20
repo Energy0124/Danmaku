@@ -193,9 +193,10 @@ The headless server scans configured roots into a JSON catalog, streams
 media/subtitles through the same trusted-LAN routes as desktop, and persists
 catalog snapshots, stable pairing tokens, and playback progress under the
 locked data directory. It can read roots and non-secret provider setting
-summaries from `server-settings.json`, boot from cached catalog when no roots
-are configured, and uses the same LAN discovery announcements as the embedded
-desktop host. Provider runtime wiring is still planned work.
+summaries from `server-settings.json`, exposes those summaries through server
+status, boots from cached catalog when no roots are configured, and uses the
+same LAN discovery announcements as the embedded desktop host. Provider runtime
+actions are still planned work.
 
 Desktop can launch directly into the remote-library browser against a running
 headless or embedded host:

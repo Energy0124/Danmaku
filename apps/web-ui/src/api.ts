@@ -8,6 +8,29 @@ export interface LanLibraryServerStatus {
   webUiAvailable?: boolean;
   webUiPath?: string | null;
   hostMode?: string;
+  providerSettings?: LanProviderSettingsStatus | null;
+}
+
+export interface LanProviderSettingsStatus {
+  dandanplay: LanDandanplayProviderStatus;
+  externalAnime: LanExternalAnimeProviderStatus;
+}
+
+export interface LanDandanplayProviderStatus {
+  baseUrl?: string | null;
+  appId?: string | null;
+  hasAppSecret: boolean;
+  authenticationMode?: string | null;
+  cacheMaxAgeDays?: number | null;
+}
+
+export interface LanExternalAnimeProviderStatus {
+  myAnimeListClientId?: string | null;
+  hasMyAnimeListClientSecret: boolean;
+  hasMyAnimeListAccessToken: boolean;
+  bangumiBaseUrl?: string | null;
+  bangumiUserAgent?: string | null;
+  hasBangumiAccessToken: boolean;
 }
 
 export interface LibraryCatalog {
