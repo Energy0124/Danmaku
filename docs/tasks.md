@@ -20,9 +20,9 @@ Status legend:
   directory, scans configured `--root` folders into a basic catalog, discovers
   matching sidecar subtitles, streams media/subtitles over the existing
   routes, persists catalog snapshots, stable pairing tokens, and LAN playback
-  progress under the locked data directory, can boot from the cached catalog
-  when roots are not configured, and announces itself through the existing LAN
-  discovery protocol.
+  progress under the locked data directory, can load persisted root settings,
+  can boot from the cached catalog when roots are not configured, and announces
+  itself through the existing LAN discovery protocol.
   Desktop now has
   launch-driven remote-client mode using `--remote-server-url`,
   `--remote-pairing-token`, `DANMAKU_REMOTE_SERVER_URL`, and
@@ -30,7 +30,7 @@ Status legend:
   The repeatable `tools/windows/run-headless-web-ui-qa.ps1` helper now builds
   the web UI, starts a fixture-backed headless host, verifies `/web/`, catalog,
   media, subtitle metadata, and progress readback, and writes a PASS report.
-  Remaining split work: provider/root settings support, remote-only desktop
+  Remaining split work: provider settings support, remote-only desktop
   packaging/migration, richer browser interaction QA, and web UI polish.
 - `[~]` Resolve P1 review findings from the 2026-06-15 full project review:
   convert expected LAN/provider/media failures away from hard

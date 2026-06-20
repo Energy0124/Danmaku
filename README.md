@@ -192,9 +192,10 @@ Experimental headless Windows server:
 The headless server scans configured roots into a JSON catalog, streams
 media/subtitles through the same trusted-LAN routes as desktop, and persists
 catalog snapshots, stable pairing tokens, and playback progress under the
-locked data directory. It can boot from the cached catalog when no roots are
-configured and uses the same LAN discovery announcements as the embedded
-desktop host. Provider settings are still planned work.
+locked data directory. It can read roots from `server-settings.json`, boot from
+cached catalog when no roots are configured, and uses the same LAN discovery
+announcements as the embedded desktop host. Provider settings are still planned
+work.
 
 Desktop can launch directly into the remote-library browser against a running
 headless or embedded host:

@@ -2,9 +2,12 @@ package app.danmaku.server.windows
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
@@ -24,10 +27,14 @@ internal class HeadlessServerSettingsStore(
 ) {
     @Synchronized
     fun loadOrCreate(explicitPairingToken: String?): HeadlessServerSettings {
+        val loaded = load()
         val token = explicitPairingToken
-            ?: load()?.pairingToken
+            ?: loaded?.pairingToken
             ?: random.nextPairingToken()
-        val settings = HeadlessServerSettings(pairingToken = token)
+        val settings = HeadlessServerSettings(
+            pairingToken = token,
+            libraryRoots = loaded?.libraryRoots.orEmpty(),
+        )
         writeSnapshot(settings)
         return settings
     }
@@ -46,7 +53,17 @@ internal class HeadlessServerSettingsStore(
                 ?.contentOrNull
                 ?.takeIf(String::isNotBlank)
                 ?: return@runCatching null
-            HeadlessServerSettings(pairingToken = token)
+            HeadlessServerSettings(
+                pairingToken = token,
+                libraryRoots = root["libraryRoots"]
+                    ?.jsonArray
+                    ?.mapNotNull { element ->
+                        element.jsonPrimitive.contentOrNull
+                            ?.takeIf(String::isNotBlank)
+                            ?.let(Path::of)
+                    }
+                    .orEmpty(),
+            )
         }.getOrNull()
     }
 
@@ -80,6 +97,12 @@ internal class HeadlessServerSettingsStore(
         buildJsonObject {
             put("schemaVersion", SCHEMA_VERSION)
             put("pairingToken", pairingToken)
+            put(
+                "libraryRoots",
+                buildJsonArray {
+                    libraryRoots.forEach { root -> add(root.toString()) }
+                },
+            )
         }
 
     private fun SecureRandom.nextPairingToken(): String =
@@ -92,8 +115,10 @@ internal class HeadlessServerSettingsStore(
 
 internal data class HeadlessServerSettings(
     val pairingToken: String,
+    val libraryRoots: List<Path> = emptyList(),
 ) {
     init {
         require(pairingToken.isNotBlank()) { "pairingToken must not be blank" }
+        require(libraryRoots.none { it.toString().isBlank() }) { "library roots must not contain blank paths" }
     }
 }

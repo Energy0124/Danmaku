@@ -147,6 +147,7 @@ internal class HeadlessLibraryServer(
     private val catalogStore = HeadlessLibraryCatalogStore(options.dataDirectory.resolve("catalog.json"))
     private val settingsStore = HeadlessServerSettingsStore(options.dataDirectory.resolve("server-settings.json"))
     private val serverSettings = settingsStore.loadOrCreate(options.pairingToken)
+    private val libraryRoots = options.libraryRoots.ifEmpty { serverSettings.libraryRoots }
     private val cachedLibrary = catalogStore.load()
     private val server = createServer()
     private val closed = AtomicBoolean(false)
@@ -217,7 +218,7 @@ internal class HeadlessLibraryServer(
 
     private fun publishCurrentLibrary(reason: String): LibraryHostOperationResult {
         val storedLibrary = cachedLibrary
-        if (options.libraryRoots.isEmpty() && storedLibrary != null) {
+        if (libraryRoots.isEmpty() && storedLibrary != null) {
             lastScanStatus = LibraryHostOperationStatus.SUCCEEDED
             return LibraryHostOperationResult(
                 status = LibraryHostOperationStatus.SUCCEEDED,
@@ -228,7 +229,7 @@ internal class HeadlessLibraryServer(
 
         lastScanStatus = LibraryHostOperationStatus.RUNNING
         return runCatching {
-            HeadlessLocalLibraryScanner.scan(options.libraryRoots)
+            HeadlessLocalLibraryScanner.scan(libraryRoots)
         }.fold(
             onSuccess = { scan ->
                 val stored = if (scan.scannedRootCount == 0 && scan.publishedLibrary.catalog.items.isEmpty()) {

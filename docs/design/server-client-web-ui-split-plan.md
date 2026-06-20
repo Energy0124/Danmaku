@@ -73,8 +73,8 @@ host boundary grows.
 - Headless catalog snapshots, stable pairing tokens, and playback progress are
   persisted under the locked data directory so catalog readback, existing
   pairings, and web/mobile/TV resume points survive server restarts.
-- Headless hosts can serve a cached catalog without configured roots, which
-  supports service-style restarts where roots are supplied later by settings.
+- Headless hosts can read roots from `server-settings.json` when CLI roots are
+  absent, and can serve a cached catalog when no roots are configured.
 - Headless hosts announce themselves through the existing LAN discovery
   protocol after the HTTP server binds.
 - Later work adds provider settings and release packaging.

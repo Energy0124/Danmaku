@@ -82,6 +82,42 @@ class HeadlessServerOptionsTest {
     }
 
     @Test
+    fun loadsLibraryRootsFromHeadlessSettings() {
+        val temp = createTempDirectory("danmaku-headless-settings-roots")
+        val dataDirectory = temp.resolve("data").createDirectories()
+        val root = temp.resolve("Anime").createDirectories()
+        root.resolve("Example Show").createDirectories()
+            .resolve("Episode 01.mp4")
+            .writeBytes(byteArrayOf(1, 2, 3, 4))
+        dataDirectory.resolve("server-settings.json").writeText(
+            """
+            {
+              "schemaVersion": 1,
+              "pairingToken": "123456",
+              "libraryRoots": [${Json.encodeToString(root.toString())}]
+            }
+            """.trimIndent(),
+        )
+
+        try {
+            headlessServer(
+                HeadlessServerOptions(
+                    dataDirectory = dataDirectory,
+                    port = 0,
+                ),
+            ).use { server ->
+                server.start()
+                assertEquals("123456", server.pairingToken)
+                val item = fetchCatalog(server).items.single()
+                assertEquals("Example Show", item.seriesTitle)
+                assertEquals("Episode 01", item.episodeTitle)
+            }
+        } finally {
+            temp.toFile().deleteRecursively()
+        }
+    }
+
+    @Test
     fun startsWithDataDirectoryLockAndHeadlessStatus() {
         val dataDirectory = createTempDirectory("danmaku-headless-server")
         headlessServer(
