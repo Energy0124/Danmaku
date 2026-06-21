@@ -193,3 +193,7 @@ Default thresholds:
   The overlay is client-side and uses the existing authenticated dandanplay
   resolve route. Verification: `npm run build` in `apps/web-ui` and
   `tools/windows/run-headless-web-ui-qa.ps1`.
+- 2026-06-21: Split the web danmaku overlay timing, density, lane, mode, and
+  color mapping logic into `apps/web-ui/src/danmakuOverlay.ts`, keeping
+  `App.tsx` focused on player state and rendering. Verification: `npm run build`
+  in `apps/web-ui` and `tools/windows/run-headless-web-ui-qa.ps1`.

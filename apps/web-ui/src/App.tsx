@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DanmakuApiError,
   DandanplayResolveResult,
-  DandanplayComment,
   ExternalAnimeId,
   ExternalAnimeMatchCandidate,
   ExternalAnimeListEntry,
@@ -24,6 +23,8 @@ import {
   saveProgress,
   subtitleUrl
 } from "./api";
+import type { DanmakuDensity, VisibleDanmakuComment } from "./danmakuOverlay";
+import { danmakuDensityOptions, resolveVisibleDanmakuComments } from "./danmakuOverlay";
 
 const tokenStoragePrefix = "danmaku.web.pairing.";
 const externalListStatuses: ExternalAnimeListStatus[] = [
@@ -32,14 +33,6 @@ const externalListStatuses: ExternalAnimeListStatus[] = [
   "ON_HOLD",
   "DROPPED",
   "PLAN_TO_WATCH"
-];
-
-type DanmakuDensity = "low" | "normal" | "dense";
-
-const danmakuDensityOptions: { value: DanmakuDensity; label: string }[] = [
-  { value: "low", label: "Low" },
-  { value: "normal", label: "Normal" },
-  { value: "dense", label: "Dense" }
 ];
 
 export function App() {
@@ -247,7 +240,7 @@ function PlayerPanel({
   const [danmakuOverlayEnabled, setDanmakuOverlayEnabled] = useState(true);
   const [danmakuDensity, setDanmakuDensity] = useState<DanmakuDensity>("normal");
   const [danmakuOffsetSeconds, setDanmakuOffsetSeconds] = useState("0");
-  const [visibleDanmakuComments, setVisibleDanmakuComments] = useState<DandanplayComment[]>([]);
+  const [visibleDanmakuComments, setVisibleDanmakuComments] = useState<VisibleDanmakuComment[]>([]);
   const [externalListProvider, setExternalListProvider] =
     useState<ExternalAnimeProvider>("MY_ANIME_LIST");
   const [externalAnimeId, setExternalAnimeId] = useState("");
@@ -322,18 +315,12 @@ function PlayerPanel({
       setVisibleDanmakuComments((current) => (current.length > 0 ? [] : current));
       return;
     }
-    const currentTimeMs = Math.max(
-      0,
-      Math.round(video.currentTime * 1000) + parseDanmakuOffsetMs(danmakuOffsetSeconds)
-    );
-    const windowMs = danmakuWindowMs(danmakuDensity);
-    const windowStartMs = currentTimeMs - windowMs;
-    const windowEndMs = currentTimeMs + 500;
-    const next = dandanplay.comments
-      .filter((comment) => comment.timestampMs >= windowStartMs && comment.timestampMs <= windowEndMs)
-      .sort((left, right) => left.timestampMs - right.timestampMs)
-      .slice(0, danmakuMaxVisible(danmakuDensity));
-    setVisibleDanmakuComments(next);
+    setVisibleDanmakuComments(resolveVisibleDanmakuComments({
+      comments: dandanplay.comments,
+      currentTimeMs: Math.round(video.currentTime * 1000),
+      density: danmakuDensity,
+      offsetSeconds: danmakuOffsetSeconds
+    }));
   }
 
   async function loadDandanplay() {
@@ -747,18 +734,18 @@ function PlayerPanel({
         </video>
         {danmakuOverlayEnabled && visibleDanmakuComments.length > 0 ? (
           <div aria-hidden="true" className="danmaku-overlay">
-            {visibleDanmakuComments.map((comment, index) => (
+            {visibleDanmakuComments.map((entry) => (
               <span
-                className={`danmaku-comment ${danmakuModeClass(comment.style.mode)}`}
-                key={`${comment.id}-${comment.timestampMs}`}
+                className={`danmaku-comment ${entry.className}`}
+                key={`${entry.comment.id}-${entry.comment.timestampMs}`}
                 style={{
-                  animationDuration: `${danmakuAnimationSeconds(danmakuDensity)}s`,
-                  color: cssColorFromArgb(comment.style.colorArgb),
-                  fontSize: danmakuFontSize(comment.style.size),
-                  top: `${danmakuLaneTop(index, danmakuDensity)}%`
+                  animationDuration: `${entry.animationSeconds}s`,
+                  color: entry.color,
+                  fontSize: entry.fontSize,
+                  top: `${entry.laneTopPercent}%`
                 }}
               >
-                {comment.text}
+                {entry.comment.text}
               </span>
             ))}
           </div>
@@ -778,70 +765,6 @@ function formatProgress(progress?: PlaybackProgress): string {
 function formatDandanplayMatch(match?: DandanplayResolveResult["selectedMatch"]): string {
   if (!match) return "None";
   return match.displayTitle;
-}
-
-function parseDanmakuOffsetMs(value: string): number {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? Math.round(parsed * 1000) : 0;
-}
-
-function danmakuWindowMs(density: DanmakuDensity): number {
-  switch (density) {
-    case "low":
-      return 3000;
-    case "dense":
-      return 6000;
-    case "normal":
-      return 4500;
-  }
-}
-
-function danmakuMaxVisible(density: DanmakuDensity): number {
-  switch (density) {
-    case "low":
-      return 8;
-    case "dense":
-      return 28;
-    case "normal":
-      return 16;
-  }
-}
-
-function danmakuLaneTop(index: number, density: DanmakuDensity): number {
-  const lanes = density === "dense" ? 14 : density === "low" ? 6 : 10;
-  return 7 + (index % lanes) * (86 / lanes);
-}
-
-function danmakuAnimationSeconds(density: DanmakuDensity): number {
-  switch (density) {
-    case "low":
-      return 9;
-    case "dense":
-      return 7;
-    case "normal":
-      return 8;
-  }
-}
-
-function danmakuFontSize(size: string): string {
-  const normalized = size.toLocaleLowerCase();
-  if (normalized.includes("small")) return "18px";
-  if (normalized.includes("large")) return "25px";
-  return "21px";
-}
-
-function danmakuModeClass(mode: string): string {
-  const normalized = mode.toLocaleLowerCase();
-  if (normalized.includes("top")) return "mode-top";
-  if (normalized.includes("bottom")) return "mode-bottom";
-  return "mode-scroll";
-}
-
-function cssColorFromArgb(value: string): string {
-  const hex = value.replace(/^#/, "").replace(/^0x/i, "");
-  if (/^[0-9a-fA-F]{8}$/.test(hex)) return `#${hex.slice(2)}`;
-  if (/^[0-9a-fA-F]{6}$/.test(hex)) return `#${hex}`;
-  return "#ffffff";
 }
 
 function defaultProviderSearchQuery(item: LibraryMediaItem): string {
