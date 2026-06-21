@@ -1,6 +1,6 @@
 # Current State
 
-Last reviewed: 2026-06-20.
+Last reviewed: 2026-06-21.
 
 Danmaku is in active foundation work. The strongest vertical slice is Windows
 desktop as the local library host/player, with Android mobile and Android TV as
@@ -166,7 +166,7 @@ trusted-LAN clients.
   scaffold for pairing/catalog/video/progress, provider readiness,
   provider mapping search, manual external-list read/write controls with
   metadata-link ID auto-fill, dandanplay match/comment preview with basic
-  web video overlay controls, and an
+  web video overlay controls and persisted browser preferences, and an
   `apps:library-server-windows` headless JVM host with data-directory locking,
   startup scanning for configured `--root` folders, JSON catalog publishing,
   durable catalog snapshots for startup readback, sidecar subtitle discovery,

@@ -41,7 +41,7 @@ Status legend:
   headless can use the same JVM provider implementations. The headless server
   now has an authenticated dandanplay match/comment resolve route for catalog
   media, and the web player shows provider readiness, dandanplay
-  match/comment preview with basic video overlay controls, extracted web
+  match/comment preview with basic video overlay controls, persisted overlay preferences, extracted web
   overlay timing helpers, provider mapping search, and manual MAL/Bangumi
   external-list read/write controls that auto-fill IDs from catalog metadata
   links for the selected episode. Remaining split work: mapped-series

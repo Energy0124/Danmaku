@@ -197,3 +197,7 @@ Default thresholds:
   color mapping logic into `apps/web-ui/src/danmakuOverlay.ts`, keeping
   `App.tsx` focused on player state and rendering. Verification: `npm run build`
   in `apps/web-ui` and `tools/windows/run-headless-web-ui-qa.ps1`.
+- 2026-06-21: Persisted the web player's danmaku overlay preferences in
+  browser storage, including overlay visibility, density, and offset, with
+  guarded fallback when storage is unavailable. Verification: `npm run build`
+  in `apps/web-ui` and `tools/windows/run-headless-web-ui-qa.ps1`.

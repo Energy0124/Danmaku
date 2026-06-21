@@ -1,6 +1,6 @@
 # Server, Client, And Web UI Split Plan
 
-Last updated: 2026-06-20.
+Last updated: 2026-06-21.
 
 ## Direction
 
@@ -59,7 +59,8 @@ host boundary grows.
 - Implement pairing, catalog browsing, poster display, detail view, HTML5 video
   playback, progress read/write, provider readiness, provider mapping search,
   manual external-list read/write controls with metadata-link ID auto-fill,
-  and dandanplay match/comment preview plus basic video overlay controls first.
+  and dandanplay match/comment preview plus basic video overlay controls with
+  persisted browser preferences first.
 - Keep richer danmaku overlay styling, admin settings, provider sync controls,
   and library quality workflows as follow-up web features.
 
@@ -119,7 +120,7 @@ host boundary grows.
 - Web UI works against embedded and headless hosts, including catalog playback,
   provider mapping search, manual external list entry controls with
   metadata-link ID auto-fill, dandanplay preview controls, and basic video
-  overlay controls. The headless
+  overlay controls with persisted browser preferences. The headless
   path is covered
   by `tools/windows/run-headless-web-ui-qa.ps1`, including a restart probe for
   cached catalog and persisted progress readback; embedded-host browser QA

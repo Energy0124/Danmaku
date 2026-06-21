@@ -25,6 +25,10 @@ import {
 } from "./api";
 import type { DanmakuDensity, VisibleDanmakuComment } from "./danmakuOverlay";
 import { danmakuDensityOptions, resolveVisibleDanmakuComments } from "./danmakuOverlay";
+import {
+  loadDanmakuOverlayPreferences,
+  saveDanmakuOverlayPreferences
+} from "./danmakuOverlayPreferences";
 
 const tokenStoragePrefix = "danmaku.web.pairing.";
 const externalListStatuses: ExternalAnimeListStatus[] = [
@@ -237,9 +241,8 @@ function PlayerPanel({
   const [dandanplay, setDandanplay] = useState<DandanplayResolveResult | null>(null);
   const [dandanplayMessage, setDandanplayMessage] = useState("");
   const [isDandanplayLoading, setIsDandanplayLoading] = useState(false);
-  const [danmakuOverlayEnabled, setDanmakuOverlayEnabled] = useState(true);
-  const [danmakuDensity, setDanmakuDensity] = useState<DanmakuDensity>("normal");
-  const [danmakuOffsetSeconds, setDanmakuOffsetSeconds] = useState("0");
+  const [danmakuOverlayPreferences, setDanmakuOverlayPreferences] =
+    useState(loadDanmakuOverlayPreferences);
   const [visibleDanmakuComments, setVisibleDanmakuComments] = useState<VisibleDanmakuComment[]>([]);
   const [externalListProvider, setExternalListProvider] =
     useState<ExternalAnimeProvider>("MY_ANIME_LIST");
@@ -268,6 +271,9 @@ function PlayerPanel({
     : providerRuntime?.bangumi;
   const providerSearchAvailable = providerSearchCapability?.searchAvailable ?? false;
   const parsedExternalAnimeId = parsePositiveExternalAnimeId(externalAnimeId);
+  const danmakuOverlayEnabled = danmakuOverlayPreferences.enabled;
+  const danmakuDensity = danmakuOverlayPreferences.density;
+  const danmakuOffsetSeconds = danmakuOverlayPreferences.offsetSeconds;
 
   useEffect(() => {
     lastSavedAtRef.current = 0;
@@ -304,6 +310,10 @@ function PlayerPanel({
     const video = videoRef.current;
     if (video) updateDanmakuOverlay(video);
   }, [dandanplay, danmakuOverlayEnabled, danmakuDensity, danmakuOffsetSeconds]);
+
+  useEffect(() => {
+    saveDanmakuOverlayPreferences(danmakuOverlayPreferences);
+  }, [danmakuOverlayPreferences]);
 
   function handleVideoTimeUpdate(video: HTMLVideoElement) {
     updateDanmakuOverlay(video);
@@ -479,7 +489,12 @@ function PlayerPanel({
           <label className="danmaku-toggle">
             <input
               checked={danmakuOverlayEnabled}
-              onChange={(event) => setDanmakuOverlayEnabled(event.target.checked)}
+              onChange={(event) =>
+                setDanmakuOverlayPreferences((current) => ({
+                  ...current,
+                  enabled: event.target.checked
+                }))
+              }
               type="checkbox"
             />
             Overlay
@@ -488,7 +503,12 @@ function PlayerPanel({
             Density
             <select
               value={danmakuDensity}
-              onChange={(event) => setDanmakuDensity(event.target.value as DanmakuDensity)}
+              onChange={(event) =>
+                setDanmakuOverlayPreferences((current) => ({
+                  ...current,
+                  density: event.target.value as DanmakuDensity
+                }))
+              }
             >
               {danmakuDensityOptions.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -501,7 +521,12 @@ function PlayerPanel({
             Offset
             <input
               inputMode="decimal"
-              onChange={(event) => setDanmakuOffsetSeconds(event.target.value)}
+              onChange={(event) =>
+                setDanmakuOverlayPreferences((current) => ({
+                  ...current,
+                  offsetSeconds: event.target.value
+                }))
+              }
               step="0.5"
               type="number"
               value={danmakuOffsetSeconds}
