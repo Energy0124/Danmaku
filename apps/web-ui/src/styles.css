@@ -104,6 +104,8 @@ select {
 .external-list-form select,
 .provider-search-form input,
 .provider-search-form select,
+.danmaku-controls input,
+.danmaku-controls select,
 .search {
   width: 100%;
   border: 1px solid #c9d2da;
@@ -276,6 +278,78 @@ video {
   border-radius: 6px;
 }
 
+.video-stage {
+  position: relative;
+  overflow: hidden;
+  border-radius: 6px;
+  background: #0b0f12;
+}
+
+.video-stage video {
+  display: block;
+  border-radius: 0;
+}
+
+.danmaku-overlay {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.danmaku-comment {
+  position: absolute;
+  left: 100%;
+  max-width: 80%;
+  padding: 1px 2px;
+  white-space: nowrap;
+  font-weight: 800;
+  line-height: 1.2;
+  text-shadow:
+    0 1px 2px #000000,
+    1px 0 2px #000000,
+    -1px 0 2px #000000;
+  animation-name: danmaku-scroll;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+  will-change: transform;
+}
+
+.danmaku-comment.mode-top,
+.danmaku-comment.mode-bottom {
+  left: 50%;
+  max-width: 90%;
+  text-align: center;
+  transform: translateX(-50%);
+  animation-name: danmaku-fade;
+}
+
+.danmaku-comment.mode-bottom {
+  top: auto !important;
+  bottom: 12%;
+}
+
+@keyframes danmaku-scroll {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(calc(-100vw - 100%));
+  }
+}
+
+@keyframes danmaku-fade {
+  0%,
+  85% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
 .empty-state {
   min-height: 260px;
   display: grid;
@@ -360,6 +434,32 @@ video {
 .provider-result {
   display: grid;
   gap: 12px;
+}
+
+.danmaku-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: end;
+}
+
+.danmaku-controls label {
+  display: grid;
+  gap: 5px;
+  color: #4b5a64;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.danmaku-toggle {
+  display: inline-flex !important;
+  align-items: center;
+  min-height: 38px;
+}
+
+.danmaku-toggle input {
+  width: auto;
 }
 
 .provider-summary {

@@ -188,3 +188,8 @@ Default thresholds:
   chosen candidate into the external-list read/write controls. Verification:
   `npm run build` in `apps/web-ui` and
   `tools/windows/run-headless-web-ui-qa.ps1`.
+- 2026-06-21: Added a basic web danmaku video overlay for loaded dandanplay
+  comments, with overlay enable, density, and offset controls in the web player.
+  The overlay is client-side and uses the existing authenticated dandanplay
+  resolve route. Verification: `npm run build` in `apps/web-ui` and
+  `tools/windows/run-headless-web-ui-qa.ps1`.

@@ -59,9 +59,9 @@ host boundary grows.
 - Implement pairing, catalog browsing, poster display, detail view, HTML5 video
   playback, progress read/write, provider readiness, provider mapping search,
   manual external-list read/write controls with metadata-link ID auto-fill,
-  and dandanplay match/comment preview first.
-- Keep web danmaku overlay, admin settings, provider sync controls, and library
-  quality workflows as follow-up web features.
+  and dandanplay match/comment preview plus basic video overlay controls first.
+- Keep richer danmaku overlay styling, admin settings, provider sync controls,
+  and library quality workflows as follow-up web features.
 
 ### Phase 4: Headless Server
 
@@ -118,7 +118,8 @@ host boundary grows.
 - Desktop remote playback streams from a host.
 - Web UI works against embedded and headless hosts, including catalog playback,
   provider mapping search, manual external list entry controls with
-  metadata-link ID auto-fill, and dandanplay preview controls. The headless
+  metadata-link ID auto-fill, dandanplay preview controls, and basic video
+  overlay controls. The headless
   path is covered
   by `tools/windows/run-headless-web-ui-qa.ps1`, including a restart probe for
   cached catalog and persisted progress readback; embedded-host browser QA

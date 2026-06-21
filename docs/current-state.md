@@ -165,7 +165,8 @@ trusted-LAN clients.
   `--web-assets-dir`/`DANMAKU_WEB_UI_DIST` serving, a Vite TypeScript web UI
   scaffold for pairing/catalog/video/progress, provider readiness,
   provider mapping search, manual external-list read/write controls with
-  metadata-link ID auto-fill, dandanplay match/comment preview, and an
+  metadata-link ID auto-fill, dandanplay match/comment preview with basic
+  web video overlay controls, and an
   `apps:library-server-windows` headless JVM host with data-directory locking,
   startup scanning for configured `--root` folders, JSON catalog publishing,
   durable catalog snapshots for startup readback, sidecar subtitle discovery,
