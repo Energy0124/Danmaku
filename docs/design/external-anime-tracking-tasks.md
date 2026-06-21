@@ -201,3 +201,9 @@ Default thresholds:
   browser storage, including overlay visibility, density, and offset, with
   guarded fallback when storage is unavailable. Verification: `npm run build`
   in `apps/web-ui` and `tools/windows/run-headless-web-ui-qa.ps1`.
+- 2026-06-21: Added browser-level web QA for danmaku overlay preferences.
+  The headless web QA wrapper now launches Chrome/Edge through CDP, connects to
+  the served web UI, changes overlay visibility/density/offset controls,
+  verifies localStorage persistence after reload, checks invalid-storage
+  fallback, and captures `web-overlay-preferences.png`. Verification:
+  `tools/windows/run-headless-web-ui-qa.ps1`.

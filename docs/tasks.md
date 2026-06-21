@@ -35,7 +35,8 @@ Status legend:
   the web UI, starts a fixture-backed headless host, verifies `/web/`, catalog,
   media, subtitle metadata, and progress readback, then restarts without
   explicit roots/token to verify cached catalog and persisted progress readback
-  before writing a PASS report.
+  and runs a Chrome/Edge browser interaction probe for web danmaku overlay
+  preference persistence before writing PASS reports.
   Dandanplay API client/parsing code and MAL/Bangumi external list tracking
   clients are now shared through `shared:library-server-core`, so desktop and
   headless can use the same JVM provider implementations. The headless server
@@ -46,7 +47,8 @@ Status legend:
   external-list read/write controls that auto-fill IDs from catalog metadata
   links for the selected episode. Remaining split work: mapped-series
   provider admin write flows, live-account read/write QA, remote-only desktop
-  packaging/migration, richer browser interaction QA, and web UI polish.
+  packaging/migration, broader browser interaction QA for remaining web
+  controls, and web UI polish.
 - `[~]` Resolve P1 review findings from the 2026-06-15 full project review:
   convert expected LAN/provider/media failures away from hard
   `error(...)`/`check(...)` paths, split oversized Android entrypoints, and

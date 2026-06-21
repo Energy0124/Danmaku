@@ -122,8 +122,9 @@ host boundary grows.
   metadata-link ID auto-fill, dandanplay preview controls, and basic video
   overlay controls with persisted browser preferences. The headless
   path is covered
-  by `tools/windows/run-headless-web-ui-qa.ps1`, including a restart probe for
-  cached catalog and persisted progress readback; embedded-host browser QA
+  by `tools/windows/run-headless-web-ui-qa.ps1`, including browser overlay
+  preference persistence and a restart probe for cached catalog and persisted
+  progress readback; embedded-host browser QA
   still needs a dedicated pass before release.
 - Rust tests remain green, and any Rust client prototype stays behind a
   separate experimental target.

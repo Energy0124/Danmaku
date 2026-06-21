@@ -183,7 +183,9 @@ trusted-LAN clients.
   fixture-backed headless host, verifies the served `/web/` shell plus catalog,
   media, subtitle metadata, and progress readback routes, then restarts without
   explicit roots/token to verify cached catalog and persisted progress readback
-  before writing a PASS/FAIL report under `build/qa/headless-web-ui/`.
+  and runs a Chrome/Edge browser interaction probe for web danmaku overlay
+  preference persistence before writing PASS/FAIL reports under
+  `build/qa/headless-web-ui/`.
 
 ## Partial Or Needs More QA
 

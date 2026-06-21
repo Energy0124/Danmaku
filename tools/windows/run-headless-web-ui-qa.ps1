@@ -2,7 +2,8 @@
 param(
     [int]$Port = 18686,
     [string]$PairingToken = "123456",
-    [string]$OutputDir
+    [string]$OutputDir,
+    [switch]$SkipBrowserInteractionQa
 )
 
 Set-StrictMode -Version Latest
@@ -18,6 +19,7 @@ $dataDir = Join-Path $OutputDir "server-data"
 $reportPath = Join-Path $OutputDir "headless-web-ui-qa.md"
 $webUiDir = Join-Path $repoRoot "apps\web-ui"
 $webDist = Join-Path $webUiDir "dist"
+$browserQaScript = Join-Path $webUiDir "scripts\check-overlay-preferences.mjs"
 $gradle = Join-Path $repoRoot "gradlew.bat"
 
 function Invoke-RequiredCommand {
@@ -85,6 +87,23 @@ function Test-TcpPortAvailable {
     }
 }
 
+function Get-BrowserExecutable {
+    $candidates = @(
+        $env:CHROME_PATH,
+        "$env:ProgramFiles\Google\Chrome\Application\chrome.exe",
+        "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe",
+        "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe",
+        "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe"
+    ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+
+    foreach ($candidate in $candidates) {
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+            return $candidate
+        }
+    }
+    return $null
+}
+
 function Get-RequiredJsonProperty {
     param(
         [object]$Object,
@@ -124,6 +143,9 @@ if (-not (Test-Path -LiteralPath $gradle -PathType Leaf)) {
 }
 if (-not (Test-Path -LiteralPath (Join-Path $webUiDir "package.json") -PathType Leaf)) {
     throw "Web UI package does not exist: $webUiDir"
+}
+if (-not (Test-Path -LiteralPath $browserQaScript -PathType Leaf)) {
+    throw "Browser interaction QA script does not exist: $browserQaScript"
 }
 if (-not (Test-TcpPortAvailable -Port $Port)) {
     throw "Port $Port is already in use. Pass -Port with a free port or stop the existing server."
@@ -187,6 +209,19 @@ try {
     $webIndex = Invoke-WebRequest -Uri "$baseUrl/web/" -UseBasicParsing
     if ($webIndex.StatusCode -ne 200 -or $webIndex.Content -notmatch "Danmaku") {
         throw "Web UI index did not render expected shell content."
+    }
+
+    $browserInteractionQa = "SKIPPED (disabled)"
+    if (-not $SkipBrowserInteractionQa) {
+        $browserExecutable = Get-BrowserExecutable
+        if ($null -ne $browserExecutable) {
+            Invoke-RequiredCommand -Command {
+                node $browserQaScript --base-url $baseUrl --token $PairingToken --browser $browserExecutable --output-dir $OutputDir
+            } -FailureMessage "Browser interaction QA failed."
+            $browserInteractionQa = "PASS ($browserExecutable)"
+        } else {
+            $browserInteractionQa = "SKIPPED (Chrome/Edge not found)"
+        }
     }
 
     $catalog = (Invoke-JsonRequest -Uri "$baseUrl/api/library?token=$PairingToken").Content | ConvertFrom-Json
@@ -259,6 +294,7 @@ try {
         "- Subtitle tracks: $($item.subtitles.Count)",
         "- Provider status: dandanplay $dandanplayBaseUrl",
         "- Provider runtime: dandanplay $($providerRuntime.dandanplay.reasonCode), bangumiSearch=$($providerRuntime.bangumi.searchAvailable)",
+        "- Browser interaction QA: $browserInteractionQa",
         "- Progress readback: $($saved.positionMs) ms",
         "- Restart catalog items: $($restartCatalog.items.Count)",
         "- Restart progress readback: $($restartSaved.positionMs) ms",
