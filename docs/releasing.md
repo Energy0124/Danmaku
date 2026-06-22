@@ -50,6 +50,7 @@ cargo build --release -p player-windows-mpv --lib
 .\gradlew.bat --no-daemon :apps:desktop-windows:createDistributable
 .\tools\windows\prepare-windows-release.ps1
 .\tools\windows\verify-windows-mpv-runtime.ps1
+.\tools\windows\run-windows-playback-release-qa.ps1 -WindowsDistributionPath .\apps\desktop-windows\build\release\windows-portable -MediaPath <known-good-media>
 ```
 
 Android debug artifacts:
@@ -68,9 +69,8 @@ macOS development build:
 
 - `[ ]` Run CI-equivalent Gradle, Rust, and Worker proxy checks.
 - `[ ]` Verify the pinned libmpv bundle hash and license/source provenance.
-- `[ ]` Run Windows mpv runtime verification.
-- `[ ]` Run a GUI playback smoke test with a real local media file.
-- `[ ]` Validate Windows fullscreen, resize, aspect, and hardware decoding.
+- `[ ]` Run Windows playback release QA automation with representative real media.
+- `[ ]` Validate Windows fullscreen, resize, aspect, and hardware decoding manually.
 - `[ ]` Validate Android mobile and TV streaming against a Windows host.
 - `[ ]` Confirm no local SDK paths, provider credentials, pairing tokens, or
   generated build output are included.

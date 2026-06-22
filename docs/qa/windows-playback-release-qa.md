@@ -10,9 +10,23 @@ Use this checklist before treating Windows desktop playback as release-ready. Th
 
 ## Baseline Commands
 
+Run the automated baseline against the release/portable distribution and every
+representative media file available for the pass:
+
 ```powershell
-.\tools\windows\verify-windows-mpv-runtime.ps1
-.\tools\windows\smoke-windows-playback.ps1 -MediaPath <known-good-media>
+.\tools\windows\run-windows-playback-release-qa.ps1 `
+  -WindowsDistributionPath <windows-portable-path> `
+  -MediaPath <1080p-media>,<4k-media>,<hevc-or-av1-media>,<sidecar-subtitle-media>
+```
+
+The runner calls `verify-windows-mpv-runtime.ps1` and
+`smoke-windows-playback.ps1`, then writes
+`build/qa/windows-playback/windows-playback-release-qa.md`. Use the lower-level
+commands directly only when debugging one failed step.
+
+```powershell
+.\tools\windows\verify-windows-mpv-runtime.ps1 -WindowsDistributionPath <windows-portable-path>
+.\tools\windows\smoke-windows-playback.ps1 -WindowsDistributionPath <windows-portable-path> -MediaPath <known-good-media>
 ```
 
 ## Manual Scenarios

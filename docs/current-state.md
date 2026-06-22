@@ -153,7 +153,8 @@ trusted-LAN clients.
   native playback command bridge.
 - Rust `rust-core` timeline/indexing foundation.
 - Windows scripts for pinned libmpv install, bundle verification, portable
-  release preparation, mpv runtime verification, and GUI playback smoke tests.
+  release preparation, mpv runtime verification, GUI playback smoke tests, and
+  playback release-QA report generation across supplied media files.
 - Desktop app-level QA screenshot capture now raises the app window, waits for
   focus to settle, and restores the previous always-on-top state so captures are
   less likely to include unrelated foreground Windows apps.
@@ -195,8 +196,8 @@ trusted-LAN clients.
 ## Partial Or Needs More QA
 
 - Windows fullscreen, resize, 4K, hardware-decoding, and multi-display playback
-  behavior need broader manual validation. The release checklist lives in
-  `docs/qa/windows-playback-release-qa.md`.
+  behavior need broader manual validation. The release checklist and automated
+  runtime/smoke report runner live in `docs/qa/windows-playback-release-qa.md`.
 - UI localization is now a design requirement for English and Traditional
   Chinese (`zh-TW`). Desktop `DesktopStrings` resource extraction and
   app-language-to-resource locale control are in place. Deterministic desktop

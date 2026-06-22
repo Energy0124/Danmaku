@@ -239,9 +239,11 @@ Status legend:
   behavior.
 - `[~]` Add QA scripts or checklists for Windows fullscreen/4K/hardware decode.
   The manual release checklist now lives in
-  `docs/qa/windows-playback-release-qa.md` and builds on
-  `tools/windows/smoke-windows-playback.ps1`; remaining work is an actual
-  hardware/media pass with recorded results.
+  `docs/qa/windows-playback-release-qa.md`; the automated baseline runner
+  `tools/windows/run-windows-playback-release-qa.ps1` now records runtime-probe
+  and smoke-playback results across a supplied media matrix. Remaining work is
+  an actual hardware/media pass with recorded fullscreen, resize, 4K,
+  hardware-decode, and multi-display results.
 - `[~]` Add localization QA checks for English and `zh-TW` screenshots on
   dense desktop, mobile, and TV surfaces. Desktop now has deterministic launch
   overrides plus app-level screenshot capture for Home, Library, Downloads,
