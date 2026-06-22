@@ -92,10 +92,13 @@ Status legend:
   suggestion pass against the current desktop catalog found and fixed a bulk
   suggestion abort when one MyAnimeList title query returns `invalid q`; provider
   failures are now isolated and reported while other provider suggestions
-  continue. The real-account read/write checklist is documented in
-  `docs/qa/live-external-sync-qa.md`, with explicit approval required before
-  any provider write. Remaining: deliberate real-account mapping write/readback,
-  restore, sync, and relaunch verification.
+  continue. A read-only live list-entry harness now exists at
+  `tools/windows/run-live-external-sync-readback-qa.ps1` and writes reports
+  under `build/qa/live-external-sync/`; the real-account read/write checklist
+  remains documented in `docs/qa/live-external-sync-qa.md`, with explicit
+  approval required before any provider write. Remaining: run the readback
+  harness against the QA accounts, then perform deliberate mapping
+  write/readback, restore, sync, and relaunch verification.
 - `[x]` Add conservative auto mapping suggestions for MyAnimeList and Bangumi.
   The Tracking tab now has a "Suggest missing" scan that enriches
   MAL/Bangumi/dandanplay titles and external links, ranks with

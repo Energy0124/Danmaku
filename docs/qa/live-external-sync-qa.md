@@ -16,6 +16,28 @@ Use this checklist for real MyAnimeList and Bangumi readback/writeback validatio
 - A small local fixture or real catalog item is mapped to one MAL ID and one Bangumi ID.
 - The mapped anime should be safe to edit, preferably a test/low-risk entry with known episode count.
 
+## Read-Only Harness
+
+Run the readback harness before any writeback pass. It uses the shared
+MAL/Bangumi tracking clients and only calls `fetchListEntry`; it does not send
+provider update requests or read the desktop encrypted credential store.
+
+```powershell
+.\tools\windows\run-live-external-sync-readback-qa.ps1 `
+  -Provider MY_ANIME_LIST `
+  -AnimeId 52991 `
+  -MyAnimeListAccessToken $env:DANMAKU_MYANIMELIST_ACCESS_TOKEN
+
+.\tools\windows\run-live-external-sync-readback-qa.ps1 `
+  -Provider BANGUMI `
+  -AnimeId 400602 `
+  -BangumiAccessToken $env:DANMAKU_BANGUMI_ACCESS_TOKEN
+```
+
+Reports are written under `build/qa/live-external-sync/` and must not be
+committed. Use `-AllowMissingEntry` only for an explicit absent-entry smoke
+check; the default expects the anime to already exist in the provider list.
+
 ## Readback Flow
 
 1. Start the desktop app with an isolated test library when possible.

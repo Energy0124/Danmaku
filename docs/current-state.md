@@ -218,8 +218,10 @@ trusted-LAN clients.
 - Android TV 1080p and 4K emulator QA passed on 2026-06-18. Android TV still
   needs one real-device focus/safe-area pass before release.
 - External MAL/Bangumi sync has fake/integration-style client coverage and UI
-  wiring, but still needs live-account manual QA. The live read/write and
-  restore checklist lives in `docs/qa/live-external-sync-qa.md`.
+  wiring, plus an opt-in read-only live list-entry harness at
+  `tools/windows/run-live-external-sync-readback-qa.ps1`. It still needs
+  live-account manual write/restore QA. The live read/write and restore
+  checklist lives in `docs/qa/live-external-sync-qa.md`.
 - macOS desktop can build and run through the shared shell, but embedded video
   composition and release packaging are not first-class yet.
 - Download queue storage exists; a full authorized download engine is not

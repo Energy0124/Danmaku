@@ -90,6 +90,8 @@ Default thresholds:
 - `[x]` Integration-test provider clients with recorded/fake responses.
 - `[x]` Unit-test auto-mapping confidence bands, ambiguous-result rejection,
   provider alias parsing, and manual-mapping overwrite protection.
+- `[x]` Add an opt-in read-only live readback harness for MAL/Bangumi list
+  entries that writes local QA reports without mutating provider state.
 - `[ ]` Manual QA: map series to MAL and Bangumi, play episodes, sync progress, relaunch, and verify persisted state.
 
 ## Verification Log
@@ -188,6 +190,11 @@ Default thresholds:
   chosen candidate into the external-list read/write controls. Verification:
   `npm run build` in `apps/web-ui` and
   `tools/windows/run-headless-web-ui-qa.ps1`.
+- 2026-06-22: Added `tools/windows/run-live-external-sync-readback-qa.ps1`
+  and `LiveExternalAnimeReadbackQaTest` as an opt-in real-account read-only
+  list-entry QA path for MAL/Bangumi. The harness requires explicit provider
+  ID and access token inputs, writes reports under
+  `build/qa/live-external-sync/`, and does not call provider update routes.
 - 2026-06-21: Added a basic web danmaku video overlay for loaded dandanplay
   comments, with overlay enable, density, and offset controls in the web player.
   The overlay is client-side and uses the existing authenticated dandanplay
