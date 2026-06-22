@@ -31,5 +31,6 @@ The server can serve the generated `dist/` directory through
 The Windows QA wrapper builds the web UI, starts a fixture-backed headless
 library host, verifies the served `/web/` shell and HTTP API routes, then uses
 headless Chrome or Edge through CDP to verify danmaku overlay preference
-persistence across reload. Pass `-SkipBrowserInteractionQa` to keep the older
+persistence, provider search, Use ID, and external-list read/save form
+behavior. Pass `-SkipBrowserInteractionQa` to keep the older
 route-only check when a browser is not available.

@@ -1,6 +1,6 @@
 # Current State
 
-Last reviewed: 2026-06-21.
+Last reviewed: 2026-06-22.
 
 Danmaku is in active foundation work. The strongest vertical slice is Windows
 desktop as the local library host/player, with Android mobile and Android TV as
@@ -184,7 +184,8 @@ trusted-LAN clients.
   media, subtitle metadata, and progress readback routes, then restarts without
   explicit roots/token to verify cached catalog and persisted progress readback
   and runs a Chrome/Edge browser interaction probe for web danmaku overlay
-  preference persistence before writing PASS/FAIL reports under
+  preference persistence, provider search, Use ID, and external-list form
+  read/save behavior before writing PASS/FAIL reports under
   `build/qa/headless-web-ui/`.
 
 ## Partial Or Needs More QA

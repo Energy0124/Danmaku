@@ -207,3 +207,9 @@ Default thresholds:
   verifies localStorage persistence after reload, checks invalid-storage
   fallback, and captures `web-overlay-preferences.png`. Verification:
   `tools/windows/run-headless-web-ui-qa.ps1`.
+- 2026-06-22: Broadened browser-level web QA to provider mapping and
+  external-list controls. The CDP helper now installs deterministic browser
+  fetch overrides for provider runtime/search/list routes, verifies provider
+  search and Use ID behavior, exercises external-list readback and save form
+  state, and captures `web-provider-list-controls.png`. Verification:
+  `tools/windows/run-headless-web-ui-qa.ps1`.

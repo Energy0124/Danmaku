@@ -1,6 +1,6 @@
 # Server, Client, And Web UI Split Plan
 
-Last updated: 2026-06-21.
+Last updated: 2026-06-22.
 
 ## Direction
 
@@ -123,8 +123,8 @@ host boundary grows.
   overlay controls with persisted browser preferences. The headless
   path is covered
   by `tools/windows/run-headless-web-ui-qa.ps1`, including browser overlay
-  preference persistence and a restart probe for cached catalog and persisted
-  progress readback; embedded-host browser QA
-  still needs a dedicated pass before release.
+  preference persistence, provider search, Use ID, external-list form checks,
+  and a restart probe for cached catalog and persisted progress readback;
+  embedded-host browser QA still needs a dedicated pass before release.
 - Rust tests remain green, and any Rust client prototype stays behind a
   separate experimental target.

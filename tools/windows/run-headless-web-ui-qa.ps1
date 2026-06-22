@@ -19,7 +19,7 @@ $dataDir = Join-Path $OutputDir "server-data"
 $reportPath = Join-Path $OutputDir "headless-web-ui-qa.md"
 $webUiDir = Join-Path $repoRoot "apps\web-ui"
 $webDist = Join-Path $webUiDir "dist"
-$browserQaScript = Join-Path $webUiDir "scripts\check-overlay-preferences.mjs"
+$browserQaScript = Join-Path $webUiDir "scripts\check-browser-interactions.mjs"
 $gradle = Join-Path $repoRoot "gradlew.bat"
 
 function Invoke-RequiredCommand {
