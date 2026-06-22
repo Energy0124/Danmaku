@@ -213,3 +213,7 @@ Default thresholds:
   search and Use ID behavior, exercises external-list readback and save form
   state, and captures `web-provider-list-controls.png`. Verification:
   `tools/windows/run-headless-web-ui-qa.ps1`.
+- 2026-06-22: Split reusable browser QA CDP and Chromium helpers into
+  `apps/web-ui/scripts/browserQa/`, leaving `check-browser-interactions.mjs`
+  focused on Danmaku-specific overlay, provider search, and external-list UI
+  flows. Verification: `tools/windows/run-headless-web-ui-qa.ps1`.
