@@ -186,12 +186,17 @@ trusted-LAN clients.
   and runs a Chrome/Edge browser interaction probe for web danmaku overlay
   preference persistence, provider search, Use ID, and external-list form
   read/save behavior before writing PASS/FAIL reports under
-  `build/qa/headless-web-ui/`.
+  `build/qa/headless-web-ui/`. The new
+  `tools/windows/run-embedded-web-ui-qa.ps1` helper launches the Compose desktop
+  host with isolated `LOCALAPPDATA`, deterministic `--server-pairing-token`,
+  fixture `--qa-library-root`, and local web assets so the same web/browser
+  surface is checked against the default embedded desktop host.
 
 ## Partial Or Needs More QA
 
 - Windows fullscreen, resize, 4K, hardware-decoding, and multi-display playback
-  behavior need broader manual validation.
+  behavior need broader manual validation. The release checklist lives in
+  `docs/qa/windows-playback-release-qa.md`.
 - UI localization is now a design requirement for English and Traditional
   Chinese (`zh-TW`). Desktop `DesktopStrings` resource extraction and
   app-language-to-resource locale control are in place. Deterministic desktop
@@ -213,7 +218,8 @@ trusted-LAN clients.
 - Android TV 1080p and 4K emulator QA passed on 2026-06-18. Android TV still
   needs one real-device focus/safe-area pass before release.
 - External MAL/Bangumi sync has fake/integration-style client coverage and UI
-  wiring, but still needs live-account manual QA.
+  wiring, but still needs live-account manual QA. The live read/write and
+  restore checklist lives in `docs/qa/live-external-sync-qa.md`.
 - macOS desktop can build and run through the shared shell, but embedded video
   composition and release packaging are not first-class yet.
 - Download queue storage exists; a full authorized download engine is not
@@ -337,8 +343,9 @@ trusted-LAN clients.
 ## Not Implemented
 
 - Release-ready headless standalone library server with provider/admin web
-  controls, live-account external sync QA, packaging, and remote-only desktop
-  migration.
+  controls, completed live-account external sync QA, completed packaging QA,
+  and remote-only desktop migration. The packaging checklist lives in
+  `docs/qa/remote-headless-packaging-qa.md`.
 - Release-ready macOS/Linux/iOS/iPadOS/web targets.
 - Broad provider plugin marketplace or plugin sandboxing.
 - DRM circumvention, unauthorized source scraping, or torrent/search behavior.
@@ -358,6 +365,7 @@ git diff --check
 .\tools\windows\capture-desktop-localization-screenshots.ps1 -Languages zh-TW -Tabs home,library,tracking,settings
 .\gradlew.bat --no-daemon :apps:android-mobile:assembleDebug
 .\tools\windows\run-headless-web-ui-qa.ps1
+.\tools\windows\run-embedded-web-ui-qa.ps1
 ```
 
 Recent Android TV emulator QA checks:

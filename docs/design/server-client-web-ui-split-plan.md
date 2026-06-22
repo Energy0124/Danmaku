@@ -99,10 +99,14 @@ host boundary grows.
   `DANMAKU_REMOTE_SERVER_URL`/`DANMAKU_REMOTE_PAIRING_TOKEN` launch settings,
   opens the Library tab, and auto-loads the remote catalog when a token is
   provided.
+- Desktop embedded-host QA now also accepts deterministic `--server-pairing-token`
+  and `--qa-library-root` launch settings so repeatable browser QA can exercise
+  the default embedded desktop host without touching the user's normal app data.
 - The desktop remote browser uses `JvmLanLibraryClient`, prepares remote media
   URLs, and can load those URLs into the libmpv-backed desktop controller.
 - Later work can add a stricter remote-only mode that skips starting the
-  embedded desktop host after the UX and packaging behavior are validated.
+  embedded desktop host after the UX and packaging behavior are validated with
+  `docs/qa/remote-headless-packaging-qa.md`.
 
 ### Phase 6: Rust Native Client Spike
 
@@ -120,11 +124,13 @@ host boundary grows.
 - Web UI works against embedded and headless hosts, including catalog playback,
   provider mapping search, manual external list entry controls with
   metadata-link ID auto-fill, dandanplay preview controls, and basic video
-  overlay controls with persisted browser preferences. The headless
-  path is covered
-  by `tools/windows/run-headless-web-ui-qa.ps1`, including browser overlay
-  preference persistence, provider search, Use ID, external-list form checks,
-  and a restart probe for cached catalog and persisted progress readback;
-  embedded-host browser QA still needs a dedicated pass before release.
+  overlay controls with persisted browser preferences. The headless path is
+  covered by `tools/windows/run-headless-web-ui-qa.ps1`, including browser
+  overlay preference persistence, provider search, Use ID, external-list form
+  checks, and a restart probe for cached catalog and persisted progress
+  readback. The embedded desktop path is covered by
+  `tools/windows/run-embedded-web-ui-qa.ps1`, which starts the Compose desktop
+  host with isolated app data, fixture library, deterministic pairing token, and
+  local web assets before running the same browser interaction probe.
 - Rust tests remain green, and any Rust client prototype stays behind a
   separate experimental target.

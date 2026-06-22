@@ -294,6 +294,7 @@ internal fun DesktopShell(
             rootScanner = rootScanner,
             metadataResolver = animeMetadataResolver,
             port = launchOptions.serverPort ?: app.danmaku.server.LocalLibraryServer.DEFAULT_PORT,
+            pairingToken = launchOptions.serverPairingToken,
             aniRssWebhookToken = aniRssCredentialStore.loadOrCreateWebhookToken(),
             webAssetsRoot = launchOptions.webAssetsRoot,
             onLibraryPublished = { library ->
@@ -559,10 +560,10 @@ internal fun DesktopShell(
 
     LaunchedEffect(Unit) {
         libraryState.indexedLibrary?.toPublishedLibrary(animeMetadataResolver)?.let(server::publish)
-        if (libraryState.registeredRoots.isNotEmpty()) {
-            libraryActions.rescanRegisteredRoots()
-        } else {
-            legacySelectedLibraryRoot?.let(libraryActions::registerAndScanUserRoot)
+        when {
+            launchOptions.qaLibraryRoot != null -> libraryActions.registerAndScanUserRoot(launchOptions.qaLibraryRoot)
+            libraryState.registeredRoots.isNotEmpty() -> libraryActions.rescanRegisteredRoots()
+            else -> legacySelectedLibraryRoot?.let(libraryActions::registerAndScanUserRoot)
         }
     }
 

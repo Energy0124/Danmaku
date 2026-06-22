@@ -37,7 +37,12 @@ Status legend:
   explicit roots/token to verify cached catalog and persisted progress readback
   and runs a Chrome/Edge browser interaction probe for web danmaku overlay
   preference persistence, provider search, Use ID, and external-list form
-  read/save behavior before writing PASS reports.
+  read/save behavior before writing PASS reports. The embedded desktop host now
+  has `tools/windows/run-embedded-web-ui-qa.ps1`, which launches Compose
+  desktop with isolated `LOCALAPPDATA`, a fixture library, deterministic
+  `--server-pairing-token`, `--web-assets-dir`, and the same browser
+  interaction probe so `/web/` is validated against the default desktop host as
+  well.
   Dandanplay API client/parsing code and MAL/Bangumi external list tracking
   clients are now shared through `shared:library-server-core`, so desktop and
   headless can use the same JVM provider implementations. The headless server
@@ -87,8 +92,10 @@ Status legend:
   suggestion pass against the current desktop catalog found and fixed a bulk
   suggestion abort when one MyAnimeList title query returns `invalid q`; provider
   failures are now isolated and reported while other provider suggestions
-  continue. Remaining: deliberate real-account mapping write/readback/sync and
-  relaunch verification.
+  continue. The real-account read/write checklist is documented in
+  `docs/qa/live-external-sync-qa.md`, with explicit approval required before
+  any provider write. Remaining: deliberate real-account mapping write/readback,
+  restore, sync, and relaunch verification.
 - `[x]` Add conservative auto mapping suggestions for MyAnimeList and Bangumi.
   The Tracking tab now has a "Suggest missing" scan that enriches
   MAL/Bangumi/dandanplay titles and external links, ranks with
@@ -227,7 +234,11 @@ Status legend:
   mobile and TV where practical.
 - `[ ]` Define authorized download source contracts and queue execution
   behavior.
-- `[ ]` Add QA scripts or checklists for Windows fullscreen/4K/hardware decode.
+- `[~]` Add QA scripts or checklists for Windows fullscreen/4K/hardware decode.
+  The manual release checklist now lives in
+  `docs/qa/windows-playback-release-qa.md` and builds on
+  `tools/windows/smoke-windows-playback.ps1`; remaining work is an actual
+  hardware/media pass with recorded results.
 - `[~]` Add localization QA checks for English and `zh-TW` screenshots on
   dense desktop, mobile, and TV surfaces. Desktop now has deterministic launch
   overrides plus app-level screenshot capture for Home, Library, Downloads,
@@ -277,6 +288,9 @@ Status legend:
 - [Android mobile and TV library UI tasks](design/android-mobile-tv-library-ui-tasks.md)
 - [External anime mapping and tracking tasks](design/external-anime-tracking-tasks.md)
 - [Server, client, and web UI split](design/server-client-web-ui-split-plan.md)
+- [Live external sync QA](qa/live-external-sync-qa.md)
+- [Windows playback release QA](qa/windows-playback-release-qa.md)
+- [Remote/headless packaging QA](qa/remote-headless-packaging-qa.md)
 
 ## Review Findings
 
@@ -417,7 +431,9 @@ Full review date: 2026-06-15.
   where relevant.
 - Web UI changes should run `npm run build` in `apps/web-ui`; server-side route
   changes should keep JVM LAN server compatibility tests green; headless/web
-  integration changes should run `tools/windows/run-headless-web-ui-qa.ps1`.
+  integration changes should run `tools/windows/run-headless-web-ui-qa.ps1`,
+  and embedded desktop web-surface changes should run
+  `tools/windows/run-embedded-web-ui-qa.ps1`.
 - Desktop storage/provider/native changes should include desktop tests.
 - TV UI changes should include D-pad/focus instrumentation coverage where
   practical.
@@ -455,4 +471,6 @@ Desktop live QA helpers:
 ```powershell
 .\tools\windows\run-library-quality-live-qa.ps1
 .\tools\windows\run-library-quality-live-qa.ps1 -LibraryRoot '' -OutputDir build\qa\library-quality-registered
+.\tools\windows\run-headless-web-ui-qa.ps1
+.\tools\windows\run-embedded-web-ui-qa.ps1
 ```

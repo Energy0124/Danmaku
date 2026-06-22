@@ -26,11 +26,17 @@ The server can serve the generated `dist/` directory through
 
 ```powershell
 .\tools\windows\run-headless-web-ui-qa.ps1
+.\tools\windows\run-embedded-web-ui-qa.ps1
 ```
 
-The Windows QA wrapper builds the web UI, starts a fixture-backed headless
-library host, verifies the served `/web/` shell and HTTP API routes, then uses
-headless Chrome or Edge through CDP to verify danmaku overlay preference
-persistence, provider search, Use ID, and external-list read/save form
-behavior. Pass `-SkipBrowserInteractionQa` to keep the older
-route-only check when a browser is not available.
+The headless Windows QA wrapper builds the web UI, starts a fixture-backed
+headless library host, verifies the served `/web/` shell and HTTP API routes,
+then uses headless Chrome or Edge through CDP to verify danmaku overlay
+preference persistence, provider search, Use ID, and external-list read/save
+form behavior. Pass `-SkipBrowserInteractionQa` to keep the older route-only
+check when a browser is not available.
+
+The embedded Windows QA wrapper uses an isolated `LOCALAPPDATA`, starts the
+Compose desktop host with `--web-assets-dir`, `--server-pairing-token`, and
+`--qa-library-root`, then runs the same browser interaction checks against the
+real embedded desktop server.

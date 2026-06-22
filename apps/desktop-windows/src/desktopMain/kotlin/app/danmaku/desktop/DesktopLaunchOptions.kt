@@ -9,7 +9,9 @@ internal data class DesktopLaunchOptions(
     val initialLanguage: DesktopUiLanguage? = null,
     val initialTab: DesktopShellTab? = null,
     val serverPort: Int? = null,
+    val serverPairingToken: String? = null,
     val webAssetsRoot: Path? = null,
+    val qaLibraryRoot: Path? = null,
     val remoteClient: DesktopRemoteClientOptions? = null,
     val qaScreenshot: DesktopQaScreenshotOptions? = null,
 ) {
@@ -17,6 +19,8 @@ internal data class DesktopLaunchOptions(
         const val SMOKE_PLAYBACK_MEDIA_ENV = "DANMAKU_SMOKE_PLAYBACK_MEDIA"
         const val SMOKE_PLAYBACK_SECONDS_ENV = "DANMAKU_SMOKE_PLAYBACK_SECONDS"
         const val WEB_UI_DIST_ENV = "DANMAKU_WEB_UI_DIST"
+        const val SERVER_PAIRING_TOKEN_ENV = "DANMAKU_SERVER_PAIRING_TOKEN"
+        const val QA_LIBRARY_ROOT_ENV = "DANMAKU_QA_LIBRARY_ROOT"
         const val REMOTE_SERVER_URL_ENV = "DANMAKU_REMOTE_SERVER_URL"
         const val REMOTE_PAIRING_TOKEN_ENV = "DANMAKU_REMOTE_PAIRING_TOKEN"
 
@@ -37,7 +41,12 @@ internal data class DesktopLaunchOptions(
             var initialLanguage: DesktopUiLanguage? = null
             var initialTab: DesktopShellTab? = null
             var serverPort: Int? = null
+            var serverPairingToken = environment[SERVER_PAIRING_TOKEN_ENV]
+                ?.takeIf(String::isNotBlank)
             var webAssetsRoot = environment[WEB_UI_DIST_ENV]
+                ?.takeIf(String::isNotBlank)
+                ?.let(Path::of)
+            var qaLibraryRoot = environment[QA_LIBRARY_ROOT_ENV]
                 ?.takeIf(String::isNotBlank)
                 ?.let(Path::of)
             var remoteClientRequested = false
@@ -84,6 +93,18 @@ internal data class DesktopLaunchOptions(
                     arg.startsWith("--server-port=") -> {
                         serverPort = arg.substringAfter("=").toServerPort()
                     }
+                    arg == "--server-pairing-token" || arg == "--embedded-pairing-token" -> {
+                        serverPairingToken = args.valueAfter(arg, index)
+                        index += 1
+                    }
+                    arg.startsWith("--server-pairing-token=") -> {
+                        serverPairingToken = arg.substringAfter("=").takeIf(String::isNotBlank)
+                            ?: error("--server-pairing-token requires a value")
+                    }
+                    arg.startsWith("--embedded-pairing-token=") -> {
+                        serverPairingToken = arg.substringAfter("=").takeIf(String::isNotBlank)
+                            ?: error("--embedded-pairing-token requires a value")
+                    }
                     arg == "--web-assets-dir" || arg == "--web-ui-dist" -> {
                         webAssetsRoot = args.valueAfter(arg, index)?.let(Path::of)
                         index += 1
@@ -93,6 +114,13 @@ internal data class DesktopLaunchOptions(
                     }
                     arg.startsWith("--web-ui-dist=") -> {
                         webAssetsRoot = arg.substringAfter("=").takeIf(String::isNotBlank)?.let(Path::of)
+                    }
+                    arg == "--qa-library-root" -> {
+                        qaLibraryRoot = args.valueAfter(arg, index)?.let(Path::of)
+                        index += 1
+                    }
+                    arg.startsWith("--qa-library-root=") -> {
+                        qaLibraryRoot = arg.substringAfter("=").takeIf(String::isNotBlank)?.let(Path::of)
                     }
                     arg == "--remote-client" -> {
                         remoteClientRequested = true
@@ -216,7 +244,9 @@ internal data class DesktopLaunchOptions(
                 initialLanguage = initialLanguage,
                 initialTab = initialTab ?: DesktopShellTab.MEDIA_LIBRARY.takeIf { remoteClientRequested },
                 serverPort = serverPort,
+                serverPairingToken = serverPairingToken,
                 webAssetsRoot = webAssetsRoot,
+                qaLibraryRoot = qaLibraryRoot,
                 remoteClient = remoteServerUrl?.let { serverUrl ->
                     DesktopRemoteClientOptions(
                         serverUrl = serverUrl,

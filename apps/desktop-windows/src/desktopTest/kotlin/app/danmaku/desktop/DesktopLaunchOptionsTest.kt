@@ -53,14 +53,18 @@ class DesktopLaunchOptionsTest {
                 "--ui-language=zh-TW",
                 "--initial-tab=library",
                 "--server-port=0",
+                "--server-pairing-token=123456",
                 "--web-assets-dir=apps/web-ui/dist",
+                "--qa-library-root=S:/Projects/Danmaku/build/qa/embedded-web-ui/fixture-library",
             ),
         )
 
         assertEquals(DesktopUiLanguage.ZH_TW, options.initialLanguage)
         assertEquals(DesktopShellTab.MEDIA_LIBRARY, options.initialTab)
         assertEquals(0, options.serverPort)
+        assertEquals("123456", options.serverPairingToken)
         assertEquals(Path.of("apps/web-ui/dist"), options.webAssetsRoot)
+        assertEquals(Path.of("S:/Projects/Danmaku/build/qa/embedded-web-ui/fixture-library"), options.qaLibraryRoot)
     }
 
     @Test
@@ -104,12 +108,16 @@ class DesktopLaunchOptionsTest {
                 DesktopLaunchOptions.SMOKE_PLAYBACK_MEDIA_ENV to "D:/AniRss/Anime/黄泉使者/S01E01.mkv",
                 DesktopLaunchOptions.SMOKE_PLAYBACK_SECONDS_ENV to "4",
                 DesktopLaunchOptions.WEB_UI_DIST_ENV to "apps/web-ui/dist",
+                DesktopLaunchOptions.SERVER_PAIRING_TOKEN_ENV to "654321",
+                DesktopLaunchOptions.QA_LIBRARY_ROOT_ENV to "S:/QA/Anime",
             ),
         )
 
         assertEquals(Path.of("D:/AniRss/Anime/黄泉使者/S01E01.mkv"), options.smokePlayback?.mediaPath)
         assertEquals(4.seconds, options.smokePlayback?.playbackDuration)
         assertEquals(Path.of("apps/web-ui/dist"), options.webAssetsRoot)
+        assertEquals("654321", options.serverPairingToken)
+        assertEquals(Path.of("S:/QA/Anime"), options.qaLibraryRoot)
     }
 
     @Test
