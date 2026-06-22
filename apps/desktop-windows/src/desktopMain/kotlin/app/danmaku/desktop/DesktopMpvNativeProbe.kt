@@ -6,7 +6,9 @@ import java.nio.file.Path
 object DesktopMpvNativeProbe {
     @JvmStatic
     fun main(args: Array<String>) {
-        val mediaPath = args.firstOrNull()?.let(Path::of)
+        val mediaPath = (args.firstOrNull()
+            ?: System.getenv("DANMAKU_MPV_PROBE_MEDIA")?.takeIf(String::isNotBlank))
+            ?.let(Path::of)
         val runtime = DesktopMpvCommandExecutorRuntimeFactory().create(
             nativeOptions = mapOf("config" to "no"),
         ) {}

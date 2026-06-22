@@ -52,6 +52,7 @@ import kotlinx.coroutines.launch
 import java.awt.Window as AwtWindow
 import java.nio.file.Files
 import java.nio.file.Path
+import kotlin.system.exitProcess
 
 @Composable
 internal fun DesktopShell(
@@ -654,7 +655,7 @@ internal fun DesktopShell(
             "Smoke playback complete: status=${finalSnapshot.status}; " +
                 "position=${finalSnapshot.position.positionMs}ms; duration=${finalSnapshot.position.durationMs ?: "unknown"}",
         )
-        onRequestExit()
+        exitProcess(0)
     }
 
     DisposableEffect(mpvRuntime) {

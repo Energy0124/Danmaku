@@ -33,6 +33,7 @@ if ($null -eq $javaCommand) {
 
 $previousBridgePath = $env:DANMAKU_MPV_BRIDGE_PATH
 $previousLibmpvPath = $env:DANMAKU_LIBMPV_PATH
+$previousProbeMedia = $env:DANMAKU_MPV_PROBE_MEDIA
 try {
     $env:DANMAKU_MPV_BRIDGE_PATH = $mpvBridgePath
     $env:DANMAKU_LIBMPV_PATH = $libmpvPath
@@ -47,7 +48,9 @@ try {
         if (-not (Test-Path -LiteralPath $mediaFullPath -PathType Leaf)) {
             throw "Probe media file does not exist: $mediaFullPath"
         }
-        $javaArgs += $mediaFullPath
+        $env:DANMAKU_MPV_PROBE_MEDIA = $mediaFullPath
+    } else {
+        Remove-Item Env:\DANMAKU_MPV_PROBE_MEDIA -ErrorAction SilentlyContinue
     }
     & $javaCommand.Source @javaArgs
     if ($LASTEXITCODE -ne 0) {
@@ -56,6 +59,11 @@ try {
 } finally {
     $env:DANMAKU_MPV_BRIDGE_PATH = $previousBridgePath
     $env:DANMAKU_LIBMPV_PATH = $previousLibmpvPath
+    if ($null -eq $previousProbeMedia) {
+        Remove-Item Env:\DANMAKU_MPV_PROBE_MEDIA -ErrorAction SilentlyContinue
+    } else {
+        $env:DANMAKU_MPV_PROBE_MEDIA = $previousProbeMedia
+    }
 }
 
 Write-Host "Packaged Windows mpv runtime probe passed."

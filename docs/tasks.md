@@ -73,7 +73,11 @@ Status legend:
   have Compose Multiplatform generated resource adapter coverage under
   `commonMain/composeResources`.
 - `[~]` Finish desktop playback QA for fullscreen, resize, aspect, 4K media,
-  hardware decoding, and multi-display behavior.
+  hardware decoding, and multi-display behavior. The automated runtime-free
+  Windows portable baseline passed on 2026-06-22 against four real media
+  samples covering 1080p H.264 MP4, 1080p HEVC/ASS MKV, 4K HEVC MKV, and a
+  large BD MKV with sidecar ASS available; remaining work is manual
+  fullscreen/resize/seek/track/hardware-decode/multi-display sign-off.
 - `[x]` Complete Android mobile/tablet library viewport QA at phone and tablet
   sizes. The `Pixel_3a_API_34_extension_level_7_x86_64` phone emulator and
   `Danmaku_Tablet_API_34` Pixel Tablet emulator passed
@@ -240,10 +244,11 @@ Status legend:
 - `[~]` Add QA scripts or checklists for Windows fullscreen/4K/hardware decode.
   The manual release checklist now lives in
   `docs/qa/windows-playback-release-qa.md`; the automated baseline runner
-  `tools/windows/run-windows-playback-release-qa.ps1` now records runtime-probe
-  and smoke-playback results across a supplied media matrix. Remaining work is
-  an actual hardware/media pass with recorded fullscreen, resize, 4K,
-  hardware-decode, and multi-display results.
+  `tools/windows/run-windows-playback-release-qa.ps1` records runtime-probe
+  and smoke-playback results across a supplied media matrix. The 2026-06-22
+  runtime-free Windows portable pass succeeded across four real media samples.
+  Remaining work is manual recorded fullscreen, resize, seek/pause/rate,
+  track-switching, 4K duration, hardware-decode, and multi-display results.
 - `[~]` Add localization QA checks for English and `zh-TW` screenshots on
   dense desktop, mobile, and TV surfaces. Desktop now has deterministic launch
   overrides plus app-level screenshot capture for Home, Library, Downloads,

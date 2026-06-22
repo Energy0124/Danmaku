@@ -29,6 +29,23 @@ commands directly only when debugging one failed step.
 .\tools\windows\smoke-windows-playback.ps1 -WindowsDistributionPath <windows-portable-path> -MediaPath <known-good-media>
 ```
 
+## Latest Automated Pass
+
+On 2026-06-22, the automated release baseline passed against the runtime-free
+`apps/desktop-windows/build/release/windows-portable` package. The pass covered
+runtime probing plus smoke playback for these real `W:/anime` samples:
+
+- 1080p H.264/AAC MP4: `[ANi] OVERLORD 第四季 - 01 [1080P][Baha][WEB-DL][AAC AVC][CHT].mp4`
+- 1080p HEVC/ASS MKV: `[Airota&LoliHouse] Majo no Tabitabi - 07 [WebRip 1080p HEVC-10bit AAC ASSx2].mkv`
+- 4K HEVC/AAC MKV: `[NC-Raws] 电锯人 - 02 (B-Global 3840x2160 HEVC AAC MKV) [2D4CDC58].mkv`
+- Large BD MKV with sidecar ASS available: `[Kamigami] Kara no Kyoukai 1 - Fukan Fuukei [BD 1920×1080 DTS-HD(5.1ch,2.0ch)].mkv`
+
+Generated report: `build/qa/windows-playback/windows-playback-release-qa.md`.
+The actual `run-danmaku.ps1` portable launcher was also smoke-tested with
+the same MP4 sample and exited cleanly after reaching `PLAYING`.
+Manual sign-off below is still required before calling Windows playback
+release-ready.
+
 ## Manual Scenarios
 
 - Start playback from the local Library and verify video appears in the embedded host.

@@ -1,5 +1,8 @@
 [CmdletBinding()]
-param()
+param(
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [string[]]$AppArguments = @()
+)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
@@ -78,10 +81,13 @@ if (Test-Path -LiteralPath $libmpvPath -PathType Leaf) {
     $env:DANMAKU_LIBMPV_PATH = $libmpvPath
 }
 
-& $javaCommand.Source `
-    @($appConfig.JavaOptions) `
-    "-Djava.library.path=$appPath" `
-    -cp $appConfig.ClassPath `
-    $appConfig.MainClass
+$javaArgs = @()
+$javaArgs += @($appConfig.JavaOptions)
+$javaArgs += "-Djava.library.path=$appPath"
+$javaArgs += "-cp"
+$javaArgs += $appConfig.ClassPath
+$javaArgs += $appConfig.MainClass
+$javaArgs += $AppArguments
 
+& $javaCommand.Source @javaArgs
 exit $LASTEXITCODE
