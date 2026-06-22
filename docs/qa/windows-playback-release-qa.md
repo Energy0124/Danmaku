@@ -46,6 +46,22 @@ the same MP4 sample and exited cleanly after reaching `PLAYING`.
 Manual sign-off below is still required before calling Windows playback
 release-ready.
 
+## Latest Window-Use Manual Pass
+
+On 2026-06-22, window-level QA against the Compose desktop app verified:
+
+- Start playback from Home, with embedded libmpv video visible.
+- Danmaku overlay attachment over the native video surface.
+- Pause/resume through visible controls.
+- Forward/back seek controls.
+- Fullscreen enter and exit through visible controls.
+
+Blocking bug found: after exiting fullscreen, the restored window grew from
+about `2388x1392` to `2506x1392` at screen origin `(81,72)` on a `2560x1440`
+display. The window extended below/right of the monitor, the bottom playback
+controls became physically unreachable, and the video surface showed a large
+left black offset/letterbox until returning Home.
+
 ## Manual Scenarios
 
 - Start playback from the local Library and verify video appears in the embedded host.

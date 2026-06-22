@@ -76,8 +76,13 @@ Status legend:
   hardware decoding, and multi-display behavior. The automated runtime-free
   Windows portable baseline passed on 2026-06-22 against four real media
   samples covering 1080p H.264 MP4, 1080p HEVC/ASS MKV, 4K HEVC MKV, and a
-  large BD MKV with sidecar ASS available; remaining work is manual
-  fullscreen/resize/seek/track/hardware-decode/multi-display sign-off.
+  large BD MKV with sidecar ASS available. A 2026-06-22 window-level manual
+  pass verified Home-to-playback startup, embedded video, danmaku overlay,
+  pause/resume, seek controls, and fullscreen enter/exit, but found a blocking
+  fullscreen-exit restore bug where the window grows off-screen and bottom
+  playback controls become unreachable. Remaining work is to fix that restore
+  geometry bug, then rerun manual resize/aspect/track/hardware-decode/
+  multi-display sign-off.
 - `[x]` Complete Android mobile/tablet library viewport QA at phone and tablet
   sizes. The `Pixel_3a_API_34_extension_level_7_x86_64` phone emulator and
   `Danmaku_Tablet_API_34` Pixel Tablet emulator passed
