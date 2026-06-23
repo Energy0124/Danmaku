@@ -16,7 +16,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,10 +49,12 @@ import app.danmaku.domain.DanmakuSize
 import app.danmaku.domain.MeasuredDanmakuEvent
 import app.danmaku.domain.PlaybackCommand
 import app.danmaku.domain.PlaybackSnapshot
+import app.danmaku.domain.PlaybackStatus
 import app.danmaku.domain.ScrollingDanmakuLaneScheduler
 import app.danmaku.domain.ScrollingDanmakuLayoutConfig
 import app.danmaku.domain.seekTargetBy
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 
 @Composable
 internal fun TvFullscreenPlaybackScreen(
@@ -126,18 +132,19 @@ internal fun TvFullscreenPlaybackScreen(
             snapshot = state.snapshot,
             modifier = Modifier.fillMaxSize(),
         )
-        TvDanmakuStatus(
-            state = state.danmakuState,
-            startupPhase = state.playbackStartupPhase,
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(32.dp),
-        )
-        if (
-            state.playbackControlsVisible ||
+        val playbackChromeVisible = state.playbackControlsVisible ||
             state.playbackStartupPhase == TvPlaybackStartupPhase.WaitingForDanmaku ||
             state.playbackStartupPhase == TvPlaybackStartupPhase.Stopping
-        ) {
+        if (playbackChromeVisible) {
+            TvDanmakuStatus(
+                state = state.danmakuState,
+                startupPhase = state.playbackStartupPhase,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(32.dp),
+            )
+        }
+        if (playbackChromeVisible) {
             TvFullscreenPlaybackControls(
                 itemTitle = state.activePlaybackItem?.let { "${it.seriesTitle} / ${it.episodeTitle}" }
                     ?: stringResource(R.string.nav_player),
@@ -168,9 +175,9 @@ private fun TvDanmakuOverlay(
     modifier: Modifier = Modifier,
 ) {
     if (events.isEmpty()) return
-    val positionMs = snapshot.position.positionMs
+    val playbackClock = rememberDanmakuPlaybackClock(snapshot)
     val density = LocalDensity.current
-    val baseTextSizePx = with(density) { 28.sp.toPx() }
+    val baseTextSizePx = with(density) { 26.sp.toPx() }
     BoxWithConstraints(modifier = modifier) {
         val widthPx = with(density) { maxWidth.toPx() }.coerceAtLeast(1f)
         val heightPx = with(density) { maxHeight.toPx() }.coerceAtLeast(1f)
@@ -213,6 +220,7 @@ private fun TvDanmakuOverlay(
             )
         }
         Canvas(modifier = Modifier.fillMaxSize()) {
+            val positionMs = playbackClock.positionMs()
             val visibleScrolling = schedule.visibleAt(positionMs)
             val fixedEvents = events.filter { event ->
                 event.style.mode != DanmakuMode.SCROLLING &&
@@ -248,6 +256,95 @@ private fun TvDanmakuOverlay(
             }
         }
     }
+}
+
+@Composable
+private fun rememberDanmakuPlaybackClock(snapshot: PlaybackSnapshot): TvDanmakuPlaybackClock {
+    val clock = remember { TvDanmakuPlaybackClock(snapshot) }
+
+    LaunchedEffect(
+        clock,
+        snapshot.position.positionMs,
+        snapshot.position.durationMs,
+        snapshot.status,
+        snapshot.playbackRate,
+    ) {
+        val frameNanos = withFrameNanos { it }
+        clock.anchorTo(snapshot, frameNanos)
+    }
+
+    LaunchedEffect(clock, snapshot.status) {
+        if (snapshot.status != PlaybackStatus.PLAYING) return@LaunchedEffect
+
+        val firstFrameNanos = withFrameNanos { it }
+        clock.anchorTo(snapshot, firstFrameNanos)
+
+        while (isActive) {
+            clock.frameTimeNanos = withFrameNanos { it }
+        }
+    }
+
+    return clock
+}
+
+private class TvDanmakuPlaybackClock(snapshot: PlaybackSnapshot) {
+    var frameTimeNanos by mutableStateOf(0L)
+    private var anchor by mutableStateOf(TvDanmakuClockAnchor.fromSnapshot(snapshot, frameTimeNanos))
+
+    fun anchorTo(
+        snapshot: PlaybackSnapshot,
+        frameTimeNanos: Long,
+    ) {
+        anchor = TvDanmakuClockAnchor.fromSnapshot(snapshot, frameTimeNanos)
+        this.frameTimeNanos = frameTimeNanos
+    }
+
+    fun positionMs(): Long = anchor.positionAt(frameTimeNanos)
+}
+
+private data class TvDanmakuClockAnchor(
+    val positionMs: Long,
+    val durationMs: Long?,
+    val status: PlaybackStatus,
+    val playbackRate: Float,
+    val frameTimeNanos: Long,
+) {
+    fun positionAt(frameTimeNanos: Long): Long {
+        if (status != PlaybackStatus.PLAYING || frameTimeNanos <= this.frameTimeNanos) {
+            return positionMs.coercePlaybackPosition(durationMs)
+        }
+
+        val elapsedMs = ((frameTimeNanos - this.frameTimeNanos) / 1_000_000.0 * playbackRate)
+            .toLong()
+        val projectedPositionMs =
+            if (elapsedMs > Long.MAX_VALUE - positionMs) {
+                Long.MAX_VALUE
+            } else {
+                positionMs + elapsedMs
+            }
+        return projectedPositionMs.coercePlaybackPosition(durationMs)
+    }
+
+    companion object {
+        fun fromSnapshot(
+            snapshot: PlaybackSnapshot,
+            frameTimeNanos: Long,
+        ): TvDanmakuClockAnchor =
+            TvDanmakuClockAnchor(
+                positionMs = snapshot.position.positionMs,
+                durationMs = snapshot.position.durationMs,
+                status = snapshot.status,
+                playbackRate = snapshot.playbackRate,
+                frameTimeNanos = frameTimeNanos,
+            )
+    }
+}
+
+private fun Long.coercePlaybackPosition(durationMs: Long?): Long {
+    val nonNegativePositionMs = coerceAtLeast(0)
+    return durationMs
+        ?.let { nonNegativePositionMs.coerceAtMost(it) }
+        ?: nonNegativePositionMs
 }
 
 @Composable
