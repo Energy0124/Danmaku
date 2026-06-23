@@ -283,7 +283,7 @@ internal class DesktopShellSettingsActions(
         val token = pairingToken()
         settingsState.localServerConnectionTestStatus = SettingsConnectionTestStatus(
             outcome = SettingsConnectionTestOutcome.TESTING,
-            detail = "Checking status and pairing-token catalog access...",
+            detail = "Checking status and catalog access...",
         )
         scope.launch {
             appendDiagnostic("settings", "Testing local server at $baseUrl...")

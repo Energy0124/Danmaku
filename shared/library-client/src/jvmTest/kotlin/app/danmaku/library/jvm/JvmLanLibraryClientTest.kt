@@ -107,7 +107,7 @@ class JvmLanLibraryClientTest {
                         .use { it.readBytes() },
                 )
                 assertEquals(
-                    "${server.baseUrl()}/subtitles/subtitle-id?token=token+with+spaces",
+                    "${server.baseUrl()}/subtitles/subtitle-id",
                     client.subtitleUrl(server.baseUrl(), item.subtitles.single(), server.pairingToken),
                 )
                 assertEquals(emptyList(), client.fetchAllProgress(server.baseUrl(), server.pairingToken))
@@ -172,10 +172,10 @@ class JvmLanLibraryClientTest {
             val client = JvmLanLibraryClient()
 
             val failure = assertFailsWith<LanLibraryClientException> {
-                client.fetchCatalog(server.baseUrl(), "wrong-token")
+                client.fetchDanmaku(server.baseUrl(), "missing", "", forceRefresh = false)
             }
 
-            assertEquals("Library server returned HTTP 401", failure.message)
+            assertEquals("Library server returned HTTP 404", failure.message)
         }
     }
 

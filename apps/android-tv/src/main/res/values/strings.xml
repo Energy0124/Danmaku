@@ -18,7 +18,7 @@
     <string name="home_connect_pc_library">Connect a PC library to start browsing.</string>
     <string name="home_available_episodes">%1$d episodes available</string>
     <string name="library_title">Library</string>
-    <string name="library_empty">Pair with a desktop library to browse from TV.</string>
+    <string name="library_empty">Connect to a desktop library to browse from TV.</string>
     <string name="library_pc_title">PC Library</string>
     <string name="library_connect_server">Connect to a Windows library server</string>
     <string name="library_search_hint">Search library</string>
@@ -34,7 +34,7 @@
     <string name="library_all_series">All series</string>
     <string name="library_all">All</string>
     <string name="library_no_pc_title">No PC library connected</string>
-    <string name="library_no_pc_body">Discover or pair with a Windows library server to browse episodes on TV.</string>
+    <string name="library_no_pc_body">Discover or enter a Windows library server to browse episodes on TV.</string>
     <string name="library_no_results_title">No matching episodes</string>
     <string name="library_no_results_body">Reset search, favorites, and subtitle filters to return to the full library.</string>
     <string name="episode_count">%1$d episodes</string>
@@ -70,11 +70,11 @@
     <string name="favorites_count">%1$d favorites</string>
     <string name="connect_library_from_pc">Connect to your Windows library from PC</string>
     <string name="pc_connection_title">PC Connection</string>
-    <string name="pc_connection_body">Discover, pair, and save the Windows library server.</string>
+    <string name="pc_connection_body">Discover and save the Windows library server.</string>
     <string name="pc_no_server">No server</string>
     <string name="pc_server_set">Server set</string>
     <string name="pc_server_url_placeholder">PC server URL</string>
-    <string name="pairing_token_placeholder">Pairing token</string>
+    <string name="pairing_token_placeholder">Access code</string>
     <string name="saved_pcs_title">Saved PCs</string>
     <string name="server_status_title">Desktop Server</string>
     <string name="metadata_status_title">Metadata and Posters</string>

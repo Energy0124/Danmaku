@@ -30,7 +30,6 @@ import {
   saveDanmakuOverlayPreferences
 } from "./danmakuOverlayPreferences";
 
-const tokenStoragePrefix = "danmaku.web.pairing.";
 const externalListStatuses: ExternalAnimeListStatus[] = [
   "WATCHING",
   "COMPLETED",
@@ -42,7 +41,6 @@ const externalListStatuses: ExternalAnimeListStatus[] = [
 export function App() {
   const defaultBaseUrl = window.location.origin;
   const [baseUrl, setBaseUrl] = useState(defaultBaseUrl);
-  const [pairingToken, setPairingToken] = useState(() => loadStoredToken(defaultBaseUrl));
   const [catalog, setCatalog] = useState<LibraryCatalog | null>(null);
   const [progress, setProgress] = useState<PlaybackProgress[]>([]);
   const [providerRuntime, setProviderRuntime] = useState<LanProviderRuntimeStatus | null>(null);
@@ -69,7 +67,7 @@ export function App() {
     setIsLoading(true);
     setMessage("Connecting...");
     try {
-      const token = pairingToken.trim();
+      const token = "";
       const [snapshot, runtime] = await Promise.all([
         fetchLibrarySnapshot(normalizedBaseUrl, token),
         fetchProviderRuntime(normalizedBaseUrl, token).catch(() => null)
@@ -78,7 +76,6 @@ export function App() {
       setProgress(snapshot.progress);
       setProviderRuntime(runtime);
       setSelectedId((current) => current ?? snapshot.catalog.items[0]?.id ?? null);
-      storeToken(normalizedBaseUrl, token);
       setMessage(
         `${snapshot.status.appName} ${snapshot.status.hostMode ?? "embedded-desktop"}: ` +
           `${snapshot.catalog.items.length} media items`
@@ -110,16 +107,8 @@ export function App() {
             Host
             <input value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} />
           </label>
-          <label>
-            Pairing code
-            <input
-              value={pairingToken}
-              onChange={(event) => setPairingToken(event.target.value)}
-              inputMode="numeric"
-              autoComplete="one-time-code"
-            />
-          </label>
-          <button disabled={isLoading || !pairingToken.trim()} type="submit">
+
+          <button disabled={isLoading} type="submit">
             {isLoading ? "Connecting" : "Connect"}
           </button>
         </form>
@@ -160,7 +149,7 @@ export function App() {
           {selectedItem ? (
             <PlayerPanel
               baseUrl={normalizedBaseUrl}
-              token={pairingToken.trim()}
+              token=""
               providerRuntime={providerRuntime}
               item={selectedItem}
               savedProgress={progressById.get(selectedItem.id)}
@@ -887,12 +876,4 @@ function formatTimestamp(timestampMs: number): string {
   const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, "0");
   const seconds = (totalSeconds % 60).toString().padStart(2, "0");
   return `${minutes}:${seconds}`;
-}
-
-function loadStoredToken(baseUrl: string): string {
-  return window.localStorage.getItem(`${tokenStoragePrefix}${normalizeBaseUrl(baseUrl)}`) ?? "";
-}
-
-function storeToken(baseUrl: string, token: string): void {
-  window.localStorage.setItem(`${tokenStoragePrefix}${normalizeBaseUrl(baseUrl)}`, token);
 }

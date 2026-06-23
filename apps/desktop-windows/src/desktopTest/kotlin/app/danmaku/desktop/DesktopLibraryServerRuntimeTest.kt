@@ -66,7 +66,7 @@ class DesktopLibraryServerRuntimeTest {
 
     private fun waitForCatalog(baseUrl: String): LibraryCatalog {
         repeat(50) {
-            val response = connection("$baseUrl/api/library?token=123456")
+            val response = connection("$baseUrl/api/library")
             if (response.responseCode == 200) {
                 val catalog = Json.decodeFromString<LibraryCatalog>(
                     response.inputStream.bufferedReader().use { it.readText() },

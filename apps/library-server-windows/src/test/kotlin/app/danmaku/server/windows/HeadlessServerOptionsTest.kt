@@ -178,9 +178,8 @@ class HeadlessServerOptionsTest {
                 assertEquals("Danmaku QA", status.providerSettings?.externalAnime?.bangumiUserAgent)
                 assertEquals(true, status.providerSettings?.externalAnime?.hasBangumiAccessToken)
 
-                assertEquals(401, connection("$baseUrl/api/providers/runtime").responseCode)
                 val runtime = Json.decodeFromString<LanProviderRuntimeStatus>(
-                    connection("$baseUrl/api/providers/runtime?token=123456")
+                    connection("$baseUrl/api/providers/runtime")
                         .inputStream
                         .bufferedReader()
                         .use { it.readText() },
@@ -249,7 +248,7 @@ class HeadlessServerOptionsTest {
             assertEquals(1, server.runtimeStatus.itemCount)
 
             val catalog = Json.decodeFromString<LibraryCatalog>(
-                connection("${server.runtimeStatus.baseUrls.first()}/api/library?token=123456")
+                connection("${server.runtimeStatus.baseUrls.first()}/api/library")
                     .inputStream
                     .bufferedReader()
                     .use { it.readText() },
@@ -260,12 +259,12 @@ class HeadlessServerOptionsTest {
             assertEquals("video/mp4", item.mediaType)
             assertEquals(1, item.subtitles.size)
 
-            val mediaResponse = connection("${server.runtimeStatus.baseUrls.first()}${item.streamPath}?token=123456")
+            val mediaResponse = connection("${server.runtimeStatus.baseUrls.first()}${item.streamPath}")
             assertEquals(200, mediaResponse.responseCode)
             assertContentEquals(mediaBytes, mediaResponse.inputStream.use { it.readBytes() })
 
             val subtitle = item.subtitles.single()
-            val subtitleResponse = connection("${server.runtimeStatus.baseUrls.first()}${subtitle.streamPath}?token=123456")
+            val subtitleResponse = connection("${server.runtimeStatus.baseUrls.first()}${subtitle.streamPath}")
             assertEquals(200, subtitleResponse.responseCode)
             assertEquals("text/vtt", subtitleResponse.getHeaderField("Content-Type"))
         }
@@ -305,7 +304,7 @@ class HeadlessServerOptionsTest {
                 assertEquals(
                     204,
                     connection(
-                        url = "${server.runtimeStatus.baseUrls.first()}/api/progress/${item.id}?token=123456",
+                        url = "${server.runtimeStatus.baseUrls.first()}/api/progress/${item.id}",
                         method = "PUT",
                         body = Json.encodeToString(progress),
                     ).responseCode,
@@ -327,7 +326,7 @@ class HeadlessServerOptionsTest {
                 assertEquals(
                     progress,
                     Json.decodeFromString<PlaybackProgress>(
-                        connection("${server.runtimeStatus.baseUrls.first()}/api/progress/${item.id}?token=123456")
+                        connection("${server.runtimeStatus.baseUrls.first()}/api/progress/${item.id}")
                             .inputStream
                             .bufferedReader()
                             .use { it.readText() },
@@ -382,7 +381,7 @@ class HeadlessServerOptionsTest {
                 assertEquals("Episode 01", item.episodeTitle)
                 assertEquals(1, item.subtitles.size)
 
-                val mediaResponse = connection("${server.runtimeStatus.baseUrls.first()}${item.streamPath}?token=123456")
+                val mediaResponse = connection("${server.runtimeStatus.baseUrls.first()}${item.streamPath}")
                 assertEquals(200, mediaResponse.responseCode)
                 assertContentEquals(mediaBytes, mediaResponse.inputStream.use { it.readBytes() })
             }
@@ -422,7 +421,7 @@ class HeadlessServerOptionsTest {
 
     private fun fetchCatalog(server: HeadlessLibraryServer): LibraryCatalog =
         Json.decodeFromString(
-            connection("${server.runtimeStatus.baseUrls.first()}/api/library?token=123456")
+            connection("${server.runtimeStatus.baseUrls.first()}/api/library")
                 .inputStream
                 .bufferedReader()
                 .use { it.readText() },

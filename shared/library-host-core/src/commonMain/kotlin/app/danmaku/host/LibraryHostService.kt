@@ -35,7 +35,7 @@ data class LibraryHostRuntimeStatus(
     val startedAtEpochMs: Long? = null,
     val lastPublishedAtEpochMs: Long? = null,
     val lastScanStatus: LibraryHostOperationStatus = LibraryHostOperationStatus.IDLE,
-    val pairingRequired: Boolean = true,
+    val pairingRequired: Boolean = false,
 ) {
     init {
         require(baseUrls.none { it.isBlank() }) { "baseUrls must not contain blank URLs" }

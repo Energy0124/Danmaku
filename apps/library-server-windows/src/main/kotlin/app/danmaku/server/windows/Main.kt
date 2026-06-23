@@ -31,7 +31,6 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import java.nio.channels.FileChannel
 import java.nio.channels.FileLock
-import java.security.MessageDigest
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
@@ -45,7 +44,7 @@ fun main(args: Array<String>) {
         println(start.message)
         println("Base URLs: ${host.runtimeStatus.baseUrls.joinToString()}")
         println("Web UI URLs: ${host.runtimeStatus.webUiUrls.joinToString().ifBlank { "disabled" }}")
-        println("Pairing token: ${host.pairingToken}")
+        println("Pairing: not required")
         Runtime.getRuntime().addShutdownHook(Thread { host.close() })
         CountDownLatch(1).await()
     }
@@ -354,27 +353,19 @@ private val headlessServerJson = Json {
 }
 
 private fun HeadlessServerSettings.providerRuntimeHook(): PublicGetHook =
-    PublicGetHook("/api/providers/runtime") { queryParameters ->
-        if (!queryParameters.hasPairingToken(pairingToken)) {
-            PublicGetHookResponse(status = 401, body = "Unauthorized.")
-        } else {
-            PublicGetHookResponse(
-                status = 200,
-                contentType = "application/json; charset=utf-8",
-                body = headlessServerJson.encodeToString(toLanProviderRuntimeStatus()),
-            )
-        }
+    PublicGetHook("/api/providers/runtime") {
+        PublicGetHookResponse(
+            status = 200,
+            contentType = "application/json; charset=utf-8",
+            body = headlessServerJson.encodeToString(toLanProviderRuntimeStatus()),
+        )
     }
 
 private fun HeadlessServerSettings.providerSearchHook(
     searchService: HeadlessExternalAnimeSearchService,
 ): PublicGetHook =
     PublicGetHook("/api/providers/search") { queryParameters ->
-        if (!queryParameters.hasPairingToken(pairingToken)) {
-            PublicGetHookResponse(status = 401, body = "Unauthorized.")
-        } else {
-            queryParameters.toProviderSearchResponse(searchService)
-        }
+        queryParameters.toProviderSearchResponse(searchService)
     }
 
 private fun Map<String, String>.toProviderSearchResponse(
@@ -433,11 +424,7 @@ private fun HeadlessServerSettings.providerListEntryHook(
     trackingService: HeadlessExternalAnimeTrackingService,
 ): PublicRequestHook =
     PublicRequestHook("/api/providers/list/entry") { request ->
-        if (!request.queryParameters.hasPairingToken(pairingToken)) {
-            PublicGetHookResponse(status = 401, body = "Unauthorized.")
-        } else {
-            request.toProviderListEntryResponse(trackingService)
-        }
+        request.toProviderListEntryResponse(trackingService)
     }
 
 private fun PublicRequestHookRequest.toProviderListEntryResponse(
@@ -538,11 +525,7 @@ private fun HeadlessServerSettings.dandanplayResolveHook(
     publishedLibraryProvider: () -> PublishedLibrary,
 ): PublicGetHook =
     PublicGetHook("/api/providers/dandanplay/resolve") { queryParameters ->
-        if (!queryParameters.hasPairingToken(pairingToken)) {
-            PublicGetHookResponse(status = 401, body = "Unauthorized.")
-        } else {
-            queryParameters.toDandanplayResolveResponse(providerService, publishedLibraryProvider())
-        }
+        queryParameters.toDandanplayResolveResponse(providerService, publishedLibraryProvider())
     }
 
 private fun Map<String, String>.toDandanplayResolveResponse(
@@ -647,10 +630,6 @@ private fun HeadlessExternalAnimeProviderSettings.toBangumiRuntimeCapability(): 
     )
 }
 
-private fun Map<String, String>.hasPairingToken(expectedToken: String): Boolean {
-    val suppliedToken = this["token"] ?: return false
-    return MessageDigest.isEqual(expectedToken.toByteArray(), suppliedToken.toByteArray())
-}
 
 private class DataDirectoryLock private constructor(
     private val channel: FileChannel,

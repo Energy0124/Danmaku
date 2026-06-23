@@ -153,13 +153,13 @@ class DesktopLaunchOptionsTest {
     }
 
     @Test
-    fun remoteClientWithoutTokenDoesNotAutoLoad() {
+    fun remoteClientWithoutTokenStillAutoLoads() {
         val options = DesktopLaunchOptions.parse(listOf("--remote-url=http://127.0.0.1:8686"))
 
         assertEquals(DesktopShellTab.MEDIA_LIBRARY, options.initialTab)
         assertEquals("http://127.0.0.1:8686", options.remoteClient?.normalizedServerUrl)
         assertEquals("", options.remoteClient?.pairingToken)
-        assertFalse(options.remoteClient?.autoLoad ?: true)
+        assertTrue(options.remoteClient?.autoLoad == true)
     }
 
     @Test

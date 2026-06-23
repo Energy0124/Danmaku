@@ -520,7 +520,6 @@ internal fun SettingsSectionContent(
             DesktopSettingsSection.SERVER -> {
                 SectionCard(strings.localServerTitle) {
                     MetadataRow(strings.serverBaseUrlLabel, serverBaseUrl)
-                    MetadataRow(strings.pairingCodeLabel, pairingToken)
                     networkUrls.forEach { MetadataRow(strings.lanUrlLabel, it) }
                     MetadataRow(
                         strings.discoveryLabel,

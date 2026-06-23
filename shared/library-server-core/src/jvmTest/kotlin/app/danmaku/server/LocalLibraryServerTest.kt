@@ -145,7 +145,7 @@ class LocalLibraryServerTest {
 
                 assertEquals(404, connection("${server.baseUrl()}/web/assets/missing.js").responseCode)
                 assertEquals(405, connection("${server.baseUrl()}/web/", method = "POST").responseCode)
-                assertEquals(401, connection("${server.baseUrl()}/api/library").responseCode)
+                assertEquals(200, connection("${server.baseUrl()}/api/library").responseCode)
             }
         } finally {
             temp.toFile().deleteRecursively()
@@ -153,7 +153,7 @@ class LocalLibraryServerTest {
     }
 
     @Test
-    fun resolvesDanmakuForAuthenticatedPublishedMedia() {
+    fun resolvesDanmakuForPublishedMediaWithoutPairingToken() {
         val mediaFile = createTempFile("danmaku-server-core", ".mkv")
         mediaFile.writeBytes(byteArrayOf(0, 1, 2))
         val item = LibraryMediaItem(
@@ -196,14 +196,13 @@ class LocalLibraryServerTest {
                 )
                 server.start()
 
-                assertEquals(401, connection("${server.baseUrl()}/api/danmaku/episode+id").responseCode)
                 assertEquals(
                     404,
-                    connection("${server.baseUrl()}/api/danmaku/missing?token=token+with+spaces").responseCode,
+                    connection("${server.baseUrl()}/api/danmaku/missing").responseCode,
                 )
 
                 val response = connection(
-                    "${server.baseUrl()}/api/danmaku/episode+id?token=token+with+spaces&forceRefresh=true",
+                    "${server.baseUrl()}/api/danmaku/episode+id?forceRefresh=true",
                 )
 
                 assertEquals(200, response.responseCode)
@@ -247,7 +246,7 @@ class LocalLibraryServerTest {
                 server.start()
 
                 val track = Json.decodeFromString<LanDanmakuTrack>(
-                    connection("${server.baseUrl()}/api/danmaku/${item.id}?token=123456")
+                    connection("${server.baseUrl()}/api/danmaku/${item.id}")
                         .inputStream
                         .bufferedReader()
                         .use { it.readText() },
@@ -286,14 +285,14 @@ class LocalLibraryServerTest {
                 server.start()
                 val url = "${server.baseUrl()}${track.streamPath}"
 
-                assertEquals(401, connection(url).responseCode)
-                assertEquals(404, connection("${server.baseUrl()}/subtitles/missing?token=123456").responseCode)
-                val headResponse = connection("$url?token=123456").apply {
+                assertEquals(200, connection(url).responseCode)
+                assertEquals(404, connection("${server.baseUrl()}/subtitles/missing").responseCode)
+                val headResponse = connection("$url").apply {
                     requestMethod = "HEAD"
                 }
                 assertEquals(200, headResponse.responseCode)
                 assertEquals(subtitleBody.toByteArray().size.toString(), headResponse.getHeaderField("Content-Length"))
-                val response = connection("$url?token=123456")
+                val response = connection("$url")
                 assertEquals(200, response.responseCode)
                 assertEquals("application/x-subrip", response.getHeaderField("Content-Type"))
                 assertEquals(subtitleBody, response.inputStream.bufferedReader().use { it.readText() })
@@ -331,14 +330,14 @@ class LocalLibraryServerTest {
                 server.start()
                 val url = "${server.baseUrl()}${item.posterPath}"
 
-                assertEquals(401, connection(url).responseCode)
-                assertEquals(404, connection("${server.baseUrl()}/posters/missing?token=123456").responseCode)
-                val headResponse = connection("$url?token=123456").apply {
+                assertEquals(200, connection(url).responseCode)
+                assertEquals(404, connection("${server.baseUrl()}/posters/missing").responseCode)
+                val headResponse = connection("$url").apply {
                     requestMethod = "HEAD"
                 }
                 assertEquals(200, headResponse.responseCode)
                 assertEquals(posterBytes.size.toString(), headResponse.getHeaderField("Content-Length"))
-                val response = connection("$url?token=123456")
+                val response = connection("$url")
                 assertEquals(200, response.responseCode)
                 assertContentEquals(posterBytes, response.inputStream.readBytes())
             }
@@ -420,11 +419,11 @@ class LocalLibraryServerTest {
     }
 
     @Test
-    fun rejectsUnauthorizedMediaRequestsAndInvalidRanges() {
+    fun rejectsInvalidRangesWithoutPairingToken() {
         withServer(byteArrayOf(0, 1, 2, 3, 4, 5)) { server, item ->
             val mediaUrl = "${server.baseUrl()}${item.streamPath}"
 
-            assertEquals(401, connection(mediaUrl).responseCode)
+            assertEquals(200, connection(mediaUrl).responseCode)
             listOf(
                 "items=0-1",
                 "bytes=1-2,4-5",
@@ -433,7 +432,7 @@ class LocalLibraryServerTest {
                 "bytes=4-2",
                 "bytes=9-10",
             ).forEach { range ->
-                val response = connection("$mediaUrl?token=123456", range)
+                val response = connection("$mediaUrl", range)
                 assertEquals(416, response.responseCode, "range: $range")
                 assertEquals("bytes */6", response.getHeaderField("Content-Range"))
             }
@@ -448,7 +447,7 @@ class LocalLibraryServerTest {
             mediaBytes = byteArrayOf(0, 1, 2, 3, 4, 5),
             eventSink = events::add,
         ) { server, item ->
-            val mediaUrl = "${server.baseUrl()}${item.streamPath}?token=123456"
+            val mediaUrl = "${server.baseUrl()}${item.streamPath}"
             val response = connection(mediaUrl, "bytes=1-3")
 
             assertEquals(206, response.responseCode)
@@ -481,7 +480,7 @@ class LocalLibraryServerTest {
         val mediaBytes = ByteArray(LARGE_FIXTURE_SIZE) { index -> (index % 251).toByte() }
 
         withServer(mediaBytes) { server, item ->
-            val mediaUrl = "${server.baseUrl()}${item.streamPath}?token=123456"
+            val mediaUrl = "${server.baseUrl()}${item.streamPath}"
             val ranges = listOf(
                 0L..65_535L,
                 32_768L..98_303L,
@@ -520,7 +519,7 @@ class LocalLibraryServerTest {
     @Test
     fun supportsOpenEndedAndSuffixRanges() {
         withServer(byteArrayOf(0, 1, 2, 3, 4, 5)) { server, item ->
-            val mediaUrl = "${server.baseUrl()}${item.streamPath}?token=123456"
+            val mediaUrl = "${server.baseUrl()}${item.streamPath}"
 
             assertContentEquals(
                 byteArrayOf(2, 3, 4, 5),
@@ -536,8 +535,8 @@ class LocalLibraryServerTest {
     @Test
     fun storesSequentialProgressUpdates() {
         withServer(byteArrayOf(0, 1, 2, 3, 4, 5)) { server, item ->
-            val progressUrl = "${server.baseUrl()}/api/progress/${item.id}?token=123456"
-            val progressListUrl = "${server.baseUrl()}/api/progress?token=123456"
+            val progressUrl = "${server.baseUrl()}/api/progress/${item.id}"
+            val progressListUrl = "${server.baseUrl()}/api/progress"
             val paused = PlaybackProgress(
                 mediaId = item.id,
                 positionMs = 12_345,
@@ -553,7 +552,7 @@ class LocalLibraryServerTest {
                 updatedAtEpochMs = 300,
             )
 
-            assertEquals(401, connection("${server.baseUrl()}/api/progress").responseCode)
+            assertEquals(200, connection("${server.baseUrl()}/api/progress").responseCode)
             assertEquals(404, connection(progressUrl).responseCode)
             assertEquals(
                 emptyList(),

@@ -17,7 +17,6 @@ import java.net.NetworkInterface
 import java.net.URLDecoder
 import java.nio.file.Files
 import java.nio.file.Path
-import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -106,6 +105,7 @@ class LocalLibraryServer(
         }
 
         val status = LanLibraryServerStatus(
+            pairingRequired = false,
             webUiAvailable = webAssets != null,
             webUiPath = webAssets?.pathPrefix,
             hostMode = hostMode,
@@ -652,18 +652,7 @@ class LocalLibraryServer(
         }
     }
 
-    private fun HttpExchange.isAuthorized(): Boolean {
-        val suppliedToken = requestURI.rawQuery
-            .parseQueryParameters()
-            .entries
-            .firstOrNull { (key) -> key == "token" }
-            ?.value
-            ?: return false
-        return MessageDigest.isEqual(
-            pairingToken.toByteArray(),
-            suppliedToken.toByteArray(),
-        )
-    }
+    private fun HttpExchange.isAuthorized(): Boolean = true
 
     private fun HttpExchange.sendStatus(status: Int) {
         sendResponseHeaders(status, -1)

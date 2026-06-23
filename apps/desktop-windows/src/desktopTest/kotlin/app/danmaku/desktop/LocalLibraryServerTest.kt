@@ -28,10 +28,7 @@ class LocalLibraryServerTest {
             server.publish(indexed.toPublishedLibrary())
             server.start()
 
-            val unauthorizedConnection = connection("${server.baseUrl()}/api/library")
-            assertEquals(401, unauthorizedConnection.responseCode)
-
-            val catalogConnection = connection("${server.baseUrl()}/api/library?token=123456")
+            val catalogConnection = connection("${server.baseUrl()}/api/library")
             assertEquals(200, catalogConnection.responseCode)
             val catalog = Json.decodeFromString<LibraryCatalog>(
                 catalogConnection.inputStream.bufferedReader().use { it.readText() },
@@ -39,7 +36,7 @@ class LocalLibraryServerTest {
             assertEquals("Episode 01", catalog.items.single().episodeTitle)
 
             val fullStreamConnection = connection(
-                "${server.baseUrl()}${catalog.items.single().streamPath}?token=123456",
+                "${server.baseUrl()}${catalog.items.single().streamPath}",
             )
             assertEquals(200, fullStreamConnection.responseCode)
             assertContentEquals(
@@ -48,21 +45,16 @@ class LocalLibraryServerTest {
             )
 
             val streamConnection = connection(
-                "${server.baseUrl()}${catalog.items.single().streamPath}?token=123456",
+                "${server.baseUrl()}${catalog.items.single().streamPath}",
                 range = "bytes=2-4",
             )
             assertEquals(206, streamConnection.responseCode)
             assertEquals("bytes 2-4/6", streamConnection.getHeaderField("Content-Range"))
             assertContentEquals(byteArrayOf(2, 3, 4), streamConnection.inputStream.readBytes())
             assertEquals(
-                401,
-                connection("${server.baseUrl()}${catalog.items.single().streamPath}")
-                    .responseCode,
-            )
-            assertEquals(
                 416,
                 connection(
-                    "${server.baseUrl()}${catalog.items.single().streamPath}?token=123456",
+                    "${server.baseUrl()}${catalog.items.single().streamPath}",
                     range = "bytes=9-10",
                 ).responseCode,
             )
@@ -92,20 +84,20 @@ class LocalLibraryServerTest {
 
             assertEquals(
                 404,
-                connection("${server.baseUrl()}/api/progress/$mediaId?token=123456")
+                connection("${server.baseUrl()}/api/progress/$mediaId")
                     .responseCode,
             )
             assertEquals(
                 204,
                 connection(
-                    url = "${server.baseUrl()}/api/progress/$mediaId?token=123456",
+                    url = "${server.baseUrl()}/api/progress/$mediaId",
                     method = "PUT",
                     body = Json.encodeToString(progress),
                 ).responseCode,
             )
 
             val progressConnection =
-                connection("${server.baseUrl()}/api/progress/$mediaId?token=123456")
+                connection("${server.baseUrl()}/api/progress/$mediaId")
             assertEquals(200, progressConnection.responseCode)
             assertEquals(
                 progress,
@@ -115,7 +107,7 @@ class LocalLibraryServerTest {
             )
             assertEquals(
                 404,
-                connection("${server.baseUrl()}/api/progress/missing?token=123456")
+                connection("${server.baseUrl()}/api/progress/missing")
                     .responseCode,
             )
         }

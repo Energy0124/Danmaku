@@ -30,8 +30,6 @@ import app.danmaku.library.LanLibraryConnectionProfile
 internal fun TvPcConnectionPanel(
     serverUrl: String,
     onServerUrlChange: (String) -> Unit,
-    pairingToken: String,
-    onPairingTokenChange: (String) -> Unit,
     savedConnections: List<LanLibraryConnectionProfile>,
     selectedBaseUrl: String,
     libraryError: String?,
@@ -106,23 +104,12 @@ internal fun TvPcConnectionPanel(
                 Text(stringResource(R.string.action_save))
             }
         }
-        Row(
+        TvTextInput(
+            value = serverUrl,
+            onValueChange = onServerUrlChange,
+            placeholder = stringResource(R.string.pc_server_url_placeholder),
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            TvTextInput(
-                value = serverUrl,
-                onValueChange = onServerUrlChange,
-                placeholder = stringResource(R.string.pc_server_url_placeholder),
-                modifier = Modifier.weight(1f),
-            )
-            TvTextInput(
-                value = pairingToken,
-                onValueChange = onPairingTokenChange,
-                placeholder = stringResource(R.string.pairing_token_placeholder),
-                modifier = Modifier.weight(1f),
-            )
-        }
+        )
         if (savedConnections.isNotEmpty()) {
             Text(
                 stringResource(R.string.saved_pcs_title),

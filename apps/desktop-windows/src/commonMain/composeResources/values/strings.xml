@@ -131,10 +131,10 @@
     <string name="desktop_paired_library_title">Desktop paired library client</string>
     <string name="desktop_paired_library_description">Defaults to this app's embedded same-machine server. Enter another desktop URL to browse remotely.</string>
     <string name="desktop_paired_library_server_url_label">Library server URL</string>
-    <string name="desktop_pairing_code_label">Pairing code</string>
+    <string name="desktop_pairing_code_label">Access code</string>
     <string name="desktop_load_paired_catalog_action">Load paired server catalog</string>
     <string name="desktop_paired_library_error_label">Paired library error: %1$s</string>
-    <string name="desktop_paired_library_server_rejected_error">The paired library server rejected the request. Check the server URL and pairing code.</string>
+    <string name="desktop_paired_library_server_rejected_error">The library server rejected the request. Check the server URL and try again.</string>
     <string name="desktop_paired_library_unreachable_error">Could not reach the paired library server. Make sure the PC is online and on this network.</string>
     <string name="desktop_remote_playback_prepare_failed_error">Could not prepare remote playback. Reload the paired catalog and try again.</string>
     <string name="desktop_paired_episodes_label">Paired episodes: %1$d</string>
@@ -403,7 +403,7 @@
     <string name="desktop_open_server_dashboard_action">Open dashboard</string>
     <string name="desktop_test_local_server_action">Test local server</string>
     <string name="desktop_server_dashboard_title">Server Dashboard</string>
-    <string name="desktop_pairing_and_lan_access_title">Pairing and LAN access</string>
+    <string name="desktop_pairing_and_lan_access_title">LAN access</string>
     <string name="desktop_health_title">Health</string>
     <string name="desktop_not_checked_this_session_label">Not checked this session</string>
     <string name="desktop_recent_requests_label">Recent requests</string>
@@ -422,7 +422,7 @@
     <string name="desktop_attention_needed_label">Attention needed</string>
     <string name="desktop_online_label">Online</string>
     <string name="desktop_no_lan_url_detected_label">No LAN URL detected</string>
-    <string name="desktop_pairing_label">Pairing</string>
+    <string name="desktop_pairing_label">Access</string>
     <string name="desktop_episodes_label">Episodes</string>
     <string name="desktop_error_label">Error</string>
     <string name="desktop_metadata_and_posters_title">Metadata and Posters</string>

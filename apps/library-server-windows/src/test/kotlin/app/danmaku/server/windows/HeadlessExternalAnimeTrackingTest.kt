@@ -15,7 +15,7 @@ import kotlin.test.assertEquals
 
 class HeadlessExternalAnimeTrackingTest {
     @Test
-    fun exposesAuthenticatedExternalListEntryReadAndWriteEndpoint() {
+    fun exposesExternalListEntryReadAndWriteEndpointWithoutPairingToken() {
         val dataDirectory = createTempDirectory("danmaku-headless-external-tracking")
         val capturedReads = mutableListOf<ExternalAnimeId>()
         val capturedWrites = mutableListOf<ExternalAnimeTrackingUpdate>()
@@ -57,14 +57,13 @@ class HeadlessExternalAnimeTrackingTest {
                 val baseUrl = server.runtimeStatus.baseUrls.first()
                 val route = "$baseUrl/api/providers/list/entry"
 
-                assertEquals(401, connection("$route?provider=mal&animeId=52991").responseCode)
-                assertEquals(400, connection("$route?token=123456&animeId=52991").responseCode)
-                assertEquals(400, connection("$route?token=123456&provider=unknown&animeId=52991").responseCode)
-                assertEquals(400, connection("$route?token=123456&provider=dandanplay&animeId=333").responseCode)
-                assertEquals(405, connection("$route?token=123456", method = "PUT").responseCode)
+                assertEquals(400, connection("$route?animeId=52991").responseCode)
+                assertEquals(400, connection("$route?provider=unknown&animeId=52991").responseCode)
+                assertEquals(400, connection("$route?provider=dandanplay&animeId=333").responseCode)
+                assertEquals(405, connection("$route", method = "PUT").responseCode)
 
                 val entry = Json.decodeFromString<ExternalAnimeListEntry>(
-                    connection("$route?token=123456&provider=mal&animeId=52991")
+                    connection("$route?provider=mal&animeId=52991")
                         .inputStream
                         .bufferedReader()
                         .use { it.readText() },
@@ -84,7 +83,7 @@ class HeadlessExternalAnimeTrackingTest {
                 )
                 val written = Json.decodeFromString<ExternalAnimeListEntry>(
                     connection(
-                        url = "$route?token=123456",
+                        url = "$route",
                         method = "POST",
                         body = Json.encodeToString(update),
                     )
@@ -98,7 +97,7 @@ class HeadlessExternalAnimeTrackingTest {
                 assertEquals(ExternalAnimeListStatus.COMPLETED, written.status)
                 assertEquals(28, written.watchedEpisodes)
                 assertEquals(9, written.score)
-                assertEquals(400, connection("$route?token=123456", method = "POST", body = "{}").responseCode)
+                assertEquals(400, connection("$route", method = "POST", body = "{}").responseCode)
             }
         } finally {
             dataDirectory.toFile().deleteRecursively()
@@ -122,7 +121,7 @@ class HeadlessExternalAnimeTrackingTest {
 
                 assertEquals(
                     409,
-                    connection("$baseUrl/api/providers/list/entry?token=123456&provider=mal&animeId=52991")
+                    connection("$baseUrl/api/providers/list/entry?provider=mal&animeId=52991")
                         .responseCode,
                 )
             }

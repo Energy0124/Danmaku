@@ -238,7 +238,7 @@ export async function fetchProviderRuntime(
   token: string
 ): Promise<LanProviderRuntimeStatus> {
   return readJson<LanProviderRuntimeStatus>(
-    `${normalizeBaseUrl(baseUrl)}/api/providers/runtime?token=${encodeURIComponent(token)}`
+    `${normalizeBaseUrl(baseUrl)}/api/providers/runtime`
   );
 }
 
@@ -248,7 +248,7 @@ export async function fetchProviderSearch(
   title: string,
   options: ProviderSearchOptions = {}
 ): Promise<ExternalAnimeMatchCandidate[]> {
-  const params = new URLSearchParams({ token, title });
+  const params = new URLSearchParams({ title });
   if (options.providers?.length) {
     params.set("providers", options.providers.join(","));
   }
@@ -272,7 +272,6 @@ export async function fetchExternalListEntry(
   animeId: ExternalAnimeId
 ): Promise<ExternalAnimeListEntry> {
   const params = new URLSearchParams({
-    token,
     provider: animeId.provider,
     animeId: String(animeId.value)
   });
@@ -286,8 +285,7 @@ export async function saveExternalListEntry(
   token: string,
   update: ExternalAnimeTrackingUpdate
 ): Promise<ExternalAnimeListEntry> {
-  const url =
-    `${normalizeBaseUrl(baseUrl)}/api/providers/list/entry?token=${encodeURIComponent(token)}`;
+  const url = `${normalizeBaseUrl(baseUrl)}/api/providers/list/entry`;
   const response = await fetch(url, {
     method: "POST",
     headers: {
@@ -308,7 +306,7 @@ export async function fetchDandanplayResolve(
   mediaId: string,
   options: DandanplayResolveOptions = {}
 ): Promise<DandanplayResolveResult> {
-  const params = new URLSearchParams({ token, mediaId });
+  const params = new URLSearchParams({ mediaId });
   if (options.episodeId !== undefined) {
     params.set("episodeId", String(options.episodeId));
   }
@@ -324,8 +322,8 @@ export async function fetchLibrarySnapshot(baseUrl: string, token: string): Prom
   const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
   const status = await fetchServerStatus(normalizedBaseUrl);
   const [catalog, progress] = await Promise.all([
-    readJson<LibraryCatalog>(`${normalizedBaseUrl}/api/library?token=${encodeURIComponent(token)}`),
-    readJson<PlaybackProgress[]>(`${normalizedBaseUrl}/api/progress?token=${encodeURIComponent(token)}`).catch(
+    readJson<LibraryCatalog>(`${normalizedBaseUrl}/api/library`),
+    readJson<PlaybackProgress[]>(`${normalizedBaseUrl}/api/progress`).catch(
       () => []
     )
   ]);
@@ -334,7 +332,7 @@ export async function fetchLibrarySnapshot(baseUrl: string, token: string): Prom
 
 export async function saveProgress(baseUrl: string, token: string, progress: PlaybackProgress): Promise<void> {
   const response = await fetch(
-    `${normalizeBaseUrl(baseUrl)}/api/progress/${encodeURIComponent(progress.mediaId)}?token=${encodeURIComponent(token)}`,
+    `${normalizeBaseUrl(baseUrl)}/api/progress/${encodeURIComponent(progress.mediaId)}`,
     {
       method: "PUT",
       headers: { "Content-Type": "application/json; charset=utf-8" },
@@ -371,6 +369,5 @@ async function readJson<T>(url: string): Promise<T> {
 }
 
 function tokenizedUrl(baseUrl: string, token: string, path: string): string {
-  const separator = path.includes("?") ? "&" : "?";
-  return `${normalizeBaseUrl(baseUrl)}${path}${separator}token=${encodeURIComponent(token)}`;
+  return `${normalizeBaseUrl(baseUrl)}${path}`;
 }

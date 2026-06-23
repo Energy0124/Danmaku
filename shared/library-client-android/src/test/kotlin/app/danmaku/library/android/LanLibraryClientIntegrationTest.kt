@@ -144,11 +144,11 @@ class LanLibraryClientIntegrationTest {
             val client = LanLibraryClient()
 
             val failure = runCatching {
-                client.fetchCatalog(server.baseUrl(), "wrong-token")
+                client.fetchDanmaku(server.baseUrl(), "missing", "", forceRefresh = false)
             }.exceptionOrNull()
 
             assertTrue(failure is LanLibraryClientException)
-            assertEquals("Library server returned HTTP 401", failure?.message)
+            assertEquals("Library server returned HTTP 404", failure?.message)
         }
     }
 }

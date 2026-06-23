@@ -112,7 +112,7 @@ internal fun TvPlayerScreen() {
     }
 
     LaunchedEffect(actionHandler) {
-        if (state.catalog == null && state.serverUrl.isNotBlank() && state.pairingToken.isNotBlank()) {
+        if (state.catalog == null && state.serverUrl.isNotBlank()) {
             actionHandler.refreshLibrary()
         }
     }

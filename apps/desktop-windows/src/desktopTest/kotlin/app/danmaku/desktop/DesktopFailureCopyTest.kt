@@ -74,7 +74,7 @@ class DesktopFailureCopyTest {
         val traditionalChinese = DesktopUiLanguage.ZH_TW.strings
 
         assertEquals(
-            "The paired library server rejected the request. Check the server URL and pairing code.",
+            "The library server rejected the request. Check the server URL and try again.",
             LanLibraryClientException("Library server returned HTTP 401")
                 .pairedLibraryCatalogErrorMessage(english),
         )
@@ -84,7 +84,7 @@ class DesktopFailureCopyTest {
                 .pairedLibraryCatalogErrorMessage(english),
         )
         assertEquals(
-            "配對媒體庫伺服器拒絕請求。請檢查伺服器 URL 與配對碼。",
+            "媒體庫伺服器拒絕請求。請檢查伺服器 URL 後再試一次。",
             LanLibraryClientException("Library server returned HTTP 401")
                 .pairedLibraryCatalogErrorMessage(traditionalChinese),
         )

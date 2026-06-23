@@ -131,10 +131,10 @@
     <string name="desktop_paired_library_title">桌面配對媒體庫用戶端</string>
     <string name="desktop_paired_library_description">預設連到此應用程式內建的同機伺服器。輸入其他桌面 URL 可遠端瀏覽。</string>
     <string name="desktop_paired_library_server_url_label">媒體庫伺服器 URL</string>
-    <string name="desktop_pairing_code_label">配對碼</string>
+    <string name="desktop_pairing_code_label">存取碼</string>
     <string name="desktop_load_paired_catalog_action">載入配對伺服器目錄</string>
     <string name="desktop_paired_library_error_label">配對媒體庫錯誤：%1$s</string>
-    <string name="desktop_paired_library_server_rejected_error">配對媒體庫伺服器拒絕請求。請檢查伺服器 URL 與配對碼。</string>
+    <string name="desktop_paired_library_server_rejected_error">媒體庫伺服器拒絕請求。請檢查伺服器 URL 後再試一次。</string>
     <string name="desktop_paired_library_unreachable_error">無法連線到配對媒體庫伺服器。請確認 PC 已開機且位於同一網路。</string>
     <string name="desktop_remote_playback_prepare_failed_error">無法準備遠端播放。請重新載入配對目錄後再試一次。</string>
     <string name="desktop_paired_episodes_label">配對集數：%1$d</string>
@@ -403,7 +403,7 @@
     <string name="desktop_open_server_dashboard_action">開啟儀表板</string>
     <string name="desktop_test_local_server_action">測試本機伺服器</string>
     <string name="desktop_server_dashboard_title">伺服器儀表板</string>
-    <string name="desktop_pairing_and_lan_access_title">配對與 LAN 存取</string>
+    <string name="desktop_pairing_and_lan_access_title">LAN 存取</string>
     <string name="desktop_health_title">健康狀態</string>
     <string name="desktop_not_checked_this_session_label">此工作階段尚未檢查</string>
     <string name="desktop_recent_requests_label">最近請求</string>
@@ -422,7 +422,7 @@
     <string name="desktop_attention_needed_label">需要處理</string>
     <string name="desktop_online_label">線上</string>
     <string name="desktop_no_lan_url_detected_label">沒有偵測到 LAN 網址</string>
-    <string name="desktop_pairing_label">配對</string>
+    <string name="desktop_pairing_label">存取</string>
     <string name="desktop_episodes_label">集數</string>
     <string name="desktop_error_label">錯誤</string>
     <string name="desktop_metadata_and_posters_title">中繼資料與海報</string>

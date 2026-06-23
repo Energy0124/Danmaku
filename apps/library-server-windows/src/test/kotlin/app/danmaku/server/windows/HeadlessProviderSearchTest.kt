@@ -17,7 +17,7 @@ import kotlin.test.assertTrue
 
 class HeadlessProviderSearchTest {
     @Test
-    fun exposesAuthenticatedProviderSearchEndpoint() {
+    fun exposesProviderSearchEndpointWithoutPairingToken() {
         val dataDirectory = createTempDirectory("danmaku-headless-provider-search")
         val capturedQueries = mutableListOf<ExternalAnimeMatchQuery>()
         val searchService = object : HeadlessExternalAnimeSearchService {
@@ -60,17 +60,16 @@ class HeadlessProviderSearchTest {
                 server.start()
                 val baseUrl = server.runtimeStatus.baseUrls.first()
 
-                assertEquals(401, connection("$baseUrl/api/providers/search?title=Frieren").responseCode)
-                assertEquals(400, connection("$baseUrl/api/providers/search?token=123456").responseCode)
+                assertEquals(400, connection("$baseUrl/api/providers/search").responseCode)
                 assertEquals(
                     400,
-                    connection("$baseUrl/api/providers/search?token=123456&title=Frieren&providers=unknown")
+                    connection("$baseUrl/api/providers/search?title=Frieren&providers=unknown")
                         .responseCode,
                 )
 
                 val matches = Json.decodeFromString<List<ExternalAnimeMatchCandidate>>(
                     connection(
-                        "$baseUrl/api/providers/search?token=123456&title=Frieren" +
+                        "$baseUrl/api/providers/search?title=Frieren" +
                             "&providers=bangumi&limit=3&episodeCount=28&startYear=2023",
                     ).inputStream.bufferedReader().use { it.readText() },
                 )

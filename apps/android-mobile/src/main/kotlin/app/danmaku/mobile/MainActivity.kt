@@ -81,7 +81,7 @@ internal data class LibraryPosterEndpoint(
 ) {
     fun posterUrl(item: LibraryMediaItem): String? {
         val path = item.posterPath ?: return null
-        return "${baseUrl.trim().trimEnd('/')}$path?token=${pairingToken.encodedQueryValue()}"
+        return "${baseUrl.trim().trimEnd('/')}$path"
     }
 }
 

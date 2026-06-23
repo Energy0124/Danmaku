@@ -251,7 +251,7 @@ internal data class DesktopLaunchOptions(
                     DesktopRemoteClientOptions(
                         serverUrl = serverUrl,
                         pairingToken = remotePairingToken.orEmpty(),
-                        autoLoad = remoteAutoLoad && !remotePairingToken.isNullOrBlank(),
+                        autoLoad = remoteAutoLoad,
                     )
                 },
                 qaScreenshot = qaScreenshotDirectory?.let { outputDirectory ->

@@ -145,8 +145,6 @@ private fun TvDestinationContent(
             TvPcConnectionPanel(
                 serverUrl = state.serverUrl,
                 onServerUrlChange = { state.serverUrl = it },
-                pairingToken = state.pairingToken,
-                onPairingTokenChange = { state.pairingToken = it },
                 savedConnections = state.savedConnections,
                 selectedBaseUrl = state.serverUrl.trim().trimEnd('/'),
                 libraryError = state.libraryError,

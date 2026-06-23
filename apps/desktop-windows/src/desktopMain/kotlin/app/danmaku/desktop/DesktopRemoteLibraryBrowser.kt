@@ -309,7 +309,7 @@ internal fun RemoteLibraryBrowser(
 
     var didAutoLoad by remember(defaultServerUrl, defaultPairingToken) { mutableStateOf(false) }
     LaunchedEffect(autoLoadOnStart, defaultServerUrl, defaultPairingToken) {
-        if (autoLoadOnStart && !didAutoLoad && serverUrl.isNotBlank() && pairingToken.isNotBlank()) {
+        if (autoLoadOnStart && !didAutoLoad && serverUrl.isNotBlank()) {
             didAutoLoad = true
             refreshCatalog()
         }
@@ -327,16 +327,7 @@ internal fun RemoteLibraryBrowser(
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
     )
-    OutlinedTextField(
-        value = pairingToken,
-        onValueChange = {
-            pairingToken = it
-            selectedPlaybackPreparation = null
-        },
-        label = { Text(strings.pairingCodeLabel) },
-        modifier = Modifier.fillMaxWidth(),
-        singleLine = true,
-    )
+
     Button(
         onClick = ::refreshCatalog,
         enabled = !isLoading,

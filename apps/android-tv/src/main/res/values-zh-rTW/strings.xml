@@ -18,7 +18,7 @@
     <string name="home_connect_pc_library">連線 PC 媒體庫以開始瀏覽。</string>
     <string name="home_available_episodes">共有 %1$d 集可播放</string>
     <string name="library_title">媒體庫</string>
-    <string name="library_empty">配對桌面媒體庫後即可在 TV 上瀏覽。</string>
+    <string name="library_empty">連線桌面媒體庫後即可在 TV 上瀏覽。</string>
     <string name="library_pc_title">PC 媒體庫</string>
     <string name="library_connect_server">連線 Windows 媒體庫伺服器</string>
     <string name="library_search_hint">搜尋媒體庫</string>
@@ -34,7 +34,7 @@
     <string name="library_all_series">所有系列</string>
     <string name="library_all">全部</string>
     <string name="library_no_pc_title">尚未連線 PC 媒體庫</string>
-    <string name="library_no_pc_body">探索或配對 Windows 媒體庫伺服器，即可在 TV 上瀏覽集數。</string>
+    <string name="library_no_pc_body">探索或輸入 Windows 媒體庫伺服器，即可在 TV 上瀏覽集數。</string>
     <string name="library_no_results_title">沒有符合的集數</string>
     <string name="library_no_results_body">重設搜尋、收藏與字幕篩選以回到完整媒體庫。</string>
     <string name="episode_count">%1$d 集</string>
@@ -70,11 +70,11 @@
     <string name="favorites_count">%1$d 個收藏</string>
     <string name="connect_library_from_pc">從 PC 連線你的 Windows 媒體庫</string>
     <string name="pc_connection_title">PC 連線</string>
-    <string name="pc_connection_body">探索、配對並儲存 Windows 媒體庫伺服器。</string>
+    <string name="pc_connection_body">探索並儲存 Windows 媒體庫伺服器。</string>
     <string name="pc_no_server">沒有伺服器</string>
     <string name="pc_server_set">已設定伺服器</string>
     <string name="pc_server_url_placeholder">PC 伺服器 URL</string>
-    <string name="pairing_token_placeholder">配對權杖</string>
+    <string name="pairing_token_placeholder">存取碼</string>
     <string name="saved_pcs_title">已儲存 PC</string>
     <string name="server_status_title">桌面伺服器</string>
     <string name="metadata_status_title">中繼資料與海報</string>

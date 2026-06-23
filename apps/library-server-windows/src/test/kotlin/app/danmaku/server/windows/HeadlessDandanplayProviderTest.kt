@@ -24,7 +24,7 @@ import kotlin.test.assertTrue
 
 class HeadlessDandanplayProviderTest {
     @Test
-    fun exposesAuthenticatedDandanplayResolveEndpointForCatalogMedia() {
+    fun exposesDandanplayResolveEndpointForCatalogMediaWithoutPairingToken() {
         val temp = createTempDirectory("danmaku-headless-dandanplay")
         val dataDirectory = temp.resolve("data")
         val root = temp.resolve("Anime").createDirectories()
@@ -94,23 +94,22 @@ class HeadlessDandanplayProviderTest {
                 server.start()
                 val baseUrl = server.runtimeStatus.baseUrls.first()
                 val item = Json.decodeFromString<LibraryCatalog>(
-                    connection("$baseUrl/api/library?token=123456")
+                    connection("$baseUrl/api/library")
                         .inputStream
                         .bufferedReader()
                         .use { it.readText() },
                 ).items.single()
 
-                assertEquals(401, connection("$baseUrl/api/providers/dandanplay/resolve?mediaId=${item.id}").responseCode)
-                assertEquals(400, connection("$baseUrl/api/providers/dandanplay/resolve?token=123456").responseCode)
+                assertEquals(400, connection("$baseUrl/api/providers/dandanplay/resolve").responseCode)
                 assertEquals(
                     404,
-                    connection("$baseUrl/api/providers/dandanplay/resolve?token=123456&mediaId=missing")
+                    connection("$baseUrl/api/providers/dandanplay/resolve?mediaId=missing")
                         .responseCode,
                 )
 
                 val response = Json.parseToJsonElement(
                     connection(
-                        "$baseUrl/api/providers/dandanplay/resolve?token=123456&mediaId=${item.id}" +
+                        "$baseUrl/api/providers/dandanplay/resolve?mediaId=${item.id}" +
                             "&episodeId=222&withRelated=false",
                     ).inputStream.bufferedReader().use { it.readText() },
                 ).jsonObject
@@ -131,7 +130,7 @@ class HeadlessDandanplayProviderTest {
                 )
 
                 val danmaku = Json.decodeFromString<LanDanmakuTrack>(
-                    connection("$baseUrl/api/danmaku/${item.id}?token=123456")
+                    connection("$baseUrl/api/danmaku/${item.id}")
                         .inputStream
                         .bufferedReader()
                         .use { it.readText() },

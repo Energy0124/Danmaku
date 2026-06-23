@@ -43,11 +43,9 @@ internal fun ConnectPage(
     snapshot: PlaybackSnapshot,
     nowPlaying: LibraryMediaItem?,
     serverUrl: String,
-    pairingToken: String,
     savedConnections: List<LanLibraryConnectionProfile>,
     libraryError: String?,
     onServerUrlChange: (String) -> Unit,
-    onPairingTokenChange: (String) -> Unit,
     onSelectConnection: (LanLibraryConnectionProfile) -> Unit,
     onEditConnection: (LanLibraryConnectionProfile) -> Unit,
     onForgetConnection: (LanLibraryConnectionProfile) -> Unit,
@@ -83,11 +81,9 @@ internal fun ConnectPage(
             ConnectionPanel(
                 catalog = catalog,
                 serverUrl = serverUrl,
-                pairingToken = pairingToken,
                 savedConnections = savedConnections,
                 libraryError = libraryError,
                 onServerUrlChange = onServerUrlChange,
-                onPairingTokenChange = onPairingTokenChange,
                 onSelectConnection = onSelectConnection,
                 onEditConnection = onEditConnection,
                 onForgetConnection = onForgetConnection,
@@ -109,11 +105,9 @@ internal fun ConnectPage(
 internal fun ConnectionPanel(
     catalog: LibraryCatalog?,
     serverUrl: String,
-    pairingToken: String,
     savedConnections: List<LanLibraryConnectionProfile>,
     libraryError: String?,
     onServerUrlChange: (String) -> Unit,
-    onPairingTokenChange: (String) -> Unit,
     onSelectConnection: (LanLibraryConnectionProfile) -> Unit,
     onEditConnection: (LanLibraryConnectionProfile) -> Unit,
     onForgetConnection: (LanLibraryConnectionProfile) -> Unit,
@@ -198,13 +192,7 @@ internal fun ConnectionPanel(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                OutlinedTextField(
-                    value = pairingToken,
-                    onValueChange = onPairingTokenChange,
-                    label = { Text(stringResource(R.string.connect_pairing_code_label)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+
             }
 
             FlowRow(

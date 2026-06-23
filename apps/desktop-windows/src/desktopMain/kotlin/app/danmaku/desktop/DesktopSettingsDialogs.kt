@@ -228,12 +228,7 @@ internal fun ServerDashboardDialog(
                         value = serverBaseUrl,
                         onCopy = { copyToClipboard(serverBaseUrl) },
                     )
-                    ServerDashboardCopyRow(
-                        strings = strings,
-                        label = strings.pairingCodeLabel,
-                        value = pairingToken,
-                        onCopy = { copyToClipboard(pairingToken) },
-                    )
+
                     if (networkUrls.isEmpty()) {
                         MetadataRow(strings.lanUrlsLabel, strings.noLanUrlDetectedLabel, DanmakuColors.TextMuted)
                     } else {

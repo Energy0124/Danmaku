@@ -404,7 +404,6 @@ internal fun HomeStatusColumn(
             actionLabel = strings.openLibraryAction,
             onAction = onOpenLibrary,
         ) {
-            MetadataRow(strings.pairingLabel, pairingToken)
             MetadataRow(strings.foldersLabel, registeredRoots.size.toString())
             MetadataRow(strings.episodesLabel, episodeCount.toString())
             libraryError?.let { MetadataRow(strings.errorLabel, it, DanmakuColors.Warning) }

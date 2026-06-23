@@ -7,15 +7,15 @@ import org.junit.Test
 
 class LanPlaybackTargetTest {
     @Test
-    fun parsesPairedMediaStreamUrls() {
+    fun parsesLanMediaStreamUrlsWithoutPairingToken() {
         assertEquals(
             LanPlaybackTarget(
                 baseUrl = "http://192.168.1.20:8686",
-                pairingToken = "12 34",
+                pairingToken = "",
                 mediaId = "episode id",
             ),
             lanPlaybackTargetFromStreamUrl(
-                "http://192.168.1.20:8686/media/episode+id?token=12+34",
+                "http://192.168.1.20:8686/media/episode+id",
             ),
         )
     }
@@ -23,7 +23,6 @@ class LanPlaybackTargetTest {
     @Test
     fun ignoresUrlsOutsideTheLanMediaContract() {
         assertNull(lanPlaybackTargetFromStreamUrl("https://example.com/video.m3u8"))
-        assertNull(lanPlaybackTargetFromStreamUrl("http://192.168.1.20:8686/media/id"))
         assertNull(lanPlaybackTargetFromStreamUrl("file:///sdcard/episode.mkv"))
     }
 }

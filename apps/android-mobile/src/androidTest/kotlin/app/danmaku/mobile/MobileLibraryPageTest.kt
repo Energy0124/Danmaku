@@ -588,22 +588,18 @@ class MobileLibraryPageTest {
         )
         var selectedConnection: LanLibraryConnectionProfile? = null
         var editedServerUrl = ""
-        var editedPairingToken = ""
 
         composeRule.setContent {
             MaterialTheme {
                 ConnectionPanel(
                     catalog = null,
                     serverUrl = "http://10.0.2.2:8686",
-                    pairingToken = "",
                     savedConnections = listOf(profile),
                     libraryError = null,
                     onServerUrlChange = { editedServerUrl = it },
-                    onPairingTokenChange = { editedPairingToken = it },
                     onSelectConnection = { selectedConnection = it },
                     onEditConnection = {
                         editedServerUrl = it.baseUrl
-                        editedPairingToken = it.pairingToken
                     },
                     onForgetConnection = {},
                     onSaveConnection = {},
@@ -624,10 +620,8 @@ class MobileLibraryPageTest {
 
         composeRule.onNodeWithTag("saved-connection-edit:${profile.id}").performClick()
         composeRule.onNodeWithText("Server URL").assertExists()
-        composeRule.onNodeWithText("Pairing code").assertExists()
         composeRule.runOnIdle {
             assertEquals(profile.baseUrl, editedServerUrl)
-            assertEquals(profile.pairingToken, editedPairingToken)
         }
     }
 

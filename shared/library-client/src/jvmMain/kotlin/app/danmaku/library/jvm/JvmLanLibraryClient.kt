@@ -42,7 +42,7 @@ class JvmLanLibraryClient(
         baseUrl: String,
         pairingToken: String,
     ): LibraryCatalog {
-        val connection = open("${baseUrl.trimEnd('/')}/api/library?token=${pairingToken.encoded()}")
+        val connection = open("${baseUrl.trimEnd('/')}/api/library")
         return try {
             connection.requireResponse(HttpURLConnection.HTTP_OK)
             json.decodeFromString(
@@ -58,14 +58,14 @@ class JvmLanLibraryClient(
         item: LibraryMediaItem,
         pairingToken: String,
     ): String =
-        "${baseUrl.trimEnd('/')}${item.streamPath}?token=${pairingToken.encoded()}"
+        "${baseUrl.trimEnd('/')}${item.streamPath}"
 
     override fun subtitleUrl(
         baseUrl: String,
         subtitle: LibrarySubtitleTrack,
         pairingToken: String,
     ): String =
-        "${baseUrl.trimEnd('/')}${subtitle.streamPath}?token=${pairingToken.encoded()}"
+        "${baseUrl.trimEnd('/')}${subtitle.streamPath}"
 
     override fun fetchProgress(
         baseUrl: String,
@@ -143,13 +143,13 @@ class JvmLanLibraryClient(
         mediaId: String,
         pairingToken: String,
     ): String =
-        "${baseUrl.trimEnd('/')}/api/progress/${mediaId.encoded()}?token=${pairingToken.encoded()}"
+        "${baseUrl.trimEnd('/')}/api/progress/${mediaId.encoded()}"
 
     private fun progressListUrl(
         baseUrl: String,
         pairingToken: String,
     ): String =
-        "${baseUrl.trimEnd('/')}/api/progress?token=${pairingToken.encoded()}"
+        "${baseUrl.trimEnd('/')}/api/progress"
 
     private fun danmakuUrl(
         baseUrl: String,
@@ -157,8 +157,7 @@ class JvmLanLibraryClient(
         pairingToken: String,
         forceRefresh: Boolean,
     ): String =
-        "${baseUrl.trimEnd('/')}/api/danmaku/${mediaId.encoded()}?token=${pairingToken.encoded()}" +
-            "&forceRefresh=$forceRefresh"
+        "${baseUrl.trimEnd('/')}/api/danmaku/${mediaId.encoded()}?forceRefresh=$forceRefresh"
 
     private fun open(url: String): HttpURLConnection =
         (URI(url).toURL().openConnection() as HttpURLConnection).apply {
