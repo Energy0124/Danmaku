@@ -78,11 +78,12 @@ Status legend:
   samples covering 1080p H.264 MP4, 1080p HEVC/ASS MKV, 4K HEVC MKV, and a
   large BD MKV with sidecar ASS available. A 2026-06-22 window-level manual
   pass verified Home-to-playback startup, embedded video, danmaku overlay,
-  pause/resume, seek controls, and fullscreen enter/exit, but found a blocking
-  fullscreen-exit restore bug where the window grows off-screen and bottom
-  playback controls become unreachable. Remaining work is to fix that restore
-  geometry bug, then rerun manual resize/aspect/track/hardware-decode/
-  multi-display sign-off.
+  pause/resume, seek controls, and fullscreen enter/exit, then found and fixed
+  a fullscreen-exit restore bug where the window could grow off-screen and make
+  bottom playback controls unreachable. Follow-up Computer Use QA against the
+  rebuilt distributable verified fullscreen enter/exit restores to the original
+  `1588x954` bounds at `(81,72)` with zero delta. Remaining work is manual
+  resize/aspect/track/hardware-decode/multi-display sign-off.
 - `[x]` Complete Android mobile/tablet library viewport QA at phone and tablet
   sizes. The `Pixel_3a_API_34_extension_level_7_x86_64` phone emulator and
   `Danmaku_Tablet_API_34` Pixel Tablet emulator passed
@@ -251,9 +252,11 @@ Status legend:
   `docs/qa/windows-playback-release-qa.md`; the automated baseline runner
   `tools/windows/run-windows-playback-release-qa.ps1` records runtime-probe
   and smoke-playback results across a supplied media matrix. The 2026-06-22
-  runtime-free Windows portable pass succeeded across four real media samples.
-  Remaining work is manual recorded fullscreen, resize, seek/pause/rate,
-  track-switching, 4K duration, hardware-decode, and multi-display results.
+  runtime-free Windows portable pass succeeded across four real media samples,
+  and a follow-up app-window pass verified fullscreen exit restores the original
+  window bounds after the high-DPI restore fix. Remaining work is manual
+  recorded resize, seek/pause/rate, track-switching, 4K duration,
+  hardware-decode, and multi-display results.
 - `[~]` Add localization QA checks for English and `zh-TW` screenshots on
   dense desktop, mobile, and TV surfaces. Desktop now has deterministic launch
   overrides plus app-level screenshot capture for Home, Library, Downloads,

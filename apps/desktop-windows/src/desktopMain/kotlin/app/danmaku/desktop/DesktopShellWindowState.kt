@@ -9,7 +9,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowState
 import kotlinx.coroutines.delay
-import java.awt.Rectangle
 import java.awt.Window as AwtWindow
 
 internal class DesktopShellWindowState(
@@ -17,7 +16,9 @@ internal class DesktopShellWindowState(
     private val windowState: WindowState,
     private val appendDiagnostic: (String, String) -> Unit,
 ) {
-    private var floatingWindowBounds by mutableStateOf(Rectangle(awtWindow.bounds))
+    private var floatingWindowBounds by mutableStateOf(awtWindow.captureFloatingWindowRestoreBounds())
+    private var floatingWindowSize by mutableStateOf(windowState.size)
+    private var floatingWindowPosition by mutableStateOf(windowState.position)
     var pendingFloatingWindowRestore by mutableStateOf(false)
         private set
 
@@ -28,7 +29,15 @@ internal class DesktopShellWindowState(
         appendDiagnostic("playback", "$source set window fullscreen ${if (enabled) "on" else "off"}")
         if (enabled) {
             pendingFloatingWindowRestore = false
-            floatingWindowBounds = Rectangle(awtWindow.bounds)
+            floatingWindowBounds = awtWindow.captureFloatingWindowRestoreBounds()
+            floatingWindowSize = windowState.size
+            floatingWindowPosition = windowState.position
+            appendDiagnostic(
+                "playback",
+                "Saved floating window ${floatingWindowBounds.describe()} " +
+                    "size=${floatingWindowSize.width}x${floatingWindowSize.height} " +
+                    "position=${floatingWindowPosition.x},${floatingWindowPosition.y} ${awtWindow.windowScaleDescription()}",
+            )
             windowState.placement = WindowPlacement.Fullscreen
         } else {
             windowState.placement = WindowPlacement.Floating
@@ -41,12 +50,26 @@ internal class DesktopShellWindowState(
             return
         }
         delay(150)
-        awtWindow.bounds = awtWindow.scaledRestoreBounds(floatingWindowBounds)
-        awtWindow.validate()
+        restoreFloatingWindowState()
         delay(150)
-        awtWindow.bounds = awtWindow.scaledRestoreBounds(floatingWindowBounds)
-        awtWindow.validate()
+        restoreFloatingWindowState()
         pendingFloatingWindowRestore = false
+    }
+
+    private fun restoreFloatingWindowState() {
+        val restoreBounds = awtWindow.floatingRestoreBounds(floatingWindowBounds)
+        appendDiagnostic(
+            "playback",
+            "Restoring floating window ${restoreBounds.x},${restoreBounds.y} ${restoreBounds.width}x${restoreBounds.height} " +
+                "from ${floatingWindowBounds.describe()} size=${floatingWindowSize.width}x${floatingWindowSize.height} " +
+                "position=${floatingWindowPosition.x},${floatingWindowPosition.y} ${awtWindow.windowScaleDescription()}",
+        )
+        awtWindow.bounds = restoreBounds
+        windowState.size = floatingWindowSize
+        windowState.position = floatingWindowPosition
+        awtWindow.invalidate()
+        awtWindow.validate()
+        awtWindow.repaint()
     }
 }
 

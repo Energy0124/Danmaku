@@ -198,11 +198,13 @@ trusted-LAN clients.
 - Windows runtime probing and automated smoke playback passed on 2026-06-22
   against the runtime-free Windows portable package with four real media
   samples covering 1080p H.264 MP4, 1080p HEVC/ASS MKV, 4K HEVC MKV, and a
-  large BD MKV with sidecar ASS available. Fullscreen, resize, seek/pause,
-  track switching, longer 4K playback, hardware-decoding, and multi-display
-  behavior still need broader manual validation. The release checklist and
-  automated runtime/smoke report runner live in
-  `docs/qa/windows-playback-release-qa.md`.
+  large BD MKV with sidecar ASS available. A follow-up 2026-06-22 Computer Use
+  pass fixed and verified fullscreen exit restore on the rebuilt distributable:
+  the playback window returned from fullscreen to the original `1588x954`
+  bounds at `(81,72)` with zero delta. Resize, seek/pause, track switching,
+  longer 4K playback, hardware-decoding, and multi-display behavior still need
+  broader manual validation. The release checklist and automated runtime/smoke
+  report runner live in docs/qa/windows-playback-release-qa.md.
 - UI localization is now a design requirement for English and Traditional
   Chinese (`zh-TW`). Desktop `DesktopStrings` resource extraction and
   app-language-to-resource locale control are in place. Deterministic desktop

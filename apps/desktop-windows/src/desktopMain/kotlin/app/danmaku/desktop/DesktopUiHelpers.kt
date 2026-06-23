@@ -180,14 +180,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.awt.Rectangle
 import java.awt.Desktop
-import java.awt.Toolkit
-import java.awt.Window as AwtWindow
-import java.awt.datatransfer.StringSelection
 import java.io.IOException
 import java.net.URI
-import kotlin.math.roundToInt
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Instant
@@ -310,15 +305,3 @@ internal fun LibraryNextUpItem.nextUpActionLabel(strings: DesktopStrings): Strin
         LibraryNextUpReason.NEXT_EPISODE,
         LibraryNextUpReason.START -> strings.playAction
     }
-
-internal fun AwtWindow.scaledRestoreBounds(bounds: Rectangle): Rectangle {
-    val transform = graphicsConfiguration?.defaultTransform
-    val scaleX = transform?.scaleX?.takeIf { it > 1.0 } ?: 1.0
-    val scaleY = transform?.scaleY?.takeIf { it > 1.0 } ?: 1.0
-    return Rectangle(
-        bounds.x,
-        bounds.y,
-        (bounds.width * scaleX).roundToInt().coerceAtLeast(1),
-        (bounds.height * scaleY).roundToInt().coerceAtLeast(1),
-    )
-}

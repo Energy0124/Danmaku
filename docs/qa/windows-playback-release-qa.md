@@ -56,11 +56,17 @@ On 2026-06-22, window-level QA against the Compose desktop app verified:
 - Forward/back seek controls.
 - Fullscreen enter and exit through visible controls.
 
-Blocking bug found: after exiting fullscreen, the restored window grew from
-about `2388x1392` to `2506x1392` at screen origin `(81,72)` on a `2560x1440`
-display. The window extended below/right of the monitor, the bottom playback
-controls became physically unreachable, and the video surface showed a large
-left black offset/letterbox until returning Home.
+Blocking bug found and fixed: the first pass showed fullscreen exit could
+restore the window off-screen on a high-DPI `2560x1440` desktop, making bottom
+playback controls physically unreachable. The fix saves the pre-fullscreen AWT
+and Compose window state, restores AWT bounds in the scaled screen coordinate
+space, then reapplies the Compose window size/position so the floating window
+settles back to its original bounds.
+
+Follow-up Computer Use QA on 2026-06-22 against the rebuilt distributable
+verified the fullscreen round trip: start/playback bounds `1588x954` at
+`(81,72)`, fullscreen bounds `2560x1440` at `(0,0)`, restored bounds
+`1588x954` at `(81,72)`, delta `0x0` and `(0,0)`.
 
 ## Manual Scenarios
 
