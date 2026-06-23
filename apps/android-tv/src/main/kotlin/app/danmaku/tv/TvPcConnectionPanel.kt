@@ -82,6 +82,7 @@ internal fun TvPcConnectionPanel(
                         right = discoverPcFocusRequester
                     }
                     .tvFocusHalo(RoundedCornerShape(18.dp)),
+                colors = tvButtonColors(),
             ) {
                 Text(stringResource(R.string.action_refresh_pc_library))
             }
@@ -93,12 +94,14 @@ internal fun TvPcConnectionPanel(
                         left = refreshPcFocusRequester
                     }
                     .tvFocusHalo(RoundedCornerShape(18.dp)),
+                colors = tvButtonColors(),
             ) {
                 Text(stringResource(R.string.action_discover_pc))
             }
             Button(
                 onClick = onSave,
                 modifier = Modifier.tvFocusHalo(RoundedCornerShape(18.dp)),
+                colors = tvButtonColors(),
             ) {
                 Text(stringResource(R.string.action_save))
             }

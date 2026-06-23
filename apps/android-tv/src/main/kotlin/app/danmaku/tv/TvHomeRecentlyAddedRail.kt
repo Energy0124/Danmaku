@@ -67,6 +67,7 @@ internal fun TvRecentlyAddedRail(
                             .fillMaxWidth()
                             .tvFocusHalo(RoundedCornerShape(20.dp))
                             .testTag("home-recently-added-details:${item.id}"),
+                        colors = tvButtonColors(),
                     ) {
                         Column(
                             modifier = Modifier
@@ -102,6 +103,7 @@ internal fun TvRecentlyAddedRail(
                             .fillMaxWidth()
                             .tvFocusHalo(RoundedCornerShape(16.dp))
                             .testTag("home-recently-added-play:${item.id}"),
+                        colors = tvButtonColors(),
                     ) {
                         Text(stringResource(R.string.action_play))
                     }

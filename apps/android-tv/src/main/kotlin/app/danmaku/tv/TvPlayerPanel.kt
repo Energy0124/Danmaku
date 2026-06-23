@@ -67,6 +67,7 @@ internal fun TvPlayerPanel(
                 onClick = onPlay,
                 enabled = snapshot.source != null,
                 modifier = Modifier.tvFocusHalo(RoundedCornerShape(18.dp)),
+                colors = tvButtonColors(),
             ) {
                 Text(stringResource(R.string.action_play))
             }
@@ -74,6 +75,7 @@ internal fun TvPlayerPanel(
                 onClick = onPause,
                 enabled = snapshot.source != null,
                 modifier = Modifier.tvFocusHalo(RoundedCornerShape(18.dp)),
+                colors = tvButtonColors(),
             ) {
                 Text(stringResource(R.string.action_pause))
             }
@@ -81,6 +83,7 @@ internal fun TvPlayerPanel(
                 onClick = onVolumeDown,
                 enabled = snapshot.source != null && snapshot.volumePercent > 0,
                 modifier = Modifier.tvFocusHalo(RoundedCornerShape(18.dp)),
+                colors = tvButtonColors(),
             ) {
                 Text(stringResource(R.string.action_volume_down))
             }
@@ -88,6 +91,7 @@ internal fun TvPlayerPanel(
                 onClick = onVolumeUp,
                 enabled = snapshot.source != null && snapshot.volumePercent < 100,
                 modifier = Modifier.tvFocusHalo(RoundedCornerShape(18.dp)),
+                colors = tvButtonColors(),
             ) {
                 Text(stringResource(R.string.action_volume_up_percent, snapshot.volumePercent))
             }
@@ -127,6 +131,7 @@ private fun TvSeekButton(
     Button(
         onClick = { onSeekTo(snapshot.position.seekTargetBy(deltaMs)) },
         enabled = snapshot.source != null,
+        colors = tvButtonColors(),
     ) {
         Text(label)
     }
@@ -154,6 +159,7 @@ private fun TrackControls(
                 Button(
                     onClick = { onSelectSubtitle(null) },
                     enabled = subtitleTracks.any(PlaybackTrack::selected),
+                    colors = tvButtonColors(),
                 ) {
                     Text(stringResource(R.string.subtitle_off))
                 }
@@ -162,6 +168,7 @@ private fun TrackControls(
                 Button(
                     onClick = { onSelectSubtitle(track.id) },
                     enabled = track.supported && !track.selected,
+                    colors = tvButtonColors(selected = track.selected),
                 ) {
                     Text(track.buttonLabel())
                 }
@@ -183,6 +190,7 @@ private fun TrackButtons(
             Button(
                 onClick = { onSelect(track.id) },
                 enabled = track.supported && !track.selected,
+                colors = tvButtonColors(selected = track.selected),
             ) {
                 Text(track.buttonLabel())
             }

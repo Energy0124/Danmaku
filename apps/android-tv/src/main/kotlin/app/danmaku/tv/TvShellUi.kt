@@ -48,13 +48,13 @@ internal fun TvAppNavigationRail(
 ) {
     Column(
         modifier = Modifier
-            .width(220.dp)
+            .width(190.dp)
             .fillMaxSize()
             .clip(RoundedCornerShape(28.dp))
             .background(TvCardColor)
-            .padding(18.dp)
+            .padding(16.dp)
             .testTag("tv-app-rail"),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text("Danmaku", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Text(
@@ -124,16 +124,25 @@ internal fun TvRailNavigationItem(
     label: String,
     selected: Boolean = false,
     testTag: String,
+    compact: Boolean = false,
     onClick: () -> Unit,
 ) {
+    val shape = RoundedCornerShape(if (compact) 14.dp else 16.dp)
     Button(
         onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
-            .tvFocusHalo(RoundedCornerShape(16.dp))
+            .then(if (compact) Modifier.height(40.dp) else Modifier)
+            .tvFocusHalo(shape)
             .testTag(testTag),
+        colors = tvButtonColors(selected = selected),
     ) {
-        Text(label, color = if (selected) Color.White else TvMutedText)
+        Text(
+            label,
+            color = if (selected) Color.White else TvMutedText,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
@@ -142,12 +151,13 @@ internal fun TvRailPill(
     label: String,
     active: Boolean = false,
     modifier: Modifier = Modifier.fillMaxWidth(),
+    compact: Boolean = false,
 ) {
     Box(
         modifier = modifier
             .clip(CircleShape)
             .background(if (active) Color(0xFF273747) else TvPanelRaisedColor)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .padding(horizontal = if (compact) 10.dp else 12.dp, vertical = if (compact) 5.dp else 8.dp),
     ) {
         Text(
             label,

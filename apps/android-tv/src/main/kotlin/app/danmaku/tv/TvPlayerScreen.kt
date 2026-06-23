@@ -44,9 +44,14 @@ internal fun TvPlayerScreen() {
     val discoverPcFocusRequester = remember { FocusRequester() }
     val scope = rememberCoroutineScope()
     val state = remember(connectionStore, favoriteStore) {
+        val savedConnections = connectionStore.loadProfiles()
         TvPlayerState(
-            initialSavedConnections = connectionStore.loadProfiles(),
+            initialSavedConnections = savedConnections,
             initialFavoriteMediaIds = favoriteStore.loadFavoriteMediaIds(),
+            initialServerUrl = savedConnections.firstOrNull()?.baseUrl
+                ?: BuildConfig.DEFAULT_SERVER_URL.trim(),
+            initialPairingToken = savedConnections.firstOrNull()?.pairingToken
+                ?: BuildConfig.DEFAULT_PAIRING_TOKEN.trim(),
         )
     }
     val actionHandler = remember(
@@ -100,6 +105,12 @@ internal fun TvPlayerScreen() {
 
     LaunchedEffect(Unit) {
         discoverPcFocusRequester.requestFocus()
+    }
+
+    LaunchedEffect(actionHandler) {
+        if (state.catalog == null && state.serverUrl.isNotBlank() && state.pairingToken.isNotBlank()) {
+            actionHandler.refreshLibrary()
+        }
     }
 
     TvPlayerContent(

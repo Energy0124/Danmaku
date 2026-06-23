@@ -68,6 +68,7 @@ internal fun TvHomeSeriesRail(
                             .fillMaxWidth()
                             .tvFocusHalo(RoundedCornerShape(20.dp))
                             .testTag("home-series:${summary.id}"),
+                        colors = tvButtonColors(),
                     ) {
                         Column(
                             modifier = Modifier
@@ -97,6 +98,7 @@ internal fun TvHomeSeriesRail(
                         modifier = Modifier
                             .fillMaxWidth()
                             .tvFocusHalo(RoundedCornerShape(16.dp)),
+                        colors = tvButtonColors(),
                     ) {
                         Text(stringResource(R.string.action_play))
                     }

@@ -39,38 +39,26 @@ internal fun TvLibraryNavigationRail(
 ) {
     Column(
         modifier = Modifier
-            .width(210.dp)
+            .width(180.dp)
             .clip(RoundedCornerShape(24.dp))
             .background(TvCardColor)
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+            .padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text(stringResource(R.string.library_title), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-        Text(
-            catalog?.rootName ?: stringResource(R.string.pc_no_connected),
-            color = TvMutedText,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
-        TvRailPill(
-            if (catalog == null) {
-                stringResource(R.string.pc_offline)
-            } else {
-                stringResource(R.string.pc_ready)
-            },
-            active = catalog != null,
-        )
-        TvRailPill(stringResource(R.string.library_episode_count, filteredCount, totalCount))
-        TvRailPill(stringResource(R.string.favorites_count, favoriteCount), active = favoriteCount > 0)
+        Text(stringResource(R.string.library_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+
+        TvRailPill(stringResource(R.string.library_episode_count, filteredCount, totalCount), compact = true)
+        TvRailPill(stringResource(R.string.favorites_count, favoriteCount), active = favoriteCount > 0, compact = true)
         if (hasActiveFilters) {
-            TvRailPill(stringResource(R.string.library_filters_active), active = true)
+            TvRailPill(stringResource(R.string.library_filters_active), active = true, compact = true)
         }
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(2.dp))
         Text(stringResource(R.string.library_quick_actions), color = TvMutedText, fontWeight = FontWeight.SemiBold)
         TvRailNavigationItem(
             label = stringResource(R.string.library_all_episodes),
             selected = !hasActiveFilters,
             testTag = "tv-rail-all",
+            compact = true,
             onClick = onResetFilters,
         )
         TvRailNavigationItem(
@@ -81,6 +69,7 @@ internal fun TvLibraryNavigationRail(
             },
             selected = searchActive,
             testTag = "tv-rail-search",
+            compact = true,
             onClick = onFocusSearch,
         )
         TvRailNavigationItem(
@@ -91,6 +80,7 @@ internal fun TvLibraryNavigationRail(
             },
             selected = favoritesActive,
             testTag = "tv-rail-favorites",
+            compact = true,
             onClick = onToggleFavorites,
         )
         TvRailNavigationItem(
@@ -101,6 +91,7 @@ internal fun TvLibraryNavigationRail(
             },
             selected = subtitlesActive,
             testTag = "tv-rail-subtitles",
+            compact = true,
             onClick = onToggleSubtitles,
         )
     }
@@ -132,6 +123,7 @@ internal fun TvLibraryEmptyPanel(
             Button(
                 onClick = onAction,
                 modifier = Modifier.testTag("library-reset-filters"),
+                colors = tvButtonColors(),
             ) {
                 Text(actionLabel)
             }

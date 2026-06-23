@@ -57,6 +57,7 @@ internal fun TvProgressRailCard(
                 .onFocusChanged { cardHasFocus = it.isFocused }
                 .tvFocusHalo(RoundedCornerShape(20.dp))
                 .testTag("$itemTagPrefix-details:${item.mediaItem.id}"),
+            colors = tvButtonColors(),
         ) {
             Column(
                 modifier = Modifier
@@ -94,6 +95,7 @@ internal fun TvProgressRailCard(
                 .onFocusChanged { cardHasFocus = it.isFocused }
                 .tvFocusHalo(RoundedCornerShape(16.dp))
                 .testTag("$itemTagPrefix:${item.mediaItem.id}"),
+            colors = tvButtonColors(),
         ) {
             Text(stringResource(R.string.action_play))
         }
@@ -135,6 +137,7 @@ internal fun TvNextUpRailCard(
                 )
                 .tvFocusHalo(RoundedCornerShape(20.dp))
                 .testTag("next-up-details:${item.mediaItem.id}"),
+            colors = tvButtonColors(),
         ) {
             Column(
                 modifier = Modifier
@@ -172,6 +175,7 @@ internal fun TvNextUpRailCard(
                 .onFocusChanged { cardHasFocus = it.isFocused }
                 .tvFocusHalo(RoundedCornerShape(16.dp))
                 .testTag("next-up:${item.mediaItem.id}"),
+            colors = tvButtonColors(),
         ) {
             Text(item.nextUpActionLabel())
         }

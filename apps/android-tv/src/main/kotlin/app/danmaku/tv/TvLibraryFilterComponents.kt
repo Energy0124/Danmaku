@@ -105,6 +105,7 @@ internal fun TvLibraryFilterBar(
             Button(
                 onClick = onToggleFavorites,
                 modifier = Modifier.testTag("library-favorites-filter"),
+                colors = tvButtonColors(selected = favoriteFilter == LibraryFavoriteFilter.FAVORITES_ONLY),
             ) {
                 Text(
                     if (favoriteFilter == LibraryFavoriteFilter.ANY) {
@@ -119,6 +120,7 @@ internal fun TvLibraryFilterBar(
             Button(
                 onClick = { onSelectSort(LibraryCatalogSort.TITLE) },
                 enabled = sort != LibraryCatalogSort.TITLE,
+                colors = tvButtonColors(selected = sort == LibraryCatalogSort.TITLE),
             ) {
                 Text(stringResource(R.string.library_sort_title))
             }
@@ -127,12 +129,16 @@ internal fun TvLibraryFilterBar(
             Button(
                 onClick = { onSelectSort(LibraryCatalogSort.PATH) },
                 enabled = sort != LibraryCatalogSort.PATH,
+                colors = tvButtonColors(selected = sort == LibraryCatalogSort.PATH),
             ) {
                 Text(stringResource(R.string.library_sort_path))
             }
         }
         item {
-            Button(onClick = onToggleSubtitles) {
+            Button(
+                onClick = onToggleSubtitles,
+                colors = tvButtonColors(selected = subtitleFilter == LibrarySubtitleFilter.WITH_SUBTITLES),
+            ) {
                 Text(
                     if (subtitleFilter == LibrarySubtitleFilter.ANY) {
                         stringResource(R.string.subtitle_tracks_title)

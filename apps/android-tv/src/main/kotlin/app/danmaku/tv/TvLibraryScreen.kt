@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -43,14 +44,7 @@ internal fun LibraryItems(
         selectedSeriesId = controls.selectedSeriesId,
         selectedEpisodeId = controls.selectedEpisodeId,
     )
-    val nextUpFocusRequester = remember { FocusRequester() }
     val searchFocusRequester = remember { FocusRequester() }
-
-    LaunchedEffect(libraryViewState.nextUpItems.firstOrNull()?.mediaItem?.id, focusSearchOnStart) {
-        if (!focusSearchOnStart && libraryViewState.nextUpItems.isNotEmpty()) {
-            nextUpFocusRequester.requestFocus()
-        }
-    }
 
     LaunchedEffect(focusSearchOnStart, catalog?.indexedAtEpochMs) {
         if (focusSearchOnStart) {
@@ -60,11 +54,11 @@ internal fun LibraryItems(
 
     Row(
         modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(28.dp))
+            .fillMaxSize()
+            .clip(RoundedCornerShape(24.dp))
             .background(TvPanelColor)
-            .padding(20.dp),
-        horizontalArrangement = Arrangement.spacedBy(20.dp),
+            .padding(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         TvLibraryNavigationRail(
             catalog = catalog,
@@ -103,12 +97,14 @@ internal fun LibraryItems(
                 onToggleSubtitles = controls::toggleSubtitles,
             )
             TvLibraryContentSections(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
                 catalog = catalog,
                 libraryViewState = libraryViewState,
                 controls = controls,
                 posterEndpoint = posterEndpoint,
                 favoriteMediaIds = favoriteMediaIds,
-                nextUpFocusRequester = nextUpFocusRequester,
                 onSetFavorite = onSetFavorite,
                 onPlay = onPlay,
             )

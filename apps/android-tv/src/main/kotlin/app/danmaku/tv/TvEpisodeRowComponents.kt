@@ -43,6 +43,7 @@ internal fun TvEpisodeButton(
                 .weight(1f)
                 .tvFocusHalo(RoundedCornerShape(18.dp))
                 .testTag("episode:${item.id}"),
+            colors = tvButtonColors(),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -83,6 +84,7 @@ internal fun TvEpisodeButton(
             modifier = Modifier
                 .tvFocusHalo(RoundedCornerShape(18.dp))
                 .testTag("episode-play:${item.id}"),
+            colors = tvButtonColors(),
         ) {
             Text(stringResource(R.string.action_play))
         }
@@ -91,6 +93,7 @@ internal fun TvEpisodeButton(
             modifier = Modifier
                 .tvFocusHalo(RoundedCornerShape(18.dp))
                 .testTag("episode-favorite:${item.id}"),
+            colors = tvButtonColors(selected = isFavorite),
         ) {
             Text(
                 if (isFavorite) {

@@ -105,12 +105,14 @@ internal fun TvEpisodeDetail(
             Button(
                 onClick = { onPlay(detail.mediaItem) },
                 modifier = Modifier.testTag("episode-detail-play:${detail.mediaItem.id}"),
+                colors = tvButtonColors(),
             ) {
                 Text(stringResource(R.string.action_play))
             }
             Button(
                 onClick = { onSetFavorite(!isFavorite) },
                 modifier = Modifier.testTag("episode-detail-favorite:${detail.mediaItem.id}"),
+                colors = tvButtonColors(selected = isFavorite),
             ) {
                 Text(
                     if (isFavorite) {
@@ -123,12 +125,14 @@ internal fun TvEpisodeDetail(
             Button(
                 onClick = { detail.previousItem?.let(onSelectEpisode) },
                 enabled = detail.previousItem != null,
+                colors = tvButtonColors(),
             ) {
                 Text(stringResource(R.string.action_previous))
             }
             Button(
                 onClick = { detail.nextItem?.let(onSelectEpisode) },
                 enabled = detail.nextItem != null,
+                colors = tvButtonColors(),
             ) {
                 Text(stringResource(R.string.action_next))
             }
@@ -187,6 +191,7 @@ internal fun TvSeriesDetail(
                                 .fillMaxWidth()
                                 .tvFocusHalo(RoundedCornerShape(16.dp))
                                 .testTag("series-detail-episode:${item.id}"),
+                            colors = tvButtonColors(),
                         ) {
                             Text(item.episodeTitle, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }

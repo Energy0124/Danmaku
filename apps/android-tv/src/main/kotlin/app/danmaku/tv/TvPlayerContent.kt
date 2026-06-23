@@ -2,8 +2,11 @@ package app.danmaku.tv
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
@@ -26,8 +29,8 @@ internal fun TvPlayerContent(
             modifier = Modifier
                 .fillMaxSize()
                 .background(TvAppBackground)
-                .padding(32.dp),
-            horizontalArrangement = Arrangement.spacedBy(20.dp),
+                .padding(24.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             TvAppNavigationRail(
                 selectedDestination = state.selectedDestination,
@@ -35,34 +38,64 @@ internal fun TvPlayerContent(
                 favoriteCount = state.favoriteMediaIds.size,
                 onSelectDestination = { state.selectedDestination = it },
             )
-            LazyColumn(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-                item {
+            if (state.selectedDestination.isLibraryDestination()) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
                     TvDestinationHeader(
                         selectedDestination = state.selectedDestination,
                         catalog = state.catalog,
                         snapshot = state.snapshot,
                     )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                    ) {
+                        TvDestinationContent(
+                            state = state,
+                            actionHandler = actionHandler,
+                            refreshPcFocusRequester = refreshPcFocusRequester,
+                            discoverPcFocusRequester = discoverPcFocusRequester,
+                        )
+                    }
                 }
-                if (state.selectedDestination != TvDestination.Pc) {
-                    item { TvPlaybackChrome(state) }
-                }
-                item {
-                    TvDestinationContent(
-                        state = state,
-                        actionHandler = actionHandler,
-                        refreshPcFocusRequester = refreshPcFocusRequester,
-                        discoverPcFocusRequester = discoverPcFocusRequester,
-                    )
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    item {
+                        TvDestinationHeader(
+                            selectedDestination = state.selectedDestination,
+                            catalog = state.catalog,
+                            snapshot = state.snapshot,
+                        )
+                    }
+                    if (state.selectedDestination == TvDestination.Home && state.snapshot.source != null) {
+                        item { TvPlaybackChrome(state) }
+                    }
+                    item {
+                        TvDestinationContent(
+                            state = state,
+                            actionHandler = actionHandler,
+                            refreshPcFocusRequester = refreshPcFocusRequester,
+                            discoverPcFocusRequester = discoverPcFocusRequester,
+                        )
+                    }
                 }
             }
         }
     }
 }
+
+private fun TvDestination.isLibraryDestination(): Boolean =
+    this == TvDestination.Library || this == TvDestination.Search || this == TvDestination.Favorites
 
 @Composable
 private fun TvPlaybackChrome(state: TvPlayerState) {

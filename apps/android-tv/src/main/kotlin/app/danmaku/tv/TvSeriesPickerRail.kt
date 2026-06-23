@@ -37,6 +37,7 @@ internal fun TvSeriesPickerRail(
                 modifier = Modifier
                     .tvFocusHalo(RoundedCornerShape(18.dp))
                     .testTag("series:all"),
+                colors = tvButtonColors(),
             ) {
                 Text(stringResource(R.string.library_all_series))
             }
@@ -47,6 +48,7 @@ internal fun TvSeriesPickerRail(
                 modifier = Modifier
                     .tvFocusHalo(RoundedCornerShape(22.dp))
                     .testTag("series:${summary.title}"),
+                colors = tvButtonColors(),
             ) {
                 Column {
                     TvPosterTile(

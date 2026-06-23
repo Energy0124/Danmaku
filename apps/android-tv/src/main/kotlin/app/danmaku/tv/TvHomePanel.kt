@@ -77,6 +77,7 @@ internal fun TvHomePanel(
             Button(
                 onClick = if (catalog == null) onShowPc else onShowLibrary,
                 modifier = Modifier.tvFocusHalo(RoundedCornerShape(18.dp)),
+                colors = tvButtonColors(),
             ) {
                 Text(
                     if (catalog == null) {

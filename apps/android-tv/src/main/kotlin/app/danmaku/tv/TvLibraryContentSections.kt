@@ -7,7 +7,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.danmaku.domain.LibraryCatalog
@@ -15,84 +14,101 @@ import app.danmaku.domain.LibraryMediaItem
 
 @Composable
 internal fun TvLibraryContentSections(
+    modifier: Modifier = Modifier,
     catalog: LibraryCatalog?,
     libraryViewState: TvLibraryViewState,
     controls: TvLibraryControlsState,
     posterEndpoint: LibraryPosterEndpoint?,
     favoriteMediaIds: Set<String>,
-    nextUpFocusRequester: FocusRequester,
     onSetFavorite: (LibraryMediaItem, Boolean) -> Unit,
     onPlay: (LibraryMediaItem) -> Unit,
 ) {
-    libraryViewState.selectedEpisodeDetail?.let { detail ->
-        TvEpisodeDetail(
-            detail = detail,
-            posterEndpoint = posterEndpoint,
-            isFavorite = detail.mediaItem.id in favoriteMediaIds,
-            onSetFavorite = { onSetFavorite(detail.mediaItem, it) },
-            onPlay = onPlay,
-            onSelectEpisode = controls::selectEpisode,
-        )
-    }
-    libraryViewState.selectedSeries?.let { summary ->
-        TvSeriesDetail(
-            series = summary,
-            watchSummary = libraryViewState.seriesWatchSummaryById[summary.id],
-            onPlay = onPlay,
-        )
-    }
-    TvLibraryEpisodeResults(
-        catalog = catalog,
-        libraryViewState = libraryViewState,
-        controls = controls,
-        posterEndpoint = posterEndpoint,
-        favoriteMediaIds = favoriteMediaIds,
-        onSetFavorite = onSetFavorite,
-        onPlay = onPlay,
-    )
-    if (libraryViewState.nextUpItems.isNotEmpty()) {
-        TvNextUpRail(
-            items = libraryViewState.nextUpItems,
-            posterEndpoint = posterEndpoint,
-            initialFocusRequester = nextUpFocusRequester,
-            onShowDetails = controls::selectEpisode,
-            onPlay = onPlay,
-        )
-    }
-    if (libraryViewState.continueWatchingItems.isNotEmpty()) {
-        TvProgressRail(
-            title = stringResource(R.string.home_continue_watching),
-            tag = "library-continue-watching",
-            itemTagPrefix = "continue-watching",
-            items = libraryViewState.continueWatchingItems,
-            posterEndpoint = posterEndpoint,
-            onShowDetails = controls::selectEpisode,
-            onPlay = onPlay,
-        )
-    }
-    if (libraryViewState.recentlyWatchedItems.isNotEmpty()) {
-        TvProgressRail(
-            title = stringResource(R.string.home_recently_watched),
-            tag = "library-recently-watched",
-            itemTagPrefix = "recently-watched",
-            items = libraryViewState.recentlyWatchedItems,
-            posterEndpoint = posterEndpoint,
-            onShowDetails = controls::selectEpisode,
-            onPlay = onPlay,
-        )
-    }
-    if (libraryViewState.series.isNotEmpty()) {
-        TvSeriesPickerRail(
-            series = libraryViewState.series,
-            canClearSelection = controls.searchText.isNotBlank() || controls.selectedSeriesId != null,
-            posterEndpoint = posterEndpoint,
-            seriesWatchSummaryById = libraryViewState.seriesWatchSummaryById,
-            onShowAllSeries = controls::showAllSeries,
-            onToggleSeries = controls::toggleSeries,
-        )
+    LazyColumn(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        libraryViewState.selectedEpisodeDetail?.let { detail ->
+            item(key = "selected-episode-detail") {
+                TvEpisodeDetail(
+                    detail = detail,
+                    posterEndpoint = posterEndpoint,
+                    isFavorite = detail.mediaItem.id in favoriteMediaIds,
+                    onSetFavorite = { onSetFavorite(detail.mediaItem, it) },
+                    onPlay = onPlay,
+                    onSelectEpisode = controls::selectEpisode,
+                )
+            }
+        }
+        libraryViewState.selectedSeries?.let { summary ->
+            item(key = "selected-series-detail") {
+                TvSeriesDetail(
+                    series = summary,
+                    watchSummary = libraryViewState.seriesWatchSummaryById[summary.id],
+                    onPlay = onPlay,
+                )
+            }
+        }
+        item(key = "episode-results") {
+            TvLibraryEpisodeResults(
+                catalog = catalog,
+                libraryViewState = libraryViewState,
+                controls = controls,
+                posterEndpoint = posterEndpoint,
+                favoriteMediaIds = favoriteMediaIds,
+                onSetFavorite = onSetFavorite,
+                onPlay = onPlay,
+            )
+        }
+        if (libraryViewState.nextUpItems.isNotEmpty()) {
+            item(key = "next-up") {
+                TvNextUpRail(
+                    items = libraryViewState.nextUpItems,
+                    posterEndpoint = posterEndpoint,
+                    onShowDetails = controls::selectEpisode,
+                    onPlay = onPlay,
+                )
+            }
+        }
+        if (libraryViewState.continueWatchingItems.isNotEmpty()) {
+            item(key = "continue-watching") {
+                TvProgressRail(
+                    title = stringResource(R.string.home_continue_watching),
+                    tag = "library-continue-watching",
+                    itemTagPrefix = "continue-watching",
+                    items = libraryViewState.continueWatchingItems,
+                    posterEndpoint = posterEndpoint,
+                    onShowDetails = controls::selectEpisode,
+                    onPlay = onPlay,
+                )
+            }
+        }
+        if (libraryViewState.recentlyWatchedItems.isNotEmpty()) {
+            item(key = "recently-watched") {
+                TvProgressRail(
+                    title = stringResource(R.string.home_recently_watched),
+                    tag = "library-recently-watched",
+                    itemTagPrefix = "recently-watched",
+                    items = libraryViewState.recentlyWatchedItems,
+                    posterEndpoint = posterEndpoint,
+                    onShowDetails = controls::selectEpisode,
+                    onPlay = onPlay,
+                )
+            }
+        }
+        if (libraryViewState.series.isNotEmpty()) {
+            item(key = "series-picker") {
+                TvSeriesPickerRail(
+                    series = libraryViewState.series,
+                    canClearSelection = controls.searchText.isNotBlank() || controls.selectedSeriesId != null,
+                    posterEndpoint = posterEndpoint,
+                    seriesWatchSummaryById = libraryViewState.seriesWatchSummaryById,
+                    onShowAllSeries = controls::showAllSeries,
+                    onToggleSeries = controls::toggleSeries,
+                )
+            }
+        }
     }
 }
-
 @Composable
 private fun TvLibraryEpisodeResults(
     catalog: LibraryCatalog?,

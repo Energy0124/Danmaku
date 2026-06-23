@@ -13,6 +13,8 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.tv.material3.ButtonColors
+import androidx.tv.material3.ButtonDefaults
 import app.danmaku.domain.LibraryMediaItem
 
 internal val TvAppBackground = Color(0xFF090B0E)
@@ -21,6 +23,23 @@ internal val TvPanelRaisedColor = Color(0xFF20262B)
 internal val TvCardColor = Color(0xFF111820)
 internal val TvAccentBlue = Color(0xFF7DD3FC)
 internal val TvMutedText = Color(0xFFB7C0C9)
+internal val TvButtonColor = Color(0xFF1A2633)
+internal val TvButtonFocusedColor = Color(0xFF2563A8)
+internal val TvButtonSelectedColor = Color(0xFF0E7490)
+internal val TvButtonDisabledColor = Color(0xFF151B22)
+
+@Composable
+internal fun tvButtonColors(selected: Boolean = false): ButtonColors =
+    ButtonDefaults.colors(
+        containerColor = if (selected) TvButtonSelectedColor else TvButtonColor,
+        contentColor = Color(0xFFE5EEF7),
+        focusedContainerColor = TvButtonFocusedColor,
+        focusedContentColor = Color.White,
+        pressedContainerColor = TvAccentBlue,
+        pressedContentColor = Color(0xFF031018),
+        disabledContainerColor = TvButtonDisabledColor,
+        disabledContentColor = Color(0xFF64748B),
+    )
 
 internal data class LibraryPosterEndpoint(
     val baseUrl: String,
