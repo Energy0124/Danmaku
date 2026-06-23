@@ -1,6 +1,7 @@
 package app.danmaku.library.jvm
 
 import app.danmaku.domain.LibraryCatalog
+import app.danmaku.domain.LanDanmakuTrack
 import app.danmaku.domain.LanLibraryServerStatus
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySubtitleTrack
@@ -100,6 +101,23 @@ class JvmLanLibraryClient(
         }
     }
 
+    override fun fetchDanmaku(
+        baseUrl: String,
+        mediaId: String,
+        pairingToken: String,
+        forceRefresh: Boolean,
+    ): LanDanmakuTrack {
+        val connection = open(danmakuUrl(baseUrl, mediaId, pairingToken, forceRefresh))
+        return try {
+            connection.requireResponse(HttpURLConnection.HTTP_OK)
+            json.decodeFromString(
+                connection.inputStream.bufferedReader().use { it.readText() },
+            )
+        } finally {
+            connection.disconnect()
+        }
+    }
+
     override fun saveProgress(
         baseUrl: String,
         pairingToken: String,
@@ -132,6 +150,15 @@ class JvmLanLibraryClient(
         pairingToken: String,
     ): String =
         "${baseUrl.trimEnd('/')}/api/progress?token=${pairingToken.encoded()}"
+
+    private fun danmakuUrl(
+        baseUrl: String,
+        mediaId: String,
+        pairingToken: String,
+        forceRefresh: Boolean,
+    ): String =
+        "${baseUrl.trimEnd('/')}/api/danmaku/${mediaId.encoded()}?token=${pairingToken.encoded()}" +
+            "&forceRefresh=$forceRefresh"
 
     private fun open(url: String): HttpURLConnection =
         (URI(url).toURL().openConnection() as HttpURLConnection).apply {

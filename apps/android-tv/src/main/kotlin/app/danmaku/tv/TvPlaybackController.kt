@@ -13,6 +13,8 @@ internal interface TvPlaybackController {
 
     fun dispatch(command: PlaybackCommand)
 
+    fun stop()
+
     fun snapshot(): PlaybackSnapshot
 }
 
@@ -28,6 +30,10 @@ internal class Media3TvPlaybackController(
 
     override fun dispatch(command: PlaybackCommand) {
         delegate.dispatch(command)
+    }
+
+    override fun stop() {
+        delegate.stop()
     }
 
     override fun snapshot(): PlaybackSnapshot =

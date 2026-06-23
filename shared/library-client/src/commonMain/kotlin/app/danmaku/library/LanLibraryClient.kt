@@ -1,6 +1,7 @@
 package app.danmaku.library
 
 import app.danmaku.domain.LibraryCatalog
+import app.danmaku.domain.LanDanmakuTrack
 import app.danmaku.domain.LanLibraryServerStatus
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySubtitleTrack
@@ -41,6 +42,13 @@ interface LanLibraryClient {
         baseUrl: String,
         pairingToken: String,
     ): List<PlaybackProgress>
+
+    fun fetchDanmaku(
+        baseUrl: String,
+        mediaId: String,
+        pairingToken: String,
+        forceRefresh: Boolean = false,
+    ): LanDanmakuTrack
 
     fun saveProgress(
         baseUrl: String,
@@ -166,6 +174,21 @@ class LanPlaybackPreparer(
             resumePositionMs = resumePositionMs,
         )
     }
+}
+
+class LanDanmakuLoader(
+    private val libraryClient: LanLibraryClient,
+) {
+    fun fetchDanmaku(
+        target: LanPlaybackTarget,
+        forceRefresh: Boolean = false,
+    ): LanDanmakuTrack =
+        libraryClient.fetchDanmaku(
+            baseUrl = target.baseUrl,
+            mediaId = target.mediaId,
+            pairingToken = target.pairingToken,
+            forceRefresh = forceRefresh,
+        )
 }
 
 class LanPlaybackProgressSync(

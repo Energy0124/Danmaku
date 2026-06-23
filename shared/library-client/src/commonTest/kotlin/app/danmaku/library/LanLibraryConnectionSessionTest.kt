@@ -1,6 +1,8 @@
 package app.danmaku.library
 
 import app.danmaku.domain.LibraryCatalog
+import app.danmaku.domain.LanDanmakuLoadStatus
+import app.danmaku.domain.LanDanmakuTrack
 import app.danmaku.domain.LanLibraryServerStatus
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySubtitleTrack
@@ -136,6 +138,14 @@ class LanLibraryConnectionSessionTest {
             progressFetches += 1
             return progresses
         }
+
+        override fun fetchDanmaku(
+            baseUrl: String,
+            mediaId: String,
+            pairingToken: String,
+            forceRefresh: Boolean,
+        ): LanDanmakuTrack =
+            LanDanmakuTrack(mediaId = mediaId, status = LanDanmakuLoadStatus.UNAVAILABLE)
 
         override fun saveProgress(
             baseUrl: String,

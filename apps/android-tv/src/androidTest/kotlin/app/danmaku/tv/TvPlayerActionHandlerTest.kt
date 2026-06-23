@@ -5,13 +5,19 @@ import androidx.media3.common.Player
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.danmaku.domain.LibraryCatalog
+import app.danmaku.domain.LanDanmakuComment
+import app.danmaku.domain.LanDanmakuLoadStatus
+import app.danmaku.domain.LanDanmakuSource
+import app.danmaku.domain.LanDanmakuTrack
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySubtitleTrack
 import app.danmaku.domain.LanLibraryServerStatus
 import app.danmaku.domain.PlaybackCommand
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.domain.PlaybackSnapshot
+import app.danmaku.domain.PlaybackStatus
 import app.danmaku.domain.PlaybackSource
+import app.danmaku.library.LanDanmakuLoader
 import app.danmaku.library.LanLibraryClient
 import app.danmaku.library.LanLibraryConnectionProfile
 import app.danmaku.library.LanLibraryConnectionSession
@@ -25,6 +31,7 @@ import app.danmaku.library.android.LanLibraryDiscoveryException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -32,9 +39,12 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 @RunWith(AndroidJUnit4::class)
 class TvPlayerActionHandlerTest {
@@ -253,6 +263,13 @@ class TvPlayerActionHandlerTest {
         val handler = actionHandler(state, client, this)
 
         handler.playItem(item)
+
+        assertTrue(state.isFullscreenPlayback)
+        assertEquals(item, state.activePlaybackItem)
+        assertEquals(TvPlaybackStartupPhase.WaitingForDanmaku, state.playbackStartupPhase)
+        assertEquals(TvDanmakuPhase.Loading, state.danmakuState.phase)
+        assertTrue(controller.commands.isEmpty())
+
         waitForLaunchedActions()
 
         val loadedPreparation = controller.loadedPreparations.single()
@@ -269,9 +286,79 @@ class TvPlayerActionHandlerTest {
             listOf(PlaybackCommand.SeekTo(42_000), PlaybackCommand.Play),
             controller.commands,
         )
+        assertEquals(TvPlaybackStartupPhase.Playing, state.playbackStartupPhase)
+        assertEquals(TvDanmakuPhase.Ready, state.danmakuState.phase)
+        assertEquals(1, client.danmakuFetches)
         assertNull(state.libraryError)
     }
 
+    @Test
+    fun playItemWaitsForDanmakuBeforeStartingPlayback() = runBlocking {
+        val item = libraryMediaItem("episode-1")
+        val danmakuGate = CountDownLatch(1)
+        val client = RecordingLanLibraryClient(danmakuGate = danmakuGate)
+        val controller = RecordingTvPlaybackController()
+        val state = TvPlayerState(emptyList(), emptySet()).apply {
+            serverUrl = "http://tv.test:8686"
+            pairingToken = "pairing-token"
+            this.controller = controller
+        }
+        val handler = actionHandler(
+            state = state,
+            client = client,
+            scope = this,
+            danmakuPlaybackWaitTimeoutMs = 1_000,
+        )
+
+        handler.playItem(item)
+
+        waitUntil("media is prepared") { controller.loadedPreparations.isNotEmpty() }
+        assertEquals(TvPlaybackStartupPhase.WaitingForDanmaku, state.playbackStartupPhase)
+        assertEquals(TvDanmakuPhase.Loading, state.danmakuState.phase)
+        assertTrue(controller.commands.none { it == PlaybackCommand.Play })
+
+        danmakuGate.countDown()
+        waitForLaunchedActions()
+
+        assertEquals(listOf(PlaybackCommand.Play), controller.commands)
+        assertEquals(TvPlaybackStartupPhase.Playing, state.playbackStartupPhase)
+        assertEquals(TvDanmakuPhase.Ready, state.danmakuState.phase)
+        assertEquals(1, state.danmakuState.events.size)
+        assertEquals(1, client.danmakuFetches)
+    }
+
+    @Test
+    fun playItemStartsPlaybackAfterDanmakuTimeoutAndAppliesLateTrack() = runBlocking {
+        val item = libraryMediaItem("episode-1")
+        val danmakuGate = CountDownLatch(1)
+        val client = RecordingLanLibraryClient(danmakuGate = danmakuGate)
+        val controller = RecordingTvPlaybackController()
+        val state = TvPlayerState(emptyList(), emptySet()).apply {
+            serverUrl = "http://tv.test:8686"
+            pairingToken = "pairing-token"
+            this.controller = controller
+        }
+        val handler = actionHandler(
+            state = state,
+            client = client,
+            scope = this,
+            danmakuPlaybackWaitTimeoutMs = 25,
+        )
+
+        handler.playItem(item)
+
+        waitUntil("playback starts after danmaku timeout") { PlaybackCommand.Play in controller.commands }
+        assertEquals(TvPlaybackStartupPhase.Playing, state.playbackStartupPhase)
+        assertEquals(TvDanmakuPhase.TimedOut, state.danmakuState.phase)
+        assertTrue(state.isFullscreenPlayback)
+
+        danmakuGate.countDown()
+        waitForLaunchedActions()
+
+        assertEquals(TvDanmakuPhase.Ready, state.danmakuState.phase)
+        assertEquals(1, state.danmakuState.events.size)
+        assertEquals(1, client.danmakuFetches)
+    }
     @Test
     fun playItemStoresResumeLookupFailureAndStillStartsPlayback() = runBlocking {
         val item = libraryMediaItem("episode-1")
@@ -299,6 +386,7 @@ class TvPlayerActionHandlerTest {
         client: LanLibraryClient,
         scope: CoroutineScope,
         libraryDiscovery: TvLibraryDiscovery = RecordingTvLibraryDiscovery(result = emptyList()),
+        danmakuPlaybackWaitTimeoutMs: Long = 15_000,
     ): TvPlayerActionHandler =
         TvPlayerActionHandler(
             state = state,
@@ -306,9 +394,11 @@ class TvPlayerActionHandlerTest {
             libraryConnectionSession = LanLibraryConnectionSession(client),
             progressSync = LanPlaybackProgressSync(client) { 2_000 },
             playbackPreparer = LanPlaybackPreparer(client),
+            danmakuLoader = LanDanmakuLoader(client),
             connectionStore = connectionStore,
             favoriteStore = favoriteStore,
             libraryDiscovery = libraryDiscovery,
+            danmakuPlaybackWaitTimeoutMs = danmakuPlaybackWaitTimeoutMs,
         )
 
     private fun clearStores() {
@@ -320,6 +410,20 @@ class TvPlayerActionHandlerTest {
 
     private suspend fun waitForLaunchedActions() {
         currentCoroutineContext()[Job]?.children?.toList()?.joinAll()
+    }
+
+    private suspend fun waitUntil(
+        description: String,
+        timeoutMs: Long = 2_000,
+        condition: () -> Boolean,
+    ) {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (!condition()) {
+            if (System.currentTimeMillis() > deadline) {
+                fail("Timed out waiting for $description")
+            }
+            delay(10)
+        }
     }
 
     private fun libraryMediaItem(id: String): LibraryMediaItem =
@@ -337,17 +441,33 @@ class TvPlayerActionHandlerTest {
         override val androidPlayer: Player? = null
         val loadedPreparations = mutableListOf<LanPlaybackPreparation>()
         val commands = mutableListOf<PlaybackCommand>()
+        var stopped = false
+            private set
+        private var currentSnapshot = PlaybackSnapshot()
 
         override fun load(preparation: LanPlaybackPreparation) {
             loadedPreparations += preparation
+            currentSnapshot = currentSnapshot.copy(
+                status = PlaybackStatus.READY,
+                source = preparation.source,
+            )
         }
 
         override fun dispatch(command: PlaybackCommand) {
             commands += command
+            currentSnapshot = when (command) {
+                PlaybackCommand.Play -> currentSnapshot.copy(status = PlaybackStatus.PLAYING)
+                PlaybackCommand.Pause -> currentSnapshot.copy(status = PlaybackStatus.PAUSED)
+                else -> currentSnapshot
+            }
         }
 
-        override fun snapshot(): PlaybackSnapshot =
-            PlaybackSnapshot()
+        override fun stop() {
+            stopped = true
+            currentSnapshot = PlaybackSnapshot()
+        }
+
+        override fun snapshot(): PlaybackSnapshot = currentSnapshot
     }
 
     private class RecordingTvLibraryDiscovery(
@@ -384,12 +504,21 @@ class TvPlayerActionHandlerTest {
         private val progresses: List<PlaybackProgress> = emptyList(),
         private val catalogError: Throwable? = null,
         private val progressFailure: Throwable? = null,
+        private val danmakuTrack: LanDanmakuTrack = LanDanmakuTrack(
+            mediaId = "episode-1",
+            status = LanDanmakuLoadStatus.READY,
+            source = LanDanmakuSource.CACHE,
+            comments = listOf(LanDanmakuComment("comment-1", 1_000, "Hello")),
+        ),
+        private val danmakuGate: CountDownLatch? = null,
     ) : LanLibraryClient {
         var statusFetches = 0
             private set
         var catalogFetches = 0
             private set
         var progressFetches = 0
+            private set
+        var danmakuFetches = 0
             private set
 
         override fun fetchServerStatus(baseUrl: String): LanLibraryServerStatus {
@@ -435,6 +564,21 @@ class TvPlayerActionHandlerTest {
         ): List<PlaybackProgress> {
             progressFetches += 1
             return progresses
+        }
+
+        override fun fetchDanmaku(
+            baseUrl: String,
+            mediaId: String,
+            pairingToken: String,
+            forceRefresh: Boolean,
+        ): LanDanmakuTrack {
+            danmakuFetches += 1
+            danmakuGate?.let { gate ->
+                if (!gate.await(2, TimeUnit.SECONDS)) {
+                    throw AssertionError("Timed out waiting for danmaku test gate")
+                }
+            }
+            return danmakuTrack.copy(mediaId = mediaId)
         }
 
         override fun saveProgress(

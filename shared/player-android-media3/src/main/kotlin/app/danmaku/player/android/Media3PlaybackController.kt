@@ -74,6 +74,13 @@ class Media3PlaybackController(
         }
     }
 
+    fun stop() {
+        player.stop()
+        player.clearMediaItems()
+        source = null
+        hasStartedPlayback = false
+    }
+
     override fun snapshot(): PlaybackSnapshot {
         val playerError = player.playerError
         val activeSource = source

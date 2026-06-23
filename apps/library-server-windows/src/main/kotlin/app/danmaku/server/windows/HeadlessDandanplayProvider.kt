@@ -1,6 +1,10 @@
 package app.danmaku.server.windows
 
 import app.danmaku.domain.DanmakuEvent
+import app.danmaku.domain.LanDanmakuLoadStatus
+import app.danmaku.domain.LanDanmakuSource
+import app.danmaku.domain.LanDanmakuTrack
+import app.danmaku.domain.toLanDanmakuComment
 import app.danmaku.provider.dandanplay.DandanplayCommentTrack
 import app.danmaku.provider.dandanplay.DandanplayConnection
 import app.danmaku.provider.dandanplay.DandanplayDanmakuClient
@@ -85,6 +89,29 @@ internal fun HeadlessDandanplayResolveResult.toJsonObject(mediaId: String) =
             },
         )
     }
+
+internal fun HeadlessDandanplayResolveResult.toLanDanmakuTrack(mediaId: String): LanDanmakuTrack {
+    val track = selectedTrack
+    val events = track?.events.orEmpty()
+    return LanDanmakuTrack(
+        mediaId = mediaId,
+        status = when {
+            events.isNotEmpty() -> LanDanmakuLoadStatus.READY
+            track == null -> LanDanmakuLoadStatus.NO_MATCH
+            else -> LanDanmakuLoadStatus.NO_MATCH
+        },
+        source = LanDanmakuSource.NETWORK,
+        comments = events.map { it.toLanDanmakuComment() },
+        matchTitle = track?.match?.displayTitle,
+        episodeId = track?.match?.episodeId,
+        fetchedAtEpochMs = System.currentTimeMillis(),
+        message = when {
+            events.isNotEmpty() -> null
+            track == null -> "No Dandanplay match found."
+            else -> "Dandanplay match has no comments."
+        },
+    )
+}
 
 private fun HeadlessDandanplayProviderSettings.toDandanplayConnection(): DandanplayConnection =
     if (appId != null && appSecret != null) {

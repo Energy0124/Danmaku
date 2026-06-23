@@ -289,11 +289,12 @@ internal fun DesktopShell(
             ?.associate { item -> item.id to catalogStore.loadExternalAnimeItemMappings(item.id) }
             .orEmpty()
     }
-    val serverRuntime = remember(catalogStore, rootScanner, animeMetadataResolver, scope) {
+    val serverRuntime = remember(catalogStore, rootScanner, animeMetadataResolver, dandanplayDanmakuResolver, scope) {
         DesktopLibraryServerRuntime.start(
             catalogStore = catalogStore,
             rootScanner = rootScanner,
             metadataResolver = animeMetadataResolver,
+            dandanplayDanmakuResolver = dandanplayDanmakuResolver,
             port = launchOptions.serverPort ?: app.danmaku.server.LocalLibraryServer.DEFAULT_PORT,
             pairingToken = launchOptions.serverPairingToken,
             aniRssWebhookToken = aniRssCredentialStore.loadOrCreateWebhookToken(),

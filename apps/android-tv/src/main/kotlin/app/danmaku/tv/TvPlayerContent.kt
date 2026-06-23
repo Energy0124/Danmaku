@@ -24,6 +24,14 @@ internal fun TvPlayerContent(
     refreshPcFocusRequester: FocusRequester,
     discoverPcFocusRequester: FocusRequester,
 ) {
+    if (state.isFullscreenPlayback) {
+        TvFullscreenPlaybackScreen(
+            state = state,
+            actionHandler = actionHandler,
+        )
+        return
+    }
+
     Surface(modifier = Modifier.fillMaxSize()) {
         Row(
             modifier = Modifier

@@ -1,6 +1,10 @@
 package app.danmaku.server
 
 import app.danmaku.domain.LibraryCatalog
+import app.danmaku.domain.LanDanmakuComment
+import app.danmaku.domain.LanDanmakuLoadStatus
+import app.danmaku.domain.LanDanmakuSource
+import app.danmaku.domain.LanDanmakuTrack
 import app.danmaku.domain.LanDandanplayProviderStatus
 import app.danmaku.domain.LanExternalAnimeProviderStatus
 import app.danmaku.domain.LanLibraryServerStatus
@@ -148,6 +152,115 @@ class LocalLibraryServerTest {
         }
     }
 
+    @Test
+    fun resolvesDanmakuForAuthenticatedPublishedMedia() {
+        val mediaFile = createTempFile("danmaku-server-core", ".mkv")
+        mediaFile.writeBytes(byteArrayOf(0, 1, 2))
+        val item = LibraryMediaItem(
+            id = "episode id",
+            seriesTitle = "Example Show",
+            episodeTitle = "Episode 01",
+            relativePath = "Example Show/Episode 01.mkv",
+            sizeBytes = 3,
+            mediaType = "video/x-matroska",
+            streamPath = "/media/episode-id",
+        )
+        val expectedTrack = LanDanmakuTrack(
+            mediaId = item.id,
+            status = LanDanmakuLoadStatus.READY,
+            source = LanDanmakuSource.NETWORK,
+            comments = listOf(LanDanmakuComment("comment-1", 1_000, "Hello")),
+            matchTitle = "Example Show",
+            episodeId = 123,
+            fetchedAtEpochMs = 456,
+        )
+        var resolverCalls = 0
+
+        try {
+            LocalLibraryServer(
+                port = 0,
+                pairingToken = "token with spaces",
+                danmakuResolver = LanDanmakuResolver { mediaId, mediaPath, forceRefresh ->
+                    resolverCalls += 1
+                    assertEquals(item.id, mediaId)
+                    assertEquals(mediaFile, mediaPath)
+                    assertTrue(forceRefresh)
+                    expectedTrack
+                },
+            ).use { server ->
+                server.publish(
+                    PublishedLibrary(
+                        catalog = LibraryCatalog("Example", 123, listOf(item)),
+                        filesById = mapOf(item.id to mediaFile),
+                    ),
+                )
+                server.start()
+
+                assertEquals(401, connection("${server.baseUrl()}/api/danmaku/episode+id").responseCode)
+                assertEquals(
+                    404,
+                    connection("${server.baseUrl()}/api/danmaku/missing?token=token+with+spaces").responseCode,
+                )
+
+                val response = connection(
+                    "${server.baseUrl()}/api/danmaku/episode+id?token=token+with+spaces&forceRefresh=true",
+                )
+
+                assertEquals(200, response.responseCode)
+                assertEquals("application/json; charset=utf-8", response.getHeaderField("Content-Type"))
+                assertEquals("no-store", response.getHeaderField("Cache-Control"))
+                assertEquals(
+                    expectedTrack,
+                    Json.decodeFromString<LanDanmakuTrack>(
+                        response.inputStream.bufferedReader().use { it.readText() },
+                    ),
+                )
+                assertEquals(1, resolverCalls)
+            }
+        } finally {
+            mediaFile.deleteIfExists()
+        }
+    }
+
+    @Test
+    fun reportsUnavailableDanmakuWhenResolverIsNotConfigured() {
+        val mediaFile = createTempFile("danmaku-server-core", ".mkv")
+        mediaFile.writeBytes(byteArrayOf(0, 1, 2))
+        val item = LibraryMediaItem(
+            id = "episode-id",
+            seriesTitle = "Example Show",
+            episodeTitle = "Episode 01",
+            relativePath = "Example Show/Episode 01.mkv",
+            sizeBytes = 3,
+            mediaType = "video/x-matroska",
+            streamPath = "/media/episode-id",
+        )
+
+        try {
+            LocalLibraryServer(port = 0, pairingToken = "123456").use { server ->
+                server.publish(
+                    PublishedLibrary(
+                        catalog = LibraryCatalog("Example", 123, listOf(item)),
+                        filesById = mapOf(item.id to mediaFile),
+                    ),
+                )
+                server.start()
+
+                val track = Json.decodeFromString<LanDanmakuTrack>(
+                    connection("${server.baseUrl()}/api/danmaku/${item.id}?token=123456")
+                        .inputStream
+                        .bufferedReader()
+                        .use { it.readText() },
+                )
+
+                assertEquals(item.id, track.mediaId)
+                assertEquals(LanDanmakuLoadStatus.UNAVAILABLE, track.status)
+                assertEquals("Danmaku resolver is not available.", track.message)
+            }
+        } finally {
+            mediaFile.deleteIfExists()
+        }
+    }
     @Test
     fun streamsOnlyPublishedSubtitleTracks() {
         val subtitleFile = createTempFile("danmaku-subtitle", ".srt")

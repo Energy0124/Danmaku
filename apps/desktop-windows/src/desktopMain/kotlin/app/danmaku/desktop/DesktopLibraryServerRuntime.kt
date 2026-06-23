@@ -90,6 +90,7 @@ class DesktopLibraryServerRuntime private constructor(
             catalogStore: DesktopLibraryCatalogStore,
             rootScanner: DesktopLibraryRootScanner,
             metadataResolver: DesktopAnimeMetadataResolver? = null,
+            dandanplayDanmakuResolver: DesktopDandanplayDanmakuResolver? = null,
             port: Int = LocalLibraryServer.DEFAULT_PORT,
             pairingToken: String? = null,
             aniRssWebhookToken: String,
@@ -131,6 +132,7 @@ class DesktopLibraryServerRuntime private constructor(
                         authenticatedPostHooks = listOf(hook),
                         publicGetHooks = publicGetHooks,
                         webAssets = webAssetsRoot?.let(::StaticWebAssets),
+                        danmakuResolver = dandanplayDanmakuResolver?.let(::DesktopLanDanmakuResolver),
                         eventSink = onServerEvent,
                     )
                 } else {
@@ -141,6 +143,7 @@ class DesktopLibraryServerRuntime private constructor(
                         authenticatedPostHooks = listOf(hook),
                         publicGetHooks = publicGetHooks,
                         webAssets = webAssetsRoot?.let(::StaticWebAssets),
+                        danmakuResolver = dandanplayDanmakuResolver?.let(::DesktopLanDanmakuResolver),
                         eventSink = onServerEvent,
                     )
                 }

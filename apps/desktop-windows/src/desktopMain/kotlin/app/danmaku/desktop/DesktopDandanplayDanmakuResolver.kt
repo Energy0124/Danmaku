@@ -140,6 +140,7 @@ class DesktopDandanplayDanmakuResolver(
             ),
             cachePath = cachePath,
             source = source,
+            events = track.events,
         )
         if (shouldPersist) {
             cacheStore?.saveDandanplayCommentCache(track.toCache(mediaId, fingerprint, cachePath, nowEpochMs()))
@@ -203,6 +204,7 @@ data class DesktopDandanplayDanmakuResolution(
     val subtitle: DesktopPlaybackSubtitle?,
     val cachePath: Path?,
     val source: DesktopDandanplayResolutionSource,
+    val events: List<DanmakuEvent> = emptyList(),
 )
 
 enum class DesktopDandanplayResolutionSource {

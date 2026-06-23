@@ -1,11 +1,16 @@
 package app.danmaku.library.android
 
 import app.danmaku.domain.LibraryCatalog
+import app.danmaku.domain.LanDanmakuComment
+import app.danmaku.domain.LanDanmakuLoadStatus
+import app.danmaku.domain.LanDanmakuSource
+import app.danmaku.domain.LanDanmakuTrack
 import app.danmaku.domain.LanLibraryServerStatus
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySubtitleTrack
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.library.LanLibraryClientException
+import app.danmaku.server.LanDanmakuResolver
 import app.danmaku.server.LocalLibraryServer
 import app.danmaku.server.PublishedLibrary
 import java.net.URI
@@ -54,9 +59,28 @@ class LanLibraryClientIntegrationTest {
             durationMs = 98_765,
             updatedAtEpochMs = 456,
         )
+        val danmakuTrack = LanDanmakuTrack(
+            mediaId = item.id,
+            status = LanDanmakuLoadStatus.READY,
+            source = LanDanmakuSource.CACHE,
+            comments = listOf(LanDanmakuComment("comment-1", 1_000, "Hello")),
+            matchTitle = "Example Show",
+        )
+        var danmakuForceRefreshRequests = 0
 
         try {
-            LocalLibraryServer(port = 0, pairingToken = "token with spaces").use { server ->
+            LocalLibraryServer(
+                port = 0,
+                pairingToken = "token with spaces",
+                danmakuResolver = LanDanmakuResolver { mediaId, mediaPath, forceRefresh ->
+                    assertEquals(item.id, mediaId)
+                    assertEquals(mediaFile, mediaPath)
+                    if (forceRefresh) {
+                        danmakuForceRefreshRequests += 1
+                    }
+                    danmakuTrack
+                },
+            ).use { server ->
                 server.publish(
                     PublishedLibrary(
                         catalog = catalog,
@@ -96,6 +120,16 @@ class LanLibraryClientIntegrationTest {
                     listOf(progress),
                     client.fetchAllProgress(server.baseUrl(), server.pairingToken),
                 )
+                assertEquals(
+                    danmakuTrack,
+                    client.fetchDanmaku(
+                        server.baseUrl(),
+                        item.id,
+                        server.pairingToken,
+                        forceRefresh = true,
+                    ),
+                )
+                assertEquals(1, danmakuForceRefreshRequests)
             }
         } finally {
             mediaFile.deleteIfExists()

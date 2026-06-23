@@ -2,29 +2,27 @@ package app.danmaku.tv
 
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.PlaybackCommand
+import app.danmaku.library.LanPlaybackPreparation
 import app.danmaku.library.LanPlaybackPreparer
 import app.danmaku.library.LanPlaybackProgressSync
 import app.danmaku.library.LanPlaybackTarget
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-internal suspend fun playTvLibraryItem(
-    controller: TvPlaybackController,
+internal suspend fun prepareTvLibraryItem(
     progressSync: LanPlaybackProgressSync,
     playbackPreparer: LanPlaybackPreparer,
-    baseUrl: String,
-    pairingToken: String,
+    target: LanPlaybackTarget,
     item: LibraryMediaItem,
     onResumeLookupFailure: (Throwable) -> Unit,
-) {
-    val target = LanPlaybackTarget(baseUrl, pairingToken, item.id)
+): LanPlaybackPreparation {
     val resumePosition = runCatching {
         withContext(Dispatchers.IO) {
             progressSync.fetchResumePositionMs(target)
         }
     }.onFailure(onResumeLookupFailure)
         .getOrNull()
-    val preparation = withContext(Dispatchers.IO) {
+    return withContext(Dispatchers.IO) {
         playbackPreparer.prepare(
             baseUrl = target.baseUrl,
             pairingToken = target.pairingToken,
@@ -32,9 +30,18 @@ internal suspend fun playTvLibraryItem(
             resumePositionMs = resumePosition,
         )
     }
+}
+
+internal fun loadPreparedTvLibraryItem(
+    controller: TvPlaybackController,
+    preparation: LanPlaybackPreparation,
+) {
     controller.load(preparation)
     preparation.resumePositionMs?.let {
         controller.dispatch(PlaybackCommand.SeekTo(it))
     }
+}
+
+internal fun startLoadedTvLibraryItem(controller: TvPlaybackController) {
     controller.dispatch(PlaybackCommand.Play)
 }

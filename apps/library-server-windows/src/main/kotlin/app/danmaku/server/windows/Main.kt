@@ -320,6 +320,13 @@ internal class HeadlessLibraryServer(
             webAssets = options.webAssetsRoot?.let(::StaticWebAssets),
             hostMode = LanLibraryServerStatus.HOST_MODE_HEADLESS_SERVER,
             providerSettings = serverSettings.toLanProviderSettingsStatus(),
+            danmakuResolver = { mediaId, mediaPath, _ ->
+                dandanplayProviderService.resolve(
+                    mediaPath = mediaPath.toAbsolutePath().normalize(),
+                    preferredEpisodeId = null,
+                    withRelated = true,
+                ).toLanDanmakuTrack(mediaId)
+            },
         )
 }
 

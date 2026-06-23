@@ -3,6 +3,8 @@ package app.danmaku.server.windows
 import app.danmaku.domain.DanmakuEvent
 import app.danmaku.domain.DanmakuMode
 import app.danmaku.domain.LibraryCatalog
+import app.danmaku.domain.LanDanmakuLoadStatus
+import app.danmaku.domain.LanDanmakuTrack
 import app.danmaku.provider.dandanplay.DandanplayCommentTrack
 import app.danmaku.provider.dandanplay.DandanplayMatch
 import app.danmaku.provider.dandanplay.DandanplayMediaFingerprint
@@ -29,6 +31,7 @@ class HeadlessDandanplayProviderTest {
         val media = root.resolve("Example Show").createDirectories().resolve("Episode 01.mkv")
         media.writeBytes("hello".encodeToByteArray())
         val capturedPaths = mutableListOf<Path>()
+        val capturedRequests = mutableListOf<Pair<Long?, Boolean>>()
         val service = object : HeadlessDandanplayProviderService {
             override fun resolve(
                 mediaPath: Path,
@@ -36,9 +39,8 @@ class HeadlessDandanplayProviderTest {
                 withRelated: Boolean,
             ): HeadlessDandanplayResolveResult {
                 capturedPaths.add(mediaPath)
+                capturedRequests.add(preferredEpisodeId to withRelated)
                 assertEquals(media.toAbsolutePath().normalize(), mediaPath)
-                assertEquals(222L, preferredEpisodeId)
-                assertEquals(false, withRelated)
                 val match = DandanplayMatch(
                     episodeId = 222,
                     animeId = 333,
@@ -114,6 +116,7 @@ class HeadlessDandanplayProviderTest {
                 ).jsonObject
 
                 assertEquals(listOf(media.toAbsolutePath().normalize()), capturedPaths)
+                assertEquals(listOf<Pair<Long?, Boolean>>(222L to false), capturedRequests)
                 assertEquals(item.id, response["mediaId"]?.jsonPrimitive?.content)
                 assertEquals("Episode 01.mkv", response["fingerprint"]?.jsonObject?.get("fileName")?.jsonPrimitive?.content)
                 assertEquals(2, response["matches"]?.jsonArray?.size)
@@ -126,6 +129,22 @@ class HeadlessDandanplayProviderTest {
                         ?.get("style")?.jsonObject
                         ?.get("mode")?.jsonPrimitive?.content,
                 )
+
+                val danmaku = Json.decodeFromString<LanDanmakuTrack>(
+                    connection("$baseUrl/api/danmaku/${item.id}?token=123456")
+                        .inputStream
+                        .bufferedReader()
+                        .use { it.readText() },
+                )
+                assertEquals(LanDanmakuLoadStatus.READY, danmaku.status)
+                assertEquals(2, danmaku.comments.size)
+                assertEquals(222, danmaku.episodeId)
+                assertEquals("Example Anime - Episode 01", danmaku.matchTitle)
+                assertEquals(
+                    listOf(media.toAbsolutePath().normalize(), media.toAbsolutePath().normalize()),
+                    capturedPaths,
+                )
+                assertEquals(listOf<Pair<Long?, Boolean>>(222L to false, null to true), capturedRequests)
             }
         } finally {
             temp.toFile().deleteRecursively()

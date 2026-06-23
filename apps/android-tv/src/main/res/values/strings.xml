@@ -99,6 +99,7 @@
     <string name="action_volume_down">Vol -</string>
     <string name="action_volume_up_percent">Vol + %1$d%%</string>
     <string name="action_retry">Retry</string>
+    <string name="action_stop">Stop</string>
     <string name="playback_error_prefix">Playback connection error: %1$s</string>
     <string name="library_error_prefix">Library error: %1$s</string>
     <string name="selected_suffix">%1$s (selected)</string>

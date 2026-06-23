@@ -8,6 +8,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import app.danmaku.library.LanDanmakuLoader
 import app.danmaku.library.LanLibraryConnectionSession
 import app.danmaku.library.LanPlaybackPreparer
 import app.danmaku.library.LanPlaybackProgressSync
@@ -26,6 +27,7 @@ internal fun TvPlayerScreen() {
     }
     val libraryClient = remember { LanLibraryClient() }
     val libraryConnectionSession = remember(libraryClient) { LanLibraryConnectionSession(libraryClient) }
+    val danmakuLoader = remember(libraryClient) { LanDanmakuLoader(libraryClient) }
     val progressSync = remember(libraryClient) {
         LanPlaybackProgressSync(libraryClient, System::currentTimeMillis)
     }
@@ -60,6 +62,7 @@ internal fun TvPlayerScreen() {
         libraryConnectionSession,
         progressSync,
         playbackPreparer,
+        danmakuLoader,
         connectionStore,
         favoriteStore,
         libraryDiscovery,
@@ -70,6 +73,7 @@ internal fun TvPlayerScreen() {
             libraryConnectionSession = libraryConnectionSession,
             progressSync = progressSync,
             playbackPreparer = playbackPreparer,
+            danmakuLoader = danmakuLoader,
             connectionStore = connectionStore,
             favoriteStore = favoriteStore,
             libraryDiscovery = libraryDiscovery,

@@ -1,6 +1,8 @@
 package app.danmaku.server
 
 import app.danmaku.domain.LibraryMediaItem
+import app.danmaku.domain.LanDanmakuLoadStatus
+import app.danmaku.domain.LanDanmakuTrack
 import app.danmaku.domain.LanLibraryServerStatus
 import app.danmaku.domain.LanProviderSettingsStatus
 import app.danmaku.domain.PlaybackProgress
@@ -30,6 +32,7 @@ class LocalLibraryServer(
     private val webAssets: StaticWebAssets? = null,
     private val hostMode: String = LanLibraryServerStatus.HOST_MODE_EMBEDDED_DESKTOP,
     private val providerSettings: LanProviderSettingsStatus? = null,
+    private val danmakuResolver: LanDanmakuResolver? = null,
     private val eventSink: (LocalLibraryServerEvent) -> Unit = {},
 ) : AutoCloseable {
     private val server = HttpServer.create(InetSocketAddress(port), 0)
@@ -62,6 +65,7 @@ class LocalLibraryServer(
         server.createContext("/api/library", ::handleCatalog)
         server.createContext("/api/progress", ::handleProgressList)
         server.createContext("/api/progress/", ::handleProgress)
+        server.createContext("/api/danmaku/", ::handleDanmaku)
         server.createContext("/media/", ::handleMedia)
         server.createContext("/subtitles/", ::handleSubtitle)
         server.createContext("/posters/", ::handlePoster)
@@ -381,6 +385,65 @@ class LocalLibraryServer(
             .filter { it.mediaId in publishedIds }
         exchange.recordRequest("progress-list", 200, "items=${progress.size}")
         exchange.sendJson(Json.encodeToString(progress))
+    }
+
+    private fun handleDanmaku(exchange: HttpExchange) {
+        if (exchange.requestMethod != "GET") {
+            exchange.recordRequest("danmaku", 405, "method=${exchange.requestMethod}")
+            exchange.sendStatus(405)
+            return
+        }
+        if (!exchange.isAuthorized()) {
+            exchange.recordRequest("danmaku", 401, "unauthorized")
+            exchange.sendStatus(401)
+            return
+        }
+
+        val mediaId = exchange.requestURI.path
+            .removePrefix("/api/danmaku/")
+            .takeIf(String::isNotBlank)
+            ?.let { URLDecoder.decode(it, Charsets.UTF_8) }
+            ?.takeIf { id -> library.catalog.items.any { it.id == id } }
+        val mediaPath = mediaId?.let { library.filesById[it] }
+        if (mediaId == null || mediaPath == null || !Files.isRegularFile(mediaPath)) {
+            exchange.recordRequest("danmaku", 404, "unknown media")
+            exchange.sendStatus(404)
+            return
+        }
+
+        val resolver = danmakuResolver
+        if (resolver == null) {
+            exchange.recordRequest("danmaku", 200, "id=$mediaId; unavailable")
+            exchange.sendJson(
+                Json.encodeToString(
+                    LanDanmakuTrack(
+                        mediaId = mediaId,
+                        status = LanDanmakuLoadStatus.UNAVAILABLE,
+                        message = "Danmaku resolver is not available.",
+                    ),
+                ),
+            )
+            return
+        }
+
+        val forceRefresh = exchange.requestURI.rawQuery
+            .parseQueryParameters()["forceRefresh"]
+            ?.equals("true", ignoreCase = true) == true
+        val track = runCatching {
+            resolver.resolve(mediaId, mediaPath, forceRefresh)
+        }.getOrElse { error ->
+            LanDanmakuTrack(
+                mediaId = mediaId,
+                status = LanDanmakuLoadStatus.FAILED,
+                message = error.message ?: "Danmaku resolution failed.",
+            )
+        }
+        exchange.recordRequest(
+            "danmaku",
+            200,
+            "id=$mediaId; status=${track.status}; comments=${track.comments.size}",
+        )
+        exchange.sendJson(Json.encodeToString(track))
     }
 
     private fun handleAuthenticatedPostHook(
