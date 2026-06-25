@@ -37,6 +37,7 @@ internal class MobilePlayerState(
     var favoriteMediaIds by mutableStateOf(initialFavoriteMediaIds)
     var nowPlaying by mutableStateOf<LibraryMediaItem?>(null)
     var selectedTab by mutableStateOf(MobileTab.Home)
+    var isPlayerFullscreen by mutableStateOf(false)
 
     private val totalItems: List<LibraryMediaItem>
         get() = catalog?.items.orEmpty()
@@ -80,5 +81,6 @@ internal class MobilePlayerState(
             subtitleFilter = librarySubtitleFilter,
             favoriteMediaIds = favoriteMediaIds,
             favoriteFilter = libraryFavoriteFilter,
+            isPlayerFullscreen = isPlayerFullscreen,
         )
 }

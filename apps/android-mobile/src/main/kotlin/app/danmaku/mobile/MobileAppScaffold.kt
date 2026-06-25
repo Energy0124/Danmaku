@@ -34,6 +34,7 @@ internal data class MobileAppUiState(
     val subtitleFilter: LibrarySubtitleFilter,
     val favoriteMediaIds: Set<String>,
     val favoriteFilter: LibraryFavoriteFilter,
+    val isPlayerFullscreen: Boolean,
 )
 
 internal data class MobileAppActions(
@@ -62,6 +63,7 @@ internal data class MobileAppActions(
     val onSaveConnection: () -> Unit,
     val onDiscover: () -> Unit,
     val onRefresh: () -> Unit,
+    val onTogglePlayerFullscreen: () -> Unit,
 )
 
 @Composable
@@ -73,10 +75,12 @@ internal fun MobileAppScaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = AppBackground,
         bottomBar = {
-            MobileBottomBar(
-                selectedTab = state.selectedTab,
-                onTabSelected = actions.onTabSelected,
-            )
+            if (!state.isPlayerFullscreen) {
+                MobileBottomBar(
+                    selectedTab = state.selectedTab,
+                    onTabSelected = actions.onTabSelected,
+                )
+            }
         },
     ) { innerPadding ->
         when (state.selectedTab) {
@@ -100,6 +104,7 @@ internal fun MobileAppScaffold(
                 snapshot = state.snapshot,
                 nowPlaying = state.nowPlaying,
                 playbackError = state.playbackError,
+                isFullscreen = state.isPlayerFullscreen,
                 onOpen = actions.onOpenVideo,
                 onPlayPause = actions.onPlayPause,
                 onSeekTo = actions.onSeekTo,
@@ -107,6 +112,7 @@ internal fun MobileAppScaffold(
                 onSelectAudio = actions.onSelectAudio,
                 onSelectSubtitle = actions.onSelectSubtitle,
                 onBrowseLibrary = actions.onOpenLibrary,
+                onToggleFullscreen = actions.onTogglePlayerFullscreen,
             )
             MobileTab.Library -> LibraryPage(
                 contentPadding = innerPadding,

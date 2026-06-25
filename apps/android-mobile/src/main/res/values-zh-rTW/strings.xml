@@ -111,4 +111,6 @@
     <string name="subtitle_off">關閉</string>
     <string name="playback_error_prefix">播放連線錯誤：%1$s</string>
     <string name="library_error_prefix">媒體庫錯誤：%1$s</string>
+    <string name="action_fullscreen">全螢幕</string>
+    <string name="action_exit_fullscreen">離開全螢幕</string>
 </resources>

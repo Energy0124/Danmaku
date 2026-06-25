@@ -148,12 +148,14 @@ internal class MobilePlayerActionHandler(
         val activeController = state.controller
         if (activeController == null) {
             state.playbackError = "Player service is not connected yet."
+            state.isPlayerFullscreen = false
             return
         }
 
         val target = LanPlaybackTarget(state.serverUrl, state.pairingToken, item.id)
         state.nowPlaying = item
         state.selectedTab = MobileTab.Watch
+        state.isPlayerFullscreen = true
         scope.launch {
             val resumePosition = runCatching {
                 withContext(Dispatchers.IO) {
@@ -186,6 +188,7 @@ internal class MobilePlayerActionHandler(
 
     fun showLibraryItem(item: LibraryMediaItem) {
         state.librarySearchText = item.seriesTitle
+        state.isPlayerFullscreen = false
         state.selectedTab = MobileTab.Library
     }
 
@@ -224,13 +227,22 @@ internal class MobilePlayerActionHandler(
 
     fun toAppActions(): MobileAppActions =
         MobileAppActions(
-            onTabSelected = { state.selectedTab = it },
+            onTabSelected = {
+                state.isPlayerFullscreen = false
+                state.selectedTab = it
+            },
             onPlay = ::playEpisode,
             onPlayPause = ::togglePlayback,
             onOpenPlayer = { state.selectedTab = MobileTab.Watch },
-            onOpenLibrary = { state.selectedTab = MobileTab.Library },
+            onOpenLibrary = {
+                state.isPlayerFullscreen = false
+                state.selectedTab = MobileTab.Library
+            },
             onShowLibraryItem = ::showLibraryItem,
-            onConnect = { state.selectedTab = MobileTab.Connect },
+            onConnect = {
+                state.isPlayerFullscreen = false
+                state.selectedTab = MobileTab.Connect
+            },
             onOpenVideo = openVideoPicker,
             onSeekTo = { state.controller?.dispatch(PlaybackCommand.SeekTo(it)) },
             onSetVolume = { state.controller?.dispatch(PlaybackCommand.SetVolume(it)) },
@@ -249,5 +261,6 @@ internal class MobilePlayerActionHandler(
             onSaveConnection = ::saveConnection,
             onDiscover = ::discoverPc,
             onRefresh = ::refreshLibrary,
+            onTogglePlayerFullscreen = { state.isPlayerFullscreen = !state.isPlayerFullscreen },
         )
 }
