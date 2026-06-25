@@ -83,7 +83,10 @@ Status legend:
   bottom playback controls unreachable. Follow-up Computer Use QA against the
   rebuilt distributable verified fullscreen enter/exit restores to the original
   `1588x954` bounds at `(81,72)` with zero delta. Remaining work is manual
-  resize/aspect/track/hardware-decode/multi-display sign-off.
+  resize/aspect/track/hardware-decode/multi-display sign-off. Deferred follow-up:
+  add an automated app-window regression that launches playback, enters and
+  exits fullscreen, and asserts restored bounds match the pre-fullscreen
+  geometry.
 - `[x]` Complete Android mobile/tablet library viewport QA at phone and tablet
   sizes. The `Pixel_3a_API_34_extension_level_7_x86_64` phone emulator and
   `Danmaku_Tablet_API_34` Pixel Tablet emulator passed

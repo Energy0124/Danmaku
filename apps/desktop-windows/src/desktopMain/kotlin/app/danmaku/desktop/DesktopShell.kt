@@ -34,6 +34,7 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowState
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import app.danmaku.domain.ExternalAnimeMapping
 import app.danmaku.domain.ExternalAnimeTrackingPlan
 import app.danmaku.domain.PlaybackCommand
 import app.danmaku.domain.PlaybackSnapshot
@@ -47,8 +48,10 @@ import app.danmaku.library.jvm.JvmLanLibraryClient
 import app.danmaku.server.LocalLibraryDiscoveryAnnouncer
 import app.danmaku.server.LocalLibraryServerEvent
 import app.danmaku.server.PublicGetHookResponse
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.awt.Window as AwtWindow
 import java.nio.file.Files
 import java.nio.file.Path
@@ -255,7 +258,10 @@ internal fun DesktopShell(
         )
     }
     val legacySelectedLibraryRoot = remember { selectionStore.load() }
-    val libraryState = rememberDesktopShellLibraryState(rootRegistry, catalogStore, legacySelectedLibraryRoot)
+    val libraryState = rememberDesktopShellLibraryState()
+    var startupProgress by remember { mutableStateOf(DesktopStartupProgress.Initial) }
+    var startupLoadComplete by remember { mutableStateOf(false) }
+    var startupPublishHandled by remember { mutableStateOf(false) }
     var playbackSnapshot by remember(playbackController) { mutableStateOf(playbackController.snapshot()) }
     val desktopWindowState = rememberDesktopShellWindowState(
         awtWindow = awtWindow,
@@ -266,28 +272,14 @@ internal fun DesktopShell(
     )
     val isFullscreen = desktopWindowState.isFullscreen
     var videoAspectMode by remember(playbackController) { mutableStateOf(playbackController.videoAspectMode) }
-    val displayIndexedLibrary = remember(libraryState.indexedLibrary, libraryState.libraryMetadataVersion, animeMetadataResolver) {
-        libraryState.indexedLibrary?.withExternalAnimeMetadata(animeMetadataResolver)
-    }
+    var displayIndexedLibrary by remember { mutableStateOf<IndexedLocalLibrary?>(null) }
     val originalSeriesTitleByMediaId = remember(libraryState.indexedLibrary) {
         libraryState.indexedLibrary?.catalog?.items?.associate { item -> item.id to item.seriesTitle }.orEmpty()
     }
-    val seriesPosterById = remember(displayIndexedLibrary, libraryState.libraryMetadataVersion, animeMetadataResolver) {
-        loadSeriesPosterById(displayIndexedLibrary, animeMetadataResolver)
-    }
-    val externalAnimeMappings = remember(displayIndexedLibrary, libraryState.libraryMetadataVersion, catalogStore) {
-        displayIndexedLibrary
-            ?.catalog
-            ?.groupedSeries()
-            ?.flatMap { series -> catalogStore.loadExternalAnimeMappings(series.id) }
-            .orEmpty()
-    }
-    val externalAnimeItemMappingsByMediaId = remember(displayIndexedLibrary, libraryState.libraryMetadataVersion, catalogStore) {
-        displayIndexedLibrary
-            ?.catalog
-            ?.items
-            ?.associate { item -> item.id to catalogStore.loadExternalAnimeItemMappings(item.id) }
-            .orEmpty()
+    var seriesPosterById by remember { mutableStateOf<Map<String, Path?>>(emptyMap()) }
+    var externalAnimeMappings by remember { mutableStateOf<List<ExternalAnimeMapping>>(emptyList()) }
+    var externalAnimeItemMappingsByMediaId by remember {
+        mutableStateOf<Map<String, List<DesktopExternalAnimeItemMapping>>>(emptyMap())
     }
     val serverRuntime = remember(catalogStore, rootScanner, animeMetadataResolver, dandanplayDanmakuResolver, scope) {
         DesktopLibraryServerRuntime.start(
@@ -408,8 +400,13 @@ internal fun DesktopShell(
         )
     }
 
-    LaunchedEffect(libraryState.indexedLibrary, settingsState.dandanplaySettings.isFetchEnabled) {
-        libraryState.indexedLibrary?.let(libraryActions::refreshMissingSeriesPosters)
+    LaunchedEffect(startupLoadComplete, libraryState.indexedLibrary, settingsState.dandanplaySettings.isFetchEnabled) {
+        if (startupLoadComplete && libraryState.indexedLibrary != null && settingsState.dandanplaySettings.isFetchEnabled) {
+            appendDiagnostic(
+                "metadata",
+                "Deferred automatic missing poster refresh at startup; use Refresh metadata or rescan to fetch posters.",
+            )
+        }
     }
 
     LaunchedEffect(Unit) {
@@ -461,6 +458,212 @@ internal fun DesktopShell(
         )
     }
 
+    LaunchedEffect(catalogStore, rootRegistry, legacySelectedLibraryRoot) {
+        val timings = mutableListOf<DesktopStartupTiming>()
+
+        suspend fun <T> loadStep(
+            stage: String,
+            detail: String,
+            progress: Float,
+            block: () -> T,
+        ): T {
+            startupProgress = DesktopStartupProgress(
+                stage = stage,
+                detail = detail,
+                progress = progress,
+            )
+            val startedAtNanos = System.nanoTime()
+            return withContext(Dispatchers.IO) { block() }
+                .also {
+                    timings += DesktopStartupTiming(
+                        stage = stage,
+                        elapsedMillis = (System.nanoTime() - startedAtNanos) / 1_000_000,
+                    )
+                }
+        }
+
+        try {
+            val roots = loadStep(
+                stage = "Loading library roots",
+                detail = "Reading saved local folders",
+                progress = 0.14f,
+            ) {
+                rootRegistry.loadRoots()
+            }
+            val cachedLibrary = loadStep(
+                stage = "Loading cached catalog",
+                detail = if (roots.isEmpty()) {
+                    "Checking the last selected library"
+                } else {
+                    "Opening ${roots.size} registered library root(s)"
+                },
+                progress = 0.34f,
+            ) {
+                if (roots.isNotEmpty()) {
+                    catalogStore.loadRegisteredLibrary()
+                } else {
+                    legacySelectedLibraryRoot?.let(catalogStore::load)
+                }
+            }
+            val playbackProgresses = loadStep(
+                stage = "Loading watch progress",
+                detail = "Restoring continue-watching positions",
+                progress = 0.50f,
+            ) {
+                catalogStore.loadPlaybackProgress()
+            }
+            val favoriteIds = loadStep(
+                stage = "Loading local list state",
+                detail = "Restoring favorites, scores, and quality decisions",
+                progress = 0.64f,
+            ) {
+                catalogStore.loadFavoriteMediaIds()
+            }
+            val localListEntries = loadStep(
+                stage = "Loading local list state",
+                detail = "Restoring local anime list entries",
+                progress = 0.72f,
+            ) {
+                catalogStore.loadLocalAnimeListEntries()
+            }
+            val qualityDecisions = loadStep(
+                stage = "Loading quality state",
+                detail = "Restoring ignored and resolved library issues",
+                progress = 0.80f,
+            ) {
+                catalogStore.loadLibraryQualityIssueDecisions()
+            }
+            val downloads = loadStep(
+                stage = "Loading downloads",
+                detail = "Restoring queued download records",
+                progress = 0.86f,
+            ) {
+                catalogStore.loadDownloads()
+            }
+            val syncFailures = loadStep(
+                stage = "Loading external sync",
+                detail = "Restoring provider failures and readback entries",
+                progress = 0.92f,
+            ) {
+                catalogStore.loadExternalAnimeSyncFailures()
+            }
+            val externalEntries = loadStep(
+                stage = "Loading external sync",
+                detail = "Restoring provider list readback entries",
+                progress = 0.96f,
+            ) {
+                catalogStore.loadExternalAnimeListEntries()
+            }
+
+            libraryState.applySnapshot(
+                DesktopShellLibrarySnapshot(
+                    registeredRoots = roots,
+                    indexedLibrary = cachedLibrary,
+                    playbackProgresses = playbackProgresses,
+                    favoriteMediaIds = favoriteIds,
+                    localAnimeListEntries = localListEntries,
+                    libraryQualityIssueDecisions = qualityDecisions,
+                    downloadQueueItems = downloads,
+                    externalAnimeSyncFailures = syncFailures,
+                    externalAnimeListEntries = externalEntries,
+                ),
+            )
+            startupLoadComplete = true
+            val itemCount = cachedLibrary?.catalog?.items?.size ?: 0
+            val totalMillis = timings.sumOf(DesktopStartupTiming::elapsedMillis)
+            appendDiagnostic(
+                "startup",
+                "Loaded persisted desktop state in ${totalMillis}ms; " +
+                    "items=$itemCount, roots=${roots.size}, timings=" +
+                    timings.joinToString { timing -> "${timing.stage}=${timing.elapsedMillis}ms" },
+            )
+            startupProgress = DesktopStartupProgress(
+                stage = "Ready",
+                detail = "$itemCount episode${if (itemCount == 1) "" else "s"} loaded in ${totalMillis}ms",
+                progress = 1f,
+            )
+            delay(450)
+            startupProgress = DesktopStartupProgress.Hidden
+        } catch (error: Throwable) {
+            val message = error.message ?: error.javaClass.simpleName
+            libraryState.libraryError = "Startup load failed: $message"
+            startupLoadComplete = true
+            appendDiagnostic("startup", "Persisted startup load failed: $message")
+            startupProgress = DesktopStartupProgress(
+                stage = "Library cache unavailable",
+                detail = message,
+                progress = 1f,
+            )
+            delay(1_200)
+            startupProgress = DesktopStartupProgress.Hidden
+        }
+    }
+
+    LaunchedEffect(libraryState.indexedLibrary, libraryState.libraryMetadataVersion, animeMetadataResolver) {
+        val library = libraryState.indexedLibrary
+        if (library == null) {
+            displayIndexedLibrary = null
+            return@LaunchedEffect
+        }
+        displayIndexedLibrary = library
+        val startedAtNanos = System.nanoTime()
+        val enrichedLibrary = withContext(Dispatchers.IO) {
+            library.withExternalAnimeMetadata(animeMetadataResolver)
+        }
+        if (libraryState.indexedLibrary === library) {
+            displayIndexedLibrary = enrichedLibrary
+            appendDiagnostic(
+                "startup",
+                "Prepared cached metadata presentation in ${(System.nanoTime() - startedAtNanos) / 1_000_000}ms",
+            )
+        }
+    }
+
+    LaunchedEffect(displayIndexedLibrary, libraryState.libraryMetadataVersion, animeMetadataResolver) {
+        val library = displayIndexedLibrary
+        if (library == null) {
+            seriesPosterById = emptyMap()
+            return@LaunchedEffect
+        }
+        val startedAtNanos = System.nanoTime()
+        val posters = withContext(Dispatchers.IO) {
+            loadSeriesPosterById(library, animeMetadataResolver)
+        }
+        if (displayIndexedLibrary === library) {
+            seriesPosterById = posters
+            appendDiagnostic(
+                "startup",
+                "Loaded ${posters.size} series poster reference(s) in ${(System.nanoTime() - startedAtNanos) / 1_000_000}ms",
+            )
+        }
+    }
+
+    LaunchedEffect(displayIndexedLibrary, libraryState.libraryMetadataVersion, catalogStore) {
+        val library = displayIndexedLibrary
+        if (library == null) {
+            externalAnimeMappings = emptyList()
+            externalAnimeItemMappingsByMediaId = emptyMap()
+            return@LaunchedEffect
+        }
+        val startedAtNanos = System.nanoTime()
+        val mappings = withContext(Dispatchers.IO) {
+            library.catalog.groupedSeries()
+                .flatMap { series -> catalogStore.loadExternalAnimeMappings(series.id) }
+        }
+        val itemMappings = withContext(Dispatchers.IO) {
+            library.catalog.items
+                .associate { item -> item.id to catalogStore.loadExternalAnimeItemMappings(item.id) }
+        }
+        if (displayIndexedLibrary === library) {
+            externalAnimeMappings = mappings
+            externalAnimeItemMappingsByMediaId = itemMappings
+            appendDiagnostic(
+                "startup",
+                "Loaded ${mappings.size} series mapping(s) and ${itemMappings.size} item mapping bucket(s) " +
+                    "in ${(System.nanoTime() - startedAtNanos) / 1_000_000}ms",
+            )
+        }
+    }
     fun triggerPrimaryPageAction(): Boolean {
         return when (navigationState.selectedTab) {
             DesktopShellTab.HOME,
@@ -560,10 +763,31 @@ internal fun DesktopShell(
         localPlaybackActions.inspectCachedDandanplay(activeItem)
     }
 
-    LaunchedEffect(Unit) {
-        libraryState.indexedLibrary?.toPublishedLibrary(animeMetadataResolver)?.let(server::publish)
+    LaunchedEffect(startupLoadComplete, libraryState.indexedLibrary, libraryState.registeredRoots, launchOptions.qaLibraryRoot) {
+        if (!startupLoadComplete || startupPublishHandled) {
+            return@LaunchedEffect
+        }
+        startupPublishHandled = true
+        val cachedLibrary = libraryState.indexedLibrary
+        if (cachedLibrary != null) {
+            val publishedLibrary = withContext(Dispatchers.IO) {
+                cachedLibrary.toPublishedLibrary(animeMetadataResolver)
+            }
+            server.publish(publishedLibrary)
+            serverRuntime.recordPublishedLibrary(cachedLibrary.catalog.items.size)
+            appendDiagnostic(
+                "startup",
+                "Published cached library to LAN server: ${cachedLibrary.catalog.items.size} item(s)",
+            )
+        }
         when {
             launchOptions.qaLibraryRoot != null -> libraryActions.registerAndScanUserRoot(launchOptions.qaLibraryRoot)
+            libraryState.registeredRoots.isNotEmpty() && cachedLibrary?.catalog?.items?.isNotEmpty() == true -> {
+                appendDiagnostic(
+                    "startup",
+                    "Skipped automatic startup rescan because cached catalog is available; use Refresh to rescan registered roots.",
+                )
+            }
             libraryState.registeredRoots.isNotEmpty() -> libraryActions.rescanRegisteredRoots()
             else -> legacySelectedLibraryRoot?.let(libraryActions::registerAndScanUserRoot)
         }
@@ -686,7 +910,8 @@ internal fun DesktopShell(
                 .onPreviewKeyEvent(::handleDesktopShellShortcut),
             color = DanmakuColors.Background,
         ) {
-            Row(modifier = Modifier.fillMaxSize()) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                Row(modifier = Modifier.fillMaxSize()) {
                 val showAppChrome = !isFullscreen && navigationState.selectedTab != DesktopShellTab.PLAYBACK
                 if (showAppChrome) {
                     AppNavigationRail(
@@ -995,6 +1220,10 @@ internal fun DesktopShell(
                             onTestLocalServerConnection = settingsActions::testLocalServerConnection,
                         )
                     }
+                }
+            }
+                if (startupProgress.isVisible && !isFullscreen) {
+                    DesktopStartupSplash(progress = startupProgress)
                 }
             }
         }
