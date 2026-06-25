@@ -62,6 +62,7 @@ import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.PlaybackSource
 import app.danmaku.domain.PlaybackStatus
+import app.danmaku.library.LanDanmakuLoader
 import app.danmaku.library.LanLibraryConnectionSession
 import app.danmaku.library.LanPlaybackPreparer
 import app.danmaku.library.LanPlaybackProgressSync
@@ -129,6 +130,7 @@ private fun MobilePlayerScreen() {
         LanPlaybackProgressSync(libraryClient, System::currentTimeMillis)
     }
     val playbackPreparer = remember(libraryClient) { LanPlaybackPreparer(libraryClient) }
+    val danmakuLoader = remember(libraryClient) { LanDanmakuLoader(libraryClient) }
     val connectionStore = remember(context) {
         AndroidLanLibraryConnectionStore(context.applicationContext)
     }
@@ -147,6 +149,9 @@ private fun MobilePlayerScreen() {
         uri ?: return@rememberLauncherForActivityResult
         appState.controller?.let {
             appState.nowPlaying = null
+            appState.activePlaybackTarget = null
+            appState.danmakuState = MobileDanmakuState.Idle
+            appState.playbackStartupPhase = MobilePlaybackStartupPhase.Playing
             it.load(PlaybackSource.LocalFile(uri.toString()))
             appState.snapshot = it.snapshot()
         }
@@ -157,6 +162,7 @@ private fun MobilePlayerScreen() {
         libraryConnectionSession,
         progressSync,
         playbackPreparer,
+        danmakuLoader,
         connectionStore,
         favoriteStore,
         discoveryClient,
@@ -167,6 +173,7 @@ private fun MobilePlayerScreen() {
             libraryConnectionSession = libraryConnectionSession,
             progressSync = progressSync,
             playbackPreparer = playbackPreparer,
+            danmakuLoader = danmakuLoader,
             connectionStore = connectionStore,
             favoriteStore = favoriteStore,
             discoveryClient = discoveryClient,

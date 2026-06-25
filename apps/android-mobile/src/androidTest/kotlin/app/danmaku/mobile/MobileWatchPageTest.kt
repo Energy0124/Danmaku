@@ -7,6 +7,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -61,7 +62,7 @@ class MobileWatchPageTest {
         composeRule.onNodeWithTag("watch-video-surface").assertExists()
         composeRule.onNodeWithTag("now-playing-panel").assertExists()
         composeRule.onNodeWithText("Ready to play").assertExists()
-        composeRule.onAllNodesWithText("No episode selected").assertCountEquals(2)
+        composeRule.onAllNodesWithText("No episode selected").assertCountEquals(1)
         composeRule.onNodeWithText("Select a video to start watching").assertExists()
         composeRule.onNodeWithTag("watch-play-pause").assertIsNotEnabled()
 
@@ -132,11 +133,11 @@ class MobileWatchPageTest {
         }
 
         composeRule.onNodeWithText("Example Show · Episode 01").assertExists()
-        composeRule.onAllNodesWithText("Episode 01").assertCountEquals(2)
+        composeRule.onAllNodesWithText("Episode 01").assertCountEquals(1)
         composeRule.onAllNodesWithText("Paused").assertCountEquals(2)
         composeRule.onNodeWithText("1:00").assertExists()
         composeRule.onNodeWithText("20:00").assertExists()
-        composeRule.onNodeWithText("Volume 40%").assertExists()
+        composeRule.onNodeWithText("40%").assertExists()
         composeRule.onNodeWithText("Audio").assertExists()
         composeRule.onNodeWithText("Subtitles").assertExists()
 
@@ -190,7 +191,7 @@ class MobileWatchPageTest {
         }
 
         composeRule.onAllNodesWithText("Playing").assertCountEquals(2)
-        composeRule.onNodeWithText("Pause").assertExists()
+        composeRule.onNodeWithTag("watch-play-pause").assertExists()
         composeRule.onNodeWithText("Playback connection error: Transient test error").assertExists()
         composeRule.onNodeWithTag("watch-play-pause")
             .performScrollTo()
@@ -208,6 +209,49 @@ class MobileWatchPageTest {
             assertEquals(1, playPauseCount)
             assertEquals(70_000L, seekTarget)
             assertEquals(50, volumeTarget)
+            assertEquals(1, fullscreenToggleCount)
+        }
+    }
+
+    @Test
+    fun fullscreenPlayerUsesStandaloneVideoStage() {
+        var fullscreenToggleCount = 0
+
+        composeRule.setContent {
+            MaterialTheme {
+                WatchPage(
+                    contentPadding = PaddingValues(0.dp),
+                    controller = null,
+                    snapshot = PlaybackSnapshot(
+                        status = PlaybackStatus.PLAYING,
+                        source = PlaybackSource.RemoteStream("http://pc.local/media/example-1"),
+                        position = PlaybackPosition(positionMs = 60_000, durationMs = 1_200_000),
+                        volumePercent = 40,
+                    ),
+                    nowPlaying = seededItem(),
+                    playbackError = null,
+                    isFullscreen = true,
+                    onOpen = {},
+                    onPlayPause = {},
+                    onSeekTo = {},
+                    onSetVolume = {},
+                    onSelectAudio = {},
+                    onSelectSubtitle = {},
+                    onBrowseLibrary = {},
+                    onToggleFullscreen = { fullscreenToggleCount += 1 },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("watch-player-home").assertExists()
+        composeRule.onNodeWithTag("watch-video-surface").assertExists()
+        composeRule.onNodeWithTag("watch-danmaku-overlay", useUnmergedTree = true).assertExists()
+        composeRule.onAllNodesWithTag("now-playing-panel").assertCountEquals(0)
+        composeRule.onAllNodesWithTag("watch-library-actions").assertCountEquals(0)
+        composeRule.onNodeWithTag("watch-fullscreen-toggle")
+            .performSemanticsAction(SemanticsActions.OnClick)
+
+        composeRule.runOnIdle {
             assertEquals(1, fullscreenToggleCount)
         }
     }

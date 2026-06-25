@@ -1,15 +1,20 @@
 package app.danmaku.mobile
 
+import android.graphics.Paint
+
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.withInfiniteAnimationFrameNanos
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
@@ -52,31 +57,45 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
+import app.danmaku.domain.DanmakuEvent
+import app.danmaku.domain.DanmakuMode
+import app.danmaku.domain.DanmakuSize
+import app.danmaku.domain.MeasuredDanmakuEvent
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.PlaybackStatus
 import app.danmaku.domain.PlaybackTrack
 import app.danmaku.domain.PlaybackTrackKind
+import app.danmaku.domain.ScrollingDanmakuLaneScheduler
+import app.danmaku.domain.ScrollingDanmakuLayoutConfig
 import app.danmaku.domain.coerceSeekTarget
 import app.danmaku.domain.seekTargetBy
 import app.danmaku.player.android.Media3PlaybackController
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 
 @Composable
 internal fun WatchPage(
@@ -86,6 +105,8 @@ internal fun WatchPage(
     nowPlaying: LibraryMediaItem?,
     playbackError: String?,
     isFullscreen: Boolean,
+    danmakuState: MobileDanmakuState = MobileDanmakuState.Idle,
+    playbackStartupPhase: MobilePlaybackStartupPhase = MobilePlaybackStartupPhase.Idle,
     onOpen: () -> Unit,
     onPlayPause: () -> Unit,
     onSeekTo: (Long) -> Unit,
@@ -103,6 +124,8 @@ internal fun WatchPage(
             snapshot = snapshot,
             nowPlaying = nowPlaying,
             isFullscreen = true,
+            danmakuState = danmakuState,
+            playbackStartupPhase = playbackStartupPhase,
             onOpen = onOpen,
             onPlayPause = onPlayPause,
             onSeekTo = onSeekTo,
@@ -126,6 +149,8 @@ internal fun WatchPage(
                     snapshot = snapshot,
                     nowPlaying = nowPlaying,
                     isFullscreen = false,
+                    danmakuState = danmakuState,
+                    playbackStartupPhase = playbackStartupPhase,
                     onOpen = onOpen,
                     onPlayPause = onPlayPause,
                     onSeekTo = onSeekTo,
@@ -184,6 +209,8 @@ private fun PlayerStage(
     snapshot: PlaybackSnapshot,
     nowPlaying: LibraryMediaItem?,
     isFullscreen: Boolean,
+    danmakuState: MobileDanmakuState,
+    playbackStartupPhase: MobilePlaybackStartupPhase,
     onOpen: () -> Unit,
     onPlayPause: () -> Unit,
     onSeekTo: (Long) -> Unit,
@@ -193,6 +220,7 @@ private fun PlayerStage(
 ) {
     var controlsVisible by remember(snapshot.source, isFullscreen) { mutableStateOf(true) }
     val hasSource = snapshot.source != null
+    val player = controller?.player
 
     LaunchedEffect(controlsVisible, snapshot.status, hasSource, isFullscreen) {
         if (controlsVisible && hasSource && snapshot.status == PlaybackStatus.PLAYING) {
@@ -204,30 +232,46 @@ private fun PlayerStage(
     Box(
         modifier = modifier
             .background(PlayerBlack)
-            .testTag("watch-video-surface")
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
             ) { controlsVisible = !controlsVisible },
     ) {
-        AndroidView(
-            factory = {
-                PlayerView(it).apply {
-                    useController = false
-                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-                    setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
-                }
-            },
-            update = {
-                it.player = controller?.player
-                it.keepScreenOn = snapshot.status == PlaybackStatus.PLAYING
-            },
-            modifier = Modifier.fillMaxSize(),
-        )
+        key(player, isFullscreen) {
+            AndroidView(
+                factory = {
+                    PlayerView(it).apply {
+                        useController = false
+                        resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                        setEnableComposeSurfaceSyncWorkaround(true)
+                        setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .testTag("watch-video-surface"),
+                onReset = { view ->
+                    view.player = null
+                    view.keepScreenOn = false
+                },
+                onRelease = { view ->
+                    view.player = null
+                    view.keepScreenOn = false
+                },
+                update = { view ->
+                    if (view.player !== player) {
+                        view.player = player
+                    }
+                    view.keepScreenOn = snapshot.status == PlaybackStatus.PLAYING
+                    view.requestLayout()
+                },
+            )
+        }
 
-        DanmakuOverlayLayer(
-            enabled = hasSource,
-            controlsVisible = controlsVisible,
+        MobileDanmakuOverlay(
+            events = danmakuState.events,
+            snapshot = snapshot,
+            isFullscreen = isFullscreen,
             modifier = Modifier.fillMaxSize(),
         )
 
@@ -244,16 +288,29 @@ private fun PlayerStage(
             exit = fadeOut(),
             modifier = Modifier.fillMaxSize(),
         ) {
-            PlayerChrome(
-                snapshot = snapshot,
-                nowPlaying = nowPlaying,
-                isFullscreen = isFullscreen,
-                onOpen = onOpen,
-                onPlayPause = onPlayPause,
-                onSeekTo = onSeekTo,
-                onSetVolume = onSetVolume,
-                onToggleFullscreen = onToggleFullscreen,
-            )
+            if (isFullscreen) {
+                PlayerChrome(
+                    snapshot = snapshot,
+                    nowPlaying = nowPlaying,
+                    danmakuState = danmakuState,
+                    playbackStartupPhase = playbackStartupPhase,
+                    onOpen = onOpen,
+                    onPlayPause = onPlayPause,
+                    onSeekTo = onSeekTo,
+                    onSetVolume = onSetVolume,
+                    onToggleFullscreen = onToggleFullscreen,
+                )
+            } else {
+                InlinePlayerChrome(
+                    snapshot = snapshot,
+                    nowPlaying = nowPlaying,
+                    onOpen = onOpen,
+                    onPlayPause = onPlayPause,
+                    onSeekTo = onSeekTo,
+                    onSetVolume = onSetVolume,
+                    onToggleFullscreen = onToggleFullscreen,
+                )
+            }
         }
     }
 }
@@ -262,7 +319,8 @@ private fun PlayerStage(
 private fun PlayerChrome(
     snapshot: PlaybackSnapshot,
     nowPlaying: LibraryMediaItem?,
-    isFullscreen: Boolean,
+    danmakuState: MobileDanmakuState,
+    playbackStartupPhase: MobilePlaybackStartupPhase,
     onOpen: () -> Unit,
     onPlayPause: () -> Unit,
     onSeekTo: (Long) -> Unit,
@@ -273,7 +331,9 @@ private fun PlayerChrome(
         PlayerTopChrome(
             snapshot = snapshot,
             nowPlaying = nowPlaying,
-            isFullscreen = isFullscreen,
+            isFullscreen = true,
+            danmakuState = danmakuState,
+            playbackStartupPhase = playbackStartupPhase,
             onToggleFullscreen = onToggleFullscreen,
             modifier = Modifier.align(Alignment.TopCenter),
         )
@@ -286,7 +346,7 @@ private fun PlayerChrome(
         PlayerBottomChrome(
             snapshot = snapshot,
             nowPlaying = nowPlaying,
-            isFullscreen = isFullscreen,
+            isFullscreen = true,
             onOpen = onOpen,
             onSeekTo = onSeekTo,
             onSetVolume = onSetVolume,
@@ -295,12 +355,146 @@ private fun PlayerChrome(
         )
     }
 }
+@Composable
+private fun InlinePlayerChrome(
+    snapshot: PlaybackSnapshot,
+    nowPlaying: LibraryMediaItem?,
+    onOpen: () -> Unit,
+    onPlayPause: () -> Unit,
+    onSeekTo: (Long) -> Unit,
+    onSetVolume: (Int) -> Unit,
+    onToggleFullscreen: () -> Unit,
+) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .background(
+                    Brush.verticalGradient(
+                        0f to Color.Black.copy(alpha = 0.72f),
+                        1f to Color.Transparent,
+                    ),
+                )
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    nowPlaying?.seriesTitle ?: "Danmaku",
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    snapshot.sourceLabel(nowPlaying),
+                    color = Color.White.copy(alpha = 0.7f),
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            OverlayPill(label = snapshot.status.displayLabel())
+        }
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .background(
+                    Brush.verticalGradient(
+                        0f to Color.Transparent,
+                        1f to Color.Black.copy(alpha = 0.84f),
+                    ),
+                )
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            PlaybackSeekControls(snapshot = snapshot, onSeekTo = onSeekTo)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                InlinePlayerIconButton(
+                    onClick = onOpen,
+                    enabled = true,
+                    icon = Icons.Filled.FolderOpen,
+                    contentDescription = stringResource(R.string.action_open_video),
+                    modifier = Modifier.testTag("watch-open-video-toolbar"),
+                )
+                InlinePlayerIconButton(
+                    onClick = { onSeekTo(snapshot.position.seekTargetBy(-10_000)) },
+                    enabled = snapshot.source != null,
+                    icon = Icons.Filled.Replay10,
+                    contentDescription = "-10s",
+                    modifier = Modifier.testTag("watch-seek:-10s"),
+                )
+                InlinePlayerIconButton(
+                    onClick = onPlayPause,
+                    enabled = snapshot.source != null,
+                    icon = if (snapshot.status == PlaybackStatus.PLAYING) {
+                        Icons.Filled.Pause
+                    } else {
+                        Icons.Filled.PlayArrow
+                    },
+                    contentDescription = if (snapshot.status == PlaybackStatus.PLAYING) {
+                        stringResource(R.string.action_pause)
+                    } else {
+                        stringResource(R.string.action_play)
+                    },
+                    modifier = Modifier.testTag("watch-play-pause"),
+                    isPrimary = true,
+                )
+                InlinePlayerIconButton(
+                    onClick = { onSeekTo(snapshot.position.seekTargetBy(10_000)) },
+                    enabled = snapshot.source != null,
+                    icon = Icons.Filled.Forward10,
+                    contentDescription = "+10s",
+                    modifier = Modifier.testTag("watch-seek:+10s"),
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                InlinePlayerIconButton(
+                    onClick = { onSetVolume((snapshot.volumePercent - 10).coerceAtLeast(0)) },
+                    enabled = snapshot.source != null && snapshot.volumePercent > 0,
+                    icon = Icons.AutoMirrored.Filled.VolumeDown,
+                    contentDescription = null,
+                    modifier = Modifier.testTag("watch-volume-down"),
+                )
+                Text(
+                    "${snapshot.volumePercent}%",
+                    color = Color.White.copy(alpha = 0.78f),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.widthIn(min = 32.dp),
+                )
+                InlinePlayerIconButton(
+                    onClick = { onSetVolume((snapshot.volumePercent + 10).coerceAtMost(100)) },
+                    enabled = snapshot.source != null && snapshot.volumePercent < 100,
+                    icon = Icons.AutoMirrored.Filled.VolumeUp,
+                    contentDescription = null,
+                    modifier = Modifier.testTag("watch-volume-up"),
+                )
+                InlinePlayerIconButton(
+                    onClick = onToggleFullscreen,
+                    enabled = true,
+                    icon = Icons.Filled.Fullscreen,
+                    contentDescription = stringResource(R.string.action_fullscreen),
+                    modifier = Modifier.testTag("watch-fullscreen-toggle"),
+                )
+            }
+        }
+    }
+}
 
 @Composable
 private fun PlayerTopChrome(
     snapshot: PlaybackSnapshot,
     nowPlaying: LibraryMediaItem?,
     isFullscreen: Boolean,
+    danmakuState: MobileDanmakuState,
+    playbackStartupPhase: MobilePlaybackStartupPhase,
     onToggleFullscreen: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -342,9 +536,9 @@ private fun PlayerTopChrome(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        if (snapshot.source != null) {
+        mobileDanmakuStatusLabel(danmakuState, playbackStartupPhase)?.let {
             OverlayPill(
-                label = "Danmaku",
+                label = it,
                 icon = Icons.Filled.ClosedCaption,
             )
             Spacer(modifier = Modifier.width(8.dp))
@@ -550,45 +744,215 @@ private fun EmptyPlayerOverlay(
 }
 
 @Composable
-private fun DanmakuOverlayLayer(
-    enabled: Boolean,
-    controlsVisible: Boolean,
+private fun MobileDanmakuOverlay(
+    events: List<DanmakuEvent>,
+    snapshot: PlaybackSnapshot,
+    isFullscreen: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    Box(
-        modifier = modifier.testTag("watch-danmaku-overlay"),
-    ) {
-        if (enabled && controlsVisible) {
-            Surface(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 56.dp, end = 14.dp),
-                shape = CircleShape,
-                color = Color.Black.copy(alpha = 0.46f),
-                border = BorderStroke(1.dp, AccentBlue.copy(alpha = 0.42f)),
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.ClosedCaption,
-                        contentDescription = null,
-                        tint = AccentBlue,
-                        modifier = Modifier.size(14.dp),
+    BoxWithConstraints(modifier = modifier.testTag("watch-danmaku-overlay")) {
+        if (events.isEmpty()) return@BoxWithConstraints
+
+        val playbackClock = rememberMobileDanmakuPlaybackClock(snapshot)
+        val density = LocalDensity.current
+        val baseTextSizePx = with(density) {
+            if (isFullscreen) 22.sp.toPx() else 13.sp.toPx()
+        }
+        val widthPx = with(density) { maxWidth.toPx() }.coerceAtLeast(1f)
+        val heightPx = with(density) { maxHeight.toPx() }.coerceAtLeast(1f)
+        val laneHeightPx = baseTextSizePx * 1.55f
+        val laneCoverage = if (isFullscreen) 0.44f else 0.36f
+        val maxLaneCount = if (isFullscreen) 8 else 3
+        val laneCount = ((heightPx * laneCoverage) / laneHeightPx)
+            .toInt()
+            .coerceAtLeast(1)
+            .coerceAtMost(maxLaneCount)
+        val fillPaint = remember(baseTextSizePx) {
+            Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                textAlign = Paint.Align.LEFT
+                textSize = baseTextSizePx
+                color = android.graphics.Color.WHITE
+            }
+        }
+        val strokePaint = remember(baseTextSizePx, isFullscreen) {
+            Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                textAlign = Paint.Align.LEFT
+                textSize = baseTextSizePx
+                style = Paint.Style.STROKE
+                strokeWidth = if (isFullscreen) 3.5f else 2.5f
+                color = android.graphics.Color.BLACK
+            }
+        }
+        val schedule = remember(events, widthPx, laneCount, baseTextSizePx, isFullscreen) {
+            val measuredEvents = events
+                .filter { it.style.mode == DanmakuMode.SCROLLING }
+                .map { event ->
+                    fillPaint.textSize = baseTextSizePx * event.style.size.scaleFactor()
+                    MeasuredDanmakuEvent(
+                        event = event,
+                        widthPx = fillPaint.measureText(event.text),
                     )
-                    Text(
-                        "Danmaku",
-                        color = Color.White,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.SemiBold,
-                    )
+                }
+            ScrollingDanmakuLaneScheduler.schedule(
+                events = measuredEvents,
+                config = ScrollingDanmakuLayoutConfig(
+                    viewportWidthPx = widthPx,
+                    laneCount = laneCount,
+                    travelDurationMs = if (isFullscreen) 8_000 else 6_500,
+                    horizontalGapPx = baseTextSizePx,
+                ),
+            )
+        }
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val positionMs = playbackClock.positionMs()
+            val visibleScrolling = schedule.visibleAt(positionMs)
+            val fixedEvents = events.filter { event ->
+                event.style.mode != DanmakuMode.SCROLLING &&
+                    positionMs in event.timestampMs until event.timestampMs + FIXED_DANMAKU_DURATION_MS
+            }
+            drawIntoCanvas { canvas ->
+                visibleScrolling.forEach { placement ->
+                    val event = placement.event
+                    val textSize = baseTextSizePx * event.style.size.scaleFactor()
+                    fillPaint.textSize = textSize
+                    fillPaint.color = event.style.colorArgb.toInt()
+                    strokePaint.textSize = textSize
+                    val x = placement.leftEdgeAt(positionMs)
+                    val y = laneHeightPx * (placement.laneIndex + 1)
+                    canvas.nativeCanvas.drawText(event.text, x, y, strokePaint)
+                    canvas.nativeCanvas.drawText(event.text, x, y, fillPaint)
+                }
+                fixedEvents.forEachIndexed { index, event ->
+                    val textSize = baseTextSizePx * event.style.size.scaleFactor()
+                    fillPaint.textSize = textSize
+                    fillPaint.color = event.style.colorArgb.toInt()
+                    strokePaint.textSize = textSize
+                    val measuredWidth = fillPaint.measureText(event.text)
+                    val x = (size.width - measuredWidth) / 2f
+                    val y = when (event.style.mode) {
+                        DanmakuMode.TOP -> laneHeightPx * (index + 1)
+                        DanmakuMode.BOTTOM -> size.height - laneHeightPx * (index + 1)
+                        DanmakuMode.SCROLLING -> 0f
+                    }
+                    canvas.nativeCanvas.drawText(event.text, x, y, strokePaint)
+                    canvas.nativeCanvas.drawText(event.text, x, y, fillPaint)
                 }
             }
         }
     }
 }
+
+@Composable
+private fun rememberMobileDanmakuPlaybackClock(snapshot: PlaybackSnapshot): MobileDanmakuPlaybackClock {
+    val clock = remember { MobileDanmakuPlaybackClock(snapshot) }
+
+    LaunchedEffect(
+        clock,
+        snapshot.position.positionMs,
+        snapshot.position.durationMs,
+        snapshot.status,
+        snapshot.playbackRate,
+    ) {
+        val frameNanos = withFrameNanos { it }
+        clock.anchorTo(snapshot, frameNanos)
+    }
+
+    LaunchedEffect(clock, snapshot.status) {
+        if (snapshot.status != PlaybackStatus.PLAYING) return@LaunchedEffect
+
+        val firstFrameNanos = withFrameNanos { it }
+        clock.anchorTo(snapshot, firstFrameNanos)
+
+        while (isActive) {
+            clock.frameTimeNanos = withInfiniteAnimationFrameNanos { it }
+        }
+    }
+
+    return clock
+}
+
+private class MobileDanmakuPlaybackClock(snapshot: PlaybackSnapshot) {
+    var frameTimeNanos by mutableLongStateOf(0L)
+    private var anchor by mutableStateOf(MobileDanmakuClockAnchor.fromSnapshot(snapshot, frameTimeNanos))
+
+    fun anchorTo(
+        snapshot: PlaybackSnapshot,
+        frameTimeNanos: Long,
+    ) {
+        anchor = MobileDanmakuClockAnchor.fromSnapshot(snapshot, frameTimeNanos)
+        this.frameTimeNanos = frameTimeNanos
+    }
+
+    fun positionMs(): Long = anchor.positionAt(frameTimeNanos)
+}
+
+private data class MobileDanmakuClockAnchor(
+    val positionMs: Long,
+    val durationMs: Long?,
+    val status: PlaybackStatus,
+    val playbackRate: Float,
+    val frameTimeNanos: Long,
+) {
+    fun positionAt(frameTimeNanos: Long): Long {
+        if (status != PlaybackStatus.PLAYING || frameTimeNanos <= this.frameTimeNanos) {
+            return positionMs.coercePlaybackPosition(durationMs)
+        }
+
+        val elapsedMs = ((frameTimeNanos - this.frameTimeNanos) / 1_000_000.0 * playbackRate)
+            .toLong()
+        val projectedPositionMs =
+            if (elapsedMs > Long.MAX_VALUE - positionMs) {
+                Long.MAX_VALUE
+            } else {
+                positionMs + elapsedMs
+            }
+        return projectedPositionMs.coercePlaybackPosition(durationMs)
+    }
+
+    companion object {
+        fun fromSnapshot(
+            snapshot: PlaybackSnapshot,
+            frameTimeNanos: Long,
+        ): MobileDanmakuClockAnchor =
+            MobileDanmakuClockAnchor(
+                positionMs = snapshot.position.positionMs,
+                durationMs = snapshot.position.durationMs,
+                status = snapshot.status,
+                playbackRate = snapshot.playbackRate,
+                frameTimeNanos = frameTimeNanos,
+            )
+    }
+}
+
+private fun Long.coercePlaybackPosition(durationMs: Long?): Long {
+    val nonNegativePositionMs = coerceAtLeast(0)
+    return durationMs
+        ?.let { nonNegativePositionMs.coerceAtMost(it) }
+        ?: nonNegativePositionMs
+}
+
+private fun DanmakuSize.scaleFactor(): Float =
+    when (this) {
+        DanmakuSize.SMALL -> 0.82f
+        DanmakuSize.NORMAL -> 1f
+        DanmakuSize.LARGE -> 1.18f
+    }
+
+private fun mobileDanmakuStatusLabel(
+    state: MobileDanmakuState,
+    startupPhase: MobilePlaybackStartupPhase,
+): String? =
+    when {
+        startupPhase == MobilePlaybackStartupPhase.WaitingForDanmaku -> "Loading danmaku"
+        state.phase == MobileDanmakuPhase.Ready && state.source != null -> "Danmaku ${state.source.name.lowercase()}"
+        state.phase == MobileDanmakuPhase.TimedOut -> "Danmaku loading"
+        state.phase == MobileDanmakuPhase.NoMatch -> "No danmaku"
+        state.phase == MobileDanmakuPhase.Unavailable -> "Danmaku unavailable"
+        state.phase == MobileDanmakuPhase.Failed -> "Danmaku failed"
+        else -> null
+    }
+
+private const val FIXED_DANMAKU_DURATION_MS = 4_500L
 
 @Composable
 private fun NowPlayingPanel(
@@ -764,6 +1128,47 @@ private fun TrackButtons(
                 enabled = track.supported && !track.selected,
                 modifier = Modifier.testTag("track:${track.id}"),
                 label = { Text(track.buttonLabel()) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun InlinePlayerIconButton(
+    onClick: () -> Unit,
+    enabled: Boolean,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    contentDescription: String?,
+    modifier: Modifier = Modifier,
+    isPrimary: Boolean = false,
+) {
+    val containerColor = when {
+        isPrimary && enabled -> AccentBlue
+        enabled -> Color.Black.copy(alpha = 0.5f)
+        else -> Color.Black.copy(alpha = 0.22f)
+    }
+    val contentColor = when {
+        isPrimary && enabled -> PlayerBlack
+        enabled -> Color.White
+        else -> Color.White.copy(alpha = 0.38f)
+    }
+    Surface(
+        modifier = Modifier.size(if (isPrimary) 42.dp else 36.dp),
+        shape = CircleShape,
+        color = containerColor,
+        border = BorderStroke(1.dp, Color.White.copy(alpha = if (enabled) 0.14f else 0.06f)),
+    ) {
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .clickable(enabled = enabled, onClick = onClick),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = contentDescription,
+                tint = contentColor,
+                modifier = Modifier.size(if (isPrimary) 24.dp else 20.dp),
             )
         }
     }

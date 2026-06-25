@@ -34,6 +34,8 @@ internal data class MobileAppUiState(
     val subtitleFilter: LibrarySubtitleFilter,
     val favoriteMediaIds: Set<String>,
     val favoriteFilter: LibraryFavoriteFilter,
+    val danmakuState: MobileDanmakuState,
+    val playbackStartupPhase: MobilePlaybackStartupPhase,
     val isPlayerFullscreen: Boolean,
 )
 
@@ -105,6 +107,8 @@ internal fun MobileAppScaffold(
                 nowPlaying = state.nowPlaying,
                 playbackError = state.playbackError,
                 isFullscreen = state.isPlayerFullscreen,
+                danmakuState = state.danmakuState,
+                playbackStartupPhase = state.playbackStartupPhase,
                 onOpen = actions.onOpenVideo,
                 onPlayPause = actions.onPlayPause,
                 onSeekTo = actions.onSeekTo,
