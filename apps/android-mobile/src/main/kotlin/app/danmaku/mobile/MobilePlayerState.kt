@@ -22,7 +22,9 @@ internal class MobilePlayerState(
     var controller by mutableStateOf<Media3PlaybackController?>(null)
     var snapshot by mutableStateOf(PlaybackSnapshot())
     var playbackError by mutableStateOf<String?>(null)
-    var serverUrl by mutableStateOf("http://10.0.2.2:8686")
+    var serverUrl by mutableStateOf(
+        initialSavedConnections.firstOrNull()?.baseUrl ?: "http://10.0.2.2:8686",
+    )
     var pairingToken by mutableStateOf("")
     var savedConnections by mutableStateOf(initialSavedConnections)
     var catalog by mutableStateOf<LibraryCatalog?>(null)

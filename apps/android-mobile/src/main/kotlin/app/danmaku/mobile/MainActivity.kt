@@ -167,6 +167,10 @@ private fun MobilePlayerScreen() {
         )
     }
 
+    LaunchedEffect(actionHandler) {
+        actionHandler.connectToInitialLibrary()
+    }
+
     DisposableEffect(playbackConnection) {
         playbackConnection.connect(
             executor = ContextCompat.getMainExecutor(context),

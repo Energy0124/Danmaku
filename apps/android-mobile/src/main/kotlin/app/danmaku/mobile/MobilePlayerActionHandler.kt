@@ -4,6 +4,7 @@ import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.PlaybackCommand
 import app.danmaku.domain.PlaybackStatus
 import app.danmaku.library.LanLibraryConnectionProfile
+import app.danmaku.library.LanLibraryConnectionSnapshot
 import app.danmaku.library.LanLibraryConnectionSession
 import app.danmaku.library.LanPlaybackPreparer
 import app.danmaku.library.LanPlaybackProgressSync
@@ -28,19 +29,20 @@ internal class MobilePlayerActionHandler(
     private val discoveryClient: LanLibraryDiscoveryClient,
     private val openVideoPicker: () -> Unit,
 ) {
+    fun connectToInitialLibrary() {
+        if (state.catalog != null) return
+        connectToLibrary(
+            requestedServerUrl = state.serverUrl,
+            requestedPairingToken = state.pairingToken,
+            discoverOnFailure = true,
+        )
+    }
+
     fun discoverPc() {
         scope.launch {
-            runCatching {
-                withContext(Dispatchers.IO) {
-                    discoveryClient.discover().firstOrNull()
-                        ?: throw LanLibraryDiscoveryException("No Windows library server discovered")
-                }
-            }.onSuccess {
-                state.serverUrl = it.baseUrl
-                state.libraryError = null
-            }.onFailure {
-                state.libraryError = it.message
-            }
+            runCatching { discoverFirstServerUrl() }
+                .onSuccess { connectToLibrary(it, "") }
+                .onFailure { state.libraryError = it.message }
         }
     }
 
@@ -48,36 +50,87 @@ internal class MobilePlayerActionHandler(
         requestedServerUrl: String,
         requestedPairingToken: String,
         fallbackDisplayName: String? = null,
+        discoverOnFailure: Boolean = false,
     ) {
         scope.launch {
             runCatching {
-                withContext(Dispatchers.IO) {
-                    libraryConnectionSession.fetchCatalogWithProgress(
-                        baseUrl = requestedServerUrl,
-                        pairingToken = requestedPairingToken,
-                    )
-                }
+                fetchCatalogWithProgress(requestedServerUrl, requestedPairingToken)
             }.onSuccess {
-                state.serverUrl = requestedServerUrl.trim().trimEnd('/')
-                state.pairingToken = requestedPairingToken
-                state.catalog = it.catalog
-                state.playbackProgresses = it.playbackProgresses
-                connectionStore.saveCurrentConnection(
-                    baseUrl = requestedServerUrl,
-                    pairingToken = requestedPairingToken,
-                    displayName = it.catalog.rootName.ifBlank { fallbackDisplayName },
+                applyLibraryConnection(
+                    requestedServerUrl = requestedServerUrl,
+                    requestedPairingToken = requestedPairingToken,
+                    fallbackDisplayName = fallbackDisplayName,
+                    snapshot = it,
                 )
-                state.savedConnections = connectionStore.loadProfiles()
-                state.libraryError = null
-                state.selectedTab = MobileTab.Library
-            }.onFailure {
-                state.libraryError = it.message
+            }.onFailure { failure ->
+                if (discoverOnFailure) {
+                    connectToDiscoveredLibrary(failure)
+                } else {
+                    state.libraryError = failure.message
+                }
             }
         }
     }
 
     fun refreshLibrary() {
         connectToLibrary(state.serverUrl, state.pairingToken)
+    }
+
+    private suspend fun connectToDiscoveredLibrary(originalFailure: Throwable) {
+        runCatching {
+            val discoveredServerUrl = discoverFirstServerUrl()
+            val snapshot = fetchCatalogWithProgress(discoveredServerUrl, "")
+            discoveredServerUrl to snapshot
+        }.onSuccess { (discoveredServerUrl, snapshot) ->
+            applyLibraryConnection(
+                requestedServerUrl = discoveredServerUrl,
+                requestedPairingToken = "",
+                fallbackDisplayName = null,
+                snapshot = snapshot,
+            )
+        }.onFailure { discoveryFailure ->
+            state.libraryError = listOfNotNull(
+                originalFailure.message,
+                discoveryFailure.message?.let { "Discovery failed: $it" },
+            ).joinToString("; ").ifBlank { "Unable to connect to Windows library server" }
+        }
+    }
+
+    private suspend fun discoverFirstServerUrl(): String =
+        withContext(Dispatchers.IO) {
+            discoveryClient.discover().firstOrNull()?.baseUrl
+                ?: throw LanLibraryDiscoveryException("No Windows library server discovered")
+        }
+
+    private suspend fun fetchCatalogWithProgress(
+        baseUrl: String,
+        pairingToken: String,
+    ): LanLibraryConnectionSnapshot =
+        withContext(Dispatchers.IO) {
+            libraryConnectionSession.fetchCatalogWithProgress(
+                baseUrl = baseUrl,
+                pairingToken = pairingToken,
+            )
+        }
+
+    private fun applyLibraryConnection(
+        requestedServerUrl: String,
+        requestedPairingToken: String,
+        fallbackDisplayName: String?,
+        snapshot: LanLibraryConnectionSnapshot,
+    ) {
+        state.serverUrl = requestedServerUrl.trim().trimEnd('/')
+        state.pairingToken = requestedPairingToken
+        state.catalog = snapshot.catalog
+        state.playbackProgresses = snapshot.playbackProgresses
+        connectionStore.saveCurrentConnection(
+            baseUrl = requestedServerUrl,
+            pairingToken = requestedPairingToken,
+            displayName = snapshot.catalog.rootName.ifBlank { fallbackDisplayName },
+        )
+        state.savedConnections = connectionStore.loadProfiles()
+        state.libraryError = null
+        state.selectedTab = MobileTab.Library
     }
 
     fun setFavorite(item: LibraryMediaItem, isFavorite: Boolean) {
