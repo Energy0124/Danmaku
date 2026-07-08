@@ -1,20 +1,15 @@
 package app.danmaku.mobile
 
-import android.graphics.Paint
-
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.core.withInfiniteAnimationFrameNanos
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
@@ -58,44 +53,32 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import app.danmaku.domain.DanmakuEvent
-import app.danmaku.domain.DanmakuMode
-import app.danmaku.domain.DanmakuSize
-import app.danmaku.domain.MeasuredDanmakuEvent
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.PlaybackStatus
 import app.danmaku.domain.PlaybackTrack
 import app.danmaku.domain.PlaybackTrackKind
-import app.danmaku.domain.ScrollingDanmakuLaneScheduler
-import app.danmaku.domain.ScrollingDanmakuLayoutConfig
 import app.danmaku.domain.coerceSeekTarget
 import app.danmaku.domain.seekTargetBy
 import app.danmaku.player.android.Media3PlaybackController
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 
 @Composable
 internal fun WatchPage(
@@ -750,193 +733,18 @@ private fun MobileDanmakuOverlay(
     isFullscreen: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    BoxWithConstraints(modifier = modifier.testTag("watch-danmaku-overlay")) {
-        if (events.isEmpty()) return@BoxWithConstraints
-
-        val playbackClock = rememberMobileDanmakuPlaybackClock(snapshot)
-        val density = LocalDensity.current
-        val baseTextSizePx = with(density) {
-            if (isFullscreen) 22.sp.toPx() else 13.sp.toPx()
-        }
-        val widthPx = with(density) { maxWidth.toPx() }.coerceAtLeast(1f)
-        val heightPx = with(density) { maxHeight.toPx() }.coerceAtLeast(1f)
-        val laneHeightPx = baseTextSizePx * 1.55f
-        val laneCoverage = if (isFullscreen) 0.44f else 0.36f
-        val maxLaneCount = if (isFullscreen) 8 else 3
-        val laneCount = ((heightPx * laneCoverage) / laneHeightPx)
-            .toInt()
-            .coerceAtLeast(1)
-            .coerceAtMost(maxLaneCount)
-        val fillPaint = remember(baseTextSizePx) {
-            Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                textAlign = Paint.Align.LEFT
-                textSize = baseTextSizePx
-                color = android.graphics.Color.WHITE
-            }
-        }
-        val strokePaint = remember(baseTextSizePx, isFullscreen) {
-            Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                textAlign = Paint.Align.LEFT
-                textSize = baseTextSizePx
-                style = Paint.Style.STROKE
-                strokeWidth = if (isFullscreen) 3.5f else 2.5f
-                color = android.graphics.Color.BLACK
-            }
-        }
-        val schedule = remember(events, widthPx, laneCount, baseTextSizePx, isFullscreen) {
-            val measuredEvents = events
-                .filter { it.style.mode == DanmakuMode.SCROLLING }
-                .map { event ->
-                    fillPaint.textSize = baseTextSizePx * event.style.size.scaleFactor()
-                    MeasuredDanmakuEvent(
-                        event = event,
-                        widthPx = fillPaint.measureText(event.text),
-                    )
-                }
-            ScrollingDanmakuLaneScheduler.schedule(
-                events = measuredEvents,
-                config = ScrollingDanmakuLayoutConfig(
-                    viewportWidthPx = widthPx,
-                    laneCount = laneCount,
-                    travelDurationMs = if (isFullscreen) 8_000 else 6_500,
-                    horizontalGapPx = baseTextSizePx,
-                ),
+    AndroidView(
+        factory = { MobileDanmakuOverlayView(it) },
+        modifier = modifier.testTag("watch-danmaku-overlay"),
+        update = { view ->
+            view.update(
+                events = events,
+                snapshot = snapshot,
+                isFullscreen = isFullscreen,
             )
-        }
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val positionMs = playbackClock.positionMs()
-            val visibleScrolling = schedule.visibleAt(positionMs)
-            val fixedEvents = events.filter { event ->
-                event.style.mode != DanmakuMode.SCROLLING &&
-                    positionMs in event.timestampMs until event.timestampMs + FIXED_DANMAKU_DURATION_MS
-            }
-            drawIntoCanvas { canvas ->
-                visibleScrolling.forEach { placement ->
-                    val event = placement.event
-                    val textSize = baseTextSizePx * event.style.size.scaleFactor()
-                    fillPaint.textSize = textSize
-                    fillPaint.color = event.style.colorArgb.toInt()
-                    strokePaint.textSize = textSize
-                    val x = placement.leftEdgeAt(positionMs)
-                    val y = laneHeightPx * (placement.laneIndex + 1)
-                    canvas.nativeCanvas.drawText(event.text, x, y, strokePaint)
-                    canvas.nativeCanvas.drawText(event.text, x, y, fillPaint)
-                }
-                fixedEvents.forEachIndexed { index, event ->
-                    val textSize = baseTextSizePx * event.style.size.scaleFactor()
-                    fillPaint.textSize = textSize
-                    fillPaint.color = event.style.colorArgb.toInt()
-                    strokePaint.textSize = textSize
-                    val measuredWidth = fillPaint.measureText(event.text)
-                    val x = (size.width - measuredWidth) / 2f
-                    val y = when (event.style.mode) {
-                        DanmakuMode.TOP -> laneHeightPx * (index + 1)
-                        DanmakuMode.BOTTOM -> size.height - laneHeightPx * (index + 1)
-                        DanmakuMode.SCROLLING -> 0f
-                    }
-                    canvas.nativeCanvas.drawText(event.text, x, y, strokePaint)
-                    canvas.nativeCanvas.drawText(event.text, x, y, fillPaint)
-                }
-            }
-        }
-    }
+        },
+    )
 }
-
-@Composable
-private fun rememberMobileDanmakuPlaybackClock(snapshot: PlaybackSnapshot): MobileDanmakuPlaybackClock {
-    val clock = remember { MobileDanmakuPlaybackClock(snapshot) }
-
-    LaunchedEffect(
-        clock,
-        snapshot.position.positionMs,
-        snapshot.position.durationMs,
-        snapshot.status,
-        snapshot.playbackRate,
-    ) {
-        val frameNanos = withFrameNanos { it }
-        clock.anchorTo(snapshot, frameNanos)
-    }
-
-    LaunchedEffect(clock, snapshot.status) {
-        if (snapshot.status != PlaybackStatus.PLAYING) return@LaunchedEffect
-
-        val firstFrameNanos = withFrameNanos { it }
-        clock.anchorTo(snapshot, firstFrameNanos)
-
-        while (isActive) {
-            clock.frameTimeNanos = withInfiniteAnimationFrameNanos { it }
-        }
-    }
-
-    return clock
-}
-
-private class MobileDanmakuPlaybackClock(snapshot: PlaybackSnapshot) {
-    var frameTimeNanos by mutableLongStateOf(0L)
-    private var anchor by mutableStateOf(MobileDanmakuClockAnchor.fromSnapshot(snapshot, frameTimeNanos))
-
-    fun anchorTo(
-        snapshot: PlaybackSnapshot,
-        frameTimeNanos: Long,
-    ) {
-        anchor = MobileDanmakuClockAnchor.fromSnapshot(snapshot, frameTimeNanos)
-        this.frameTimeNanos = frameTimeNanos
-    }
-
-    fun positionMs(): Long = anchor.positionAt(frameTimeNanos)
-}
-
-private data class MobileDanmakuClockAnchor(
-    val positionMs: Long,
-    val durationMs: Long?,
-    val status: PlaybackStatus,
-    val playbackRate: Float,
-    val frameTimeNanos: Long,
-) {
-    fun positionAt(frameTimeNanos: Long): Long {
-        if (status != PlaybackStatus.PLAYING || frameTimeNanos <= this.frameTimeNanos) {
-            return positionMs.coercePlaybackPosition(durationMs)
-        }
-
-        val elapsedMs = ((frameTimeNanos - this.frameTimeNanos) / 1_000_000.0 * playbackRate)
-            .toLong()
-        val projectedPositionMs =
-            if (elapsedMs > Long.MAX_VALUE - positionMs) {
-                Long.MAX_VALUE
-            } else {
-                positionMs + elapsedMs
-            }
-        return projectedPositionMs.coercePlaybackPosition(durationMs)
-    }
-
-    companion object {
-        fun fromSnapshot(
-            snapshot: PlaybackSnapshot,
-            frameTimeNanos: Long,
-        ): MobileDanmakuClockAnchor =
-            MobileDanmakuClockAnchor(
-                positionMs = snapshot.position.positionMs,
-                durationMs = snapshot.position.durationMs,
-                status = snapshot.status,
-                playbackRate = snapshot.playbackRate,
-                frameTimeNanos = frameTimeNanos,
-            )
-    }
-}
-
-private fun Long.coercePlaybackPosition(durationMs: Long?): Long {
-    val nonNegativePositionMs = coerceAtLeast(0)
-    return durationMs
-        ?.let { nonNegativePositionMs.coerceAtMost(it) }
-        ?: nonNegativePositionMs
-}
-
-private fun DanmakuSize.scaleFactor(): Float =
-    when (this) {
-        DanmakuSize.SMALL -> 0.82f
-        DanmakuSize.NORMAL -> 1f
-        DanmakuSize.LARGE -> 1.18f
-    }
 
 private fun mobileDanmakuStatusLabel(
     state: MobileDanmakuState,
