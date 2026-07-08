@@ -1,21 +1,22 @@
 pub mod catalog;
 pub mod cli;
+pub mod discovery;
 pub mod domain;
 pub(crate) mod hash;
+pub mod http;
 pub mod lock;
 pub mod logging;
+pub mod progress;
+pub mod runtime;
 pub mod scanner;
 pub mod settings;
 
 use std::error::Error;
 use std::fmt::{self, Display};
 
-use catalog::CatalogStore;
 use cli::ServerOptions;
-use lock::DataDirectoryLock;
-use logging::{CatalogScanSummary, StartupSummary};
-use scanner::scan_roots;
-use settings::{SettingsStore, generate_pairing_token};
+use logging::StartupSummary;
+use runtime::LoadedServer;
 
 pub type Result<T> = std::result::Result<T, LibraryServerError>;
 
@@ -57,40 +58,7 @@ impl From<serde_json::Error> for LibraryServerError {
 }
 
 pub fn run_foundations(options: ServerOptions) -> Result<StartupSummary> {
-    let _lock = DataDirectoryLock::acquire(&options.data_directory)?;
-    let settings_store = SettingsStore::new(options.data_directory.join("server-settings.json"));
-    let settings =
-        settings_store.load_or_create(options.pairing_token.as_deref(), generate_pairing_token)?;
-    let effective_library_roots = if options.library_roots.is_empty() {
-        settings.library_roots.clone()
-    } else {
-        options.library_roots.clone()
-    };
-
-    let catalog_store = CatalogStore::new(options.data_directory.join("catalog.json"));
-    let stored_library = catalog_store.load()?;
-    let scan = if effective_library_roots.is_empty() {
-        None
-    } else {
-        Some(scan_roots(
-            &effective_library_roots,
-            stored_library.as_ref(),
-        )?)
-    };
-    let scan_summary = scan.as_ref().map(CatalogScanSummary::from);
-    let stored_library = if let Some(scan) = scan {
-        Some(catalog_store.save_scan(scan)?)
-    } else {
-        stored_library
-    };
-
-    Ok(StartupSummary::from_loaded_state(
-        &options,
-        &settings,
-        &effective_library_roots,
-        stored_library.as_ref(),
-        scan_summary,
-    ))
+    LoadedServer::load(options).map(|server| server.startup_summary())
 }
 
 #[cfg(test)]
@@ -100,6 +68,7 @@ mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
 
     use super::*;
+    use crate::catalog::CatalogStore;
 
     static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
