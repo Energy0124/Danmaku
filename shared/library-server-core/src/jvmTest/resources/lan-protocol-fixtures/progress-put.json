@@ -1,0 +1,28 @@
+{
+    "schemaVersion": 1,
+    "name": "progress-put",
+    "request": {
+        "method": "PUT",
+        "path": "/api/progress/episode-id",
+        "headers": {
+            "Content-Type": "application/json; charset=utf-8"
+        },
+        "body": {
+            "byteLength": 95,
+            "text": "{\"mediaId\":\"episode-id\",\"positionMs\":12345,\"durationMs\":98765,\"updatedAtEpochMs\":1700000100000}",
+            "json": {
+                "mediaId": "episode-id",
+                "positionMs": 12345,
+                "durationMs": 98765,
+                "updatedAtEpochMs": 1700000100000
+            }
+        }
+    },
+    "response": {
+        "status": 204,
+        "headers": {},
+        "body": {
+            "byteLength": 0
+        }
+    }
+}

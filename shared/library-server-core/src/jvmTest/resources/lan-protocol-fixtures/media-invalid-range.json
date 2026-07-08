@@ -1,0 +1,21 @@
+{
+    "schemaVersion": 1,
+    "name": "media-invalid-range",
+    "request": {
+        "method": "GET",
+        "path": "/media/episode-id",
+        "headers": {
+            "Range": "bytes=9-10"
+        }
+    },
+    "response": {
+        "status": 416,
+        "headers": {
+            "Content-Length": "0",
+            "Content-Range": "bytes */6"
+        },
+        "body": {
+            "byteLength": 0
+        }
+    }
+}

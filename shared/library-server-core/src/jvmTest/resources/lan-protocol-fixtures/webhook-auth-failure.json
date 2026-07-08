@@ -1,0 +1,18 @@
+{
+    "schemaVersion": 1,
+    "name": "webhook-auth-failure",
+    "request": {
+        "method": "POST",
+        "path": "/api/hooks/fixture",
+        "headers": {}
+    },
+    "response": {
+        "status": 401,
+        "headers": {
+            "Content-Length": "0"
+        },
+        "body": {
+            "byteLength": 0
+        }
+    }
+}

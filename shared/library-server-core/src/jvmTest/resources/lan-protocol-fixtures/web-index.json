@@ -1,0 +1,21 @@
+{
+    "schemaVersion": 1,
+    "name": "web-index",
+    "request": {
+        "method": "GET",
+        "path": "/web/",
+        "headers": {}
+    },
+    "response": {
+        "status": 200,
+        "headers": {
+            "Cache-Control": "no-store",
+            "Content-Length": "37",
+            "Content-Type": "text/html; charset=utf-8"
+        },
+        "body": {
+            "byteLength": 37,
+            "text": "<!doctype html><title>Danmaku</title>"
+        }
+    }
+}

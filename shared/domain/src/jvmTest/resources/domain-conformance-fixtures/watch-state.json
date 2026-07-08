@@ -1,0 +1,154 @@
+{
+    "schemaVersion": 1,
+    "name": "watch-state",
+    "feature": "watch-state",
+    "description": "Derives media watch states and per-series watch counts.",
+    "input": {
+        "catalog": {
+            "rootName": "Domain Fixture Library",
+            "indexedAtEpochMs": 1700000000000,
+            "items": [
+                {
+                    "id": "one",
+                    "seriesTitle": "Series",
+                    "episodeTitle": "Episode 01",
+                    "relativePath": "Series/Episode 01.mkv",
+                    "sizeBytes": 123,
+                    "mediaType": "video/x-matroska",
+                    "streamPath": "/media/one",
+                    "indexedAtEpochMs": 1700000000000,
+                    "subtitles": [],
+                    "posterPath": null,
+                    "animeMetadata": null,
+                    "metadataStatus": "NOT_AVAILABLE"
+                },
+                {
+                    "id": "two",
+                    "seriesTitle": "Series",
+                    "episodeTitle": "Episode 02",
+                    "relativePath": "Series/Episode 02.mkv",
+                    "sizeBytes": 123,
+                    "mediaType": "video/x-matroska",
+                    "streamPath": "/media/two",
+                    "indexedAtEpochMs": 1700000000000,
+                    "subtitles": [],
+                    "posterPath": null,
+                    "animeMetadata": null,
+                    "metadataStatus": "NOT_AVAILABLE"
+                },
+                {
+                    "id": "three",
+                    "seriesTitle": "Series",
+                    "episodeTitle": "Episode 03",
+                    "relativePath": "Series/Episode 03.mkv",
+                    "sizeBytes": 123,
+                    "mediaType": "video/x-matroska",
+                    "streamPath": "/media/three",
+                    "indexedAtEpochMs": 1700000000000,
+                    "subtitles": [],
+                    "posterPath": null,
+                    "animeMetadata": null,
+                    "metadataStatus": "NOT_AVAILABLE"
+                },
+                {
+                    "id": "four",
+                    "seriesTitle": "Series",
+                    "episodeTitle": "Episode 04",
+                    "relativePath": "Series/Episode 04.mkv",
+                    "sizeBytes": 123,
+                    "mediaType": "video/x-matroska",
+                    "streamPath": "/media/four",
+                    "indexedAtEpochMs": 1700000000000,
+                    "subtitles": [],
+                    "posterPath": null,
+                    "animeMetadata": null,
+                    "metadataStatus": "NOT_AVAILABLE"
+                }
+            ]
+        },
+        "progress": [
+            {
+                "mediaId": "missing",
+                "positionMs": 90000,
+                "durationMs": 1200000,
+                "updatedAtEpochMs": 50
+            },
+            {
+                "mediaId": "two",
+                "positionMs": 60000,
+                "durationMs": 1200000,
+                "updatedAtEpochMs": 20
+            },
+            {
+                "mediaId": "three",
+                "positionMs": 1190000,
+                "durationMs": 1200000,
+                "updatedAtEpochMs": 30
+            },
+            {
+                "mediaId": "four",
+                "positionMs": 1190000,
+                "durationMs": 1200000,
+                "updatedAtEpochMs": 10
+            },
+            {
+                "mediaId": "four",
+                "positionMs": 5000,
+                "durationMs": 1200000,
+                "updatedAtEpochMs": 40
+            }
+        ],
+        "options": {
+            "minimumStartedPositionMs": 10000,
+            "watchedRemainingMs": 30000
+        }
+    },
+    "expected": {
+        "watchStatusByMediaId": [
+            {
+                "mediaId": "four",
+                "state": "NEW",
+                "progress": {
+                    "mediaId": "four",
+                    "positionMs": 5000,
+                    "durationMs": 1200000,
+                    "updatedAtEpochMs": 40
+                }
+            },
+            {
+                "mediaId": "one",
+                "state": "NEW",
+                "progress": null
+            },
+            {
+                "mediaId": "three",
+                "state": "WATCHED",
+                "progress": {
+                    "mediaId": "three",
+                    "positionMs": 1190000,
+                    "durationMs": 1200000,
+                    "updatedAtEpochMs": 30
+                }
+            },
+            {
+                "mediaId": "two",
+                "state": "IN_PROGRESS",
+                "progress": {
+                    "mediaId": "two",
+                    "positionMs": 60000,
+                    "durationMs": 1200000,
+                    "updatedAtEpochMs": 20
+                }
+            }
+        ],
+        "seriesWatchSummaryById": [
+            {
+                "seriesId": "series",
+                "totalCount": 4,
+                "watchedCount": 1,
+                "inProgressCount": 1,
+                "newCount": 2
+            }
+        ]
+    }
+}

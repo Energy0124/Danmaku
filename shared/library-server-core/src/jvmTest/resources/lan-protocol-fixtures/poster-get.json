@@ -1,0 +1,22 @@
+{
+    "schemaVersion": 1,
+    "name": "poster-get",
+    "request": {
+        "method": "GET",
+        "path": "/posters/episode-id",
+        "headers": {}
+    },
+    "response": {
+        "status": 200,
+        "headers": {
+            "Cache-Control": "private, max-age=3600",
+            "Content-Length": "4",
+            "Content-Type": "image/jpeg"
+        },
+        "body": {
+            "byteLength": 4,
+            "base64": "ASNFZw==",
+            "hex": "01234567"
+        }
+    }
+}

@@ -1,0 +1,23 @@
+{
+    "schemaVersion": 1,
+    "name": "discovery-announcement",
+    "description": "UDP discovery datagram payload encoded by LocalLibraryDiscoveryAnnouncer.",
+    "transport": "udp",
+    "destinationPort": 8687,
+    "encoding": "utf-8-json",
+    "byteLength": 13,
+    "hex": "7b22706f7274223a383638367d",
+    "text": "{\"port\":8686}",
+    "json": {
+        "port": 8686
+    },
+    "decoded": {
+        "protocol": "danmaku-library",
+        "version": 1,
+        "port": 8686
+    },
+    "notes": [
+        "Default protocol and version fields are omitted from the emitted JSON bytes.",
+        "Receivers fill protocol=danmaku-library and version=1 from domain defaults."
+    ]
+}

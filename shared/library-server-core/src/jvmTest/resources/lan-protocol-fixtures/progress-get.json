@@ -1,0 +1,27 @@
+{
+    "schemaVersion": 1,
+    "name": "progress-get",
+    "request": {
+        "method": "GET",
+        "path": "/api/progress/episode-id",
+        "headers": {}
+    },
+    "response": {
+        "status": 200,
+        "headers": {
+            "Cache-Control": "no-store",
+            "Content-Length": "95",
+            "Content-Type": "application/json; charset=utf-8"
+        },
+        "body": {
+            "byteLength": 95,
+            "text": "{\"mediaId\":\"episode-id\",\"positionMs\":12345,\"durationMs\":98765,\"updatedAtEpochMs\":1700000100000}",
+            "json": {
+                "mediaId": "episode-id",
+                "positionMs": 12345,
+                "durationMs": 98765,
+                "updatedAtEpochMs": 1700000100000
+            }
+        }
+    }
+}

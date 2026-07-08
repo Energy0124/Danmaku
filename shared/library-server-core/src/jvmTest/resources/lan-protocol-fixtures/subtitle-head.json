@@ -1,0 +1,20 @@
+{
+    "schemaVersion": 1,
+    "name": "subtitle-head",
+    "request": {
+        "method": "HEAD",
+        "path": "/subtitles/subtitle-id",
+        "headers": {}
+    },
+    "response": {
+        "status": 200,
+        "headers": {
+            "Cache-Control": "no-store",
+            "Content-Length": "38",
+            "Content-Type": "application/x-subrip"
+        },
+        "body": {
+            "byteLength": 0
+        }
+    }
+}
