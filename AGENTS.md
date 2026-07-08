@@ -1,39 +1,78 @@
 # Danmaku Project Agent Guide
 
-## Canonical Workspace
+Operational guide for coding agents working in this repository. Project
+status, roadmap, and backlog live in `docs/` and are not restated here.
 
-The active repository checkout is:
+## Environment
 
-```text
-S:\Projects\Danmaku
+- Workspace: `S:\Projects\Danmaku` on Windows 11. Run repository commands
+  from this path.
+- Shell: PowerShell. Use `.\gradlew.bat --no-daemon` for all Gradle tasks.
+- Toolchains: JDK 17+, stable Rust, Android SDK via ignored
+  `local.properties` (`sdk.dir=...`), optional Node 22 for `apps/web-ui` and
+  `tools/dandanplay-worker-proxy`.
+- Gradle builds in this repository are slow. Prefer the narrowest task that
+  verifies your change; run the full suite only before handing off larger
+  work.
+
+## Project Status And Direction
+
+- What is implemented, partial, and missing: `docs/current-state.md`
+- Module boundaries and platform roles: `docs/architecture.md`
+- Ordered product direction: `docs/roadmap.md`
+- Active backlog and QA gates: `docs/tasks.md`
+
+Product summary: a cross-platform media library, authorized download manager,
+streaming player, and danmaku overlay application. First-class targets are
+Windows desktop, Android mobile/tablet, and Android TV. macOS, Linux, iOS,
+iPadOS, and web come later. Do not compromise the first-class targets to
+force identical implementations everywhere.
+
+## Verify Your Change
+
+Match verification to the code you touched:
+
+| Area touched                  | Verification command                                      |
+| ----------------------------- | --------------------------------------------------------- |
+| `shared/domain`               | `:shared:domain:jvmTest`                                   |
+| `shared/library-client`       | `:shared:library-client:jvmTest`                           |
+| `shared/library-server-core`  | `:shared:library-server-core:jvmTest`                      |
+| `shared/library-host-core`    | `:shared:library-host-core:jvmTest`                        |
+| `shared/library-client-android` | `:shared:library-client-android:testDebugUnitTest`       |
+| `shared/player-android-media3` | `:shared:player-android-media3:assembleDebugAndroidTest`  |
+| `apps/desktop-windows`        | `:apps:desktop-windows:desktopTest`                        |
+| `apps/android-mobile`         | `:apps:android-mobile:assembleDebug`                       |
+| `apps/android-tv`             | `:apps:android-tv:assembleDebug`                           |
+| `native/` (Rust)              | `cargo fmt --all --check` then `cargo test --workspace`    |
+| `tools/dandanplay-worker-proxy` | `npm run typecheck` and `npm test` in that directory     |
+| `apps/web-ui`                 | `npm install` and `npm run build` in that directory        |
+
+Gradle tasks above run as, for example:
+
+```powershell
+.\gradlew.bat --no-daemon :shared:domain:jvmTest
 ```
 
-Always run repository commands from this path. Do not use the previous
-`C:\Users\energy\OneDrive\Documents\Danmaku` path. Desktop thread metadata may
-temporarily retain that old location after the move, but the old directory is
-an empty placeholder rather than a checkout.
+Always finish with `git diff --check`. The full pre-PR suite and the
+connected Android instrumentation commands are listed in `CONTRIBUTING.md`.
 
-## Current State
+Android instrumentation tests (`connectedDebugAndroidTest`) need a running
+emulator or device; do not assume one is available.
 
-The current branch is `codex/windows-playback-foundation`. The project has a
-tested Kotlin domain foundation, a dependency-free Rust danmaku timeline
-index, a Windows libmpv dynamic-loader probe, a Compose Desktop anime-library
-server, and compiling Android mobile and TV streaming clients. See
-`docs/current-state.md` for the detailed handoff.
+## Do Not Run Unattended
 
-## Product Direction
+Only run these when the user explicitly asks; they use live accounts, real
+libraries, emulators, or take over the desktop session:
 
-Build a cross-platform media library, authorized download manager, streaming
-player, and danmaku overlay application.
-
-The first-class release targets are:
-
-1. Windows desktop
-2. Android mobile and tablet
-3. Android TV
-
-Later targets are macOS, Linux, iOS, iPadOS, and web. Do not compromise the
-first-class targets to force identical implementations everywhere.
+- `tools\windows\run-library-quality-live-qa.ps1` (scans the real `W:/Anime`
+  library)
+- `tools\windows\run-live-external-sync-readback-qa.ps1` (live MAL/Bangumi
+  accounts)
+- `tools\windows\run-android-mobile-emulator-qa.ps1` and
+  `tools\windows\run-android-tv-emulator-qa.ps1` (boot emulators)
+- `tools\windows\capture-desktop-localization-screenshots.ps1` and
+  `tools\windows\run-windows-playback-release-qa.ps1` (launch the GUI and
+  capture the screen)
 
 ## Architecture Rules
 
@@ -53,44 +92,65 @@ first-class targets to force identical implementations everywhere.
   domain code must not depend directly on player-specific types.
 - Treat provider integrations as plugins. Store normalized domain models in
   the library database, not provider response objects.
-- Support authorized media sources only. Do not implement DRM circumvention or
-  provider access that violates service terms.
+- Do not log pairing tokens, credentials, cookies, signed URLs, or raw
+  provider secrets.
+
+## Localization
+
+English and Traditional Chinese (`zh-TW`) are release requirements for UI
+text. Desktop strings live in Compose Multiplatform XML resources under
+`commonMain/composeResources/values` and `values-zh-rTW` with a resource
+adapter into `DesktopStrings`. Add or change UI strings in the XML resources
+plus the adapter, not in the Kotlin fallback initializer — the fallback is
+reserved for the small set of non-Compose error/default strings.
 
 ## Repository Layout
 
 ```text
-apps/                 Platform application modules
-shared/               Kotlin Multiplatform domain and shared application code
-native/               Rust and native platform helpers
-docs/                 Architecture, roadmap, and decisions
+apps/
+  desktop-windows/        Compose Multiplatform desktop shell and library host
+  android-mobile/         Android phone/tablet app
+  android-tv/             Dedicated Android TV app
+  library-server-windows/ Experimental headless JVM library host
+  web-ui/                 Trusted-LAN TypeScript browser client (Vite)
+
+shared/
+  domain/                 Core models, catalog logic, playback contracts, danmaku logic
+  library-server-core/    Trusted-LAN HTTP server and discovery primitives
+  library-host-core/      Shared host lifecycle/config/status contracts
+  library-client/         Shared LAN client/session/progress policy
+  library-client-android/ Android HTTP/discovery/storage adapters
+  player-android-media3/  Shared Media3 playback adapter/service
+
+native/
+  rust-core/              Rust timeline/indexing core
+  player-windows-mpv/     libmpv loader, probe, and desktop playback bridge
+
+tools/
+  windows/                Windows release, libmpv, QA, and smoke scripts
+  dandanplay-worker-proxy/ Cloudflare Worker proxy for signed dandanplay requests
+
+docs/                     Current state, architecture, roadmap, tasks, design work
 ```
 
-## Development Order
+## Documentation Upkeep
 
-1. Prove Windows libmpv playback and overlay composition.
-2. Load and index a local Windows anime library and stream it to devices on the
-   local network.
-3. Prove Android and Android TV Media3 playback against the Windows library.
-4. Add shared danmaku lane scheduling while native DLL packaging is being
-   audited.
-5. Implement danmaku parsing, filtering, and seeking behavior.
-6. Add persistent library storage and the download queue.
-7. Add provider plugins and cloud features after local workflows are solid.
+When a change affects architecture, platform behavior, security boundaries,
+project state, or the roadmap, update the matching docs in the same change:
 
-## Quality Gates
-
-- Add tests for shared domain behavior and Rust core behavior.
-- Profile before moving Kotlin logic into Rust.
-- Test seeking, pause/resume, playback-rate changes, and large danmaku tracks.
-- Test Android TV screens with D-pad navigation and visible focus states.
-- Test Windows playback with hardware decoding, fullscreen, resize, and 4K
-  media before expanding desktop support.
-- Keep documentation updated when architecture or milestones change.
+- `docs/current-state.md` for implemented/partial/missing status
+- `docs/architecture.md` for module boundaries or platform roles
+- `docs/roadmap.md` and `docs/tasks.md` for direction and backlog
+- `README.md` for build/run/setup instructions
+- the relevant task log under `docs/design/` for active design tracks
 
 ## Working Conventions
 
 - Prefer small, reviewable changes.
+- Prefer existing project patterns over new abstractions.
+- Add tests for shared domain behavior, Rust core behavior, native
+  boundaries, and user-visible workflows.
 - Keep dependencies minimal until a vertical slice needs them.
 - Use stable toolchain versions for committed build files.
-- Commit the Gradle wrapper when the Kotlin build is bootstrapped.
-- Do not commit local SDK paths, downloaded media, or generated build output.
+- Do not commit local SDK paths, downloaded media, credentials, generated
+  build output, or caches.
