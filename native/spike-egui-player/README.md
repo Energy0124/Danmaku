@@ -68,6 +68,18 @@ libmpv lookup order is:
   `hwdec_current: no`; hardware-decode sanity on real HEVC media and multiple
   GPU classes remains unverified.
 
+## Known Issues
+
+- First-paint stall when launched from a background process: the window
+  stays blank (white) until it receives its first real input event, then
+  renders normally. `update()` requests continuous repaints, so the loop
+  never started at all — this looks like winit/eframe occlusion gating for
+  windows created without foreground activation. Not reproducible in
+  normal foreground launches, but must be understood and fixed before M1
+  (a `request_repaint` on a short timer from a background thread until the
+  first frame presents is a likely workaround; a real fix should confirm
+  the occlusion hypothesis first).
+
 ## Verification
 
 Commands run in this crate:
