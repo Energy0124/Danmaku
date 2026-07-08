@@ -83,7 +83,7 @@ try {
     Copy-Item -LiteralPath $installer -Destination $packagedDependencyPath
     Copy-Item `
         -LiteralPath $manifestPath `
-        -Destination (Join-Path $packagedDependencyPath "zhongfly-lgpl-x86_64-20260604.json")
+        -Destination (Join-Path $packagedDependencyPath "zhongfly-lgpl-x86_64-20260708.json")
 
     & (Join-Path $packagedDependencyPath "install-libmpv-dependency.ps1") `
         -ArchivePath $archivePath `

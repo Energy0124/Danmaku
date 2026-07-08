@@ -98,9 +98,9 @@ function Resolve-ChildPath {
     return $fullPath
 }
 
-$packagedManifestPath = Join-Path $PSScriptRoot "zhongfly-lgpl-x86_64-20260604.json"
+$packagedManifestPath = Join-Path $PSScriptRoot "zhongfly-lgpl-x86_64-20260708.json"
 $repoManifestPath = Join-Path $PSScriptRoot (
-    "..\..\third_party\windows\libmpv\zhongfly-lgpl-x86_64-20260604.json"
+    "..\..\third_party\windows\libmpv\zhongfly-lgpl-x86_64-20260708.json"
 )
 $isPackagedInstaller = Test-Path -LiteralPath $packagedManifestPath -PathType Leaf
 
@@ -168,7 +168,16 @@ try {
     if ([string]::IsNullOrWhiteSpace($ArchivePath)) {
         $archiveFullPath = Join-Path $temporaryRoot $manifest.archiveFileName
         Write-Host "Downloading pinned dependency from $($manifest.archiveUrl)"
-        Invoke-WebRequest -Uri $manifest.archiveUrl -OutFile $archiveFullPath -UseBasicParsing
+        try {
+            Invoke-WebRequest -Uri $manifest.archiveUrl -OutFile $archiveFullPath -UseBasicParsing
+        } catch {
+            throw (
+                "Could not download pinned libmpv archive from $($manifest.archiveUrl). " +
+                "The upstream zhongfly/mpv-winbuild release probably rotated or was deleted, " +
+                "and the libmpv pin needs updating. See docs/windows-libmpv-bundle.md. " +
+                "Original error: $($_.Exception.Message)"
+            )
+        }
     } else {
         $archiveFullPath = Get-FullPath $ArchivePath
         if (-not (Test-Path -LiteralPath $archiveFullPath -PathType Leaf)) {

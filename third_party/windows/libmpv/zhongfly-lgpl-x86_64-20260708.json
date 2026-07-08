@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "dependencyName": "libmpv-2.dll",
+  "distributionModel": "approved-direct-redistribution",
+  "license": "LGPL-3.0-or-later",
+  "licenseUrl": "https://www.gnu.org/licenses/lgpl-3.0.html",
+  "projectUrl": "https://github.com/zhongfly/mpv-winbuild",
+  "releaseUrl": "https://github.com/zhongfly/mpv-winbuild/releases/tag/2026-07-08-cc763d17dc",
+  "buildRunUrl": "https://github.com/zhongfly/mpv-winbuild/actions/runs/28968190020",
+  "archiveFileName": "mpv-dev-lgpl-x86_64-20260708-git-68387ea859.7z",
+  "archiveUrl": "https://github.com/zhongfly/mpv-winbuild/releases/download/2026-07-08-cc763d17dc/mpv-dev-lgpl-x86_64-20260708-git-68387ea859.7z",
+  "archiveSha256": "cc41049996a6b0010c7c15beb36c4fc5dcaceddae8f352833318118343d669ac",
+  "dllArchivePath": "libmpv-2.dll",
+  "dllSha256": "deae064ff0f48ed37927dbb83953937c67de67be65ba98ed4b01929d21db735a",
+  "source": {
+    "mpvCommit": "68387ea859d20bc3313cdbbe49ca2f25aa54b935",
+    "mpvUrl": "https://github.com/mpv-player/mpv/commit/68387ea859d20bc3313cdbbe49ca2f25aa54b935",
+    "ffmpegCommit": "c57660fb18f058e8ead224e840b242d9c68fd3c4",
+    "ffmpegUrl": "https://github.com/FFmpeg/FFmpeg/commit/c57660fb18f058e8ead224e840b242d9c68fd3c4",
+    "producerCommit": "7d7d3f60010bdd2629cb6efdfa671a42fa6c32c9",
+    "producerUrl": "https://github.com/zhongfly/mpv-winbuild/commit/7d7d3f60010bdd2629cb6efdfa671a42fa6c32c9",
+    "lgplPatchUrl": "https://github.com/zhongfly/mpv-winbuild/blob/7d7d3f60010bdd2629cb6efdfa671a42fa6c32c9/compile-lgpl-libmpv.patch"
+  },
+  "verifiedBuildProperties": [
+    "mpv is configured with -Dgpl=false",
+    "FFmpeg is built without --enable-gpl",
+    "known GPL dependencies x264 and x265 are removed by the producer LGPL patch",
+    "the producer build log reports mpv gpl: false",
+    "the producer build log reports FFmpeg License: LGPL version 3 or later"
+  ],
+  "approval": {
+    "status": "approved",
+    "approvedOn": "2026-07-08",
+    "basis": "Danmaku relies on the producer's explicit mpv-dev-lgpl artifact designation, the pinned artifact hashes, mpv's gpl=false configure result, and FFmpeg's LGPL version 3 or later configure result.",
+    "residualRisk": "The producer states that it cannot guarantee every LGPL-incompatible package has been disabled. This is accepted as a project distribution risk rather than treated as a prohibition."
+  }
+}
