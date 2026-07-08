@@ -143,12 +143,16 @@ slices; the golden fixtures are the acceptance tests throughout.
 
 Foundations:
 
-- `[ ]` CLI parity with the JVM headless server: `--data-dir`, `--root`,
+- `[x]` CLI parity with the JVM headless server: `--data-dir`, `--root`,
   `--port`, `--pairing-token`, `--web-assets-dir`, and the matching
-  environment fallbacks.
-- `[ ]` Data-directory locking, `server-settings.json` readback,
+  environment fallbacks. (Also accepts the JVM `--web-ui-dist` alias;
+  unlike the JVM parser, unknown arguments are rejected.)
+- `[x]` Data-directory locking, `server-settings.json` readback,
   stable pairing-token persistence, catalog snapshot persistence.
-- `[ ]` Logging that never emits pairing tokens, credentials, cookies,
+  (JVM-adoptable: same `.danmaku-host.lock` byte-range lock, same
+  schema-v1 settings file carrying the six-digit token, JSON-equivalent
+  catalog snapshot verified against the golden fixture.)
+- `[x]` Logging that never emits pairing tokens, credentials, cookies,
   signed URLs, or provider secrets.
 
 Catalog:
