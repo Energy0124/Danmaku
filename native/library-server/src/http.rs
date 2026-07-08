@@ -16,6 +16,7 @@ use tokio::io::{AsyncReadExt, AsyncSeekExt};
 use tokio_util::io::ReaderStream;
 
 use crate::catalog::{PublishedLibrary, normalize_lexically};
+use crate::dandanplay::{DandanplayResolver, LanDanmakuTrack};
 use crate::domain::PlaybackProgress;
 use crate::progress::PlaybackProgressStore;
 use crate::settings::HeadlessServerSettings;
@@ -30,15 +31,21 @@ pub struct HttpServerConfig {
     pub host_mode: String,
     pub provider_settings: Option<LanProviderSettingsStatus>,
     pub authenticated_post_hooks: Vec<AuthenticatedPostHookConfig>,
+    pub dandanplay_resolver: Option<Arc<DandanplayResolver>>,
 }
 
 impl HttpServerConfig {
-    pub fn headless(web_assets_root: Option<PathBuf>, settings: &HeadlessServerSettings) -> Self {
+    pub fn headless(
+        web_assets_root: Option<PathBuf>,
+        settings: &HeadlessServerSettings,
+        dandanplay_resolver: Option<Arc<DandanplayResolver>>,
+    ) -> Self {
         Self {
             web_assets_root,
             host_mode: HOST_MODE_HEADLESS_SERVER.to_owned(),
             provider_settings: Some(LanProviderSettingsStatus::from(settings)),
             authenticated_post_hooks: Vec::new(),
+            dandanplay_resolver,
         }
     }
 
@@ -52,6 +59,7 @@ impl HttpServerConfig {
                 path: "/api/hooks/fixture".to_owned(),
                 token: "0123456789abcdef".to_owned(),
             }],
+            dandanplay_resolver: None,
         }
     }
 }
@@ -69,6 +77,7 @@ pub struct HttpServerState {
     web_assets: Option<StaticWebAssets>,
     status: LanLibraryServerStatus,
     authenticated_post_hooks: Arc<BTreeMap<String, Vec<u8>>>,
+    dandanplay_resolver: Option<Arc<DandanplayResolver>>,
 }
 
 impl HttpServerState {
@@ -96,6 +105,7 @@ impl HttpServerState {
             web_assets,
             status,
             authenticated_post_hooks: Arc::new(authenticated_post_hooks),
+            dandanplay_resolver: config.dandanplay_resolver,
         }
     }
 }
@@ -108,6 +118,7 @@ async fn dispatch(State(state): State<HttpServerState>, request: Request<Body>) 
     let (parts, body) = request.into_parts();
     let method = parts.method;
     let path = parts.uri.path().to_owned();
+    let query = parts.uri.query().map(ToOwned::to_owned);
     let headers = parts.headers;
 
     if path.starts_with("/api/server/status") {
@@ -123,7 +134,10 @@ async fn dispatch(State(state): State<HttpServerState>, request: Request<Body>) 
         return handle_progress_list_exact(&state, &method, &path);
     }
     if path.starts_with("/api/danmaku/") {
-        return handle_danmaku(&state, &method, &path);
+        return handle_danmaku(&state, &method, &path, query.as_deref()).await;
+    }
+    if path.starts_with("/api/providers/dandanplay/resolve") {
+        return handle_dandanplay_resolve(&state, &method, &path, query.as_deref()).await;
     }
     if path.starts_with("/media/") {
         return handle_media(&state, &method, &path, &headers).await;
@@ -253,7 +267,12 @@ fn handle_progress_list_exact(
     json_response(StatusCode::OK, &progress)
 }
 
-fn handle_danmaku(state: &HttpServerState, method: &Method, path: &str) -> Response<Body> {
+async fn handle_danmaku(
+    state: &HttpServerState,
+    method: &Method,
+    path: &str,
+    query: Option<&str>,
+) -> Response<Body> {
     if method != Method::GET {
         return empty_status(StatusCode::METHOD_NOT_ALLOWED);
     }
@@ -279,7 +298,92 @@ fn handle_danmaku(state: &HttpServerState, method: &Method, path: &str) -> Respo
         return empty_status(StatusCode::NOT_FOUND);
     }
 
-    json_response(StatusCode::OK, &LanDanmakuTrack::unavailable(media_id))
+    let Some(resolver) = &state.dandanplay_resolver else {
+        return json_response(StatusCode::OK, &LanDanmakuTrack::unavailable(media_id));
+    };
+    let force_refresh = parse_query_parameters(query)
+        .get("forceRefresh")
+        .is_some_and(|value| value.eq_ignore_ascii_case("true"));
+    let track = match resolver
+        .resolve(&media_id, path, None, true, force_refresh)
+        .await
+    {
+        Ok(result) => LanDanmakuTrack::from_resolve_result(media_id, result),
+        Err(error) => LanDanmakuTrack::failed(media_id, error),
+    };
+    json_response(StatusCode::OK, &track)
+}
+
+async fn handle_dandanplay_resolve(
+    state: &HttpServerState,
+    method: &Method,
+    path: &str,
+    query: Option<&str>,
+) -> Response<Body> {
+    if method != Method::GET {
+        return empty_status(StatusCode::METHOD_NOT_ALLOWED);
+    }
+    if path != "/api/providers/dandanplay/resolve" {
+        return empty_status(StatusCode::NOT_FOUND);
+    }
+    let query = parse_query_parameters(query);
+    let Some(media_id) = query
+        .get("mediaId")
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+    else {
+        return text_response(
+            StatusCode::BAD_REQUEST,
+            "Query parameter 'mediaId' is required.",
+        );
+    };
+    let preferred_episode_id = match query.get("episodeId") {
+        Some(value) => match value.trim().parse::<u64>().ok().filter(|value| *value > 0) {
+            Some(value) => Some(value),
+            None => {
+                return text_response(
+                    StatusCode::BAD_REQUEST,
+                    "Query parameter 'episodeId' must be positive.",
+                );
+            }
+        },
+        None => None,
+    };
+    let with_related = match query.get("withRelated") {
+        Some(value) => match parse_boolean_query_parameter(value) {
+            Some(value) => value,
+            None => {
+                return text_response(
+                    StatusCode::BAD_REQUEST,
+                    "Query parameter 'withRelated' must be true or false.",
+                );
+            }
+        },
+        None => true,
+    };
+    let Some(path) = state.library.files_by_id.get(&media_id) else {
+        return text_response(StatusCode::NOT_FOUND, "Media item was not found.");
+    };
+    if !path.is_file() {
+        return text_response(StatusCode::NOT_FOUND, "Media file was not found.");
+    }
+    let Some(resolver) = &state.dandanplay_resolver else {
+        return text_response(
+            StatusCode::BAD_GATEWAY,
+            "dandanplay request failed: Danmaku resolver is not available.",
+        );
+    };
+    match resolver
+        .resolve(&media_id, path, preferred_episode_id, with_related, false)
+        .await
+    {
+        Ok(result) => json_response(StatusCode::OK, &result.to_provider_response(&media_id)),
+        Err(error) => text_response(
+            StatusCode::BAD_GATEWAY,
+            &format!("dandanplay request failed: {error}"),
+        ),
+    }
 }
 
 async fn handle_media(
@@ -525,6 +629,18 @@ fn json_response<T: Serialize>(status: StatusCode, value: &T) -> Response<Body> 
     }
 }
 
+fn text_response(status: StatusCode, value: &str) -> Response<Body> {
+    let bytes = value.as_bytes().to_vec();
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        CONTENT_TYPE,
+        HeaderValue::from_static("text/plain; charset=utf-8"),
+    );
+    headers.insert(CACHE_CONTROL, HeaderValue::from_static("no-store"));
+    headers.insert(CONTENT_LENGTH, header_value(bytes.len().to_string()));
+    response_with_headers(status, headers, Body::from(bytes))
+}
+
 fn empty_status(status: StatusCode) -> Response<Body> {
     let mut headers = HeaderMap::new();
     headers.insert(CONTENT_LENGTH, HeaderValue::from_static("0"));
@@ -589,6 +705,30 @@ fn url_decode(value: &str) -> Option<String> {
         }
     }
     String::from_utf8(bytes).ok()
+}
+
+fn parse_query_parameters(query: Option<&str>) -> BTreeMap<String, String> {
+    let mut parameters = BTreeMap::new();
+    let Some(query) = query else {
+        return parameters;
+    };
+    for part in query.split('&') {
+        let Some((key, value)) = part.split_once('=') else {
+            continue;
+        };
+        if let (Some(key), Some(value)) = (url_decode(key), url_decode(value)) {
+            parameters.insert(key, value);
+        }
+    }
+    parameters
+}
+
+fn parse_boolean_query_parameter(value: &str) -> Option<bool> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "true" | "1" | "yes" => Some(true),
+        "false" | "0" | "no" => Some(false),
+        _ => None,
+    }
 }
 
 fn hex_value(byte: u8) -> Option<u8> {
@@ -763,46 +903,6 @@ impl LanExternalAnimeProviderStatus {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct LanDanmakuTrack {
-    media_id: String,
-    status: LanDanmakuLoadStatus,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    source: Option<String>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    comments: Vec<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    match_title: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    episode_id: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    fetched_at_epoch_ms: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    message: Option<String>,
-}
-
-impl LanDanmakuTrack {
-    fn unavailable(media_id: String) -> Self {
-        Self {
-            media_id,
-            status: LanDanmakuLoadStatus::Unavailable,
-            source: None,
-            comments: Vec::new(),
-            match_title: None,
-            episode_id: None,
-            fetched_at_epoch_ms: None,
-            message: Some("Danmaku resolver is not available.".to_owned()),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-enum LanDanmakuLoadStatus {
-    Unavailable,
-}
-
 fn is_default_app_name(value: &String) -> bool {
     value == "Danmaku"
 }
@@ -826,9 +926,14 @@ fn is_embedded_host_mode(value: &String) -> bool {
 #[cfg(test)]
 mod tests {
     use std::fs;
+    use std::io::{Read, Write};
+    use std::net::{TcpListener, TcpStream};
     use std::path::PathBuf;
     use std::sync::Arc;
+    use std::sync::Mutex;
     use std::sync::atomic::{AtomicU64, Ordering};
+    use std::thread;
+    use std::time::Duration;
 
     use axum::body::to_bytes;
     use axum::http::header::HeaderName;
@@ -840,6 +945,11 @@ mod tests {
     use crate::catalog::{
         LibraryCatalog, LibraryMediaItem, LibrarySubtitleTrack, PathMap, PublishedLibrary,
     };
+    use crate::dandanplay::{
+        DandanplayCommentCacheStore, DandanplayConnection, DandanplayDanmakuClient,
+        DandanplayResolver,
+    };
+    use crate::settings::HeadlessDandanplayAuthenticationMode;
 
     static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -869,6 +979,128 @@ mod tests {
             passed += 1;
         }
         assert_eq!(19, passed);
+    }
+
+    #[tokio::test]
+    async fn danmaku_route_resolves_ready_failed_unavailable_and_cache_paths() {
+        let fixture = FixtureEnvironment::new();
+        let server = MockDandanplayServer::start(MockDandanplayBehavior::default());
+        let app = dandanplay_test_app(&fixture, Some(test_resolver(&fixture, &server)));
+
+        let ready = request_json(&app, "/api/danmaku/episode-id").await;
+        assert_eq!("READY", ready["status"]);
+        assert_eq!("NETWORK", ready["source"]);
+        assert_eq!(2, ready["comments"].as_array().expect("comments").len());
+        assert_eq!(4294901760_u64, ready["comments"][1]["style"]["colorArgb"]);
+        assert_eq!(1, server.count_path("/api/v2/match"));
+
+        let cached = request_json(&app, "/api/danmaku/episode-id").await;
+        assert_eq!("READY", cached["status"]);
+        assert_eq!("CACHE", cached["source"]);
+        assert_eq!(1, server.count_path("/api/v2/match"));
+
+        let refreshed = request_json(&app, "/api/danmaku/episode-id?forceRefresh=true").await;
+        assert_eq!("READY", refreshed["status"]);
+        assert_eq!("NETWORK", refreshed["source"]);
+        assert_eq!(2, server.count_path("/api/v2/match"));
+
+        let unavailable = request_json(
+            &dandanplay_test_app(&fixture, None),
+            "/api/danmaku/episode-id",
+        )
+        .await;
+        assert_eq!("UNAVAILABLE", unavailable["status"]);
+        assert_eq!("Danmaku resolver is not available.", unavailable["message"]);
+
+        let failed_server = MockDandanplayServer::start(MockDandanplayBehavior {
+            match_status: 500,
+            ..MockDandanplayBehavior::default()
+        });
+        let failed = request_json(
+            &dandanplay_test_app(&fixture, Some(test_resolver(&fixture, &failed_server))),
+            "/api/danmaku/episode-id",
+        )
+        .await;
+        assert_eq!("FAILED", failed["status"]);
+        assert!(
+            failed["message"]
+                .as_str()
+                .expect("message")
+                .contains("HTTP 500")
+        );
+    }
+
+    #[tokio::test]
+    async fn dandanplay_resolve_hook_returns_documented_status_shapes() {
+        let fixture = FixtureEnvironment::new();
+        let server = MockDandanplayServer::start(MockDandanplayBehavior::default());
+        let app = dandanplay_test_app(&fixture, Some(test_resolver(&fixture, &server)));
+
+        let bad = app
+            .clone()
+            .oneshot(get("/api/providers/dandanplay/resolve"))
+            .await
+            .expect("bad response");
+        assert_eq!(StatusCode::BAD_REQUEST, bad.status());
+        assert_text_body(bad, "Query parameter 'mediaId' is required.").await;
+
+        let not_found = app
+            .clone()
+            .oneshot(get("/api/providers/dandanplay/resolve?mediaId=missing"))
+            .await
+            .expect("not found response");
+        assert_eq!(StatusCode::NOT_FOUND, not_found.status());
+        assert_text_body(not_found, "Media item was not found.").await;
+
+        let invalid = app
+            .clone()
+            .oneshot(get(
+                "/api/providers/dandanplay/resolve?mediaId=episode-id&withRelated=maybe",
+            ))
+            .await
+            .expect("invalid response");
+        assert_eq!(StatusCode::BAD_REQUEST, invalid.status());
+        assert_text_body(
+            invalid,
+            "Query parameter 'withRelated' must be true or false.",
+        )
+        .await;
+
+        let response = request_json(
+            &app,
+            "/api/providers/dandanplay/resolve?mediaId=episode-id&episodeId=222&withRelated=false",
+        )
+        .await;
+        assert_eq!("episode-id", response["mediaId"]);
+        assert_eq!(
+            "danmaku-media-fixture.bin",
+            response["fingerprint"]["fileName"]
+        );
+        assert_eq!(2, response["matches"].as_array().expect("matches").len());
+        assert_eq!(222, response["selectedMatch"]["episodeId"]);
+        assert_eq!(2, response["commentCount"]);
+        assert_eq!("hello", response["comments"][0]["text"]);
+        assert!(response["comments"][0]["style"]["colorArgb"].is_string());
+        let comment_222 = server
+            .requests()
+            .into_iter()
+            .find(|request| request.path == "/api/v2/comment/222")
+            .expect("preferred comment request");
+        assert_eq!(None, comment_222.query);
+
+        let failed_server = MockDandanplayServer::start(MockDandanplayBehavior {
+            comment_status: 500,
+            ..MockDandanplayBehavior::default()
+        });
+        let failed = dandanplay_test_app(&fixture, Some(test_resolver(&fixture, &failed_server)))
+            .oneshot(get(
+                "/api/providers/dandanplay/resolve?mediaId=episode-id&episodeId=222",
+            ))
+            .await
+            .expect("failed response");
+        assert_eq!(StatusCode::BAD_GATEWAY, failed.status());
+        let body = body_text(failed).await;
+        assert!(body.contains("dandanplay request failed:"));
     }
 
     #[test]
@@ -968,6 +1200,183 @@ mod tests {
                 },
             }
         }
+    }
+
+    fn dandanplay_test_app(
+        fixture: &FixtureEnvironment,
+        resolver: Option<Arc<DandanplayResolver>>,
+    ) -> Router {
+        let state = HttpServerState::new(
+            fixture.library.clone(),
+            Arc::new(PlaybackProgressStore::new(
+                fixture.temp.join("progress-route-test.json"),
+            )),
+            HttpServerConfig {
+                web_assets_root: None,
+                host_mode: HOST_MODE_HEADLESS_SERVER.to_owned(),
+                provider_settings: None,
+                authenticated_post_hooks: Vec::new(),
+                dandanplay_resolver: resolver,
+            },
+        );
+        app(state)
+    }
+
+    fn test_resolver(
+        fixture: &FixtureEnvironment,
+        server: &MockDandanplayServer,
+    ) -> Arc<DandanplayResolver> {
+        let id = TEMP_COUNTER.fetch_add(1, Ordering::Relaxed);
+        Arc::new(DandanplayResolver::new(
+            DandanplayDanmakuClient::new(DandanplayConnection::new(
+                server.base_url(),
+                None,
+                None,
+                HeadlessDandanplayAuthenticationMode::Signed,
+            )),
+            DandanplayCommentCacheStore::new(
+                fixture.temp.join(format!("dandanplay-cache-{id}.json")),
+            ),
+            30,
+            || 2 * 24 * 60 * 60 * 1_000,
+        ))
+    }
+
+    async fn request_json(app: &Router, path: &str) -> Value {
+        let response = app.clone().oneshot(get(path)).await.expect("response");
+        assert_eq!(StatusCode::OK, response.status(), "path {path}");
+        let body = to_bytes(response.into_body(), 1_048_576)
+            .await
+            .expect("body");
+        serde_json::from_slice::<Value>(&body).expect("json body")
+    }
+
+    async fn assert_text_body(response: Response<Body>, expected: &str) {
+        assert_eq!(expected, body_text(response).await);
+    }
+
+    async fn body_text(response: Response<Body>) -> String {
+        let body = to_bytes(response.into_body(), 1_048_576)
+            .await
+            .expect("body");
+        String::from_utf8(body.to_vec()).expect("utf8 body")
+    }
+
+    fn get(path: &str) -> Request<Body> {
+        Request::builder()
+            .method("GET")
+            .uri(path)
+            .body(Body::empty())
+            .expect("request")
+    }
+
+    #[derive(Debug, Clone)]
+    struct MockDandanplayBehavior {
+        match_status: u16,
+        comment_status: u16,
+    }
+
+    impl Default for MockDandanplayBehavior {
+        fn default() -> Self {
+            Self {
+                match_status: 200,
+                comment_status: 200,
+            }
+        }
+    }
+
+    #[derive(Clone, Debug)]
+    struct MockDandanplayRequest {
+        path: String,
+        query: Option<String>,
+    }
+
+    struct MockDandanplayServer {
+        address: String,
+        requests: Arc<Mutex<Vec<MockDandanplayRequest>>>,
+    }
+
+    impl MockDandanplayServer {
+        fn start(behavior: MockDandanplayBehavior) -> Self {
+            let listener = TcpListener::bind("127.0.0.1:0").expect("mock bind");
+            let address = listener.local_addr().expect("mock addr").to_string();
+            let requests = Arc::new(Mutex::new(Vec::new()));
+            let requests_for_thread = requests.clone();
+            thread::spawn(move || {
+                for stream in listener.incoming().flatten() {
+                    let requests = requests_for_thread.clone();
+                    let behavior = behavior.clone();
+                    thread::spawn(move || {
+                        handle_mock_dandanplay_connection(stream, behavior, requests)
+                    });
+                }
+            });
+            thread::sleep(Duration::from_millis(25));
+            Self { address, requests }
+        }
+
+        fn base_url(&self) -> String {
+            format!("http://{}", self.address)
+        }
+
+        fn requests(&self) -> Vec<MockDandanplayRequest> {
+            self.requests.lock().expect("requests").clone()
+        }
+
+        fn count_path(&self, path: &str) -> usize {
+            self.requests()
+                .iter()
+                .filter(|request| request.path == path)
+                .count()
+        }
+    }
+
+    fn handle_mock_dandanplay_connection(
+        mut stream: TcpStream,
+        behavior: MockDandanplayBehavior,
+        requests: Arc<Mutex<Vec<MockDandanplayRequest>>>,
+    ) {
+        let mut buffer = [0_u8; 64 * 1024];
+        let read = stream.read(&mut buffer).expect("mock read");
+        let request = String::from_utf8_lossy(&buffer[..read]).to_string();
+        let request_line = request.lines().next().unwrap_or_default();
+        let target = request_line.split_whitespace().nth(1).unwrap_or("/");
+        let (path, query) = target
+            .split_once('?')
+            .map(|(path, query)| (path.to_owned(), Some(query.to_owned())))
+            .unwrap_or((target.to_owned(), None));
+        requests
+            .lock()
+            .expect("requests")
+            .push(MockDandanplayRequest {
+                path: path.clone(),
+                query,
+            });
+
+        let (status, body) = match path.as_str() {
+            "/api/v2/match" => (
+                behavior.match_status,
+                r#"{"success":true,"matches":[{"episodeId":111,"animeId":333,"animeTitle":"Example Anime","episodeTitle":"Episode 00"},{"episodeId":222,"animeId":333,"animeTitle":"Example Anime","episodeTitle":"Episode 01","shift":0.5}]}"#,
+            ),
+            "/api/v2/comment/111" | "/api/v2/comment/222" => (
+                behavior.comment_status,
+                r#"{"success":true,"comments":[{"cid":"c-1","p":"1.5,1,25,16777215,0,0,user,row-1","m":"hello"},{"cid":"c-2","p":"2.0,5,18,16711680,0,0,user,row-2","m":"top"}]}"#,
+            ),
+            _ => (404, r#"{"success":false,"message":"not found"}"#),
+        };
+        let status_text = match status {
+            200 => "OK",
+            404 => "Not Found",
+            500 => "Internal Server Error",
+            _ => "Error",
+        };
+        write!(
+            stream,
+            "HTTP/1.1 {status} {status_text}\r\nContent-Type: application/json; charset=utf-8\r\nContent-Length: {}\r\n\r\n{}",
+            body.len(),
+            body
+        )
+        .expect("mock write");
     }
 
     fn request_from_fixture(fixture: &Value) -> Request<Body> {

@@ -1,5 +1,6 @@
 pub mod catalog;
 pub mod cli;
+pub mod dandanplay;
 pub mod discovery;
 pub mod domain;
 pub(crate) mod hash;
