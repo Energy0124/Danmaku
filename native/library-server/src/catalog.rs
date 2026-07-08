@@ -6,6 +6,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, ser::SerializeMap};
 use serde_json::Value;
 
+use crate::scanner::LibraryScan;
 use crate::{LibraryServerError, Result};
 
 const SCHEMA_VERSION: u32 = 1;
@@ -44,6 +45,17 @@ impl CatalogStore {
         let stored = HeadlessStoredLibrary {
             published_library,
             saved_at_epoch_ms: current_epoch_ms(),
+            file_last_modified_epoch_ms_by_id: BTreeMap::new(),
+        };
+        self.save_stored(&stored)?;
+        Ok(stored)
+    }
+
+    pub fn save_scan(&self, scan: LibraryScan) -> Result<HeadlessStoredLibrary> {
+        let stored = HeadlessStoredLibrary {
+            published_library: scan.published_library,
+            saved_at_epoch_ms: current_epoch_ms(),
+            file_last_modified_epoch_ms_by_id: scan.file_last_modified_epoch_ms_by_id,
         };
         self.save_stored(&stored)?;
         Ok(stored)
@@ -95,6 +107,7 @@ impl CatalogStore {
 pub struct HeadlessStoredLibrary {
     pub published_library: PublishedLibrary,
     pub saved_at_epoch_ms: u64,
+    pub file_last_modified_epoch_ms_by_id: BTreeMap<String, u64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -283,6 +296,8 @@ struct StoredLibrarySnapshot<'a> {
     files_by_id: BTreeMap<String, String>,
     subtitle_files_by_id: BTreeMap<String, String>,
     poster_files_by_id: BTreeMap<String, String>,
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    file_last_modified_epoch_ms_by_id: &'a BTreeMap<String, u64>,
 }
 
 impl<'a> TryFrom<&'a HeadlessStoredLibrary> for StoredLibrarySnapshot<'a> {
@@ -298,6 +313,7 @@ impl<'a> TryFrom<&'a HeadlessStoredLibrary> for StoredLibrarySnapshot<'a> {
                 &stored.published_library.subtitle_files_by_id,
             )?,
             poster_files_by_id: absolute_path_map(&stored.published_library.poster_files_by_id)?,
+            file_last_modified_epoch_ms_by_id: &stored.file_last_modified_epoch_ms_by_id,
         })
     }
 }
@@ -325,6 +341,9 @@ fn stored_library_from_value(value: &Value) -> Option<HeadlessStoredLibrary> {
             poster_files_by_id,
         },
         saved_at_epoch_ms,
+        file_last_modified_epoch_ms_by_id: u64_map_from_value(
+            root.get("fileLastModifiedEpochMsById"),
+        )?,
     })
 }
 
@@ -334,6 +353,17 @@ fn path_map_from_value(value: Option<&Value>) -> Option<PathMap> {
         Some(Value::Object(object)) => object
             .iter()
             .map(|(id, path)| Some((id.clone(), PathBuf::from(path.as_str()?))))
+            .collect(),
+        Some(_) => None,
+    }
+}
+
+fn u64_map_from_value(value: Option<&Value>) -> Option<BTreeMap<String, u64>> {
+    match value {
+        None => Some(BTreeMap::new()),
+        Some(Value::Object(object)) => object
+            .iter()
+            .map(|(id, value)| Some((id.clone(), value.as_u64()?)))
             .collect(),
         Some(_) => None,
     }
@@ -353,7 +383,7 @@ fn absolute_path_map(paths: &PathMap) -> Result<BTreeMap<String, String>> {
         .collect()
 }
 
-fn absolute_normalized_path(path: &Path) -> Result<PathBuf> {
+pub(crate) fn absolute_normalized_path(path: &Path) -> Result<PathBuf> {
     let absolute = if path.is_absolute() {
         path.to_path_buf()
     } else {
@@ -366,7 +396,7 @@ fn absolute_normalized_path(path: &Path) -> Result<PathBuf> {
     Ok(normalize_lexically(&absolute))
 }
 
-fn normalize_lexically(path: &Path) -> PathBuf {
+pub(crate) fn normalize_lexically(path: &Path) -> PathBuf {
     let mut normalized = PathBuf::new();
     for component in path.components() {
         match component {
@@ -384,7 +414,7 @@ fn normalize_lexically(path: &Path) -> PathBuf {
     normalized
 }
 
-fn current_epoch_ms() -> u64 {
+pub(crate) fn current_epoch_ms() -> u64 {
     let millis = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()

@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use crate::catalog::HeadlessStoredLibrary;
 use crate::cli::ServerOptions;
+use crate::scanner::LibraryScan;
 use crate::settings::{HeadlessDandanplayAuthenticationMode, HeadlessServerSettings};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -13,6 +14,7 @@ pub struct StartupSummary {
     web_assets_configured: bool,
     catalog_item_count: Option<usize>,
     catalog_saved_at_epoch_ms: Option<u64>,
+    catalog_scan_summary: Option<CatalogScanSummary>,
     provider_summary: ProviderSummary,
 }
 
@@ -22,6 +24,7 @@ impl StartupSummary {
         settings: &HeadlessServerSettings,
         effective_library_roots: &[PathBuf],
         stored_library: Option<&HeadlessStoredLibrary>,
+        catalog_scan_summary: Option<CatalogScanSummary>,
     ) -> Self {
         Self {
             data_directory: options.data_directory.clone(),
@@ -32,6 +35,7 @@ impl StartupSummary {
             catalog_item_count: stored_library
                 .map(|library| library.published_library.catalog.items.len()),
             catalog_saved_at_epoch_ms: stored_library.map(|library| library.saved_at_epoch_ms),
+            catalog_scan_summary,
             provider_summary: ProviderSummary::from(settings),
         }
     }
@@ -61,8 +65,52 @@ impl StartupSummary {
                 }
                 _ => "Catalog snapshot: absent".to_owned(),
             },
+            self.catalog_scan_summary
+                .as_ref()
+                .map(CatalogScanSummary::to_log_line)
+                .unwrap_or_else(|| {
+                    if self.effective_root_count == 0 {
+                        "Catalog scan: skipped; no roots configured".to_owned()
+                    } else {
+                        "Catalog scan: not run".to_owned()
+                    }
+                }),
             self.provider_summary.to_log_line(),
         ]
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CatalogScanSummary {
+    scanned_root_count: usize,
+    item_count: usize,
+    subtitle_track_count: usize,
+    reused_item_count: usize,
+    refreshed_item_count: usize,
+}
+
+impl CatalogScanSummary {
+    pub fn to_log_line(&self) -> String {
+        format!(
+            "Catalog scan: completed; roots={}; items={}; subtitles={}; reused={}; refreshed={}",
+            self.scanned_root_count,
+            self.item_count,
+            self.subtitle_track_count,
+            self.reused_item_count,
+            self.refreshed_item_count,
+        )
+    }
+}
+
+impl From<&LibraryScan> for CatalogScanSummary {
+    fn from(scan: &LibraryScan) -> Self {
+        Self {
+            scanned_root_count: scan.scanned_root_count,
+            item_count: scan.published_library.catalog.items.len(),
+            subtitle_track_count: scan.subtitle_track_count(),
+            reused_item_count: scan.reused_item_count,
+            refreshed_item_count: scan.refreshed_item_count,
+        }
     }
 }
 
@@ -151,6 +199,7 @@ mod tests {
         let stored_library = HeadlessStoredLibrary {
             published_library: PublishedLibrary::empty(),
             saved_at_epoch_ms: 1700000000000,
+            file_last_modified_epoch_ms_by_id: Default::default(),
         };
 
         let summary = StartupSummary::from_loaded_state(
@@ -158,6 +207,7 @@ mod tests {
             &settings,
             &settings.library_roots,
             Some(&stored_library),
+            None,
         );
         let output = summary.to_log_lines().join("\n");
 
