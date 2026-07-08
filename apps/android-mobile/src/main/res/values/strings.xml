@@ -111,4 +111,6 @@
     <string name="subtitle_off">Off</string>
     <string name="playback_error_prefix">Playback connection error: %1$s</string>
     <string name="library_error_prefix">Library error: %1$s</string>
+    <string name="action_fullscreen">Fullscreen</string>
+    <string name="action_exit_fullscreen">Exit fullscreen</string>
 </resources>

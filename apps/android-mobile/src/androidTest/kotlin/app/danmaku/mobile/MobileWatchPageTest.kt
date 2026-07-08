@@ -3,9 +3,12 @@ package app.danmaku.mobile
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -42,6 +45,7 @@ class MobileWatchPageTest {
                     snapshot = PlaybackSnapshot(),
                     nowPlaying = null,
                     playbackError = null,
+                    isFullscreen = false,
                     onOpen = { openedVideo = true },
                     onPlayPause = {},
                     onSeekTo = {},
@@ -49,6 +53,7 @@ class MobileWatchPageTest {
                     onSelectAudio = {},
                     onSelectSubtitle = {},
                     onBrowseLibrary = { openedLibrary = true },
+                    onToggleFullscreen = {},
                 )
             }
         }
@@ -57,7 +62,7 @@ class MobileWatchPageTest {
         composeRule.onNodeWithTag("watch-video-surface").assertExists()
         composeRule.onNodeWithTag("now-playing-panel").assertExists()
         composeRule.onNodeWithText("Ready to play").assertExists()
-        composeRule.onNodeWithText("No episode selected").assertExists()
+        composeRule.onAllNodesWithText("No episode selected").assertCountEquals(1)
         composeRule.onNodeWithText("Select a video to start watching").assertExists()
         composeRule.onNodeWithTag("watch-play-pause").assertIsNotEnabled()
 
@@ -114,6 +119,7 @@ class MobileWatchPageTest {
                     ),
                     nowPlaying = seededItem(),
                     playbackError = null,
+                    isFullscreen = false,
                     onOpen = {},
                     onPlayPause = {},
                     onSeekTo = {},
@@ -121,16 +127,17 @@ class MobileWatchPageTest {
                     onSelectAudio = { selectedAudio = it },
                     onSelectSubtitle = { selectedSubtitle = it ?: "off" },
                     onBrowseLibrary = {},
+                    onToggleFullscreen = {},
                 )
             }
         }
 
         composeRule.onNodeWithText("Example Show · Episode 01").assertExists()
-        composeRule.onNodeWithText("Episode 01").assertExists()
-        composeRule.onNodeWithText("Paused").assertExists()
+        composeRule.onAllNodesWithText("Episode 01").assertCountEquals(1)
+        composeRule.onAllNodesWithText("Paused").assertCountEquals(2)
         composeRule.onNodeWithText("1:00").assertExists()
         composeRule.onNodeWithText("20:00").assertExists()
-        composeRule.onNodeWithText("Volume 40%").assertExists()
+        composeRule.onNodeWithText("40%").assertExists()
         composeRule.onNodeWithText("Audio").assertExists()
         composeRule.onNodeWithText("Subtitles").assertExists()
 
@@ -155,6 +162,7 @@ class MobileWatchPageTest {
         var playPauseCount = 0
         var seekTarget: Long? = null
         var volumeTarget: Int? = null
+        var fullscreenToggleCount = 0
 
         composeRule.setContent {
             MaterialTheme {
@@ -169,6 +177,7 @@ class MobileWatchPageTest {
                     ),
                     nowPlaying = seededItem(),
                     playbackError = "Transient test error",
+                    isFullscreen = false,
                     onOpen = {},
                     onPlayPause = { playPauseCount += 1 },
                     onSeekTo = { seekTarget = it },
@@ -176,28 +185,74 @@ class MobileWatchPageTest {
                     onSelectAudio = {},
                     onSelectSubtitle = {},
                     onBrowseLibrary = {},
+                    onToggleFullscreen = { fullscreenToggleCount += 1 },
                 )
             }
         }
 
-        composeRule.onNodeWithText("Playing").assertExists()
-        composeRule.onNodeWithText("Pause").assertExists()
+        composeRule.onAllNodesWithText("Playing").assertCountEquals(2)
+        composeRule.onNodeWithTag("watch-play-pause").assertExists()
         composeRule.onNodeWithText("Playback connection error: Transient test error").assertExists()
         composeRule.onNodeWithTag("watch-play-pause")
             .performScrollTo()
             .assertIsEnabled()
             .performSemanticsAction(SemanticsActions.OnClick)
-        composeRule.onNodeWithTag("watch-seek:+10s")
-            .performScrollTo()
+        composeRule.onNodeWithTag("watch-seek:+10s", useUnmergedTree = true)
             .performSemanticsAction(SemanticsActions.OnClick)
         composeRule.onNodeWithTag("watch-volume-up")
             .performScrollTo()
+            .performSemanticsAction(SemanticsActions.OnClick)
+        composeRule.onNodeWithTag("watch-fullscreen-toggle")
             .performSemanticsAction(SemanticsActions.OnClick)
 
         composeRule.runOnIdle {
             assertEquals(1, playPauseCount)
             assertEquals(70_000L, seekTarget)
             assertEquals(50, volumeTarget)
+            assertEquals(1, fullscreenToggleCount)
+        }
+    }
+
+    @Test
+    fun fullscreenPlayerUsesStandaloneVideoStage() {
+        var fullscreenToggleCount = 0
+
+        composeRule.setContent {
+            MaterialTheme {
+                WatchPage(
+                    contentPadding = PaddingValues(0.dp),
+                    controller = null,
+                    snapshot = PlaybackSnapshot(
+                        status = PlaybackStatus.PLAYING,
+                        source = PlaybackSource.RemoteStream("http://pc.local/media/example-1"),
+                        position = PlaybackPosition(positionMs = 60_000, durationMs = 1_200_000),
+                        volumePercent = 40,
+                    ),
+                    nowPlaying = seededItem(),
+                    playbackError = null,
+                    isFullscreen = true,
+                    onOpen = {},
+                    onPlayPause = {},
+                    onSeekTo = {},
+                    onSetVolume = {},
+                    onSelectAudio = {},
+                    onSelectSubtitle = {},
+                    onBrowseLibrary = {},
+                    onToggleFullscreen = { fullscreenToggleCount += 1 },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("watch-player-home").assertExists()
+        composeRule.onNodeWithTag("watch-video-surface").assertExists()
+        composeRule.onNodeWithTag("watch-danmaku-overlay", useUnmergedTree = true).assertExists()
+        composeRule.onAllNodesWithTag("now-playing-panel").assertCountEquals(0)
+        composeRule.onAllNodesWithTag("watch-library-actions").assertCountEquals(0)
+        composeRule.onNodeWithTag("watch-fullscreen-toggle")
+            .performSemanticsAction(SemanticsActions.OnClick)
+
+        composeRule.runOnIdle {
+            assertEquals(1, fullscreenToggleCount)
         }
     }
 

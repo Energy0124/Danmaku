@@ -1,5 +1,9 @@
 package app.danmaku.mobile
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
+import android.content.pm.ActivityInfo
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -51,10 +55,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.PlaybackSource
 import app.danmaku.domain.PlaybackStatus
+import app.danmaku.library.LanDanmakuLoader
 import app.danmaku.library.LanLibraryConnectionSession
 import app.danmaku.library.LanPlaybackPreparer
 import app.danmaku.library.LanPlaybackProgressSync
@@ -122,6 +130,7 @@ private fun MobilePlayerScreen() {
         LanPlaybackProgressSync(libraryClient, System::currentTimeMillis)
     }
     val playbackPreparer = remember(libraryClient) { LanPlaybackPreparer(libraryClient) }
+    val danmakuLoader = remember(libraryClient) { LanDanmakuLoader(libraryClient) }
     val connectionStore = remember(context) {
         AndroidLanLibraryConnectionStore(context.applicationContext)
     }
@@ -140,6 +149,9 @@ private fun MobilePlayerScreen() {
         uri ?: return@rememberLauncherForActivityResult
         appState.controller?.let {
             appState.nowPlaying = null
+            appState.activePlaybackTarget = null
+            appState.danmakuState = MobileDanmakuState.Idle
+            appState.playbackStartupPhase = MobilePlaybackStartupPhase.Playing
             it.load(PlaybackSource.LocalFile(uri.toString()))
             appState.snapshot = it.snapshot()
         }
@@ -150,6 +162,7 @@ private fun MobilePlayerScreen() {
         libraryConnectionSession,
         progressSync,
         playbackPreparer,
+        danmakuLoader,
         connectionStore,
         favoriteStore,
         discoveryClient,
@@ -160,6 +173,7 @@ private fun MobilePlayerScreen() {
             libraryConnectionSession = libraryConnectionSession,
             progressSync = progressSync,
             playbackPreparer = playbackPreparer,
+            danmakuLoader = danmakuLoader,
             connectionStore = connectionStore,
             favoriteStore = favoriteStore,
             discoveryClient = discoveryClient,
@@ -197,10 +211,43 @@ private fun MobilePlayerScreen() {
         }
     }
 
+    PlayerFullscreenSystemUi(appState.isPlayerFullscreen)
+
     MobileAppScaffold(
         state = appState.toUiState(),
         actions = actionHandler.toAppActions(),
     )
+}
+
+@Composable
+private fun PlayerFullscreenSystemUi(enabled: Boolean) {
+    val activity = LocalContext.current.findActivity()
+    DisposableEffect(activity, enabled) {
+        if (activity == null || !enabled) {
+            onDispose { }
+        } else {
+            val previousOrientation = activity.requestedOrientation
+            val window = activity.window
+            val controller = WindowCompat.getInsetsController(window, window.decorView)
+            WindowCompat.setDecorFitsSystemWindows(window, false)
+            controller.hide(WindowInsetsCompat.Type.systemBars())
+            controller.systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+
+            onDispose {
+                activity.requestedOrientation = previousOrientation
+                controller.show(WindowInsetsCompat.Type.systemBars())
+                WindowCompat.setDecorFitsSystemWindows(window, true)
+            }
+        }
+    }
+}
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }
 
 @Composable

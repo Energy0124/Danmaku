@@ -3,6 +3,7 @@ package app.danmaku.mobile
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.PlaybackCommand
 import app.danmaku.domain.PlaybackStatus
+import app.danmaku.library.LanDanmakuLoader
 import app.danmaku.library.LanLibraryConnectionProfile
 import app.danmaku.library.LanLibraryConnectionSnapshot
 import app.danmaku.library.LanLibraryConnectionSession
@@ -14,9 +15,12 @@ import app.danmaku.library.android.AndroidLanLibraryConnectionStore
 import app.danmaku.library.android.LanLibraryDiscoveryClient
 import app.danmaku.library.android.LanLibraryDiscoveryException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 internal class MobilePlayerActionHandler(
     private val state: MobilePlayerState,
@@ -24,6 +28,7 @@ internal class MobilePlayerActionHandler(
     private val libraryConnectionSession: LanLibraryConnectionSession,
     private val progressSync: LanPlaybackProgressSync,
     private val playbackPreparer: LanPlaybackPreparer,
+    private val danmakuLoader: LanDanmakuLoader,
     private val connectionStore: AndroidLanLibraryConnectionStore,
     private val favoriteStore: AndroidLibraryFavoriteStore,
     private val discoveryClient: LanLibraryDiscoveryClient,
@@ -148,34 +153,94 @@ internal class MobilePlayerActionHandler(
         val activeController = state.controller
         if (activeController == null) {
             state.playbackError = "Player service is not connected yet."
+            state.isPlayerFullscreen = false
             return
         }
 
         val target = LanPlaybackTarget(state.serverUrl, state.pairingToken, item.id)
         state.nowPlaying = item
+        state.activePlaybackTarget = target
         state.selectedTab = MobileTab.Watch
-        scope.launch {
-            val resumePosition = runCatching {
-                withContext(Dispatchers.IO) {
-                    progressSync.fetchResumePositionMs(target)
-                }
-            }.onFailure {
-                state.libraryError = "Resume lookup failed: ${it.message}"
-            }.getOrNull()
-            val preparation = playbackPreparer.prepare(
-                baseUrl = target.baseUrl,
-                pairingToken = target.pairingToken,
-                item = item,
-                resumePositionMs = resumePosition,
-            )
-            activeController.load(preparation)
-            preparation.resumePositionMs?.let {
-                activeController.dispatch(PlaybackCommand.SeekTo(it))
+        state.isPlayerFullscreen = true
+        state.playbackStartupPhase = MobilePlaybackStartupPhase.WaitingForDanmaku
+        state.danmakuState = MobileDanmakuState.loading(item.id)
+        state.libraryError = null
+
+        val danmakuDeferred = scope.async(Dispatchers.IO) {
+            runCatching {
+                MobileDanmakuState.fromTrack(danmakuLoader.fetchDanmaku(target))
+            }.recover { error ->
+                MobileDanmakuState.failed(target.mediaId, error)
             }
-            activeController.dispatch(PlaybackCommand.Play)
+        }
+
+        scope.launch {
+            runCatching {
+                val resumePosition = runCatching {
+                    withContext(Dispatchers.IO) {
+                        progressSync.fetchResumePositionMs(target)
+                    }
+                }.onFailure {
+                    state.libraryError = "Resume lookup failed: ${it.message}"
+                }.getOrNull()
+                val preparation = playbackPreparer.prepare(
+                    baseUrl = target.baseUrl,
+                    pairingToken = target.pairingToken,
+                    item = item,
+                    resumePositionMs = resumePosition,
+                )
+                if (!state.isCurrentPlayback(target)) return@launch
+
+                activeController.load(preparation)
+                preparation.resumePositionMs?.let {
+                    activeController.dispatch(PlaybackCommand.SeekTo(it))
+                }
+
+                val danmakuResult = withTimeoutOrNull(DANMAKU_PLAYBACK_WAIT_TIMEOUT_MS) {
+                    danmakuDeferred.await()
+                }
+                if (!state.isCurrentPlayback(target)) return@launch
+
+                if (danmakuResult == null) {
+                    state.danmakuState = MobileDanmakuState.timedOut(target.mediaId)
+                    state.playbackStartupPhase = MobilePlaybackStartupPhase.Playing
+                    activeController.dispatch(PlaybackCommand.Play)
+                    awaitDanmakuAfterTimeout(target, danmakuDeferred)
+                } else {
+                    state.danmakuState = danmakuResult.getOrElse { error ->
+                        MobileDanmakuState.failed(target.mediaId, error)
+                    }
+                    state.playbackStartupPhase = MobilePlaybackStartupPhase.Playing
+                    activeController.dispatch(PlaybackCommand.Play)
+                }
+            }.onFailure { error ->
+                if (state.isCurrentPlayback(target)) {
+                    state.playbackError = error.message
+                    state.playbackStartupPhase = MobilePlaybackStartupPhase.Idle
+                    state.danmakuState = MobileDanmakuState.Idle
+                    state.activePlaybackTarget = null
+                    state.isPlayerFullscreen = false
+                }
+            }
         }
     }
 
+    private fun awaitDanmakuAfterTimeout(
+        target: LanPlaybackTarget,
+        danmakuDeferred: Deferred<Result<MobileDanmakuState>>,
+    ) {
+        scope.launch {
+            val resolvedState = danmakuDeferred.await().getOrElse { error ->
+                MobileDanmakuState.failed(target.mediaId, error)
+            }
+            if (state.isCurrentPlayback(target)) {
+                state.danmakuState = resolvedState
+            }
+        }
+    }
+
+    private fun MobilePlayerState.isCurrentPlayback(target: LanPlaybackTarget): Boolean =
+        activePlaybackTarget == target
     fun togglePlayback() {
         if (state.snapshot.status == PlaybackStatus.PLAYING) {
             state.controller?.dispatch(PlaybackCommand.Pause)
@@ -186,6 +251,7 @@ internal class MobilePlayerActionHandler(
 
     fun showLibraryItem(item: LibraryMediaItem) {
         state.librarySearchText = item.seriesTitle
+        state.isPlayerFullscreen = false
         state.selectedTab = MobileTab.Library
     }
 
@@ -224,13 +290,22 @@ internal class MobilePlayerActionHandler(
 
     fun toAppActions(): MobileAppActions =
         MobileAppActions(
-            onTabSelected = { state.selectedTab = it },
+            onTabSelected = {
+                state.isPlayerFullscreen = false
+                state.selectedTab = it
+            },
             onPlay = ::playEpisode,
             onPlayPause = ::togglePlayback,
             onOpenPlayer = { state.selectedTab = MobileTab.Watch },
-            onOpenLibrary = { state.selectedTab = MobileTab.Library },
+            onOpenLibrary = {
+                state.isPlayerFullscreen = false
+                state.selectedTab = MobileTab.Library
+            },
             onShowLibraryItem = ::showLibraryItem,
-            onConnect = { state.selectedTab = MobileTab.Connect },
+            onConnect = {
+                state.isPlayerFullscreen = false
+                state.selectedTab = MobileTab.Connect
+            },
             onOpenVideo = openVideoPicker,
             onSeekTo = { state.controller?.dispatch(PlaybackCommand.SeekTo(it)) },
             onSetVolume = { state.controller?.dispatch(PlaybackCommand.SetVolume(it)) },
@@ -249,5 +324,10 @@ internal class MobilePlayerActionHandler(
             onSaveConnection = ::saveConnection,
             onDiscover = ::discoverPc,
             onRefresh = ::refreshLibrary,
+            onTogglePlayerFullscreen = { state.isPlayerFullscreen = !state.isPlayerFullscreen },
         )
+
+    private companion object {
+        const val DANMAKU_PLAYBACK_WAIT_TIMEOUT_MS = 15_000L
+    }
 }

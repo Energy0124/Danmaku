@@ -13,6 +13,7 @@ import app.danmaku.domain.PlaybackProgress
 import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.filteredItems
 import app.danmaku.library.LanLibraryConnectionProfile
+import app.danmaku.library.LanPlaybackTarget
 import app.danmaku.player.android.Media3PlaybackController
 
 internal class MobilePlayerState(
@@ -36,7 +37,11 @@ internal class MobilePlayerState(
     var libraryFavoriteFilter by mutableStateOf(LibraryFavoriteFilter.ANY)
     var favoriteMediaIds by mutableStateOf(initialFavoriteMediaIds)
     var nowPlaying by mutableStateOf<LibraryMediaItem?>(null)
+    var activePlaybackTarget by mutableStateOf<LanPlaybackTarget?>(null)
+    var danmakuState by mutableStateOf(MobileDanmakuState.Idle)
+    var playbackStartupPhase by mutableStateOf(MobilePlaybackStartupPhase.Idle)
     var selectedTab by mutableStateOf(MobileTab.Home)
+    var isPlayerFullscreen by mutableStateOf(false)
 
     private val totalItems: List<LibraryMediaItem>
         get() = catalog?.items.orEmpty()
@@ -80,5 +85,8 @@ internal class MobilePlayerState(
             subtitleFilter = librarySubtitleFilter,
             favoriteMediaIds = favoriteMediaIds,
             favoriteFilter = libraryFavoriteFilter,
+            danmakuState = danmakuState,
+            playbackStartupPhase = playbackStartupPhase,
+            isPlayerFullscreen = isPlayerFullscreen,
         )
 }
