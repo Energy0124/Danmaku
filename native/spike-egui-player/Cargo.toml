@@ -1,0 +1,13 @@
+[package]
+name = "spike-egui-player"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Throwaway egui/glow libmpv render API compositing spike"
+license = "MIT"
+
+[dependencies]
+danmaku-core = { path = "../rust-core" }
+eframe = { version = "0.32.3", default-features = false, features = ["default_fonts", "glow"] }
+egui_glow = "0.32.3"
+player-windows-mpv = { path = "../player-windows-mpv" }
