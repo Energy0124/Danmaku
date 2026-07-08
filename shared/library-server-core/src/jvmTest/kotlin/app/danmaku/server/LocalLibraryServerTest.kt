@@ -143,7 +143,13 @@ class LocalLibraryServerTest {
                 assertEquals(200, fallback.responseCode)
                 assertTrue(fallback.inputStream.bufferedReader().use { it.readText() }.contains("Danmaku"))
 
-                assertEquals(404, connection("${server.baseUrl()}/web/assets/missing.js").responseCode)
+                val missingAsset = connection(
+                    url = "${server.baseUrl()}/web/assets/missing.js",
+                    // Pin Accept: older JDK HttpURLConnection defaults include
+                    // text/html, which triggers the documented SPA fallback.
+                    headers = mapOf("Accept" to "*/*"),
+                )
+                assertEquals(404, missingAsset.responseCode)
                 assertEquals(405, connection("${server.baseUrl()}/web/", method = "POST").responseCode)
                 assertEquals(200, connection("${server.baseUrl()}/api/library").responseCode)
             }
