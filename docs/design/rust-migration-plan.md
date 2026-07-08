@@ -167,10 +167,10 @@ Catalog:
 
 HTTP and discovery:
 
-- `[ ]` Server status, catalog JSON, byte-range media streaming, subtitle
+- `[x]` Server status, catalog JSON, byte-range media streaming, subtitle
   streaming, poster serving, progress read/write, `/web/` static serving,
   pairing-token auth — all validated against the golden fixtures.
-- `[ ]` UDP discovery announce after HTTP bind, matching the packet fixtures.
+- `[x]` UDP discovery announce after HTTP bind, matching the packet fixtures.
 
 Providers:
 
