@@ -157,13 +157,13 @@ Foundations:
 
 Catalog:
 
-- `[ ]` Filesystem scan and incremental rescan, release-name parsing, and
+- `[x]` Filesystem scan and incremental rescan, release-name parsing, and
   series grouping ported from `shared/domain` + desktop indexing, folding
   in or extending `native/rust-core`. Must pass the domain conformance
   fixtures.
 - `[ ]` SQLite persistence compatible with existing desktop catalog
   databases, or a one-time importer verified against a copied real catalog.
-- `[ ]` Sidecar subtitle discovery matching current behavior.
+- `[x]` Sidecar subtitle discovery matching current behavior.
 
 HTTP and discovery:
 
