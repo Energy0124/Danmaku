@@ -1,0 +1,191 @@
+{
+    "schemaVersion": 1,
+    "name": "series-grouping",
+    "feature": "series-grouping",
+    "description": "Groups local and provider-matched catalog items into sorted series.",
+    "input": {
+        "catalog": {
+            "rootName": "Domain Fixture Library",
+            "indexedAtEpochMs": 1700000000000,
+            "items": [
+                {
+                    "id": "beta-01",
+                    "seriesTitle": "Beta Show",
+                    "episodeTitle": "Episode 01",
+                    "relativePath": "Beta Show/Episode 01.mkv",
+                    "sizeBytes": 123,
+                    "mediaType": "video/x-matroska",
+                    "streamPath": "/media/beta-01",
+                    "indexedAtEpochMs": 1700000000000,
+                    "subtitles": [],
+                    "posterPath": null,
+                    "animeMetadata": null,
+                    "metadataStatus": "NOT_AVAILABLE"
+                },
+                {
+                    "id": "alpha-s2e02",
+                    "seriesTitle": "Alpha Show",
+                    "episodeTitle": "S02E02",
+                    "relativePath": "Alpha Show/Season 2/Episode 02.mkv",
+                    "sizeBytes": 123,
+                    "mediaType": "video/x-matroska",
+                    "streamPath": "/media/alpha-s2e02",
+                    "indexedAtEpochMs": 1700000000000,
+                    "subtitles": [
+                        {
+                            "id": "alpha-s2e02-subtitle-1",
+                            "label": "Subtitle 1",
+                            "relativePath": "Alpha Show/S02E02.1.ass",
+                            "mediaType": "text/x-ass",
+                            "streamPath": "/subtitles/alpha-s2e02-1"
+                        }
+                    ],
+                    "posterPath": null,
+                    "animeMetadata": null,
+                    "metadataStatus": "NOT_AVAILABLE"
+                },
+                {
+                    "id": "alpha-s1e01",
+                    "seriesTitle": "Alpha Show",
+                    "episodeTitle": "S01E01",
+                    "relativePath": "Alpha Show/Season 1/Episode 01.mkv",
+                    "sizeBytes": 123,
+                    "mediaType": "video/x-matroska",
+                    "streamPath": "/media/alpha-s1e01",
+                    "indexedAtEpochMs": 1700000000000,
+                    "subtitles": [],
+                    "posterPath": null,
+                    "animeMetadata": null,
+                    "metadataStatus": "NOT_AVAILABLE"
+                },
+                {
+                    "id": "matched-01",
+                    "seriesTitle": "Folder A",
+                    "episodeTitle": "Episode 01",
+                    "relativePath": "Folder A/Episode 01.mkv",
+                    "sizeBytes": 123,
+                    "mediaType": "video/x-matroska",
+                    "streamPath": "/media/matched-01",
+                    "indexedAtEpochMs": 1700000000000,
+                    "subtitles": [],
+                    "posterPath": null,
+                    "animeMetadata": {
+                        "animeId": {
+                            "provider": "DANDANPLAY",
+                            "value": 101
+                        },
+                        "displayTitle": "Matched Anime",
+                        "primaryTitle": "Matched Anime",
+                        "chineseTitle": null,
+                        "englishTitle": null,
+                        "japaneseTitle": null,
+                        "alternateNames": [],
+                        "externalLinks": [],
+                        "imageUrl": null,
+                        "episodeCount": null,
+                        "startYear": null
+                    },
+                    "metadataStatus": "NOT_AVAILABLE"
+                },
+                {
+                    "id": "matched-02",
+                    "seriesTitle": "Folder B",
+                    "episodeTitle": "Episode 02",
+                    "relativePath": "Folder B/Episode 02.mkv",
+                    "sizeBytes": 123,
+                    "mediaType": "video/x-matroska",
+                    "streamPath": "/media/matched-02",
+                    "indexedAtEpochMs": 1700000000000,
+                    "subtitles": [],
+                    "posterPath": null,
+                    "animeMetadata": {
+                        "animeId": {
+                            "provider": "DANDANPLAY",
+                            "value": 101
+                        },
+                        "displayTitle": "Matched Anime",
+                        "primaryTitle": "Matched Anime",
+                        "chineseTitle": null,
+                        "englishTitle": null,
+                        "japaneseTitle": null,
+                        "alternateNames": [],
+                        "externalLinks": [],
+                        "imageUrl": null,
+                        "episodeCount": null,
+                        "startYear": null
+                    },
+                    "metadataStatus": "NOT_AVAILABLE"
+                }
+            ]
+        },
+        "progress": [],
+        "options": {}
+    },
+    "expected": {
+        "groupedSeries": [
+            {
+                "id": "alpha-show",
+                "title": "Alpha Show",
+                "episodeCount": 2,
+                "subtitleTrackCount": 1,
+                "totalSizeBytes": 246,
+                "latestIndexedMediaId": "alpha-s2e02",
+                "seasons": [
+                    {
+                        "id": "alpha-show-season-01",
+                        "label": "Season 1",
+                        "sortKey": 1,
+                        "itemIds": [
+                            "alpha-s1e01"
+                        ]
+                    },
+                    {
+                        "id": "alpha-show-season-02",
+                        "label": "Season 2",
+                        "sortKey": 2,
+                        "itemIds": [
+                            "alpha-s2e02"
+                        ]
+                    }
+                ]
+            },
+            {
+                "id": "anime-dandanplay-101",
+                "title": "Matched Anime",
+                "episodeCount": 2,
+                "subtitleTrackCount": 0,
+                "totalSizeBytes": 246,
+                "latestIndexedMediaId": "matched-02",
+                "seasons": [
+                    {
+                        "id": "anime-dandanplay-101-season-unknown",
+                        "label": "Season unknown",
+                        "sortKey": 2147483647,
+                        "itemIds": [
+                            "matched-01",
+                            "matched-02"
+                        ]
+                    }
+                ]
+            },
+            {
+                "id": "beta-show",
+                "title": "Beta Show",
+                "episodeCount": 1,
+                "subtitleTrackCount": 0,
+                "totalSizeBytes": 123,
+                "latestIndexedMediaId": "beta-01",
+                "seasons": [
+                    {
+                        "id": "beta-show-season-unknown",
+                        "label": "Season unknown",
+                        "sortKey": 2147483647,
+                        "itemIds": [
+                            "beta-01"
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+}

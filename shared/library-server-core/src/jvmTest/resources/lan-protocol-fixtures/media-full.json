@@ -1,0 +1,22 @@
+{
+    "schemaVersion": 1,
+    "name": "media-full",
+    "request": {
+        "method": "GET",
+        "path": "/media/episode-id",
+        "headers": {}
+    },
+    "response": {
+        "status": 200,
+        "headers": {
+            "Accept-Ranges": "bytes",
+            "Content-Length": "6",
+            "Content-Type": "application/octet-stream"
+        },
+        "body": {
+            "byteLength": 6,
+            "base64": "AAECAwQF",
+            "hex": "000102030405"
+        }
+    }
+}

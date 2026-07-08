@@ -1,0 +1,21 @@
+{
+    "schemaVersion": 1,
+    "name": "subtitle-get",
+    "request": {
+        "method": "GET",
+        "path": "/subtitles/subtitle-id",
+        "headers": {}
+    },
+    "response": {
+        "status": 200,
+        "headers": {
+            "Cache-Control": "no-store",
+            "Content-Length": "38",
+            "Content-Type": "application/x-subrip"
+        },
+        "body": {
+            "byteLength": 38,
+            "text": "1\n00:00:00,000 --> 00:00:01,000\nHello\n"
+        }
+    }
+}

@@ -1,0 +1,21 @@
+{
+    "schemaVersion": 1,
+    "name": "web-asset",
+    "request": {
+        "method": "GET",
+        "path": "/web/assets/app.js",
+        "headers": {}
+    },
+    "response": {
+        "status": 200,
+        "headers": {
+            "Cache-Control": "public, max-age=3600",
+            "Content-Length": "32",
+            "Content-Type": "text/javascript; charset=utf-8"
+        },
+        "body": {
+            "byteLength": 32,
+            "text": "window.__danmakuFixture = true;\n"
+        }
+    }
+}

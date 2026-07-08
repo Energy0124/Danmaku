@@ -1,0 +1,18 @@
+{
+    "schemaVersion": 1,
+    "name": "progress-missing",
+    "request": {
+        "method": "GET",
+        "path": "/api/progress/episode-id",
+        "headers": {}
+    },
+    "response": {
+        "status": 404,
+        "headers": {
+            "Content-Length": "0"
+        },
+        "body": {
+            "byteLength": 0
+        }
+    }
+}

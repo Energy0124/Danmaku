@@ -1,0 +1,19 @@
+{
+    "schemaVersion": 1,
+    "name": "web-redirect",
+    "request": {
+        "method": "GET",
+        "path": "/web",
+        "headers": {}
+    },
+    "response": {
+        "status": 302,
+        "headers": {
+            "Content-Length": "0",
+            "Location": "/web/"
+        },
+        "body": {
+            "byteLength": 0
+        }
+    }
+}

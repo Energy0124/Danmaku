@@ -1,0 +1,26 @@
+{
+    "schemaVersion": 1,
+    "name": "danmaku-unavailable",
+    "request": {
+        "method": "GET",
+        "path": "/api/danmaku/episode-id",
+        "headers": {}
+    },
+    "response": {
+        "status": 200,
+        "headers": {
+            "Cache-Control": "no-store",
+            "Content-Length": "94",
+            "Content-Type": "application/json; charset=utf-8"
+        },
+        "body": {
+            "byteLength": 94,
+            "text": "{\"mediaId\":\"episode-id\",\"status\":\"UNAVAILABLE\",\"message\":\"Danmaku resolver is not available.\"}",
+            "json": {
+                "mediaId": "episode-id",
+                "status": "UNAVAILABLE",
+                "message": "Danmaku resolver is not available."
+            }
+        }
+    }
+}

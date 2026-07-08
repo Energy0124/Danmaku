@@ -84,16 +84,16 @@ stay runnable until the matching Rust replacement passes its parity gate.
 
 Protocol freeze:
 
-- `[ ]` Write `docs/lan-protocol.md` documenting every HTTP route (method,
+- `[x]` Write `docs/lan-protocol.md` documenting every HTTP route (method,
   auth, request/response bodies, status codes, range semantics) and the UDP
   discovery packet format, from the `shared/library-server-core` sources.
-- `[ ]` Add a fixture recorder (Kotlin test or script) that captures golden
+- `[x]` Add a fixture recorder (Kotlin test or script) that captures golden
   request/response pairs from the running Kotlin headless server into
   `docs/lan-protocol-fixtures/` (or a test-resources folder): server
   status, catalog, media range requests (including 206 semantics),
   subtitles, posters, progress read/write, discovery announce bytes, auth
   failure shapes.
-- `[ ]` Add domain conformance fixtures: JSON inputs plus expected outputs
+- `[x]` Add domain conformance fixtures: JSON inputs plus expected outputs
   for series grouping, watch-state derivation, next-up, and
   continue-watching, generated from the Kotlin `shared/domain` tests, so
   the Rust port can assert identical results.

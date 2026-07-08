@@ -1,0 +1,20 @@
+{
+    "schemaVersion": 1,
+    "name": "poster-head",
+    "request": {
+        "method": "HEAD",
+        "path": "/posters/episode-id",
+        "headers": {}
+    },
+    "response": {
+        "status": 200,
+        "headers": {
+            "Cache-Control": "private, max-age=3600",
+            "Content-Length": "4",
+            "Content-Type": "image/jpeg"
+        },
+        "body": {
+            "byteLength": 0
+        }
+    }
+}
