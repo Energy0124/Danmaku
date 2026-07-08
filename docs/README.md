@@ -18,6 +18,7 @@ priorities change.
 
 ## Active Design Work
 
+- [Rust server and Windows player migration plan](design/rust-migration-plan.md)
 - [Home and app shell UI design](design/home-and-app-shell-ui-design.md)
 - [Home and app shell UI tasks](design/home-and-app-shell-ui-tasks.md)
 - [Home and app shell mockup](design/home-and-app-shell-mockup.png)
