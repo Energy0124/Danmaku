@@ -1,5 +1,13 @@
 use std::{fmt, time::Duration};
 
+pub const DANMAKU_VELOCITY_JITTER_THRESHOLD: f64 = 0.05;
+
+const MAX_TRACKED_DANMAKU: usize = 8;
+const MAX_COMPLETED_JITTERS: usize = 64;
+const MIN_VELOCITY_SAMPLES: u64 = 24;
+const MIN_FRAME_DT_S: f64 = 0.001;
+const MAX_FRAME_DT_S: f64 = 0.250;
+
 #[derive(Clone, Debug, Default)]
 pub struct SmokeStats {
     pub rendered_frames: u64,
@@ -9,6 +17,13 @@ pub struct SmokeStats {
     pub total_ui_frame_ms: f64,
     pub active_danmaku_peak: usize,
     pub hwdec_current: Option<String>,
+    velocity_sampler: DanmakuVelocitySampler,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct DanmakuVelocityObservation {
+    pub id: u64,
+    pub x: f32,
 }
 
 impl SmokeStats {
@@ -29,8 +44,157 @@ impl SmokeStats {
         self.active_danmaku_peak = self.active_danmaku_peak.max(active_count);
     }
 
+    pub fn record_danmaku_motion(
+        &mut self,
+        frame_duration: Duration,
+        observations: &[DanmakuVelocityObservation],
+    ) {
+        self.velocity_sampler
+            .record_frame(frame_duration, observations);
+    }
+
     pub fn average_ui_frame_ms(&self) -> Option<f64> {
         (self.ui_frame_samples > 0).then_some(self.total_ui_frame_ms / self.ui_frame_samples as f64)
+    }
+
+    pub fn danmaku_velocity_jitter(&self) -> Option<f64> {
+        self.velocity_sampler.jitter()
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+struct DanmakuVelocitySampler {
+    tracked: Vec<TrackedDanmakuVelocity>,
+    completed_jitters: Vec<f64>,
+}
+
+impl DanmakuVelocitySampler {
+    fn record_frame(
+        &mut self,
+        frame_duration: Duration,
+        observations: &[DanmakuVelocityObservation],
+    ) {
+        let dt_s = frame_duration.as_secs_f64();
+        if !(MIN_FRAME_DT_S..=MAX_FRAME_DT_S).contains(&dt_s) {
+            return;
+        }
+
+        let mut index = 0;
+        while index < self.tracked.len() {
+            let event_id = self.tracked[index].event_id;
+            if let Some(observation) = observations.iter().find(|sample| sample.id == event_id) {
+                self.tracked[index].record(observation.x, dt_s);
+                index += 1;
+            } else {
+                let tracked = self.tracked.swap_remove(index);
+                self.finish_tracking(tracked);
+            }
+        }
+
+        for observation in observations {
+            if self.tracked.len() >= MAX_TRACKED_DANMAKU {
+                break;
+            }
+            if !observation.x.is_finite()
+                || self
+                    .tracked
+                    .iter()
+                    .any(|tracked| tracked.event_id == observation.id)
+            {
+                continue;
+            }
+            self.tracked
+                .push(TrackedDanmakuVelocity::new(observation.id, observation.x));
+        }
+    }
+
+    fn finish_tracking(&mut self, tracked: TrackedDanmakuVelocity) {
+        if self.completed_jitters.len() >= MAX_COMPLETED_JITTERS {
+            return;
+        }
+        if let Some(jitter) = tracked.jitter() {
+            self.completed_jitters.push(jitter);
+        }
+    }
+
+    fn jitter(&self) -> Option<f64> {
+        let mut count = 0_usize;
+        let mut total = 0.0;
+
+        for jitter in &self.completed_jitters {
+            total += jitter;
+            count += 1;
+        }
+        for tracked in &self.tracked {
+            if let Some(jitter) = tracked.jitter() {
+                total += jitter;
+                count += 1;
+            }
+        }
+
+        (count > 0).then_some(total / count as f64)
+    }
+}
+
+#[derive(Clone, Debug)]
+struct TrackedDanmakuVelocity {
+    event_id: u64,
+    last_x: f32,
+    velocity_stats: VelocityStats,
+}
+
+impl TrackedDanmakuVelocity {
+    fn new(event_id: u64, x: f32) -> Self {
+        Self {
+            event_id,
+            last_x: x,
+            velocity_stats: VelocityStats::default(),
+        }
+    }
+
+    fn record(&mut self, x: f32, dt_s: f64) {
+        if !x.is_finite() {
+            return;
+        }
+
+        let velocity = (x as f64 - self.last_x as f64) / dt_s;
+        self.last_x = x;
+        if velocity.is_finite() {
+            self.velocity_stats.record(velocity);
+        }
+    }
+
+    fn jitter(&self) -> Option<f64> {
+        self.velocity_stats.coefficient_of_variation()
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+struct VelocityStats {
+    count: u64,
+    mean: f64,
+    m2: f64,
+}
+
+impl VelocityStats {
+    fn record(&mut self, value: f64) {
+        self.count += 1;
+        let delta = value - self.mean;
+        self.mean += delta / self.count as f64;
+        let delta_after = value - self.mean;
+        self.m2 += delta * delta_after;
+    }
+
+    fn coefficient_of_variation(&self) -> Option<f64> {
+        if self.count < MIN_VELOCITY_SAMPLES {
+            return None;
+        }
+        let mean = self.mean.abs();
+        if mean <= f64::EPSILON {
+            return None;
+        }
+        let variance = self.m2 / (self.count - 1) as f64;
+        Some(variance.max(0.0).sqrt() / mean)
     }
 }
 
@@ -50,6 +214,7 @@ pub struct SmokeReport {
     pub dropped_frames: Option<u64>,
     pub average_ui_frame_ms: Option<f64>,
     pub active_danmaku_peak: usize,
+    pub danmaku_velocity_jitter: Option<f64>,
     pub hwdec_current: Option<String>,
     pub reasons: Vec<String>,
 }
@@ -78,6 +243,17 @@ impl SmokeReport {
             Some(ms) => reasons.push(format!("average UI frame time was {ms:.2} ms")),
             None => reasons.push("no UI frame samples were recorded".to_owned()),
         }
+        let danmaku_velocity_jitter = stats.danmaku_velocity_jitter();
+        match danmaku_velocity_jitter {
+            Some(jitter) if jitter <= DANMAKU_VELOCITY_JITTER_THRESHOLD => {}
+            Some(jitter) => reasons.push(format!(
+                "danmaku_velocity_jitter was {jitter:.4}, expected <= {DANMAKU_VELOCITY_JITTER_THRESHOLD:.2}"
+            )),
+            None => reasons.push(
+                "danmaku_velocity_jitter unavailable; expected scrolling comment samples"
+                    .to_owned(),
+            ),
+        }
 
         let verdict = if reasons.is_empty() {
             SmokeVerdict::Pass
@@ -94,6 +270,7 @@ impl SmokeReport {
             dropped_frames: stats.dropped_frames,
             average_ui_frame_ms,
             active_danmaku_peak: stats.active_danmaku_peak,
+            danmaku_velocity_jitter,
             hwdec_current: stats.hwdec_current.clone(),
             reasons,
         }
@@ -109,6 +286,7 @@ impl SmokeReport {
             dropped_frames: None,
             average_ui_frame_ms: None,
             active_danmaku_peak: 0,
+            danmaku_velocity_jitter: None,
             hwdec_current: None,
             reasons: vec![reason.into()],
         }
@@ -158,6 +336,13 @@ impl fmt::Display for SmokeReport {
         )?;
         writeln!(
             formatter,
+            "danmaku_velocity_jitter: {}",
+            self.danmaku_velocity_jitter
+                .map(|value| format!("{value:.4}"))
+                .unwrap_or_else(|| "unavailable".to_owned())
+        )?;
+        writeln!(
+            formatter,
             "hwdec_current: {}",
             self.hwdec_current
                 .as_deref()
@@ -176,8 +361,28 @@ impl fmt::Display for SmokeReport {
 
 #[cfg(test)]
 mod tests {
-    use super::{SmokeReport, SmokeStats, SmokeVerdict};
+    use super::{
+        DANMAKU_VELOCITY_JITTER_THRESHOLD, DanmakuVelocityObservation, SmokeReport, SmokeStats,
+        SmokeVerdict,
+    };
     use std::time::Duration;
+
+    fn record_smooth_danmaku_motion(stats: &mut SmokeStats) {
+        for frame in 0..40 {
+            let x = 900.0 - frame as f32 * 2.0;
+            stats.record_danmaku_motion(
+                Duration::from_millis(16),
+                &[
+                    DanmakuVelocityObservation { id: 1, x },
+                    DanmakuVelocityObservation { id: 2, x: x + 80.0 },
+                    DanmakuVelocityObservation {
+                        id: 3,
+                        x: x + 160.0,
+                    },
+                ],
+            );
+        }
+    }
 
     #[test]
     fn report_passes_when_smoke_thresholds_are_met() {
@@ -186,6 +391,7 @@ mod tests {
         stats.active_danmaku_peak = 1_700;
         stats.record_ui_frame(Duration::from_millis(12));
         stats.record_ui_frame(Duration::from_millis(14));
+        record_smooth_danmaku_motion(&mut stats);
 
         let report = SmokeReport::from_stats("media", Duration::from_secs(2), &stats);
 
@@ -213,6 +419,45 @@ mod tests {
                 .iter()
                 .any(|reason| reason.contains("expected at least 1500"))
         );
+        assert!(
+            report
+                .reasons
+                .iter()
+                .any(|reason| reason.contains("danmaku_velocity_jitter unavailable"))
+        );
         assert_eq!(report.exit_code(), 1);
+    }
+
+    #[test]
+    fn report_fails_when_danmaku_velocity_jitter_is_too_high() {
+        let mut stats = SmokeStats::default();
+        stats.rendered_frames = 120;
+        stats.active_danmaku_peak = 1_700;
+        stats.record_ui_frame(Duration::from_millis(12));
+        stats.record_ui_frame(Duration::from_millis(14));
+
+        let mut x = 900.0_f32;
+        for frame in 0..60 {
+            x -= if frame % 2 == 0 { 1.0 } else { 4.0 };
+            stats.record_danmaku_motion(
+                Duration::from_millis(16),
+                &[DanmakuVelocityObservation { id: 1, x }],
+            );
+        }
+
+        let jitter = stats
+            .danmaku_velocity_jitter()
+            .expect("jitter should be available");
+        assert!(jitter > DANMAKU_VELOCITY_JITTER_THRESHOLD);
+
+        let report = SmokeReport::from_stats("media", Duration::from_secs(2), &stats);
+
+        assert_eq!(report.verdict, SmokeVerdict::Fail);
+        assert!(
+            report
+                .reasons
+                .iter()
+                .any(|reason| reason.contains("danmaku_velocity_jitter"))
+        );
     }
 }

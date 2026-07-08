@@ -42,6 +42,18 @@ libmpv lookup order is:
   freed before the mpv handle is dropped.
 - `mpv_render_context_set_update_callback` requests egui repaint, so playback
   drives redraws.
+- Danmaku uses an interpolated overlay clock instead of raw per-frame
+  `time-pos`: fresh mpv readback updates `(base_time_pos, base_instant,
+  rate, paused)`, playback frames interpolate from `Instant::now()`, pause
+  freezes exactly, and seek/rate/pause transitions resync the base. Small
+  readback quantization is ignored for continuity; drift above 250 ms hard
+  resyncs to mpv so stalls or buffering cannot run the overlay far ahead.
+- While playback is not paused, egui uses continuous `request_repaint()` so
+  redraws are vsync-paced. Paused/idle playback keeps a 100 ms timer fallback.
+- Smoke reports `danmaku_velocity_jitter`, the mean per-comment coefficient
+  of variation for sampled scrolling-comment x velocity. The P0-S2 smoke
+  threshold is 0.05 (5%); higher jitter fails the smoke because stepped
+  video-frame-paced danmaku produces large zero/spike velocity variation.
 - No child-HWND, `wid`, or z-order embedding path is used.
 - CJK text uses bundled `assets/NotoSansCJKtc-Regular.otf` from Noto Sans CJK
   Traditional Chinese, under the SIL Open Font License 1.1.
@@ -53,8 +65,11 @@ libmpv lookup order is:
   restore behavior still need lead-supervised eyes-on runs.
 - P0-S2: Implemented. Danmaku is driven by `danmaku_core::Timeline`; the
   synthetic 60-minute track generates 150 comments/sec and smoke reached
-  1,754 active comments. Seek/pause/rate behavior is derived from mpv
-  `time-pos`, but manual visual confirmation is still needed.
+  1,754 active comments. Scrolling motion is driven by an interpolated
+  overlay clock with fractional layout positions, seek/pause/rate resync,
+  and a 250 ms drift clamp. Default lavfi smoke reported
+  `danmaku_velocity_jitter: 0.0000`; manual real-media visual confirmation
+  is still needed.
 - P0-S3: Implemented search text field and bundled CJK font. zh-TW IME input
   still needs manual verification by the lead.
 - P0-S4: Implemented virtualized `show_rows` poster grid with 1,200

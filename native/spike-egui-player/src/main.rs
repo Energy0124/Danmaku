@@ -11,9 +11,10 @@ use eframe::egui::{
 use egui_glow::CallbackFn;
 use spike_egui_player::{
     cli::{Cli, usage},
+    clock::OverlayClock,
     danmaku::{DanmakuLayout, DanmakuMode, estimate_text_width, synthetic_timeline},
     mpv::{SharedVideoRenderer, VideoRenderer},
-    smoke::{SmokeReport, SmokeStats},
+    smoke::{DanmakuVelocityObservation, SmokeReport, SmokeStats},
 };
 
 fn main() {
@@ -88,6 +89,7 @@ struct PlayerApp {
     report_slot: Arc<Mutex<Option<SmokeReport>>>,
     timeline: danmaku_core::Timeline,
     danmaku_layout: DanmakuLayout,
+    overlay_clock: OverlayClock,
     posters: Vec<Poster>,
     search: String,
     snapshot: PlaybackSnapshot,
@@ -125,6 +127,7 @@ impl PlayerApp {
             report_slot,
             timeline: synthetic_timeline(),
             danmaku_layout: DanmakuLayout::default(),
+            overlay_clock: OverlayClock::new(now),
             posters: generate_posters(1_200),
             search: String::new(),
             snapshot: PlaybackSnapshot::default(),
@@ -139,7 +142,7 @@ impl PlayerApp {
         })
     }
 
-    fn handle_shortcuts(&mut self, ctx: &egui::Context) {
+    fn handle_shortcuts(&mut self, ctx: &egui::Context, now: Instant) {
         let toggle_fullscreen = ctx.input(|input| input.key_pressed(egui::Key::F));
         if toggle_fullscreen {
             self.toggle_fullscreen(ctx);
@@ -147,8 +150,50 @@ impl PlayerApp {
 
         let toggle_pause = ctx.input(|input| input.key_pressed(egui::Key::Space));
         if toggle_pause {
-            let _ = self.with_renderer(|renderer| renderer.command(&["cycle", "pause"]));
+            self.toggle_pause(now);
         }
+    }
+
+    fn toggle_pause(&mut self, now: Instant) {
+        if self.run_mpv_command(&["cycle", "pause"]) {
+            let paused = !self.snapshot.paused;
+            self.snapshot.paused = paused;
+            self.overlay_clock.set_paused(paused, now);
+        }
+    }
+
+    fn seek_relative(&mut self, delta_s: f64, now: Instant) {
+        let position_s = self.overlay_clock.position_at(now) + delta_s;
+        self.seek_to(position_s, now);
+    }
+
+    fn seek_to(&mut self, position_s: f64, now: Instant) {
+        let duration_s = if self.snapshot.duration_s.is_finite() && self.snapshot.duration_s > 0.0 {
+            self.snapshot.duration_s
+        } else {
+            3600.0
+        };
+        let position_s = position_s.clamp(0.0, duration_s);
+        let value = format!("{position_s:.3}");
+        if self.run_mpv_command(&["set", "time-pos", &value]) {
+            self.snapshot.position_s = position_s;
+            self.overlay_clock.seek(position_s, now);
+        }
+    }
+
+    fn set_playback_rate(&mut self, rate: f64, now: Instant) {
+        let value = format!("{rate:.3}");
+        if self.run_mpv_command(&["set", "speed", &value]) {
+            self.snapshot.speed = rate;
+            self.overlay_clock.set_rate(rate, now);
+        }
+    }
+
+    fn run_mpv_command(&self, args: &[&str]) -> bool {
+        matches!(
+            self.with_renderer(|renderer| renderer.command(args)),
+            Some(Ok(()))
+        )
     }
 
     fn toggle_fullscreen(&mut self, ctx: &egui::Context) {
@@ -185,29 +230,51 @@ impl PlayerApp {
         }
     }
 
-    fn refresh_snapshot(&mut self) {
-        if self.last_property_refresh.elapsed() < Duration::from_millis(180) {
+    fn refresh_snapshot(&mut self, now: Instant) {
+        if now.saturating_duration_since(self.last_property_refresh) < Duration::from_millis(180) {
             return;
         }
-        self.last_property_refresh = Instant::now();
-        let snapshot = self.with_renderer(|renderer| PlaybackSnapshot {
-            position_s: parse_f64(renderer.property_string("time-pos"))
-                .unwrap_or(self.snapshot.position_s),
-            duration_s: parse_f64(renderer.property_string("duration")).unwrap_or(3600.0),
-            paused: renderer
+        self.last_property_refresh = now;
+        let previous = self.snapshot.clone();
+        let readback = self.with_renderer(|renderer| {
+            let observed_position_s = parse_f64(renderer.property_string("time-pos"));
+            let paused = renderer
                 .property_string("pause")
                 .map(|value| value == "yes" || value == "true")
-                .unwrap_or(self.snapshot.paused),
-            speed: parse_f64(renderer.property_string("speed")).unwrap_or(1.0),
-            estimated_vf_fps: renderer.property_string("estimated-vf-fps"),
-            frame_drop_count: parse_u64(renderer.property_string("frame-drop-count")),
-            hwdec_current: renderer.property_string("hwdec-current"),
-            video_params: renderer.property_string("video-params"),
-            cache_duration_s: parse_f64(renderer.property_string("demuxer-cache-duration")),
-            render_error: renderer.last_render_error().map(str::to_owned),
+                .unwrap_or(previous.paused);
+            let speed = parse_f64(renderer.property_string("speed")).unwrap_or(previous.speed);
+            PlaybackReadback {
+                observed_position_s,
+                snapshot: PlaybackSnapshot {
+                    position_s: observed_position_s.unwrap_or(previous.position_s),
+                    duration_s: parse_f64(renderer.property_string("duration"))
+                        .unwrap_or(previous.duration_s),
+                    paused,
+                    speed,
+                    estimated_vf_fps: renderer.property_string("estimated-vf-fps"),
+                    frame_drop_count: parse_u64(renderer.property_string("frame-drop-count")),
+                    hwdec_current: renderer.property_string("hwdec-current"),
+                    video_params: renderer.property_string("video-params"),
+                    cache_duration_s: parse_f64(renderer.property_string("demuxer-cache-duration")),
+                    render_error: renderer.last_render_error().map(str::to_owned),
+                },
+            }
         });
-        if let Some(snapshot) = snapshot {
-            self.snapshot = snapshot;
+        if let Some(readback) = readback {
+            self.snapshot = readback.snapshot;
+            if let Some(position_s) = readback.observed_position_s {
+                self.overlay_clock.observe_time_pos(
+                    position_s,
+                    self.snapshot.speed,
+                    self.snapshot.paused,
+                    now,
+                );
+            } else if self.overlay_clock.paused() != self.snapshot.paused {
+                self.overlay_clock.set_paused(self.snapshot.paused, now);
+                self.overlay_clock.set_rate(self.snapshot.speed, now);
+            } else {
+                self.overlay_clock.set_rate(self.snapshot.speed, now);
+            }
         }
     }
 
@@ -312,7 +379,13 @@ impl PlayerApp {
             });
     }
 
-    fn show_video(&mut self, ctx: &egui::Context) {
+    fn show_video(
+        &mut self,
+        ctx: &egui::Context,
+        now: Instant,
+        frame_duration: Duration,
+        overlay_position_s: f64,
+    ) {
         egui::CentralPanel::default()
             .frame(Frame::NONE.fill(Color32::from_rgb(5, 6, 8)))
             .show(ctx, |ui| {
@@ -332,17 +405,26 @@ impl PlayerApp {
                     })),
                 });
 
-                let active = self.paint_danmaku(ui, rect);
+                let danmaku_stats = self.paint_danmaku(ui, rect, overlay_position_s);
                 if let Ok(mut stats) = self.stats.lock() {
-                    stats.record_active_danmaku(active);
+                    stats.record_active_danmaku(danmaku_stats.active);
+                    stats.record_danmaku_motion(
+                        frame_duration,
+                        &danmaku_stats.velocity_observations,
+                    );
                 }
-                self.paint_stats(ui, rect, active);
-                self.show_controls(ui, rect);
+                self.paint_stats(ui, rect, danmaku_stats.active, overlay_position_s);
+                self.show_controls(ui, rect, now, overlay_position_s);
             });
     }
 
-    fn paint_danmaku(&self, ui: &egui::Ui, video_rect: Rect) -> usize {
-        let playback_ms = (self.snapshot.position_s.max(0.0) * 1000.0).round() as u64;
+    fn paint_danmaku(
+        &self,
+        ui: &egui::Ui,
+        video_rect: Rect,
+        overlay_position_s: f64,
+    ) -> DanmakuPaintStats {
+        let playback_ms = overlay_position_s.max(0.0) * 1000.0;
         let comments = self.danmaku_layout.visible_comments(
             &self.timeline,
             playback_ms,
@@ -351,6 +433,7 @@ impl PlayerApp {
         );
         let painter = ui.painter();
         let font = FontId::proportional(self.danmaku_layout.font_px);
+        let mut velocity_observations = Vec::with_capacity(8);
         for comment in &comments {
             let alpha = (comment.opacity * 238.0).round().clamp(0.0, 238.0) as u8;
             let color = match comment.mode {
@@ -362,6 +445,18 @@ impl PlayerApp {
             let width = estimate_text_width(&comment.event.text, self.danmaku_layout.font_px);
             if pos.x > video_rect.right() || pos.x + width < video_rect.left() {
                 continue;
+            }
+            if velocity_observations.len() < 8
+                && comment.mode == DanmakuMode::Scroll
+                && comment.age_ms > 500.0
+                && comment.age_ms < self.danmaku_layout.scroll_duration_ms as f64 - 500.0
+                && pos.x >= video_rect.left()
+                && pos.x + width <= video_rect.right()
+            {
+                velocity_observations.push(DanmakuVelocityObservation {
+                    id: comment.event.id,
+                    x: comment.x,
+                });
             }
             for offset in [
                 vec2(1.0, 0.0),
@@ -385,10 +480,13 @@ impl PlayerApp {
                 color,
             );
         }
-        comments.len()
+        DanmakuPaintStats {
+            active: comments.len(),
+            velocity_observations,
+        }
     }
 
-    fn paint_stats(&self, ui: &egui::Ui, video_rect: Rect, active: usize) {
+    fn paint_stats(&self, ui: &egui::Ui, video_rect: Rect, active: usize, overlay_position_s: f64) {
         let painter = ui.painter();
         let width = 370.0_f32.min(video_rect.width() - 28.0).max(260.0);
         let rect = Rect::from_min_size(
@@ -415,7 +513,7 @@ impl PlayerApp {
             ),
             format!(
                 "time {} / {}  speed {:.2}x",
-                format_time(self.snapshot.position_s),
+                format_time(overlay_position_s),
                 format_time(self.snapshot.duration_s),
                 self.snapshot.speed
             ),
@@ -465,7 +563,13 @@ impl PlayerApp {
         }
     }
 
-    fn show_controls(&mut self, ui: &mut egui::Ui, video_rect: Rect) {
+    fn show_controls(
+        &mut self,
+        ui: &mut egui::Ui,
+        video_rect: Rect,
+        now: Instant,
+        overlay_position_s: f64,
+    ) {
         let inactive_for = self.last_pointer_activity.elapsed().as_secs_f32();
         let alpha = if inactive_for <= 1.7 {
             1.0
@@ -509,33 +613,28 @@ impl PlayerApp {
                     "Pause"
                 };
                 if ui.button(play_label).clicked() {
-                    let _ = self.with_renderer(|renderer| renderer.command(&["cycle", "pause"]));
+                    self.toggle_pause(now);
                 }
                 if ui.button("-10s").clicked() {
-                    let _ = self
-                        .with_renderer(|renderer| renderer.command(&["seek", "-10", "relative"]));
+                    self.seek_relative(-10.0, now);
                 }
                 if ui.button("+30s").clicked() {
-                    let _ = self
-                        .with_renderer(|renderer| renderer.command(&["seek", "30", "relative"]));
+                    self.seek_relative(30.0, now);
                 }
                 if ui.button("0.5x").clicked() {
-                    let _ =
-                        self.with_renderer(|renderer| renderer.command(&["set", "speed", "0.5"]));
+                    self.set_playback_rate(0.5, now);
                 }
                 if ui.button("1x").clicked() {
-                    let _ =
-                        self.with_renderer(|renderer| renderer.command(&["set", "speed", "1.0"]));
+                    self.set_playback_rate(1.0, now);
                 }
                 if ui.button("1.5x").clicked() {
-                    let _ =
-                        self.with_renderer(|renderer| renderer.command(&["set", "speed", "1.5"]));
+                    self.set_playback_rate(1.5, now);
                 }
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     ui.label(
                         RichText::new(format!(
                             "{} / {}",
-                            format_time(self.snapshot.position_s),
+                            format_time(overlay_position_s),
                             format_time(self.snapshot.duration_s)
                         ))
                         .color(Color32::from_rgb(214, 221, 229)),
@@ -544,7 +643,7 @@ impl PlayerApp {
             });
             ui.add_space(10.0);
             let duration = self.snapshot.duration_s.max(1.0) as f32;
-            let mut position = self.snapshot.position_s.clamp(0.0, duration as f64) as f32;
+            let mut position = overlay_position_s.clamp(0.0, duration as f64) as f32;
             let changed = ui
                 .add(
                     egui::Slider::new(&mut position, 0.0..=duration)
@@ -553,10 +652,7 @@ impl PlayerApp {
                 )
                 .changed();
             if changed {
-                self.snapshot.position_s = position as f64;
-                let value = format!("{position:.3}");
-                let _ =
-                    self.with_renderer(|renderer| renderer.command(&["set", "time-pos", &value]));
+                self.seek_to(position as f64, now);
             }
             let buffered = self
                 .snapshot
@@ -605,18 +701,23 @@ impl eframe::App for PlayerApp {
             stats.record_ui_frame(frame_duration);
         }
 
-        self.handle_shortcuts(ctx);
+        self.handle_shortcuts(ctx, now);
         self.record_activity(ctx);
-        self.refresh_snapshot();
+        self.refresh_snapshot(now);
+        let overlay_position_s = self.overlay_clock.position_at(now);
         self.show_top_bar(ctx);
         self.show_library(ctx);
-        self.show_video(ctx);
+        self.show_video(ctx, now, frame_duration, overlay_position_s);
         self.finish_smoke_if_needed(ctx);
-        ctx.request_repaint_after(Duration::from_millis(16));
+        if self.snapshot.paused {
+            ctx.request_repaint_after(Duration::from_millis(100));
+        } else {
+            ctx.request_repaint();
+        }
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 struct PlaybackSnapshot {
     position_s: f64,
     duration_s: f64,
@@ -628,6 +729,35 @@ struct PlaybackSnapshot {
     video_params: Option<String>,
     cache_duration_s: Option<f64>,
     render_error: Option<String>,
+}
+
+impl Default for PlaybackSnapshot {
+    fn default() -> Self {
+        Self {
+            position_s: 0.0,
+            duration_s: 3600.0,
+            paused: false,
+            speed: 1.0,
+            estimated_vf_fps: None,
+            frame_drop_count: None,
+            hwdec_current: None,
+            video_params: None,
+            cache_duration_s: None,
+            render_error: None,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+struct PlaybackReadback {
+    observed_position_s: Option<f64>,
+    snapshot: PlaybackSnapshot,
+}
+
+#[derive(Clone, Debug)]
+struct DanmakuPaintStats {
+    active: usize,
+    velocity_observations: Vec<DanmakuVelocityObservation>,
 }
 
 #[derive(Clone, Debug)]

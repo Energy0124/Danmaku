@@ -38,6 +38,7 @@ pub struct ScheduledComment<'a> {
     pub lane: usize,
     pub x: f32,
     pub y: f32,
+    pub age_ms: f64,
     pub opacity: f32,
 }
 
@@ -50,7 +51,7 @@ impl DanmakuLayout {
     pub fn visible_comments<'a>(
         &self,
         timeline: &'a Timeline,
-        playback_ms: u64,
+        playback_ms: f64,
         video_width: f32,
         video_height: f32,
     ) -> Vec<ScheduledComment<'a>> {
@@ -58,8 +59,13 @@ impl DanmakuLayout {
             return Vec::new();
         }
 
-        let query_start = playback_ms.saturating_sub(self.scroll_duration_ms);
-        let query_end = playback_ms.saturating_add(1);
+        let playback_ms = if playback_ms.is_finite() {
+            playback_ms.max(0.0)
+        } else {
+            0.0
+        };
+        let query_start = floor_ms(playback_ms - self.scroll_duration_ms as f64);
+        let query_end = floor_ms(playback_ms).saturating_add(1);
         let candidates = timeline.events_in_window(query_start, query_end);
         let mut visible = Vec::with_capacity(candidates.len());
         let line_height = self.line_height();
@@ -75,9 +81,9 @@ impl DanmakuLayout {
             let duration_ms = match mode {
                 DanmakuMode::Scroll => self.scroll_duration_ms,
                 DanmakuMode::Top | DanmakuMode::Bottom => self.static_duration_ms,
-            };
-            let age_ms = playback_ms.saturating_sub(event.timestamp_ms);
-            if age_ms > duration_ms {
+            } as f64;
+            let age_ms = playback_ms - event.timestamp_ms as f64;
+            if age_ms < 0.0 || age_ms > duration_ms {
                 continue;
             }
 
@@ -90,20 +96,29 @@ impl DanmakuLayout {
                         text_width,
                         video_width,
                     );
-                    let progress = age_ms as f32 / self.scroll_duration_ms as f32;
-                    let x = video_width - progress * (video_width + text_width);
+                    let progress = age_ms / self.scroll_duration_ms as f64;
+                    let x = (video_width as f64
+                        - progress * (video_width as f64 + text_width as f64))
+                        as f32;
                     let y = lane as f32 * line_height + self.lane_gap_px;
                     (lane, x, y)
                 }
                 DanmakuMode::Top => {
-                    let lane = assign_static_lane(&mut top_state, event.timestamp_ms, duration_ms);
+                    let lane = assign_static_lane(
+                        &mut top_state,
+                        event.timestamp_ms,
+                        self.static_duration_ms,
+                    );
                     let x = (video_width - text_width).max(0.0) * 0.5;
                     let y = lane as f32 * line_height + self.lane_gap_px;
                     (lane, x, y)
                 }
                 DanmakuMode::Bottom => {
-                    let lane =
-                        assign_static_lane(&mut bottom_state, event.timestamp_ms, duration_ms);
+                    let lane = assign_static_lane(
+                        &mut bottom_state,
+                        event.timestamp_ms,
+                        self.static_duration_ms,
+                    );
                     let x = (video_width - text_width).max(0.0) * 0.5;
                     let y = video_height - ((lane + 1) as f32 * line_height) - self.lane_gap_px;
                     (lane, x, y)
@@ -116,6 +131,7 @@ impl DanmakuLayout {
                 lane,
                 x,
                 y,
+                age_ms,
                 opacity: opacity_for_age(age_ms, duration_ms),
             });
         }
@@ -151,6 +167,13 @@ impl DanmakuLayout {
         lanes[lane].available_at_ms = timestamp_ms.saturating_add(release_ms.max(1));
         lane
     }
+}
+
+fn floor_ms(value: f64) -> u64 {
+    if !value.is_finite() || value <= 0.0 {
+        return 0;
+    }
+    value.floor().min(u64::MAX as f64) as u64
 }
 
 fn assign_static_lane(lanes: &mut [LaneState], timestamp_ms: u64, duration_ms: u64) -> usize {
@@ -192,14 +215,13 @@ pub fn estimate_text_width(text: &str, font_px: f32) -> f32 {
         .max(font_px)
 }
 
-fn opacity_for_age(age_ms: u64, duration_ms: u64) -> f32 {
-    let fade_ms = 280.0_f32.min(duration_ms as f32 * 0.2);
+fn opacity_for_age(age_ms: f64, duration_ms: f64) -> f32 {
+    let fade_ms = 280.0_f64.min(duration_ms * 0.2);
     if fade_ms <= 0.0 {
         return 1.0;
     }
-    let age = age_ms as f32;
-    let remaining = duration_ms.saturating_sub(age_ms) as f32;
-    (age / fade_ms).min(remaining / fade_ms).clamp(0.0, 1.0)
+    let remaining = (duration_ms - age_ms).max(0.0);
+    (age_ms / fade_ms).min(remaining / fade_ms).clamp(0.0, 1.0) as f32
 }
 
 pub fn synthetic_timeline() -> Timeline {
@@ -257,7 +279,7 @@ mod tests {
             horizontal_padding_px: 24.0,
         };
 
-        let visible = layout.visible_comments(&timeline, 101, 800.0, 80.0);
+        let visible = layout.visible_comments(&timeline, 101.0, 800.0, 80.0);
 
         assert_eq!(visible.len(), 2);
         assert_eq!(visible[0].mode, DanmakuMode::Scroll);
@@ -270,7 +292,7 @@ mod tests {
         let timeline = synthetic_timeline();
         let layout = DanmakuLayout::default();
 
-        let visible = layout.visible_comments(&timeline, 20_000, 1920.0, 1080.0);
+        let visible = layout.visible_comments(&timeline, 20_000.0, 1920.0, 1080.0);
 
         assert!(visible.len() >= 1_500, "active comments: {}", visible.len());
     }
@@ -281,5 +303,18 @@ mod tests {
         let cjk = estimate_text_width("繁體中文測試", 20.0);
 
         assert!(cjk > ascii);
+    }
+
+    #[test]
+    fn fractional_playback_time_moves_scroll_x_by_subpixel_amounts() {
+        let timeline = Timeline::new(vec![event(1, 0, "smooth scrolling comment")]);
+        let layout = DanmakuLayout::default();
+
+        let first = layout.visible_comments(&timeline, 1_000.25, 800.0, 200.0);
+        let second = layout.visible_comments(&timeline, 1_000.75, 800.0, 200.0);
+
+        let delta = first[0].x - second[0].x;
+        assert!(delta > 0.0, "delta: {delta}");
+        assert!(delta < 1.0, "delta: {delta}");
     }
 }

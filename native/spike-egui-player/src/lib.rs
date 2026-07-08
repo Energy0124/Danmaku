@@ -1,4 +1,5 @@
 pub mod cli;
+pub mod clock;
 pub mod danmaku;
 pub mod mpv;
 pub mod smoke;
