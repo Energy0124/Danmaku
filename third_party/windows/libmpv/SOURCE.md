@@ -6,26 +6,26 @@ playback dependency:
 - File: `libmpv-2.dll`
 - License: LGPL version 3 or later
 - Producer artifact:
-  `mpv-dev-lgpl-x86_64-20260604-git-1d82932cce.7z`
+  `mpv-dev-lgpl-x86_64-20260708-git-68387ea859.7z`
 - Producer release:
-  <https://github.com/zhongfly/mpv-winbuild/releases/tag/2026-06-04-1d82932cce>
+  <https://github.com/zhongfly/mpv-winbuild/releases/tag/2026-07-08-cc763d17dc>
 - Producer build:
-  <https://github.com/zhongfly/mpv-winbuild/actions/runs/26950382201>
+  <https://github.com/zhongfly/mpv-winbuild/actions/runs/28968190020>
 - Archive SHA-256:
-  `eacba7b1afdb5620fd556da1141fc5267dca9d81a5d7a649a36384af77405855`
+  `cc41049996a6b0010c7c15beb36c4fc5dcaceddae8f352833318118343d669ac`
 - DLL SHA-256:
-  `7e68bedee4c2241056ad9fb9fb3fca5a967d442f900e3891dfd5be95b8fecf49`
+  `deae064ff0f48ed37927dbb83953937c67de67be65ba98ed4b01929d21db735a`
 
 ## Source
 
 - mpv source commit:
-  <https://github.com/mpv-player/mpv/commit/1d82932ccebd562a3edb85581c93d89d5c904b26>
+  <https://github.com/mpv-player/mpv/commit/68387ea859d20bc3313cdbbe49ca2f25aa54b935>
 - FFmpeg source commit:
-  <https://github.com/FFmpeg/FFmpeg/commit/c27a3b12e3bfdedbd3af6cab9ed95c0a39ae3416>
+  <https://github.com/FFmpeg/FFmpeg/commit/c57660fb18f058e8ead224e840b242d9c68fd3c4>
 - Producer build scripts:
-  <https://github.com/zhongfly/mpv-winbuild/commit/970da30d1d88d8d1e863e0f0cf4b57f2a5abdcc5>
+  <https://github.com/zhongfly/mpv-winbuild/commit/7d7d3f60010bdd2629cb6efdfa671a42fa6c32c9>
 - Producer LGPL patch:
-  <https://github.com/zhongfly/mpv-winbuild/blob/970da30d1d88d8d1e863e0f0cf4b57f2a5abdcc5/compile-lgpl-libmpv.patch>
+  <https://github.com/zhongfly/mpv-winbuild/blob/7d7d3f60010bdd2629cb6efdfa671a42fa6c32c9/compile-lgpl-libmpv.patch>
 
 The producer build scripts identify and fetch the transitive source packages
 used by the build. Danmaku preserves the exact producer commit, upstream

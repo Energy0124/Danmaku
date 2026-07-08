@@ -89,7 +89,7 @@ Copy-Item `
     -Force
 Copy-Item `
     -LiteralPath (
-        Join-Path $repoRoot "third_party\windows\libmpv\zhongfly-lgpl-x86_64-20260604.json"
+        Join-Path $repoRoot "third_party\windows\libmpv\zhongfly-lgpl-x86_64-20260708.json"
     ) `
     -Destination $dependencyPath `
     -Force
@@ -100,7 +100,7 @@ Copy-Item `
 
 & (Join-Path $repoRoot "tools\windows\install-libmpv-dependency.ps1") `
     -ManifestPath (
-        Join-Path $repoRoot "third_party\windows\libmpv\zhongfly-lgpl-x86_64-20260604.json"
+        Join-Path $repoRoot "third_party\windows\libmpv\zhongfly-lgpl-x86_64-20260708.json"
     ) `
     -InstallPath (Join-Path $releaseFullPath "app") `
     -ArchivePath $LibmpvArchivePath `

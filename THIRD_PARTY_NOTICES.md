@@ -10,17 +10,17 @@ dynamically. The Windows release directly redistributes this pinned third-party
 DLL as a separately licensed dependency:
 
 - Artifact:
-  `mpv-dev-lgpl-x86_64-20260604-git-1d82932cce.7z`
+  `mpv-dev-lgpl-x86_64-20260708-git-68387ea859.7z`
 - Producer:
   [zhongfly/mpv-winbuild](https://github.com/zhongfly/mpv-winbuild)
 - Release:
-  [2026-06-04-1d82932cce](https://github.com/zhongfly/mpv-winbuild/releases/tag/2026-06-04-1d82932cce)
+  [2026-07-08-cc763d17dc](https://github.com/zhongfly/mpv-winbuild/releases/tag/2026-07-08-cc763d17dc)
 - Producer build:
-  [GitHub Actions run 26950382201](https://github.com/zhongfly/mpv-winbuild/actions/runs/26950382201)
+  [GitHub Actions run 28968190020](https://github.com/zhongfly/mpv-winbuild/actions/runs/28968190020)
 - mpv source:
-  [1d82932ccebd562a3edb85581c93d89d5c904b26](https://github.com/mpv-player/mpv/commit/1d82932ccebd562a3edb85581c93d89d5c904b26)
+  [68387ea859d20bc3313cdbbe49ca2f25aa54b935](https://github.com/mpv-player/mpv/commit/68387ea859d20bc3313cdbbe49ca2f25aa54b935)
 - FFmpeg source:
-  [c27a3b12e3bfdedbd3af6cab9ed95c0a39ae3416](https://github.com/FFmpeg/FFmpeg/commit/c27a3b12e3bfdedbd3af6cab9ed95c0a39ae3416)
+  [c57660fb18f058e8ead224e840b242d9c68fd3c4](https://github.com/FFmpeg/FFmpeg/commit/c57660fb18f058e8ead224e840b242d9c68fd3c4)
 - mpv license:
   [LGPL-2.1-or-later when built with `-Dgpl=false`](https://github.com/mpv-player/mpv#license)
 - FFmpeg license:

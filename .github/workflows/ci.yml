@@ -45,9 +45,51 @@ jobs:
         shell: pwsh
         run: .\tools\windows\test-install-libmpv-dependency.ps1
 
+      - name: Read libmpv dependency manifest
+        id: libmpv
+        shell: pwsh
+        run: |
+          $manifest = Get-Content `
+            -LiteralPath "third_party\windows\libmpv\zhongfly-lgpl-x86_64-20260708.json" `
+            -Raw |
+            ConvertFrom-Json
+          $cacheDir = Join-Path $env:RUNNER_TEMP "libmpv-archive-cache"
+          New-Item -ItemType Directory -Path $cacheDir -Force | Out-Null
+          $archivePath = Join-Path $cacheDir $manifest.archiveFileName
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "archive-sha256=$($manifest.archiveSha256.ToLowerInvariant())"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "archive-url=$($manifest.archiveUrl)"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "archive-path=$archivePath"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "cache-dir=$cacheDir"
+
+      - name: Cache approved libmpv archive
+        uses: actions/cache@v6
+        with:
+          path: ${{ steps.libmpv.outputs.cache-dir }}
+          key: libmpv-windows-${{ steps.libmpv.outputs.archive-sha256 }}
+
       - name: Install approved libmpv dependency
         shell: pwsh
-        run: .\tools\windows\install-libmpv-dependency.ps1 -AcceptLicense
+        run: |
+          $archivePath = "${{ steps.libmpv.outputs.archive-path }}"
+          if (-not (Test-Path -LiteralPath $archivePath -PathType Leaf)) {
+            $archiveUrl = "${{ steps.libmpv.outputs.archive-url }}"
+            Write-Host "Downloading pinned libmpv archive into the CI cache from $archiveUrl"
+            try {
+              Invoke-WebRequest -Uri $archiveUrl -OutFile $archivePath -UseBasicParsing
+            } catch {
+              throw (
+                "Could not download pinned libmpv archive from $archiveUrl. " +
+                "The upstream zhongfly/mpv-winbuild release probably rotated or was deleted, " +
+                "and the libmpv pin needs updating. See docs/windows-libmpv-bundle.md. " +
+                "Original error: $($_.Exception.Message)"
+              )
+            }
+          } else {
+            Write-Host "Using cached pinned libmpv archive at $archivePath"
+          }
+          .\tools\windows\install-libmpv-dependency.ps1 `
+            -ArchivePath $archivePath `
+            -AcceptLicense
 
       - name: Decode Android CI signing key
         shell: pwsh
@@ -77,7 +119,9 @@ jobs:
 
       - name: Prepare runtime-free Windows release with approved LGPL libmpv
         shell: pwsh
-        run: .\tools\windows\prepare-windows-release.ps1
+        run: |
+          .\tools\windows\prepare-windows-release.ps1 `
+            -LibmpvArchivePath "${{ steps.libmpv.outputs.archive-path }}"
 
       - name: Verify packaged Windows mpv runtime
         shell: pwsh
