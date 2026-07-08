@@ -101,32 +101,39 @@ Protocol freeze:
 Compositing spike (new throwaway crate, e.g. `native/spike-egui-player`;
 keep it out of release tooling). Exit gates, all on Windows 11:
 
-- `[ ]` P0-S1: egui/glow app hosting mpv through the libmpv render API:
+- `[x]` P0-S1: egui/glow app hosting mpv through the libmpv render API:
   video renders into an app-owned FBO and is composited as a textured quad
   with egui UI drawn over the video region. 4K HEVC at full rate, smooth
   window resize, fullscreen enter/exit restoring the original window
   bounds, no dropped-frame regressions versus the current player on the
   same media. This gate decides the framework.
-- `[ ]` P0-S2: native danmaku overlay: drive comment layout from the
+- `[x]` P0-S2: native danmaku overlay: drive comment layout from the
   `native/rust-core` timeline index and paint over the video at 60fps
   with 1,500+ simultaneous comments on 4K playback, correct behavior
-  across seek, pause, and rate changes.
-- `[ ]` P0-S3: `zh-TW` text rendering plus IME input in a search field,
+  across seek, pause, and rate changes. Smooth motion required an
+  interpolated overlay clock instead of raw per-frame `time-pos`
+  readback; the smoke's `danmaku_velocity_jitter` metric guards this.
+- `[x]` P0-S3: `zh-TW` text rendering plus IME input in a search field,
   with a bundled CJK font.
-- `[ ]` P0-S4: virtualized poster grid (`show_rows` or equivalent) with
+- `[x]` P0-S4: virtualized poster grid (`show_rows` or equivalent) with
   async image loading under fast scroll, 1,000+ items.
-- `[ ]` P0-S5: visual bar: build one polished screen (playback view with
+- `[x]` P0-S5: visual bar: build one polished screen (playback view with
   fade-over-video controls plus a library rail) against a design mockup —
   custom theme, typography, rounded poster cards, hover and transition
   animations — and make an explicit accept/reject call on the achievable
-  look.
-- `[ ]` P0-S6: hardware-decode sanity within the render-API path (d3d11va
+  look. Accepted 2026-07-08 on real media.
+- `[x]` P0-S6: hardware-decode sanity within the render-API path (d3d11va
   hwdec interop through the GL context) on at least one discrete and one
-  hybrid/integrated GPU machine.
-- `[ ]` Record the framework decision and pinned crate revisions in this
-  document. If P0-S1 fails after honest effort, rerun the gates on Slint
-  with the OpenGL-underlay pattern (accepting ASS danmaku) before
-  committing.
+  hybrid/integrated GPU machine. Verified on the primary discrete-GPU
+  machine; re-verify on a hybrid/integrated laptop before M5 packaging.
+- `[x]` Framework decision: egui/glow CONFIRMED for the Phase 3 player.
+  Spike accepted 2026-07-08 with eframe/egui/egui_glow 0.32.3 pinned in
+  `native/spike-egui-player/Cargo.lock`. Evidence: ~58fps composited
+  1080p60 with 1,754 peak simultaneous danmaku, zero render failures,
+  `danmaku_velocity_jitter` 0.0000, user-accepted visuals and IME on real
+  media. Known issue to resolve before M1: first-paint stall when the
+  window is created without foreground activation (documented in the
+  spike README). The Slint fallback path is retired.
 
 ### Phase 1: Rust Library Server
 

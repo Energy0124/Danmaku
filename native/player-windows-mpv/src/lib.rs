@@ -21,4 +21,10 @@ pub use ffi::{
     danmaku_mpv_status_ok,
 };
 
-pub use windows::{LibraryLoadError, Mpv, MpvError, MpvLibrary};
+pub use windows::{
+    LibraryLoadError, MPV_RENDER_API_TYPE_OPENGL, MPV_RENDER_PARAM_API_TYPE,
+    MPV_RENDER_PARAM_FLIP_Y, MPV_RENDER_PARAM_INVALID, MPV_RENDER_PARAM_OPENGL_FBO,
+    MPV_RENDER_PARAM_OPENGL_INIT_PARAMS, MPV_RENDER_UPDATE_FRAME, Mpv, MpvError, MpvLibrary,
+    MpvOpenGlFbo, MpvOpenGlGetProcAddress, MpvOpenGlInitParams, MpvRenderApi, MpvRenderContext,
+    MpvRenderContextHandle, MpvRenderParam,
+};

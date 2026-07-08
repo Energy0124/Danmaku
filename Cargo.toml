@@ -3,4 +3,7 @@ members = [
     "native/player-windows-mpv",
     "native/rust-core",
 ]
+exclude = [
+    "native/spike-egui-player",
+]
 resolver = "2"

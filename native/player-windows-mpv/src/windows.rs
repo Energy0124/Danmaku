@@ -21,15 +21,101 @@ type MpvCommandNode = unsafe extern "C" fn(*mut MpvHandle, *mut MpvNode, *mut Mp
 type MpvSetOptionString = unsafe extern "C" fn(*mut MpvHandle, *const c_char, *const c_char) -> i32;
 type MpvGetPropertyString = unsafe extern "C" fn(*mut MpvHandle, *const c_char) -> *mut c_char;
 type MpvFree = unsafe extern "C" fn(*mut c_void);
+type MpvRenderContextCreate =
+    unsafe extern "C" fn(*mut *mut MpvRenderContext, *mut MpvHandle, *mut MpvRenderParam) -> i32;
+type MpvRenderContextRender =
+    unsafe extern "C" fn(*mut MpvRenderContext, *mut MpvRenderParam) -> i32;
+type MpvRenderContextSetUpdateCallback = unsafe extern "C" fn(
+    *mut MpvRenderContext,
+    Option<unsafe extern "C" fn(*mut c_void)>,
+    *mut c_void,
+);
+type MpvRenderContextUpdate = unsafe extern "C" fn(*mut MpvRenderContext) -> u64;
+type MpvRenderContextFree = unsafe extern "C" fn(*mut MpvRenderContext);
 
 const MPV_FORMAT_STRING: i32 = 1;
 const MPV_FORMAT_FLAG: i32 = 3;
 const MPV_FORMAT_INT64: i32 = 4;
 const MPV_FORMAT_NODE_MAP: i32 = 8;
+pub const MPV_RENDER_PARAM_INVALID: i32 = 0;
+pub const MPV_RENDER_PARAM_API_TYPE: i32 = 1;
+pub const MPV_RENDER_PARAM_OPENGL_INIT_PARAMS: i32 = 2;
+pub const MPV_RENDER_PARAM_OPENGL_FBO: i32 = 3;
+pub const MPV_RENDER_PARAM_FLIP_Y: i32 = 4;
+pub const MPV_RENDER_UPDATE_FRAME: u64 = 1;
+pub const MPV_RENDER_API_TYPE_OPENGL: &[u8] = b"opengl\0";
 
 #[repr(C)]
 struct MpvHandle {
     _private: [u8; 0],
+}
+
+#[repr(C)]
+pub struct MpvRenderContext {
+    _private: [u8; 0],
+}
+
+pub type MpvOpenGlGetProcAddress = unsafe extern "C" fn(*mut c_void, *const c_char) -> *mut c_void;
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct MpvOpenGlInitParams {
+    pub get_proc_address: Option<MpvOpenGlGetProcAddress>,
+    pub get_proc_address_ctx: *mut c_void,
+    pub extra_exts: *const c_char,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct MpvOpenGlFbo {
+    pub fbo: i32,
+    pub w: i32,
+    pub h: i32,
+    pub internal_format: i32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct MpvRenderParam {
+    pub param_type: i32,
+    pub data: *mut c_void,
+}
+
+impl MpvRenderParam {
+    pub fn invalid() -> Self {
+        Self {
+            param_type: MPV_RENDER_PARAM_INVALID,
+            data: std::ptr::null_mut(),
+        }
+    }
+
+    pub fn api_type(api_type: *const c_char) -> Self {
+        Self {
+            param_type: MPV_RENDER_PARAM_API_TYPE,
+            data: api_type.cast_mut().cast::<c_void>(),
+        }
+    }
+
+    pub fn opengl_init_params(params: &mut MpvOpenGlInitParams) -> Self {
+        Self {
+            param_type: MPV_RENDER_PARAM_OPENGL_INIT_PARAMS,
+            data: std::ptr::from_mut(params).cast::<c_void>(),
+        }
+    }
+
+    pub fn opengl_fbo(fbo: &mut MpvOpenGlFbo) -> Self {
+        Self {
+            param_type: MPV_RENDER_PARAM_OPENGL_FBO,
+            data: std::ptr::from_mut(fbo).cast::<c_void>(),
+        }
+    }
+
+    pub fn flip_y(flip_y: &mut i32) -> Self {
+        Self {
+            param_type: MPV_RENDER_PARAM_FLIP_Y,
+            data: std::ptr::from_mut(flip_y).cast::<c_void>(),
+        }
+    }
 }
 
 #[repr(C)]
@@ -69,6 +155,25 @@ struct MpvApi {
     set_option_string: MpvSetOptionString,
     get_property_string: MpvGetPropertyString,
     free: MpvFree,
+}
+
+#[derive(Clone)]
+pub struct MpvRenderApi {
+    inner: Arc<MpvRenderApiInner>,
+}
+
+struct MpvRenderApiInner {
+    _api: Arc<MpvApi>,
+    create: MpvRenderContextCreate,
+    render: MpvRenderContextRender,
+    set_update_callback: MpvRenderContextSetUpdateCallback,
+    update: MpvRenderContextUpdate,
+    free: MpvRenderContextFree,
+}
+
+pub struct MpvRenderContextHandle {
+    api: MpvRenderApi,
+    context: NonNull<MpvRenderContext>,
 }
 
 impl MpvLibrary {
@@ -133,6 +238,47 @@ impl MpvLibrary {
         &self.api.module.path
     }
 
+    pub fn render_api(&self) -> Result<MpvRenderApi, LibraryLoadError> {
+        let create = unsafe {
+            mem::transmute::<*mut c_void, MpvRenderContextCreate>(
+                self.api.module.symbol("mpv_render_context_create")?,
+            )
+        };
+        let render = unsafe {
+            mem::transmute::<*mut c_void, MpvRenderContextRender>(
+                self.api.module.symbol("mpv_render_context_render")?,
+            )
+        };
+        let set_update_callback = unsafe {
+            mem::transmute::<*mut c_void, MpvRenderContextSetUpdateCallback>(
+                self.api
+                    .module
+                    .symbol("mpv_render_context_set_update_callback")?,
+            )
+        };
+        let update = unsafe {
+            mem::transmute::<*mut c_void, MpvRenderContextUpdate>(
+                self.api.module.symbol("mpv_render_context_update")?,
+            )
+        };
+        let free = unsafe {
+            mem::transmute::<*mut c_void, MpvRenderContextFree>(
+                self.api.module.symbol("mpv_render_context_free")?,
+            )
+        };
+
+        Ok(MpvRenderApi {
+            inner: Arc::new(MpvRenderApiInner {
+                _api: Arc::clone(&self.api),
+                create,
+                render,
+                set_update_callback,
+                update,
+                free,
+            }),
+        })
+    }
+
     pub fn create(&self) -> Result<Mpv, MpvError> {
         self.create_with_options(&[])
     }
@@ -187,6 +333,10 @@ pub struct Mpv {
 }
 
 impl Mpv {
+    pub fn raw_handle(&self) -> *mut c_void {
+        self.handle.as_ptr().cast::<c_void>()
+    }
+
     /// Executes an mpv command using its null-terminated string argument API.
     pub fn command(&self, args: &[&str]) -> Result<(), MpvError> {
         let args: Vec<_> = args
@@ -321,6 +471,64 @@ impl Mpv {
     }
 }
 
+impl MpvRenderApi {
+    pub fn create_context(
+        &self,
+        mpv: &Mpv,
+        params: &mut [MpvRenderParam],
+    ) -> Result<MpvRenderContextHandle, MpvError> {
+        let mut context = std::ptr::null_mut();
+        let status =
+            unsafe { (self.inner.create)(&mut context, mpv.handle.as_ptr(), params.as_mut_ptr()) };
+        let context = NonNull::new(context).ok_or(MpvError::RenderContextCreateFailed(status))?;
+        if status < 0 {
+            Err(MpvError::RenderContextCreateFailed(status))
+        } else {
+            Ok(MpvRenderContextHandle {
+                api: self.clone(),
+                context,
+            })
+        }
+    }
+}
+
+impl MpvRenderContextHandle {
+    pub fn raw_context(&self) -> *mut c_void {
+        self.context.as_ptr().cast::<c_void>()
+    }
+
+    pub fn render(&self, params: &mut [MpvRenderParam]) -> Result<(), MpvError> {
+        let status = unsafe { (self.api.inner.render)(self.context.as_ptr(), params.as_mut_ptr()) };
+        if status < 0 {
+            Err(MpvError::RenderFailed(status))
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn set_update_callback(
+        &self,
+        callback: Option<unsafe extern "C" fn(*mut c_void)>,
+        callback_context: *mut c_void,
+    ) {
+        unsafe {
+            (self.api.inner.set_update_callback)(self.context.as_ptr(), callback, callback_context);
+        }
+    }
+
+    pub fn update(&self) -> u64 {
+        unsafe { (self.api.inner.update)(self.context.as_ptr()) }
+    }
+}
+
+impl Drop for MpvRenderContextHandle {
+    fn drop(&mut self) {
+        unsafe {
+            (self.api.inner.free)(self.context.as_ptr());
+        }
+    }
+}
+
 impl Drop for Mpv {
     fn drop(&mut self) {
         unsafe {
@@ -365,6 +573,8 @@ pub enum MpvError {
     SetOptionFailed { name: String, status: i32 },
     InvalidCommandArgument(String),
     CommandFailed(i32),
+    RenderContextCreateFailed(i32),
+    RenderFailed(i32),
 }
 
 impl fmt::Display for MpvError {
@@ -394,6 +604,18 @@ impl fmt::Display for MpvError {
             }
             Self::CommandFailed(status) => {
                 write!(formatter, "mpv_command failed with status {status}")
+            }
+            Self::RenderContextCreateFailed(status) => {
+                write!(
+                    formatter,
+                    "mpv_render_context_create failed with status {status}"
+                )
+            }
+            Self::RenderFailed(status) => {
+                write!(
+                    formatter,
+                    "mpv_render_context_render failed with status {status}"
+                )
             }
         }
     }
@@ -494,7 +716,13 @@ unsafe extern "C" {
 
 #[cfg(test)]
 mod tests {
-    use super::{LibraryLoadError, MpvLibrary};
+    use super::{
+        LibraryLoadError, MPV_RENDER_API_TYPE_OPENGL, MPV_RENDER_PARAM_API_TYPE,
+        MPV_RENDER_PARAM_FLIP_Y, MPV_RENDER_PARAM_INVALID, MPV_RENDER_PARAM_OPENGL_FBO,
+        MPV_RENDER_PARAM_OPENGL_INIT_PARAMS, MpvLibrary, MpvOpenGlFbo, MpvOpenGlInitParams,
+        MpvRenderParam,
+    };
+    use std::ffi::c_void;
     use std::path::Path;
 
     #[test]
@@ -507,5 +735,48 @@ mod tests {
         };
 
         assert!(matches!(error, LibraryLoadError::LoadFailed(error_path) if error_path == path));
+    }
+
+    #[test]
+    fn render_param_helpers_match_mpv_layout_contract() {
+        assert_eq!(MPV_RENDER_API_TYPE_OPENGL, b"opengl\0");
+
+        let invalid = MpvRenderParam::invalid();
+        assert_eq!(invalid.param_type, MPV_RENDER_PARAM_INVALID);
+        assert!(invalid.data.is_null());
+
+        let api_type = MpvRenderParam::api_type(MPV_RENDER_API_TYPE_OPENGL.as_ptr().cast());
+        assert_eq!(api_type.param_type, MPV_RENDER_PARAM_API_TYPE);
+        assert_eq!(
+            api_type.data,
+            MPV_RENDER_API_TYPE_OPENGL
+                .as_ptr()
+                .cast_mut()
+                .cast::<c_void>()
+        );
+
+        let mut init = MpvOpenGlInitParams {
+            get_proc_address: None,
+            get_proc_address_ctx: std::ptr::null_mut(),
+            extra_exts: std::ptr::null(),
+        };
+        let init_param = MpvRenderParam::opengl_init_params(&mut init);
+        assert_eq!(init_param.param_type, MPV_RENDER_PARAM_OPENGL_INIT_PARAMS);
+        assert_eq!(init_param.data, std::ptr::from_mut(&mut init).cast());
+
+        let mut fbo = MpvOpenGlFbo {
+            fbo: 7,
+            w: 1920,
+            h: 1080,
+            internal_format: 0,
+        };
+        let fbo_param = MpvRenderParam::opengl_fbo(&mut fbo);
+        assert_eq!(fbo_param.param_type, MPV_RENDER_PARAM_OPENGL_FBO);
+        assert_eq!(fbo_param.data, std::ptr::from_mut(&mut fbo).cast());
+
+        let mut flip_y = 1;
+        let flip_param = MpvRenderParam::flip_y(&mut flip_y);
+        assert_eq!(flip_param.param_type, MPV_RENDER_PARAM_FLIP_Y);
+        assert_eq!(flip_param.data, std::ptr::from_mut(&mut flip_y).cast());
     }
 }
