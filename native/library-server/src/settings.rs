@@ -152,6 +152,7 @@ impl HeadlessDandanplayAuthenticationMode {
 pub struct HeadlessDandanplayProviderSettings {
     pub base_url: String,
     pub app_id: Option<String>,
+    pub app_secret: Option<String>,
     pub has_app_secret: bool,
     pub authentication_mode: HeadlessDandanplayAuthenticationMode,
     pub cache_max_age_days: u32,
@@ -162,10 +163,21 @@ impl Default for HeadlessDandanplayProviderSettings {
         Self {
             base_url: DEFAULT_DANDANPLAY_BASE_URL.to_owned(),
             app_id: None,
+            app_secret: None,
             has_app_secret: false,
             authentication_mode: HeadlessDandanplayAuthenticationMode::Signed,
             cache_max_age_days: DEFAULT_DANDANPLAY_CACHE_MAX_AGE_DAYS,
         }
+    }
+}
+
+impl HeadlessDandanplayProviderSettings {
+    pub fn has_credentials(&self) -> bool {
+        self.app_id.is_some() && self.app_secret.is_some()
+    }
+
+    pub fn is_fetch_enabled(&self) -> bool {
+        self.has_credentials() || self.base_url != DEFAULT_DANDANPLAY_BASE_URL
     }
 }
 
@@ -349,6 +361,7 @@ fn dandanplay_settings_or_null(
     Some(HeadlessDandanplayProviderSettings {
         base_url,
         app_id,
+        app_secret,
         has_app_secret,
         authentication_mode,
         cache_max_age_days,
@@ -479,6 +492,10 @@ mod tests {
             settings.dandanplay.base_url
         );
         assert_eq!(Some("app-id".to_owned()), settings.dandanplay.app_id);
+        assert_eq!(
+            Some("raw-secret".to_owned()),
+            settings.dandanplay.app_secret
+        );
         assert!(settings.dandanplay.has_app_secret);
         assert_eq!(
             HeadlessDandanplayAuthenticationMode::Credential,

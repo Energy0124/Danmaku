@@ -26,8 +26,12 @@ stay runnable until the matching Rust replacement passes its parity gate.
 
 ## Accepted Decisions
 
-- **Server stack:** tokio + axum + rusqlite + serde + reqwest. No gRPC; the
-  existing HTTP JSON + byte-range contract stays.
+- **Server stack:** tokio + axum + rusqlite + serde. No gRPC; the
+  existing HTTP JSON + byte-range contract stays. Outbound provider HTTP
+  currently uses WinHTTP (`windows-sys`) behind a transport trait instead
+  of the originally planned reqwest — smaller dependency tree for the
+  Windows-first server; swap to reqwest if non-Windows server targets
+  materialize.
 - **Video integration is the migration's core requirement:** mpv renders
   through the libmpv render API (OpenGL) into an app-owned framebuffer, in
   the same GL context as the UI, so controls and danmaku composite directly
@@ -174,7 +178,7 @@ HTTP and discovery:
 
 Providers:
 
-- `[ ]` dandanplay client: signed and proxy modes, match/comment resolve,
+- `[x]` dandanplay client: signed and proxy modes, match/comment resolve,
   cache storage and cleanup.
 - `[ ]` MAL OAuth flow and Bangumi clients, external list entry
   read/write, provider mapping search, non-secret provider status

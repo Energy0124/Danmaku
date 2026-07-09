@@ -1,9 +1,126 @@
 pub(crate) fn sha256_hex(input: &str) -> String {
     let digest = sha256(input.as_bytes());
-    digest
+    hex(&digest)
+}
+
+pub(crate) fn sha256_base64(input: &str) -> String {
+    base64(&sha256(input.as_bytes()))
+}
+
+pub(crate) fn md5_hex(input: &[u8]) -> String {
+    hex(&md5(input))
+}
+
+fn hex(input: &[u8]) -> String {
+    input
         .iter()
         .map(|byte| format!("{byte:02x}"))
         .collect::<String>()
+}
+
+fn base64(input: &[u8]) -> String {
+    const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut output = String::with_capacity(input.len().div_ceil(3) * 4);
+    for chunk in input.chunks(3) {
+        let first = chunk[0];
+        let second = chunk.get(1).copied().unwrap_or(0);
+        let third = chunk.get(2).copied().unwrap_or(0);
+        let packed = ((first as u32) << 16) | ((second as u32) << 8) | third as u32;
+        output.push(TABLE[((packed >> 18) & 0x3f) as usize] as char);
+        output.push(TABLE[((packed >> 12) & 0x3f) as usize] as char);
+        if chunk.len() > 1 {
+            output.push(TABLE[((packed >> 6) & 0x3f) as usize] as char);
+        } else {
+            output.push('=');
+        }
+        if chunk.len() > 2 {
+            output.push(TABLE[(packed & 0x3f) as usize] as char);
+        } else {
+            output.push('=');
+        }
+    }
+    output
+}
+
+fn md5(input: &[u8]) -> [u8; 16] {
+    const SHIFT_AMOUNTS: [u32; 64] = [
+        7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 5, 9, 14, 20, 5, 9, 14, 20, 5,
+        9, 14, 20, 5, 9, 14, 20, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 6, 10,
+        15, 21, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21,
+    ];
+    const ROUND_CONSTANTS: [u32; 64] = [
+        0xd76aa478, 0xe8c7b756, 0x242070db, 0xc1bdceee, 0xf57c0faf, 0x4787c62a, 0xa8304613,
+        0xfd469501, 0x698098d8, 0x8b44f7af, 0xffff5bb1, 0x895cd7be, 0x6b901122, 0xfd987193,
+        0xa679438e, 0x49b40821, 0xf61e2562, 0xc040b340, 0x265e5a51, 0xe9b6c7aa, 0xd62f105d,
+        0x02441453, 0xd8a1e681, 0xe7d3fbc8, 0x21e1cde6, 0xc33707d6, 0xf4d50d87, 0x455a14ed,
+        0xa9e3e905, 0xfcefa3f8, 0x676f02d9, 0x8d2a4c8a, 0xfffa3942, 0x8771f681, 0x6d9d6122,
+        0xfde5380c, 0xa4beea44, 0x4bdecfa9, 0xf6bb4b60, 0xbebfbc70, 0x289b7ec6, 0xeaa127fa,
+        0xd4ef3085, 0x04881d05, 0xd9d4d039, 0xe6db99e5, 0x1fa27cf8, 0xc4ac5665, 0xf4292244,
+        0x432aff97, 0xab9423a7, 0xfc93a039, 0x655b59c3, 0x8f0ccc92, 0xffeff47d, 0x85845dd1,
+        0x6fa87e4f, 0xfe2ce6e0, 0xa3014314, 0x4e0811a1, 0xf7537e82, 0xbd3af235, 0x2ad7d2bb,
+        0xeb86d391,
+    ];
+
+    let bit_len = (input.len() as u64).wrapping_mul(8);
+    let mut padded = input.to_vec();
+    padded.push(0x80);
+    while padded.len() % 64 != 56 {
+        padded.push(0);
+    }
+    padded.extend_from_slice(&bit_len.to_le_bytes());
+
+    let mut a0 = 0x67452301_u32;
+    let mut b0 = 0xefcdab89_u32;
+    let mut c0 = 0x98badcfe_u32;
+    let mut d0 = 0x10325476_u32;
+
+    for chunk in padded.chunks_exact(64) {
+        let mut words = [0_u32; 16];
+        for (index, word) in words.iter_mut().enumerate() {
+            let offset = index * 4;
+            *word = u32::from_le_bytes([
+                chunk[offset],
+                chunk[offset + 1],
+                chunk[offset + 2],
+                chunk[offset + 3],
+            ]);
+        }
+
+        let mut a = a0;
+        let mut b = b0;
+        let mut c = c0;
+        let mut d = d0;
+        for index in 0..64 {
+            let (round_value, word_index) = match index {
+                0..=15 => ((b & c) | (!b & d), index),
+                16..=31 => ((d & b) | (!d & c), (5 * index + 1) % 16),
+                32..=47 => (b ^ c ^ d, (3 * index + 5) % 16),
+                _ => (c ^ (b | !d), (7 * index) % 16),
+            };
+            let next_d = d;
+            d = c;
+            c = b;
+            b = b.wrapping_add(
+                a.wrapping_add(round_value)
+                    .wrapping_add(ROUND_CONSTANTS[index])
+                    .wrapping_add(words[word_index])
+                    .rotate_left(SHIFT_AMOUNTS[index]),
+            );
+            a = next_d;
+        }
+
+        a0 = a0.wrapping_add(a);
+        b0 = b0.wrapping_add(b);
+        c0 = c0.wrapping_add(c);
+        d0 = d0.wrapping_add(d);
+    }
+
+    let mut digest = [0_u8; 16];
+    digest[0..4].copy_from_slice(&a0.to_le_bytes());
+    digest[4..8].copy_from_slice(&b0.to_le_bytes());
+    digest[8..12].copy_from_slice(&c0.to_le_bytes());
+    digest[12..16].copy_from_slice(&d0.to_le_bytes());
+    digest
 }
 
 fn sha256(input: &[u8]) -> [u8; 32] {
@@ -120,7 +237,7 @@ fn small_sigma1(value: u32) -> u32 {
 
 #[cfg(test)]
 mod tests {
-    use super::sha256_hex;
+    use super::{md5_hex, sha256_base64, sha256_hex};
 
     #[test]
     fn hashes_known_sha256_vectors() {
@@ -132,5 +249,16 @@ mod tests {
             "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
             sha256_hex("abc")
         );
+        assert_eq!(
+            "qJ4Zl5JADrNh5ujPoe1zh0ObjCrdvdE1EL6VR5y1XMg=",
+            sha256_base64("test-app1735660800/api/v2/matchtest-secret")
+        );
+    }
+
+    #[test]
+    fn hashes_known_md5_vectors() {
+        assert_eq!("d41d8cd98f00b204e9800998ecf8427e", md5_hex(b""));
+        assert_eq!("5d41402abc4b2a76b9719d911017c592", md5_hex(b"hello"));
+        assert_eq!("900150983cd24fb0d6963f7d28e17f72", md5_hex(b"abc"));
     }
 }

@@ -183,6 +183,7 @@ mod tests {
                 base_url: "https://signed.example.invalid/dandanplay?token=raw-url-token"
                     .to_owned(),
                 app_id: Some("app-id-secret-ish".to_owned()),
+                app_secret: Some("raw-app-secret".to_owned()),
                 has_app_secret: true,
                 authentication_mode: HeadlessDandanplayAuthenticationMode::Credential,
                 cache_max_age_days: 7,
@@ -215,6 +216,7 @@ mod tests {
             "123456",
             "raw-url-token",
             "app-id-secret-ish",
+            "raw-app-secret",
             "mal-client-id",
             "access_token=raw",
             "secret-agent",

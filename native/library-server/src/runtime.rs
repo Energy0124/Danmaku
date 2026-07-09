@@ -7,6 +7,7 @@ use tokio::net::TcpListener;
 
 use crate::catalog::{CatalogStore, HeadlessStoredLibrary, PublishedLibrary};
 use crate::cli::ServerOptions;
+use crate::dandanplay::{DandanplayResolver, apply_dandanplay_local_defaults};
 use crate::discovery::DiscoveryAnnouncer;
 use crate::http::{self, HttpServerConfig, HttpServerState};
 use crate::lock::DataDirectoryLock;
@@ -33,6 +34,7 @@ impl LoadedServer {
             SettingsStore::new(options.data_directory.join("server-settings.json"));
         let settings = settings_store
             .load_or_create(options.pairing_token.as_deref(), generate_pairing_token)?;
+        let settings = apply_dandanplay_local_defaults(settings);
         let effective_library_roots = if options.library_roots.is_empty() {
             settings.library_roots.clone()
         } else {
@@ -109,10 +111,17 @@ impl LoadedServer {
         let progress_store = Arc::new(PlaybackProgressStore::new(
             self.options.data_directory.join("progress.json"),
         ));
+        let dandanplay_resolver =
+            DandanplayResolver::from_settings(&self.settings, &self.options.data_directory)
+                .map(Arc::new);
         let state = HttpServerState::new(
             published_library,
             progress_store,
-            HttpServerConfig::headless(self.options.web_assets_root.clone(), &self.settings),
+            HttpServerConfig::headless(
+                self.options.web_assets_root.clone(),
+                &self.settings,
+                dandanplay_resolver,
+            ),
         );
         http::app(state)
     }
