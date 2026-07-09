@@ -2,13 +2,19 @@ package app.danmaku.tv
 
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performKeyInput
+import androidx.compose.ui.test.performScrollToIndex
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.pressKey
 import androidx.tv.material3.MaterialTheme
@@ -40,12 +46,14 @@ class TvLibraryItemsTest {
         }
 
         composeRule.onNodeWithText("PC Library").assertExists()
-        composeRule.onAllNodesWithText("Seeded PC").assertCountEquals(2)
+        composeRule.onAllNodesWithText("Seeded PC").assertCountEquals(1)
         composeRule.onAllNodesWithText("3 / 3 episodes").assertCountEquals(2)
+        composeRule.scrollLibraryToTag("series:Example Show")
         composeRule.onNodeWithTag("series:Example Show").assertExists()
         composeRule.onNodeWithText("2 episodes").assertExists()
         composeRule.onNodeWithTag("series:Other Show").assertExists()
         composeRule.onNodeWithText("1 episode").assertExists()
+        composeRule.scrollLibraryToTag("episode:example-1")
         composeRule.onNodeWithTag("episode:example-1").assertExists()
         composeRule.onNodeWithTag("episode:example-2").assertExists()
         composeRule.onNodeWithTag("episode:other-1").assertExists()
@@ -59,7 +67,9 @@ class TvLibraryItemsTest {
             }
         }
 
+        composeRule.scrollLibraryToTag("series:Example Show")
         composeRule.onNodeWithTag("series:Example Show").performTvClick()
+        composeRule.scrollLibraryToTag("series-detail:Example Show")
 
         composeRule.onAllNodesWithText("2 / 3 episodes").assertCountEquals(2)
         composeRule.onNodeWithTag("series-detail:Example Show").assertExists()
@@ -70,7 +80,9 @@ class TvLibraryItemsTest {
         composeRule.onNodeWithTag("episode:example-2").assertExists()
         composeRule.onNodeWithTag("episode:other-1").assertDoesNotExist()
 
+        composeRule.scrollLibraryToTag("series:all")
         composeRule.onNodeWithTag("series:all").performTvClick()
+        composeRule.scrollLibraryToTag("episode:other-1")
 
         composeRule.onAllNodesWithText("3 / 3 episodes").assertCountEquals(2)
         composeRule.onNodeWithTag("series-detail:Example Show").assertDoesNotExist()
@@ -178,9 +190,11 @@ class TvLibraryItemsTest {
         }
 
         composeRule.onNodeWithTag("episode:example-2").performTvClick()
+        composeRule.scrollLibraryToTag("episode-detail:example-2")
         composeRule.onNodeWithTag("episode-detail:example-2").assertExists()
         composeRule.onNodeWithText("Example Show / Season unknown / New").assertExists()
         composeRule.onNodeWithText("Next").performTvClick()
+        composeRule.scrollLibraryToTag("episode-detail:other-1")
         composeRule.onNodeWithTag("episode-detail:other-1").assertExists()
     }
 
@@ -209,6 +223,7 @@ class TvLibraryItemsTest {
         }
 
         composeRule.onNodeWithTag("episode:example-loading").performTvClick()
+        composeRule.scrollLibraryToTag("episode-detail:example-loading")
 
         composeRule.onNodeWithTag("episode-detail:example-loading").assertExists()
         composeRule.onAllNodesWithText("Poster/metadata loading", substring = true).assertCountEquals(2)
@@ -228,6 +243,7 @@ class TvLibraryItemsTest {
         }
 
         composeRule.onNodeWithTag("episode:example-1").performTvClick()
+        composeRule.scrollLibraryToTag("episode-detail:example-1")
         composeRule.onNodeWithTag("episode-detail:example-1").assertExists()
         composeRule.onNodeWithTag("episode-detail-play:example-1").performTvClick()
 
@@ -249,12 +265,21 @@ class TvLibraryItemsTest {
             }
         }
 
+        composeRule.scrollLibraryToTag("episode:example-1")
+        composeRule.onNodeWithTag("episode:example-1")
+            .performSemanticsAction(SemanticsActions.RequestFocus)
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("episode:example-1").assertIsFocused()
         composeRule.onNodeWithTag("episode:example-1").performKeyInput {
             pressKey(Key.DirectionCenter)
         }
+        composeRule.waitForIdle()
+        composeRule.scrollLibraryToTag("episode-detail:example-1")
         composeRule.onNodeWithTag("episode-detail:example-1").assertExists()
         composeRule.onNodeWithTag("episode-detail-play:example-1")
             .performSemanticsAction(SemanticsActions.RequestFocus)
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("episode-detail-play:example-1").assertIsFocused()
         composeRule.onNodeWithTag("episode-detail-play:example-1").performKeyInput {
             pressKey(Key.DirectionCenter)
         }
@@ -277,7 +302,9 @@ class TvLibraryItemsTest {
             }
         }
 
+        composeRule.scrollLibraryToTag("series:Example Show")
         composeRule.onNodeWithTag("series:Example Show").performTvClick()
+        composeRule.scrollLibraryToTag("series-detail-episode:example-2")
         composeRule.onNodeWithTag("series-detail-episode:example-2").performTvClick()
 
         composeRule.runOnIdle {
@@ -305,11 +332,14 @@ class TvLibraryItemsTest {
             }
         }
 
+        composeRule.scrollLibraryToTag("library-next-up")
         composeRule.onNodeWithTag("library-next-up").assertExists()
         composeRule.onNodeWithText("Next Up").assertExists()
         composeRule.onNodeWithText("Next episode").assertExists()
         composeRule.onNodeWithTag("next-up-details:example-2").performTvClick()
+        composeRule.scrollLibraryToTag("episode-detail:example-2")
         composeRule.onNodeWithTag("episode-detail:example-2").assertExists()
+        composeRule.scrollLibraryToTag("next-up:example-2")
         composeRule.onNodeWithTag("next-up:example-2").performTvClick()
 
         composeRule.runOnIdle {
@@ -372,10 +402,14 @@ class TvLibraryItemsTest {
             }
         }
 
+        composeRule.scrollLibraryToTag("library-continue-watching")
         composeRule.onNodeWithTag("library-continue-watching").assertExists()
+        composeRule.scrollLibraryToTag("library-recently-watched")
         composeRule.onNodeWithTag("library-recently-watched").assertExists()
         composeRule.onNodeWithTag("recently-watched-details:other-1").performTvClick()
+        composeRule.scrollLibraryToTag("episode-detail:other-1")
         composeRule.onNodeWithTag("episode-detail:other-1").assertExists()
+        composeRule.scrollLibraryToTag("continue-watching:example-1")
         composeRule.onNodeWithTag("continue-watching:example-1").performTvClick()
 
         composeRule.runOnIdle {
@@ -507,4 +541,12 @@ class TvLibraryItemsTest {
 
 private fun androidx.compose.ui.test.SemanticsNodeInteraction.performTvClick() {
     performSemanticsAction(SemanticsActions.OnClick)
+}
+
+private fun androidx.compose.ui.test.junit4.ComposeTestRule.scrollLibraryToTag(tag: String) {
+    val libraryList = onNode(
+        hasScrollAction() and SemanticsMatcher.keyIsDefined(SemanticsProperties.VerticalScrollAxisRange),
+    )
+    libraryList.performScrollToIndex(0)
+    libraryList.performScrollToNode(hasTestTag(tag))
 }
