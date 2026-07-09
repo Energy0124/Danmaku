@@ -2028,10 +2028,8 @@ mod tests {
         behavior: MockExternalProviderBehavior,
         requests: Arc<Mutex<Vec<MockExternalProviderRequest>>>,
     ) {
-        let mut buffer = [0_u8; 64 * 1024];
-        let read = stream.read(&mut buffer).expect("mock read");
-        let request = String::from_utf8_lossy(&buffer[..read]).to_string();
-        let (head, body) = request.split_once("\r\n\r\n").unwrap_or((&request, ""));
+        let request = read_full_mock_request(&mut stream);
+        let (head, body) = request.split_once("\r\n\r\n").unwrap_or((&*request, ""));
         let mut lines = head.lines();
         let request_line = lines.next().unwrap_or_default();
         let mut request_parts = request_line.split_whitespace();
@@ -2144,14 +2142,49 @@ mod tests {
         }
     }
 
+    // Reads a complete HTTP request (headers plus Content-Length body) from a
+    // mock connection before the caller responds. Responding and closing while
+    // request bytes are still in flight makes macOS send an RST that aborts
+    // the client's response read, which flaked the multi-provider search test
+    // on macOS CI.
+    fn read_full_mock_request(stream: &mut TcpStream) -> String {
+        let mut received = Vec::new();
+        let mut chunk = [0_u8; 64 * 1024];
+        let header_end = loop {
+            let read = stream.read(&mut chunk).expect("mock read");
+            if read == 0 {
+                break received.len();
+            }
+            received.extend_from_slice(&chunk[..read]);
+            if let Some(position) = received.windows(4).position(|window| window == b"\r\n\r\n") {
+                break position + 4;
+            }
+        };
+        let content_length = String::from_utf8_lossy(&received[..header_end])
+            .lines()
+            .find_map(|line| {
+                let (name, value) = line.split_once(':')?;
+                name.trim()
+                    .eq_ignore_ascii_case("content-length")
+                    .then(|| value.trim().parse::<usize>().ok())?
+            })
+            .unwrap_or(0);
+        while received.len() < header_end + content_length {
+            let read = stream.read(&mut chunk).expect("mock body read");
+            if read == 0 {
+                break;
+            }
+            received.extend_from_slice(&chunk[..read]);
+        }
+        String::from_utf8_lossy(&received).to_string()
+    }
+
     fn handle_mock_dandanplay_connection(
         mut stream: TcpStream,
         behavior: MockDandanplayBehavior,
         requests: Arc<Mutex<Vec<MockDandanplayRequest>>>,
     ) {
-        let mut buffer = [0_u8; 64 * 1024];
-        let read = stream.read(&mut buffer).expect("mock read");
-        let request = String::from_utf8_lossy(&buffer[..read]).to_string();
+        let request = read_full_mock_request(&mut stream);
         let request_line = request.lines().next().unwrap_or_default();
         let target = request_line.split_whitespace().nth(1).unwrap_or("/");
         let (path, query) = target
