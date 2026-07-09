@@ -1,4 +1,6 @@
-use library_server::{cli::ServerOptions, runtime::LoadedServer};
+use library_server::{
+    cli::ServerOptions, desktop_import::import_desktop_catalog, runtime::LoadedServer,
+};
 
 #[tokio::main]
 async fn main() {
@@ -6,6 +8,21 @@ async fn main() {
         Ok(options) => options,
         Err(error) => error.exit(),
     };
+
+    if let Some(database_path) = options.import_desktop_catalog.clone() {
+        match import_desktop_catalog(&options.data_directory, &database_path) {
+            Ok(report) => {
+                for line in report.to_log_lines() {
+                    println!("{line}");
+                }
+            }
+            Err(error) => {
+                eprintln!("desktop catalog import failed: {error}");
+                std::process::exit(1);
+            }
+        }
+        return;
+    }
 
     match LoadedServer::load(options) {
         Ok(server) => {
