@@ -1056,42 +1056,18 @@ fn load_local_properties(
     values
 }
 
+// The JVM headless host reads provider credentials only from
+// server-settings.json; local.properties is a desktop-app concept. The Rust
+// server therefore never auto-discovers local.properties from the working
+// directory or user profile — doing so silently picked up developer
+// credentials and broke QA parity. A properties file is read only when
+// DANMAKU_LOCAL_PROPERTIES explicitly points at one.
 fn default_local_properties_paths(environment: &HashMap<String, String>) -> Vec<PathBuf> {
-    let mut paths = vec![
-        env::current_dir()
-            .unwrap_or_else(|_| PathBuf::from("."))
-            .join("local.properties"),
-    ];
-    if let Some(local_app_data) = environment
-        .get("LOCALAPPDATA")
-        .and_then(|value| non_blank(value.clone()))
-    {
-        paths.push(
-            PathBuf::from(local_app_data)
-                .join("Danmaku")
-                .join("local.properties"),
-        );
-    }
-    if let Some(home) = environment
-        .get("USERPROFILE")
-        .or_else(|| environment.get("HOME"))
-        .and_then(|value| non_blank(value.clone()))
-    {
-        paths.push(
-            PathBuf::from(home)
-                .join(".danmaku")
-                .join("local.properties"),
-        );
-    }
-    if let Some(path) = environment
+    environment
         .get("DANMAKU_LOCAL_PROPERTIES")
         .and_then(|value| non_blank(value.clone()))
-    {
-        paths.push(PathBuf::from(path));
-    }
-    paths.sort();
-    paths.dedup();
-    paths
+        .map(|path| vec![PathBuf::from(path)])
+        .unwrap_or_default()
 }
 
 fn parse_bilibili_parameter_string(
