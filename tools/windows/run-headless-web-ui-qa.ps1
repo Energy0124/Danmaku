@@ -1,8 +1,14 @@
+<#
+.SYNOPSIS
+Runs the repeatable headless web UI QA gate against the JVM headless server by
+default, or against the Rust library server when -RustServer is supplied.
+#>
 [CmdletBinding()]
 param(
     [int]$Port = 18686,
     [string]$PairingToken = "123456",
     [string]$OutputDir,
+    [switch]$RustServer,
     [switch]$SkipBrowserInteractionQa
 )
 
@@ -21,6 +27,8 @@ $webUiDir = Join-Path $repoRoot "apps\web-ui"
 $webDist = Join-Path $webUiDir "dist"
 $browserQaScript = Join-Path $webUiDir "scripts\check-browser-interactions.mjs"
 $gradle = Join-Path $repoRoot "gradlew.bat"
+$rustServerExe = $null
+$hostImplementation = if ($RustServer) { "Rust library-server" } else { "JVM apps:library-server-windows" }
 
 function Invoke-RequiredCommand {
     param(
@@ -138,7 +146,74 @@ function Stop-HeadlessServer {
     }
 }
 
-if (-not (Test-Path -LiteralPath $gradle -PathType Leaf)) {
+function Get-RustTargetDirectory {
+    if ([string]::IsNullOrWhiteSpace($env:CARGO_TARGET_DIR)) {
+        return Join-Path $repoRoot "target"
+    }
+
+    if ([System.IO.Path]::IsPathRooted($env:CARGO_TARGET_DIR)) {
+        return [System.IO.Path]::GetFullPath($env:CARGO_TARGET_DIR)
+    }
+
+    [System.IO.Path]::GetFullPath((Join-Path $repoRoot $env:CARGO_TARGET_DIR))
+}
+
+function Get-RustLibraryServerExecutable {
+    $targetDir = Get-RustTargetDirectory
+    [System.IO.Path]::GetFullPath((Join-Path $targetDir "release\library-server.exe"))
+}
+
+function Quote-ProcessArgument {
+    param([string]$Value)
+
+    '"' + ($Value -replace '"', '\"') + '"'
+}
+
+function New-HeadlessServerCliArguments {
+    param(
+        [switch]$IncludeRoot,
+        [switch]$IncludePairingToken,
+        [switch]$QuotePathValues
+    )
+
+    $dataDirArgument = if ($QuotePathValues) { Quote-ProcessArgument $dataDir } else { $dataDir }
+    $fixtureRootArgument = if ($QuotePathValues) { Quote-ProcessArgument $fixtureRoot } else { $fixtureRoot }
+    $webDistArgument = if ($QuotePathValues) { Quote-ProcessArgument $webDist } else { $webDist }
+
+    $arguments = @("--data-dir", $dataDirArgument)
+    if ($IncludeRoot) {
+        $arguments += @("--root", $fixtureRootArgument)
+    }
+    $arguments += @("--port", "$Port")
+    if ($IncludePairingToken) {
+        $arguments += @("--pairing-token", $PairingToken)
+    }
+    $arguments += @("--web-assets-dir", $webDistArgument)
+    $arguments
+}
+
+function New-GradleRunArguments {
+    param([string[]]$ServerArguments)
+
+    @(
+        "--no-daemon",
+        ":apps:library-server-windows:run",
+        "--args=`"$($ServerArguments -join " ")`""
+    )
+}
+
+function Start-HeadlessServer {
+    param([string[]]$ServerArguments)
+
+    if ($RustServer) {
+        return Start-Process -FilePath $rustServerExe -ArgumentList $ServerArguments -WorkingDirectory $repoRoot -PassThru -WindowStyle Hidden
+    }
+
+    $gradleArguments = New-GradleRunArguments -ServerArguments $ServerArguments
+    Start-Process -FilePath $gradle -ArgumentList $gradleArguments -WorkingDirectory $repoRoot -PassThru -WindowStyle Hidden
+}
+
+if (-not $RustServer -and -not (Test-Path -LiteralPath $gradle -PathType Leaf)) {
     throw "Gradle wrapper does not exist: $gradle"
 }
 if (-not (Test-Path -LiteralPath (Join-Path $webUiDir "package.json") -PathType Leaf)) {
@@ -171,12 +246,21 @@ try {
     Pop-Location
 }
 
-$firstStartArguments = @(
-    "--no-daemon",
-    ":apps:library-server-windows:run",
-    "--args=`"--data-dir `"$dataDir`" --root `"$fixtureRoot`" --port $Port --pairing-token $PairingToken --web-assets-dir `"$webDist`"`""
-)
-$serverProcess = Start-Process -FilePath $gradle -ArgumentList $firstStartArguments -WorkingDirectory $repoRoot -PassThru -WindowStyle Hidden
+if ($RustServer) {
+    Push-Location $repoRoot
+    try {
+        Invoke-RequiredCommand -Command { cargo build --release -p library-server } -FailureMessage "Rust library server build failed."
+    } finally {
+        Pop-Location
+    }
+    $rustServerExe = Get-RustLibraryServerExecutable
+    if (-not (Test-Path -LiteralPath $rustServerExe -PathType Leaf)) {
+        throw "Rust library server executable does not exist after build: $rustServerExe"
+    }
+}
+
+$firstStartArguments = New-HeadlessServerCliArguments -IncludeRoot -IncludePairingToken -QuotePathValues
+$serverProcess = Start-HeadlessServer -ServerArguments $firstStartArguments
 $baseUrl = "http://127.0.0.1:$Port"
 
 try {
@@ -259,12 +343,8 @@ try {
     $serverProcess = $null
     Start-Sleep -Milliseconds 500
 
-    $restartArguments = @(
-        "--no-daemon",
-        ":apps:library-server-windows:run",
-        "--args=`"--data-dir `"$dataDir`" --port $Port --web-assets-dir `"$webDist`"`""
-    )
-    $serverProcess = Start-Process -FilePath $gradle -ArgumentList $restartArguments -WorkingDirectory $repoRoot -PassThru -WindowStyle Hidden
+    $restartArguments = New-HeadlessServerCliArguments -QuotePathValues
+    $serverProcess = Start-HeadlessServer -ServerArguments $restartArguments
     Wait-ForServer -BaseUrl $baseUrl
 
     $restartCatalog = (Invoke-JsonRequest -Uri "$baseUrl/api/library?token=$PairingToken").Content | ConvertFrom-Json
@@ -287,6 +367,7 @@ try {
     $report = @(
         "# Headless Web UI QA",
         "",
+        "- Host implementation: $hostImplementation",
         "- Base URL: $baseUrl",
         "- Web UI: $baseUrl/web/",
         "- Catalog items: $($catalog.items.Count)",

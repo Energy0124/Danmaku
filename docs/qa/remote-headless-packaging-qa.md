@@ -6,14 +6,22 @@ Use this checklist to validate the server/client split without breaking the defa
 
 ```powershell
 .\tools\windows\run-headless-web-ui-qa.ps1
+.\tools\windows\run-headless-web-ui-qa.ps1 -RustServer
 .\tools\windows\run-embedded-web-ui-qa.ps1
 ```
 
-The headless gate proves the standalone JVM host can serve `/web/`, catalog, media, subtitles, progress, provider readiness, provider search, external list controls, cached catalog startup, and persisted progress. The embedded gate proves the Windows desktop host serves the same web/client surface while using isolated desktop app data.
+The headless gate proves the standalone JVM host, or the Rust host when
+`-RustServer` is supplied, can serve `/web/`, catalog, media, subtitles,
+progress, provider readiness, provider search, external list controls, cached
+catalog startup, and persisted progress. The embedded gate proves the Windows
+desktop host serves the same web/client surface while using isolated desktop
+app data.
 
 ## Headless Server Checks
 
-- Launch with explicit `--data-dir`, `--root`, `--port`, `--pairing-token`, and `--web-assets-dir`.
+- Launch with explicit `--data-dir`, `--root`, `--port`, `--pairing-token`,
+  and `--web-assets-dir`; use `-RustServer` to run the same checks against
+  the Rust binary.
 - Verify `server-settings.json`, stable pairing token, catalog snapshot, progress, and lock file live under the data directory.
 - Attempt a second host with the same data directory and verify locking prevents concurrent writes.
 - Restart without explicit roots and verify cached catalog/progress readback still works.

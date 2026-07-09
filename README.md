@@ -214,6 +214,7 @@ Repeatable headless web UI QA:
 
 ```powershell
 .\tools\windows\run-headless-web-ui-qa.ps1
+.\tools\windows\run-headless-web-ui-qa.ps1 -RustServer
 ```
 
 ## Security And Source Policy

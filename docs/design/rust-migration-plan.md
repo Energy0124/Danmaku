@@ -196,8 +196,14 @@ Providers:
 
 Parity gates:
 
-- `[ ]` `tools\windows\run-headless-web-ui-qa.ps1` passes against the Rust
-  binary (add a switch to point the script at it).
+- `[x]` `tools\windows\run-headless-web-ui-qa.ps1` passes against the Rust
+  binary (add a switch to point the script at it). (Passed 2026-07-09 via
+  `-RustServer`: full route/restart/persistence checks plus the Chrome
+  browser interaction probe, unchanged assertions. The first run caught a
+  real parity bug — the Rust server auto-discovered `local.properties`
+  credentials, which the JVM headless host never reads; auto-discovery
+  was removed and a properties file is now read only via an explicit
+  `DANMAKU_LOCAL_PROPERTIES` path.)
 - `[ ]` Android mobile and Android TV emulator QA wrappers pass against a
   Rust server host.
 - `[ ]` `tools\windows\run-live-external-sync-readback-qa.ps1` passes
