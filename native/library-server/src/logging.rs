@@ -190,10 +190,13 @@ mod tests {
             },
             external_anime: HeadlessExternalAnimeProviderSettings {
                 my_anime_list_client_id: Some("mal-client-id".to_owned()),
+                my_anime_list_client_secret: Some("raw-mal-secret".to_owned()),
                 has_my_anime_list_client_secret: true,
+                my_anime_list_access_token: Some("raw-mal-token".to_owned()),
                 has_my_anime_list_access_token: true,
                 bangumi_base_url: "https://api.bgm.tv/?access_token=raw".to_owned(),
                 bangumi_user_agent: "Danmaku QA secret-agent".to_owned(),
+                bangumi_access_token: Some("raw-bangumi-token".to_owned()),
                 has_bangumi_access_token: true,
             },
         };

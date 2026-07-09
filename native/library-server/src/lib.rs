@@ -3,6 +3,7 @@ pub mod cli;
 pub mod dandanplay;
 pub mod discovery;
 pub mod domain;
+pub mod external_provider;
 pub(crate) mod hash;
 pub mod http;
 pub mod lock;

@@ -14,7 +14,10 @@ use crate::lock::DataDirectoryLock;
 use crate::logging::{CatalogScanSummary, StartupSummary};
 use crate::progress::PlaybackProgressStore;
 use crate::scanner::scan_roots;
-use crate::settings::{HeadlessServerSettings, SettingsStore, generate_pairing_token};
+use crate::settings::{
+    HeadlessServerSettings, SettingsStore, apply_external_anime_local_defaults,
+    generate_pairing_token,
+};
 use crate::{LibraryServerError, Result};
 
 #[derive(Debug)]
@@ -34,7 +37,8 @@ impl LoadedServer {
             SettingsStore::new(options.data_directory.join("server-settings.json"));
         let settings = settings_store
             .load_or_create(options.pairing_token.as_deref(), generate_pairing_token)?;
-        let settings = apply_dandanplay_local_defaults(settings);
+        let settings =
+            apply_external_anime_local_defaults(apply_dandanplay_local_defaults(settings));
         let effective_library_roots = if options.library_roots.is_empty() {
             settings.library_roots.clone()
         } else {

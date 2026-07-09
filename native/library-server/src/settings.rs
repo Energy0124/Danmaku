@@ -1,5 +1,7 @@
+use std::collections::HashMap;
+use std::env;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 use serde_json::{Map, Value};
@@ -184,10 +186,13 @@ impl HeadlessDandanplayProviderSettings {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HeadlessExternalAnimeProviderSettings {
     pub my_anime_list_client_id: Option<String>,
+    pub my_anime_list_client_secret: Option<String>,
     pub has_my_anime_list_client_secret: bool,
+    pub my_anime_list_access_token: Option<String>,
     pub has_my_anime_list_access_token: bool,
     pub bangumi_base_url: String,
     pub bangumi_user_agent: String,
+    pub bangumi_access_token: Option<String>,
     pub has_bangumi_access_token: bool,
 }
 
@@ -195,10 +200,13 @@ impl Default for HeadlessExternalAnimeProviderSettings {
     fn default() -> Self {
         Self {
             my_anime_list_client_id: None,
+            my_anime_list_client_secret: None,
             has_my_anime_list_client_secret: false,
+            my_anime_list_access_token: None,
             has_my_anime_list_access_token: false,
             bangumi_base_url: DEFAULT_BANGUMI_BASE_URL.to_owned(),
             bangumi_user_agent: DEFAULT_BANGUMI_USER_AGENT.to_owned(),
+            bangumi_access_token: None,
             has_bangumi_access_token: false,
         }
     }
@@ -386,17 +394,194 @@ fn external_anime_settings_or_null(
     }
     let bangumi_access_token = string_or_null(object, "bangumiAccessToken");
 
+    let has_my_anime_list_client_secret = my_anime_list_client_secret.is_some()
+        || boolean_or_null(object, "hasMyAnimeListClientSecret") == Some(true);
+    let has_my_anime_list_access_token = my_anime_list_access_token.is_some()
+        || boolean_or_null(object, "hasMyAnimeListAccessToken") == Some(true);
+    let has_bangumi_access_token = bangumi_access_token.is_some()
+        || boolean_or_null(object, "hasBangumiAccessToken") == Some(true);
+
     Some(HeadlessExternalAnimeProviderSettings {
         my_anime_list_client_id,
-        has_my_anime_list_client_secret: my_anime_list_client_secret.is_some()
-            || boolean_or_null(object, "hasMyAnimeListClientSecret") == Some(true),
-        has_my_anime_list_access_token: my_anime_list_access_token.is_some()
-            || boolean_or_null(object, "hasMyAnimeListAccessToken") == Some(true),
+        my_anime_list_client_secret,
+        has_my_anime_list_client_secret,
+        my_anime_list_access_token,
+        has_my_anime_list_access_token,
         bangumi_base_url,
         bangumi_user_agent,
-        has_bangumi_access_token: bangumi_access_token.is_some()
-            || boolean_or_null(object, "hasBangumiAccessToken") == Some(true),
+        bangumi_access_token,
+        has_bangumi_access_token,
     })
+}
+
+pub fn apply_external_anime_local_defaults(
+    mut settings: HeadlessServerSettings,
+) -> HeadlessServerSettings {
+    if let Some(defaults) = ExternalAnimeLocalCredentialDefaults::load_from_process() {
+        settings.external_anime = merge_external_anime_settings(settings.external_anime, defaults);
+    }
+    settings
+}
+
+fn merge_external_anime_settings(
+    mut settings: HeadlessExternalAnimeProviderSettings,
+    defaults: ExternalAnimeLocalCredentialDefaults,
+) -> HeadlessExternalAnimeProviderSettings {
+    if settings.my_anime_list_client_id.is_none() {
+        settings.my_anime_list_client_id = defaults.my_anime_list_client_id;
+    }
+    if settings.my_anime_list_client_secret.is_none() {
+        settings.my_anime_list_client_secret = defaults.my_anime_list_client_secret;
+    }
+    if settings.my_anime_list_access_token.is_none() {
+        settings.my_anime_list_access_token = defaults.my_anime_list_access_token;
+    }
+    if let Some(base_url) = defaults.bangumi_base_url {
+        settings.bangumi_base_url = base_url;
+    }
+    if let Some(user_agent) = defaults.bangumi_user_agent {
+        settings.bangumi_user_agent = user_agent;
+    }
+    if settings.bangumi_access_token.is_none() {
+        settings.bangumi_access_token = defaults.bangumi_access_token;
+    }
+    settings.has_my_anime_list_client_secret =
+        settings.my_anime_list_client_secret.is_some() || settings.has_my_anime_list_client_secret;
+    settings.has_my_anime_list_access_token =
+        settings.my_anime_list_access_token.is_some() || settings.has_my_anime_list_access_token;
+    settings.has_bangumi_access_token =
+        settings.bangumi_access_token.is_some() || settings.has_bangumi_access_token;
+    settings
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExternalAnimeLocalCredentialDefaults {
+    pub my_anime_list_client_id: Option<String>,
+    pub my_anime_list_client_secret: Option<String>,
+    pub my_anime_list_access_token: Option<String>,
+    pub bangumi_base_url: Option<String>,
+    pub bangumi_user_agent: Option<String>,
+    pub bangumi_access_token: Option<String>,
+}
+
+impl ExternalAnimeLocalCredentialDefaults {
+    pub fn load_from_process() -> Option<Self> {
+        Self::load(&env::vars().collect(), None)
+    }
+
+    pub fn load(
+        environment: &HashMap<String, String>,
+        properties_path: Option<&Path>,
+    ) -> Option<Self> {
+        let properties = load_local_properties(environment, properties_path);
+        let value = |property_name: &str, environment_name: &str| -> Option<String> {
+            environment
+                .get(environment_name)
+                .or_else(|| properties.get(property_name))
+                .and_then(|value| non_blank(value.clone()))
+        };
+
+        let bangumi_base_url = value("danmaku.bangumi.baseUrl", "DANMAKU_BANGUMI_BASE_URL")
+            .filter(|value| is_https_base_url(value));
+        let bangumi_user_agent = value("danmaku.bangumi.userAgent", "DANMAKU_BANGUMI_USER_AGENT");
+        let defaults = Self {
+            my_anime_list_client_id: value(
+                "danmaku.myanimelist.clientId",
+                "DANMAKU_MYANIMELIST_CLIENT_ID",
+            ),
+            my_anime_list_client_secret: value(
+                "danmaku.myanimelist.clientSecret",
+                "DANMAKU_MYANIMELIST_CLIENT_SECRET",
+            ),
+            my_anime_list_access_token: value(
+                "danmaku.myanimelist.accessToken",
+                "DANMAKU_MYANIMELIST_ACCESS_TOKEN",
+            ),
+            bangumi_base_url,
+            bangumi_user_agent,
+            bangumi_access_token: value(
+                "danmaku.bangumi.accessToken",
+                "DANMAKU_BANGUMI_ACCESS_TOKEN",
+            ),
+        };
+        defaults.has_any_value().then_some(defaults)
+    }
+
+    fn has_any_value(&self) -> bool {
+        self.my_anime_list_client_id.is_some()
+            || self.my_anime_list_client_secret.is_some()
+            || self.my_anime_list_access_token.is_some()
+            || self.bangumi_base_url.is_some()
+            || self.bangumi_user_agent.is_some()
+            || self.bangumi_access_token.is_some()
+    }
+}
+
+fn load_local_properties(
+    environment: &HashMap<String, String>,
+    properties_path: Option<&Path>,
+) -> HashMap<String, String> {
+    let mut values = HashMap::new();
+    let paths = properties_path
+        .map(|path| vec![path.to_path_buf()])
+        .unwrap_or_else(|| default_local_properties_paths(environment));
+    for path in paths {
+        let Ok(text) = fs::read_to_string(path) else {
+            continue;
+        };
+        for line in text.lines() {
+            let trimmed = line.trim();
+            if trimmed.is_empty() || trimmed.starts_with('#') || trimmed.starts_with('!') {
+                continue;
+            }
+            let Some((key, value)) = trimmed.split_once('=').or_else(|| trimmed.split_once(':'))
+            else {
+                continue;
+            };
+            if let Some(value) = non_blank(value.to_owned()) {
+                values.insert(key.trim().to_owned(), value);
+            }
+        }
+    }
+    values
+}
+
+fn default_local_properties_paths(environment: &HashMap<String, String>) -> Vec<PathBuf> {
+    let mut paths = vec![
+        env::current_dir()
+            .unwrap_or_else(|_| PathBuf::from("."))
+            .join("local.properties"),
+    ];
+    if let Some(local_app_data) = environment
+        .get("LOCALAPPDATA")
+        .and_then(|value| non_blank(value.clone()))
+    {
+        paths.push(
+            PathBuf::from(local_app_data)
+                .join("Danmaku")
+                .join("local.properties"),
+        );
+    }
+    if let Some(home) = environment
+        .get("USERPROFILE")
+        .or_else(|| environment.get("HOME"))
+        .and_then(|value| non_blank(value.clone()))
+    {
+        paths.push(
+            PathBuf::from(home)
+                .join(".danmaku")
+                .join("local.properties"),
+        );
+    }
+    if let Some(path) = environment
+        .get("DANMAKU_LOCAL_PROPERTIES")
+        .and_then(|value| non_blank(value.clone()))
+    {
+        paths.push(PathBuf::from(path));
+    }
+    paths.sort();
+    paths.dedup();
+    paths
 }
 
 fn authentication_mode_or_default(value: &str) -> HeadlessDandanplayAuthenticationMode {
@@ -420,6 +605,11 @@ fn int_or_null(object: &Map<String, Value>, name: &str) -> Option<i64> {
 
 fn boolean_or_null(object: &Map<String, Value>, name: &str) -> Option<bool> {
     object.get(name).and_then(Value::as_bool)
+}
+
+fn non_blank(value: String) -> Option<String> {
+    let trimmed = value.trim();
+    (!trimmed.is_empty()).then(|| trimmed.to_owned())
 }
 
 fn is_http_base_url(value: &str) -> bool {
@@ -567,6 +757,69 @@ mod tests {
                 &fs::read_to_string(&file).expect("settings should read")
             )
             .expect("settings json should parse")["pairingToken"]
+        );
+
+        fs::remove_dir_all(temp).expect("temp dir should delete");
+    }
+
+    #[test]
+    fn external_anime_local_defaults_use_environment_over_properties() {
+        let temp = temp_dir("danmaku-settings-external-defaults");
+        let properties = temp.join("local.properties");
+        fs::write(
+            &properties,
+            [
+                "danmaku.myanimelist.clientId=property-client",
+                "danmaku.myanimelist.clientSecret=property-secret",
+                "danmaku.myanimelist.accessToken=property-mal-token",
+                "danmaku.bangumi.baseUrl=https://property.example/",
+                "danmaku.bangumi.userAgent=PropertyAgent/1.0",
+                "danmaku.bangumi.accessToken=property-bangumi-token",
+            ]
+            .join("\n"),
+        )
+        .expect("properties should write");
+        let environment = HashMap::from([
+            (
+                "DANMAKU_MYANIMELIST_CLIENT_ID".to_owned(),
+                "environment-client".to_owned(),
+            ),
+            (
+                "DANMAKU_MYANIMELIST_ACCESS_TOKEN".to_owned(),
+                "environment-mal-token".to_owned(),
+            ),
+            (
+                "DANMAKU_BANGUMI_ACCESS_TOKEN".to_owned(),
+                "environment-bangumi-token".to_owned(),
+            ),
+        ]);
+
+        let defaults = ExternalAnimeLocalCredentialDefaults::load(&environment, Some(&properties))
+            .expect("defaults should load");
+
+        assert_eq!(
+            Some("environment-client".to_owned()),
+            defaults.my_anime_list_client_id
+        );
+        assert_eq!(
+            Some("property-secret".to_owned()),
+            defaults.my_anime_list_client_secret
+        );
+        assert_eq!(
+            Some("environment-mal-token".to_owned()),
+            defaults.my_anime_list_access_token
+        );
+        assert_eq!(
+            Some("https://property.example/".to_owned()),
+            defaults.bangumi_base_url
+        );
+        assert_eq!(
+            Some("PropertyAgent/1.0".to_owned()),
+            defaults.bangumi_user_agent
+        );
+        assert_eq!(
+            Some("environment-bangumi-token".to_owned()),
+            defaults.bangumi_access_token
         );
 
         fs::remove_dir_all(temp).expect("temp dir should delete");
