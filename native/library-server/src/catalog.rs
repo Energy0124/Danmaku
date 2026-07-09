@@ -216,7 +216,7 @@ pub struct LibrarySubtitleTrack {
     pub stream_path: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExternalAnimeId {
     pub provider: ExternalAnimeProvider,
@@ -237,7 +237,7 @@ impl ExternalAnimeId {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ExternalAnimeProvider {
     MyAnimeList,

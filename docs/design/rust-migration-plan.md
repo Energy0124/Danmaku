@@ -180,7 +180,7 @@ Providers:
 
 - `[x]` dandanplay client: signed and proxy modes, match/comment resolve,
   cache storage and cleanup.
-- `[ ]` MAL OAuth flow and Bangumi clients, external list entry
+- `[x]` MAL OAuth flow and Bangumi clients, external list entry
   read/write, provider mapping search, non-secret provider status
   summaries, encrypted token storage (Windows DPAPI via `keyring` or the
   `windows` crate). Schedule this slice last in Phase 1; it must not block

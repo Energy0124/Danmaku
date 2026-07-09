@@ -18,6 +18,10 @@ use tokio_util::io::ReaderStream;
 use crate::catalog::{PublishedLibrary, normalize_lexically};
 use crate::dandanplay::{DandanplayResolver, LanDanmakuTrack};
 use crate::domain::PlaybackProgress;
+use crate::external_provider::{
+    ExternalAnimeListEntry, ExternalAnimeMatchQuery, ExternalAnimeTrackingUpdate,
+    ExternalProviderError, ExternalProviderService, parse_provider_alias, provider_runtime_status,
+};
 use crate::progress::PlaybackProgressStore;
 use crate::settings::HeadlessServerSettings;
 
@@ -30,6 +34,8 @@ pub struct HttpServerConfig {
     pub web_assets_root: Option<PathBuf>,
     pub host_mode: String,
     pub provider_settings: Option<LanProviderSettingsStatus>,
+    pub provider_runtime_status: Option<crate::external_provider::LanProviderRuntimeStatus>,
+    pub external_provider_service: Option<Arc<ExternalProviderService>>,
     pub authenticated_post_hooks: Vec<AuthenticatedPostHookConfig>,
     pub dandanplay_resolver: Option<Arc<DandanplayResolver>>,
 }
@@ -44,6 +50,10 @@ impl HttpServerConfig {
             web_assets_root,
             host_mode: HOST_MODE_HEADLESS_SERVER.to_owned(),
             provider_settings: Some(LanProviderSettingsStatus::from(settings)),
+            provider_runtime_status: Some(provider_runtime_status(settings)),
+            external_provider_service: Some(Arc::new(ExternalProviderService::from_settings(
+                settings,
+            ))),
             authenticated_post_hooks: Vec::new(),
             dandanplay_resolver,
         }
@@ -55,6 +65,8 @@ impl HttpServerConfig {
             web_assets_root: Some(web_assets_root),
             host_mode: HOST_MODE_EMBEDDED_DESKTOP.to_owned(),
             provider_settings: None,
+            provider_runtime_status: None,
+            external_provider_service: None,
             authenticated_post_hooks: vec![AuthenticatedPostHookConfig {
                 path: "/api/hooks/fixture".to_owned(),
                 token: "0123456789abcdef".to_owned(),
@@ -77,6 +89,8 @@ pub struct HttpServerState {
     web_assets: Option<StaticWebAssets>,
     status: LanLibraryServerStatus,
     authenticated_post_hooks: Arc<BTreeMap<String, Vec<u8>>>,
+    provider_runtime_status: Option<crate::external_provider::LanProviderRuntimeStatus>,
+    external_provider_service: Option<Arc<ExternalProviderService>>,
     dandanplay_resolver: Option<Arc<DandanplayResolver>>,
 }
 
@@ -105,6 +119,8 @@ impl HttpServerState {
             web_assets,
             status,
             authenticated_post_hooks: Arc::new(authenticated_post_hooks),
+            provider_runtime_status: config.provider_runtime_status,
+            external_provider_service: config.external_provider_service,
             dandanplay_resolver: config.dandanplay_resolver,
         }
     }
@@ -135,6 +151,15 @@ async fn dispatch(State(state): State<HttpServerState>, request: Request<Body>) 
     }
     if path.starts_with("/api/danmaku/") {
         return handle_danmaku(&state, &method, &path, query.as_deref()).await;
+    }
+    if path.starts_with("/api/providers/runtime") {
+        return handle_provider_runtime(&state, &method, &path);
+    }
+    if path.starts_with("/api/providers/search") {
+        return handle_provider_search(&state, &method, &path, query.as_deref()).await;
+    }
+    if path.starts_with("/api/providers/list/entry") {
+        return handle_provider_list_entry(&state, method, &path, query.as_deref(), body).await;
     }
     if path.starts_with("/api/providers/dandanplay/resolve") {
         return handle_dandanplay_resolve(&state, &method, &path, query.as_deref()).await;
@@ -312,6 +337,183 @@ async fn handle_danmaku(
         Err(error) => LanDanmakuTrack::failed(media_id, error),
     };
     json_response(StatusCode::OK, &track)
+}
+
+fn handle_provider_runtime(state: &HttpServerState, method: &Method, path: &str) -> Response<Body> {
+    if method != Method::GET {
+        return empty_status(StatusCode::METHOD_NOT_ALLOWED);
+    }
+    if path != "/api/providers/runtime" {
+        return empty_status(StatusCode::NOT_FOUND);
+    }
+    let Some(runtime_status) = &state.provider_runtime_status else {
+        return empty_status(StatusCode::NOT_FOUND);
+    };
+    json_response(StatusCode::OK, runtime_status)
+}
+
+async fn handle_provider_search(
+    state: &HttpServerState,
+    method: &Method,
+    path: &str,
+    query: Option<&str>,
+) -> Response<Body> {
+    if method != Method::GET {
+        return empty_status(StatusCode::METHOD_NOT_ALLOWED);
+    }
+    if path != "/api/providers/search" {
+        return empty_status(StatusCode::NOT_FOUND);
+    }
+    let Some(service) = &state.external_provider_service else {
+        return json_response(StatusCode::OK, &Vec::<serde_json::Value>::new());
+    };
+    let query_parameters = parse_query_parameters(query);
+    let Some(title) = query_parameters
+        .get("title")
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+    else {
+        return text_response(
+            StatusCode::BAD_REQUEST,
+            "Query parameter 'title' is required.",
+        );
+    };
+    let limit = match query_parameters.get("limit") {
+        Some(value) => match value
+            .trim()
+            .parse::<u32>()
+            .ok()
+            .filter(|value| (1..=50).contains(value))
+        {
+            Some(value) => value,
+            None => {
+                return text_response(
+                    StatusCode::BAD_REQUEST,
+                    "Query parameter 'limit' must be between 1 and 50.",
+                );
+            }
+        },
+        None => 10,
+    };
+    let episode_count = match query_parameters.get("episodeCount") {
+        Some(value) => match value.trim().parse::<u32>().ok().filter(|value| *value > 0) {
+            Some(value) => Some(value),
+            None => {
+                return text_response(
+                    StatusCode::BAD_REQUEST,
+                    "Query parameter 'episodeCount' must be positive.",
+                );
+            }
+        },
+        None => None,
+    };
+    let start_year = match query_parameters.get("startYear") {
+        Some(value) => match value
+            .trim()
+            .parse::<u32>()
+            .ok()
+            .filter(|value| (1900..=2200).contains(value))
+        {
+            Some(value) => Some(value),
+            None => {
+                return text_response(
+                    StatusCode::BAD_REQUEST,
+                    "Query parameter 'startYear' must be between 1900 and 2200.",
+                );
+            }
+        },
+        None => None,
+    };
+    let providers = match parse_provider_filter(&query_parameters) {
+        Ok(providers) => providers,
+        Err(message) => return text_response(StatusCode::BAD_REQUEST, &message),
+    };
+    let matches = service
+        .search(
+            ExternalAnimeMatchQuery {
+                title,
+                alternate_titles: Vec::new(),
+                episode_count,
+                start_year,
+            },
+            providers,
+            limit,
+        )
+        .await;
+    json_response(StatusCode::OK, &matches)
+}
+
+async fn handle_provider_list_entry(
+    state: &HttpServerState,
+    method: Method,
+    path: &str,
+    query: Option<&str>,
+    body: Body,
+) -> Response<Body> {
+    if path != "/api/providers/list/entry" {
+        return empty_status(StatusCode::NOT_FOUND);
+    }
+    let Some(service) = &state.external_provider_service else {
+        return text_response(
+            StatusCode::CONFLICT,
+            "Provider list sync credentials are not configured.",
+        );
+    };
+    match method {
+        Method::GET => handle_provider_list_read(service, query).await,
+        Method::POST => handle_provider_list_write(service, body).await,
+        _ => text_response(StatusCode::METHOD_NOT_ALLOWED, "Method not allowed."),
+    }
+}
+
+async fn handle_provider_list_read(
+    service: &Arc<ExternalProviderService>,
+    query: Option<&str>,
+) -> Response<Body> {
+    let query_parameters = parse_query_parameters(query);
+    let Some(anime_id) = external_anime_id_from_query(&query_parameters) else {
+        return invalid_external_anime_id_response(&query_parameters);
+    };
+    if anime_id.provider == crate::catalog::ExternalAnimeProvider::Dandanplay {
+        return text_response(
+            StatusCode::BAD_REQUEST,
+            "dandanplay does not support external list entries.",
+        );
+    }
+    match service.fetch_list_entry(anime_id).await {
+        Ok(Some(entry)) => provider_list_success_response(&entry),
+        Ok(None) => text_response(StatusCode::NOT_FOUND, "External list entry was not found."),
+        Err(error) => provider_list_error_response(error),
+    }
+}
+
+async fn handle_provider_list_write(
+    service: &Arc<ExternalProviderService>,
+    body: Body,
+) -> Response<Body> {
+    let Ok(bytes) = axum::body::to_bytes(body, 1_048_576).await else {
+        return text_response(
+            StatusCode::BAD_REQUEST,
+            "Request body must be an ExternalAnimeTrackingUpdate JSON object.",
+        );
+    };
+    let Ok(update) = serde_json::from_slice::<ExternalAnimeTrackingUpdate>(&bytes) else {
+        return text_response(
+            StatusCode::BAD_REQUEST,
+            "Request body must be an ExternalAnimeTrackingUpdate JSON object.",
+        );
+    };
+    if update.anime_id.provider == crate::catalog::ExternalAnimeProvider::Dandanplay {
+        return text_response(
+            StatusCode::BAD_REQUEST,
+            "dandanplay does not support external list entries.",
+        );
+    }
+    match service.update_list_entry(update).await {
+        Ok(entry) => provider_list_success_response(&entry),
+        Err(error) => provider_list_error_response(error),
+    }
 }
 
 async fn handle_dandanplay_resolve(
@@ -731,6 +933,77 @@ fn parse_boolean_query_parameter(value: &str) -> Option<bool> {
     }
 }
 
+fn parse_provider_filter(
+    query_parameters: &BTreeMap<String, String>,
+) -> std::result::Result<BTreeSet<crate::catalog::ExternalAnimeProvider>, String> {
+    let Some(providers) = query_parameters.get("providers") else {
+        return Ok(BTreeSet::new());
+    };
+    let mut parsed = BTreeSet::new();
+    for provider in providers
+        .split(',')
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        let Some(provider_value) = parse_provider_alias(provider) else {
+            return Err(format!("Unsupported provider '{provider}'."));
+        };
+        parsed.insert(provider_value);
+    }
+    Ok(parsed)
+}
+
+fn external_anime_id_from_query(
+    query_parameters: &BTreeMap<String, String>,
+) -> Option<crate::catalog::ExternalAnimeId> {
+    let provider = query_parameters
+        .get("provider")
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+        .and_then(parse_provider_alias)?;
+    let value = query_parameters
+        .get("animeId")
+        .map(|value| value.trim())
+        .and_then(|value| value.parse::<u64>().ok())
+        .filter(|value| *value > 0)?;
+    Some(crate::catalog::ExternalAnimeId { provider, value })
+}
+
+fn invalid_external_anime_id_response(
+    query_parameters: &BTreeMap<String, String>,
+) -> Response<Body> {
+    let provider = query_parameters.get("provider").map(|value| value.trim());
+    if provider.is_none_or(str::is_empty) {
+        return text_response(
+            StatusCode::BAD_REQUEST,
+            "Query parameter 'provider' is required.",
+        );
+    }
+    let provider = provider.expect("provider should exist");
+    if parse_provider_alias(provider).is_none() {
+        return text_response(
+            StatusCode::BAD_REQUEST,
+            &format!("Unsupported provider '{provider}'."),
+        );
+    }
+    text_response(
+        StatusCode::BAD_REQUEST,
+        "Query parameter 'animeId' must be positive.",
+    )
+}
+
+fn provider_list_success_response(entry: &ExternalAnimeListEntry) -> Response<Body> {
+    json_response(StatusCode::OK, entry)
+}
+
+fn provider_list_error_response(error: ExternalProviderError) -> Response<Body> {
+    let (status, body) = error.route_status_and_body();
+    text_response(
+        StatusCode::from_u16(status).unwrap_or(StatusCode::BAD_GATEWAY),
+        &body,
+    )
+}
+
 fn hex_value(byte: u8) -> Option<u8> {
     match byte {
         b'0'..=b'9' => Some(byte - b'0'),
@@ -949,6 +1222,10 @@ mod tests {
         DandanplayCommentCacheStore, DandanplayConnection, DandanplayDanmakuClient,
         DandanplayResolver,
     };
+    use crate::external_provider::{
+        BangumiSearchClient, BangumiTrackingClient, ExternalProviderService,
+        MyAnimeListSearchClient, MyAnimeListTrackingClient,
+    };
     use crate::settings::HeadlessDandanplayAuthenticationMode;
 
     static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -1103,6 +1380,345 @@ mod tests {
         assert!(body.contains("dandanplay request failed:"));
     }
 
+    #[tokio::test]
+    async fn provider_search_merges_mock_mal_and_bangumi_results() {
+        let fixture = FixtureEnvironment::new();
+        let provider_server =
+            MockExternalProviderServer::start(MockExternalProviderBehavior::default());
+        let app = external_provider_test_app(
+            &fixture,
+            Arc::new(ExternalProviderService::new_for_tests(
+                vec![
+                    Arc::new(MyAnimeListSearchClient::new(
+                        provider_server.base_url(),
+                        "mal-client-id".to_owned(),
+                    )),
+                    Arc::new(BangumiSearchClient::new(
+                        provider_server.base_url(),
+                        "DanmakuTest/1.0".to_owned(),
+                    )),
+                ],
+                Vec::new(),
+            )),
+        );
+
+        let response = request_json(
+            &app,
+            "/api/providers/search?title=Frieren&providers=mal,bgm&limit=3&episodeCount=28&startYear=2023",
+        )
+        .await;
+        let matches = response.as_array().expect("matches");
+        assert_eq!(2, matches.len());
+        assert!(
+            matches
+                .iter()
+                .any(|item| item["anime"]["id"]["provider"] == "MY_ANIME_LIST")
+        );
+        assert!(
+            matches
+                .iter()
+                .any(|item| item["anime"]["id"]["provider"] == "BANGUMI")
+        );
+
+        let requests = provider_server.requests();
+        let mal_search = requests
+            .iter()
+            .find(|request| request.path == "/anime")
+            .expect("MAL search request");
+        assert_eq!("GET", mal_search.method);
+        assert_eq!(
+            Some(
+                "q=Frieren&limit=3&fields=id%2Ctitle%2Calternative_titles%2Cnum_episodes%2Cstart_date%2Cmain_picture%2Csynopsis"
+            ),
+            mal_search.query.as_deref()
+        );
+        assert_eq!("mal-client-id", mal_search.headers["x-mal-client-id"]);
+        let bangumi_search = requests
+            .iter()
+            .find(|request| request.path == "/v0/search/subjects")
+            .expect("Bangumi search request");
+        assert_eq!("POST", bangumi_search.method);
+        assert_eq!(Some("limit=3&offset=0"), bangumi_search.query.as_deref());
+        assert_eq!("DanmakuTest/1.0", bangumi_search.headers["user-agent"]);
+        assert!(bangumi_search.body.contains("\"keyword\":\"Frieren\""));
+        assert!(
+            requests
+                .iter()
+                .any(|request| request.path == "/v0/subjects/400602")
+        );
+    }
+
+    #[tokio::test]
+    async fn provider_search_swallows_one_provider_failure() {
+        let fixture = FixtureEnvironment::new();
+        let provider_server = MockExternalProviderServer::start(MockExternalProviderBehavior {
+            mal_search_status: 500,
+            ..MockExternalProviderBehavior::default()
+        });
+        let app = external_provider_test_app(
+            &fixture,
+            Arc::new(ExternalProviderService::new_for_tests(
+                vec![
+                    Arc::new(MyAnimeListSearchClient::new(
+                        provider_server.base_url(),
+                        "mal-client-id".to_owned(),
+                    )),
+                    Arc::new(BangumiSearchClient::new(
+                        provider_server.base_url(),
+                        "DanmakuTest/1.0".to_owned(),
+                    )),
+                ],
+                Vec::new(),
+            )),
+        );
+
+        let response = request_json(
+            &app,
+            "/api/providers/search?title=Frieren&providers=mal,bgm&limit=3",
+        )
+        .await;
+        let matches = response.as_array().expect("matches");
+        assert_eq!(1, matches.len());
+        assert_eq!("BANGUMI", matches[0]["anime"]["id"]["provider"]);
+    }
+
+    #[tokio::test]
+    async fn provider_list_entry_routes_map_mock_provider_outcomes() {
+        let fixture = FixtureEnvironment::new();
+        let provider_server =
+            MockExternalProviderServer::start(MockExternalProviderBehavior::default());
+        let app = external_provider_test_app(
+            &fixture,
+            Arc::new(ExternalProviderService::new_for_tests(
+                Vec::new(),
+                vec![
+                    Arc::new(MyAnimeListTrackingClient::new(
+                        provider_server.base_url(),
+                        "mal-access-token".to_owned(),
+                    )),
+                    Arc::new(BangumiTrackingClient::new(
+                        provider_server.base_url(),
+                        "DanmakuTest/1.0".to_owned(),
+                        "bangumi-access-token".to_owned(),
+                    )),
+                ],
+            )),
+        );
+
+        let entry =
+            request_json(&app, "/api/providers/list/entry?provider=mal&animeId=52991").await;
+        assert_eq!("MY_ANIME_LIST", entry["animeId"]["provider"]);
+        assert_eq!("WATCHING", entry["status"]);
+        assert_eq!(4, entry["watchedEpisodes"]);
+        assert_eq!(8, entry["score"]);
+        assert_eq!(1_704_164_645_000_i64, entry["updatedAtEpochMs"]);
+
+        let update = json!({
+            "animeId": { "provider": "BANGUMI", "value": 400602 },
+            "status": "COMPLETED",
+            "watchedEpisodes": 28,
+            "score": 9,
+            "trackingEnabled": true,
+            "ratingEnabled": true
+        });
+        let written = request_json_with_body(
+            &app,
+            "POST",
+            "/api/providers/list/entry",
+            update.to_string(),
+        )
+        .await;
+        assert_eq!("BANGUMI", written["animeId"]["provider"]);
+        assert_eq!("COMPLETED", written["status"]);
+        assert_eq!(28, written["watchedEpisodes"]);
+        assert_eq!(9, written["score"]);
+        let requests = provider_server.requests();
+        let mal_read = requests
+            .iter()
+            .find(|request| request.path == "/anime/52991")
+            .expect("MAL list read");
+        assert_eq!(Some("fields=my_list_status"), mal_read.query.as_deref());
+        assert_eq!("Bearer mal-access-token", mal_read.headers["authorization"]);
+        let bangumi_write = requests
+            .iter()
+            .find(|request| request.path == "/v0/users/-/collections/400602")
+            .expect("Bangumi list write");
+        assert_eq!("PATCH", bangumi_write.method);
+        assert_eq!(
+            "Bearer bangumi-access-token",
+            bangumi_write.headers["authorization"]
+        );
+        assert_eq!("DanmakuTest/1.0", bangumi_write.headers["user-agent"]);
+        assert!(bangumi_write.body.contains("\"type\":2"));
+        assert!(bangumi_write.body.contains("\"ep_status\":28"));
+        assert!(bangumi_write.body.contains("\"rate\":9"));
+
+        let dandanplay = app
+            .clone()
+            .oneshot(get(
+                "/api/providers/list/entry?provider=dandanplay&animeId=333",
+            ))
+            .await
+            .expect("dandanplay response");
+        assert_eq!(StatusCode::BAD_REQUEST, dandanplay.status());
+        assert_text_body(
+            dandanplay,
+            "dandanplay does not support external list entries.",
+        )
+        .await;
+
+        let method = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("PUT")
+                    .uri("/api/providers/list/entry")
+                    .body(Body::empty())
+                    .expect("request"),
+            )
+            .await
+            .expect("method response");
+        assert_eq!(StatusCode::METHOD_NOT_ALLOWED, method.status());
+        assert_text_body(method, "Method not allowed.").await;
+    }
+
+    #[tokio::test]
+    async fn provider_list_entry_reports_missing_not_found_and_upstream_failures() {
+        let fixture = FixtureEnvironment::new();
+        let missing_credentials = external_provider_test_app(
+            &fixture,
+            Arc::new(ExternalProviderService::new_for_tests(
+                Vec::new(),
+                Vec::new(),
+            )),
+        )
+        .oneshot(get("/api/providers/list/entry?provider=mal&animeId=52991"))
+        .await
+        .expect("missing credentials response");
+        assert_eq!(StatusCode::CONFLICT, missing_credentials.status());
+
+        let not_found_server = MockExternalProviderServer::start(MockExternalProviderBehavior {
+            mal_list_read_status: 404,
+            ..MockExternalProviderBehavior::default()
+        });
+        let not_found_app = external_provider_test_app(
+            &fixture,
+            Arc::new(ExternalProviderService::new_for_tests(
+                Vec::new(),
+                vec![Arc::new(MyAnimeListTrackingClient::new(
+                    not_found_server.base_url(),
+                    "mal-access-token".to_owned(),
+                ))],
+            )),
+        );
+        let not_found = not_found_app
+            .oneshot(get("/api/providers/list/entry?provider=mal&animeId=52991"))
+            .await
+            .expect("not found response");
+        assert_eq!(StatusCode::NOT_FOUND, not_found.status());
+        assert_text_body(not_found, "External list entry was not found.").await;
+
+        let failed_server = MockExternalProviderServer::start(MockExternalProviderBehavior {
+            mal_list_read_status: 500,
+            ..MockExternalProviderBehavior::default()
+        });
+        let failed_app = external_provider_test_app(
+            &fixture,
+            Arc::new(ExternalProviderService::new_for_tests(
+                Vec::new(),
+                vec![Arc::new(MyAnimeListTrackingClient::new(
+                    failed_server.base_url(),
+                    "mal-access-token".to_owned(),
+                ))],
+            )),
+        );
+        let failed = failed_app
+            .oneshot(get("/api/providers/list/entry?provider=mal&animeId=52991"))
+            .await
+            .expect("failed response");
+        assert_eq!(StatusCode::BAD_GATEWAY, failed.status());
+        assert!(
+            body_text(failed)
+                .await
+                .contains("external list request failed:")
+        );
+    }
+
+    #[tokio::test]
+    async fn provider_routes_validate_documented_parameter_edges() {
+        let fixture = FixtureEnvironment::new();
+        let app = external_provider_test_app(
+            &fixture,
+            Arc::new(ExternalProviderService::new_for_tests(
+                Vec::new(),
+                Vec::new(),
+            )),
+        );
+
+        let cases = [
+            (
+                "/api/providers/search",
+                "Query parameter 'title' is required.",
+            ),
+            (
+                "/api/providers/search?title=Frieren&limit=0",
+                "Query parameter 'limit' must be between 1 and 50.",
+            ),
+            (
+                "/api/providers/search?title=Frieren&limit=51",
+                "Query parameter 'limit' must be between 1 and 50.",
+            ),
+            (
+                "/api/providers/search?title=Frieren&episodeCount=0",
+                "Query parameter 'episodeCount' must be positive.",
+            ),
+            (
+                "/api/providers/search?title=Frieren&startYear=1899",
+                "Query parameter 'startYear' must be between 1900 and 2200.",
+            ),
+            (
+                "/api/providers/search?title=Frieren&providers=unknown",
+                "Unsupported provider 'unknown'.",
+            ),
+            (
+                "/api/providers/list/entry?animeId=52991",
+                "Query parameter 'provider' is required.",
+            ),
+            (
+                "/api/providers/list/entry?provider=unknown&animeId=52991",
+                "Unsupported provider 'unknown'.",
+            ),
+            (
+                "/api/providers/list/entry?provider=mal&animeId=0",
+                "Query parameter 'animeId' must be positive.",
+            ),
+        ];
+
+        for (path, expected) in cases {
+            let response = app.clone().oneshot(get(path)).await.expect("response");
+            assert_eq!(StatusCode::BAD_REQUEST, response.status(), "path {path}");
+            assert_text_body(response, expected).await;
+        }
+
+        let malformed_post = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/providers/list/entry")
+                    .body(Body::from("{}"))
+                    .expect("request"),
+            )
+            .await
+            .expect("malformed response");
+        assert_eq!(StatusCode::BAD_REQUEST, malformed_post.status());
+        assert_text_body(
+            malformed_post,
+            "Request body must be an ExternalAnimeTrackingUpdate JSON object.",
+        )
+        .await;
+    }
+
     #[test]
     fn discovery_fixture_payload_matches_encoder() {
         let fixture = read_fixture("discovery-announcement.json");
@@ -1215,8 +1831,32 @@ mod tests {
                 web_assets_root: None,
                 host_mode: HOST_MODE_HEADLESS_SERVER.to_owned(),
                 provider_settings: None,
+                provider_runtime_status: None,
+                external_provider_service: None,
                 authenticated_post_hooks: Vec::new(),
                 dandanplay_resolver: resolver,
+            },
+        );
+        app(state)
+    }
+
+    fn external_provider_test_app(
+        fixture: &FixtureEnvironment,
+        service: Arc<ExternalProviderService>,
+    ) -> Router {
+        let state = HttpServerState::new(
+            fixture.library.clone(),
+            Arc::new(PlaybackProgressStore::new(
+                fixture.temp.join("progress-provider-route-test.json"),
+            )),
+            HttpServerConfig {
+                web_assets_root: None,
+                host_mode: HOST_MODE_HEADLESS_SERVER.to_owned(),
+                provider_settings: None,
+                provider_runtime_status: None,
+                external_provider_service: Some(service),
+                authenticated_post_hooks: Vec::new(),
+                dandanplay_resolver: None,
             },
         );
         app(state)
@@ -1244,6 +1884,26 @@ mod tests {
 
     async fn request_json(app: &Router, path: &str) -> Value {
         let response = app.clone().oneshot(get(path)).await.expect("response");
+        assert_eq!(StatusCode::OK, response.status(), "path {path}");
+        let body = to_bytes(response.into_body(), 1_048_576)
+            .await
+            .expect("body");
+        serde_json::from_slice::<Value>(&body).expect("json body")
+    }
+
+    async fn request_json_with_body(app: &Router, method: &str, path: &str, body: String) -> Value {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(path)
+                    .header("content-type", "application/json")
+                    .body(Body::from(body))
+                    .expect("request"),
+            )
+            .await
+            .expect("response");
         assert_eq!(StatusCode::OK, response.status(), "path {path}");
         let body = to_bytes(response.into_body(), 1_048_576)
             .await
@@ -1294,6 +1954,159 @@ mod tests {
     struct MockDandanplayServer {
         address: String,
         requests: Arc<Mutex<Vec<MockDandanplayRequest>>>,
+    }
+
+    #[derive(Debug, Clone)]
+    struct MockExternalProviderBehavior {
+        mal_search_status: u16,
+        bangumi_search_status: u16,
+        bangumi_detail_status: u16,
+        mal_list_read_status: u16,
+        mal_list_write_status: u16,
+        bangumi_list_read_status: u16,
+        bangumi_list_write_status: u16,
+    }
+
+    impl Default for MockExternalProviderBehavior {
+        fn default() -> Self {
+            Self {
+                mal_search_status: 200,
+                bangumi_search_status: 200,
+                bangumi_detail_status: 200,
+                mal_list_read_status: 200,
+                mal_list_write_status: 200,
+                bangumi_list_read_status: 200,
+                bangumi_list_write_status: 200,
+            }
+        }
+    }
+
+    #[derive(Clone, Debug)]
+    struct MockExternalProviderRequest {
+        method: String,
+        path: String,
+        query: Option<String>,
+        headers: BTreeMap<String, String>,
+        body: String,
+    }
+
+    struct MockExternalProviderServer {
+        address: String,
+        requests: Arc<Mutex<Vec<MockExternalProviderRequest>>>,
+    }
+
+    impl MockExternalProviderServer {
+        fn start(behavior: MockExternalProviderBehavior) -> Self {
+            let listener = TcpListener::bind("127.0.0.1:0").expect("mock bind");
+            let address = listener.local_addr().expect("mock addr").to_string();
+            let requests = Arc::new(Mutex::new(Vec::new()));
+            let requests_for_thread = requests.clone();
+            thread::spawn(move || {
+                for stream in listener.incoming().flatten() {
+                    let requests = requests_for_thread.clone();
+                    let behavior = behavior.clone();
+                    thread::spawn(move || {
+                        handle_mock_external_provider_connection(stream, behavior, requests)
+                    });
+                }
+            });
+            thread::sleep(Duration::from_millis(25));
+            Self { address, requests }
+        }
+
+        fn base_url(&self) -> String {
+            format!("http://{}", self.address)
+        }
+
+        fn requests(&self) -> Vec<MockExternalProviderRequest> {
+            self.requests.lock().expect("requests").clone()
+        }
+    }
+
+    fn handle_mock_external_provider_connection(
+        mut stream: TcpStream,
+        behavior: MockExternalProviderBehavior,
+        requests: Arc<Mutex<Vec<MockExternalProviderRequest>>>,
+    ) {
+        let mut buffer = [0_u8; 64 * 1024];
+        let read = stream.read(&mut buffer).expect("mock read");
+        let request = String::from_utf8_lossy(&buffer[..read]).to_string();
+        let (head, body) = request.split_once("\r\n\r\n").unwrap_or((&request, ""));
+        let mut lines = head.lines();
+        let request_line = lines.next().unwrap_or_default();
+        let mut request_parts = request_line.split_whitespace();
+        let method = request_parts.next().unwrap_or("GET").to_owned();
+        let target = request_parts.next().unwrap_or("/");
+        let (path, query) = target
+            .split_once('?')
+            .map(|(path, query)| (path.to_owned(), Some(query.to_owned())))
+            .unwrap_or((target.to_owned(), None));
+        let headers = lines
+            .filter_map(|line| {
+                let (name, value) = line.split_once(':')?;
+                Some((name.trim().to_ascii_lowercase(), value.trim().to_owned()))
+            })
+            .collect::<BTreeMap<_, _>>();
+        requests
+            .lock()
+            .expect("requests")
+            .push(MockExternalProviderRequest {
+                method: method.clone(),
+                path: path.clone(),
+                query,
+                headers,
+                body: body.to_owned(),
+            });
+
+        let (status, body) = match (method.as_str(), path.as_str()) {
+            ("GET", "/anime") => (
+                behavior.mal_search_status,
+                r#"{"data":[{"node":{"id":52991,"title":"Frieren","alternative_titles":{"en":"Frieren: Beyond Journey's End","ja":"葬送のフリーレン","synonyms":["Sousou no Frieren"]},"num_episodes":28,"start_date":"2023-09-29","main_picture":{"large":"https://img.example/mal.jpg"},"synopsis":"MAL summary"}}]}"#,
+            ),
+            ("POST", "/v0/search/subjects") => (
+                behavior.bangumi_search_status,
+                r#"{"data":[{"id":400602,"name":"葬送のフリーレン","name_cn":"葬送的芙莉莲","eps":28,"date":"2023-09-29","images":{"large":"https://img.example/bgm.jpg"},"summary":"Bangumi summary"}]}"#,
+            ),
+            ("GET", "/v0/subjects/400602") => (
+                behavior.bangumi_detail_status,
+                r#"{"id":400602,"name":"葬送のフリーレン","name_cn":"葬送的芙莉莲","eps":28,"date":"2023-09-29","images":{"large":"https://img.example/bgm-detail.jpg"},"summary":"Bangumi detail"}"#,
+            ),
+            ("GET", "/anime/52991") => (
+                behavior.mal_list_read_status,
+                r#"{"id":52991,"my_list_status":{"status":"watching","score":8,"num_episodes_watched":4,"updated_at":"2024-01-02T03:04:05+00:00"}}"#,
+            ),
+            ("PATCH", "/anime/52991/my_list_status") => (
+                behavior.mal_list_write_status,
+                r#"{"status":"watching","score":8,"num_episodes_watched":3}"#,
+            ),
+            ("GET", "/v0/users/-/collections/400602") => (
+                behavior.bangumi_list_read_status,
+                r#"{"type":3,"rate":9,"ep_status":12}"#,
+            ),
+            ("PATCH", "/v0/users/-/collections/400602") => (
+                behavior.bangumi_list_write_status,
+                r#"{"type":2,"rate":9,"ep_status":28}"#,
+            ),
+            _ => (404, r#"{"message":"not found"}"#),
+        };
+        let body = if status == 200 {
+            body
+        } else {
+            r#"{"message":"mock failure"}"#
+        };
+        let status_text = match status {
+            200 => "OK",
+            404 => "Not Found",
+            500 => "Internal Server Error",
+            _ => "Error",
+        };
+        write!(
+            stream,
+            "HTTP/1.1 {status} {status_text}\r\nContent-Type: application/json; charset=utf-8\r\nContent-Length: {}\r\n\r\n{}",
+            body.len(),
+            body
+        )
+        .expect("mock write");
     }
 
     impl MockDandanplayServer {

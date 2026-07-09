@@ -1276,21 +1276,21 @@ fn normalized_size(value: DanmakuSize) -> &'static str {
 }
 
 #[derive(Debug, Clone)]
-struct HttpRequest {
-    method: String,
-    url: ParsedUrl,
-    headers: BTreeMap<String, String>,
-    body: Vec<u8>,
+pub(crate) struct HttpRequest {
+    pub(crate) method: String,
+    pub(crate) url: ParsedUrl,
+    pub(crate) headers: BTreeMap<String, String>,
+    pub(crate) body: Vec<u8>,
 }
 
 #[derive(Debug, Clone)]
-struct HttpResponse {
-    status: u16,
-    headers: BTreeMap<String, String>,
-    body: Vec<u8>,
+pub(crate) struct HttpResponse {
+    pub(crate) status: u16,
+    pub(crate) headers: BTreeMap<String, String>,
+    pub(crate) body: Vec<u8>,
 }
 
-fn send_http_request(request: HttpRequest) -> Result<HttpResponse> {
+pub(crate) fn send_http_request(request: HttpRequest) -> Result<HttpResponse> {
     if request.url.scheme == "http" {
         return send_plain_http_request(request);
     }
@@ -1619,11 +1619,11 @@ fn decode_chunked(input: &[u8]) -> Result<Vec<u8>> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct ParsedUrl {
-    scheme: String,
-    host: String,
-    port: u16,
-    path_and_query: String,
+pub(crate) struct ParsedUrl {
+    pub(crate) scheme: String,
+    pub(crate) host: String,
+    pub(crate) port: u16,
+    pub(crate) path_and_query: String,
 }
 
 impl ParsedUrl {
@@ -1631,7 +1631,7 @@ impl ParsedUrl {
         (self.scheme == "http" && self.port == 80) || (self.scheme == "https" && self.port == 443)
     }
 
-    fn redacted(&self) -> String {
+    pub(crate) fn redacted(&self) -> String {
         format!("{}://{}{}", self.scheme, self.host, self.path_and_query)
     }
 }
@@ -1674,7 +1674,7 @@ fn resolve_redirect(current: &ParsedUrl, location: &str) -> Result<ParsedUrl> {
     })
 }
 
-fn parse_url(value: &str) -> Result<ParsedUrl> {
+pub(crate) fn parse_url(value: &str) -> Result<ParsedUrl> {
     let trimmed = value.trim();
     let (scheme, rest) = trimmed
         .split_once("://")
