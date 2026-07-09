@@ -20,7 +20,10 @@ Use this checklist for real MyAnimeList and Bangumi readback/writeback validatio
 
 Run the readback harness before any writeback pass. It uses the shared
 MAL/Bangumi tracking clients and only calls `fetchListEntry`; it does not send
-provider update requests or read the desktop encrypted credential store.
+provider update requests or read the desktop encrypted credential store. Add
+`-RustServer` for the Phase 1 Rust server parity gate; the wrapper builds the
+Rust binary, starts it with an isolated temp data directory and no library
+roots, and routes readback through the server API.
 
 ```powershell
 .\tools\windows\run-live-external-sync-readback-qa.ps1 `
@@ -29,6 +32,18 @@ provider update requests or read the desktop encrypted credential store.
   -MyAnimeListAccessToken $env:DANMAKU_MYANIMELIST_ACCESS_TOKEN
 
 .\tools\windows\run-live-external-sync-readback-qa.ps1 `
+  -Provider BANGUMI `
+  -AnimeId 400602 `
+  -BangumiAccessToken $env:DANMAKU_BANGUMI_ACCESS_TOKEN
+
+.\tools\windows\run-live-external-sync-readback-qa.ps1 `
+  -RustServer `
+  -Provider MY_ANIME_LIST `
+  -AnimeId 52991 `
+  -MyAnimeListAccessToken $env:DANMAKU_MYANIMELIST_ACCESS_TOKEN
+
+.\tools\windows\run-live-external-sync-readback-qa.ps1 `
+  -RustServer `
   -Provider BANGUMI `
   -AnimeId 400602 `
   -BangumiAccessToken $env:DANMAKU_BANGUMI_ACCESS_TOKEN
