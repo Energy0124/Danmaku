@@ -15,6 +15,7 @@ pub struct ServerOptions {
     pub port: u16,
     pub pairing_token: Option<String>,
     pub web_assets_root: Option<PathBuf>,
+    pub import_desktop_catalog: Option<PathBuf>,
 }
 
 impl ServerOptions {
@@ -63,12 +64,18 @@ impl ServerOptions {
             .transpose()?
             .or_else(|| non_blank_env(environment, WEB_UI_DIST_ENV).map(PathBuf::from));
 
+        let import_desktop_catalog = matches
+            .get_one::<String>("import-desktop-catalog")
+            .map(|value| non_blank_path(value, "--import-desktop-catalog"))
+            .transpose()?;
+
         Ok(Self {
             data_directory,
             library_roots,
             port,
             pairing_token,
             web_assets_root,
+            import_desktop_catalog,
         })
     }
 }
@@ -114,6 +121,13 @@ fn command() -> Command {
                 .value_name("PATH")
                 .num_args(1)
                 .help("Web UI asset directory; overrides DANMAKU_WEB_UI_DIST"),
+        )
+        .arg(
+            Arg::new("import-desktop-catalog")
+                .long("import-desktop-catalog")
+                .value_name("DB_COPY")
+                .num_args(1)
+                .help("Import a read-only copy of the desktop SQLite catalog, then exit"),
         )
 }
 
@@ -180,6 +194,7 @@ mod tests {
             Some(PathBuf::from("apps/web-ui/dist")),
             options.web_assets_root
         );
+        assert_eq!(None, options.import_desktop_catalog);
     }
 
     #[test]
@@ -225,6 +240,25 @@ mod tests {
         .expect("options should parse");
 
         assert_eq!(Some(PathBuf::from("dist")), options.web_assets_root);
+    }
+
+    #[test]
+    fn parses_desktop_catalog_import_mode() {
+        let options = ServerOptions::parse_from_env(
+            [
+                "library-server",
+                "--data-dir=server-data",
+                "--import-desktop-catalog=library-copy.db",
+            ],
+            &HashMap::new(),
+        )
+        .expect("options should parse");
+
+        assert_eq!(PathBuf::from("server-data"), options.data_directory);
+        assert_eq!(
+            Some(PathBuf::from("library-copy.db")),
+            options.import_desktop_catalog
+        );
     }
 
     #[test]

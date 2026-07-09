@@ -165,8 +165,16 @@ Catalog:
   series grouping ported from `shared/domain` + desktop indexing, folding
   in or extending `native/rust-core`. Must pass the domain conformance
   fixtures.
-- `[ ]` SQLite persistence compatible with existing desktop catalog
+- `[x]` SQLite persistence compatible with existing desktop catalog
   databases, or a one-time importer verified against a copied real catalog.
+  (One-time importer chosen: `--import-desktop-catalog <db-copy>` reads
+  the desktop SQLDelight DB read-only, preserves desktop media ids, and
+  merges progress newest-wins. Verified 2026-07-09 against a copy of the
+  real desktop `library.db`: 5 roots, 5,852 items, 333 subtitles, 136
+  matched posters, 10 progress rows imported and served correctly from
+  the snapshot boot path. Desktop-only tables — favorites, local
+  watch-list, provider caches, download queue, quality decisions — are
+  deliberately not imported; the LAN protocol has no surface for them.)
 - `[x]` Sidecar subtitle discovery matching current behavior.
 
 HTTP and discovery:

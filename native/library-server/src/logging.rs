@@ -175,6 +175,7 @@ mod tests {
             port: 8686,
             pairing_token: Some("123456".to_owned()),
             web_assets_root: Some(PathBuf::from("apps/web-ui/dist")),
+            import_desktop_catalog: None,
         };
         let settings = HeadlessServerSettings {
             pairing_token: "123456".to_owned(),
