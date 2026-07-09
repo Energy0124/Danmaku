@@ -15,6 +15,19 @@ development outputs built by CI and local scripts.
 - Third-party license text, notices, source provenance, and dependency versions
   must ship with the artifact.
 
+### Rust Library Server
+
+- Standalone Windows headless server artifact for the Rust Phase 1 migration.
+- The artifact serves the existing trusted-LAN HTTP API and UDP discovery
+  protocol for Android mobile, Android TV, and web clients.
+- The package includes `library-server.exe`, bundled web UI assets under
+  `web/`, `LICENSE`, `THIRD_PARTY_NOTICES.md`, `RUST_CRATE_LICENSES.md`, and a
+  package README with CLI flags, importer usage, LAN trust warnings, and
+  port/discovery defaults.
+- The release script builds the Rust binary, builds the Vite web UI, stages the
+  package, runs a generated-fixture smoke check, writes a content manifest, and
+  produces a versioned zip under `build/release/rust-library-server/`.
+
 ### Android Mobile And Android TV
 
 - Debug APKs are produced by CI today.
@@ -53,6 +66,22 @@ cargo build --release -p player-windows-mpv --lib
 .\tools\windows\run-windows-playback-release-qa.ps1 -WindowsDistributionPath .\apps\desktop-windows\build\release\windows-portable -MediaPath <known-good-media>
 ```
 
+Prepare the standalone Rust headless server release:
+
+```powershell
+.\tools\windows\prepare-rust-server-release.ps1
+```
+
+The packaged server runs as:
+
+```powershell
+.\library-server.exe --data-dir <dir> --root <folder> --web-assets-dir .\web
+```
+
+Use `--import-desktop-catalog <db-copy>` with `--data-dir <dir>` to import a
+read-only copy of the existing desktop catalog into the Rust server data
+directory, then exit. Do not point the importer at the live desktop database.
+
 Android debug artifacts:
 
 ```powershell
@@ -69,6 +98,8 @@ macOS development build:
 
 - `[ ]` Run CI-equivalent Gradle, Rust, and Worker proxy checks.
 - `[ ]` Verify the pinned libmpv bundle hash and license/source provenance.
+- `[ ]` Build the standalone Rust library server zip and verify the packaged
+  smoke check passes.
 - `[ ]` Run Windows playback release QA automation with representative real media.
 - `[ ]` Validate Windows fullscreen, resize, aspect, and hardware decoding manually.
 - `[ ]` Validate Android mobile and TV streaming against a Windows host.

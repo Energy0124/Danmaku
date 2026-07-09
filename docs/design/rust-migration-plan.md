@@ -215,7 +215,12 @@ Parity gates:
   pairing-code removal, now repaired.)
 - `[ ]` `tools\windows\run-live-external-sync-readback-qa.ps1` passes
   (user-attended; live accounts).
-- `[ ]` Release the Rust headless server as a standalone artifact.
+- `[x]` Release the Rust headless server as a standalone artifact.
+  (tools/windows/prepare-rust-server-release.ps1 builds a versioned zip
+  with the release exe, bundled web UI, licenses including a generated
+  Rust-crate listing, and a usage README, gated by a staged-exe smoke
+  check; CI packages and uploads it as a build artifact. Verified
+  2026-07-09 by lead rebuild + smoke.)
 
 ### Phase 2: Desktop Runs The Rust Server As Sidecar
 

@@ -159,11 +159,27 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
       - name: Check formatting
         run: cargo fmt --all --check
 
       - name: Test Rust workspace
         run: cargo test --workspace
+
+      - name: Package Rust library server
+        shell: pwsh
+        run: .\tools\windows\prepare-rust-server-release.ps1
+
+      - name: Upload Rust Library Server
+        uses: actions/upload-artifact@v7
+        with:
+          name: danmaku-rust-library-server
+          path: build/release/rust-library-server/*.zip
+          if-no-files-found: error
 
   dandanplay-worker-proxy:
     name: Dandanplay Worker proxy
