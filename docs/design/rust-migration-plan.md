@@ -204,8 +204,15 @@ Parity gates:
   credentials, which the JVM headless host never reads; auto-discovery
   was removed and a properties file is now read only via an explicit
   `DANMAKU_LOCAL_PROPERTIES` path.)
-- `[ ]` Android mobile and Android TV emulator QA wrappers pass against a
-  Rust server host.
+- `[x]` Android mobile and Android TV emulator QA wrappers pass against a
+  Rust server host. (Passed 2026-07-09 via new -RustServer wrapper modes:
+  a real-host connectivity instrumentation test drives the actual
+  library-client-android stack against a live Rust host through the
+  emulator 10.0.2.2 boundary — status, catalog, byte-range media, and
+  progress write/read/list — green on phone, tablet, TV 1080p, and TV 4K
+  alongside the unchanged connected suites. The runs also flushed out
+  nine stale TvLibraryItemsTest expectations broken earlier by the
+  pairing-code removal, now repaired.)
 - `[ ]` `tools\windows\run-live-external-sync-readback-qa.ps1` passes
   (user-attended; live accounts).
 - `[ ]` Release the Rust headless server as a standalone artifact.
