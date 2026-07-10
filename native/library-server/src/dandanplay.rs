@@ -2133,9 +2133,7 @@ mod tests {
         mut stream: TcpStream,
         requests: Arc<StdMutex<Vec<CapturedRequest>>>,
     ) {
-        let mut buffer = [0_u8; 64 * 1024];
-        let read = stream.read(&mut buffer).expect("read");
-        let request = String::from_utf8_lossy(&buffer[..read]).to_string();
+        let request = read_test_request(&mut stream);
         let (head, body) = request.split_once("\r\n\r\n").unwrap_or((&request, ""));
         let mut lines = head.split("\r\n");
         let request_line = lines.next().unwrap_or_default();
@@ -2178,6 +2176,38 @@ mod tests {
             response
         )
         .expect("write response");
+    }
+
+    fn read_test_request(stream: &mut TcpStream) -> String {
+        let mut request = Vec::new();
+        let mut expected_length = None;
+        loop {
+            let mut buffer = [0_u8; 4 * 1024];
+            let read = stream.read(&mut buffer).expect("read request");
+            assert!(read > 0, "connection closed before request completed");
+            request.extend_from_slice(&buffer[..read]);
+
+            if expected_length.is_none()
+                && let Some(header_end) = request.windows(4).position(|bytes| bytes == b"\r\n\r\n")
+            {
+                let head = String::from_utf8_lossy(&request[..header_end]);
+                let content_length = head
+                    .lines()
+                    .find_map(|line| {
+                        let (name, value) = line.split_once(':')?;
+                        name.eq_ignore_ascii_case("content-length")
+                            .then(|| value.trim().parse::<usize>().expect("content length"))
+                    })
+                    .unwrap_or(0);
+                expected_length = Some(header_end + 4 + content_length);
+            }
+
+            if expected_length.is_some_and(|length| request.len() >= length) {
+                break;
+            }
+            assert!(request.len() <= 64 * 1024, "test request exceeded limit");
+        }
+        String::from_utf8(request).expect("UTF-8 request")
     }
 
     fn temp_dir(prefix: &str) -> PathBuf {
