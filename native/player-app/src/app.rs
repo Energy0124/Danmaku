@@ -1,7 +1,6 @@
 //! Player window: chrome, video surface, and fade-over-video controls.
 
 use std::{
-    path::Path,
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
@@ -452,7 +451,7 @@ impl PlayerApp {
             rect,
             10.0,
             Stroke::new(
-                1.0,
+                1.0_f32,
                 Color32::from_rgba_premultiplied(255, 255, 255, (alpha * 36.0) as u8),
             ),
             StrokeKind::Inside,
@@ -673,19 +672,16 @@ struct PlaybackReadback {
 }
 
 pub fn media_display_title(media: &str) -> String {
+    // Media strings mix Windows paths, POSIX paths, and URLs, so split on
+    // both separators instead of using `Path` (whose separator handling is
+    // host-platform dependent).
     let trimmed = media.trim_end_matches(['/', '\\']);
-    if trimmed.contains("://") {
-        return trimmed
-            .rsplit('/')
-            .next()
-            .filter(|segment| !segment.is_empty())
-            .unwrap_or(trimmed)
-            .to_owned();
-    }
-    Path::new(trimmed)
-        .file_name()
-        .map(|name| name.to_string_lossy().into_owned())
-        .unwrap_or_else(|| trimmed.to_owned())
+    trimmed
+        .rsplit(['/', '\\'])
+        .next()
+        .filter(|segment| !segment.is_empty())
+        .unwrap_or(trimmed)
+        .to_owned()
 }
 
 pub fn format_time(seconds: f64) -> String {
