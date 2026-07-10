@@ -47,8 +47,7 @@ fn main() {
         &window_title,
         native_options,
         Box::new(move |creation_context| {
-            PlayerApp::configure_fonts(&creation_context.egui_ctx);
-            PlayerApp::configure_style(&creation_context.egui_ctx);
+            danmaku_player::theme::apply(&creation_context.egui_ctx);
             PlayerApp::new(
                 creation_context,
                 app_cli.clone(),

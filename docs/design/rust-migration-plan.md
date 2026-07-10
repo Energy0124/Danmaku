@@ -266,9 +266,17 @@ Milestones, each shippable while the Compose app remains the default:
   limits, seek-window replacement, XML/JSON parsing, ASS selection, chunked
   HTTP, and the server wire shape. Deeper interactive media-matrix QA remains
   part of M5.
-- `[ ]` M2.5 design system: the P0-S5 theme promoted into a reusable
+- `[x]` M2.5 design system: the P0-S5 theme promoted into a reusable
   styling layer (theme tokens, typography, cards, animation helpers)
-  applied across all subsequent screens.
+  applied across all subsequent screens. (Shipped as
+  `native/player-app/src/theme.rs`: palette/typography/metrics tokens,
+  `theme::apply` owning fonts+widget style, fade/easing/color-mix
+  helpers with unit tests, and card-outline hover helper for M3; the
+  playback screen consumes tokens exclusively and the CJK font asset
+  moved into `native/player-app/assets/`. Verified 2026-07-10 with a
+  DPI-aware full-window capture showing the themed control bar, track
+  and danmaku menus, and title ribbon over live video. Slider-rail
+  color refinement noted for M3 screen work.)
 - `[ ]` M3 library client: pairing and server discovery, catalog
   browse/search/filter, posters, next-up/continue-watching rails, episode
   detail, resume lookup, progress upload, previous/next episode, auto-next.

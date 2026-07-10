@@ -1,6 +1,5 @@
 # Assets
 
-- `NotoSansCJKtc-Regular.otf`: Noto Sans CJK Traditional Chinese regular
-  face from the notofonts/noto-cjk project, used so the spike can render
-  Traditional Chinese danmaku and IME text without relying on Windows system
-  fonts. Noto CJK is distributed under the SIL Open Font License 1.1.
+- The Noto Sans CJK TC font moved to `native/player-app/assets/` when the
+  player's M2.5 design-system layer took ownership of the asset pipeline;
+  the spike now includes it from there.

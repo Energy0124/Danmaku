@@ -7,8 +7,8 @@ use std::{
 };
 
 use eframe::egui::{
-    self, Align2, Color32, FontData, FontDefinitions, FontFamily, FontId, Frame, Rect, RichText,
-    Sense, Stroke, StrokeKind, ViewportCommand, pos2, vec2,
+    self, Align2, Color32, FontId, Frame, Rect, RichText, Sense, StrokeKind, ViewportCommand, pos2,
+    vec2,
 };
 use egui_glow::CallbackFn;
 
@@ -20,14 +20,13 @@ use crate::{
         fetch_server_danmaku, load_local_danmaku,
     },
     smoke::SmokeReport,
+    theme::{self, metrics, palette, typography},
     tracks::{TrackInventory, TrackKind, read_track_inventory, selection_command},
     video::{RenderCounters, SharedVideoRenderer, VideoRenderer},
 };
 
 const PROPERTY_REFRESH_INTERVAL: Duration = Duration::from_millis(180);
 const TRACK_REFRESH_INTERVAL: Duration = Duration::from_millis(1_000);
-const CONTROLS_VISIBLE_SECONDS: f32 = 1.7;
-const CONTROLS_FADE_SECONDS: f32 = 1.1;
 const PLAYBACK_RATES: [f64; 6] = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
 
 pub struct PlayerApp {
@@ -114,47 +113,6 @@ impl PlayerApp {
             fullscreen: false,
             smoke_started: now,
         })
-    }
-
-    pub fn configure_fonts(ctx: &egui::Context) {
-        let mut fonts = FontDefinitions::default();
-        let name = "noto-sans-cjk-tc".to_owned();
-        // Shared with the spike until the M2.5 design-system pass gives the
-        // player its own asset pipeline.
-        fonts.font_data.insert(
-            name.clone(),
-            Arc::new(FontData::from_static(include_bytes!(
-                "../../spike-egui-player/assets/NotoSansCJKtc-Regular.otf"
-            ))),
-        );
-        fonts
-            .families
-            .entry(FontFamily::Proportional)
-            .or_default()
-            .insert(0, name.clone());
-        fonts
-            .families
-            .entry(FontFamily::Monospace)
-            .or_default()
-            .push(name);
-        ctx.set_fonts(fonts);
-    }
-
-    pub fn configure_style(ctx: &egui::Context) {
-        let mut visuals = egui::Visuals::dark();
-        visuals.panel_fill = Color32::from_rgb(12, 14, 18);
-        visuals.window_fill = Color32::from_rgb(18, 20, 25);
-        visuals.faint_bg_color = Color32::from_rgb(28, 32, 39);
-        visuals.extreme_bg_color = Color32::from_rgb(7, 8, 11);
-        visuals.selection.bg_fill = Color32::from_rgb(54, 112, 168);
-        visuals.widgets.hovered.bg_fill = Color32::from_rgb(38, 43, 52);
-        visuals.widgets.active.bg_fill = Color32::from_rgb(48, 65, 86);
-        ctx.set_visuals(visuals);
-
-        let mut style = (*ctx.style()).clone();
-        style.spacing.item_spacing = vec2(8.0, 8.0);
-        style.spacing.button_padding = vec2(12.0, 6.0);
-        ctx.set_style(style);
     }
 
     fn handle_shortcuts(&mut self, ctx: &egui::Context, now: Instant) {
@@ -429,7 +387,7 @@ impl PlayerApp {
 
     fn show_video(&mut self, ctx: &egui::Context, now: Instant, overlay_position_s: f64) {
         egui::CentralPanel::default()
-            .frame(Frame::NONE.fill(Color32::from_rgb(5, 6, 8)))
+            .frame(Frame::NONE.fill(palette::VIDEO_BACKDROP))
             .show(ctx, |ui| {
                 let rect = ui.available_rect_before_wrap();
                 let response = ui.allocate_rect(rect, Sense::click_and_drag());
@@ -450,11 +408,11 @@ impl PlayerApp {
                 let active_danmaku = self.paint_danmaku(ui, rect, overlay_position_s);
                 if let Some(error) = self.snapshot.render_error.clone() {
                     ui.painter().text(
-                        rect.left_top() + vec2(14.0, 14.0),
+                        rect.left_top() + vec2(metrics::OVERLAY_PADDING, metrics::OVERLAY_PADDING),
                         Align2::LEFT_TOP,
                         error,
-                        FontId::proportional(13.0),
-                        Color32::from_rgb(255, 126, 126),
+                        typography::caption(),
+                        palette::DANGER,
                     );
                 }
 
@@ -506,16 +464,14 @@ impl PlayerApp {
     }
 
     fn controls_alpha(&self) -> f32 {
-        let inactive_for = self.last_pointer_activity.elapsed().as_secs_f32();
         if self.snapshot.paused {
             return 1.0;
         }
-        if inactive_for <= CONTROLS_VISIBLE_SECONDS {
-            1.0
-        } else {
-            (1.0 - (inactive_for - CONTROLS_VISIBLE_SECONDS) / CONTROLS_FADE_SECONDS)
-                .clamp(0.0, 1.0)
-        }
+        theme::fade_alpha(
+            self.last_pointer_activity.elapsed().as_secs_f32(),
+            theme::CHROME_HOLD_SECONDS,
+            theme::CHROME_FADE_SECONDS,
+        )
     }
 
     fn show_controls(
@@ -532,125 +488,122 @@ impl PlayerApp {
         }
 
         // Title ribbon (top) fades together with the control bar.
-        let title_alpha = (alpha * 220.0).round() as u8;
         ui.painter().text(
-            video_rect.left_top() + vec2(18.0, 16.0),
+            video_rect.left_top() + vec2(metrics::GUTTER, 16.0),
             Align2::LEFT_TOP,
             &self.display_title,
-            FontId::proportional(17.0),
-            Color32::from_rgba_premultiplied(233, 238, 244, title_alpha),
+            typography::title(),
+            theme::text_primary_faded(alpha),
         );
 
-        let height = 96.0;
         let rect = Rect::from_min_max(
             pos2(
-                video_rect.left() + 18.0,
-                video_rect.bottom() - height - 18.0,
+                video_rect.left() + metrics::GUTTER,
+                video_rect.bottom() - metrics::CONTROL_BAR_HEIGHT - metrics::GUTTER,
             ),
-            pos2(video_rect.right() - 18.0, video_rect.bottom() - 18.0),
+            pos2(
+                video_rect.right() - metrics::GUTTER,
+                video_rect.bottom() - metrics::GUTTER,
+            ),
         );
-        let fill_alpha = (alpha * 210.0).round() as u8;
-        ui.painter().rect_filled(
-            rect,
-            10.0,
-            Color32::from_rgba_premultiplied(10, 12, 16, fill_alpha),
-        );
+        ui.painter()
+            .rect_filled(rect, metrics::OVERLAY_RADIUS, theme::overlay_fill(alpha));
         ui.painter().rect_stroke(
             rect,
-            10.0,
-            Stroke::new(
-                1.0_f32,
-                Color32::from_rgba_premultiplied(255, 255, 255, (alpha * 36.0) as u8),
-            ),
+            metrics::OVERLAY_RADIUS,
+            theme::overlay_outline(alpha),
             StrokeKind::Inside,
         );
 
-        ui.scope_builder(egui::UiBuilder::new().max_rect(rect.shrink(14.0)), |ui| {
-            ui.set_clip_rect(rect);
-            ui.multiply_opacity(alpha);
-            ui.horizontal(|ui| {
-                let play_label = if self.snapshot.paused {
-                    "Play"
-                } else {
-                    "Pause"
-                };
-                if ui.button(play_label).clicked() {
-                    self.toggle_pause(now);
-                }
-                if ui.button("-10s").clicked() {
-                    self.seek_relative(-10.0, now);
-                }
-                if ui.button("+30s").clicked() {
-                    self.seek_relative(30.0, now);
-                }
-                ui.menu_button(format!("{:.2}x", self.snapshot.speed), |ui| {
-                    for rate in PLAYBACK_RATES {
-                        if ui.button(format!("{rate:.2}x")).clicked() {
-                            self.set_playback_rate(rate, now);
-                            ui.close();
-                        }
-                    }
-                });
-                self.show_track_menus(ui);
-                self.show_danmaku_menu(ui, active_danmaku);
-
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.label(
-                        RichText::new(format!(
-                            "{} / {}",
-                            format_time(overlay_position_s),
-                            format_time(self.snapshot.duration_s)
-                        ))
-                        .color(Color32::from_rgb(214, 221, 229)),
-                    );
-                    if ui
-                        .button(if self.fullscreen {
-                            "Windowed"
-                        } else {
-                            "Fullscreen"
-                        })
-                        .clicked()
-                    {
-                        let ctx = ui.ctx().clone();
-                        self.toggle_fullscreen(&ctx);
-                    }
-                    let mut volume = self.snapshot.volume_percent as f32;
-                    if ui
-                        .add(
-                            egui::Slider::new(&mut volume, 0.0..=130.0)
-                                .show_value(false)
-                                .trailing_fill(true),
-                        )
-                        .changed()
-                    {
-                        self.set_volume(volume as f64);
-                    }
-                    let mute_label = if self.snapshot.muted {
-                        "Unmute"
+        ui.scope_builder(
+            egui::UiBuilder::new().max_rect(rect.shrink(metrics::OVERLAY_PADDING)),
+            |ui| {
+                ui.set_clip_rect(rect);
+                ui.multiply_opacity(alpha);
+                ui.horizontal(|ui| {
+                    let play_label = if self.snapshot.paused {
+                        "Play"
                     } else {
-                        "Mute"
+                        "Pause"
                     };
-                    if ui.button(mute_label).clicked() {
-                        self.toggle_mute();
+                    if ui.button(play_label).clicked() {
+                        self.toggle_pause(now);
                     }
+                    if ui.button("-10s").clicked() {
+                        self.seek_relative(-10.0, now);
+                    }
+                    if ui.button("+30s").clicked() {
+                        self.seek_relative(30.0, now);
+                    }
+                    ui.menu_button(format!("{:.2}x", self.snapshot.speed), |ui| {
+                        for rate in PLAYBACK_RATES {
+                            if ui.button(format!("{rate:.2}x")).clicked() {
+                                self.set_playback_rate(rate, now);
+                                ui.close();
+                            }
+                        }
+                    });
+                    self.show_track_menus(ui);
+                    self.show_danmaku_menu(ui, active_danmaku);
+
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        ui.label(
+                            RichText::new(format!(
+                                "{} / {}",
+                                format_time(overlay_position_s),
+                                format_time(self.snapshot.duration_s)
+                            ))
+                            .color(palette::TEXT_SECONDARY),
+                        );
+                        if ui
+                            .button(if self.fullscreen {
+                                "Windowed"
+                            } else {
+                                "Fullscreen"
+                            })
+                            .clicked()
+                        {
+                            let ctx = ui.ctx().clone();
+                            self.toggle_fullscreen(&ctx);
+                        }
+                        let mut volume = self.snapshot.volume_percent as f32;
+                        if ui
+                            .add(
+                                egui::Slider::new(&mut volume, 0.0..=130.0)
+                                    .show_value(false)
+                                    .trailing_fill(true),
+                            )
+                            .changed()
+                        {
+                            self.set_volume(volume as f64);
+                        }
+                        let mute_label = if self.snapshot.muted {
+                            "Unmute"
+                        } else {
+                            "Mute"
+                        };
+                        if ui.button(mute_label).clicked() {
+                            self.toggle_mute();
+                        }
+                    });
                 });
-            });
-            ui.add_space(8.0);
-            let duration = self.snapshot.duration_s.max(1.0) as f32;
-            let mut position = overlay_position_s.clamp(0.0, duration as f64) as f32;
-            let slider_width = ui.available_width();
-            ui.style_mut().spacing.slider_width = slider_width;
-            let changed = ui
-                .add(
-                    egui::Slider::new(&mut position, 0.0..=duration)
-                        .show_value(false)
-                        .trailing_fill(true),
-                )
-                .changed();
-            if changed {
-                self.seek_to(position as f64, now);
-            }
-        });
+                ui.add_space(metrics::ROW_GAP);
+                let duration = self.snapshot.duration_s.max(1.0) as f32;
+                let mut position = overlay_position_s.clamp(0.0, duration as f64) as f32;
+                let slider_width = ui.available_width();
+                ui.style_mut().spacing.slider_width = slider_width;
+                let changed = ui
+                    .add(
+                        egui::Slider::new(&mut position, 0.0..=duration)
+                            .show_value(false)
+                            .trailing_fill(true),
+                    )
+                    .changed();
+                if changed {
+                    self.seek_to(position as f64, now);
+                }
+            },
+        );
     }
 
     fn show_danmaku_menu(&mut self, ui: &mut egui::Ui, active: usize) {

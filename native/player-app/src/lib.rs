@@ -14,5 +14,6 @@ pub mod clock;
 pub mod danmaku;
 mod danmaku_http;
 pub mod smoke;
+pub mod theme;
 pub mod tracks;
 pub mod video;
