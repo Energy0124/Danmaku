@@ -244,10 +244,16 @@ Parity gates:
 New workspace crate (e.g. `native/player-app`), building on the spike.
 Milestones, each shippable while the Compose app remains the default:
 
-- `[ ]` M1 playback core: window and chrome, mpv render-API compositing
+- `[x]` M1 playback core: window and chrome, mpv render-API compositing
   host from the spike, play/pause/seek/rate/volume, audio/subtitle track
   selection, fade-over-video controls, fullscreen with bounds restore,
-  reusing `native/player-windows-mpv` command planning.
+  reusing `native/player-windows-mpv` command planning. (Shipped as the
+  `native/player-app` workspace crate (`danmaku-player` binary) with unit
+  tests for CLI/track/clock/smoke logic and a `--smoke` self-check;
+  verified 2026-07-10 by smoke PASS (131 frames/6s, nvdec, 0 render
+  failures) plus a supervised mid-playback capture of a real 1080p
+  HEVC-10bit episode with `--start` honored and controls faded. Deeper
+  interactive QA rides the M5 release gates.)
 - `[ ]` M2 danmaku: native overlay renderer at parity with the spike gate,
   dandanplay match/comment fetch through the server, manual local danmaku
   attachment, display settings (opacity, speed, density, lanes), seek

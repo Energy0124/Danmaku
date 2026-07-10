@@ -506,7 +506,12 @@ impl MpvRenderContextHandle {
         }
     }
 
-    pub fn set_update_callback(
+    /// # Safety
+    ///
+    /// `callback_context` must stay valid (and unmoved) for every future
+    /// `callback` invocation, until the callback is replaced or this render
+    /// context is dropped; mpv may invoke `callback` from arbitrary threads.
+    pub unsafe fn set_update_callback(
         &self,
         callback: Option<unsafe extern "C" fn(*mut c_void)>,
         callback_context: *mut c_void,

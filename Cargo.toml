@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "native/library-server",
+    "native/player-app",
     "native/player-windows-mpv",
     "native/rust-core",
 ]
