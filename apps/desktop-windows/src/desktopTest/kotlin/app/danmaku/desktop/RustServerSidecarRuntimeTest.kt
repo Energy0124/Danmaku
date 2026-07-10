@@ -73,6 +73,24 @@ class RustServerSidecarRuntimeTest {
     }
 
     @Test
+    fun binaryResolverUsesPackagedAppDirectoryBeforeCargoTarget() {
+        val temp = createTempDirectory("danmaku-rust-sidecar-packaged")
+        val packagedBinary = temp.resolve("app").resolve(executableName()).also { path ->
+            path.parent.createDirectories()
+            path.writeText("packaged")
+        }
+
+        val resolution = RustServerBinaryResolver.resolve(
+            launchOverride = null,
+            environment = emptyMap(),
+            repositoryRoot = temp,
+        )
+
+        assertEquals(packagedBinary.toAbsolutePath().normalize(), resolution.path)
+        assertEquals(RustServerBinaryResolutionSource.PACKAGED, resolution.source)
+    }
+
+    @Test
     fun binaryResolverFallsBackToCargoTargetDirectory() {
         val temp = createTempDirectory("danmaku-rust-sidecar-cargo")
         val cargoBinary = temp.resolve("cargo-target").resolve("release").resolve(executableName()).also { path ->

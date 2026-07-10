@@ -24,6 +24,7 @@ internal class DesktopShellSettingsActions(
     private val settingsState: DesktopShellSettingsState,
     private val libraryState: DesktopShellLibraryState,
     private val serverBaseUrl: () -> String,
+    private val oauthCallbackBaseUrl: () -> String,
     private val pairingToken: () -> String,
     private val appendDiagnostic: (String, String) -> Unit,
     private val updateOverlayStatus: (String) -> Unit,
@@ -117,7 +118,7 @@ internal class DesktopShellSettingsActions(
                     )
                 }
                 settingsState.externalAnimeProviderSettings = updatedSettings
-                val redirectUri = "${serverBaseUrl()}${DesktopLibraryServerRuntime.MY_ANIME_LIST_OAUTH_CALLBACK_PATH}"
+                val redirectUri = "${oauthCallbackBaseUrl()}${MY_ANIME_LIST_OAUTH_CALLBACK_PATH}"
                 val clientSecret = myAnimeListClientSecret?.trim()?.takeIf(String::isNotBlank)
                     ?: withContext(Dispatchers.IO) {
                         externalAnimeCredentialStore.loadMyAnimeListClientSecret()

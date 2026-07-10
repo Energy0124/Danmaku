@@ -150,6 +150,16 @@ class DesktopLaunchOptionsTest {
         assertEquals("http://127.0.0.1:8686", options.remoteClient?.normalizedServerUrl)
         assertEquals("654321", options.remoteClient?.pairingToken)
         assertFalse(options.remoteClient?.autoLoad ?: true)
+        assertFalse(options.rustSidecar.enabled)
+    }
+
+    @Test
+    fun defaultsToRustSidecarForLocalHosting() {
+        val options = DesktopLaunchOptions.parse(emptyList())
+
+        assertTrue(options.rustSidecar.enabled)
+        assertNull(options.remoteClient)
+        assertEquals(DesktopShellTab.MEDIA_LIBRARY, options.initialTab)
     }
 
     @Test
@@ -171,9 +181,9 @@ class DesktopLaunchOptionsTest {
     }
 
     @Test
-    fun parsesRustSidecarEnvironmentAndCliCanDisableIt() {
+    fun remoteClientCanDisableRustSidecarConfiguredByEnvironment() {
         val options = DesktopLaunchOptions.parse(
-            args = listOf("--no-rust-sidecar"),
+            args = listOf("--no-rust-sidecar", "--remote-url=http://127.0.0.1:8686"),
             environment = mapOf(
                 DesktopLaunchOptions.RUST_SIDECAR_ENV to "true",
                 DesktopLaunchOptions.RUST_SERVER_PATH_ENV to "S:/bin/library-server.exe",
@@ -182,6 +192,16 @@ class DesktopLaunchOptionsTest {
 
         assertFalse(options.rustSidecar.enabled)
         assertEquals(Path.of("S:/bin/library-server.exe"), options.rustSidecar.serverPath)
+        assertEquals("http://127.0.0.1:8686", options.remoteClient?.normalizedServerUrl)
+    }
+
+    @Test
+    fun rejectsDisablingRustSidecarWithoutRemoteServer() {
+        val error = assertFailsWith<IllegalArgumentException> {
+            DesktopLaunchOptions.parse(listOf("--no-rust-sidecar"))
+        }
+
+        assertEquals("--no-rust-sidecar requires a remote server URL", error.message)
     }
 
     @Test

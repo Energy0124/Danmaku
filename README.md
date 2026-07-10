@@ -33,7 +33,7 @@ targets are stable.
 
 ```text
 apps/
-  desktop-windows/       Compose Multiplatform desktop shell and library host
+  desktop-windows/       Compose Multiplatform shell; owns the Rust server sidecar
   android-mobile/        Android phone/tablet app
   android-tv/            Dedicated Android TV app
   web-ui/                Planned trusted-LAN TypeScript browser client
@@ -48,6 +48,7 @@ shared/
 
 native/
   rust-core/             Focused Rust timeline/indexing experiments
+  library-server/        Headless and desktop-sidecar LAN library server
   player-windows-mpv/    libmpv loader, probe, and desktop playback bridge
 
 tools/
@@ -162,6 +163,8 @@ Windows desktop development shell:
 .\run-windows.ps1
 ```
 
+The launcher builds the Rust `library-server` sidecar and starts it by default.
+
 Runtime-free Windows portable build/run:
 
 ```powershell
@@ -178,8 +181,8 @@ Windows app workflow:
 
 1. Add one or more anime library folders.
 2. Let the desktop app index the library.
-3. Use local playback directly from the Library tab, or note the LAN URL and
-   pairing code.
+3. Use local playback directly from the Library tab, or note the Rust sidecar's
+   LAN URL and pairing code.
 4. On Android or Android TV, use discovery or manual connection to pair with
    the Windows library server.
 5. Browse, stream, and save playback progress from the client.
@@ -199,12 +202,12 @@ status, exposes provider runtime readiness, read-only provider mapping
 search, and dandanplay match/comment resolve for catalog media through
 authenticated endpoints, and the web UI can trigger dandanplay preview lookups
 for selected catalog media. The server boots from cached catalog when no roots are
-configured while using the same LAN discovery announcements as the embedded
-desktop host. External list-sync network actions and broader provider admin UX
-are still planned work.
+configured while using the same LAN discovery announcements as the desktop
+sidecar. External list-sync network actions and broader provider admin UX are
+still planned work.
 
 Desktop can launch directly into the remote-library browser against a running
-headless or embedded host:
+headless/sidecar host. Supplying a remote URL skips the local sidecar:
 
 ```powershell
 .\gradlew.bat --no-daemon :apps:desktop-windows:run --args="--remote-server-url http://127.0.0.1:8686 --remote-pairing-token 123456"
@@ -215,6 +218,12 @@ Repeatable headless web UI QA:
 ```powershell
 .\tools\windows\run-headless-web-ui-qa.ps1
 .\tools\windows\run-headless-web-ui-qa.ps1 -RustServer
+```
+
+Repeatable desktop-sidecar web UI QA:
+
+```powershell
+.\tools\windows\run-embedded-web-ui-qa.ps1
 ```
 
 ## Security And Source Policy
