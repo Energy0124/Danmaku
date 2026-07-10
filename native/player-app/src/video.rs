@@ -1,3 +1,9 @@
+//! libmpv render-API → egui/glow compositing host.
+//!
+//! Ported from the validated `spike-egui-player` renderer: mpv renders into a
+//! crate-owned FBO texture which is then drawn into the egui viewport, so the
+//! UI (controls, later the danmaku overlay) always composites above video.
+
 use std::{
     env,
     ffi::{c_char, c_void},
@@ -14,16 +20,21 @@ use player_windows_mpv::{
     MpvOpenGlInitParams, MpvRenderContextHandle, MpvRenderParam, find_library_for_current_process,
 };
 
-use crate::smoke::SmokeStats;
-
 pub type SharedVideoRenderer = Arc<Mutex<VideoRenderer>>;
+
+/// Counters the smoke harness reads to prove frames actually rendered.
+#[derive(Clone, Debug, Default)]
+pub struct RenderCounters {
+    pub rendered_frames: u64,
+    pub render_failures: u64,
+}
 
 pub struct VideoRenderer {
     mpv: Mpv,
     render_context: Option<MpvRenderContextHandle>,
     repaint_context: Box<egui::Context>,
     gl_objects: Option<GlVideoObjects>,
-    stats: Arc<Mutex<SmokeStats>>,
+    counters: Arc<Mutex<RenderCounters>>,
     last_render_error: Option<String>,
 }
 
@@ -32,8 +43,10 @@ unsafe impl Send for VideoRenderer {}
 impl VideoRenderer {
     pub fn create(
         media: &str,
+        start_position_s: Option<f64>,
+        volume_percent: Option<u8>,
         egui_context: &egui::Context,
-        stats: Arc<Mutex<SmokeStats>>,
+        counters: Arc<Mutex<RenderCounters>>,
     ) -> Result<Self, String> {
         let libmpv_path = resolve_libmpv_path()?;
         let library = MpvLibrary::load(&libmpv_path).map_err(|error| {
@@ -78,6 +91,16 @@ impl VideoRenderer {
             render_context.set_update_callback(Some(request_repaint), repaint_context_ptr);
         }
 
+        if let Some(start_position_s) = start_position_s.filter(|value| *value > 0.0) {
+            let value = format!("{start_position_s:.3}");
+            mpv.command(&["set", "start", &value])
+                .map_err(|error| format!("failed to set start position: {error}"))?;
+        }
+        if let Some(volume_percent) = volume_percent {
+            let value = volume_percent.to_string();
+            mpv.command(&["set", "volume", &value])
+                .map_err(|error| format!("failed to set volume: {error}"))?;
+        }
         mpv.command(&["loadfile", media, "replace"])
             .map_err(|error| format!("failed to load media {media}: {error}"))?;
         mpv.command(&["set", "pause", "no"])
@@ -88,7 +111,7 @@ impl VideoRenderer {
             render_context: Some(render_context),
             repaint_context,
             gl_objects: None,
-            stats,
+            counters,
             last_render_error: None,
         })
     }
@@ -108,14 +131,14 @@ impl VideoRenderer {
         match render_result {
             Ok(()) => {
                 self.last_render_error = None;
-                if let Ok(mut stats) = self.stats.lock() {
-                    stats.record_rendered_frame();
+                if let Ok(mut counters) = self.counters.lock() {
+                    counters.rendered_frames += 1;
                 }
             }
             Err(error) => {
                 self.last_render_error = Some(error);
-                if let Ok(mut stats) = self.stats.lock() {
-                    stats.record_render_failure();
+                if let Ok(mut counters) = self.counters.lock() {
+                    counters.render_failures += 1;
                 }
             }
         }
@@ -436,6 +459,18 @@ pub fn resolve_libmpv_path() -> Result<PathBuf, String> {
     match find_library_for_current_process() {
         Ok(path) => return Ok(path),
         Err(error) => searched.extend(error.searched_paths),
+    }
+
+    let repo_runtime = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join("..")
+        .join("runtime")
+        .join("windows")
+        .join("libmpv")
+        .join(LIBMPV_DLL_NAME);
+    searched.push(repo_runtime.clone());
+    if repo_runtime.is_file() {
+        return Ok(repo_runtime);
     }
 
     let portable = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
