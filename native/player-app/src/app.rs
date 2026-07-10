@@ -1,6 +1,7 @@
 //! Player window: chrome, video surface, and fade-over-video controls.
 
 use std::{
+    path::Path,
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
@@ -14,6 +15,10 @@ use egui_glow::CallbackFn;
 use crate::{
     cli::Cli,
     clock::OverlayClock,
+    danmaku::{
+        DanmakuDisplaySettings, DanmakuLayout, DanmakuLoad, DanmakuLoadKind, estimate_text_width,
+        fetch_server_danmaku, load_local_danmaku,
+    },
     smoke::SmokeReport,
     tracks::{TrackInventory, TrackKind, read_track_inventory, selection_command},
     video::{RenderCounters, SharedVideoRenderer, VideoRenderer},
@@ -34,6 +39,9 @@ pub struct PlayerApp {
     overlay_clock: OverlayClock,
     snapshot: PlaybackSnapshot,
     tracks: TrackInventory,
+    danmaku: DanmakuLoad,
+    danmaku_layout: DanmakuLayout,
+    danmaku_settings: DanmakuDisplaySettings,
     last_property_refresh: Instant,
     last_track_refresh: Instant,
     last_pointer_activity: Instant,
@@ -54,16 +62,28 @@ impl PlayerApp {
         }
 
         let counters = Arc::new(Mutex::new(RenderCounters::default()));
-        let renderer = Arc::new(Mutex::new(
-            VideoRenderer::create(
-                &cli.media,
-                cli.start_position_s,
-                cli.volume_percent,
-                &creation_context.egui_ctx,
-                Arc::clone(&counters),
-            )
-            .map_err(|error| format!("mpv initialization failed: {error}"))?,
-        ));
+        let mut danmaku = load_danmaku(&cli);
+        let danmaku_settings = cli.danmaku_display_settings();
+        let video_renderer = VideoRenderer::create(
+            &cli.media,
+            cli.start_position_s,
+            cli.volume_percent,
+            &creation_context.egui_ctx,
+            Arc::clone(&counters),
+        )
+        .map_err(|error| format!("mpv initialization failed: {error}"))?;
+        if let Some(ass_path) = danmaku.ass_path.clone() {
+            let source = ass_path.to_string_lossy();
+            if let Err(error) = video_renderer.command(&[
+                "sub-add",
+                source.as_ref(),
+                "select",
+                "Danmaku ASS overlay",
+            ]) {
+                danmaku = DanmakuLoad::failed(format!("failed to attach ASS overlay: {error}"));
+            }
+        }
+        let renderer = Arc::new(Mutex::new(video_renderer));
         let now = Instant::now();
         let display_title = cli
             .title
@@ -83,6 +103,9 @@ impl PlayerApp {
             overlay_clock,
             snapshot: PlaybackSnapshot::default(),
             tracks: TrackInventory::default(),
+            danmaku,
+            danmaku_layout: DanmakuLayout::default(),
+            danmaku_settings,
             last_property_refresh: now - PROPERTY_REFRESH_INTERVAL,
             last_track_refresh: now - TRACK_REFRESH_INTERVAL,
             last_pointer_activity: now,
@@ -141,6 +164,7 @@ impl PlayerApp {
         }
         let (
             toggle_fullscreen,
+            toggle_danmaku,
             escape,
             toggle_pause,
             seek_back,
@@ -151,6 +175,7 @@ impl PlayerApp {
         ) = ctx.input(|input| {
             (
                 input.key_pressed(egui::Key::F),
+                input.key_pressed(egui::Key::D),
                 input.key_pressed(egui::Key::Escape),
                 input.key_pressed(egui::Key::Space),
                 input.key_pressed(egui::Key::ArrowLeft),
@@ -163,6 +188,9 @@ impl PlayerApp {
 
         if toggle_fullscreen {
             self.toggle_fullscreen(ctx);
+        }
+        if toggle_danmaku && self.danmaku.kind != DanmakuLoadKind::Ass {
+            self.danmaku_settings.enabled = !self.danmaku_settings.enabled;
         }
         if escape && self.fullscreen {
             self.toggle_fullscreen(ctx);
@@ -292,6 +320,41 @@ impl PlayerApp {
         }
     }
 
+    fn handle_dropped_danmaku(&mut self, ctx: &egui::Context) {
+        let path = ctx.input(|input| {
+            input
+                .raw
+                .dropped_files
+                .iter()
+                .filter_map(|file| file.path.clone())
+                .find(|path| is_danmaku_path(path))
+        });
+        let Some(path) = path else {
+            return;
+        };
+        let load = match load_local_danmaku(&path) {
+            Ok(load) => load,
+            Err(error) => {
+                self.danmaku.status = format!("Danmaku attachment failed: {error}");
+                return;
+            }
+        };
+        if self.danmaku.kind == DanmakuLoadKind::Ass {
+            self.run_mpv_command(&["sub-remove"]);
+        }
+        if let Some(ass_path) = &load.ass_path {
+            let source = ass_path.to_string_lossy();
+            if !self.run_mpv_command(&["sub-add", source.as_ref(), "select", "Danmaku ASS overlay"])
+            {
+                self.danmaku.status = "Danmaku attachment failed: mpv rejected ASS".to_owned();
+                return;
+            }
+        } else {
+            self.danmaku_settings.enabled = true;
+        }
+        self.danmaku = load;
+    }
+
     fn refresh_snapshot(&mut self, now: Instant) {
         if now.saturating_duration_since(self.last_property_refresh) < PROPERTY_REFRESH_INTERVAL {
             return;
@@ -384,6 +447,7 @@ impl PlayerApp {
                     })),
                 });
 
+                let active_danmaku = self.paint_danmaku(ui, rect, overlay_position_s);
                 if let Some(error) = self.snapshot.render_error.clone() {
                     ui.painter().text(
                         rect.left_top() + vec2(14.0, 14.0),
@@ -394,8 +458,51 @@ impl PlayerApp {
                     );
                 }
 
-                self.show_controls(ui, rect, now, overlay_position_s);
+                self.show_controls(ui, rect, now, overlay_position_s, active_danmaku);
             });
+    }
+
+    fn paint_danmaku(&self, ui: &egui::Ui, video_rect: Rect, overlay_position_s: f64) -> usize {
+        if self.danmaku.track.is_empty() {
+            return 0;
+        }
+        let comments = self.danmaku_layout.visible_comments(
+            &self.danmaku.track,
+            overlay_position_s.max(0.0) * 1000.0,
+            video_rect.width(),
+            video_rect.height(),
+            &self.danmaku_settings,
+        );
+        let painter = ui.painter().with_clip_rect(video_rect);
+        let mut painted = 0;
+        for comment in comments {
+            let position = video_rect.min + vec2(comment.x, comment.y);
+            let width = estimate_text_width(&comment.event.text, comment.font_px);
+            if position.x > video_rect.right() || position.x + width < video_rect.left() {
+                continue;
+            }
+            let color = danmaku_color(comment.style.color_argb, comment.opacity);
+            let outline_alpha = color.a().saturating_sub(36);
+            let outline = Color32::from_rgba_unmultiplied(0, 0, 0, outline_alpha);
+            let font = FontId::proportional(comment.font_px);
+            for offset in [
+                vec2(1.0, 0.0),
+                vec2(-1.0, 0.0),
+                vec2(0.0, 1.0),
+                vec2(0.0, -1.0),
+            ] {
+                painter.text(
+                    position + offset,
+                    Align2::LEFT_TOP,
+                    &comment.event.text,
+                    font.clone(),
+                    outline,
+                );
+            }
+            painter.text(position, Align2::LEFT_TOP, &comment.event.text, font, color);
+            painted += 1;
+        }
+        painted
     }
 
     fn controls_alpha(&self) -> f32 {
@@ -417,6 +524,7 @@ impl PlayerApp {
         video_rect: Rect,
         now: Instant,
         overlay_position_s: f64,
+        active_danmaku: usize,
     ) {
         let alpha = self.controls_alpha();
         if alpha <= 0.02 {
@@ -484,6 +592,7 @@ impl PlayerApp {
                     }
                 });
                 self.show_track_menus(ui);
+                self.show_danmaku_menu(ui, active_danmaku);
 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     ui.label(
@@ -541,6 +650,62 @@ impl PlayerApp {
             if changed {
                 self.seek_to(position as f64, now);
             }
+        });
+    }
+
+    fn show_danmaku_menu(&mut self, ui: &mut egui::Ui, active: usize) {
+        let label = match self.danmaku.kind {
+            DanmakuLoadKind::Ass => "Danmaku ASS".to_owned(),
+            DanmakuLoadKind::Failed => "Danmaku !".to_owned(),
+            _ if !self.danmaku_settings.enabled => "Danmaku off".to_owned(),
+            _ => format!("Danmaku {active}"),
+        };
+        ui.menu_button(label, |ui| {
+            ui.set_min_width(280.0);
+            ui.label(RichText::new(&self.danmaku.status).small());
+            if self.danmaku.kind == DanmakuLoadKind::Ass {
+                ui.label("ASS compatibility uses mpv's subtitle renderer.");
+                ui.label("Select or disable it from the Subs menu.");
+                return;
+            }
+            ui.label("Drop XML, JSON, or ASS onto the player to attach.");
+            ui.separator();
+            ui.checkbox(&mut self.danmaku_settings.enabled, "Show danmaku");
+            ui.add_enabled_ui(self.danmaku_settings.enabled, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label("Opacity");
+                    ui.add(
+                        egui::Slider::new(&mut self.danmaku_settings.opacity, 0.0..=1.0)
+                            .show_value(true),
+                    );
+                });
+                ui.horizontal(|ui| {
+                    ui.label("Speed");
+                    ui.add(
+                        egui::Slider::new(&mut self.danmaku_settings.speed, 0.25..=4.0)
+                            .logarithmic(true)
+                            .suffix("x"),
+                    );
+                });
+                ui.horizontal(|ui| {
+                    ui.label("Density");
+                    ui.add(
+                        egui::Slider::new(&mut self.danmaku_settings.density, 0.0..=1.0)
+                            .show_value(true),
+                    );
+                });
+                let mut lanes = self.danmaku_settings.max_lanes as u32;
+                ui.horizontal(|ui| {
+                    ui.label("Lanes");
+                    if ui.add(egui::Slider::new(&mut lanes, 1..=32)).changed() {
+                        self.danmaku_settings.max_lanes = lanes as usize;
+                    }
+                });
+            });
+            if ui.button("Reset display settings").clicked() {
+                self.danmaku_settings = DanmakuDisplaySettings::default();
+            }
+            ui.label("Shortcut: D toggles the native overlay.");
         });
     }
 
@@ -619,6 +784,7 @@ impl eframe::App for PlayerApp {
         let now = Instant::now();
         self.handle_shortcuts(ctx, now);
         self.record_activity(ctx);
+        self.handle_dropped_danmaku(ctx);
         self.refresh_snapshot(now);
         self.refresh_tracks(now);
         let overlay_position_s = self.overlay_clock.position_at(now);
@@ -671,6 +837,41 @@ struct PlaybackReadback {
     snapshot: PlaybackSnapshot,
 }
 
+fn load_danmaku(cli: &Cli) -> DanmakuLoad {
+    let result = if let Some(path) = &cli.danmaku_path {
+        load_local_danmaku(path)
+    } else if let (Some(base_url), Some(media_id)) = (&cli.server_url, &cli.media_id) {
+        fetch_server_danmaku(base_url, media_id, cli.danmaku_force_refresh)
+    } else {
+        return DanmakuLoad::none();
+    };
+    result.unwrap_or_else(DanmakuLoad::failed)
+}
+
+fn danmaku_color(color_argb: u32, opacity: f32) -> Color32 {
+    let source_alpha = ((color_argb >> 24) & 0xff) as f32;
+    let alpha = (source_alpha * opacity.clamp(0.0, 1.0))
+        .round()
+        .clamp(0.0, 255.0) as u8;
+    Color32::from_rgba_unmultiplied(
+        ((color_argb >> 16) & 0xff) as u8,
+        ((color_argb >> 8) & 0xff) as u8,
+        (color_argb & 0xff) as u8,
+        alpha,
+    )
+}
+
+fn is_danmaku_path(path: &Path) -> bool {
+    path.extension()
+        .and_then(|value| value.to_str())
+        .is_some_and(|extension| {
+            matches!(
+                extension.to_ascii_lowercase().as_str(),
+                "xml" | "json" | "danmaku" | "ass"
+            )
+        })
+}
+
 pub fn media_display_title(media: &str) -> String {
     // Media strings mix Windows paths, POSIX paths, and URLs, so split on
     // both separators instead of using `Path` (whose separator handling is
@@ -709,7 +910,9 @@ fn parse_u64(value: Option<String>) -> Option<u64> {
 
 #[cfg(test)]
 mod tests {
-    use super::{format_time, media_display_title};
+    use std::path::Path;
+
+    use super::{danmaku_color, format_time, is_danmaku_path, media_display_title};
 
     #[test]
     fn formats_times_with_and_without_hours() {
@@ -730,5 +933,19 @@ mod tests {
             "abc123"
         );
         assert_eq!(media_display_title("plain-name.mkv"), "plain-name.mkv");
+    }
+
+    #[test]
+    fn converts_argb_and_multiplies_overlay_opacity() {
+        let color = danmaku_color(0x80ff_8040, 0.5);
+        assert_eq!(color.to_srgba_unmultiplied(), [255, 128, 64, 64]);
+    }
+
+    #[test]
+    fn recognizes_supported_manual_danmaku_files() {
+        assert!(is_danmaku_path(Path::new("comments.XML")));
+        assert!(is_danmaku_path(Path::new("comments.danmaku")));
+        assert!(is_danmaku_path(Path::new("cached.ass")));
+        assert!(!is_danmaku_path(Path::new("episode.mkv")));
     }
 }

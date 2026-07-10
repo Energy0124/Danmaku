@@ -254,10 +254,18 @@ Milestones, each shippable while the Compose app remains the default:
   failures) plus a supervised mid-playback capture of a real 1080p
   HEVC-10bit episode with `--start` honored and controls faded. Deeper
   interactive QA rides the M5 release gates.)
-- `[ ]` M2 danmaku: native overlay renderer at parity with the spike gate,
+- `[x]` M2 danmaku: native overlay renderer at parity with the spike gate,
   dandanplay match/comment fetch through the server, manual local danmaku
   attachment, display settings (opacity, speed, density, lanes), seek
   correctness, and ASS import compatibility for existing cached overlays.
+  Shipped in `native/player-app` with normalized
+  `/api/danmaku/{mediaId}` loading, local XML/JSON startup and drag-and-drop
+  attachment, mpv ASS passthrough, mode/color/size-aware egui painting, and a
+  `D` shortcut/control menu. Focused tests cover 150-comments/second active
+  density, subpixel motion, lane reuse, deterministic density, speed and lane
+  limits, seek-window replacement, XML/JSON parsing, ASS selection, chunked
+  HTTP, and the server wire shape. Deeper interactive media-matrix QA remains
+  part of M5.
 - `[ ]` M2.5 design system: the P0-S5 theme promoted into a reusable
   styling layer (theme tokens, typography, cards, animation helpers)
   applied across all subsequent screens.

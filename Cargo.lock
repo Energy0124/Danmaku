@@ -466,9 +466,11 @@ version = "0.1.0"
 name = "danmaku-player"
 version = "0.1.0"
 dependencies = [
+ "danmaku-core",
  "eframe",
  "egui_glow",
  "player-windows-mpv",
+ "serde_json",
 ]
 
 [[package]]
