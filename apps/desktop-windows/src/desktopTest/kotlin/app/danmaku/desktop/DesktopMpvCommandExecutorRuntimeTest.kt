@@ -82,6 +82,45 @@ class DesktopMpvCommandExecutorRuntimeTest {
     }
 
     @Test
+    fun includesRepositoryDevelopmentMpvRuntimeDirectories() {
+        val temp = createTempDirectory("danmaku-mpv-runtime-repo")
+        Files.createFile(temp.resolve("settings.gradle.kts"))
+        Files.createDirectories(temp.resolve("native").resolve("player-windows-mpv"))
+        val nestedAnchor = Files.createDirectories(
+            temp.resolve("apps")
+                .resolve("desktop-windows")
+                .resolve("build")
+                .resolve("classes"),
+        )
+
+        val paths = developmentRepositoryLibrarySearchPaths(listOf(nestedAnchor))
+
+        assertEquals(
+            listOf(
+                temp.resolve("target").resolve("release"),
+                temp.resolve("target").resolve("debug"),
+                temp.resolve("runtime").resolve("windows").resolve("libmpv"),
+            ),
+            paths,
+        )
+        temp.toFile().deleteRecursively()
+    }
+
+    @Test
+    fun includesPackagedApplicationSubdirectoryForMpvRuntimeDependencies() {
+        val temp = createTempDirectory("danmaku-mpv-runtime-packaged")
+
+        assertEquals(
+            listOf(
+                temp.toAbsolutePath().normalize(),
+                temp.toAbsolutePath().normalize().resolve("app"),
+            ),
+            packagedApplicationLibrarySearchPaths(temp),
+        )
+        temp.toFile().deleteRecursively()
+    }
+
+    @Test
     fun fallsBackToCommandLogWhenNativeDependenciesAreMissing() {
         val commands = mutableListOf<DesktopMpvCommand>()
         var loaderCalled = false

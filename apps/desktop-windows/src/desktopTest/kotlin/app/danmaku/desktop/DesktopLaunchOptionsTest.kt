@@ -153,6 +153,38 @@ class DesktopLaunchOptionsTest {
     }
 
     @Test
+    fun parsesRustSidecarLaunchOptions() {
+        val options = DesktopLaunchOptions.parse(
+            listOf(
+                "--rust-sidecar",
+                "--rust-server-path=S:/Projects/Danmaku/target/release/library-server.exe",
+                "--server-port=19081",
+                "--qa-sidecar-autoplay-first",
+            ),
+        )
+
+        assertTrue(options.rustSidecar.enabled)
+        assertEquals(DesktopShellTab.MEDIA_LIBRARY, options.initialTab)
+        assertEquals(Path.of("S:/Projects/Danmaku/target/release/library-server.exe"), options.rustSidecar.serverPath)
+        assertEquals(19081, options.serverPort)
+        assertTrue(options.qaSidecarAutoplayFirst)
+    }
+
+    @Test
+    fun parsesRustSidecarEnvironmentAndCliCanDisableIt() {
+        val options = DesktopLaunchOptions.parse(
+            args = listOf("--no-rust-sidecar"),
+            environment = mapOf(
+                DesktopLaunchOptions.RUST_SIDECAR_ENV to "true",
+                DesktopLaunchOptions.RUST_SERVER_PATH_ENV to "S:/bin/library-server.exe",
+            ),
+        )
+
+        assertFalse(options.rustSidecar.enabled)
+        assertEquals(Path.of("S:/bin/library-server.exe"), options.rustSidecar.serverPath)
+    }
+
+    @Test
     fun remoteClientWithoutTokenStillAutoLoads() {
         val options = DesktopLaunchOptions.parse(listOf("--remote-url=http://127.0.0.1:8686"))
 

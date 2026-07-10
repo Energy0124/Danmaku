@@ -224,7 +224,7 @@ Parity gates:
 
 ### Phase 2: Desktop Runs The Rust Server As Sidecar
 
-- `[ ]` Desktop launches the Rust server binary as a child process and
+- `[x]` Desktop launches the Rust server binary as a child process and
   connects through its existing remote-client mode
   (`--remote-server-url`/`--remote-pairing-token` internally), with
   lifecycle ownership, port selection, and crash restart.

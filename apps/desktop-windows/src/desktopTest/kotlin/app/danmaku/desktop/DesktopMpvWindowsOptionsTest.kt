@@ -15,7 +15,7 @@ class DesktopMpvWindowsOptionsTest {
                 "input-vo-keyboard" to "yes",
                 "osc" to "yes",
                 "script-opts" to "osc-layout=bottombar,osc-visibility=always",
-                "wid" to "4294967295",
+                "wid" to "18446744073709551615",
             ),
             DesktopMpvWindowsOptions.forWindowId(-1L),
         )
@@ -32,9 +32,19 @@ class DesktopMpvWindowsOptionsTest {
                 "input-vo-keyboard" to "yes",
                 "osc" to "no",
                 "scripts" to scriptPath.toAbsolutePath().normalize().toString(),
-                "wid" to "4294967295",
+                "wid" to "18446744073709551615",
             ),
             DesktopMpvWindowsOptions.forWindowId(-1L, scriptPath),
+        )
+    }
+
+    @Test
+    fun preservesFullUnsignedWindowsHandle() {
+        val windowHandle = 0x1_0000_0001L
+
+        assertEquals(
+            "4294967297",
+            DesktopMpvWindowsOptions.forWindowId(windowHandle).getValue("wid"),
         )
     }
 

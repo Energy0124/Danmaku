@@ -87,17 +87,19 @@ pub struct CatalogScanSummary {
     subtitle_track_count: usize,
     reused_item_count: usize,
     refreshed_item_count: usize,
+    skipped_unreadable_count: usize,
 }
 
 impl CatalogScanSummary {
     pub fn to_log_line(&self) -> String {
         format!(
-            "Catalog scan: completed; roots={}; items={}; subtitles={}; reused={}; refreshed={}",
+            "Catalog scan: completed; roots={}; items={}; subtitles={}; reused={}; refreshed={}; skippedUnreadable={}",
             self.scanned_root_count,
             self.item_count,
             self.subtitle_track_count,
             self.reused_item_count,
             self.refreshed_item_count,
+            self.skipped_unreadable_count,
         )
     }
 }
@@ -110,6 +112,7 @@ impl From<&LibraryScan> for CatalogScanSummary {
             subtitle_track_count: scan.subtitle_track_count(),
             reused_item_count: scan.reused_item_count,
             refreshed_item_count: scan.refreshed_item_count,
+            skipped_unreadable_count: scan.skipped_unreadable_count,
         }
     }
 }

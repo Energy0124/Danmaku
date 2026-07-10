@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 use std::fs;
+use std::io;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -21,6 +22,7 @@ pub struct LibraryScan {
     pub scanned_root_count: usize,
     pub reused_item_count: usize,
     pub refreshed_item_count: usize,
+    pub skipped_unreadable_count: usize,
     pub file_last_modified_epoch_ms_by_id: BTreeMap<String, u64>,
 }
 
@@ -45,20 +47,12 @@ pub fn scan_roots(
             scanned_root_count: 0,
             reused_item_count: 0,
             refreshed_item_count: 0,
+            skipped_unreadable_count: 0,
             file_last_modified_epoch_ms_by_id: BTreeMap::new(),
         });
     }
 
     let normalized_roots = normalized_distinct_roots(roots)?;
-    for root in &normalized_roots {
-        if !root.is_dir() {
-            return Err(LibraryServerError::new(format!(
-                "library root must be a directory: {}",
-                root.display()
-            )));
-        }
-    }
-
     let scan_started_at_epoch_ms = current_epoch_ms();
     let previous_items_by_id = previous
         .map(|stored| {
@@ -80,9 +74,13 @@ pub fn scan_roots(
     let mut file_last_modified_epoch_ms_by_id = BTreeMap::new();
     let mut reused_item_count = 0;
     let mut refreshed_item_count = 0;
+    let mut skipped_unreadable_count = 0;
     let mut items = Vec::new();
 
     for root in &normalized_roots {
+        if !root_is_readable_directory(root, &mut skipped_unreadable_count) {
+            continue;
+        }
         let root_items = scan_root(
             root,
             scan_started_at_epoch_ms,
@@ -93,6 +91,7 @@ pub fn scan_roots(
             &mut file_last_modified_epoch_ms_by_id,
             &mut reused_item_count,
             &mut refreshed_item_count,
+            &mut skipped_unreadable_count,
         )?;
         items.extend(root_items);
     }
@@ -117,6 +116,7 @@ pub fn scan_roots(
         scanned_root_count: normalized_roots.len(),
         reused_item_count,
         refreshed_item_count,
+        skipped_unreadable_count,
         file_last_modified_epoch_ms_by_id,
     })
 }
@@ -142,19 +142,23 @@ fn scan_root(
     file_last_modified_epoch_ms_by_id: &mut BTreeMap<String, u64>,
     reused_item_count: &mut usize,
     refreshed_item_count: &mut usize,
+    skipped_unreadable_count: &mut usize,
 ) -> Result<Vec<LibraryMediaItem>> {
     let id_namespace = path_string(root);
     let mut items = Vec::new();
-    for path in regular_files_recursively(root)? {
+    for path in regular_files_recursively(root, skipped_unreadable_count) {
         let extension = extension_lowercase(&path);
         if !VIDEO_EXTENSIONS.contains(&extension.as_str()) {
             continue;
         }
 
         let relative_path = relative_media_path(root, &path)?;
-        let size_bytes = path.metadata()?.len();
-        let last_modified_epoch_ms = last_modified_epoch_ms(&path)?;
-        let subtitles = sidecar_subtitles(root, &path, &id_namespace)?;
+        let Some((size_bytes, last_modified_epoch_ms)) =
+            file_metadata_snapshot(&path, skipped_unreadable_count)
+        else {
+            continue;
+        };
+        let subtitles = sidecar_subtitles(root, &path, &id_namespace, skipped_unreadable_count)?;
         let id = sha256_hex(&format!("{id_namespace}/{relative_path}"))
             .chars()
             .take(24)
@@ -219,42 +223,108 @@ fn scan_root(
     Ok(items)
 }
 
-fn regular_files_recursively(root: &Path) -> Result<Vec<PathBuf>> {
+fn root_is_readable_directory(root: &Path, skipped_unreadable_count: &mut usize) -> bool {
+    match fs::metadata(root) {
+        Ok(metadata) if metadata.is_dir() => true,
+        Ok(_) => {
+            warn_skipped_unreadable(root, "not a directory", skipped_unreadable_count);
+            false
+        }
+        Err(error) => {
+            warn_skipped_unreadable(root, error, skipped_unreadable_count);
+            false
+        }
+    }
+}
+
+fn regular_files_recursively(root: &Path, skipped_unreadable_count: &mut usize) -> Vec<PathBuf> {
     let mut stack = vec![root.to_path_buf()];
     let mut files = Vec::new();
     while let Some(directory) = stack.pop() {
-        let mut entries = fs::read_dir(&directory)
-            .map_err(|error| {
-                LibraryServerError::with_context(
-                    error,
-                    format!("failed to read library directory {}", directory.display()),
-                )
-            })?
-            .collect::<std::result::Result<Vec<_>, _>>()
-            .map_err(|error| {
-                LibraryServerError::with_context(
-                    error,
-                    format!("failed to read library directory {}", directory.display()),
-                )
-            })?;
+        let Ok(read_dir) = fs::read_dir(&directory).inspect_err(|error| {
+            warn_skipped_unreadable(&directory, error, skipped_unreadable_count);
+        }) else {
+            continue;
+        };
+        let mut entries = Vec::new();
+        for entry in read_dir {
+            match entry {
+                Ok(entry) => entries.push(entry),
+                Err(error) => {
+                    warn_skipped_unreadable(&directory, error, skipped_unreadable_count);
+                }
+            }
+        }
         entries.sort_by_key(|entry| path_string(&entry.path()));
         for entry in entries.into_iter().rev() {
             let path = entry.path();
-            let metadata = fs::metadata(&path)?;
-            if metadata.is_dir() {
-                stack.push(path);
-            } else if metadata.is_file() {
-                files.push(path);
+            let metadata = fs::metadata(&path);
+            match classify_path(path, metadata, skipped_unreadable_count) {
+                Some(WalkEntry::Directory(path)) => stack.push(path),
+                Some(WalkEntry::File(path)) => files.push(path),
+                None => {}
             }
         }
     }
-    Ok(files)
+    files
+}
+
+fn classify_path(
+    path: PathBuf,
+    metadata: io::Result<fs::Metadata>,
+    skipped_unreadable_count: &mut usize,
+) -> Option<WalkEntry> {
+    match metadata {
+        Ok(metadata) if metadata.is_dir() => Some(WalkEntry::Directory(path)),
+        Ok(metadata) if metadata.is_file() => Some(WalkEntry::File(path)),
+        Ok(_) => None,
+        Err(error) => {
+            warn_skipped_unreadable(&path, error, skipped_unreadable_count);
+            None
+        }
+    }
+}
+
+enum WalkEntry {
+    Directory(PathBuf),
+    File(PathBuf),
+}
+
+fn file_metadata_snapshot(path: &Path, skipped_unreadable_count: &mut usize) -> Option<(u64, u64)> {
+    let metadata = match path.metadata() {
+        Ok(metadata) => metadata,
+        Err(error) => {
+            warn_skipped_unreadable(path, error, skipped_unreadable_count);
+            return None;
+        }
+    };
+    let modified = match metadata.modified() {
+        Ok(modified) => modified,
+        Err(error) => {
+            warn_skipped_unreadable(path, error, skipped_unreadable_count);
+            return None;
+        }
+    };
+    Some((metadata.len(), system_time_epoch_ms(modified)))
+}
+
+fn warn_skipped_unreadable(
+    path: &Path,
+    error: impl std::fmt::Display,
+    skipped_unreadable_count: &mut usize,
+) {
+    *skipped_unreadable_count += 1;
+    eprintln!(
+        "Catalog scan warning: skipped unreadable path {}; error={error}",
+        path.display()
+    );
 }
 
 fn sidecar_subtitles(
     root: &Path,
     video_path: &Path,
     id_namespace: &str,
+    skipped_unreadable_count: &mut usize,
 ) -> Result<Vec<SubtitleFile>> {
     let Some(parent) = video_path.parent() else {
         return Ok(Vec::new());
@@ -262,25 +332,30 @@ fn sidecar_subtitles(
     let video_base_name = file_stem(video_path);
     let video_base_name_lowercase = video_base_name.to_lowercase();
     let mut subtitles = Vec::new();
-    let mut entries = fs::read_dir(parent)
-        .map_err(|error| {
-            LibraryServerError::with_context(
-                error,
-                format!("failed to read subtitle directory {}", parent.display()),
-            )
-        })?
-        .collect::<std::result::Result<Vec<_>, _>>()
-        .map_err(|error| {
-            LibraryServerError::with_context(
-                error,
-                format!("failed to read subtitle directory {}", parent.display()),
-            )
-        })?;
+    let Ok(read_dir) = fs::read_dir(parent).inspect_err(|error| {
+        warn_skipped_unreadable(parent, error, skipped_unreadable_count);
+    }) else {
+        return Ok(Vec::new());
+    };
+    let mut entries = Vec::new();
+    for entry in read_dir {
+        match entry {
+            Ok(entry) => entries.push(entry),
+            Err(error) => {
+                warn_skipped_unreadable(parent, error, skipped_unreadable_count);
+            }
+        }
+    }
     entries.sort_by_key(|entry| path_string(&entry.path()));
 
     for entry in entries {
         let path = entry.path();
-        if !fs::metadata(&path)?.is_file() {
+        let Ok(metadata) = fs::metadata(&path).inspect_err(|error| {
+            warn_skipped_unreadable(&path, error, skipped_unreadable_count);
+        }) else {
+            continue;
+        };
+        if !metadata.is_file() {
             continue;
         }
         let extension = extension_lowercase(&path);
@@ -360,10 +435,9 @@ fn relative_media_path(root: &Path, path: &Path) -> Result<String> {
 fn media_type(extension: &str) -> &'static str {
     match extension {
         "m4v" | "mp4" => "video/mp4",
+        "mkv" => "video/x-matroska",
         "webm" => "video/webm",
         "ts" | "m2ts" => "video/mp2t",
-        // Kotlin does not special-case mkv/avi/mov today, so clients see
-        // application/octet-stream for most local video containers.
         _ => "application/octet-stream",
     }
 }
@@ -684,16 +758,6 @@ fn is_regex_word_char(char: char) -> bool {
     char.is_ascii_alphanumeric() || char == '_'
 }
 
-fn last_modified_epoch_ms(path: &Path) -> Result<u64> {
-    let modified = path.metadata()?.modified().map_err(|error| {
-        LibraryServerError::with_context(
-            error,
-            format!("failed to read file modified time {}", path.display()),
-        )
-    })?;
-    Ok(system_time_epoch_ms(modified))
-}
-
 fn system_time_epoch_ms(time: SystemTime) -> u64 {
     let millis = time
         .duration_since(UNIX_EPOCH)
@@ -727,6 +791,7 @@ struct SubtitleFile {
 #[cfg(test)]
 mod tests {
     use std::fs;
+    use std::io;
     use std::path::{Path, PathBuf};
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::thread;
@@ -822,10 +887,84 @@ mod tests {
                 })
                 .collect::<Vec<_>>()
         );
-        assert_eq!("application/octet-stream", catalog.items[0].media_type);
+        assert_eq!("video/x-matroska", catalog.items[0].media_type);
         assert_eq!("video/webm", catalog.items[2].media_type);
         assert_eq!("video/mp4", catalog.items[3].media_type);
 
+        fs::remove_dir_all(temp).expect("temp should delete");
+    }
+
+    #[test]
+    fn skips_nonexistent_root_among_valid_roots() {
+        let temp = temp_dir("danmaku-scan-missing-root");
+        let root = temp.join("Anime");
+        let show = root.join("Example Show");
+        fs::create_dir_all(&show).expect("dirs");
+        write_bytes(&show.join("Episode 01.mp4"), &[1, 2, 3, 4]);
+        let missing_root = temp.join("Missing");
+
+        let scan = scan_roots(&[root.clone(), missing_root], None).expect("scan should succeed");
+
+        assert_eq!(2, scan.scanned_root_count);
+        assert_eq!(1, scan.skipped_unreadable_count);
+        assert_eq!(1, scan.published_library.catalog.items.len());
+        assert_eq!(
+            "Example Show",
+            scan.published_library.catalog.items[0].series_title
+        );
+
+        fs::remove_dir_all(temp).expect("temp should delete");
+    }
+
+    #[test]
+    fn classifies_vanished_entry_as_unreadable_skip() {
+        let mut skipped_unreadable_count = 0;
+
+        let classified = classify_path(
+            PathBuf::from("vanished.mkv"),
+            Err(io::Error::new(io::ErrorKind::NotFound, "file vanished")),
+            &mut skipped_unreadable_count,
+        );
+
+        assert!(classified.is_none());
+        assert_eq!(1, skipped_unreadable_count);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn skips_unreadable_subdirectory_on_windows() {
+        let temp = temp_dir("danmaku-scan-unreadable");
+        let root = temp.join("Anime");
+        let show = root.join("Example Show");
+        let unreadable = root.join("Unreadable");
+        fs::create_dir_all(&show).expect("show dirs");
+        fs::create_dir_all(&unreadable).expect("unreadable dirs");
+        write_bytes(&show.join("Episode 01.mp4"), &[1, 2, 3, 4]);
+        write_bytes(&unreadable.join("Hidden Episode.mkv"), &[5, 6, 7, 8]);
+        let Some(guard) = deny_windows_read(&unreadable) else {
+            eprintln!(
+                "skipping Windows unreadable-directory fixture; icacls could not deny reads for {}",
+                unreadable.display()
+            );
+            fs::remove_dir_all(temp).expect("temp should delete");
+            return;
+        };
+        if fs::read_dir(&unreadable).is_ok() {
+            drop(guard);
+            fs::remove_dir_all(temp).expect("temp should delete");
+            panic!("unreadable fixture should reject directory reads");
+        }
+
+        let scan = scan_roots(std::slice::from_ref(&root), None).expect("scan should succeed");
+
+        assert_eq!(1, scan.published_library.catalog.items.len());
+        assert_eq!(1, scan.skipped_unreadable_count);
+        assert_eq!(
+            "Example Show",
+            scan.published_library.catalog.items[0].series_title
+        );
+
+        drop(guard);
         fs::remove_dir_all(temp).expect("temp should delete");
     }
 
@@ -944,6 +1083,39 @@ mod tests {
 
     fn write_text(path: &Path, text: &str) {
         fs::write(path, text).unwrap_or_else(|error| panic!("write {}: {error}", path.display()));
+    }
+
+    #[cfg(windows)]
+    fn deny_windows_read(path: &Path) -> Option<WindowsAclDenyGuard> {
+        let status = std::process::Command::new("icacls")
+            .arg(path)
+            .arg("/deny")
+            .arg("*S-1-1-0:(RD)")
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .ok()?;
+        status
+            .success()
+            .then(|| WindowsAclDenyGuard { path: path.into() })
+    }
+
+    #[cfg(windows)]
+    struct WindowsAclDenyGuard {
+        path: PathBuf,
+    }
+
+    #[cfg(windows)]
+    impl Drop for WindowsAclDenyGuard {
+        fn drop(&mut self) {
+            let _ = std::process::Command::new("icacls")
+                .arg(&self.path)
+                .arg("/remove:d")
+                .arg("*S-1-1-0")
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .status();
+        }
     }
 
     #[test]
