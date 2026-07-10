@@ -1,7 +1,5 @@
 package app.danmaku.desktop
 
-import app.danmaku.provider.dandanplay.DandanplayAuthenticationMode
-import app.danmaku.provider.dandanplay.DandanplayConnection
 import kotlin.io.path.createTempDirectory
 import kotlin.test.Test
 import kotlin.test.assertEquals

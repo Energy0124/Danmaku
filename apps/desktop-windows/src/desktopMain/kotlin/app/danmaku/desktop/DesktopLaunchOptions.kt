@@ -61,7 +61,7 @@ internal data class DesktopLaunchOptions(
                 ?.takeIf(String::isNotBlank)
                 ?.also { remoteClientRequested = true }
             var remoteAutoLoad = true
-            var rustSidecarEnabled = environment[RUST_SIDECAR_ENV].toBooleanLaunchFlag()
+            var rustSidecarEnabled = environment[RUST_SIDECAR_ENV].toBooleanLaunchFlagOrNull() ?: true
             var rustServerPath = environment[RUST_SERVER_PATH_ENV]
                 ?.takeIf(String::isNotBlank)
                 ?.let(Path::of)
@@ -102,17 +102,13 @@ internal data class DesktopLaunchOptions(
                     arg.startsWith("--server-port=") -> {
                         serverPort = arg.substringAfter("=").toServerPort()
                     }
-                    arg == "--server-pairing-token" || arg == "--embedded-pairing-token" -> {
+                    arg == "--server-pairing-token" -> {
                         serverPairingToken = args.valueAfter(arg, index)
                         index += 1
                     }
                     arg.startsWith("--server-pairing-token=") -> {
                         serverPairingToken = arg.substringAfter("=").takeIf(String::isNotBlank)
                             ?: error("--server-pairing-token requires a value")
-                    }
-                    arg.startsWith("--embedded-pairing-token=") -> {
-                        serverPairingToken = arg.substringAfter("=").takeIf(String::isNotBlank)
-                            ?: error("--embedded-pairing-token requires a value")
                     }
                     arg == "--web-assets-dir" || arg == "--web-ui-dist" -> {
                         webAssetsRoot = args.valueAfter(arg, index)?.let(Path::of)
@@ -259,6 +255,18 @@ internal data class DesktopLaunchOptions(
                 index += 1
             }
 
+            val hasRemoteClient = remoteServerUrl != null
+            if (remoteClientRequested && !hasRemoteClient) {
+                error("Remote client options require --remote-server-url or $REMOTE_SERVER_URL_ENV")
+            }
+            if (!rustSidecarEnabled && !hasRemoteClient) {
+                error("--no-rust-sidecar is only valid with --remote-server-url")
+            }
+            if (qaSidecarAutoplayFirst && hasRemoteClient) {
+                error("--qa-sidecar-autoplay-first cannot be used with --remote-server-url")
+            }
+            val startRustSidecar = !hasRemoteClient
+
             return DesktopLaunchOptions(
                 smokePlayback = smokeMediaPath?.let { mediaPath ->
                     DesktopSmokePlaybackOptions(
@@ -268,9 +276,7 @@ internal data class DesktopLaunchOptions(
                     )
                 },
                 initialLanguage = initialLanguage,
-                initialTab = initialTab ?: DesktopShellTab.MEDIA_LIBRARY.takeIf {
-                    remoteClientRequested || rustSidecarEnabled
-                },
+                initialTab = initialTab ?: DesktopShellTab.MEDIA_LIBRARY,
                 serverPort = serverPort,
                 serverPairingToken = serverPairingToken,
                 webAssetsRoot = webAssetsRoot,
@@ -283,7 +289,7 @@ internal data class DesktopLaunchOptions(
                     )
                 },
                 rustSidecar = DesktopRustSidecarOptions(
-                    enabled = rustSidecarEnabled,
+                    enabled = startRustSidecar,
                     serverPath = rustServerPath,
                 ),
                 qaSidecarAutoplayFirst = qaSidecarAutoplayFirst,
@@ -336,16 +342,18 @@ internal data class DesktopLaunchOptions(
                 ?.takeIf { it in 0..65_535 }
                 ?: error("Server port must be between 0 and 65535: $this")
 
-        private fun String?.toBooleanLaunchFlag(): Boolean =
+        private fun String?.toBooleanLaunchFlagOrNull(): Boolean? =
             when (this?.trim()?.lowercase()) {
                 "1", "true", "yes", "y", "on" -> true
-                else -> false
+                "0", "false", "no", "n", "off" -> false
+                null, "" -> null
+                else -> error("$RUST_SIDECAR_ENV must be a boolean value")
             }
     }
 }
 
 internal data class DesktopRustSidecarOptions(
-    val enabled: Boolean = false,
+    val enabled: Boolean = true,
     val serverPath: Path? = null,
 )
 

@@ -36,7 +36,8 @@ internal class DesktopShellLibraryActions(
     private val rootScanner: DesktopLibraryRootScanner,
     private val animeMetadataResolver: DesktopAnimeMetadataResolver,
     private val dandanplayDanmakuResolver: DesktopDandanplayDanmakuResolver,
-    private val externalAnimeCredentialStore: ExternalAnimeCredentialStore,
+    private val serverBaseUrl: () -> String,
+    private val pairingToken: () -> String,
     private val posterCache: DesktopAnimePosterCache,
     private val settingsState: DesktopShellSettingsState,
     private val libraryState: DesktopShellLibraryState,
@@ -989,25 +990,22 @@ internal class DesktopShellLibraryActions(
     }
 
     private fun buildExternalAnimeTrackingClients(): Map<ExternalAnimeProvider, ExternalAnimeTrackingClient> =
-        buildMap {
-            externalAnimeCredentialStore.loadMyAnimeListTrackingClient()
-                ?.let { put(it.provider, it) }
-            externalAnimeCredentialStore.loadBangumiTrackingClient()
-                ?.let { put(it.provider, it) }
-        }
+        listOf(ExternalAnimeProvider.MY_ANIME_LIST, ExternalAnimeProvider.BANGUMI)
+            .associateWith(::rustServerProviderClient)
 
     private fun buildExternalAnimeSearchClients(
         providers: Set<ExternalAnimeProvider>,
     ): List<ExternalAnimeSearchClient> =
-        buildList {
-            if (ExternalAnimeProvider.MY_ANIME_LIST in providers) {
-                externalAnimeCredentialStore.loadMyAnimeListSearchConnection()
-                    ?.let { add(MyAnimeListAnimeSearchClient(it)) }
-            }
-            if (ExternalAnimeProvider.BANGUMI in providers) {
-                add(externalAnimeCredentialStore.loadBangumiSearchClient())
-            }
-        }
+        providers
+            .filter { it != ExternalAnimeProvider.DANDANPLAY }
+            .map(::rustServerProviderClient)
+
+    private fun rustServerProviderClient(provider: ExternalAnimeProvider): RustServerProviderClient =
+        RustServerProviderClient(
+            provider = provider,
+            baseUrl = serverBaseUrl,
+            pairingToken = pairingToken,
+        )
 
     private data class ExternalAnimeSyncResult(
         val successCount: Int,

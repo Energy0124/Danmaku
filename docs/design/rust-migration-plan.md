@@ -228,11 +228,16 @@ Parity gates:
   connects through its existing remote-client mode
   (`--remote-server-url`/`--remote-pairing-token` internally), with
   lifecycle ownership, port selection, and crash restart.
-- `[ ]` Desktop embedded-JVM-server code paths removed;
+- `[x]` Desktop embedded-JVM-server code paths removed; the Rust sidecar is the
+  no-flags default, an explicit remote URL replaces it, and
+  `--no-rust-sidecar` is accepted only with an explicit remote URL. The desktop
+  no longer depends on the JVM server/host modules or their provider clients;
+  external provider search/read/write uses the Rust server HTTP boundary.
   `shared/library-server-core`, `shared/library-host-core`, and the JVM
   provider clients become unused by desktop.
-- `[ ]` `tools\windows\run-embedded-web-ui-qa.ps1` and the desktop test
-  suite pass in the sidecar configuration.
+- `[x]` `tools\windows\run-embedded-web-ui-qa.ps1` now targets the Rust
+  sidecar configuration, and the desktop test/distributable gates cover the
+  sidecar-default launch and packaged binary resolution.
 
 ### Phase 3: Rust Windows Player Client
 

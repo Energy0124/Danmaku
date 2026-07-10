@@ -1,6 +1,6 @@
 # Current State
 
-Last reviewed: 2026-06-22.
+Last reviewed: 2026-07-10.
 
 Danmaku is in active foundation work. The strongest vertical slice is Windows
 desktop as the local library host/player, with Android mobile and Android TV as
@@ -30,7 +30,7 @@ trusted-LAN clients.
   playback presentation constants/helpers have been split out of the original
   shell file. The `Main.kt` decomposition is now tracked in
   `docs/design/desktop-main-refactor-plan.md`, with feature tab files being
-  separated and the first remembered diagnostics/server-event state object
+  separated and the remembered diagnostics state object
   extracted from the shell. Library UI has also been split into focused tab,
   workspace, list/progress, inspector/mapping, and helper files. Settings UI
   is split into routing/profile, danmaku controls, dialogs/cache/server, and
@@ -43,7 +43,7 @@ trusted-LAN clients.
   focused files; the library workspace external-sync preview rows now live in
   `DesktopLibraryExternalSyncPreview.kt`, and metadata match dialog/candidate
   rendering lives in `DesktopLibraryMetadataMatchDialog.kt`. `DesktopShell.kt`
-  has diagnostics/server-event and
+  has diagnostics and
   navigation/search/language state objects extracted, plus a playback session
   state object for queued playback/progress/smoke/autonext flags, and a
   settings state object for preferences/provider statuses/cache entries.
@@ -76,30 +76,31 @@ trusted-LAN clients.
   resolution on desktop.
 - Multi-root local anime library indexing, incremental rescanning, ani-rss
   output-folder import, and persistent SQLDelight/SQLite storage.
-- Trusted-LAN library server with pairing token, JSON catalog, byte-range media
-  streaming, subtitle streaming, poster serving, progress API, authenticated
-  hooks, optional `/web/` static asset serving, additive web/status capability
-  fields, and UDP discovery.
+- Rust trusted-LAN library server launched as an owned desktop sidecar by
+  default, with pairing token, JSON catalog, byte-range media/subtitle/poster
+  serving, progress and provider APIs, `/web/` assets, UDP discovery, readiness
+  polling, crash restart, and shutdown ownership. An explicit
+  `--remote-server-url` replaces the sidecar.
 - Local and paired-LAN playback preparation, one-click play/resume, progress
   persistence, previous/next episode navigation, and optional auto-next. Desktop
-  can also launch into the remote-library browser with
+  launches into the sidecar-backed remote-library browser by default and can
+  target another host with
   `--remote-server-url`/`--remote-pairing-token` or the matching
   `DANMAKU_REMOTE_*` environment variables, auto-load a remote catalog, and
   stream remote media URLs through the libmpv-backed controller.
 - libmpv playback through a Rust/JNA bridge, embedded Windows video host,
   command planning, fullscreen/aspect controls, volume/rate controls, seeking,
   and runtime audio/subtitle track selection.
-- dandanplay provider settings, signed/credential auth modes, optional Worker
-  proxy usage, shared JVM API client/parsing code, shared MAL/Bangumi list
-  tracking clients, media matching, comment
-  fetching, ASS overlay generation, cached match/comment storage, cache
-  cleanup, and manual match correction.
+- Existing desktop dandanplay settings/cache models, ASS overlay generation,
+  cached match/comment storage, cleanup, and manual match correction remain.
+  Direct JVM provider clients were removed; server-backed playback and provider
+  work crosses the Rust HTTP API.
 - Manual local danmaku attachment path and cached/synthetic overlay rendering.
 - Anime metadata/poster resolution and cache, poster loading states, and manual
   metadata refresh on series/episode surfaces.
-- MyAnimeList and Bangumi provider settings, manual mapping UI, metadata
-  search/cache clients, MAL OAuth callback flow, encrypted token storage,
-  provider readback/write clients, External Sync preview, and explicit sync
+- MyAnimeList and Bangumi provider settings, manual mapping UI, metadata cache,
+  Rust-server-backed provider search/read/write, encrypted legacy desktop token
+  storage, External Sync preview, and explicit sync
   action with pre-write external-progress conflict checks. Imported provider
   list entries and sync failures persist in the desktop catalog database across
   relaunch, and provider-ahead conflicts can seed local watched progress from
@@ -161,14 +162,13 @@ trusted-LAN clients.
 - Cloudflare Worker proxy for dandanplay match/comment requests without
   shipping a dandanplay AppSecret in public clients.
 - CI on Windows, Rust, Worker proxy, and macOS desktop build/test paths.
-- A first server/client/web split foundation is in place: documented split
-  plan, `shared:library-host-core` host contracts, opt-in desktop
-  `--web-assets-dir`/`DANMAKU_WEB_UI_DIST` serving, a Vite TypeScript web UI
+- The server/client/web split is active: desktop has no embedded JVM host and
+  launches `native/library-server` as its default sidecar, while a Vite web UI
   scaffold for pairing/catalog/video/progress, provider readiness,
   provider mapping search, manual external-list read/write controls with
   metadata-link ID auto-fill, dandanplay match/comment preview with basic
   web video overlay controls and persisted browser preferences, and an
-  `apps:library-server-windows` headless JVM host with data-directory locking,
+  Rust headless host with data-directory locking,
   startup scanning for configured `--root` folders, JSON catalog publishing,
   durable catalog snapshots for startup readback, sidecar subtitle discovery,
   shared LAN media/subtitle streaming, non-secret provider status summaries,
@@ -188,10 +188,17 @@ trusted-LAN clients.
   preference persistence, provider search, Use ID, and external-list form
   read/save behavior before writing PASS/FAIL reports under
   `build/qa/headless-web-ui/`. The new
-  `tools/windows/run-embedded-web-ui-qa.ps1` helper launches the Compose desktop
-  host with isolated `LOCALAPPDATA`, deterministic `--server-pairing-token`,
+  `tools/windows/run-embedded-web-ui-qa.ps1` compatibility-named helper launches
+  Compose desktop with isolated `LOCALAPPDATA`, deterministic sidecar settings,
   fixture `--qa-library-root`, and local web assets so the same web/browser
-  surface is checked against the default embedded desktop host.
+  surface is checked against the default Rust sidecar.
+
+- The removed embedded host had no Rust-sidecar event stream or ani-rss
+  completion-webhook equivalent. Compose therefore no longer shows per-request
+  server events and leaves the Downloads webhook fields empty. The removed
+  embedded MAL OAuth callback and direct local dandanplay metadata refresh also
+  have no Compose-side sidecar replacement; provider administration belongs to
+  the Rust server/Web UI boundary.
 
 ## Partial Or Needs More QA
 

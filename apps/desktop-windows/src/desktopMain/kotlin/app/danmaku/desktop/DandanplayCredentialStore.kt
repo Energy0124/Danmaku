@@ -1,7 +1,5 @@
 package app.danmaku.desktop
 
-import app.danmaku.provider.dandanplay.DandanplayAuthenticationMode
-import app.danmaku.provider.dandanplay.DandanplayConnection
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.Base64

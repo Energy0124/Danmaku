@@ -1,24 +1,18 @@
 package app.danmaku.desktop
 
-import app.danmaku.provider.dandanplay.DandanplayAuthenticationMode
-import app.danmaku.provider.dandanplay.DandanplayDanmakuClient
 import app.danmaku.domain.DanmakuDisplaySettings
-import app.danmaku.domain.ExternalAnimeMatchQuery
 import app.danmaku.library.LanLibraryConnectionSession
 import app.danmaku.library.jvm.JvmLanLibraryClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.awt.Desktop
-import java.net.URI
 
 internal class DesktopShellSettingsActions(
     private val scope: CoroutineScope,
     private val playbackPreferencesStore: DesktopPlaybackPreferencesStore,
     private val dandanplayCredentialStore: DandanplayCredentialStore,
     private val externalAnimeCredentialStore: ExternalAnimeCredentialStore,
-    private val myAnimeListOAuthService: MyAnimeListOAuthService,
     private val dandanplayDanmakuResolver: DesktopDandanplayDanmakuResolver,
     private val catalogStore: DesktopLibraryCatalogStore,
     private val settingsState: DesktopShellSettingsState,
@@ -101,43 +95,13 @@ internal class DesktopShellSettingsActions(
     }
 
     fun startMyAnimeListOAuth(
-        myAnimeListClientId: String?,
-        myAnimeListClientSecret: String?,
+        @Suppress("UNUSED_PARAMETER") myAnimeListClientId: String?,
+        @Suppress("UNUSED_PARAMETER") myAnimeListClientSecret: String?,
     ) {
-        scope.launch {
-            runCatching {
-                val updatedSettings = withContext(Dispatchers.IO) {
-                    externalAnimeCredentialStore.saveSettings(
-                        myAnimeListClientId = myAnimeListClientId,
-                        myAnimeListClientSecret = myAnimeListClientSecret,
-                        myAnimeListAccessToken = null,
-                        bangumiBaseUrl = settingsState.externalAnimeProviderSettings.bangumiBaseUrl,
-                        bangumiUserAgent = settingsState.externalAnimeProviderSettings.bangumiUserAgent,
-                        bangumiAccessToken = null,
-                    )
-                }
-                settingsState.externalAnimeProviderSettings = updatedSettings
-                val redirectUri = "${serverBaseUrl()}${DesktopLibraryServerRuntime.MY_ANIME_LIST_OAUTH_CALLBACK_PATH}"
-                val clientSecret = myAnimeListClientSecret?.trim()?.takeIf(String::isNotBlank)
-                    ?: withContext(Dispatchers.IO) {
-                        externalAnimeCredentialStore.loadMyAnimeListClientSecret()
-                    }
-                val authorizationUri = myAnimeListOAuthService.beginAuthorization(
-                    redirectUri = redirectUri,
-                    clientSecret = clientSecret,
-                )
-                if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
-                    Desktop.getDesktop().browse(authorizationUri)
-                    "Opened MyAnimeList authorization in browser; callback=$redirectUri"
-                } else {
-                    "Open this MyAnimeList authorization URL: $authorizationUri"
-                }
-            }.onSuccess { message ->
-                appendDiagnostic("settings", message)
-            }.onFailure {
-                appendDiagnostic("settings", "Failed to start MyAnimeList OAuth: ${it.message}")
-            }
-        }
+        appendDiagnostic(
+            "settings",
+            "MyAnimeList OAuth is managed by the Rust server; the removed embedded callback is unavailable in Compose desktop.",
+        )
     }
 
     fun clearMyAnimeListSettings() {
@@ -179,17 +143,16 @@ internal class DesktopShellSettingsActions(
             appendDiagnostic("settings", "Testing saved dandanplay connection...")
             runCatching {
                 withContext(Dispatchers.IO) {
-                    DandanplayDanmakuClient(dandanplayCredentialStore.loadConnection())
-                        .fetchAnimeDetails(1L)
+                    LanLibraryConnectionSession(JvmLanLibraryClient()).validateServer(serverBaseUrl())
                 }
-            }.onSuccess { anime ->
+            }.onSuccess { status ->
                 appendDiagnostic(
                     "settings",
-                    "dandanplay connection OK: ${anime.titles.primary} (#${anime.id.value})",
+                    "Rust provider host is reachable: API ${status.apiVersion}",
                 )
                 settingsState.dandanplayConnectionTestStatus = SettingsConnectionTestStatus(
                     outcome = SettingsConnectionTestOutcome.SUCCESS,
-                    detail = "${anime.titles.primary} (#${anime.id.value})",
+                    detail = "Rust server API ${status.apiVersion}",
                 )
             }.onFailure {
                 val message = it.readableMessage()
@@ -203,15 +166,6 @@ internal class DesktopShellSettingsActions(
     }
 
     fun testMyAnimeListConnection() {
-        val clientId = settingsState.externalAnimeProviderSettings.myAnimeListClientId
-        if (clientId.isNullOrBlank()) {
-            appendDiagnostic("settings", "MyAnimeList connection test needs a saved client ID")
-            settingsState.myAnimeListConnectionTestStatus = SettingsConnectionTestStatus(
-                outcome = SettingsConnectionTestOutcome.FAILURE,
-                detail = "Save a MyAnimeList client ID first.",
-            )
-            return
-        }
         settingsState.myAnimeListConnectionTestStatus = SettingsConnectionTestStatus(
             outcome = SettingsConnectionTestOutcome.TESTING,
             detail = "Searching MyAnimeList with the saved client ID...",
@@ -220,17 +174,16 @@ internal class DesktopShellSettingsActions(
             appendDiagnostic("settings", "Testing saved MyAnimeList connection...")
             runCatching {
                 withContext(Dispatchers.IO) {
-                    MyAnimeListAnimeSearchClient(MyAnimeListSearchConnection(clientId))
-                        .search(ExternalAnimeMatchQuery(title = "Frieren"), limit = 1)
+                    LanLibraryConnectionSession(JvmLanLibraryClient()).validateServer(serverBaseUrl())
                 }
-            }.onSuccess { results ->
+            }.onSuccess { status ->
                 appendDiagnostic(
                     "settings",
-                    "MyAnimeList connection OK: ${results.firstOrNull()?.titles?.primary ?: "no anime returned"}",
+                    "Rust provider host is reachable: API ${status.apiVersion}",
                 )
                 settingsState.myAnimeListConnectionTestStatus = SettingsConnectionTestStatus(
                     outcome = SettingsConnectionTestOutcome.SUCCESS,
-                    detail = results.firstOrNull()?.titles?.primary ?: "No anime returned.",
+                    detail = "Rust server API ${status.apiVersion}",
                 )
             }.onFailure {
                 val message = it.readableMessage()
@@ -244,7 +197,6 @@ internal class DesktopShellSettingsActions(
     }
 
     fun testBangumiConnection() {
-        val settings = settingsState.externalAnimeProviderSettings
         settingsState.bangumiConnectionTestStatus = SettingsConnectionTestStatus(
             outcome = SettingsConnectionTestOutcome.TESTING,
             detail = "Searching Bangumi with the saved base URL and User-Agent...",
@@ -253,19 +205,16 @@ internal class DesktopShellSettingsActions(
             appendDiagnostic("settings", "Testing saved Bangumi connection...")
             runCatching {
                 withContext(Dispatchers.IO) {
-                    BangumiAnimeSearchClient(
-                        baseUri = URI(settings.bangumiBaseUrl),
-                        userAgent = settings.bangumiUserAgent,
-                    ).search(ExternalAnimeMatchQuery(title = "Frieren"), limit = 1)
+                    LanLibraryConnectionSession(JvmLanLibraryClient()).validateServer(serverBaseUrl())
                 }
-            }.onSuccess { results ->
+            }.onSuccess { status ->
                 appendDiagnostic(
                     "settings",
-                    "Bangumi connection OK: ${results.firstOrNull()?.titles?.primary ?: "no anime returned"}",
+                    "Rust provider host is reachable: API ${status.apiVersion}",
                 )
                 settingsState.bangumiConnectionTestStatus = SettingsConnectionTestStatus(
                     outcome = SettingsConnectionTestOutcome.SUCCESS,
-                    detail = results.firstOrNull()?.titles?.primary ?: "No anime returned.",
+                    detail = "Rust server API ${status.apiVersion}",
                 )
             }.onFailure {
                 val message = it.readableMessage()

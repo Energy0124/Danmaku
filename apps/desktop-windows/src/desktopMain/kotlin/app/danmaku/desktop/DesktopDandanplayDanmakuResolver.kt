@@ -1,10 +1,5 @@
 package app.danmaku.desktop
 
-import app.danmaku.provider.dandanplay.DandanplayCommentTrack
-import app.danmaku.provider.dandanplay.DandanplayConnection
-import app.danmaku.provider.dandanplay.DandanplayDanmakuClient
-import app.danmaku.provider.dandanplay.DandanplayMatch
-import app.danmaku.provider.dandanplay.DandanplayMediaFingerprint
 import app.danmaku.domain.DanmakuEvent
 import app.danmaku.domain.DanmakuDisplaySettings
 import app.danmaku.domain.DanmakuMode
@@ -26,11 +21,11 @@ class DesktopDandanplayDanmakuResolver(
     private val cacheMaxAgeDays: () -> Int = { DEFAULT_CACHE_MAX_AGE_DAYS },
     private val danmakuSettings: () -> DanmakuDisplaySettings = { DanmakuDisplaySettings() },
     private val cacheStore: DandanplayCommentCacheStore? = null,
-    private val fetchMatches: (DandanplayConnection, DandanplayMediaFingerprint) -> List<DandanplayMatch> = { connection, fingerprint ->
-        DandanplayDanmakuClient(connection).match(fingerprint)
+    private val fetchMatches: (DandanplayConnection, DandanplayMediaFingerprint) -> List<DandanplayMatch> = { _, _ ->
+        directProviderAccessRemoved()
     },
-    private val fetchComments: (DandanplayConnection, DandanplayMatch) -> List<DanmakuEvent> = { connection, match ->
-        DandanplayDanmakuClient(connection).fetchComments(match.episodeId, withRelated = true)
+    private val fetchComments: (DandanplayConnection, DandanplayMatch) -> List<DanmakuEvent> = { _, _ ->
+        directProviderAccessRemoved()
     },
     private val cacheDirectory: Path = defaultCacheDirectory(),
     private val nowEpochMs: () -> Long = System::currentTimeMillis,

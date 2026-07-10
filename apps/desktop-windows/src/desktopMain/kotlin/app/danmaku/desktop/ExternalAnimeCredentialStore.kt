@@ -29,28 +29,10 @@ class ExternalAnimeCredentialStore(
     }
 
     fun loadMyAnimeListSearchConnection(): MyAnimeListSearchConnection? =
-        loadSettings()
-            .myAnimeListClientId
-            ?.let(::MyAnimeListSearchConnection)
-
-    fun loadBangumiSearchClient(): BangumiAnimeSearchClient {
-        val settings = loadSettings()
-        return BangumiAnimeSearchClient(
-            baseUri = URI(settings.bangumiBaseUrl),
-            userAgent = settings.bangumiUserAgent,
-        )
-    }
+        loadSettings().myAnimeListClientId?.let(::MyAnimeListSearchConnection)
 
     fun loadMyAnimeListAccessToken(): String? =
         loadSecret(MAL_ACCESS_TOKEN_SETTING_KEY)
-
-    fun loadMyAnimeListTrackingClient(): MyAnimeListTrackingClient? =
-        loadMyAnimeListAccessToken()
-            ?.let { accessToken ->
-                MyAnimeListTrackingClient(
-                    MyAnimeListTrackingConnection(accessToken = accessToken),
-                )
-            }
 
     fun loadMyAnimeListClientSecret(): String? =
         loadSecret(MAL_CLIENT_SECRET_SETTING_KEY)
@@ -67,18 +49,6 @@ class ExternalAnimeCredentialStore(
 
     fun loadBangumiAccessToken(): String? =
         loadSecret(BANGUMI_ACCESS_TOKEN_SETTING_KEY)
-
-    fun loadBangumiTrackingClient(): BangumiTrackingClient? {
-        val accessToken = loadBangumiAccessToken() ?: return null
-        val settings = loadSettings()
-        return BangumiTrackingClient(
-            BangumiTrackingConnection(
-                accessToken = accessToken,
-                baseUri = URI(settings.bangumiBaseUrl),
-                userAgent = settings.bangumiUserAgent,
-            ),
-        )
-    }
 
     fun saveSettings(
         myAnimeListClientId: String?,

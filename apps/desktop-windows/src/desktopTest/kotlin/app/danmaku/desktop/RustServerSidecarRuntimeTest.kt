@@ -91,6 +91,24 @@ class RustServerSidecarRuntimeTest {
     }
 
     @Test
+    fun binaryResolverFindsServerStagedInPackagedAppLayout() {
+        val temp = createTempDirectory("danmaku-rust-sidecar-packaged")
+        val packagedBinary = temp.resolve("app").resolve("server").resolve(executableName()).also { path ->
+            path.parent.createDirectories()
+            path.writeText("packaged")
+        }
+
+        val resolution = RustServerBinaryResolver.resolve(
+            launchOverride = null,
+            environment = emptyMap(),
+            repositoryRoot = temp,
+        )
+
+        assertEquals(packagedBinary.toAbsolutePath().normalize(), resolution.path)
+        assertEquals(RustServerBinaryResolutionSource.PACKAGED_APP, resolution.source)
+    }
+
+    @Test
     fun binaryResolverReportsTypedMissingBinary() {
         val error = assertFailsWith<RustServerSidecarException> {
             RustServerBinaryResolver.resolve(

@@ -1,8 +1,5 @@
 package app.danmaku.desktop
 
-import app.danmaku.provider.dandanplay.DandanplayConnection
-import app.danmaku.provider.dandanplay.DandanplayDanmakuClient
-import app.danmaku.provider.dandanplay.DandanplayMediaFingerprint
 import app.danmaku.domain.ExternalAnimeId
 import app.danmaku.domain.ExternalAnimeInfo
 import app.danmaku.domain.ExternalAnimeMappingSource
@@ -15,15 +12,12 @@ class DesktopAnimeMetadataResolver(
     private val catalogStore: DesktopLibraryCatalogStore,
     private val loadConnection: () -> DandanplayConnection,
     private val posterCache: DesktopAnimePosterCache = DesktopAnimePosterCache.default(),
-    private val fetchAnimeDetails: (DandanplayConnection, Long) -> ExternalAnimeInfo =
-        { connection, animeId -> DandanplayDanmakuClient(connection).fetchAnimeDetails(animeId) },
-    private val matchAnimeIdForPath: (DandanplayConnection, Path) -> Long? =
-        { connection, path ->
-            DandanplayDanmakuClient(connection)
-                .match(DandanplayMediaFingerprint.fromPath(path))
-                .firstOrNull()
-                ?.animeId
-        },
+    private val fetchAnimeDetails: (DandanplayConnection, Long) -> ExternalAnimeInfo = { _, _ ->
+        directProviderAccessRemoved()
+    },
+    private val matchAnimeIdForPath: (DandanplayConnection, Path) -> Long? = { _, _ ->
+        directProviderAccessRemoved()
+    },
     private val nowEpochMs: () -> Long = System::currentTimeMillis,
 ) {
     fun refreshDandanplayMetadataForSeries(

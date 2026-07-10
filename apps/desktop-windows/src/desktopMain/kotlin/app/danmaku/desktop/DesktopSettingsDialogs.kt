@@ -172,9 +172,6 @@ import app.danmaku.library.LanPlaybackPreparer
 import app.danmaku.library.LanPlaybackProgressSync
 import app.danmaku.library.LanPlaybackTarget
 import app.danmaku.library.jvm.JvmLanLibraryClient
-import app.danmaku.server.LocalLibraryDiscoveryAnnouncer
-import app.danmaku.server.LocalLibraryServerEvent
-import app.danmaku.server.PublicGetHookResponse
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -199,7 +196,6 @@ internal fun ServerDashboardDialog(
     serverBaseUrl: String,
     networkUrls: List<String>,
     pairingToken: String,
-    recentServerEvents: List<LocalLibraryServerEvent>,
     localServerConnectionTestStatus: SettingsConnectionTestStatus?,
     onTestLocalServerConnection: () -> Unit,
     onDismiss: () -> Unit,
@@ -207,8 +203,6 @@ internal fun ServerDashboardDialog(
     fun copyToClipboard(value: String) {
         Toolkit.getDefaultToolkit().systemClipboard.setContents(StringSelection(value), null)
     }
-    val recentEvents = recentServerEvents.takeLast(10).asReversed()
-
     AlertDialog(
         modifier = Modifier.width(760.dp),
         onDismissRequest = onDismiss,
@@ -254,22 +248,8 @@ internal fun ServerDashboardDialog(
                     localServerConnectionTestStatus?.let {
                         SettingsConnectionTestStatusRow(strings = strings, label = strings.lastTestLabel, status = it)
                     } ?: MetadataRow(strings.lastTestLabel, strings.notCheckedThisSessionLabel, DanmakuColors.TextMuted)
-                    MetadataRow(strings.recentRequestsLabel, recentServerEvents.size.toString())
                     MetadataRow(strings.connectedClientsLabel, strings.connectedClientsPlannedText, DanmakuColors.TextMuted)
                     MetadataRow(strings.bandwidthLabel, strings.bandwidthPlannedText, DanmakuColors.TextMuted)
-                }
-
-                Divider(color = DanmakuColors.SurfaceRaised)
-
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(strings.recentServerRequestsTitle, fontWeight = FontWeight.Bold)
-                    if (recentEvents.isEmpty()) {
-                        Text(strings.noServerRequestsText, color = DanmakuColors.TextMuted)
-                    } else {
-                        recentEvents.forEach { event ->
-                            ServerDashboardEventRow(event)
-                        }
-                    }
                 }
             }
         },
@@ -309,42 +289,6 @@ internal fun ServerDashboardCopyRow(
             imageVector = Icons.Filled.ContentCopy,
             label = strings.copyAction,
             onClick = onCopy,
-        )
-    }
-}
-
-@Composable
-internal fun ServerDashboardEventRow(event: LocalLibraryServerEvent) {
-    val isHealthyStatus = event.status in 200..399
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Text(
-            event.occurredAtEpochMs.formatEpochTime(),
-            color = DanmakuColors.TextMuted,
-            modifier = Modifier.width(118.dp),
-            maxLines = 1,
-        )
-        StatusPill(
-            text = event.status.toString(),
-            icon = if (isHealthyStatus) Icons.Filled.CheckCircle else Icons.Filled.Warning,
-            active = isHealthyStatus,
-            color = if (isHealthyStatus) DanmakuColors.Good else DanmakuColors.Warning,
-        )
-        Text(
-            "${event.method} ${event.path}",
-            modifier = Modifier.weight(1.15f),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Text(
-            event.detail.redactToken(),
-            color = DanmakuColors.TextMuted,
-            modifier = Modifier.weight(1f),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
         )
     }
 }

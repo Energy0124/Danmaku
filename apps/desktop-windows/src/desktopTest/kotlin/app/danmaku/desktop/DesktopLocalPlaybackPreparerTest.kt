@@ -2,7 +2,6 @@ package app.danmaku.desktop
 
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.domain.PlaybackSource
-import app.danmaku.server.InMemoryPlaybackProgressStore
 import kotlin.io.path.createDirectories
 import kotlin.io.path.createTempDirectory
 import kotlin.io.path.deleteExisting
@@ -23,7 +22,7 @@ class DesktopLocalPlaybackPreparerTest {
         subtitle.writeBytes("[Script Info]".encodeToByteArray())
         val library = LocalMediaLibraryIndexer.index(temp)
         val item = library.catalog.items.single()
-        val progressStore = InMemoryPlaybackProgressStore().apply {
+        val progressStore = InMemoryDesktopPlaybackProgressStore().apply {
             saveProgress(
                 PlaybackProgress(
                     mediaId = item.id,
@@ -63,7 +62,7 @@ class DesktopLocalPlaybackPreparerTest {
         episode.writeBytes(byteArrayOf(1, 2, 3))
         val library = LocalMediaLibraryIndexer.index(temp)
         val item = library.catalog.items.single()
-        val progressStore = InMemoryPlaybackProgressStore().apply {
+        val progressStore = InMemoryDesktopPlaybackProgressStore().apply {
             saveProgress(
                 PlaybackProgress(
                     mediaId = item.id,
@@ -92,7 +91,7 @@ class DesktopLocalPlaybackPreparerTest {
         episode.deleteExisting()
 
         val failure = assertFailsWith<DesktopUserActionException> {
-            DesktopLocalPlaybackPreparer(InMemoryPlaybackProgressStore()).prepare(library, item)
+            DesktopLocalPlaybackPreparer(InMemoryDesktopPlaybackProgressStore()).prepare(library, item)
         }
 
         assertEquals(
@@ -114,7 +113,7 @@ class DesktopLocalPlaybackPreparerTest {
         val libraryWithoutFile = library.copy(filesById = emptyMap())
 
         val failure = assertFailsWith<DesktopUserActionException> {
-            DesktopLocalPlaybackPreparer(InMemoryPlaybackProgressStore()).prepare(libraryWithoutFile, item)
+            DesktopLocalPlaybackPreparer(InMemoryDesktopPlaybackProgressStore()).prepare(libraryWithoutFile, item)
         }
 
         assertEquals("Indexed media file is missing for ${item.id}", failure.message)

@@ -9,19 +9,21 @@ only where native boundaries are useful.
 
 ### Windows Desktop
 
-The Windows desktop app is currently the primary host:
+The Windows desktop app is the primary player and starts the Rust library
+server as an owned sidecar by default:
 
 - indexes local anime folders;
 - persists catalog, settings, progress, provider cache, mappings, and queue
   state;
-- serves paired devices over trusted LAN HTTP;
+- connects to the sidecar over the existing LAN client boundary while the
+  sidecar serves paired devices over trusted LAN HTTP;
 - plays local and paired LAN media through libmpv;
-- resolves metadata/posters/danmaku from configured providers.
+- sends external provider search/read/write work through Rust server routes.
 
-The desktop process is also the default embedded library host. The planned
-split is boundary-first: shared host contracts, then a web UI, then an opt-in
-headless server, then desktop remote-client mode. The embedded desktop path
-must remain compatible while the split is introduced.
+There is no embedded JVM server in the desktop process. With no host flags the
+app owns a `library-server` sidecar; `--remote-server-url` selects an existing
+host instead. The sidecar executable and web assets are staged under the
+packaged application's `app/server` directory.
 
 ### Android Mobile And Tablet
 
@@ -49,10 +51,10 @@ clients must not require the web UI to be present.
 
 ### Headless Library Server
 
-A standalone headless server is planned after the host boundary is stable. It
-should reuse the same indexing, catalog, progress, provider, and HTTP serving
-contracts as the embedded desktop host, guarded by a data-directory lock so two
-processes do not write the same catalog database concurrently.
+The Rust `native/library-server` is the standalone and desktop-sidecar host. It
+owns indexing, catalog, progress, provider, HTTP/Web UI, and discovery behavior
+behind a data-directory lock. The experimental JVM headless app remains only
+for compatibility until Phase 4 of the Rust migration.
 
 ### Rust Native Client
 
@@ -68,11 +70,12 @@ shared:domain
 
 shared:library-server-core
   JVM LAN server primitives, HTTP routes, discovery announcements, hooks, and
-  progress-store contracts.
+  progress-store contracts used by the legacy headless JVM host and tests; the
+  desktop does not depend on it.
 
 shared:library-host-core
-  Shared host lifecycle/config/status contracts used by embedded and future
-  headless host implementations.
+  Legacy JVM host lifecycle/config/status contracts; the desktop does not
+  depend on it.
 
 shared:library-client
   Common LAN client models, connection sessions, playback preparation, and

@@ -11,6 +11,15 @@ import kotlin.time.Duration.Companion.seconds
 
 class DesktopLaunchOptionsTest {
     @Test
+    fun defaultsToRustSidecarAndLibraryTab() {
+        val options = DesktopLaunchOptions.parse(emptyList())
+
+        assertTrue(options.rustSidecar.enabled)
+        assertEquals(DesktopShellTab.MEDIA_LIBRARY, options.initialTab)
+        assertNull(options.remoteClient)
+    }
+
+    @Test
     fun parsesSmokePlaybackMediaEqualsSyntax() {
         val options = DesktopLaunchOptions.parse(
             listOf(
@@ -171,9 +180,12 @@ class DesktopLaunchOptionsTest {
     }
 
     @Test
-    fun parsesRustSidecarEnvironmentAndCliCanDisableIt() {
+    fun explicitRemoteHostReplacesRustSidecar() {
         val options = DesktopLaunchOptions.parse(
-            args = listOf("--no-rust-sidecar"),
+            args = listOf(
+                "--no-rust-sidecar",
+                "--remote-server-url=http://127.0.0.1:8686",
+            ),
             environment = mapOf(
                 DesktopLaunchOptions.RUST_SIDECAR_ENV to "true",
                 DesktopLaunchOptions.RUST_SERVER_PATH_ENV to "S:/bin/library-server.exe",
@@ -182,6 +194,27 @@ class DesktopLaunchOptionsTest {
 
         assertFalse(options.rustSidecar.enabled)
         assertEquals(Path.of("S:/bin/library-server.exe"), options.rustSidecar.serverPath)
+        assertEquals("http://127.0.0.1:8686", options.remoteClient?.normalizedServerUrl)
+    }
+
+    @Test
+    fun rejectsDisablingSidecarWithoutExplicitRemoteHost() {
+        assertFailsWith<IllegalStateException> {
+            DesktopLaunchOptions.parse(listOf("--no-rust-sidecar"))
+        }
+    }
+
+    @Test
+    fun remoteHostWinsEvenWhenRustSidecarIsExplicitlyRequested() {
+        val options = DesktopLaunchOptions.parse(
+            listOf(
+                "--rust-sidecar",
+                "--remote-server-url=http://192.168.1.20:8686",
+            ),
+        )
+
+        assertFalse(options.rustSidecar.enabled)
+        assertEquals("http://192.168.1.20:8686", options.remoteClient?.normalizedServerUrl)
     }
 
     @Test

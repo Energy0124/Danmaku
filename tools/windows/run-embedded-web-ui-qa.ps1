@@ -3,6 +3,7 @@ param(
     [int]$Port = 18697,
     [string]$PairingToken = "123456",
     [string]$OutputDir,
+    [string]$RustServerPath,
     [switch]$SkipBrowserInteractionQa,
     [switch]$KeepDesktopOpen
 )
@@ -12,12 +13,12 @@ $ErrorActionPreference = "Stop"
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 if ([string]::IsNullOrWhiteSpace($OutputDir)) {
-    $OutputDir = Join-Path $repoRoot "build\qa\embedded-web-ui"
+    $OutputDir = Join-Path $repoRoot "build\qa\sidecar-web-ui"
 }
 $OutputDir = [System.IO.Path]::GetFullPath($OutputDir)
 $fixtureRoot = Join-Path $OutputDir "fixture-library"
 $appDataRoot = Join-Path $OutputDir "local-app-data"
-$reportPath = Join-Path $OutputDir "embedded-web-ui-qa.md"
+$reportPath = Join-Path $OutputDir "sidecar-web-ui-qa.md"
 $webUiDir = Join-Path $repoRoot "apps\web-ui"
 $webDist = Join-Path $webUiDir "dist"
 $browserQaScript = Join-Path $webUiDir "scripts\check-browser-interactions.mjs"
@@ -71,7 +72,7 @@ function Wait-ForServer {
             Start-Sleep -Milliseconds 500
         }
     }
-    throw "Timed out waiting for embedded desktop server at $BaseUrl"
+    throw "Timed out waiting for Rust sidecar at $BaseUrl"
 }
 
 function Wait-ForCatalogItem {
@@ -162,7 +163,7 @@ function Stop-DesktopHost {
     }
 }
 
-function Start-EmbeddedDesktopHost {
+function Start-SidecarDesktopHost {
     param(
         [string]$FixtureRoot,
         [string]$LocalAppDataRoot,
@@ -175,7 +176,11 @@ function Start-EmbeddedDesktopHost {
         "--web-assets-dir", "`"$WebDist`"",
         "--qa-library-root", "`"$FixtureRoot`"",
         "--initial-tab", "library"
-    ) -join " "
+    )
+    if (-not [string]::IsNullOrWhiteSpace($RustServerPath)) {
+        $desktopArgs += @("--rust-server-path", "`"$RustServerPath`"")
+    }
+    $desktopArgs = $desktopArgs -join " "
 
     $processInfo = [System.Diagnostics.ProcessStartInfo]::new()
     $processInfo.FileName = $gradle
@@ -189,7 +194,7 @@ function Start-EmbeddedDesktopHost {
 
     $process = [System.Diagnostics.Process]::Start($processInfo)
     if ($null -eq $process) {
-        throw "Failed to start embedded desktop host."
+        throw "Failed to start desktop with the Rust sidecar."
     }
     return $process
 }
@@ -207,6 +212,19 @@ if (-not (Test-TcpPortAvailable -Port $Port)) {
     throw "Port $Port is already in use. Pass -Port with a free port or stop the existing server."
 }
 
+if ([string]::IsNullOrWhiteSpace($RustServerPath)) {
+    $cargoTargetRoot = if ([string]::IsNullOrWhiteSpace($env:CARGO_TARGET_DIR)) {
+        Join-Path $repoRoot "target"
+    } else {
+        [System.IO.Path]::GetFullPath($env:CARGO_TARGET_DIR)
+    }
+    $RustServerPath = Join-Path $cargoTargetRoot "release\library-server.exe"
+}
+$RustServerPath = [System.IO.Path]::GetFullPath($RustServerPath)
+if (-not (Test-Path -LiteralPath $RustServerPath -PathType Leaf)) {
+    throw "Rust sidecar executable does not exist: $RustServerPath. Run cargo build --release -p library-server first."
+}
+
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 Remove-QADirectory -Path $fixtureRoot
 Remove-QADirectory -Path $appDataRoot
@@ -214,7 +232,7 @@ Remove-QADirectory -Path $appDataRoot
 $showDir = Join-Path $fixtureRoot "QA Show"
 New-Item -ItemType Directory -Force -Path $showDir | Out-Null
 [System.IO.File]::WriteAllBytes((Join-Path $showDir "Episode 01.mp4"), [byte[]](0, 0, 0, 24, 102, 116, 121, 112))
-Set-Content -LiteralPath (Join-Path $showDir "Episode 01.en.vtt") -Value "WEBVTT`n`n00:00:00.000 --> 00:00:01.000`nHello from embedded QA`n" -Encoding UTF8
+Set-Content -LiteralPath (Join-Path $showDir "Episode 01.en.vtt") -Value "WEBVTT`n`n00:00:00.000 --> 00:00:01.000`nHello from sidecar QA`n" -Encoding UTF8
 New-Item -ItemType Directory -Force -Path $appDataRoot | Out-Null
 
 Push-Location $webUiDir
@@ -224,7 +242,7 @@ try {
     Pop-Location
 }
 
-$desktopProcess = Start-EmbeddedDesktopHost -FixtureRoot $fixtureRoot -LocalAppDataRoot $appDataRoot -WebDist $webDist
+$desktopProcess = Start-SidecarDesktopHost -FixtureRoot $fixtureRoot -LocalAppDataRoot $appDataRoot -WebDist $webDist
 $baseUrl = "http://127.0.0.1:$Port"
 
 try {
@@ -232,9 +250,9 @@ try {
 
     $status = (Invoke-JsonRequest -Uri "$baseUrl/api/server/status").Content | ConvertFrom-Json
     $hostModeProperty = $status.PSObject.Properties["hostMode"]
-    $hostMode = if ($null -eq $hostModeProperty) { "embedded-desktop" } else { $hostModeProperty.Value }
-    if ($hostMode -ne "embedded-desktop") {
-        throw "Expected embedded-desktop host mode but got: $hostMode"
+    $hostMode = if ($null -eq $hostModeProperty) { "<missing>" } else { $hostModeProperty.Value }
+    if ($hostMode -ne "headless-server") {
+        throw "Expected headless Rust sidecar host mode but got: $hostMode"
     }
     if ($status.webUiAvailable -ne $true) {
         throw "Expected webUiAvailable=true"
@@ -242,7 +260,7 @@ try {
 
     $webIndex = Invoke-WebRequest -Uri "$baseUrl/web/" -UseBasicParsing
     if ($webIndex.StatusCode -ne 200 -or $webIndex.Content -notmatch "Danmaku") {
-        throw "Embedded Web UI index did not render expected shell content."
+        throw "Sidecar Web UI index did not render expected shell content."
     }
 
     $catalog = Wait-ForCatalogItem -BaseUrl $baseUrl -Token $PairingToken
@@ -290,7 +308,7 @@ try {
     }
 
     $report = @(
-        "# Embedded Web UI QA",
+        "# Rust Sidecar Web UI QA",
         "",
         "- Base URL: $baseUrl",
         "- Web UI: $baseUrl/web/",
@@ -306,7 +324,7 @@ try {
         "Result: PASS"
     ) -join "`n"
     Set-Content -LiteralPath $reportPath -Value $report -Encoding UTF8
-    Write-Host "Embedded Web UI QA complete."
+    Write-Host "Rust sidecar Web UI QA complete."
     Write-Host "Report: $reportPath"
 
     if ($KeepDesktopOpen) {

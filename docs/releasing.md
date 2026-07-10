@@ -59,12 +59,17 @@ Windows portable build/run:
 Prepare Windows portable release without launching through the helper:
 
 ```powershell
-cargo build --release -p player-windows-mpv --lib
 .\gradlew.bat --no-daemon :apps:desktop-windows:createDistributable
 .\tools\windows\prepare-windows-release.ps1
 .\tools\windows\verify-windows-mpv-runtime.ps1
 .\tools\windows\run-windows-playback-release-qa.ps1 -WindowsDistributionPath .\apps\desktop-windows\build\release\windows-portable -MediaPath <known-good-media>
 ```
+
+`createDistributable` builds the release mpv bridge and Rust library server,
+then stages `library-server.exe` plus the prebuilt `apps/web-ui/dist` tree under
+`app/server/`. Run `npm run build` in `apps/web-ui` first; packaging fails fast
+if `dist/index.html` is absent. The packaged desktop therefore starts its
+sidecar with no server flags.
 
 Prepare the standalone Rust headless server release:
 

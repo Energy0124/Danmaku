@@ -1,7 +1,5 @@
 package app.danmaku.desktop
 
-import app.danmaku.provider.dandanplay.DandanplayMatch
-import app.danmaku.provider.dandanplay.DandanplayMediaFingerprint
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertContains

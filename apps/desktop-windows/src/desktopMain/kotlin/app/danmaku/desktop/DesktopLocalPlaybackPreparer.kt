@@ -1,9 +1,23 @@
 package app.danmaku.desktop
 
 import app.danmaku.domain.LibraryMediaItem
+import app.danmaku.domain.PlaybackProgress
 import app.danmaku.domain.PlaybackSource
 import app.danmaku.domain.resumePositionMs
-import app.danmaku.server.PlaybackProgressStore
+
+fun interface DesktopPlaybackProgressStore {
+    fun loadProgress(mediaId: String): PlaybackProgress?
+}
+
+internal class InMemoryDesktopPlaybackProgressStore : DesktopPlaybackProgressStore {
+    private val progressByMediaId = linkedMapOf<String, PlaybackProgress>()
+
+    override fun loadProgress(mediaId: String): PlaybackProgress? = progressByMediaId[mediaId]
+
+    fun saveProgress(progress: PlaybackProgress) {
+        progressByMediaId[progress.mediaId] = progress
+    }
+}
 
 data class DesktopLocalPlaybackPreparation(
     val item: LibraryMediaItem,
@@ -13,7 +27,7 @@ data class DesktopLocalPlaybackPreparation(
 )
 
 class DesktopLocalPlaybackPreparer(
-    private val progressStore: PlaybackProgressStore,
+    private val progressStore: DesktopPlaybackProgressStore,
 ) {
     fun prepare(
         library: IndexedLocalLibrary,

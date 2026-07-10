@@ -40,10 +40,11 @@ Match verification to the code you touched:
 | `shared/library-host-core`    | `:shared:library-host-core:jvmTest`                        |
 | `shared/library-client-android` | `:shared:library-client-android:testDebugUnitTest`       |
 | `shared/player-android-media3` | `:shared:player-android-media3:assembleDebugAndroidTest`  |
-| `apps/desktop-windows`        | `:apps:desktop-windows:desktopTest`                        |
+| `apps/desktop-windows`        | `:apps:desktop-windows:desktopTest :apps:desktop-windows:createDistributable` |
 | `apps/android-mobile`         | `:apps:android-mobile:assembleDebug`                       |
 | `apps/android-tv`             | `:apps:android-tv:assembleDebug`                           |
-| `native/` (Rust)              | `cargo fmt --all --check` then `cargo test --workspace`    |
+| `native/library-server`       | `cargo fmt --all --check`, `cargo clippy --all-targets`, then `cargo test -p library-server` |
+| other `native/` Rust          | `cargo fmt --all --check` then `cargo test --workspace`    |
 | `tools/dandanplay-worker-proxy` | `npm run typecheck` and `npm test` in that directory     |
 | `apps/web-ui`                 | `npm install` and `npm run build` in that directory        |
 
@@ -108,7 +109,7 @@ reserved for the small set of non-Compose error/default strings.
 
 ```text
 apps/
-  desktop-windows/        Compose Multiplatform desktop shell and library host
+  desktop-windows/        Compose Multiplatform shell; owns the Rust server sidecar
   android-mobile/         Android phone/tablet app
   android-tv/             Dedicated Android TV app
   library-server-windows/ Experimental headless JVM library host
@@ -124,6 +125,7 @@ shared/
 
 native/
   rust-core/              Rust timeline/indexing core
+  library-server/         Headless/desktop-sidecar LAN library server
   player-windows-mpv/     libmpv loader, probe, and desktop playback bridge
 
 tools/

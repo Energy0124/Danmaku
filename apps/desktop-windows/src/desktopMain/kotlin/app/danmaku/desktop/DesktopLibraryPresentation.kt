@@ -9,7 +9,6 @@ import app.danmaku.domain.LibrarySeries
 import app.danmaku.domain.LibraryWatchState
 import app.danmaku.domain.LibraryWatchStatus
 import app.danmaku.domain.groupedSeries
-import app.danmaku.server.PublishedLibrary
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.Locale
@@ -149,26 +148,3 @@ internal fun String.initialsForPoster(): String =
         .take(2)
         .joinToString(separator = "") { it.first().uppercaseChar().toString() }
         .ifBlank { take(1).uppercase(Locale.US) }
-
-internal fun IndexedLocalLibrary.toPublishedLibrary(
-    metadataResolver: DesktopAnimeMetadataResolver? = null,
-): PublishedLibrary {
-    val publishedCatalog = metadataResolver?.let { catalog.withExternalAnimeMetadata(it) } ?: catalog
-    val posterFilesById = metadataResolver
-        ?.let { resolver ->
-            publishedCatalog.items
-                .mapNotNull { item ->
-                    item.posterPath?.let { _ ->
-                        resolver.cachedPosterForItem(item)?.let { poster -> item.id to poster }
-                    }
-                }
-                .toMap()
-        }
-        .orEmpty()
-    return PublishedLibrary(
-        catalog = publishedCatalog,
-        filesById = filesById,
-        subtitleFilesById = subtitleFilesById,
-        posterFilesById = posterFilesById,
-    )
-}

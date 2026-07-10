@@ -203,12 +203,16 @@ configured while using the same LAN discovery announcements as the embedded
 desktop host. External list-sync network actions and broader provider admin UX
 are still planned work.
 
-Desktop can launch directly into the remote-library browser against a running
-headless or embedded host:
+Desktop starts the packaged/development Rust sidecar with no flags. To use an
+existing host instead, pass an explicit remote URL:
 
 ```powershell
 .\gradlew.bat --no-daemon :apps:desktop-windows:run --args="--remote-server-url http://127.0.0.1:8686 --remote-pairing-token 123456"
 ```
+
+`--rust-server-path <path>` overrides sidecar executable discovery.
+`--no-rust-sidecar` is valid only with `--remote-server-url`; an explicit remote
+host always replaces the sidecar even if `--rust-sidecar` is also present.
 
 Repeatable headless web UI QA:
 

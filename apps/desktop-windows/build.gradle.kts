@@ -21,9 +21,7 @@ kotlin {
 
         desktopMain.dependencies {
             implementation(project(":shared:domain"))
-            implementation(project(":shared:library-host-core"))
             implementation(project(":shared:library-client"))
-            implementation(project(":shared:library-server-core"))
             implementation(compose.desktop.currentOs)
             implementation("org.jetbrains.compose.material:material:1.11.0")
             implementation(compose.materialIconsExtended)
@@ -50,6 +48,9 @@ sqldelight {
 
 val windowsMpvBridgeDll = rootProject.layout.projectDirectory.file("target/release/player_windows_mpv.dll")
 val windowsLibmpvDll = rootProject.layout.projectDirectory.file("runtime/windows/libmpv/libmpv-2.dll")
+val windowsRustServerExe = rootProject.layout.projectDirectory.file("target/release/library-server.exe")
+val webUiProjectDir = rootProject.layout.projectDirectory.dir("apps/web-ui")
+val webUiDistDir = webUiProjectDir.dir("dist")
 val windowsDistributableAppDir = layout.buildDirectory.dir("compose/binaries/main/app/desktop-windows/app")
 val windowsLibmpvDllPath = windowsLibmpvDll.asFile.absolutePath
 val macosMpvBridgeDylib = rootProject.layout.projectDirectory.file("target/release/libplayer_windows_mpv.dylib")
@@ -94,6 +95,46 @@ val bundleWindowsMpvRuntime by tasks.registering(Copy::class) {
     into(windowsDistributableAppDir)
 }
 
+val buildWindowsRustServer by tasks.registering(Exec::class) {
+    description = "Builds the release Rust library server used by the desktop sidecar."
+    group = "build"
+    workingDir = rootProject.layout.projectDirectory.asFile
+    commandLine("cargo", "build", "--release", "-p", "library-server")
+    inputs.files(
+        rootProject.layout.projectDirectory.file("Cargo.toml"),
+        rootProject.layout.projectDirectory.file("Cargo.lock"),
+    )
+    inputs.dir(rootProject.layout.projectDirectory.dir("native/library-server"))
+    inputs.dir(rootProject.layout.projectDirectory.dir("native/rust-core"))
+    outputs.file(windowsRustServerExe)
+}
+
+val verifyDesktopWebUiDist by tasks.registering(Exec::class) {
+    description = "Verifies that the web UI distribution exists before desktop sidecar packaging."
+    group = "verification"
+    val webIndexPath = webUiDistDir.file("index.html").asFile.absolutePath
+    commandLine(
+        "powershell",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "if (-not (Test-Path -LiteralPath '$webIndexPath' -PathType Leaf)) { " +
+            "throw 'Missing web UI distribution at $webIndexPath. Run npm run build in apps/web-ui first.' }",
+    )
+}
+
+val bundleWindowsRustServerRuntime by tasks.registering(Copy::class) {
+    description = "Copies the Rust sidecar executable and web UI into the Compose distributable."
+    group = "distribution"
+    dependsOn(buildWindowsRustServer, verifyDesktopWebUiDist)
+    from(windowsRustServerExe)
+    from(webUiDistDir) {
+        into("web")
+    }
+    into(windowsDistributableAppDir.map { it.dir("server") })
+}
+
 val buildMacosMpvBridge by tasks.registering(Exec::class) {
     description = "Builds the macOS libmpv JNA bridge dylib used by the desktop player."
     group = "build"
@@ -117,7 +158,7 @@ val bundleMacosMpvRuntime by tasks.registering(Copy::class) {
 afterEvaluate {
     tasks.named("createDistributable") {
         when {
-            isWindowsHost -> finalizedBy(bundleWindowsMpvRuntime)
+            isWindowsHost -> finalizedBy(bundleWindowsMpvRuntime, bundleWindowsRustServerRuntime)
             isMacosHost -> finalizedBy(bundleMacosMpvRuntime)
         }
     }
@@ -128,7 +169,7 @@ compose.desktop {
         mainClass = "app.danmaku.desktop.MainKt"
 
         nativeDistributions {
-            modules("java.sql", "jdk.httpserver")
+            modules("java.sql")
         }
     }
 }

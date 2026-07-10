@@ -14,7 +14,6 @@ import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySubtitleTrack
 import app.danmaku.domain.LocalAnimeListEntry
 import app.danmaku.domain.PlaybackProgress
-import app.danmaku.server.PlaybackProgressStore
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.nio.file.Files
@@ -22,7 +21,7 @@ import java.nio.file.Path
 
 class DesktopLibraryCatalogStore(
     databasePath: Path,
-) : AutoCloseable, PlaybackProgressStore, DandanplayCommentCacheStore {
+) : AutoCloseable, DesktopPlaybackProgressStore, DandanplayCommentCacheStore {
     private val driver: JdbcSqliteDriver
     private val database: DesktopLibraryDatabase
 
@@ -287,7 +286,7 @@ class DesktopLibraryCatalogStore(
             .executeAsOneOrNull()
 
     @Synchronized
-    override fun loadAllProgress(): List<PlaybackProgress> =
+    fun loadAllProgress(): List<PlaybackProgress> =
         database.libraryCatalogQueries
             .selectAllPlaybackProgress(::PlaybackProgress)
             .executeAsList()
@@ -296,7 +295,7 @@ class DesktopLibraryCatalogStore(
         loadAllProgress()
 
     @Synchronized
-    override fun saveProgress(progress: PlaybackProgress) {
+    fun saveProgress(progress: PlaybackProgress) {
         database.libraryCatalogQueries.upsertPlaybackProgress(
             progress.mediaId,
             progress.positionMs,
