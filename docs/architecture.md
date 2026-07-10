@@ -9,19 +9,20 @@ only where native boundaries are useful.
 
 ### Windows Desktop
 
-The Windows desktop app is currently the primary host:
+The Windows desktop app is the primary local application shell:
 
 - indexes local anime folders;
 - persists catalog, settings, progress, provider cache, mappings, and queue
   state;
-- serves paired devices over trusted LAN HTTP;
+- owns a Rust `library-server` child process that serves paired devices over
+  trusted LAN HTTP;
 - plays local and paired LAN media through libmpv;
 - resolves metadata/posters/danmaku from configured providers.
 
-The desktop process is also the default embedded library host. The planned
-split is boundary-first: shared host contracts, then a web UI, then an opt-in
-headless server, then desktop remote-client mode. The embedded desktop path
-must remain compatible while the split is introduced.
+Local desktop mode starts the Rust server sidecar by default and restarts it
+after root changes or rescans. Supplying an explicit remote-server URL selects
+remote-only mode and skips the local child process. The retired embedded JVM
+server is no longer a desktop runtime path.
 
 ### Android Mobile And Tablet
 
@@ -49,10 +50,10 @@ clients must not require the web UI to be present.
 
 ### Headless Library Server
 
-A standalone headless server is planned after the host boundary is stable. It
-should reuse the same indexing, catalog, progress, provider, and HTTP serving
-contracts as the embedded desktop host, guarded by a data-directory lock so two
-processes do not write the same catalog database concurrently.
+The Rust `native/library-server` binary is both the standalone headless server
+and the desktop-owned sidecar. It owns LAN HTTP/discovery, scanning, catalog
+snapshots, progress, and provider routes behind a data-directory lock. The
+experimental JVM headless application remains available during migration.
 
 ### Rust Native Client
 
@@ -67,12 +68,11 @@ shared:domain
   Pure domain models and behavior. No platform playback or provider HTTP code.
 
 shared:library-server-core
-  JVM LAN server primitives, HTTP routes, discovery announcements, hooks, and
-  progress-store contracts.
+  Legacy JVM LAN server/provider primitives retained for the experimental JVM
+  headless host and remaining desktop provider-contract migration.
 
 shared:library-host-core
-  Shared host lifecycle/config/status contracts used by embedded and future
-  headless host implementations.
+  JVM host lifecycle/config/status contracts; no longer used by desktop.
 
 shared:library-client
   Common LAN client models, connection sessions, playback preparation, and
@@ -86,8 +86,8 @@ shared:player-android-media3
   contracts.
 
 apps:desktop-windows
-  Compose desktop UI, SQLDelight store, local indexing, provider clients,
-  desktop library server runtime, mpv bridge integration, and release surface.
+  Compose desktop UI, SQLDelight store, local indexing/provider clients, Rust
+  sidecar lifecycle ownership, mpv bridge integration, and release surface.
 
 apps:android-mobile
   Compose mobile/tablet UI.
@@ -99,7 +99,10 @@ apps:web-ui
   Planned Vite TypeScript browser client served by the trusted-LAN server.
 
 apps:library-server-windows
-  Planned opt-in headless JVM host for Windows library/server workflows.
+  Experimental opt-in headless JVM host retained during the Rust migration.
+
+native:library-server
+  Rust headless LAN server and default desktop-owned sidecar.
 
 native:player-windows-mpv
   libmpv loader/probe and C ABI used by the desktop app.
@@ -112,8 +115,10 @@ native:rust-core
 
 1. Desktop indexes local folders into normalized `LibraryCatalog` data.
 2. Desktop enriches catalog items with cached provider metadata/poster state.
-3. Desktop publishes the catalog over trusted LAN with a pairing token.
-4. Android, TV, web, desktop-remote, and future Rust clients fetch
+3. The desktop-owned Rust sidecar scans the registered roots and publishes its
+   catalog over trusted LAN with a pairing token; desktop rescans restart the
+   sidecar so the child process sees current roots and files.
+4. Android, TV, web, desktop-remote, and future native clients fetch
    catalog/progress and prepare playback URLs over HTTP.
 5. Clients stream over HTTP byte ranges and upload progress.
 6. Desktop local playback uses the same catalog/progress concepts and writes

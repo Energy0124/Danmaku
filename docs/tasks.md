@@ -45,12 +45,14 @@ Status legend:
   explicit roots/token to verify cached catalog and persisted progress readback
   and runs a Chrome/Edge browser interaction probe for web danmaku overlay
   preference persistence, provider search, Use ID, and external-list form
-  read/save behavior before writing PASS reports. The embedded desktop host now
-  has `tools/windows/run-embedded-web-ui-qa.ps1`, which launches Compose
-  desktop with isolated `LOCALAPPDATA`, a fixture library, deterministic
-  `--server-pairing-token`, `--web-assets-dir`, and the same browser
-  interaction probe so `/web/` is validated against the default desktop host as
-  well.
+  read/save behavior before writing PASS reports. Compose desktop now launches
+  the Rust library server as its default local sidecar; the embedded JVM server
+  and discovery runtime are removed, explicit remote mode skips the child
+  process, and desktop rescans restart it with current roots.
+  `tools/windows/run-embedded-web-ui-qa.ps1` retains its compatibility name but
+  now builds and launches the Rust sidecar with isolated `LOCALAPPDATA`, a
+  fixture library, deterministic pairing token, local web assets, and the same
+  browser interaction probe.
   Dandanplay API client/parsing code and MAL/Bangumi external list tracking
   clients are now shared through `shared:library-server-core`, so desktop and
   headless can use the same JVM provider implementations. The headless server
@@ -59,10 +61,11 @@ Status legend:
   match/comment preview with basic video overlay controls, persisted overlay preferences, extracted web
   overlay timing helpers, provider mapping search, and manual MAL/Bangumi
   external-list read/write controls that auto-fill IDs from catalog metadata
-  links for the selected episode. Remaining split work: mapped-series
-  provider admin write flows, live-account read/write QA, remote-only desktop
-  packaging/migration, broader browser interaction QA for remaining admin and
-  quality controls, and web UI polish.
+  links for the selected episode. Remaining split work: migrate the desktop's
+  JVM provider clients and residual server-core contracts behind sidecar HTTP,
+  mapped-series provider admin write flows, live-account read/write QA, broader
+  browser interaction QA for remaining admin/quality controls, and web UI
+  polish.
 - `[~]` Resolve P1 review findings from the 2026-06-15 full project review:
   convert expected LAN/provider/media failures away from hard
   `error(...)`/`check(...)` paths, split oversized Android entrypoints, and
@@ -461,7 +464,7 @@ Full review date: 2026-06-15.
 - Web UI changes should run `npm run build` in `apps/web-ui`; server-side route
   changes should keep JVM LAN server compatibility tests green; headless/web
   integration changes should run `tools/windows/run-headless-web-ui-qa.ps1`,
-  and embedded desktop web-surface changes should run
+  and desktop-sidecar web-surface changes should run
   `tools/windows/run-embedded-web-ui-qa.ps1`.
 - Desktop storage/provider/native changes should include desktop tests.
 - TV UI changes should include D-pad/focus instrumentation coverage where

@@ -2,6 +2,11 @@
 
 Last updated: 2026-06-22.
 
+Migration update (2026-07-10): the Rust migration plan supersedes the original
+embedded-host default. Compose desktop now owns a Rust library-server sidecar
+for local mode, while explicit remote mode skips the child process. The older
+phase descriptions below remain as historical rationale.
+
 ## Direction
 
 Danmaku should move from "desktop app that also hosts the server" to a

@@ -98,6 +98,14 @@ try {
             -FilePath "cargo" `
             -Arguments $bridgeArgs
     }
+    $serverArgs = @("build", "-p", "library-server")
+    if ($ReleaseBridge) {
+        $serverArgs = @("build", "--release", "-p", "library-server")
+    }
+    Invoke-RepoCommand `
+        -Description "Build Rust library server sidecar ($bridgeProfile)" `
+        -FilePath "cargo" `
+        -Arguments $serverArgs
 
     $libmpvPath = Join-Path $repoRoot "runtime\windows\libmpv\libmpv-2.dll"
     if (-not $SkipDependencyInstall -and -not (Test-Path -LiteralPath $libmpvPath -PathType Leaf)) {
@@ -111,7 +119,8 @@ try {
     }
 
     $bridgePath = Join-Path $repoRoot "target\$bridgeProfile\player_windows_mpv.dll"
-    foreach ($nativePath in @($bridgePath, $libmpvPath)) {
+    $rustServerPath = Join-Path $repoRoot "target\$bridgeProfile\library-server.exe"
+    foreach ($nativePath in @($bridgePath, $libmpvPath, $rustServerPath)) {
         if (-not (Test-Path -LiteralPath $nativePath -PathType Leaf)) {
             throw "Required native Windows dependency does not exist: $nativePath"
         }
@@ -119,10 +128,12 @@ try {
 
     $previousBridgePath = $env:DANMAKU_MPV_BRIDGE_PATH
     $previousLibmpvPath = $env:DANMAKU_LIBMPV_PATH
+    $previousRustServerPath = $env:DANMAKU_RUST_SERVER_PATH
     try {
         $env:DANMAKU_MPV_BRIDGE_PATH = $bridgePath
         $env:DANMAKU_LIBMPV_PATH = $libmpvPath
 
+        $env:DANMAKU_RUST_SERVER_PATH = $rustServerPath
         Invoke-RepoCommand `
             -Description "Run Windows desktop app" `
             -FilePath $gradle `
@@ -130,6 +141,7 @@ try {
     } finally {
         $env:DANMAKU_MPV_BRIDGE_PATH = $previousBridgePath
         $env:DANMAKU_LIBMPV_PATH = $previousLibmpvPath
+        $env:DANMAKU_RUST_SERVER_PATH = $previousRustServerPath
     }
 } finally {
     Pop-Location

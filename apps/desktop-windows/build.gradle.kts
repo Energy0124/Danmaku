@@ -21,7 +21,6 @@ kotlin {
 
         desktopMain.dependencies {
             implementation(project(":shared:domain"))
-            implementation(project(":shared:library-host-core"))
             implementation(project(":shared:library-client"))
             implementation(project(":shared:library-server-core"))
             implementation(compose.desktop.currentOs)
@@ -57,6 +56,21 @@ val macosDistributableAppDir = layout.buildDirectory.dir("compose/binaries/main/
 val hostOs = System.getProperty("os.name").lowercase()
 val isWindowsHost = "windows" in hostOs
 val isMacosHost = "mac" in hostOs || "darwin" in hostOs
+val rustLibraryServerExecutableName = if (isWindowsHost) "library-server.exe" else "library-server"
+val rustLibraryServerBinary = rootProject.layout.projectDirectory.file("target/release/$rustLibraryServerExecutableName")
+
+val buildRustLibraryServer by tasks.registering(Exec::class) {
+    description = "Builds the Rust library server bundled as the desktop sidecar."
+    group = "build"
+    workingDir = rootProject.layout.projectDirectory.asFile
+    commandLine("cargo", "build", "--release", "-p", "library-server")
+    inputs.files(
+        rootProject.layout.projectDirectory.file("Cargo.toml"),
+        rootProject.layout.projectDirectory.dir("native/library-server"),
+    )
+    outputs.file(rustLibraryServerBinary)
+}
+
 
 val buildWindowsMpvBridge by tasks.registering(Exec::class) {
     description = "Builds the Windows libmpv JNA bridge DLL used by the desktop player."
@@ -86,11 +100,12 @@ val verifyWindowsLibmpvDll by tasks.registering(Exec::class) {
 }
 
 val bundleWindowsMpvRuntime by tasks.registering(Copy::class) {
-    description = "Copies the Windows mpv bridge and approved libmpv DLL into the Compose distributable."
+    description = "Copies the Windows mpv runtime and Rust server sidecar into the Compose distributable."
     group = "distribution"
-    dependsOn(buildWindowsMpvBridge, verifyWindowsLibmpvDll)
+    dependsOn(buildWindowsMpvBridge, buildRustLibraryServer, verifyWindowsLibmpvDll)
     from(windowsMpvBridgeDll)
     from(windowsLibmpvDll)
+    from(rustLibraryServerBinary)
     into(windowsDistributableAppDir)
 }
 
@@ -107,10 +122,11 @@ val buildMacosMpvBridge by tasks.registering(Exec::class) {
 }
 
 val bundleMacosMpvRuntime by tasks.registering(Copy::class) {
-    description = "Copies the macOS mpv bridge into the Compose distributable."
+    description = "Copies the macOS mpv bridge and Rust server sidecar into the Compose distributable."
     group = "distribution"
-    dependsOn(buildMacosMpvBridge)
+    dependsOn(buildMacosMpvBridge, buildRustLibraryServer)
     from(macosMpvBridgeDylib)
+    from(rustLibraryServerBinary)
     into(macosDistributableAppDir)
 }
 

@@ -228,11 +228,16 @@ Parity gates:
   connects through its existing remote-client mode
   (`--remote-server-url`/`--remote-pairing-token` internally), with
   lifecycle ownership, port selection, and crash restart.
-- `[ ]` Desktop embedded-JVM-server code paths removed;
-  `shared/library-server-core`, `shared/library-host-core`, and the JVM
-  provider clients become unused by desktop.
-- `[ ]` `tools\windows\run-embedded-web-ui-qa.ps1` and the desktop test
-  suite pass in the sidecar configuration.
+- `[x]` Desktop embedded-JVM-server/discovery code paths removed; local mode
+  defaults to the bundled Rust sidecar, explicit remote mode skips it, and
+  `shared/library-host-core` is unused by desktop.
+- `[ ]` `shared/library-server-core` and its JVM provider clients become
+  unused by desktop; remaining provider/progress/diagnostic contracts move
+  behind the sidecar HTTP boundary.
+- `[x]` `tools\windows\run-embedded-web-ui-qa.ps1` and the desktop test
+  suite pass in the sidecar configuration. Verified 2026-07-10 with
+  `headless-server` status, catalog/media/subtitle/progress assertions, and
+  the Chrome provider/list plus overlay-persistence interaction probe.
 
 ### Phase 3: Rust Windows Player Client
 

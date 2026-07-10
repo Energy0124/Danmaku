@@ -76,16 +76,18 @@ trusted-LAN clients.
   resolution on desktop.
 - Multi-root local anime library indexing, incremental rescanning, ani-rss
   output-folder import, and persistent SQLDelight/SQLite storage.
-- Trusted-LAN library server with pairing token, JSON catalog, byte-range media
-  streaming, subtitle streaming, poster serving, progress API, authenticated
-  hooks, optional `/web/` static asset serving, additive web/status capability
-  fields, and UDP discovery.
+- Desktop-owned Rust library-server sidecar, enabled by default for local mode,
+  with lifecycle shutdown, crash restart/backoff, root/rescan restart, packaged
+  binary resolution, pairing token, JSON catalog, byte-range media/subtitle/
+  poster serving, progress API, optional `/web/` assets, and UDP discovery.
+  The embedded JVM desktop server/discovery runtime has been removed.
 - Local and paired-LAN playback preparation, one-click play/resume, progress
   persistence, previous/next episode navigation, and optional auto-next. Desktop
   can also launch into the remote-library browser with
   `--remote-server-url`/`--remote-pairing-token` or the matching
-  `DANMAKU_REMOTE_*` environment variables, auto-load a remote catalog, and
-  stream remote media URLs through the libmpv-backed controller.
+  `DANMAKU_REMOTE_*` environment variables; explicit remote mode skips the
+  local sidecar, auto-loads a remote catalog, and streams remote media URLs
+  through the libmpv-backed controller.
 - libmpv playback through a Rust/JNA bridge, embedded Windows video host,
   command planning, fullscreen/aspect controls, volume/rate controls, seeking,
   and runtime audio/subtitle track selection.
@@ -98,10 +100,11 @@ trusted-LAN clients.
 - Anime metadata/poster resolution and cache, poster loading states, and manual
   metadata refresh on series/episode surfaces.
 - MyAnimeList and Bangumi provider settings, manual mapping UI, metadata
-  search/cache clients, MAL OAuth callback flow, encrypted token storage,
-  provider readback/write clients, External Sync preview, and explicit sync
-  action with pre-write external-progress conflict checks. Imported provider
-  list entries and sync failures persist in the desktop catalog database across
+  search/cache clients, dedicated loopback MAL OAuth callback, encrypted token
+  storage, provider readback/write clients, External Sync preview, and explicit
+  sync action with pre-write external-progress conflict checks. Imported
+  provider list entries and sync failures persist in the desktop catalog
+  database across
   relaunch, and provider-ahead conflicts can seed local watched progress from
   the Tracking inspector.
 - Desktop local watch-list entries persist with status, score, and notes; the
@@ -187,11 +190,17 @@ trusted-LAN clients.
   and runs a Chrome/Edge browser interaction probe for web danmaku overlay
   preference persistence, provider search, Use ID, and external-list form
   read/save behavior before writing PASS/FAIL reports under
-  `build/qa/headless-web-ui/`. The new
+  `build/qa/headless-web-ui/`. The
   `tools/windows/run-embedded-web-ui-qa.ps1` helper launches the Compose desktop
-  host with isolated `LOCALAPPDATA`, deterministic `--server-pairing-token`,
-  fixture `--qa-library-root`, and local web assets so the same web/browser
-  surface is checked against the default embedded desktop host.
+  with its Rust sidecar, isolated `LOCALAPPDATA`, deterministic pairing token,
+  fixture root, and local web assets so the same web/browser surface is checked
+  against the default desktop-owned sidecar. The compatibility script name is
+  retained while its report now identifies the sidecar host.
+
+- Desktop still consumes `shared/library-server-core` for JVM provider clients
+  and a few progress/diagnostic contracts. Moving those calls behind the Rust
+  sidecar HTTP API is the remaining Phase 2 dependency-removal slice; it is not
+  part of the removed embedded-host runtime.
 
 ## Partial Or Needs More QA
 

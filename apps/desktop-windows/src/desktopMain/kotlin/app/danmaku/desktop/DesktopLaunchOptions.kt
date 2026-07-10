@@ -61,7 +61,7 @@ internal data class DesktopLaunchOptions(
                 ?.takeIf(String::isNotBlank)
                 ?.also { remoteClientRequested = true }
             var remoteAutoLoad = true
-            var rustSidecarEnabled = environment[RUST_SIDECAR_ENV].toBooleanLaunchFlag()
+            var rustSidecarEnabled = environment[RUST_SIDECAR_ENV]?.toBooleanLaunchFlag()
             var rustServerPath = environment[RUST_SERVER_PATH_ENV]
                 ?.takeIf(String::isNotBlank)
                 ?.let(Path::of)
@@ -259,6 +259,18 @@ internal data class DesktopLaunchOptions(
                 index += 1
             }
 
+            val remoteClient = remoteServerUrl?.let { serverUrl ->
+                DesktopRemoteClientOptions(
+                    serverUrl = serverUrl,
+                    pairingToken = remotePairingToken.orEmpty(),
+                    autoLoad = remoteAutoLoad,
+                )
+            }
+            val resolvedRustSidecarEnabled = rustSidecarEnabled ?: (remoteClient == null)
+            require(resolvedRustSidecarEnabled || remoteClient != null) {
+                "--no-rust-sidecar requires a remote server URL"
+            }
+
             return DesktopLaunchOptions(
                 smokePlayback = smokeMediaPath?.let { mediaPath ->
                     DesktopSmokePlaybackOptions(
@@ -269,21 +281,15 @@ internal data class DesktopLaunchOptions(
                 },
                 initialLanguage = initialLanguage,
                 initialTab = initialTab ?: DesktopShellTab.MEDIA_LIBRARY.takeIf {
-                    remoteClientRequested || rustSidecarEnabled
+                    remoteClientRequested || resolvedRustSidecarEnabled
                 },
                 serverPort = serverPort,
                 serverPairingToken = serverPairingToken,
                 webAssetsRoot = webAssetsRoot,
                 qaLibraryRoot = qaLibraryRoot,
-                remoteClient = remoteServerUrl?.let { serverUrl ->
-                    DesktopRemoteClientOptions(
-                        serverUrl = serverUrl,
-                        pairingToken = remotePairingToken.orEmpty(),
-                        autoLoad = remoteAutoLoad,
-                    )
-                },
+                remoteClient = remoteClient,
                 rustSidecar = DesktopRustSidecarOptions(
-                    enabled = rustSidecarEnabled,
+                    enabled = resolvedRustSidecarEnabled,
                     serverPath = rustServerPath,
                 ),
                 qaSidecarAutoplayFirst = qaSidecarAutoplayFirst,
@@ -345,7 +351,7 @@ internal data class DesktopLaunchOptions(
 }
 
 internal data class DesktopRustSidecarOptions(
-    val enabled: Boolean = false,
+    val enabled: Boolean = true,
     val serverPath: Path? = null,
 )
 

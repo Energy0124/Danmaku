@@ -285,23 +285,35 @@ internal object RustServerBinaryResolver {
         } else {
             "library-server"
         }
-        val candidates = buildList {
+        val packagedCandidates = listOf(
+            repositoryRoot.resolve(executableName),
+            repositoryRoot.resolve("app").resolve(executableName),
+        )
+        packagedCandidates.firstOrNull(Files::isRegularFile)?.let { path ->
+            return RustServerBinaryResolution(
+                path = path.toAbsolutePath().normalize(),
+                source = RustServerBinaryResolutionSource.PACKAGED,
+                searchedPaths = packagedCandidates,
+            )
+        }
+
+        val cargoCandidates = buildList {
             environment["CARGO_TARGET_DIR"]
                 ?.takeIf(String::isNotBlank)
                 ?.let { add(Path.of(it).resolve("release").resolve(executableName)) }
             add(repositoryRoot.resolve("target").resolve("release").resolve(executableName))
             add(repositoryRoot.resolve("native").resolve("library-server").resolve("target").resolve("release").resolve(executableName))
         }
-        candidates.firstOrNull(Files::isRegularFile)?.let { path ->
+        cargoCandidates.firstOrNull(Files::isRegularFile)?.let { path ->
             return RustServerBinaryResolution(
                 path = path.toAbsolutePath().normalize(),
                 source = RustServerBinaryResolutionSource.CARGO_TARGET,
-                searchedPaths = candidates,
+                searchedPaths = packagedCandidates + cargoCandidates,
             )
         }
         throw RustServerSidecarException(
             reason = RustServerSidecarFailureReason.BINARY_NOT_FOUND,
-            detail = "Rust library-server binary was not found. Set ${DesktopLaunchOptions.RUST_SERVER_PATH_ENV} or --rust-server-path, or run `cargo build --release -p library-server`. Searched: ${candidates.joinToString()}",
+            detail = "Rust library-server binary was not found. Set ${DesktopLaunchOptions.RUST_SERVER_PATH_ENV} or --rust-server-path, or run `cargo build --release -p library-server`. Searched: ${(packagedCandidates + cargoCandidates).joinToString()}",
         )
     }
 
@@ -332,6 +344,7 @@ internal data class RustServerBinaryResolution(
 
 internal enum class RustServerBinaryResolutionSource {
     OVERRIDE,
+    PACKAGED,
     CARGO_TARGET,
 }
 

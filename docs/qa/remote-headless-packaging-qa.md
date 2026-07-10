@@ -1,6 +1,6 @@
 # Remote And Headless Packaging QA
 
-Use this checklist to validate the server/client split without breaking the default embedded desktop workflow.
+Use this checklist to validate the server/client split against the default desktop-owned Rust sidecar workflow.
 
 ## Automated Gates
 
@@ -13,9 +13,9 @@ Use this checklist to validate the server/client split without breaking the defa
 The headless gate proves the standalone JVM host, or the Rust host when
 `-RustServer` is supplied, can serve `/web/`, catalog, media, subtitles,
 progress, provider readiness, provider search, external list controls, cached
-catalog startup, and persisted progress. The embedded gate proves the Windows
-desktop host serves the same web/client surface while using isolated desktop
-app data.
+catalog startup, and persisted progress. The desktop-sidecar gate proves the
+Windows desktop launches the Rust host and serves the same web/client surface
+while using isolated app data.
 
 ## Headless Server Checks
 
@@ -27,12 +27,12 @@ app data.
 - Restart without explicit roots and verify cached catalog/progress readback still works.
 - Confirm logs and reports do not contain provider secrets or pairing tokens beyond the intended QA token.
 
-## Embedded Desktop Checks
+## Desktop Sidecar Checks
 
 - Launch desktop with `--server-port`, `--server-pairing-token`, `--web-assets-dir`, and `--qa-library-root` against isolated `LOCALAPPDATA`.
-- Verify `/api/server/status` reports `embedded-desktop` and `webUiAvailable=true`.
+- Verify `/api/server/status` reports `headless-server` and `webUiAvailable=true`.
 - Verify `/web/` loads, catalog item count is non-zero, media HEAD works, and progress read/write works.
-- Run browser interaction QA against the embedded URL and pairing token.
+- Run browser interaction QA against the sidecar URL and pairing token.
 - Relaunch without QA flags only after confirming the normal user profile is not touched by the isolated run.
 
 ## Remote Client Checks
@@ -45,6 +45,10 @@ app data.
 ## Packaging Checks
 
 - Prepare the Windows portable release.
-- Verify the release contains the launcher, app directory, mpv bridge, approved libmpv DLL, dependency installer, license files, and third-party notices.
-- Verify the release does not contain local SDK paths, generated QA reports, provider credentials, or downloaded media.
-- Run the packaged app once as embedded desktop host and once as remote client.
+- Verify the release contains the launcher, app directory, Rust library-server
+  sidecar, mpv bridge, approved libmpv DLL, dependency installer, license files,
+  and third-party notices.
+- Verify the release does not contain local SDK paths, generated QA reports,
+  provider credentials, or downloaded media.
+- Run the packaged app once with its bundled Rust sidecar and once as remote
+  client.
