@@ -1,6 +1,6 @@
 # Current State
 
-Last reviewed: 2026-06-22.
+Last reviewed: 2026-07-10.
 
 Danmaku is in active foundation work. The strongest vertical slice is Windows
 desktop as the local library host/player, with Android mobile and Android TV as
@@ -113,6 +113,29 @@ trusted-LAN clients.
   series cards show saved local watch-list status badges and expose a quick
   status/clear menu, and summary chips expose the current saved watch-list
   count.
+
+### Rust Native Player (Migration Preview)
+
+- The `native/player-app` crate provides the `danmaku-player` egui/glow
+  Windows client. Its M1 playback core composites libmpv's OpenGL render API
+  beneath native controls and supports play/pause, seeking, rate, volume,
+  mute, audio/subtitle selection, faded controls, and fullscreen restore.
+- The M2 native danmaku renderer loads normalized comments from the Rust
+  server's client-facing `/api/danmaku/{mediaId}` route or from local
+  Bilibili XML/normalized JSON. It preserves scroll/top/bottom modes, ARGB
+  colors, and small/normal/large sizes; deterministic display controls cover
+  visibility, opacity, speed, density, and lane count.
+- Danmaku timing uses the M1 interpolated overlay clock, so pause, rate changes,
+  direct seeks, and large drift corrections recompute the active layout from
+  the new media position. Dense-layout parity, subpixel motion, lane reuse,
+  density/speed/lane controls, and seek-window behavior have focused Rust
+  tests.
+- XML, JSON, `.danmaku`, and ASS files can be attached at startup or dropped
+  onto the player. XML/JSON render natively; existing cached ASS overlays use
+  mpv's subtitle renderer for compatibility.
+- Library browsing/discovery, progress upload, previous/next and auto-next,
+  localization, durable preferences, and release packaging remain Phase 3
+  M3-M5 work. Compose desktop remains the default application.
 
 ### Android Mobile
 

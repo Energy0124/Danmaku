@@ -2,8 +2,9 @@
 
 Danmaku uses Kotlin and Compose for app surfaces, shared Kotlin modules for
 domain contracts and LAN behavior, Media3 for Android playback, libmpv for
-desktop playback, SQLDelight/SQLite for durable desktop state, and focused Rust
-only where native boundaries are useful.
+desktop playback, SQLDelight/SQLite for durable desktop state, and Rust for the
+library server plus the in-progress native Windows player migration where
+native boundaries are useful.
 
 ## Platform Roles
 
@@ -57,9 +58,15 @@ experimental JVM headless application remains available during migration.
 
 ### Rust Native Client
 
-A Rust native client is a later experiment for native playback feel. It should
-consume the same LAN HTTP API as other clients and hand media URLs to mpv/libmpv
-rather than duplicating library hosting, provider sync, or metadata storage.
+The `native/player-app` migration client is an egui/glow Windows player that
+composites libmpv's OpenGL render API output beneath native controls and
+danmaku. Its current playback/danmaku slice accepts direct media paths or URLs,
+loads normalized comments through the Rust server's client-facing
+`/api/danmaku/{mediaId}` route, supports local XML/JSON drag-and-drop, and
+keeps existing ASS overlays playable through mpv. Library browsing, discovery,
+progress sync, localization, and packaging remain later Phase 3 milestones.
+The client must not duplicate library hosting, provider settings, sync, or
+metadata storage.
 
 ## Module Boundaries
 
@@ -104,6 +111,10 @@ apps:library-server-windows
 native:library-server
   Rust headless LAN server and default desktop-owned sidecar.
 
+native:player-app
+  In-progress egui/glow Windows client with libmpv compositing, playback
+  controls, and native danmaku rendering.
+
 native:player-windows-mpv
   libmpv loader/probe and C ABI used by the desktop app.
 
@@ -118,12 +129,15 @@ native:rust-core
 3. The desktop-owned Rust sidecar scans the registered roots and publishes its
    catalog over trusted LAN with a pairing token; desktop rescans restart the
    sidecar so the child process sees current roots and files.
-4. Android, TV, web, desktop-remote, and future native clients fetch
-   catalog/progress and prepare playback URLs over HTTP.
+4. Android, TV, web, desktop-remote, and native clients fetch catalog/progress
+   and prepare playback URLs over HTTP.
 5. Clients stream over HTTP byte ranges and upload progress.
-6. Desktop local playback uses the same catalog/progress concepts and writes
-   local progress directly.
-7. External tracking derives provider-neutral updates from local progress and
+6. Compose desktop local playback uses the same catalog/progress concepts and
+   writes local progress directly.
+7. The native player currently accepts a direct media source and can request
+   normalized dandanplay comments from the Rust server by catalog media ID;
+   Phase 3 M3 will add catalog/progress client flows.
+8. External tracking derives provider-neutral updates from local progress and
    mapped series, then writes through provider-specific clients only when the
    user triggers sync.
 

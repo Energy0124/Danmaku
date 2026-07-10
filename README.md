@@ -49,6 +49,7 @@ shared/
 native/
   rust-core/             Focused Rust timeline/indexing experiments
   library-server/        Headless and desktop-sidecar LAN library server
+  player-app/            Native egui/libmpv Windows player migration client
   player-windows-mpv/    libmpv loader, probe, and desktop playback bridge
 
 tools/
@@ -164,6 +165,28 @@ Windows desktop development shell:
 ```
 
 The launcher builds the Rust `library-server` sidecar and starts it by default.
+
+Native Windows player migration preview:
+
+```powershell
+cargo run -p danmaku-player -- --media "W:\Anime\Show\Episode 01.mkv" --danmaku "comments.xml"
+```
+
+The native player accepts local Bilibili XML, normalized JSON, and existing ASS
+overlays. XML/JSON comments use the native egui renderer; ASS files use mpv's
+subtitle renderer for compatibility. XML, JSON, `.danmaku`, or ASS files can
+also be dropped onto the running player. Display opacity, speed, density, and
+lane count are available from the Danmaku control menu.
+
+To resolve dandanplay comments through a running Rust library server, provide
+the catalog media ID:
+
+```powershell
+cargo run -p danmaku-player -- --media "W:\Anime\Show\Episode 01.mkv" `
+  --server-url http://127.0.0.1:8686 --media-id episode-id
+```
+
+Use `--help` for the full playback and danmaku option list.
 
 Runtime-free Windows portable build/run:
 

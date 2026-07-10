@@ -11,14 +11,15 @@ Status legend:
 
 ## Active Priorities
 
-- `[ ]` Migrate the library server core and the Windows player client to
-  Rust. Accepted direction: freeze the LAN protocol with golden fixtures,
-  build a Rust headless server behind the existing QA gates, run it as a
-  desktop sidecar, then build an egui/OpenGL player with true GPU
-  compositing (mpv render API, UI and native danmaku drawn over video) and
-  admin workflows moving to the web UI. Phase 0 starts with the protocol
-  freeze and the compositing/visual-bar spike gates. Plan and task
-  checklists: `docs/design/rust-migration-plan.md`.
+- `[~]` Migrate the library server core and the Windows player client to
+  Rust. Protocol fixtures, Rust server parity, default desktop sidecar
+  ownership, and the native player's M1 playback core are complete. Phase 3 M2
+  now adds native danmaku compositing at spike density, server-side dandanplay
+  loading through `/api/danmaku/{mediaId}`, local XML/JSON and drag-and-drop
+  attachment, ASS compatibility, display controls, and seek-correct layout.
+  Next are the M2.5 design system and M3 library/discovery/progress client
+  flows; Compose desktop remains the default until the M5 release gates pass.
+  Plan and task checklists: `docs/design/rust-migration-plan.md`.
 - `[~]` Split the desktop library host into compatibility-preserving host,
   client, and web surfaces. The accepted direction is boundary-first:
   `shared:library-host-core` contracts, optional `/web/` static serving on the
