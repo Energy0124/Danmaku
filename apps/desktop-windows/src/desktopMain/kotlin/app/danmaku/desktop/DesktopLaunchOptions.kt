@@ -13,6 +13,8 @@ internal data class DesktopLaunchOptions(
     val webAssetsRoot: Path? = null,
     val qaLibraryRoot: Path? = null,
     val remoteClient: DesktopRemoteClientOptions? = null,
+    val rustSidecar: DesktopRustSidecarOptions = DesktopRustSidecarOptions(),
+    val qaSidecarAutoplayFirst: Boolean = false,
     val qaScreenshot: DesktopQaScreenshotOptions? = null,
 ) {
     companion object {
@@ -23,6 +25,8 @@ internal data class DesktopLaunchOptions(
         const val QA_LIBRARY_ROOT_ENV = "DANMAKU_QA_LIBRARY_ROOT"
         const val REMOTE_SERVER_URL_ENV = "DANMAKU_REMOTE_SERVER_URL"
         const val REMOTE_PAIRING_TOKEN_ENV = "DANMAKU_REMOTE_PAIRING_TOKEN"
+        const val RUST_SIDECAR_ENV = "DANMAKU_RUST_SIDECAR"
+        const val RUST_SERVER_PATH_ENV = "DANMAKU_RUST_SERVER_PATH"
 
         fun parse(args: Array<String>): DesktopLaunchOptions =
             parse(args.asList(), System.getenv())
@@ -57,6 +61,11 @@ internal data class DesktopLaunchOptions(
                 ?.takeIf(String::isNotBlank)
                 ?.also { remoteClientRequested = true }
             var remoteAutoLoad = true
+            var rustSidecarEnabled = environment[RUST_SIDECAR_ENV].toBooleanLaunchFlag()
+            var rustServerPath = environment[RUST_SERVER_PATH_ENV]
+                ?.takeIf(String::isNotBlank)
+                ?.let(Path::of)
+            var qaSidecarAutoplayFirst = false
             var qaScreenshotDirectory: Path? = null
             var qaScreenshotName: String? = null
             var qaScreenshotDelay = DEFAULT_QA_SCREENSHOT_DELAY
@@ -165,6 +174,23 @@ internal data class DesktopLaunchOptions(
                     arg == "--remote-no-auto-load" -> {
                         remoteAutoLoad = false
                     }
+                    arg == "--rust-sidecar" -> {
+                        rustSidecarEnabled = true
+                    }
+                    arg == "--no-rust-sidecar" -> {
+                        rustSidecarEnabled = false
+                    }
+                    arg == "--rust-server-path" -> {
+                        rustServerPath = args.valueAfter(arg, index)?.let(Path::of)
+                        index += 1
+                    }
+                    arg.startsWith("--rust-server-path=") -> {
+                        rustServerPath = arg.substringAfter("=").takeIf(String::isNotBlank)?.let(Path::of)
+                            ?: error("--rust-server-path requires a value")
+                    }
+                    arg == "--qa-sidecar-autoplay-first" -> {
+                        qaSidecarAutoplayFirst = true
+                    }
                     arg == "--qa-screenshot-dir" -> {
                         qaScreenshotDirectory = args.valueAfter(arg, index)?.let(Path::of)
                         index += 1
@@ -242,7 +268,9 @@ internal data class DesktopLaunchOptions(
                     )
                 },
                 initialLanguage = initialLanguage,
-                initialTab = initialTab ?: DesktopShellTab.MEDIA_LIBRARY.takeIf { remoteClientRequested },
+                initialTab = initialTab ?: DesktopShellTab.MEDIA_LIBRARY.takeIf {
+                    remoteClientRequested || rustSidecarEnabled
+                },
                 serverPort = serverPort,
                 serverPairingToken = serverPairingToken,
                 webAssetsRoot = webAssetsRoot,
@@ -254,6 +282,11 @@ internal data class DesktopLaunchOptions(
                         autoLoad = remoteAutoLoad,
                     )
                 },
+                rustSidecar = DesktopRustSidecarOptions(
+                    enabled = rustSidecarEnabled,
+                    serverPath = rustServerPath,
+                ),
+                qaSidecarAutoplayFirst = qaSidecarAutoplayFirst,
                 qaScreenshot = qaScreenshotDirectory?.let { outputDirectory ->
                     DesktopQaScreenshotOptions(
                         outputDirectory = outputDirectory,
@@ -302,8 +335,19 @@ internal data class DesktopLaunchOptions(
             toIntOrNull()
                 ?.takeIf { it in 0..65_535 }
                 ?: error("Server port must be between 0 and 65535: $this")
+
+        private fun String?.toBooleanLaunchFlag(): Boolean =
+            when (this?.trim()?.lowercase()) {
+                "1", "true", "yes", "y", "on" -> true
+                else -> false
+            }
     }
 }
+
+internal data class DesktopRustSidecarOptions(
+    val enabled: Boolean = false,
+    val serverPath: Path? = null,
+)
 
 internal data class DesktopRemoteClientOptions(
     val serverUrl: String,

@@ -880,6 +880,7 @@ fn content_type(path: &Path) -> &'static str {
         "js" => "text/javascript; charset=utf-8",
         "json" => "application/json; charset=utf-8",
         "m4v" | "mp4" => "video/mp4",
+        "mkv" => "video/x-matroska",
         "png" => "image/png",
         "srt" => "application/x-subrip",
         "ssa" => "text/x-ssa",
@@ -1739,6 +1740,122 @@ mod tests {
         assert_eq!(None, parse_range("bytes=-0", 6));
         assert_eq!(None, parse_range("bytes=6-6", 6));
         assert_eq!(None, parse_range("bytes=0-0", 0));
+    }
+
+    #[test]
+    fn maps_matroska_stream_content_type() {
+        assert_eq!(
+            "video/x-matroska",
+            content_type(Path::new("Episode 01.mkv"))
+        );
+    }
+
+    #[tokio::test]
+    async fn media_route_handles_mpv_open_ended_ranges_and_head() {
+        let fixture = FixtureEnvironment::new();
+        let state = HttpServerState::new(
+            fixture.library.clone(),
+            Arc::new(PlaybackProgressStore::new(
+                fixture.temp.join("mpv-range-progress.json"),
+            )),
+            HttpServerConfig::fixture_embedded(fixture.web_root.clone()),
+        );
+        let app = app(state);
+
+        let head = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("HEAD")
+                    .uri("/media/episode-id")
+                    .body(Body::empty())
+                    .expect("HEAD request"),
+            )
+            .await
+            .expect("HEAD response");
+        assert_eq!(StatusCode::OK, head.status());
+        assert_eq!("bytes", head.headers()[ACCEPT_RANGES]);
+        assert_eq!("6", head.headers()[CONTENT_LENGTH]);
+        assert!(
+            to_bytes(head.into_body(), 1_048_576)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+
+        let open_ended = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri("/media/episode-id")
+                    .header("range", "bytes=0-")
+                    .body(Body::empty())
+                    .expect("open-ended range request"),
+            )
+            .await
+            .expect("open-ended range response");
+        assert_eq!(StatusCode::PARTIAL_CONTENT, open_ended.status());
+        assert_eq!("bytes 0-5/6", open_ended.headers()[CONTENT_RANGE]);
+        assert_eq!("6", open_ended.headers()[CONTENT_LENGTH]);
+        assert_eq!(
+            vec![0_u8, 1, 2, 3, 4, 5],
+            to_bytes(open_ended.into_body(), 1_048_576)
+                .await
+                .unwrap()
+                .to_vec(),
+        );
+
+        let mid_file = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri("/media/episode-id")
+                    .header("range", "bytes=3-")
+                    .body(Body::empty())
+                    .expect("mid-file range request"),
+            )
+            .await
+            .expect("mid-file range response");
+        assert_eq!(StatusCode::PARTIAL_CONTENT, mid_file.status());
+        assert_eq!("bytes 3-5/6", mid_file.headers()[CONTENT_RANGE]);
+        assert_eq!(
+            vec![3_u8, 4, 5],
+            to_bytes(mid_file.into_body(), 1_048_576)
+                .await
+                .unwrap()
+                .to_vec(),
+        );
+
+        let first = app.clone().oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/media/episode-id")
+                .header("range", "bytes=0-")
+                .body(Body::empty())
+                .expect("first concurrent request"),
+        );
+        let second = app.oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/media/episode-id")
+                .header("range", "bytes=0-")
+                .body(Body::empty())
+                .expect("second concurrent request"),
+        );
+        let (first, second) = tokio::join!(first, second);
+        for response in [first.unwrap(), second.unwrap()] {
+            assert_eq!(StatusCode::PARTIAL_CONTENT, response.status());
+            assert_eq!("bytes 0-5/6", response.headers()[CONTENT_RANGE]);
+            assert_eq!(
+                vec![0_u8, 1, 2, 3, 4, 5],
+                to_bytes(response.into_body(), 1_048_576)
+                    .await
+                    .unwrap()
+                    .to_vec(),
+            );
+        }
     }
 
     struct FixtureEnvironment {

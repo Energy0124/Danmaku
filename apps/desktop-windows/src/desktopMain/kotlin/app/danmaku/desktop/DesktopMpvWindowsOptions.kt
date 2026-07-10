@@ -7,8 +7,8 @@ object DesktopMpvWindowsOptions {
         windowId: Long,
         controlScriptPath: Path? = null,
     ): Map<String, String> {
-        val unsignedWindowId = windowId.toUInt()
-        require(unsignedWindowId != 0u) { "windowId must not be zero" }
+        val unsignedWindowId = windowId.toULong()
+        require(unsignedWindowId != 0uL) { "windowId must not be zero" }
         return embeddedPlaybackOptions(controlScriptPath) + mapOf("wid" to unsignedWindowId.toString())
     }
 

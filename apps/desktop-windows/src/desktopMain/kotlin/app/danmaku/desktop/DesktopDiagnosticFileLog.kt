@@ -12,6 +12,7 @@ class DesktopDiagnosticFileLog private constructor(
     val appLogPath: Path,
     val mpvLogPath: Path,
 ) : AutoCloseable {
+    private var isClosed = false
     private val writer = Files.newBufferedWriter(
         appLogPath,
         StandardCharsets.UTF_8,
@@ -25,6 +26,9 @@ class DesktopDiagnosticFileLog private constructor(
         category: String,
         message: String,
     ) {
+        if (isClosed) {
+            return
+        }
         writer.write(
             buildString {
                 append(LOG_TIME_FORMATTER.format(Instant.ofEpochMilli(occurredAtEpochMs).atZone(ZoneId.systemDefault())))
@@ -40,6 +44,10 @@ class DesktopDiagnosticFileLog private constructor(
 
     @Synchronized
     override fun close() {
+        if (isClosed) {
+            return
+        }
+        isClosed = true
         writer.close()
     }
 
@@ -47,7 +55,7 @@ class DesktopDiagnosticFileLog private constructor(
         fun createDefault(): DesktopDiagnosticFileLog {
             val logDirectory = defaultLogDirectory()
             Files.createDirectories(logDirectory)
-            val stamp = FILE_STAMP_FORMATTER.format(Instant.now().atZone(ZoneId.systemDefault()))
+            val stamp = "${FILE_STAMP_FORMATTER.format(Instant.now().atZone(ZoneId.systemDefault()))}-${ProcessHandle.current().pid()}"
             return DesktopDiagnosticFileLog(
                 appLogPath = logDirectory.resolve("danmaku-$stamp.log"),
                 mpvLogPath = logDirectory.resolve("mpv-$stamp.log"),
@@ -68,7 +76,7 @@ private fun String.replaceLineBreaks(): String =
     replace('\r', ' ').replace('\n', ' ')
 
 private val FILE_STAMP_FORMATTER: DateTimeFormatter =
-    DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")
+    DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss-SSS")
 
 private val LOG_TIME_FORMATTER: DateTimeFormatter =
     DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")

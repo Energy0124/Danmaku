@@ -43,6 +43,8 @@ import app.danmaku.domain.externalAnimeTrackingPlan
 import app.danmaku.domain.groupedSeries
 import app.danmaku.domain.nextItem
 import app.danmaku.domain.previousItem
+import app.danmaku.library.LanLibraryConnectionSession
+import app.danmaku.library.LanPlaybackPreparer
 import app.danmaku.library.LanPlaybackProgressSync
 import app.danmaku.library.jvm.JvmLanLibraryClient
 import app.danmaku.server.LocalLibraryDiscoveryAnnouncer
@@ -281,62 +283,91 @@ internal fun DesktopShell(
     var externalAnimeItemMappingsByMediaId by remember {
         mutableStateOf<Map<String, List<DesktopExternalAnimeItemMapping>>>(emptyMap())
     }
-    val serverRuntime = remember(catalogStore, rootScanner, animeMetadataResolver, dandanplayDanmakuResolver, scope) {
-        DesktopLibraryServerRuntime.start(
-            catalogStore = catalogStore,
-            rootScanner = rootScanner,
-            metadataResolver = animeMetadataResolver,
-            dandanplayDanmakuResolver = dandanplayDanmakuResolver,
-            port = launchOptions.serverPort ?: app.danmaku.server.LocalLibraryServer.DEFAULT_PORT,
-            pairingToken = launchOptions.serverPairingToken,
-            aniRssWebhookToken = aniRssCredentialStore.loadOrCreateWebhookToken(),
-            webAssetsRoot = launchOptions.webAssetsRoot,
-            onLibraryPublished = { library ->
-                scope.launch {
-                    libraryState.indexedLibrary = library
-                    libraryState.libraryMetadataVersion += 1
-                    libraryState.registeredRoots = rootRegistry.loadRoots()
-                    libraryState.selectedLocalPlaybackPreparation = null
-                    libraryState.libraryError = null
-                    appendDiagnostic("library", "Published updated library from server runtime: ${library.catalog.items.size} items")
-                }
-            },
-            onServerEvent = { event ->
-                scope.launch {
-                    appendServerEvent(event)
-                }
-            },
-            onMyAnimeListOAuthCallback = { query ->
-                runCatching {
-                    myAnimeListOAuthService.completeAuthorization(query)
-                }.fold(
-                    onSuccess = { updatedSettings ->
-                        scope.launch {
-                            settingsState.externalAnimeProviderSettings = updatedSettings
-                            appendDiagnostic("settings", "MyAnimeList OAuth authorization complete")
+    val rustSidecarRuntime = remember(launchOptions.rustSidecar, launchOptions.serverPort, launchOptions.serverPairingToken, launchOptions.webAssetsRoot) {
+        if (!launchOptions.rustSidecar.enabled) {
+            null
+        } else {
+            val sidecarRoots = buildList {
+                addAll(rootRegistry.loadRoots().filter { it.state == DesktopLibraryRootState.AVAILABLE }.map(DesktopLibraryRoot::normalizedPath))
+                launchOptions.qaLibraryRoot?.let(::add)
+            }
+            RustServerSidecarRuntime.start(
+                launchOptions = launchOptions,
+                libraryRoots = sidecarRoots,
+                onStatusChanged = { status ->
+                    scope.launch {
+                        appendDiagnostic("rust-sidecar", status.message)
+                        if (status is RustServerSidecarStatus.Failed) {
+                            libraryState.libraryError = status.message
                         }
-                        PublicGetHookResponse(
-                            status = 200,
-                            contentType = "text/html; charset=utf-8",
-                            body = "<!doctype html><title>Danmaku</title><h1>MyAnimeList connected</h1><p>You can close this tab and return to Danmaku.</p>",
-                        )
-                    },
-                    onFailure = { error ->
-                        scope.launch {
-                            appendDiagnostic("settings", "MyAnimeList OAuth authorization failed: ${error.message}")
-                        }
-                        PublicGetHookResponse(
-                            status = 400,
-                            contentType = "text/html; charset=utf-8",
-                            body = "<!doctype html><title>Danmaku</title><h1>MyAnimeList authorization failed</h1><p>${(error.message ?: "Unknown error").escapeHtml()}</p>",
-                        )
-                    },
-                )
-            },
-        )
+                    }
+                },
+            )
+        }
     }
-    val server = serverRuntime.server
-    val settingsActions = remember(server, settingsState, libraryState) {
+    val serverRuntime = remember(catalogStore, rootScanner, animeMetadataResolver, dandanplayDanmakuResolver, scope, rustSidecarRuntime) {
+        if (rustSidecarRuntime != null) {
+            null
+        } else {
+            DesktopLibraryServerRuntime.start(
+                catalogStore = catalogStore,
+                rootScanner = rootScanner,
+                metadataResolver = animeMetadataResolver,
+                dandanplayDanmakuResolver = dandanplayDanmakuResolver,
+                port = launchOptions.serverPort ?: app.danmaku.server.LocalLibraryServer.DEFAULT_PORT,
+                pairingToken = launchOptions.serverPairingToken,
+                aniRssWebhookToken = aniRssCredentialStore.loadOrCreateWebhookToken(),
+                webAssetsRoot = launchOptions.webAssetsRoot,
+                onLibraryPublished = { library ->
+                    scope.launch {
+                        libraryState.indexedLibrary = library
+                        libraryState.libraryMetadataVersion += 1
+                        libraryState.registeredRoots = rootRegistry.loadRoots()
+                        libraryState.selectedLocalPlaybackPreparation = null
+                        libraryState.libraryError = null
+                        appendDiagnostic("library", "Published updated library from server runtime: ${library.catalog.items.size} items")
+                    }
+                },
+                onServerEvent = { event ->
+                    scope.launch {
+                        appendServerEvent(event)
+                    }
+                },
+                onMyAnimeListOAuthCallback = { query ->
+                    runCatching {
+                        myAnimeListOAuthService.completeAuthorization(query)
+                    }.fold(
+                        onSuccess = { updatedSettings ->
+                            scope.launch {
+                                settingsState.externalAnimeProviderSettings = updatedSettings
+                                appendDiagnostic("settings", "MyAnimeList OAuth authorization complete")
+                            }
+                            PublicGetHookResponse(
+                                status = 200,
+                                contentType = "text/html; charset=utf-8",
+                                body = "<!doctype html><title>Danmaku</title><h1>MyAnimeList connected</h1><p>You can close this tab and return to Danmaku.</p>",
+                            )
+                        },
+                        onFailure = { error ->
+                            scope.launch {
+                                appendDiagnostic("settings", "MyAnimeList OAuth authorization failed: ${error.message}")
+                            }
+                            PublicGetHookResponse(
+                                status = 400,
+                                contentType = "text/html; charset=utf-8",
+                                body = "<!doctype html><title>Danmaku</title><h1>MyAnimeList authorization failed</h1><p>${(error.message ?: "Unknown error").escapeHtml()}</p>",
+                            )
+                        },
+                    )
+                },
+            )
+        }
+    }
+    val server = serverRuntime?.server
+    val effectiveRemoteClient = rustSidecarRuntime?.remoteClientOptions ?: launchOptions.remoteClient
+    val serverBaseUrl = rustSidecarRuntime?.baseUrl ?: server?.baseUrl().orEmpty()
+    val serverPairingToken = rustSidecarRuntime?.remoteClientOptions?.pairingToken ?: server?.pairingToken.orEmpty()
+    val settingsActions = remember(serverBaseUrl, serverPairingToken, settingsState, libraryState) {
         DesktopShellSettingsActions(
             scope = scope,
             playbackPreferencesStore = playbackPreferencesStore,
@@ -347,13 +378,13 @@ internal fun DesktopShell(
             catalogStore = catalogStore,
             settingsState = settingsState,
             libraryState = libraryState,
-            serverBaseUrl = server::baseUrl,
-            pairingToken = { server.pairingToken },
+            serverBaseUrl = { serverBaseUrl },
+            pairingToken = { serverPairingToken },
             appendDiagnostic = ::appendDiagnostic,
             updateOverlayStatus = { overlayStatus = it },
         )
     }
-    val libraryActions = remember(serverRuntime, server, settingsState, libraryState) {
+    val libraryActions = remember(serverRuntime, server, rustSidecarRuntime, settingsState, libraryState) {
         DesktopShellLibraryActions(
             scope = scope,
             catalogStore = catalogStore,
@@ -367,8 +398,16 @@ internal fun DesktopShell(
             settingsState = settingsState,
             libraryState = libraryState,
             publishLibrary = { library ->
-                server.publish(library.toPublishedLibrary(animeMetadataResolver))
-                serverRuntime.recordPublishedLibrary(library.catalog.items.size)
+                val embeddedRuntime = serverRuntime
+                if (embeddedRuntime != null) {
+                    embeddedRuntime.server.publish(library.toPublishedLibrary(animeMetadataResolver))
+                    embeddedRuntime.recordPublishedLibrary(library.catalog.items.size)
+                } else {
+                    appendDiagnostic(
+                        "rust-sidecar",
+                        "Local scan updated desktop cache; Rust sidecar owns LAN catalog publishing from its --root arguments.",
+                    )
+                }
             },
             appendDiagnostic = ::appendDiagnostic,
         )
@@ -381,12 +420,16 @@ internal fun DesktopShell(
             appendDiagnostic = ::appendDiagnostic,
         )
     }
-    val discoveryAnnouncer = remember(server) {
-        LocalLibraryDiscoveryAnnouncer(server.localPort).apply {
-            start()
+    val discoveryAnnouncer = remember(server, rustSidecarRuntime) {
+        server?.let {
+            LocalLibraryDiscoveryAnnouncer(it.localPort).apply {
+                start()
+            }
         }
     }
-    val networkUrls = remember(server) { server.networkUrls() }
+    val networkUrls = remember(server, rustSidecarRuntime) {
+        rustSidecarRuntime?.localNetworkUrls() ?: server?.networkUrls().orEmpty()
+    }
 
     LaunchedEffect(playbackController) {
         playbackController.dispatch(PlaybackCommand.SetPlaybackRate(settingsState.playbackPreferences.playbackRate))
@@ -773,12 +816,20 @@ internal fun DesktopShell(
             val publishedLibrary = withContext(Dispatchers.IO) {
                 cachedLibrary.toPublishedLibrary(animeMetadataResolver)
             }
-            server.publish(publishedLibrary)
-            serverRuntime.recordPublishedLibrary(cachedLibrary.catalog.items.size)
-            appendDiagnostic(
-                "startup",
-                "Published cached library to LAN server: ${cachedLibrary.catalog.items.size} item(s)",
-            )
+            val embeddedRuntime = serverRuntime
+            if (embeddedRuntime != null) {
+                embeddedRuntime.server.publish(publishedLibrary)
+                embeddedRuntime.recordPublishedLibrary(cachedLibrary.catalog.items.size)
+                appendDiagnostic(
+                    "startup",
+                    "Published cached library to LAN server: ${cachedLibrary.catalog.items.size} item(s)",
+                )
+            } else {
+                appendDiagnostic(
+                    "rust-sidecar",
+                    "Skipped embedded cached-library publish; Rust sidecar scans ${libraryState.registeredRoots.size} configured root(s).",
+                )
+            }
         }
         when {
             launchOptions.qaLibraryRoot != null -> libraryActions.registerAndScanUserRoot(launchOptions.qaLibraryRoot)
@@ -800,6 +851,39 @@ internal fun DesktopShell(
         }
         playbackState.smokePlaybackQueued = true
         playbackActions.queueSmokePlayback(smokePlayback)
+    }
+
+    LaunchedEffect(launchOptions.qaSidecarAutoplayFirst, rustSidecarRuntime) {
+        val sidecar = rustSidecarRuntime ?: return@LaunchedEffect
+        if (!launchOptions.qaSidecarAutoplayFirst || playbackState.sidecarQaAutoplayQueued) {
+            return@LaunchedEffect
+        }
+        playbackState.sidecarQaAutoplayQueued = true
+        appendDiagnostic("smoke", "QA sidecar autoplay fetching catalog from ${sidecar.baseUrl}")
+        runCatching {
+            withContext(Dispatchers.IO) {
+                val client = JvmLanLibraryClient()
+                val pairingToken = sidecar.remoteClientOptions.pairingToken
+                val catalog = LanLibraryConnectionSession(client).fetchCatalog(sidecar.baseUrl, pairingToken)
+                val item = catalog.items.firstOrNull()
+                    ?: error("Rust sidecar catalog is empty.")
+                LanPlaybackPreparer(client).prepare(
+                    baseUrl = sidecar.baseUrl,
+                    pairingToken = pairingToken,
+                    item = item,
+                    resumePositionMs = null,
+                )
+            }
+        }.onSuccess { preparation ->
+            appendDiagnostic(
+                "smoke",
+                "QA sidecar autoplay loading ${preparation.item.id}; stream=${preparation.source.url.redactToken()}",
+            )
+            playbackActions.loadPreparedRemotePlayback(preparation)
+        }.onFailure { error ->
+            appendDiagnostic("smoke", "QA sidecar autoplay failed: ${error.message ?: error::class.simpleName}")
+            libraryState.libraryError = error.message ?: "QA sidecar autoplay failed."
+        }
     }
 
     DesktopShellQaScreenshotEffect(
@@ -889,10 +973,11 @@ internal fun DesktopShell(
         }
     }
 
-    DisposableEffect(serverRuntime, discoveryAnnouncer) {
+    DisposableEffect(serverRuntime, rustSidecarRuntime, discoveryAnnouncer) {
         onDispose {
-            discoveryAnnouncer.close()
-            serverRuntime.close()
+            discoveryAnnouncer?.close()
+            serverRuntime?.close()
+            rustSidecarRuntime?.close()
             catalogStore.close()
         }
     }
@@ -1049,7 +1134,7 @@ internal fun DesktopShell(
                             dandanplayCacheStatus = libraryState.dandanplayCacheStatus,
                             episodeCount = libraryState.indexedLibrary?.catalog?.items?.size ?: 0,
                             networkUrls = networkUrls,
-                            pairingToken = server.pairingToken,
+                            pairingToken = serverPairingToken,
                             overlayStatus = overlayStatus,
                             libraryError = libraryState.libraryError,
                             lastScanStats = libraryState.lastScanStats,
@@ -1156,11 +1241,11 @@ internal fun DesktopShell(
                             onSyncExternalAnimePlan = libraryActions::syncExternalAnimePlan,
                             onLoadPreparedPlayback = playbackActions::loadPreparedLocalPlayback,
                             remoteBrowser = {
-                                val remoteClient = launchOptions.remoteClient
+                                val remoteClient = effectiveRemoteClient
                                 RemoteLibraryBrowser(
                                     strings = desktopStrings,
-                                    defaultServerUrl = remoteClient?.normalizedServerUrl ?: server.baseUrl(),
-                                    defaultPairingToken = remoteClient?.pairingToken ?: server.pairingToken,
+                                    defaultServerUrl = remoteClient?.normalizedServerUrl ?: serverBaseUrl,
+                                    defaultPairingToken = remoteClient?.pairingToken ?: serverPairingToken,
                                     autoLoadOnStart = remoteClient?.autoLoad == true,
                                     appendDiagnostic = ::appendDiagnostic,
                                     onLoadPreparedPlayback = playbackActions::loadPreparedRemotePlayback,
@@ -1170,8 +1255,8 @@ internal fun DesktopShell(
                         DesktopShellTab.DOWNLOADS -> DownloadsTab(
                             strings = desktopStrings,
                             isIndexing = libraryState.isIndexing,
-                            webhookUrls = serverRuntime.aniRssWebhookUrls(),
-                            webhookToken = serverRuntime.aniRssWebhookToken,
+                            webhookUrls = serverRuntime?.aniRssWebhookUrls().orEmpty(),
+                            webhookToken = serverRuntime?.aniRssWebhookToken.orEmpty(),
                             registeredRoots = libraryState.registeredRoots,
                             downloadQueueItems = libraryState.downloadQueueItems,
                             onAddAniRssOutputFolder = {
@@ -1188,9 +1273,9 @@ internal fun DesktopShell(
                             strings = desktopStrings,
                             mpvRuntimeStatus = mpvRuntime.statusMessage,
                             videoHostStatus = videoHostStatus,
-                            serverBaseUrl = server.baseUrl(),
+                            serverBaseUrl = serverBaseUrl,
                             networkUrls = networkUrls,
-                            pairingToken = server.pairingToken,
+                            pairingToken = serverPairingToken,
                             recentServerEvents = serverEvents,
                             appLogPath = diagnosticFileLog.appLogPath,
                             mpvLogPath = diagnosticFileLog.mpvLogPath,

@@ -19,6 +19,7 @@ internal class DesktopShellPlaybackState(
     var lastAutoNextMediaId by mutableStateOf<String?>(null)
     var smokePlaybackQueued by mutableStateOf(false)
     var smokePlaybackExitStarted by mutableStateOf(false)
+    var sidecarQaAutoplayQueued by mutableStateOf(false)
     var autoNextLocalPlayback by mutableStateOf(autoNextEnabled)
 
     fun markPlaybackLoaded(request: DesktopPlaybackRequest) {

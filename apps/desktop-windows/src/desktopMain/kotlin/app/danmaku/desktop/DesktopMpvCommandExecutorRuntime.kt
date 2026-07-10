@@ -135,6 +135,8 @@ class DesktopMpvCommandExecutorRuntimeFactory(
 
         private fun defaultLibrarySearchPaths(platform: DesktopHostPlatform): List<Path> =
             buildList {
+                val workingDirectory = Path.of("").toAbsolutePath().normalize()
+                addAll(packagedApplicationLibrarySearchPaths(workingDirectory))
                 addAll(
                     System.getProperty("java.library.path")
                         .orEmpty()
@@ -150,6 +152,14 @@ class DesktopMpvCommandExecutorRuntimeFactory(
                 appCodeSourcePath()?.let { codeSource ->
                     add(if (Files.isRegularFile(codeSource)) codeSource.parent else codeSource)
                 }
+                addAll(
+                    developmentRepositoryLibrarySearchPaths(
+                        buildList {
+                            add(workingDirectory)
+                            appCodeSourcePath()?.let(::add)
+                        },
+                    ),
+                )
                 addAll(platform.defaultMpvLibrarySearchPaths())
             }
                 .map { it.toAbsolutePath().normalize() }
@@ -166,6 +176,33 @@ class DesktopMpvCommandExecutorRuntimeFactory(
             }.getOrNull()
     }
 }
+
+internal fun developmentRepositoryLibrarySearchPaths(anchors: Iterable<Path>): List<Path> =
+    anchors
+        .asSequence()
+        .flatMap { anchor -> anchor.toAbsolutePath().normalize().ancestorSequence() }
+        .filter { candidate ->
+            Files.isRegularFile(candidate.resolve("settings.gradle.kts")) &&
+                Files.isDirectory(candidate.resolve("native").resolve("player-windows-mpv"))
+        }
+        .flatMap { repositoryRoot ->
+            sequenceOf(
+                repositoryRoot.resolve("target").resolve("release"),
+                repositoryRoot.resolve("target").resolve("debug"),
+                repositoryRoot.resolve("runtime").resolve("windows").resolve("libmpv"),
+            )
+        }
+        .distinct()
+        .toList()
+
+internal fun packagedApplicationLibrarySearchPaths(workingDirectory: Path): List<Path> =
+    listOf(
+        workingDirectory.toAbsolutePath().normalize(),
+        workingDirectory.toAbsolutePath().normalize().resolve("app"),
+    )
+
+private fun Path.ancestorSequence(): Sequence<Path> =
+    generateSequence(this) { path -> path.parent }
 
 private fun DesktopHostPlatform.defaultMpvLibrarySearchPaths(): List<Path> =
     when (this) {
