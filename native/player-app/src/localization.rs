@@ -252,6 +252,69 @@ impl Strings {
     pub fn saved(self) -> &'static str {
         self.text("Preferences save automatically.", "偏好設定會自動儲存。")
     }
+    pub fn this_pc(self) -> &'static str {
+        self.text("Library on this PC", "此電腦上的媒體庫")
+    }
+    pub fn local_host_note(self) -> &'static str {
+        self.text(
+            "Choose your anime folder. Danmaku will start and connect the bundled server automatically.",
+            "選擇動畫資料夾，Danmaku 會自動啟動並連線至內建伺服器。",
+        )
+    }
+    pub fn library_folder(self) -> &'static str {
+        self.text("Library folder", "媒體庫資料夾")
+    }
+    pub fn choose_folder(self) -> &'static str {
+        self.text("Choose folder…", "選擇資料夾…")
+    }
+    pub fn start_local_library(self) -> &'static str {
+        self.text("Start local library", "啟動本機媒體庫")
+    }
+    pub fn starting_local_server(self) -> &'static str {
+        self.text(
+            "Starting the local library server…",
+            "正在啟動本機媒體庫伺服器…",
+        )
+    }
+    pub fn local_server_running(self) -> &'static str {
+        self.text(
+            "Local library server is running.",
+            "本機媒體庫伺服器正在執行。",
+        )
+    }
+    pub fn local_server_stopped(self) -> &'static str {
+        self.text(
+            "Local library server is stopped.",
+            "本機媒體庫伺服器已停止。",
+        )
+    }
+    pub fn other_servers(self) -> &'static str {
+        self.text("Other servers", "其他伺服器")
+    }
+    pub fn local_hosting(self) -> &'static str {
+        self.text("Local server", "本機伺服器")
+    }
+    pub fn managed_by_player(self) -> &'static str {
+        self.text("Managed by this player", "由此播放器管理")
+    }
+    pub fn attached_server(self) -> &'static str {
+        self.text("Attached to an existing server", "已連線至現有伺服器")
+    }
+    pub fn restart_server(self) -> &'static str {
+        self.text("Restart server", "重新啟動伺服器")
+    }
+    pub fn stop_server(self) -> &'static str {
+        self.text("Stop server", "停止伺服器")
+    }
+    pub fn change_library_folder(self) -> &'static str {
+        self.text("Change library folder…", "變更媒體庫資料夾…")
+    }
+    pub fn local_server_unavailable(self) -> &'static str {
+        self.text(
+            "The bundled local server is not available in this build.",
+            "此版本未包含本機伺服器。",
+        )
+    }
     pub fn ass_compatibility(self) -> &'static str {
         self.text(
             "ASS compatibility uses mpv's subtitle renderer.",

@@ -137,10 +137,16 @@ trusted-LAN clients.
   search, progress/resume, previous/next, and auto-next. M4 adds English and
   Traditional Chinese from the initial connect screen, durable playback and
   danmaku preferences, remembered server URL management without storing pairing
-  tokens, and a web-admin link. M5 now builds and non-interactively verifies a
+  tokens, and a web-admin link. M5 builds and non-interactively verifies a
   Rust-native portable zip. Its four-file real-media matrix passes with zero
   render failures and NVDEC active, completing the Phase 3 release gate.
-  Compose desktop remains available during Phase 4 retirement work.
+- Phase 4 adds unified local hosting to that player: the package carries
+  `library-server.exe` and built `/web/` assets; first-run folder selection
+  starts the server asynchronously, waits for readiness, and connects
+  automatically. The player can attach to an already-running local server,
+  restart or stop one it owns, and stops its child on exit. Local roots are
+  remembered without persisting pairing tokens. Compose desktop remains
+  available during the remaining retirement work.
 
 ### Android Mobile
 
@@ -185,8 +191,9 @@ trusted-LAN clients.
 - Rust `rust-core` timeline/indexing foundation.
 - Windows scripts for pinned libmpv install and verification plus separate
   Compose-compatibility and Rust-native portable release preparation. The
-  Rust-native package is a versioned runtime-free zip with the player, approved
-  DLL, launcher, provenance, license texts, and generated crate inventory.
+  Rust-native package is a versioned runtime-free zip with the player, local
+  server, built web UI, approved DLL, launcher, provenance, license texts, and
+  generated player/server crate inventories.
   Runtime verification and supervised GUI smoke/release-QA scripts auto-detect
   both layouts.
 - Desktop app-level QA screenshot capture now raises the app window, waits for

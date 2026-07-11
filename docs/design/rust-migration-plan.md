@@ -318,6 +318,15 @@ Milestones, each shippable while the Compose app remains the default:
 
 ### Phase 4: Retirement And Cleanup
 
+- `[x]` Make the Rust-native zip the unified default local experience. The
+  player now discovers the packaged server/web assets, offers first-run library
+  folder selection, starts and health-checks the server without blocking the
+  UI, connects automatically, exposes restart/stop/root-change controls, and
+  stops only the child it owns. Existing local servers and remote LAN servers
+  remain attachable.
+- `[ ]` Add an optional Windows service installer for users who want the
+  library available while the player is closed. It must reuse the same server
+  binary/data model and avoid competing with a player-owned child.
 - `[ ]` Web UI covers the admin workflows the native player dropped
   (tracking sync, library quality review, provider settings) — coordinate
   with the server/client/web split plan.

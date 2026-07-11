@@ -1,7 +1,7 @@
 //! Player window: chrome, video surface, and fade-over-video controls.
 
 use std::{
-    path::Path,
+    path::{Path, PathBuf},
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
@@ -20,11 +20,15 @@ use crate::{
         fetch_server_danmaku, load_local_danmaku,
     },
     discovery::{DEFAULT_DISCOVERY_PORT, DiscoveryListener},
+    hosting::{LocalConnection, LocalServerSupervisor},
     library::PlaybackProgress,
     localization::Strings,
     posters::PosterCache,
     preferences::{PlayerPreferences, PreferenceStore},
-    screens::{ConnectScreen, LibraryAction, LibraryScreen, SettingsAction, show_settings},
+    screens::{
+        ConnectAction, ConnectRequest, ConnectScreen, LibraryAction, LibraryScreen, SettingsAction,
+        show_settings,
+    },
     session::{LibrarySession, SessionEvent},
     smoke::SmokeReport,
     theme::{self, metrics, palette, typography},
@@ -81,6 +85,7 @@ pub struct PlayerApp {
     preference_store: PreferenceStore,
     saved_preferences: PlayerPreferences,
     settings_return: AppScreen,
+    local_host: Option<LocalServerSupervisor>,
 }
 
 impl PlayerApp {
@@ -97,6 +102,12 @@ impl PlayerApp {
         let preference_store = PreferenceStore::for_current_user();
         let mut preferences = preference_store.load();
         let saved_preferences = preferences.clone();
+        let local_host = (cli.media.is_none() && cli.server_url.is_none()).then(|| {
+            LocalServerSupervisor::new(
+                &preferences.local_library_roots,
+                creation_context.egui_ctx.clone(),
+            )
+        });
         if let Some(volume) = cli.volume_percent {
             preferences.volume_percent = volume;
         }
@@ -157,6 +168,9 @@ impl PlayerApp {
         let mut connect_screen = ConnectScreen::default();
         if let Some(url) = preferences.last_server_url.clone() {
             connect_screen.manual_url = url;
+        }
+        if let Some(root) = preferences.local_library_roots.first() {
+            connect_screen.local_library_root = root.clone();
         }
         let mut posters = PosterCache::new(creation_context.egui_ctx.clone());
         let mut session = None;
@@ -223,6 +237,7 @@ impl PlayerApp {
             preference_store,
             saved_preferences,
             settings_return: AppScreen::Library,
+            local_host,
         })
     }
 
@@ -551,6 +566,45 @@ impl PlayerApp {
                 _ => {}
             }
         }
+    }
+
+    fn connect_to_server(&mut self, ctx: &egui::Context, request: ConnectRequest) {
+        self.preferences.last_server_url = Some(request.base_url.clone());
+        self.posters.set_base_url(Some(request.base_url.clone()));
+        self.session = Some(LibrarySession::connect(
+            request.base_url,
+            request.pairing_token,
+            ctx.clone(),
+        ));
+        self.connect_screen.error = None;
+        self.screen = AppScreen::Library;
+    }
+
+    fn connect_to_local_server(&mut self, ctx: &egui::Context, connection: LocalConnection) {
+        self.connect_to_server(
+            ctx,
+            ConnectRequest {
+                base_url: connection.base_url,
+                pairing_token: connection.pairing_token,
+            },
+        );
+    }
+
+    fn prepare_for_host_transition(&mut self) {
+        self.upload_active_progress(true);
+        self.run_mpv_command(&["stop"]);
+        self.active_media_id = None;
+        self.session = None;
+        self.posters.set_base_url(None);
+        self.screen = AppScreen::Connect;
+    }
+
+    fn local_roots(&self) -> Vec<PathBuf> {
+        self.preferences
+            .local_library_roots
+            .iter()
+            .map(PathBuf::from)
+            .collect()
     }
 
     fn request_library_play(&mut self, media_id: String) {
@@ -1148,6 +1202,13 @@ impl eframe::App for PlayerApp {
         let now = Instant::now();
         self.posters.poll(ctx);
         self.handle_session_events(ctx);
+        let local_connection = self
+            .local_host
+            .as_mut()
+            .and_then(LocalServerSupervisor::poll);
+        if let Some(connection) = local_connection {
+            self.connect_to_local_server(ctx, connection);
+        }
 
         match self.screen {
             AppScreen::Connect => {
@@ -1156,18 +1217,28 @@ impl eframe::App for PlayerApp {
                     .as_ref()
                     .map(|listener| listener.servers())
                     .unwrap_or_default();
-                if let Some(request) =
-                    self.connect_screen
-                        .show(ctx, &discovered, &mut self.preferences.language)
-                {
-                    self.preferences.last_server_url = Some(request.base_url.clone());
-                    self.posters.set_base_url(Some(request.base_url.clone()));
-                    self.session = Some(LibrarySession::connect(
-                        request.base_url,
-                        request.pairing_token,
-                        ctx.clone(),
-                    ));
-                    self.screen = AppScreen::Library;
+                let action = self.connect_screen.show(
+                    ctx,
+                    &discovered,
+                    &mut self.preferences.language,
+                    self.local_host.as_ref().map(LocalServerSupervisor::status),
+                );
+                match action {
+                    Some(ConnectAction::Connect(request)) => {
+                        self.connect_to_server(ctx, request);
+                    }
+                    Some(ConnectAction::StartLocal(root)) => {
+                        self.preferences.local_library_roots =
+                            vec![root.to_string_lossy().into_owned()];
+                        if let Some(local_host) = &mut self.local_host {
+                            if let Err(error) = local_host.start(root) {
+                                self.connect_screen.error = Some(error);
+                            } else {
+                                self.connect_screen.error = None;
+                            }
+                        }
+                    }
+                    None => {}
                 }
                 // Keep polling for new announcements while idle.
                 ctx.request_repaint_after(Duration::from_millis(500));
@@ -1218,17 +1289,47 @@ impl eframe::App for PlayerApp {
                     .as_ref()
                     .map(|session| session.base_url.clone());
                 let return_to_playback = self.settings_return == AppScreen::Playback;
+                let local_roots = self.preferences.local_library_roots.clone();
                 match show_settings(
                     ctx,
                     &mut self.preferences,
                     connected_url.as_deref(),
                     return_to_playback,
+                    self.local_host.as_ref().map(LocalServerSupervisor::status),
+                    &local_roots,
                 ) {
                     Some(SettingsAction::Back) => self.screen = self.settings_return,
                     Some(SettingsAction::ChangeServer) => {
                         self.connect_screen.manual_url =
                             self.preferences.last_server_url.clone().unwrap_or_default();
                         self.disconnect();
+                    }
+                    Some(SettingsAction::RestartLocalServer) => {
+                        let roots = self.local_roots();
+                        self.prepare_for_host_transition();
+                        if let Some(local_host) = &mut self.local_host
+                            && let Err(error) = local_host.restart(roots)
+                        {
+                            self.connect_screen.error = Some(error);
+                        }
+                    }
+                    Some(SettingsAction::StopLocalServer) => {
+                        if let Some(local_host) = &mut self.local_host {
+                            local_host.stop();
+                        }
+                        self.prepare_for_host_transition();
+                    }
+                    Some(SettingsAction::SetLocalRoot(root)) => {
+                        self.preferences.local_library_roots =
+                            vec![root.to_string_lossy().into_owned()];
+                        self.connect_screen.local_library_root =
+                            root.to_string_lossy().into_owned();
+                        self.prepare_for_host_transition();
+                        if let Some(local_host) = &mut self.local_host
+                            && let Err(error) = local_host.restart(vec![root])
+                        {
+                            self.connect_screen.error = Some(error);
+                        }
                     }
                     None => {}
                 }

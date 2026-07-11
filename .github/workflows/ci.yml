@@ -37,6 +37,13 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/web-ui/package-lock.json
+
       - name: Test Windows libmpv bundle verifier
         shell: pwsh
         run: .\tools\windows\test-verify-libmpv-bundle.ps1
@@ -126,6 +133,12 @@ jobs:
       - name: Verify packaged Windows mpv runtime
         shell: pwsh
         run: .\tools\windows\verify-windows-mpv-runtime.ps1
+
+      - name: Build packaged web UI
+        working-directory: apps/web-ui
+        run: |
+          npm ci
+          npm run build
 
       - name: Package Rust native player
         shell: pwsh

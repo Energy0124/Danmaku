@@ -177,9 +177,13 @@ overlays. XML/JSON comments use the native egui renderer; ASS files use mpv's
 subtitle renderer for compatibility. XML, JSON, `.danmaku`, or ASS files can
 also be dropped onto the running player. Display opacity, speed, density, and
 lane count are available from the Danmaku control menu. Starting without
-`--media` opens the LAN discovery/manual-connect library client. English and
-Traditional Chinese can be selected on that first screen; Settings persists
-volume, playback rate, auto-next, danmaku defaults, and the last server URL in
+`--media` uses the packaged `library-server.exe`: on first run, choose a local
+library folder and the player starts, waits for, and connects to the server
+automatically. Existing LAN discovery and manual connection remain available.
+English and Traditional Chinese can be selected on the first screen; Settings
+can change the library folder, restart or stop a player-owned server, and
+persists volume, playback rate, auto-next, danmaku defaults, local roots, and
+the last server URL in
 `%LOCALAPPDATA%\\Danmaku\\player-preferences.json`. Pairing tokens are never
 written there. Server administration opens the connected server's `/web/` UI.
 
@@ -200,8 +204,12 @@ Rust-native runtime-free Windows package:
 .\build\release\rust-player\danmaku-player-0.1.0-windows-x64\run-danmaku-player.ps1
 ```
 
-The versioned zip is written under `build/release/rust-player/`. The legacy
-Compose-compatible portable build remains available during migration through
+The versioned zip is written under `build/release/rust-player/` and contains
+`danmaku-player.exe`, `library-server.exe`, the server web UI, and libmpv.
+Closing the player stops the server process it started. A separately installed
+Windows service is planned as an optional always-on mode; it is not required
+for normal desktop use. The legacy Compose-compatible portable build remains
+available during migration through
 `.\run-windows.ps1 -Portable`.
 
 Experimental macOS desktop shell:
