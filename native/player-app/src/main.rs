@@ -24,12 +24,11 @@ fn main() {
         return;
     }
 
-    let window_title = format!(
-        "Danmaku Player - {}",
-        cli.title
-            .clone()
-            .unwrap_or_else(|| media_display_title(&cli.media))
-    );
+    let window_title = match (&cli.title, &cli.media) {
+        (Some(title), _) => format!("Danmaku Player - {title}"),
+        (None, Some(media)) => format!("Danmaku Player - {}", media_display_title(media)),
+        (None, None) => "Danmaku Player".to_owned(),
+    };
     let report_slot = Arc::new(Mutex::new(None));
     let app_cli = cli.clone();
     let app_report_slot = Arc::clone(&report_slot);
@@ -57,9 +56,10 @@ fn main() {
         }),
     );
 
+    let smoke_media = cli.media.clone().unwrap_or_default();
     if let Err(error) = run_result {
         if let Some(duration) = cli.smoke {
-            let report = SmokeReport::fail(&cli.media, duration, format!("app failed: {error}"));
+            let report = SmokeReport::fail(&smoke_media, duration, format!("app failed: {error}"));
             println!("{report}");
             process::exit(report.exit_code());
         }
@@ -73,7 +73,7 @@ fn main() {
             .ok()
             .and_then(|mut slot| slot.take())
             .unwrap_or_else(|| {
-                SmokeReport::fail(&cli.media, duration, "app closed before smoke completed")
+                SmokeReport::fail(&smoke_media, duration, "app closed before smoke completed")
             });
         println!("{report}");
         process::exit(report.exit_code());
