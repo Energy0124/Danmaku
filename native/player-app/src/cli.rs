@@ -6,14 +6,22 @@ use crate::danmaku::DanmakuDisplaySettings;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Cli {
-    pub media: String,
+    /// Direct media path/URL; when absent the player starts in library mode
+    /// (connect screen, or straight to the library when `--server-url` is
+    /// given).
+    pub media: Option<String>,
     pub title: Option<String>,
     pub start_position_s: Option<f64>,
     pub volume_percent: Option<u8>,
     pub smoke: Option<Duration>,
     pub danmaku_path: Option<PathBuf>,
     pub server_url: Option<String>,
+    pub pairing_token: Option<String>,
     pub media_id: Option<String>,
+    pub auto_next: bool,
+    /// QA hook: in library mode, plays the first catalog item as soon as
+    /// the catalog loads (mirrors the desktop app's autoplay QA hooks).
+    pub qa_play_first: bool,
     pub danmaku_force_refresh: bool,
     pub danmaku_opacity: Option<f32>,
     pub danmaku_speed: Option<f32>,
@@ -39,7 +47,10 @@ impl Cli {
         let mut smoke = None;
         let mut danmaku_path = None;
         let mut server_url = None;
+        let mut pairing_token = None;
         let mut media_id = None;
+        let mut auto_next = false;
+        let mut qa_play_first = false;
         let mut danmaku_force_refresh = false;
         let mut danmaku_opacity = None;
         let mut danmaku_speed = None;
@@ -105,6 +116,12 @@ impl Cli {
                 "--media-id" => {
                     media_id = Some(next_string(&mut args, "--media-id requires a value")?);
                 }
+                "--pairing-token" => {
+                    pairing_token =
+                        Some(next_string(&mut args, "--pairing-token requires a value")?);
+                }
+                "--auto-next" => auto_next = true,
+                "--qa-play-first" => qa_play_first = true,
                 "--danmaku-force-refresh" => danmaku_force_refresh = true,
                 "--danmaku-opacity" => {
                     danmaku_opacity = Some(parse_f32_range(
@@ -145,50 +162,59 @@ impl Cli {
             }
         }
 
-        if help {
-            return Ok(Self {
-                media: String::new(),
-                title,
-                start_position_s,
-                volume_percent,
-                smoke,
-                danmaku_path,
-                server_url,
-                media_id,
-                danmaku_force_refresh,
-                danmaku_opacity,
-                danmaku_speed,
-                danmaku_density,
-                danmaku_lanes,
-                help,
-            });
-        }
-        if danmaku_path.is_some() && (server_url.is_some() || media_id.is_some()) {
-            return Err("--danmaku cannot be combined with --server-url/--media-id".to_owned());
-        }
-        if server_url.is_some() != media_id.is_some() {
-            return Err("--server-url and --media-id must be provided together".to_owned());
-        }
-        if danmaku_force_refresh && server_url.is_none() {
-            return Err("--danmaku-force-refresh requires --server-url and --media-id".to_owned());
-        }
-
-        Ok(Self {
-            media: media.ok_or_else(|| "--media <path-or-url> is required".to_owned())?,
+        let cli = Self {
+            media,
             title,
             start_position_s,
             volume_percent,
             smoke,
             danmaku_path,
             server_url,
+            pairing_token,
             media_id,
+            auto_next,
+            qa_play_first,
             danmaku_force_refresh,
             danmaku_opacity,
             danmaku_speed,
             danmaku_density,
             danmaku_lanes,
             help,
-        })
+        };
+        if cli.help {
+            return Ok(cli);
+        }
+        if cli.qa_play_first && (cli.media.is_some() || cli.server_url.is_none()) {
+            return Err("--qa-play-first requires --server-url library mode".to_owned());
+        }
+        if cli.media.is_some() {
+            if cli.danmaku_path.is_some() && (cli.server_url.is_some() || cli.media_id.is_some()) {
+                return Err("--danmaku cannot be combined with --server-url/--media-id".to_owned());
+            }
+            if cli.server_url.is_some() != cli.media_id.is_some() {
+                return Err("--server-url and --media-id must be provided together".to_owned());
+            }
+            if cli.danmaku_force_refresh && cli.server_url.is_none() {
+                return Err(
+                    "--danmaku-force-refresh requires --server-url and --media-id".to_owned(),
+                );
+            }
+        } else {
+            // Library mode: the server drives media selection.
+            if cli.media_id.is_some() {
+                return Err("--media-id requires --media".to_owned());
+            }
+            if cli.danmaku_path.is_some() {
+                return Err("--danmaku requires --media".to_owned());
+            }
+            if cli.start_position_s.is_some() {
+                return Err("--start requires --media".to_owned());
+            }
+            if cli.smoke.is_some() {
+                return Err("--smoke requires --media".to_owned());
+            }
+        }
+        Ok(cli)
     }
 
     pub fn danmaku_display_settings(&self) -> DanmakuDisplaySettings {
@@ -223,11 +249,15 @@ fn parse_f32_range(value: String, option: &str, minimum: f32, maximum: f32) -> R
 }
 
 pub fn usage() -> &'static str {
-    "Usage: danmaku-player --media <path-or-url> [--title <text>] [--start <seconds>] \
+    "Usage: danmaku-player [--media <path-or-url>] [--title <text>] [--start <seconds>] \
 [--volume <0-130>] [--danmaku <xml-json-ass>] \
-[--server-url <http-url> --media-id <id> [--danmaku-force-refresh]] \
+[--server-url <http-url> [--pairing-token <token>]] [--media-id <id>] \
+[--auto-next] [--danmaku-force-refresh] \
 [--danmaku-opacity <0-1>] [--danmaku-speed <0.25-4>] \
-[--danmaku-density <0-1>] [--danmaku-lanes <1-64>] [--smoke <seconds>]"
+[--danmaku-density <0-1>] [--danmaku-lanes <1-64>] [--smoke <seconds>]
+
+Without --media the player starts in library mode: --server-url connects
+directly, otherwise the connect screen lists LAN-discovered servers."
 }
 
 #[cfg(test)]
@@ -236,9 +266,41 @@ mod tests {
     use std::{path::PathBuf, time::Duration};
 
     #[test]
-    fn requires_media() {
-        let error = Cli::parse_from(["danmaku-player"]).expect_err("media should be required");
-        assert!(error.contains("--media"));
+    fn no_arguments_selects_library_connect_mode() {
+        let cli = Cli::parse_from(["danmaku-player"]).expect("library mode parses");
+        assert_eq!(cli.media, None);
+        assert_eq!(cli.server_url, None);
+    }
+
+    #[test]
+    fn server_url_without_media_selects_library_mode() {
+        let cli = Cli::parse_from([
+            "danmaku-player",
+            "--server-url",
+            "http://127.0.0.1:8686",
+            "--pairing-token",
+            "123456",
+            "--auto-next",
+        ])
+        .expect("library mode parses");
+
+        assert_eq!(cli.media, None);
+        assert_eq!(cli.server_url.as_deref(), Some("http://127.0.0.1:8686"));
+        assert_eq!(cli.pairing_token.as_deref(), Some("123456"));
+        assert!(cli.auto_next);
+    }
+
+    #[test]
+    fn direct_playback_options_require_media() {
+        for arguments in [
+            vec!["danmaku-player", "--media-id", "id"],
+            vec!["danmaku-player", "--danmaku", "comments.xml"],
+            vec!["danmaku-player", "--start", "10"],
+            vec!["danmaku-player", "--smoke", "5"],
+        ] {
+            let error = Cli::parse_from(arguments).expect_err("must require --media");
+            assert!(error.contains("--media"), "unexpected error: {error}");
+        }
     }
 
     #[test]
@@ -268,7 +330,7 @@ mod tests {
         ])
         .expect("parse args");
 
-        assert_eq!(cli.media, "sample.mkv");
+        assert_eq!(cli.media.as_deref(), Some("sample.mkv"));
         assert_eq!(cli.title.as_deref(), Some("Episode 01"));
         assert_eq!(cli.start_position_s, Some(42.5));
         assert_eq!(cli.volume_percent, Some(85));

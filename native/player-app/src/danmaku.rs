@@ -8,7 +8,7 @@ use std::{
 use danmaku_core::{DanmakuEvent, Timeline};
 use serde_json::Value;
 
-use crate::danmaku_http::http_get;
+use crate::net::{http_get, percent_encode_path_segment};
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum DanmakuMode {
@@ -581,18 +581,6 @@ fn parse_bilibili_parameter(
     })
 }
 
-fn percent_encode_path_segment(value: &str) -> String {
-    let mut output = String::new();
-    for byte in value.bytes() {
-        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b'~') {
-            output.push(byte as char);
-        } else {
-            output.push_str(&format!("%{byte:02X}"));
-        }
-    }
-    output
-}
-
 fn xml_attribute(attributes: &str, name: &str) -> Option<String> {
     for quote in ['"', '\''] {
         let needle = format!("{name}={quote}");
@@ -764,7 +752,7 @@ mod tests {
     };
 
     use super::*;
-    use crate::danmaku_http::parse_http_response;
+    use crate::net::parse_http_response;
 
     fn comment(id: &str, timestamp_ms: u64, text: &str) -> DanmakuComment {
         DanmakuComment {
@@ -964,6 +952,8 @@ mod tests {
     fn parses_chunked_http_body() {
         let response =
             b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n4\r\ntest\r\n0\r\n\r\n";
-        assert_eq!(parse_http_response(response).expect("chunked"), "test");
+        let parsed = parse_http_response(response).expect("chunked");
+        assert_eq!(parsed.status, 200);
+        assert_eq!(parsed.body, b"test");
     }
 }

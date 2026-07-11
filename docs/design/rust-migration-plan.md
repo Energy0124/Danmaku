@@ -277,9 +277,24 @@ Milestones, each shippable while the Compose app remains the default:
   DPI-aware full-window capture showing the themed control bar, track
   and danmaku menus, and title ribbon over live video. Slider-rail
   color refinement noted for M3 screen work.)
-- `[ ]` M3 library client: pairing and server discovery, catalog
+- `[x]` M3 library client: pairing and server discovery, catalog
   browse/search/filter, posters, next-up/continue-watching rails, episode
   detail, resume lookup, progress upload, previous/next episode, auto-next.
+  (Shipped 2026-07-11: UDP discovery + connect screen with manual
+  URL/token, library home with continue-watching/next-up rails and a
+  culled poster grid (async LAN poster loading with LRU texture cap,
+  initials fallback), search over series/episodes, per-series season and
+  episode lists with resume labels, playback via the sidecar-compatible
+  stream URLs with resume lookup, server danmaku fetch, throttled +
+  forced progress uploads, prev/next episode controls, opt-in auto-next
+  on end-of-file, and a `--qa-play-first` hook. Domain rules (grouping,
+  next-up, continue-watching, resume) are Rust ports asserted against
+  the shared JSON conformance fixtures. Verified live against the Rust
+  server: zero-config discovery connect, playback from stream URLs, EOF
+  progress uploads for two auto-chained episodes on the server, and
+  rail rendering from seeded progress. Deferred: series watch-state
+  badges, attaching LAN sidecar subtitle tracks to mpv, and rail poster
+  art for metadata-matched items without local posters.)
 - `[ ]` M4 settings and localization: English + `zh-TW` from the first
   screen (e.g. Fluent), playback preferences, server connection
   management. Admin workflows intentionally absent; link out to the web UI.

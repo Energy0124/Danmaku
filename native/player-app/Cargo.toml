@@ -14,5 +14,7 @@ path = "src/main.rs"
 danmaku-core = { path = "../rust-core" }
 eframe = { version = "0.32.3", default-features = false, features = ["default_fonts", "glow"] }
 egui_glow = "0.32.3"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
 player-windows-mpv = { path = "../player-windows-mpv" }
+serde = { version = "1", features = ["derive"] }
 serde_json = "=1.0.150"

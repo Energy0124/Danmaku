@@ -19,6 +19,11 @@ use crate::{
         DanmakuDisplaySettings, DanmakuLayout, DanmakuLoad, DanmakuLoadKind, estimate_text_width,
         fetch_server_danmaku, load_local_danmaku,
     },
+    discovery::{DEFAULT_DISCOVERY_PORT, DiscoveryListener},
+    library::PlaybackProgress,
+    posters::PosterCache,
+    screens::{ConnectScreen, LibraryAction, LibraryScreen},
+    session::{LibrarySession, SessionEvent},
     smoke::SmokeReport,
     theme::{self, metrics, palette, typography},
     tracks::{TrackInventory, TrackKind, read_track_inventory, selection_command},
@@ -27,12 +32,20 @@ use crate::{
 
 const PROPERTY_REFRESH_INTERVAL: Duration = Duration::from_millis(180);
 const TRACK_REFRESH_INTERVAL: Duration = Duration::from_millis(1_000);
+const PROGRESS_UPLOAD_INTERVAL: Duration = Duration::from_secs(15);
 const PLAYBACK_RATES: [f64; 6] = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum AppScreen {
+    Connect,
+    Library,
+    Playback,
+}
 
 pub struct PlayerApp {
     cli: Cli,
     display_title: String,
-    renderer: SharedVideoRenderer,
+    renderer: Option<SharedVideoRenderer>,
     counters: Arc<Mutex<RenderCounters>>,
     report_slot: Arc<Mutex<Option<SmokeReport>>>,
     overlay_clock: OverlayClock,
@@ -48,6 +61,19 @@ pub struct PlayerApp {
     last_normal_outer_rect: Option<Rect>,
     fullscreen: bool,
     smoke_started: Instant,
+    // Library mode.
+    screen: AppScreen,
+    connect_screen: ConnectScreen,
+    library_screen: LibraryScreen,
+    session: Option<LibrarySession>,
+    discovery: Option<DiscoveryListener>,
+    posters: PosterCache,
+    active_media_id: Option<String>,
+    pending_play_media_id: Option<String>,
+    auto_next: bool,
+    eof_handled: bool,
+    last_progress_upload: Instant,
+    qa_play_first_pending: bool,
 }
 
 impl PlayerApp {
@@ -61,37 +87,69 @@ impl PlayerApp {
         }
 
         let counters = Arc::new(Mutex::new(RenderCounters::default()));
-        let mut danmaku = load_danmaku(&cli);
         let danmaku_settings = cli.danmaku_display_settings();
-        let video_renderer = VideoRenderer::create(
-            &cli.media,
-            cli.start_position_s,
-            cli.volume_percent,
-            &creation_context.egui_ctx,
-            Arc::clone(&counters),
-        )
-        .map_err(|error| format!("mpv initialization failed: {error}"))?;
-        if let Some(ass_path) = danmaku.ass_path.clone() {
-            let source = ass_path.to_string_lossy();
-            if let Err(error) = video_renderer.command(&[
-                "sub-add",
-                source.as_ref(),
-                "select",
-                "Danmaku ASS overlay",
-            ]) {
-                danmaku = DanmakuLoad::failed(format!("failed to attach ASS overlay: {error}"));
+        let mut danmaku = DanmakuLoad::none();
+        let mut renderer = None;
+        let mut display_title = "Danmaku Player".to_owned();
+
+        // Direct playback keeps its eager startup; library mode defers the
+        // renderer until the first episode plays.
+        if let Some(media) = cli.media.clone() {
+            danmaku = load_danmaku(&cli);
+            let video_renderer = VideoRenderer::create(
+                &media,
+                cli.start_position_s,
+                cli.volume_percent,
+                &creation_context.egui_ctx,
+                Arc::clone(&counters),
+            )
+            .map_err(|error| format!("mpv initialization failed: {error}"))?;
+            if let Some(ass_path) = danmaku.ass_path.clone() {
+                let source = ass_path.to_string_lossy();
+                if let Err(error) = video_renderer.command(&[
+                    "sub-add",
+                    source.as_ref(),
+                    "select",
+                    "Danmaku ASS overlay",
+                ]) {
+                    danmaku = DanmakuLoad::failed(format!("failed to attach ASS overlay: {error}"));
+                }
             }
+            renderer = Some(Arc::new(Mutex::new(video_renderer)));
+            display_title = cli
+                .title
+                .clone()
+                .unwrap_or_else(|| media_display_title(&media));
         }
-        let renderer = Arc::new(Mutex::new(video_renderer));
+
+        let mut posters = PosterCache::new(creation_context.egui_ctx.clone());
+        let mut session = None;
+        let mut discovery = None;
+        let screen = if cli.media.is_some() {
+            AppScreen::Playback
+        } else if let Some(server_url) = cli.server_url.clone() {
+            posters.set_base_url(Some(server_url.clone()));
+            session = Some(LibrarySession::connect(
+                server_url,
+                cli.pairing_token.clone(),
+                creation_context.egui_ctx.clone(),
+            ));
+            AppScreen::Library
+        } else {
+            match DiscoveryListener::start(DEFAULT_DISCOVERY_PORT) {
+                Ok(listener) => discovery = Some(listener),
+                Err(error) => eprintln!("discovery unavailable: {error}"),
+            }
+            AppScreen::Connect
+        };
+
         let now = Instant::now();
-        let display_title = cli
-            .title
-            .clone()
-            .unwrap_or_else(|| media_display_title(&cli.media));
         let mut overlay_clock = OverlayClock::new(now);
         if let Some(start_position_s) = cli.start_position_s {
             overlay_clock.seek(start_position_s, now);
         }
+        let auto_next = cli.auto_next;
+        let qa_play_first_pending = cli.qa_play_first;
 
         Ok(Self {
             cli,
@@ -112,6 +170,18 @@ impl PlayerApp {
             last_normal_outer_rect: None,
             fullscreen: false,
             smoke_started: now,
+            screen,
+            connect_screen: ConnectScreen::default(),
+            library_screen: LibraryScreen::default(),
+            session,
+            discovery,
+            posters,
+            active_media_id: None,
+            pending_play_media_id: None,
+            auto_next,
+            eof_handled: false,
+            last_progress_upload: now,
+            qa_play_first_pending,
         })
     }
 
@@ -150,8 +220,12 @@ impl PlayerApp {
         if toggle_danmaku && self.danmaku.kind != DanmakuLoadKind::Ass {
             self.danmaku_settings.enabled = !self.danmaku_settings.enabled;
         }
-        if escape && self.fullscreen {
-            self.toggle_fullscreen(ctx);
+        if escape {
+            if self.fullscreen {
+                self.toggle_fullscreen(ctx);
+            } else if self.session.is_some() {
+                self.back_to_library();
+            }
         }
         if toggle_pause {
             self.toggle_pause(now);
@@ -178,6 +252,9 @@ impl PlayerApp {
             let paused = !self.snapshot.paused;
             self.snapshot.paused = paused;
             self.overlay_clock.set_paused(paused, now);
+            if paused {
+                self.upload_active_progress(true);
+            }
         }
     }
 
@@ -197,6 +274,7 @@ impl PlayerApp {
         if self.run_mpv_command(&["set", "time-pos", &value]) {
             self.snapshot.position_s = position_s;
             self.overlay_clock.seek(position_s, now);
+            self.upload_active_progress(true);
         }
     }
 
@@ -344,6 +422,10 @@ impl PlayerApp {
                     frame_drop_count: parse_u64(renderer.property_string("frame-drop-count")),
                     hwdec_current: renderer.property_string("hwdec-current"),
                     cache_duration_s: parse_f64(renderer.property_string("demuxer-cache-duration")),
+                    eof_reached: renderer
+                        .property_string("eof-reached")
+                        .map(|value| value == "yes" || value == "true")
+                        .unwrap_or(false),
                     render_error: renderer.last_render_error().map(str::to_owned),
                 },
             }
@@ -380,9 +462,215 @@ impl PlayerApp {
 
     fn with_renderer<T>(&self, f: impl FnOnce(&mut VideoRenderer) -> T) -> Option<T> {
         self.renderer
+            .as_ref()?
             .lock()
             .ok()
             .map(|mut renderer| f(&mut renderer))
+    }
+
+    // -----------------------------------------------------------------
+    // Library mode
+    // -----------------------------------------------------------------
+
+    fn handle_session_events(&mut self, ctx: &egui::Context) {
+        let Some(mut session) = self.session.take() else {
+            return;
+        };
+        let events = session.drain_events();
+        self.session = Some(session);
+        for event in events {
+            match event {
+                SessionEvent::ResumeLookup { media_id, progress } => {
+                    if self.pending_play_media_id.as_deref() == Some(media_id.as_str()) {
+                        self.pending_play_media_id = None;
+                        let resume_s = progress
+                            .and_then(|progress| {
+                                progress.resume_position_ms(
+                                    crate::library::MINIMUM_RESUME_POSITION_MS,
+                                    crate::library::MINIMUM_REMAINING_MS,
+                                )
+                            })
+                            .map(|position_ms| position_ms as f64 / 1000.0);
+                        self.start_library_playback(ctx, &media_id, resume_s);
+                    }
+                }
+                SessionEvent::Danmaku { media_id, load } => {
+                    if self.active_media_id.as_deref() == Some(media_id.as_str()) {
+                        self.danmaku = load.unwrap_or_else(DanmakuLoad::failed);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    fn request_library_play(&mut self, media_id: String) {
+        if let Some(session) = &self.session {
+            session.lookup_resume(media_id.clone());
+            self.pending_play_media_id = Some(media_id);
+        }
+    }
+
+    fn start_library_playback(
+        &mut self,
+        ctx: &egui::Context,
+        media_id: &str,
+        resume_position_s: Option<f64>,
+    ) {
+        let Some(session) = &self.session else {
+            return;
+        };
+        let Some(catalog) = &session.catalog else {
+            return;
+        };
+        let Some(item) = catalog.item(media_id) else {
+            return;
+        };
+        let stream_url = session.stream_url(&item.stream_path);
+        let title = format!("{} - {}", item.series_title, item.episode_title);
+        let media_id = media_id.to_owned();
+
+        if self.renderer.is_none() {
+            match VideoRenderer::create(
+                &stream_url,
+                resume_position_s,
+                self.cli.volume_percent,
+                ctx,
+                Arc::clone(&self.counters),
+            ) {
+                Ok(renderer) => self.renderer = Some(Arc::new(Mutex::new(renderer))),
+                Err(error) => {
+                    self.connect_screen.error = Some(format!("playback failed: {error}"));
+                    return;
+                }
+            }
+        } else {
+            let start_value = resume_position_s
+                .map(|seconds| format!("{seconds:.3}"))
+                .unwrap_or_else(|| "none".to_owned());
+            self.run_mpv_command(&["set", "start", &start_value]);
+            self.run_mpv_command(&["loadfile", &stream_url, "replace"]);
+            self.run_mpv_command(&["set", "pause", "no"]);
+        }
+
+        let now = Instant::now();
+        self.display_title = title;
+        self.active_media_id = Some(media_id.clone());
+        self.snapshot = PlaybackSnapshot::default();
+        self.tracks = TrackInventory::default();
+        self.overlay_clock = OverlayClock::new(now);
+        if let Some(resume_position_s) = resume_position_s {
+            self.overlay_clock.seek(resume_position_s, now);
+        }
+        self.danmaku = DanmakuLoad::none();
+        if let Some(session) = &self.session {
+            session.fetch_danmaku(media_id, self.cli.danmaku_force_refresh);
+        }
+        self.eof_handled = false;
+        self.last_progress_upload = now;
+        self.screen = AppScreen::Playback;
+    }
+
+    fn play_adjacent_episode(&mut self, direction: i64) {
+        let Some(session) = &self.session else {
+            return;
+        };
+        let Some(catalog) = &session.catalog else {
+            return;
+        };
+        let Some(active) = self.active_media_id.as_deref() else {
+            return;
+        };
+        let neighbor = if direction < 0 {
+            catalog.previous_item(active)
+        } else {
+            catalog.next_item(active)
+        };
+        if let Some(item) = neighbor {
+            let media_id = item.id.clone();
+            self.upload_active_progress(true);
+            self.request_library_play(media_id);
+        }
+    }
+
+    fn back_to_library(&mut self) {
+        if self.session.is_none() {
+            return;
+        }
+        self.upload_active_progress(true);
+        self.run_mpv_command(&["stop"]);
+        self.active_media_id = None;
+        self.danmaku = DanmakuLoad::none();
+        self.screen = AppScreen::Library;
+        if let Some(session) = &mut self.session {
+            session.refresh_progress();
+        }
+    }
+
+    fn disconnect(&mut self) {
+        self.upload_active_progress(true);
+        self.run_mpv_command(&["stop"]);
+        self.active_media_id = None;
+        self.session = None;
+        self.posters.set_base_url(None);
+        self.screen = AppScreen::Connect;
+        if self.discovery.is_none() {
+            match DiscoveryListener::start(DEFAULT_DISCOVERY_PORT) {
+                Ok(listener) => self.discovery = Some(listener),
+                Err(error) => eprintln!("discovery unavailable: {error}"),
+            }
+        }
+    }
+
+    /// Uploads playback progress for the active library item. Uploads are
+    /// throttled unless `force` is set (pause, seek, episode switch, exit).
+    fn upload_active_progress(&mut self, force: bool) {
+        let Some(media_id) = self.active_media_id.clone() else {
+            return;
+        };
+        if self.session.is_none() {
+            return;
+        }
+        let now = Instant::now();
+        if !force
+            && now.saturating_duration_since(self.last_progress_upload) < PROGRESS_UPLOAD_INTERVAL
+        {
+            return;
+        }
+        let position_ms = (self.snapshot.position_s.max(0.0) * 1000.0) as i64;
+        if position_ms <= 0 {
+            return;
+        }
+        self.last_progress_upload = now;
+        let duration_ms = (self.snapshot.duration_s.is_finite() && self.snapshot.duration_s > 0.0)
+            .then_some((self.snapshot.duration_s * 1000.0) as i64);
+        let updated_at_epoch_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|elapsed| elapsed.as_millis() as i64)
+            .unwrap_or(0);
+        if let Some(session) = &mut self.session {
+            session.upload_progress(PlaybackProgress {
+                media_id,
+                position_ms,
+                duration_ms,
+                updated_at_epoch_ms,
+            });
+        }
+    }
+
+    fn handle_end_of_file(&mut self) {
+        if !self.snapshot.eof_reached || self.eof_handled {
+            return;
+        }
+        self.eof_handled = true;
+        if self.session.is_none() || self.active_media_id.is_none() {
+            return;
+        }
+        // Record the position as watched, then advance when enabled.
+        self.upload_active_progress(true);
+        if self.auto_next {
+            self.play_adjacent_episode(1);
+        }
     }
 
     fn show_video(&mut self, ctx: &egui::Context, now: Instant, overlay_position_s: f64) {
@@ -395,15 +683,17 @@ impl PlayerApp {
                     self.toggle_fullscreen(ctx);
                 }
 
-                let renderer = Arc::clone(&self.renderer);
-                ui.painter().add(egui::PaintCallback {
-                    rect,
-                    callback: Arc::new(CallbackFn::new(move |info, painter| {
-                        if let Ok(mut renderer) = renderer.lock() {
-                            renderer.render(info, painter);
-                        }
-                    })),
-                });
+                if let Some(renderer) = &self.renderer {
+                    let renderer = Arc::clone(renderer);
+                    ui.painter().add(egui::PaintCallback {
+                        rect,
+                        callback: Arc::new(CallbackFn::new(move |info, painter| {
+                            if let Ok(mut renderer) = renderer.lock() {
+                                renderer.render(info, painter);
+                            }
+                        })),
+                    });
+                }
 
                 let active_danmaku = self.paint_danmaku(ui, rect, overlay_position_s);
                 if let Some(error) = self.snapshot.render_error.clone() {
@@ -534,6 +824,25 @@ impl PlayerApp {
                     }
                     if ui.button("+30s").clicked() {
                         self.seek_relative(30.0, now);
+                    }
+                    if self.session.is_some() && self.active_media_id.is_some() {
+                        if ui.button("Library").clicked() {
+                            self.back_to_library();
+                        }
+                        if ui.button("|<").on_hover_text("Previous episode").clicked() {
+                            self.play_adjacent_episode(-1);
+                        }
+                        if ui.button(">|").on_hover_text("Next episode").clicked() {
+                            self.play_adjacent_episode(1);
+                        }
+                        let auto_label = if self.auto_next {
+                            "Auto-next on"
+                        } else {
+                            "Auto-next off"
+                        };
+                        if ui.button(auto_label).clicked() {
+                            self.auto_next = !self.auto_next;
+                        }
                     }
                     ui.menu_button(format!("{:.2}x", self.snapshot.speed), |ui| {
                         for rate in PLAYBACK_RATES {
@@ -717,7 +1026,7 @@ impl PlayerApp {
             .map(|counters| counters.clone())
             .unwrap_or_default();
         let report = SmokeReport::from_counters(
-            &self.cli.media,
+            self.cli.media.as_deref().unwrap_or_default(),
             duration,
             &counters,
             self.snapshot.hwdec_current.clone(),
@@ -735,18 +1044,78 @@ impl PlayerApp {
 impl eframe::App for PlayerApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let now = Instant::now();
-        self.handle_shortcuts(ctx, now);
-        self.record_activity(ctx);
-        self.handle_dropped_danmaku(ctx);
-        self.refresh_snapshot(now);
-        self.refresh_tracks(now);
-        let overlay_position_s = self.overlay_clock.position_at(now);
-        self.show_video(ctx, now, overlay_position_s);
-        self.finish_smoke_if_needed(ctx);
-        if self.snapshot.paused {
-            ctx.request_repaint_after(Duration::from_millis(100));
-        } else {
-            ctx.request_repaint();
+        self.posters.poll(ctx);
+        self.handle_session_events(ctx);
+
+        match self.screen {
+            AppScreen::Connect => {
+                let discovered = self
+                    .discovery
+                    .as_ref()
+                    .map(|listener| listener.servers())
+                    .unwrap_or_default();
+                if let Some(request) = self.connect_screen.show(ctx, &discovered) {
+                    self.posters.set_base_url(Some(request.base_url.clone()));
+                    self.session = Some(LibrarySession::connect(
+                        request.base_url,
+                        request.pairing_token,
+                        ctx.clone(),
+                    ));
+                    self.screen = AppScreen::Library;
+                }
+                // Keep polling for new announcements while idle.
+                ctx.request_repaint_after(Duration::from_millis(500));
+            }
+            AppScreen::Library => {
+                if self.qa_play_first_pending
+                    && let Some(first_id) = self
+                        .session
+                        .as_ref()
+                        .and_then(|session| session.catalog.as_ref())
+                        .and_then(|catalog| catalog.items.first())
+                        .map(|item| item.id.clone())
+                {
+                    self.qa_play_first_pending = false;
+                    self.request_library_play(first_id);
+                }
+                let action = match &self.session {
+                    Some(session) => self.library_screen.show(ctx, session, &mut self.posters),
+                    None => {
+                        self.screen = AppScreen::Connect;
+                        None
+                    }
+                };
+                match action {
+                    Some(LibraryAction::Play { media_id }) => {
+                        self.request_library_play(media_id);
+                    }
+                    Some(LibraryAction::Refresh) => {
+                        if let Some(session) = &mut self.session {
+                            session.refresh_catalog();
+                            session.refresh_progress();
+                        }
+                    }
+                    Some(LibraryAction::Disconnect) => self.disconnect(),
+                    None => {}
+                }
+            }
+            AppScreen::Playback => {
+                self.handle_shortcuts(ctx, now);
+                self.record_activity(ctx);
+                self.handle_dropped_danmaku(ctx);
+                self.refresh_snapshot(now);
+                self.refresh_tracks(now);
+                self.upload_active_progress(false);
+                self.handle_end_of_file();
+                let overlay_position_s = self.overlay_clock.position_at(now);
+                self.show_video(ctx, now, overlay_position_s);
+                self.finish_smoke_if_needed(ctx);
+                if self.snapshot.paused {
+                    ctx.request_repaint_after(Duration::from_millis(100));
+                } else {
+                    ctx.request_repaint();
+                }
+            }
         }
     }
 }
@@ -763,6 +1132,7 @@ pub struct PlaybackSnapshot {
     pub frame_drop_count: Option<u64>,
     pub hwdec_current: Option<String>,
     pub cache_duration_s: Option<f64>,
+    pub eof_reached: bool,
     pub render_error: Option<String>,
 }
 
@@ -779,6 +1149,7 @@ impl Default for PlaybackSnapshot {
             frame_drop_count: None,
             hwdec_current: None,
             cache_duration_s: None,
+            eof_reached: false,
             render_error: None,
         }
     }
