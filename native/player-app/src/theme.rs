@@ -19,10 +19,14 @@ pub mod palette {
     pub const VIDEO_BACKDROP: Color32 = Color32::from_rgb(5, 6, 8);
     /// Deep application background (scroll wells, extreme_bg).
     pub const BG_DEEP: Color32 = Color32::from_rgb(7, 8, 11);
+    /// Navigation rail and cinematic chrome background.
+    pub const BG_NAV: Color32 = Color32::from_rgb(8, 12, 20);
     /// Default panel background.
     pub const BG_PANEL: Color32 = Color32::from_rgb(12, 14, 18);
     /// Raised surfaces: menus, dialogs, cards.
     pub const SURFACE: Color32 = Color32::from_rgb(18, 20, 25);
+    /// Consumer-facing raised cards and hero surfaces.
+    pub const SURFACE_RAISED: Color32 = Color32::from_rgb(20, 26, 36);
     /// Subtle widget background.
     pub const SURFACE_FAINT: Color32 = Color32::from_rgb(28, 32, 39);
     /// Hovered widget background.
@@ -31,6 +35,8 @@ pub mod palette {
     pub const WIDGET_ACTIVE: Color32 = Color32::from_rgb(48, 65, 86);
     /// Primary accent (selection, focused slider fill).
     pub const ACCENT: Color32 = Color32::from_rgb(54, 112, 168);
+    /// Bright accent for primary actions and playback focus.
+    pub const ACCENT_BRIGHT: Color32 = Color32::from_rgb(74, 139, 230);
     /// Accent used for hover outlines (poster cards, focus rings).
     pub const ACCENT_OUTLINE: Color32 = Color32::from_rgb(119, 184, 238);
     /// Primary foreground text.
@@ -41,6 +47,8 @@ pub mod palette {
     pub const TEXT_MUTED: Color32 = Color32::from_rgb(137, 149, 164);
     /// Errors and destructive affordances.
     pub const DANGER: Color32 = Color32::from_rgb(255, 126, 126);
+    /// Healthy local server and completed setup state.
+    pub const SUCCESS: Color32 = Color32::from_rgb(91, 211, 143);
     /// Base color of translucent overlay panels (control bar).
     pub const OVERLAY_BASE: Color32 = Color32::from_rgb(10, 12, 16);
 }
@@ -48,6 +56,14 @@ pub mod palette {
 /// Type scale. Every on-screen string picks one of these.
 pub mod typography {
     use eframe::egui::FontId;
+
+    pub fn display() -> FontId {
+        FontId::proportional(32.0)
+    }
+
+    pub fn hero() -> FontId {
+        FontId::proportional(26.0)
+    }
 
     pub fn title() -> FontId {
         FontId::proportional(17.0)
@@ -81,7 +97,13 @@ pub mod metrics {
     /// Corner radius of cards (posters, dialogs).
     pub const CARD_RADIUS: f32 = 8.0;
     /// Control bar height in the playback view.
-    pub const CONTROL_BAR_HEIGHT: f32 = 96.0;
+    pub const CONTROL_BAR_HEIGHT: f32 = 108.0;
+    /// Width of the compact consumer navigation rail.
+    pub const NAV_RAIL_WIDTH: f32 = 88.0;
+    /// Height of the library title/search band.
+    pub const LIBRARY_HEADER_HEIGHT: f32 = 88.0;
+    /// Height of the featured continue-watching card.
+    pub const HERO_HEIGHT: f32 = 248.0;
     /// Vertical rhythm between stacked control rows.
     pub const ROW_GAP: f32 = 8.0;
 }

@@ -18,9 +18,12 @@ Status legend:
   and its supervised four-file real-media playback matrix passes. Phase 4 now
   has a unified default launcher: first-run local-folder setup starts and
   connects the bundled Rust server, while remote LAN connection remains
-  available. Optional Windows service installation and the remaining retirement
-  cleanup are next. Plan and task
-  checklists: `docs/design/rust-migration-plan.md`.
+  available. The first consumer UI pass now applies the approved onboarding,
+  library/home, and cinematic playback mockups; supervised multi-size screenshot
+  QA and Settings-card refinement remain. Optional Windows service installation
+  and the remaining retirement cleanup are next. Plans:
+  `docs/design/rust-migration-plan.md` and
+  `docs/design/rust-player-ui-redesign-plan.md`.
 - `[~]` Split the desktop library host into compatibility-preserving host,
   client, and web surfaces. The accepted direction is boundary-first:
   `shared:library-host-core` contracts, optional `/web/` static serving on the

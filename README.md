@@ -75,6 +75,7 @@ docs/
 Active design/task tracks:
 
 - [Rust server and Windows player migration plan](docs/design/rust-migration-plan.md)
+- [Rust player consumer UI redesign](docs/design/rust-player-ui-redesign-plan.md)
 - [Home and app shell UI tasks](docs/design/home-and-app-shell-ui-tasks.md)
 - [Desktop UI page mockups and specs](docs/design/desktop-ui-pages/README.md)
 - [Android mobile and TV library UI tasks](docs/design/android-mobile-tv-library-ui-tasks.md)

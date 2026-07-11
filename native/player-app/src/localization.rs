@@ -60,6 +60,45 @@ impl Strings {
     pub fn connect_subtitle(self) -> &'static str {
         self.text("Connect to a library server", "連線至媒體庫伺服器")
     }
+    pub fn welcome_title(self) -> &'static str {
+        self.text("Your anime, ready to play", "你的動畫，隨時開播")
+    }
+    pub fn welcome_body(self) -> &'static str {
+        self.text(
+            "Choose a folder once. Danmaku starts your local library automatically.",
+            "只需選擇一次資料夾，Danmaku 就會自動啟動本機媒體庫。",
+        )
+    }
+    pub fn choose_anime_folder(self) -> &'static str {
+        self.text("Choose anime folder", "選擇動畫資料夾")
+    }
+    pub fn setup_folder_step(self) -> &'static str {
+        self.text("Library folder", "媒體庫資料夾")
+    }
+    pub fn setup_server_step(self) -> &'static str {
+        self.text("Start local server", "啟動本機伺服器")
+    }
+    pub fn setup_ready_step(self) -> &'static str {
+        self.text("Ready", "就緒")
+    }
+    pub fn ready_automatically(self) -> &'static str {
+        self.text("Ready automatically", "自動準備就緒")
+    }
+    pub fn connect_another_server(self) -> &'static str {
+        self.text("Connect to another server", "連線至其他伺服器")
+    }
+    pub fn home(self) -> &'static str {
+        self.text("Home", "首頁")
+    }
+    pub fn your_library(self) -> &'static str {
+        self.text("Your library", "你的媒體庫")
+    }
+    pub fn library_online(self) -> &'static str {
+        self.text("Library online", "媒體庫已上線")
+    }
+    pub fn recently_added(self) -> &'static str {
+        self.text("Recently added", "最近加入")
+    }
     pub fn discovered(self) -> &'static str {
         self.text("Discovered on this network", "此網路上找到的伺服器")
     }
@@ -359,6 +398,9 @@ mod tests {
     fn first_screen_is_localized() {
         let zh = Strings::new(Language::TraditionalChinese);
         assert_eq!(zh.connect_subtitle(), "連線至媒體庫伺服器");
+        assert_eq!(zh.welcome_title(), "你的動畫，隨時開播");
+        assert_eq!(zh.choose_anime_folder(), "選擇動畫資料夾");
+        assert_eq!(zh.home(), "首頁");
         assert_eq!(zh.connect(), "連線");
         assert_ne!(
             zh.connect_subtitle(),

@@ -145,8 +145,15 @@ trusted-LAN clients.
   starts the server asynchronously, waits for readiness, and connects
   automatically. The player can attach to an already-running local server,
   restart or stop one it owns, and stops its child on exit. Local roots are
-  remembered without persisting pairing tokens. Compose desktop remains
-  available during the remaining retirement work.
+  remembered without persisting pairing tokens.
+- The Phase 4 consumer UI pass replaces the native client's tool-like hierarchy:
+  first-run local hosting is a single primary folder action with advanced
+  connection fields collapsed; the library uses an icon-first rail, content
+  header, online state, featured Continue Watching hero, and larger poster
+  cards; playback uses fading title and control surfaces with technical options
+  kept in menus. The approved references and remaining screenshot/settings work
+  are tracked in `docs/design/rust-player-ui-redesign-plan.md`. Compose desktop
+  remains available during the remaining retirement work.
 
 ### Android Mobile
 
