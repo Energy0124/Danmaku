@@ -885,13 +885,45 @@ impl PlayerApp {
             return;
         }
 
-        // Title ribbon (top) fades together with the control bar.
-        ui.painter().text(
-            video_rect.left_top() + vec2(metrics::GUTTER, 16.0),
-            Align2::LEFT_TOP,
-            &self.display_title,
-            typography::title(),
-            theme::text_primary_faded(alpha),
+        let top_rect = Rect::from_min_max(
+            video_rect.left_top(),
+            egui::pos2(video_rect.right(), video_rect.top() + 58.0),
+        );
+        ui.painter().rect_filled(
+            top_rect,
+            0.0,
+            Color32::from_rgba_premultiplied(5, 7, 11, (190.0 * alpha) as u8),
+        );
+        ui.scope_builder(
+            egui::UiBuilder::new().max_rect(top_rect.shrink2(vec2(20.0, 10.0))),
+            |ui| {
+                ui.multiply_opacity(alpha);
+                ui.horizontal_centered(|ui| {
+                    if self.session.is_some()
+                        && ui
+                            .add(
+                                egui::Button::new(
+                                    RichText::new("←")
+                                        .font(FontId::proportional(23.0))
+                                        .color(palette::TEXT_PRIMARY),
+                                )
+                                .frame(false)
+                                .min_size(vec2(40.0, 36.0)),
+                            )
+                            .on_hover_text(strings.library())
+                            .clicked()
+                    {
+                        self.back_to_library();
+                    }
+                    ui.add_space(6.0);
+                    ui.label(
+                        RichText::new(&self.display_title)
+                            .font(typography::title())
+                            .strong()
+                            .color(theme::text_primary_faded(alpha)),
+                    );
+                });
+            },
         );
 
         let rect = Rect::from_min_max(
@@ -905,10 +937,10 @@ impl PlayerApp {
             ),
         );
         ui.painter()
-            .rect_filled(rect, metrics::OVERLAY_RADIUS, theme::overlay_fill(alpha));
+            .rect_filled(rect, 12.0, theme::overlay_fill(alpha));
         ui.painter().rect_stroke(
             rect,
-            metrics::OVERLAY_RADIUS,
+            12.0,
             theme::overlay_outline(alpha),
             StrokeKind::Inside,
         );
@@ -918,131 +950,141 @@ impl PlayerApp {
             |ui| {
                 ui.set_clip_rect(rect);
                 ui.multiply_opacity(alpha);
-                ui.horizontal(|ui| {
-                    let play_label = if self.snapshot.paused {
-                        strings.play()
-                    } else {
-                        strings.pause()
-                    };
-                    if ui.button(play_label).clicked() {
-                        self.toggle_pause(now);
-                    }
-                    if ui.button("-10s").clicked() {
-                        self.seek_relative(-10.0, now);
-                    }
-                    if ui.button("+30s").clicked() {
-                        self.seek_relative(30.0, now);
-                    }
-                    if self.session.is_some() && self.active_media_id.is_some() {
-                        if ui.button(strings.library()).clicked() {
-                            self.back_to_library();
-                        }
-                        if ui
-                            .button("|<")
-                            .on_hover_text(strings.previous_episode())
-                            .clicked()
-                        {
-                            self.play_adjacent_episode(-1);
-                        }
-                        if ui
-                            .button(">|")
-                            .on_hover_text(strings.next_episode())
-                            .clicked()
-                        {
-                            self.play_adjacent_episode(1);
-                        }
-                        let auto_label = if self.auto_next {
-                            strings.auto_next_on()
-                        } else {
-                            strings.auto_next_off()
-                        };
-                        if ui.button(auto_label).clicked() {
-                            self.auto_next = !self.auto_next;
-                        }
-                    }
-                    if ui.button(strings.settings()).clicked() {
-                        self.open_settings(AppScreen::Playback);
-                    }
-                    ui.menu_button(format!("{:.2}x", self.snapshot.speed), |ui| {
-                        for rate in PLAYBACK_RATES {
-                            if ui.button(format!("{rate:.2}x")).clicked() {
-                                self.set_playback_rate(rate, now);
-                                ui.close();
-                            }
-                        }
-                    });
-                    self.show_track_menus(ui);
-                    self.show_danmaku_menu(ui, active_danmaku);
 
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.label(
-                            RichText::new(format!(
-                                "{} / {}",
-                                format_time(overlay_position_s),
-                                format_time(self.snapshot.duration_s)
-                            ))
-                            .color(palette::TEXT_SECONDARY),
-                        );
-                        if ui
-                            .button(if self.fullscreen {
-                                strings.windowed()
-                            } else {
-                                strings.fullscreen()
-                            })
-                            .clicked()
-                        {
-                            let ctx = ui.ctx().clone();
-                            self.toggle_fullscreen(&ctx);
-                        }
-                        let mut volume = self.snapshot.volume_percent as f32;
-                        if ui
-                            .add(
-                                egui::Slider::new(&mut volume, 0.0..=130.0)
-                                    .show_value(false)
-                                    .trailing_fill(true),
-                            )
-                            .changed()
-                        {
-                            self.set_volume(volume as f64);
-                        }
-                        let mute_label = if self.snapshot.muted {
-                            strings.unmute()
-                        } else {
-                            strings.mute()
-                        };
-                        if ui.button(mute_label).clicked() {
-                            self.toggle_mute();
-                        }
-                    });
-                });
-                ui.add_space(metrics::ROW_GAP);
                 let duration = self.snapshot.duration_s.max(1.0) as f32;
                 let mut position = overlay_position_s.clamp(0.0, duration as f64) as f32;
-                let slider_width = ui.available_width();
-                ui.style_mut().spacing.slider_width = slider_width;
-                let changed = ui
+                ui.style_mut().spacing.slider_width = ui.available_width();
+                if ui
                     .add(
                         egui::Slider::new(&mut position, 0.0..=duration)
                             .show_value(false)
                             .trailing_fill(true),
                     )
-                    .changed();
-                if changed {
+                    .changed()
+                {
                     self.seek_to(position as f64, now);
                 }
+                ui.add_space(8.0);
+
+                ui.horizontal_centered(|ui| {
+                    ui.label(
+                        RichText::new(format!(
+                            "{} / {}",
+                            format_time(overlay_position_s),
+                            format_time(self.snapshot.duration_s)
+                        ))
+                        .font(typography::caption())
+                        .color(palette::TEXT_SECONDARY),
+                    );
+                    ui.add_space(12.0);
+
+                    if self.session.is_some()
+                        && self.active_media_id.is_some()
+                        && playback_icon_button(ui, "│◀", strings.previous_episode(), false)
+                            .clicked()
+                    {
+                        self.play_adjacent_episode(-1);
+                    }
+                    if playback_icon_button(ui, "↶ 10", "-10 seconds", false).clicked() {
+                        self.seek_relative(-10.0, now);
+                    }
+                    let play_symbol = if self.snapshot.paused { "▶" } else { "Ⅱ" };
+                    let play_label = if self.snapshot.paused {
+                        strings.play()
+                    } else {
+                        strings.pause()
+                    };
+                    if playback_icon_button(ui, play_symbol, play_label, true).clicked() {
+                        self.toggle_pause(now);
+                    }
+                    if playback_icon_button(ui, "30 ↷", "+30 seconds", false).clicked() {
+                        self.seek_relative(30.0, now);
+                    }
+                    if self.session.is_some()
+                        && self.active_media_id.is_some()
+                        && playback_icon_button(ui, "▶│", strings.next_episode(), false).clicked()
+                    {
+                        self.play_adjacent_episode(1);
+                    }
+
+                    ui.add_space(10.0);
+                    let mute_label = if self.snapshot.muted {
+                        strings.unmute()
+                    } else {
+                        strings.mute()
+                    };
+                    if playback_icon_button(
+                        ui,
+                        if self.snapshot.muted { "M" } else { "VOL" },
+                        mute_label,
+                        false,
+                    )
+                    .clicked()
+                    {
+                        self.toggle_mute();
+                    }
+                    ui.style_mut().spacing.slider_width = 90.0;
+                    let mut volume = self.snapshot.volume_percent as f32;
+                    if ui
+                        .add(
+                            egui::Slider::new(&mut volume, 0.0..=130.0)
+                                .show_value(false)
+                                .trailing_fill(true)
+                                .max_decimals(0),
+                        )
+                        .on_hover_text(if self.snapshot.muted {
+                            strings.unmute()
+                        } else {
+                            strings.mute()
+                        })
+                        .changed()
+                    {
+                        self.set_volume(volume as f64);
+                    }
+
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if playback_icon_button(
+                            ui,
+                            "⛶",
+                            if self.fullscreen {
+                                strings.windowed()
+                            } else {
+                                strings.fullscreen()
+                            },
+                            false,
+                        )
+                        .clicked()
+                        {
+                            let ctx = ui.ctx().clone();
+                            self.toggle_fullscreen(&ctx);
+                        }
+                        if playback_icon_button(ui, "⚙", strings.settings(), false).clicked() {
+                            self.open_settings(AppScreen::Playback);
+                        }
+                        self.show_danmaku_menu(ui, active_danmaku);
+                        self.show_track_menus(ui);
+                        ui.menu_button(format!("{:.2}×", self.snapshot.speed), |ui| {
+                            for rate in PLAYBACK_RATES {
+                                if ui.button(format!("{rate:.2}×")).clicked() {
+                                    self.set_playback_rate(rate, now);
+                                    ui.close();
+                                }
+                            }
+                        });
+                    });
+                });
             },
         );
     }
-
     fn show_danmaku_menu(&mut self, ui: &mut egui::Ui, active: usize) {
         let strings = Strings::new(self.preferences.language);
         let label = match self.danmaku.kind {
-            DanmakuLoadKind::Ass => "Danmaku ASS".to_owned(),
-            DanmakuLoadKind::Failed => "Danmaku !".to_owned(),
+            DanmakuLoadKind::Ass => "D  ASS".to_owned(),
+            DanmakuLoadKind::Failed => "D  !".to_owned(),
             _ if !self.danmaku_settings.enabled => {
-                format!("Danmaku {}", strings.off())
+                format!("D  {}", strings.off())
             }
-            _ => format!("Danmaku {active}"),
+            _ => format!("D  {active}"),
         };
         ui.menu_button(label, |ui| {
             ui.set_min_width(280.0);
@@ -1095,13 +1137,13 @@ impl PlayerApp {
 
     fn show_track_menus(&mut self, ui: &mut egui::Ui) {
         let strings = Strings::new(self.preferences.language);
-        let audio_label = self
+        let audio_description = self
             .tracks
             .selected_audio()
-            .map(|track| format!("{} {}", strings.audio(), track.label()))
+            .map(|track| format!("{}: {}", strings.audio(), track.label()))
             .unwrap_or_else(|| strings.audio().to_owned());
         let audio_tracks = self.tracks.audio.clone();
-        ui.menu_button(audio_label, |ui| {
+        ui.menu_button("♪", |ui| {
             if audio_tracks.is_empty() {
                 ui.label(strings.no_audio());
             }
@@ -1112,15 +1154,17 @@ impl PlayerApp {
                     ui.close();
                 }
             }
-        });
+        })
+        .response
+        .on_hover_text(audio_description);
 
-        let subtitle_label = self
+        let subtitle_description = self
             .tracks
             .selected_subtitle()
-            .map(|track| format!("{} {}", strings.subtitles(), track.label()))
+            .map(|track| format!("{}: {}", strings.subtitles(), track.label()))
             .unwrap_or_else(|| strings.subtitles_off().to_owned());
         let subtitle_tracks = self.tracks.subtitles.clone();
-        ui.menu_button(subtitle_label, |ui| {
+        ui.menu_button("CC", |ui| {
             let none_selected = subtitle_tracks.iter().all(|track| !track.selected);
             if ui.selectable_label(none_selected, strings.off()).clicked() {
                 self.select_track(TrackKind::Subtitle, None);
@@ -1133,9 +1177,10 @@ impl PlayerApp {
                     ui.close();
                 }
             }
-        });
+        })
+        .response
+        .on_hover_text(subtitle_description);
     }
-
     fn open_settings(&mut self, return_to: AppScreen) {
         self.settings_return = return_to;
         self.screen = AppScreen::Settings;
@@ -1357,6 +1402,32 @@ impl eframe::App for PlayerApp {
         }
         self.save_preferences_if_changed();
     }
+}
+
+fn playback_icon_button(
+    ui: &mut egui::Ui,
+    symbol: &str,
+    tooltip: &str,
+    prominent: bool,
+) -> egui::Response {
+    let button = egui::Button::new(
+        RichText::new(symbol)
+            .font(FontId::proportional(if prominent { 19.0 } else { 15.0 }))
+            .color(palette::TEXT_PRIMARY),
+    )
+    .fill(if prominent {
+        palette::ACCENT_BRIGHT
+    } else {
+        Color32::TRANSPARENT
+    })
+    .corner_radius(if prominent { 22.0 } else { 8.0 })
+    .frame(prominent)
+    .min_size(if prominent {
+        vec2(46.0, 42.0)
+    } else {
+        vec2(38.0, 34.0)
+    });
+    ui.add(button).on_hover_text(tooltip)
 }
 
 #[derive(Clone, Debug)]

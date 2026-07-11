@@ -22,9 +22,9 @@ use crate::{
     theme::{self, metrics, palette, typography},
 };
 
-const CARD_WIDTH: f32 = 132.0;
-const CARD_HEIGHT: f32 = 198.0;
-const CARD_GAP: f32 = 12.0;
+const CARD_WIDTH: f32 = 148.0;
+const CARD_HEIGHT: f32 = 222.0;
+const CARD_GAP: f32 = 16.0;
 const RAIL_LIMIT: usize = 12;
 
 // ---------------------------------------------------------------------------
@@ -49,6 +49,7 @@ pub struct ConnectScreen {
     pub manual_token: String,
     pub local_library_root: String,
     pub error: Option<String>,
+    show_remote_options: bool,
 }
 
 impl ConnectScreen {
@@ -61,171 +62,94 @@ impl ConnectScreen {
     ) -> Option<ConnectAction> {
         let strings = Strings::new(*language);
         let mut action = None;
-        egui::CentralPanel::default()
-            .frame(Frame::NONE.fill(palette::BG_PANEL))
+
+        egui::TopBottomPanel::top("connect_brand")
+            .exact_height(64.0)
+            .frame(Frame::NONE.fill(palette::BG_NAV))
             .show(ctx, |ui| {
-                let panel_width = 460.0_f32.min(ui.available_width() - 2.0 * metrics::GUTTER);
-                ui.vertical_centered(|ui| {
-                    ui.add_space(48.0);
+                ui.horizontal_centered(|ui| {
+                    ui.add_space(24.0);
+                    paint_brand_mark(ui, 30.0);
                     ui.label(
                         RichText::new("Danmaku")
-                            .font(FontId::proportional(30.0))
+                            .font(FontId::proportional(20.0))
                             .strong()
                             .color(palette::TEXT_PRIMARY),
                     );
-                    ui.label(
-                        RichText::new(strings.connect_subtitle())
-                            .font(typography::body())
-                            .color(palette::TEXT_MUTED),
-                    );
-                    ui.horizontal(|ui| {
-                        for option in Language::ALL {
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        ui.add_space(24.0);
+                        for option in Language::ALL.into_iter().rev() {
                             ui.selectable_value(language, option, option.native_name());
                         }
                     });
-                    ui.add_space(24.0);
+                });
+            });
 
-                    ui.scope(|ui| {
-                        ui.set_max_width(panel_width);
-                        ui.vertical(|ui| {
-                            if let Some(status) = local_host_status
-                                && status.is_available()
-                            {
-                                ui.label(
-                                    RichText::new(strings.this_pc())
-                                        .font(typography::heading())
-                                        .color(palette::TEXT_SECONDARY),
-                                );
-                                ui.add_space(6.0);
-                                match status {
-                                    LocalHostStatus::Starting => {
-                                        ui.horizontal(|ui| {
-                                            ui.spinner();
-                                            ui.label(strings.starting_local_server());
-                                        });
-                                    }
-                                    LocalHostStatus::Running { .. } => {
-                                        ui.label(strings.local_server_running());
-                                    }
-                                    LocalHostStatus::Failed(error) => {
-                                        ui.label(
-                                            RichText::new(error)
-                                                .font(typography::caption())
-                                                .color(palette::DANGER),
-                                        );
-                                    }
-                                    LocalHostStatus::Stopped => {
-                                        ui.label(strings.local_server_stopped());
-                                    }
-                                    _ => {
-                                        ui.label(
-                                            RichText::new(strings.local_host_note())
-                                                .font(typography::caption())
-                                                .color(palette::TEXT_MUTED),
-                                        );
-                                    }
-                                }
-                                if !matches!(
-                                    status,
-                                    LocalHostStatus::Starting | LocalHostStatus::Running { .. }
-                                ) {
-                                    ui.add_space(6.0);
-                                    ui.horizontal(|ui| {
-                                        ui.add(
-                                            TextEdit::singleline(&mut self.local_library_root)
-                                                .hint_text(strings.library_folder())
-                                                .desired_width(panel_width - 128.0),
-                                        );
-                                        if ui.button(strings.choose_folder()).clicked()
-                                            && let Some(folder) = rfd::FileDialog::new()
-                                                .set_title(strings.library_folder())
-                                                .pick_folder()
-                                        {
-                                            self.local_library_root =
-                                                folder.to_string_lossy().into_owned();
-                                        }
-                                    });
-                                    let root = PathBuf::from(self.local_library_root.trim());
-                                    if ui
-                                        .add_enabled(
-                                            root.is_dir(),
-                                            egui::Button::new(strings.start_local_library())
-                                                .min_size(vec2(panel_width, 36.0)),
-                                        )
-                                        .clicked()
-                                    {
-                                        action = Some(ConnectAction::StartLocal(root));
-                                    }
-                                }
-                                ui.add_space(20.0);
-                            }
+        egui::CentralPanel::default()
+            .frame(Frame::NONE.fill(palette::BG_DEEP))
+            .show(ctx, |ui| {
+                egui::ScrollArea::vertical()
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| {
+                        let content_width = 640.0_f32.min(ui.available_width() - 32.0);
+                        ui.vertical_centered(|ui| {
+                            ui.add_space(24.0);
+                            let (illustration, _) =
+                                ui.allocate_exact_size(vec2(300.0, 138.0), Sense::hover());
+                            paint_library_illustration(ui, illustration);
 
+                            ui.add_space(12.0);
                             ui.label(
-                                RichText::new(strings.other_servers())
-                                    .font(typography::heading())
-                                    .color(palette::TEXT_SECONDARY),
+                                RichText::new(strings.welcome_title())
+                                    .font(typography::display())
+                                    .strong()
+                                    .color(palette::TEXT_PRIMARY),
                             );
-                            ui.add_space(6.0);
-                            if discovered.is_empty() {
-                                ui.label(
-                                    RichText::new(strings.listening())
-                                        .font(typography::caption())
-                                        .color(palette::TEXT_MUTED),
-                                );
-                            }
-                            for server in discovered {
-                                if ui
-                                    .add_sized(
-                                        [panel_width, 34.0],
-                                        egui::Button::new(
-                                            RichText::new(&server.base_url)
-                                                .font(typography::body()),
-                                        ),
-                                    )
-                                    .clicked()
-                                {
-                                    action = Some(ConnectAction::Connect(ConnectRequest {
-                                        base_url: server.base_url.clone(),
-                                        pairing_token: token_or_none(&self.manual_token),
-                                    }));
-                                }
+                            ui.add_space(4.0);
+                            ui.label(
+                                RichText::new(strings.welcome_body())
+                                    .font(typography::body())
+                                    .color(palette::TEXT_MUTED),
+                            );
+                            ui.add_space(20.0);
+
+                            let status = local_host_status.unwrap_or(&LocalHostStatus::Unavailable);
+                            let starting = matches!(status, LocalHostStatus::Starting);
+                            let button_text = if starting {
+                                strings.starting_local_server()
+                            } else {
+                                strings.choose_anime_folder()
+                            };
+                            let response = ui.add_enabled(
+                                !starting && status.is_available(),
+                                egui::Button::new(
+                                    RichText::new(format!("▣  {button_text}"))
+                                        .font(typography::heading())
+                                        .strong()
+                                        .color(Color32::WHITE),
+                                )
+                                .fill(palette::ACCENT_BRIGHT)
+                                .corner_radius(8.0)
+                                .min_size(vec2(380.0, 48.0)),
+                            );
+                            if response.clicked()
+                                && let Some(folder) = rfd::FileDialog::new()
+                                    .set_title(strings.library_folder())
+                                    .pick_folder()
+                            {
+                                self.local_library_root = folder.to_string_lossy().into_owned();
+                                action = Some(ConnectAction::StartLocal(folder));
                             }
 
                             ui.add_space(18.0);
-                            ui.label(
-                                RichText::new(strings.manual_connection())
-                                    .font(typography::heading())
-                                    .color(palette::TEXT_SECONDARY),
-                            );
-                            ui.add_space(6.0);
-                            ui.add(
-                                TextEdit::singleline(&mut self.manual_url)
-                                    .hint_text("http://192.168.1.10:8686")
-                                    .desired_width(panel_width),
-                            );
-                            ui.add_space(4.0);
-                            ui.add(
-                                TextEdit::singleline(&mut self.manual_token)
-                                    .hint_text(strings.pairing_token())
-                                    .desired_width(panel_width),
-                            );
-                            ui.add_space(10.0);
-                            let connect_enabled = self.manual_url.trim().starts_with("http://");
-                            if ui
-                                .add_enabled(
-                                    connect_enabled,
-                                    egui::Button::new(
-                                        RichText::new(strings.connect()).font(typography::body()),
-                                    )
-                                    .min_size(vec2(panel_width, 36.0)),
-                                )
-                                .clicked()
-                            {
-                                action = Some(ConnectAction::Connect(ConnectRequest {
-                                    base_url: self.manual_url.trim().to_owned(),
-                                    pairing_token: token_or_none(&self.manual_token),
-                                }));
-                            }
+                            setup_progress(ui, strings, starting);
+                            ui.add_space(16.0);
+
+                            ui.scope(|ui| {
+                                ui.set_max_width(content_width);
+                                local_status_card(ui, status, strings);
+                            });
+
                             if let Some(error) = &self.error {
                                 ui.add_space(8.0);
                                 ui.label(
@@ -234,14 +158,231 @@ impl ConnectScreen {
                                         .color(palette::DANGER),
                                 );
                             }
+
+                            ui.add_space(12.0);
+                            if ui
+                                .add(
+                                    egui::Button::new(
+                                        RichText::new(format!(
+                                            "⇄  {}",
+                                            strings.connect_another_server()
+                                        ))
+                                        .font(typography::body())
+                                        .color(palette::ACCENT_OUTLINE),
+                                    )
+                                    .frame(false),
+                                )
+                                .clicked()
+                            {
+                                self.show_remote_options = !self.show_remote_options;
+                            }
+
+                            if self.show_remote_options {
+                                ui.add_space(10.0);
+                                ui.scope(|ui| {
+                                    ui.set_max_width(460.0);
+                                    remote_connection_panel(
+                                        ui,
+                                        self,
+                                        discovered,
+                                        strings,
+                                        &mut action,
+                                    );
+                                });
+                            }
+                            ui.add_space(24.0);
                         });
                     });
-                });
             });
         action
     }
 }
 
+fn paint_brand_mark(ui: &mut egui::Ui, size: f32) {
+    let (rect, _) = ui.allocate_exact_size(vec2(size, size), Sense::hover());
+    ui.painter()
+        .circle_filled(rect.center(), size * 0.5, palette::ACCENT_BRIGHT);
+    let points = vec![
+        rect.center() + vec2(-4.0, -7.0),
+        rect.center() + vec2(8.0, 0.0),
+        rect.center() + vec2(-4.0, 7.0),
+    ];
+    ui.painter().add(egui::Shape::convex_polygon(
+        points,
+        Color32::WHITE,
+        egui::Stroke::NONE,
+    ));
+}
+
+fn paint_library_illustration(ui: &egui::Ui, rect: Rect) {
+    let painter = ui.painter();
+    painter.circle_filled(
+        rect.center() + vec2(0.0, 4.0),
+        92.0,
+        Color32::from_rgba_premultiplied(54, 112, 168, 26),
+    );
+    let folder = Rect::from_center_size(rect.center() + vec2(0.0, 18.0), vec2(190.0, 94.0));
+    let tab = Rect::from_min_size(folder.min + vec2(18.0, -16.0), vec2(72.0, 28.0));
+    painter.rect_filled(tab, 10.0, palette::ACCENT);
+    painter.rect_filled(folder, 14.0, palette::SURFACE_RAISED);
+    painter.rect_stroke(
+        folder,
+        14.0,
+        egui::Stroke::new(1.5, palette::ACCENT_OUTLINE),
+        egui::StrokeKind::Inside,
+    );
+    for (index, color) in [
+        palette::ACCENT,
+        Color32::from_rgb(83, 91, 132),
+        Color32::from_rgb(56, 124, 132),
+        Color32::from_rgb(125, 87, 135),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let x = folder.left() + 28.0 + index as f32 * 38.0;
+        let card = Rect::from_min_size(egui::pos2(x, folder.top() - 24.0), vec2(28.0, 76.0));
+        painter.rect_filled(card, 5.0, color);
+        painter.line_segment(
+            [
+                card.left_bottom() + vec2(5.0, -12.0),
+                card.right_bottom() + vec2(-5.0, -12.0),
+            ],
+            egui::Stroke::new(2.0, Color32::from_white_alpha(100)),
+        );
+    }
+    painter.circle_filled(
+        folder.right_bottom() - vec2(26.0, 24.0),
+        18.0,
+        palette::ACCENT_BRIGHT,
+    );
+    painter.text(
+        folder.right_bottom() - vec2(26.0, 24.0),
+        Align2::CENTER_CENTER,
+        "▶",
+        FontId::proportional(15.0),
+        Color32::WHITE,
+    );
+}
+
+fn setup_progress(ui: &mut egui::Ui, strings: Strings, starting: bool) {
+    let labels = [
+        strings.setup_folder_step(),
+        strings.setup_server_step(),
+        strings.setup_ready_step(),
+    ];
+    ui.horizontal(|ui| {
+        for (index, label) in labels.into_iter().enumerate() {
+            if index > 0 {
+                ui.add(egui::Separator::default().horizontal().spacing(18.0));
+            }
+            let active = index == 0 || (starting && index == 1);
+            ui.label(
+                RichText::new(format!("{}  {label}", index + 1))
+                    .font(typography::small())
+                    .color(if active {
+                        palette::ACCENT_OUTLINE
+                    } else {
+                        palette::TEXT_MUTED
+                    }),
+            );
+        }
+    });
+}
+
+fn local_status_card(ui: &mut egui::Ui, status: &LocalHostStatus, strings: Strings) {
+    let (rect, _) = ui.allocate_exact_size(vec2(460.0, 62.0), Sense::hover());
+    ui.painter()
+        .rect_filled(rect, 10.0, palette::SURFACE_RAISED);
+    ui.painter().rect_stroke(
+        rect,
+        10.0,
+        egui::Stroke::new(1.0, Color32::from_white_alpha(24)),
+        egui::StrokeKind::Inside,
+    );
+    let dot = rect.left_center() + vec2(24.0, 0.0);
+    let (color, detail) = match status {
+        LocalHostStatus::Starting => (palette::ACCENT_OUTLINE, strings.starting_local_server()),
+        LocalHostStatus::Running { .. } => (palette::SUCCESS, strings.ready_automatically()),
+        LocalHostStatus::Failed(error) => (palette::DANGER, error.as_str()),
+        LocalHostStatus::Unavailable => (palette::TEXT_MUTED, strings.local_server_unavailable()),
+        LocalHostStatus::Stopped => (palette::TEXT_MUTED, strings.local_server_stopped()),
+        LocalHostStatus::NeedsSetup => (palette::ACCENT_OUTLINE, strings.local_host_note()),
+    };
+    ui.painter().circle_filled(dot, 5.0, color);
+    ui.painter().text(
+        dot + vec2(16.0, -9.0),
+        Align2::LEFT_CENTER,
+        strings.local_hosting(),
+        typography::body(),
+        palette::TEXT_PRIMARY,
+    );
+    ui.painter().text(
+        dot + vec2(16.0, 11.0),
+        Align2::LEFT_CENTER,
+        detail,
+        typography::small(),
+        palette::TEXT_MUTED,
+    );
+}
+
+fn remote_connection_panel(
+    ui: &mut egui::Ui,
+    screen: &mut ConnectScreen,
+    discovered: &[DiscoveredServer],
+    strings: Strings,
+    action: &mut Option<ConnectAction>,
+) {
+    ui.label(
+        RichText::new(strings.other_servers())
+            .font(typography::heading())
+            .color(palette::TEXT_SECONDARY),
+    );
+    for server in discovered {
+        if ui
+            .add_sized(
+                [460.0, 36.0],
+                egui::Button::new(&server.base_url).fill(palette::SURFACE_RAISED),
+            )
+            .clicked()
+        {
+            *action = Some(ConnectAction::Connect(ConnectRequest {
+                base_url: server.base_url.clone(),
+                pairing_token: token_or_none(&screen.manual_token),
+            }));
+        }
+    }
+    if discovered.is_empty() {
+        ui.label(
+            RichText::new(strings.listening())
+                .font(typography::caption())
+                .color(palette::TEXT_MUTED),
+        );
+    }
+    ui.add_space(8.0);
+    ui.collapsing(strings.manual_connection(), |ui| {
+        ui.add(
+            TextEdit::singleline(&mut screen.manual_url)
+                .hint_text("http://192.168.1.10:8686")
+                .desired_width(460.0),
+        );
+        ui.add(
+            TextEdit::singleline(&mut screen.manual_token)
+                .hint_text(strings.pairing_token())
+                .desired_width(460.0),
+        );
+        let enabled = screen.manual_url.trim().starts_with("http://");
+        if ui
+            .add_enabled(enabled, egui::Button::new(strings.connect()))
+            .clicked()
+        {
+            *action = Some(ConnectAction::Connect(ConnectRequest {
+                base_url: screen.manual_url.trim().to_owned(),
+                pairing_token: token_or_none(&screen.manual_token),
+            }));
+        }
+    });
+}
 fn token_or_none(token: &str) -> Option<String> {
     let token = token.trim();
     (!token.is_empty()).then(|| token.to_owned())
@@ -262,6 +403,7 @@ pub enum LibraryAction {
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum LibraryView {
     Home,
+    AllSeries,
     Series(String),
 }
 
@@ -292,53 +434,115 @@ impl LibraryScreen {
         strings: Strings,
     ) -> Option<LibraryAction> {
         let mut action = None;
-        egui::TopBottomPanel::top("library_top")
-            .exact_height(56.0)
-            .frame(Frame::NONE.fill(palette::BG_DEEP))
+        let search_id = egui::Id::new("library_search_field");
+
+        egui::SidePanel::left("library_navigation")
+            .exact_width(metrics::NAV_RAIL_WIDTH)
+            .resizable(false)
+            .frame(Frame::NONE.fill(palette::BG_NAV))
+            .show(ctx, |ui| {
+                ui.vertical_centered(|ui| {
+                    ui.add_space(18.0);
+                    paint_brand_mark(ui, 42.0);
+                    ui.add_space(28.0);
+                    if nav_button(
+                        ui,
+                        "⌂",
+                        strings.home(),
+                        self.view == LibraryView::Home && self.query.is_empty(),
+                    )
+                    .clicked()
+                    {
+                        self.view = LibraryView::Home;
+                        self.query.clear();
+                    }
+                    ui.add_space(6.0);
+                    if nav_button(
+                        ui,
+                        "▤",
+                        strings.library(),
+                        self.view == LibraryView::AllSeries,
+                    )
+                    .clicked()
+                    {
+                        self.view = LibraryView::AllSeries;
+                        self.query.clear();
+                    }
+                    ui.add_space(6.0);
+                    if nav_button(ui, "⌕", strings.search(), !self.query.is_empty()).clicked() {
+                        ctx.memory_mut(|memory| memory.request_focus(search_id));
+                    }
+                });
+                ui.with_layout(Layout::bottom_up(Align::Center), |ui| {
+                    ui.add_space(16.0);
+                    if nav_button(ui, "⏻", strings.disconnect(), false).clicked() {
+                        action = Some(LibraryAction::Disconnect);
+                    }
+                    if nav_button(ui, "⚙", strings.settings(), false).clicked() {
+                        action = Some(LibraryAction::Settings);
+                    }
+                    if nav_button(ui, "↻", strings.refresh(), false).clicked() {
+                        action = Some(LibraryAction::Refresh);
+                    }
+                });
+            });
+
+        egui::TopBottomPanel::top("library_header")
+            .exact_height(metrics::LIBRARY_HEADER_HEIGHT)
+            .frame(Frame::NONE.fill(palette::BG_PANEL))
             .show(ctx, |ui| {
                 ui.horizontal_centered(|ui| {
-                    ui.add_space(metrics::GUTTER);
-                    if self.view != LibraryView::Home && ui.button(strings.back()).clicked() {
-                        self.view = LibraryView::Home;
-                    }
-                    ui.label(
-                        RichText::new("Danmaku")
-                            .font(FontId::proportional(20.0))
-                            .strong()
-                            .color(palette::TEXT_PRIMARY),
-                    );
-                    ui.add_space(12.0);
-                    let search_width = (ui.available_width() * 0.4).clamp(200.0, 460.0);
+                    ui.add_space(24.0);
+                    ui.vertical(|ui| {
+                        ui.add_space(15.0);
+                        ui.label(
+                            RichText::new(strings.your_library())
+                                .font(typography::hero())
+                                .strong()
+                                .color(palette::TEXT_PRIMARY),
+                        );
+                        ui.label(
+                            RichText::new(format!(
+                                "{} {}  •  {} {}",
+                                self.cached_series.len(),
+                                strings.titles(),
+                                session
+                                    .catalog
+                                    .as_ref()
+                                    .map(|catalog| catalog.items.len())
+                                    .unwrap_or_default(),
+                                strings.episodes()
+                            ))
+                            .font(typography::caption())
+                            .color(palette::TEXT_MUTED),
+                        );
+                    });
+                    ui.add_space(28.0);
+                    let search_width = (ui.available_width() * 0.42).clamp(220.0, 480.0);
                     let response = ui.add_sized(
-                        [search_width, 32.0],
-                        TextEdit::singleline(&mut self.query).hint_text(strings.search()),
+                        [search_width, 38.0],
+                        TextEdit::singleline(&mut self.query)
+                            .id(search_id)
+                            .hint_text(format!("⌕  {}", strings.search())),
                     );
                     ctx.send_viewport_cmd(egui::ViewportCommand::IMEAllowed(response.has_focus()));
                     if response.has_focus() {
                         ctx.send_viewport_cmd(egui::ViewportCommand::IMERect(response.rect));
                     }
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        ui.add_space(metrics::GUTTER);
-                        if ui.button(strings.disconnect()).clicked() {
-                            action = Some(LibraryAction::Disconnect);
+                        ui.add_space(24.0);
+                        online_pill(ui, strings.library_online(), &session.base_url);
+                        if matches!(self.view, LibraryView::Series(_))
+                            && ui.button(strings.back()).clicked()
+                        {
+                            self.view = LibraryView::Home;
                         }
-                        if ui.button(strings.refresh()).clicked() {
-                            action = Some(LibraryAction::Refresh);
-                        }
-                        if ui.button(strings.settings()).clicked() {
-                            action = Some(LibraryAction::Settings);
-                        }
-                        ui.label(
-                            RichText::new(&session.base_url)
-                                .font(typography::caption())
-                                .color(palette::TEXT_MUTED),
-                        );
                     });
                 });
             });
 
         egui::CentralPanel::default()
-            .frame(Frame::NONE.fill(palette::BG_PANEL))
+            .frame(Frame::NONE.fill(palette::BG_DEEP))
             .show(ctx, |ui| {
                 let Some(catalog) = &session.catalog else {
                     ui.centered_and_justified(|ui| {
@@ -362,6 +566,7 @@ impl LibraryScreen {
                 } else {
                     match self.view.clone() {
                         LibraryView::Home => self.show_home(ui, catalog, session, posters, strings),
+                        LibraryView::AllSeries => self.show_all_series(ui, posters, strings),
                         LibraryView::Series(series_id) => {
                             self.show_series(ui, &series_id, &session.progresses, posters, strings)
                         }
@@ -373,7 +578,6 @@ impl LibraryScreen {
             });
         action
     }
-
     fn refresh_series_cache(&mut self, catalog: &LibraryCatalog) {
         let stamp = catalog.indexed_at_epoch_ms ^ (catalog.items.len() as i64) << 20;
         if stamp != self.cached_catalog_stamp {
@@ -410,39 +614,75 @@ impl LibraryScreen {
             .id_salt("library_home")
             .auto_shrink([false, false])
             .show(ui, |ui| {
-                ui.add_space(12.0);
-                if !continue_watching.is_empty() {
+                ui.add_space(20.0);
+                if let Some(featured) = continue_watching.first() {
+                    if featured_continue_card(ui, featured, posters, strings).clicked() {
+                        action = Some(LibraryAction::Play {
+                            media_id: featured.item.id.clone(),
+                        });
+                    }
+                    ui.add_space(24.0);
+                }
+
+                if continue_watching.len() > 1 {
                     section_heading(ui, strings.continue_watching());
-                    if let Some(clicked) = continue_watching_rail(ui, &continue_watching, posters) {
+                    if let Some(clicked) =
+                        continue_watching_rail(ui, &continue_watching[1..], posters)
+                    {
                         action = Some(LibraryAction::Play { media_id: clicked });
                     }
-                    ui.add_space(16.0);
+                    ui.add_space(22.0);
                 }
                 if !next_up.is_empty() {
                     section_heading(ui, strings.next_up());
                     if let Some(clicked) = next_up_rail(ui, &next_up, posters, strings) {
                         action = Some(LibraryAction::Play { media_id: clicked });
                     }
-                    ui.add_space(16.0);
+                    ui.add_space(22.0);
                 }
 
                 section_heading(
                     ui,
                     &format!(
-                        "{} - {} {}, {} {}",
-                        strings.all_series(),
+                        "{}  ·  {} {}",
+                        strings.recently_added(),
                         self.cached_series.len(),
-                        strings.titles(),
-                        catalog.items.len(),
-                        strings.episodes()
+                        strings.titles()
                     ),
                 );
                 if let Some(series_id) = series_grid(ui, &self.cached_series, posters, strings) {
                     self.view = LibraryView::Series(series_id);
                 }
-                ui.add_space(24.0);
+                ui.add_space(28.0);
             });
         action
+    }
+    fn show_all_series(
+        &mut self,
+        ui: &mut egui::Ui,
+        posters: &mut PosterCache,
+        strings: Strings,
+    ) -> Option<LibraryAction> {
+        egui::ScrollArea::vertical()
+            .id_salt("library_all_series")
+            .auto_shrink([false, false])
+            .show(ui, |ui| {
+                ui.add_space(20.0);
+                section_heading(
+                    ui,
+                    &format!(
+                        "{}  ·  {} {}",
+                        strings.all_series(),
+                        self.cached_series.len(),
+                        strings.titles()
+                    ),
+                );
+                if let Some(series_id) = series_grid(ui, &self.cached_series, posters, strings) {
+                    self.view = LibraryView::Series(series_id);
+                }
+                ui.add_space(28.0);
+            });
+        None
     }
 
     fn show_search_results(
@@ -584,6 +824,151 @@ impl LibraryScreen {
     }
 }
 
+fn nav_button(ui: &mut egui::Ui, icon: &str, label: &str, selected: bool) -> egui::Response {
+    let fill = if selected {
+        Color32::from_rgba_premultiplied(54, 112, 168, 42)
+    } else {
+        Color32::TRANSPARENT
+    };
+    let color = if selected {
+        palette::ACCENT_OUTLINE
+    } else {
+        palette::TEXT_MUTED
+    };
+    ui.add(
+        egui::Button::new(
+            RichText::new(format!("{icon}\n{label}"))
+                .font(typography::small())
+                .color(color),
+        )
+        .fill(fill)
+        .corner_radius(10.0)
+        .frame(selected)
+        .min_size(vec2(68.0, 58.0)),
+    )
+}
+
+fn online_pill(ui: &mut egui::Ui, label: &str, server_url: &str) {
+    let (rect, response) = ui.allocate_exact_size(vec2(148.0, 34.0), Sense::hover());
+    ui.painter().rect_filled(rect, 9.0, palette::SURFACE_RAISED);
+    ui.painter().rect_stroke(
+        rect,
+        9.0,
+        egui::Stroke::new(1.0, Color32::from_white_alpha(24)),
+        egui::StrokeKind::Inside,
+    );
+    ui.painter()
+        .circle_filled(rect.left_center() + vec2(17.0, 0.0), 4.5, palette::SUCCESS);
+    ui.painter().text(
+        rect.left_center() + vec2(30.0, 0.0),
+        Align2::LEFT_CENTER,
+        label,
+        typography::small(),
+        palette::TEXT_SECONDARY,
+    );
+    response.on_hover_text(server_url);
+}
+
+fn featured_continue_card(
+    ui: &mut egui::Ui,
+    entry: &ProgressItem,
+    posters: &mut PosterCache,
+    strings: Strings,
+) -> egui::Response {
+    let mut result = None;
+    ui.horizontal(|ui| {
+        ui.add_space(24.0);
+        let width = (ui.available_width() - 24.0).max(480.0);
+        let (rect, response) =
+            ui.allocate_exact_size(vec2(width, metrics::HERO_HEIGHT), Sense::click());
+        ui.painter()
+            .rect_filled(rect, 12.0, palette::SURFACE_RAISED);
+
+        let image_rect = Rect::from_min_max(
+            egui::pos2(rect.left() + rect.width() * 0.43, rect.top()),
+            rect.right_bottom(),
+        );
+        paint_poster_area(ui, image_rect, &entry.item, posters);
+
+        let mut mesh = egui::Mesh::default();
+        let base = mesh.vertices.len() as u32;
+        mesh.colored_vertex(rect.left_top(), Color32::from_rgb(10, 14, 22));
+        mesh.colored_vertex(
+            egui::pos2(rect.left() + rect.width() * 0.72, rect.top()),
+            Color32::from_rgba_premultiplied(10, 14, 22, 210),
+        );
+        mesh.colored_vertex(rect.left_bottom(), Color32::from_rgb(10, 14, 22));
+        mesh.colored_vertex(
+            egui::pos2(rect.left() + rect.width() * 0.72, rect.bottom()),
+            Color32::from_rgba_premultiplied(10, 14, 22, 210),
+        );
+        mesh.add_triangle(base, base + 1, base + 2);
+        mesh.add_triangle(base + 2, base + 1, base + 3);
+        ui.painter().add(egui::Shape::mesh(mesh));
+
+        ui.painter().rect_stroke(
+            rect,
+            12.0,
+            theme::card_outline(if response.hovered() { 1.0 } else { 0.0 }),
+            egui::StrokeKind::Inside,
+        );
+        let content = Rect::from_min_max(
+            rect.min + vec2(38.0, 30.0),
+            egui::pos2(rect.left() + rect.width() * 0.55, rect.bottom() - 26.0),
+        );
+        ui.painter().text(
+            content.left_top(),
+            Align2::LEFT_TOP,
+            strings.continue_watching(),
+            typography::caption(),
+            palette::ACCENT_OUTLINE,
+        );
+        ui.painter().text(
+            content.left_top() + vec2(0.0, 30.0),
+            Align2::LEFT_TOP,
+            &entry.item.series_title,
+            typography::hero(),
+            palette::TEXT_PRIMARY,
+        );
+        ui.painter().text(
+            content.left_top() + vec2(0.0, 70.0),
+            Align2::LEFT_TOP,
+            &entry.item.episode_title,
+            typography::body(),
+            palette::TEXT_SECONDARY,
+        );
+        let play_center = content.left_bottom() + vec2(24.0, -34.0);
+        ui.painter()
+            .circle_filled(play_center, 23.0, palette::ACCENT_BRIGHT);
+        ui.painter().text(
+            play_center + vec2(1.0, 0.0),
+            Align2::CENTER_CENTER,
+            "▶",
+            FontId::proportional(16.0),
+            Color32::WHITE,
+        );
+
+        if let Some(duration) = entry.progress.duration_ms.filter(|duration| *duration > 0) {
+            let fraction = (entry.progress.position_ms as f32 / duration as f32).clamp(0.0, 1.0);
+            let bar = Rect::from_min_size(
+                egui::pos2(content.left() + 62.0, content.bottom() - 39.0),
+                vec2((content.width() - 76.0).max(80.0), 5.0),
+            );
+            ui.painter()
+                .rect_filled(bar, 2.5, Color32::from_white_alpha(28));
+            ui.painter().rect_filled(
+                Rect::from_min_size(bar.min, vec2(bar.width() * fraction, bar.height())),
+                2.5,
+                palette::ACCENT_BRIGHT,
+            );
+        }
+        if response.hovered() {
+            ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
+        }
+        result = Some(response);
+    });
+    result.expect("featured card response")
+}
 // ---------------------------------------------------------------------------
 // Shared widgets
 // ---------------------------------------------------------------------------
