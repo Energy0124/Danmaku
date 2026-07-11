@@ -176,7 +176,12 @@ The native player accepts local Bilibili XML, normalized JSON, and existing ASS
 overlays. XML/JSON comments use the native egui renderer; ASS files use mpv's
 subtitle renderer for compatibility. XML, JSON, `.danmaku`, or ASS files can
 also be dropped onto the running player. Display opacity, speed, density, and
-lane count are available from the Danmaku control menu.
+lane count are available from the Danmaku control menu. Starting without
+`--media` opens the LAN discovery/manual-connect library client. English and
+Traditional Chinese can be selected on that first screen; Settings persists
+volume, playback rate, auto-next, danmaku defaults, and the last server URL in
+`%LOCALAPPDATA%\\Danmaku\\player-preferences.json`. Pairing tokens are never
+written there. Server administration opens the connected server's `/web/` UI.
 
 To resolve dandanplay comments through a running Rust library server, provide
 the catalog media ID:

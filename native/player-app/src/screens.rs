@@ -12,7 +12,9 @@ use crate::{
         MediaItem, NextUpItem, NextUpReason, PlaybackProgress, ProgressItem, Series,
         continue_watching_items, grouped_series, next_up_items,
     },
+    localization::{Language, Strings},
     posters::{PosterCache, PosterState},
+    preferences::PlayerPreferences,
     session::LibrarySession,
     theme::{self, metrics, palette, typography},
 };
@@ -44,7 +46,9 @@ impl ConnectScreen {
         &mut self,
         ctx: &egui::Context,
         discovered: &[DiscoveredServer],
+        language: &mut Language,
     ) -> Option<ConnectRequest> {
+        let strings = Strings::new(*language);
         let mut request = None;
         egui::CentralPanel::default()
             .frame(Frame::NONE.fill(palette::BG_PANEL))
@@ -59,24 +63,29 @@ impl ConnectScreen {
                             .color(palette::TEXT_PRIMARY),
                     );
                     ui.label(
-                        RichText::new("Connect to a library server")
+                        RichText::new(strings.connect_subtitle())
                             .font(typography::body())
                             .color(palette::TEXT_MUTED),
                     );
+                    ui.horizontal(|ui| {
+                        for option in Language::ALL {
+                            ui.selectable_value(language, option, option.native_name());
+                        }
+                    });
                     ui.add_space(24.0);
 
                     ui.scope(|ui| {
                         ui.set_max_width(panel_width);
                         ui.vertical(|ui| {
                             ui.label(
-                                RichText::new("Discovered on this network")
+                                RichText::new(strings.discovered())
                                     .font(typography::heading())
                                     .color(palette::TEXT_SECONDARY),
                             );
                             ui.add_space(6.0);
                             if discovered.is_empty() {
                                 ui.label(
-                                    RichText::new("Listening for servers…")
+                                    RichText::new(strings.listening())
                                         .font(typography::caption())
                                         .color(palette::TEXT_MUTED),
                                 );
@@ -101,7 +110,7 @@ impl ConnectScreen {
 
                             ui.add_space(18.0);
                             ui.label(
-                                RichText::new("Manual connection")
+                                RichText::new(strings.manual_connection())
                                     .font(typography::heading())
                                     .color(palette::TEXT_SECONDARY),
                             );
@@ -114,7 +123,7 @@ impl ConnectScreen {
                             ui.add_space(4.0);
                             ui.add(
                                 TextEdit::singleline(&mut self.manual_token)
-                                    .hint_text("Pairing token (optional)")
+                                    .hint_text(strings.pairing_token())
                                     .desired_width(panel_width),
                             );
                             ui.add_space(10.0);
@@ -123,7 +132,7 @@ impl ConnectScreen {
                                 .add_enabled(
                                     connect_enabled,
                                     egui::Button::new(
-                                        RichText::new("Connect").font(typography::body()),
+                                        RichText::new(strings.connect()).font(typography::body()),
                                     )
                                     .min_size(vec2(panel_width, 36.0)),
                                 )
@@ -164,6 +173,7 @@ pub enum LibraryAction {
     Play { media_id: String },
     Refresh,
     Disconnect,
+    Settings,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -196,6 +206,7 @@ impl LibraryScreen {
         ctx: &egui::Context,
         session: &LibrarySession,
         posters: &mut PosterCache,
+        strings: Strings,
     ) -> Option<LibraryAction> {
         let mut action = None;
         egui::TopBottomPanel::top("library_top")
@@ -204,7 +215,7 @@ impl LibraryScreen {
             .show(ctx, |ui| {
                 ui.horizontal_centered(|ui| {
                     ui.add_space(metrics::GUTTER);
-                    if self.view != LibraryView::Home && ui.button("< Back").clicked() {
+                    if self.view != LibraryView::Home && ui.button(strings.back()).clicked() {
                         self.view = LibraryView::Home;
                     }
                     ui.label(
@@ -217,7 +228,7 @@ impl LibraryScreen {
                     let search_width = (ui.available_width() * 0.4).clamp(200.0, 460.0);
                     let response = ui.add_sized(
                         [search_width, 32.0],
-                        TextEdit::singleline(&mut self.query).hint_text("搜尋 / Search"),
+                        TextEdit::singleline(&mut self.query).hint_text(strings.search()),
                     );
                     ctx.send_viewport_cmd(egui::ViewportCommand::IMEAllowed(response.has_focus()));
                     if response.has_focus() {
@@ -225,11 +236,14 @@ impl LibraryScreen {
                     }
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                         ui.add_space(metrics::GUTTER);
-                        if ui.button("Disconnect").clicked() {
+                        if ui.button(strings.disconnect()).clicked() {
                             action = Some(LibraryAction::Disconnect);
                         }
-                        if ui.button("Refresh").clicked() {
+                        if ui.button(strings.refresh()).clicked() {
                             action = Some(LibraryAction::Refresh);
+                        }
+                        if ui.button(strings.settings()).clicked() {
+                            action = Some(LibraryAction::Settings);
                         }
                         ui.label(
                             RichText::new(&session.base_url)
@@ -246,8 +260,8 @@ impl LibraryScreen {
                 let Some(catalog) = &session.catalog else {
                     ui.centered_and_justified(|ui| {
                         let message = match &session.catalog_error {
-                            Some(error) => format!("Failed to load library: {error}"),
-                            None => "Loading library…".to_owned(),
+                            Some(error) => format!("{}: {error}", strings.failed_library()),
+                            None => strings.loading_library().to_owned(),
                         };
                         let color = if session.catalog_error.is_some() {
                             palette::DANGER
@@ -261,12 +275,12 @@ impl LibraryScreen {
                 self.refresh_series_cache(catalog);
 
                 let inner_action = if !self.query.trim().is_empty() {
-                    self.show_search_results(ui, catalog, posters)
+                    self.show_search_results(ui, catalog, posters, strings)
                 } else {
                     match self.view.clone() {
-                        LibraryView::Home => self.show_home(ui, catalog, session, posters),
+                        LibraryView::Home => self.show_home(ui, catalog, session, posters, strings),
                         LibraryView::Series(series_id) => {
-                            self.show_series(ui, &series_id, &session.progresses, posters)
+                            self.show_series(ui, &series_id, &session.progresses, posters, strings)
                         }
                     }
                 };
@@ -291,6 +305,7 @@ impl LibraryScreen {
         catalog: &LibraryCatalog,
         session: &LibrarySession,
         posters: &mut PosterCache,
+        strings: Strings,
     ) -> Option<LibraryAction> {
         let mut action = None;
         let continue_watching = continue_watching_items(
@@ -314,15 +329,15 @@ impl LibraryScreen {
             .show(ui, |ui| {
                 ui.add_space(12.0);
                 if !continue_watching.is_empty() {
-                    section_heading(ui, "Continue watching");
+                    section_heading(ui, strings.continue_watching());
                     if let Some(clicked) = continue_watching_rail(ui, &continue_watching, posters) {
                         action = Some(LibraryAction::Play { media_id: clicked });
                     }
                     ui.add_space(16.0);
                 }
                 if !next_up.is_empty() {
-                    section_heading(ui, "Next up");
-                    if let Some(clicked) = next_up_rail(ui, &next_up, posters) {
+                    section_heading(ui, strings.next_up());
+                    if let Some(clicked) = next_up_rail(ui, &next_up, posters, strings) {
                         action = Some(LibraryAction::Play { media_id: clicked });
                     }
                     ui.add_space(16.0);
@@ -331,12 +346,15 @@ impl LibraryScreen {
                 section_heading(
                     ui,
                     &format!(
-                        "All series - {} titles, {} episodes",
+                        "{} - {} {}, {} {}",
+                        strings.all_series(),
                         self.cached_series.len(),
-                        catalog.items.len()
+                        strings.titles(),
+                        catalog.items.len(),
+                        strings.episodes()
                     ),
                 );
-                if let Some(series_id) = series_grid(ui, &self.cached_series, posters) {
+                if let Some(series_id) = series_grid(ui, &self.cached_series, posters, strings) {
                     self.view = LibraryView::Series(series_id);
                 }
                 ui.add_space(24.0);
@@ -349,6 +367,7 @@ impl LibraryScreen {
         ui: &mut egui::Ui,
         catalog: &LibraryCatalog,
         posters: &mut PosterCache,
+        strings: Strings,
     ) -> Option<LibraryAction> {
         let query = self.query.trim().to_lowercase();
         let mut action = None;
@@ -374,23 +393,26 @@ impl LibraryScreen {
             .auto_shrink([false, false])
             .show(ui, |ui| {
                 ui.add_space(12.0);
-                section_heading(ui, &format!("Series matching \"{}\"", self.query.trim()));
+                section_heading(
+                    ui,
+                    &format!("{} \"{}\"", strings.series_matching(), self.query.trim()),
+                );
                 if matching_series.is_empty() {
-                    muted_line(ui, "No matching series.");
+                    muted_line(ui, strings.no_series());
                 } else {
                     let owned: Vec<Series> = matching_series.into_iter().cloned().collect();
-                    if let Some(series_id) = series_grid(ui, &owned, posters) {
+                    if let Some(series_id) = series_grid(ui, &owned, posters, strings) {
                         self.query.clear();
                         self.view = LibraryView::Series(series_id);
                     }
                 }
                 ui.add_space(16.0);
-                section_heading(ui, "Episodes");
+                section_heading(ui, strings.episodes());
                 if matching_episodes.is_empty() {
-                    muted_line(ui, "No matching episodes.");
+                    muted_line(ui, strings.no_episodes());
                 }
                 for item in matching_episodes {
-                    if episode_row(ui, item, None).clicked() {
+                    if episode_row(ui, item, None, strings).clicked() {
                         action = Some(LibraryAction::Play {
                             media_id: item.id.clone(),
                         });
@@ -407,6 +429,7 @@ impl LibraryScreen {
         series_id: &str,
         progresses: &[PlaybackProgress],
         posters: &mut PosterCache,
+        strings: Strings,
     ) -> Option<LibraryAction> {
         let Some(series) = self
             .cached_series
@@ -451,7 +474,10 @@ impl LibraryScreen {
                                 .strong()
                                 .color(palette::TEXT_PRIMARY),
                         );
-                        muted_line(ui, &format!("{} episodes", series.episode_count()));
+                        muted_line(
+                            ui,
+                            &format!("{} {}", series.episode_count(), strings.episodes()),
+                        );
                     });
                 });
                 ui.add_space(12.0);
@@ -461,7 +487,7 @@ impl LibraryScreen {
                     }
                     for item in &season.items {
                         let progress = latest.get(item.id.as_str()).copied();
-                        if episode_row(ui, item, progress).clicked() {
+                        if episode_row(ui, item, progress, strings).clicked() {
                             action = Some(LibraryAction::Play {
                                 media_id: item.id.clone(),
                             });
@@ -535,6 +561,7 @@ fn next_up_rail(
     ui: &mut egui::Ui,
     entries: &[NextUpItem],
     posters: &mut PosterCache,
+    strings: Strings,
 ) -> Option<String> {
     let mut clicked = None;
     egui::ScrollArea::horizontal()
@@ -544,9 +571,9 @@ fn next_up_rail(
                 ui.add_space(metrics::GUTTER);
                 for entry in entries {
                     let badge = match entry.reason {
-                        NextUpReason::Resume => "Resume",
-                        NextUpReason::NextEpisode => "Next",
-                        NextUpReason::Start => "Start",
+                        NextUpReason::Resume => strings.resume(),
+                        NextUpReason::NextEpisode => strings.next(),
+                        NextUpReason::Start => strings.start(),
                     };
                     if poster_card(ui, &entry.item, posters, None, Some(badge)).clicked() {
                         clicked = Some(entry.item.id.clone());
@@ -557,7 +584,12 @@ fn next_up_rail(
     clicked
 }
 
-fn series_grid(ui: &mut egui::Ui, series: &[Series], posters: &mut PosterCache) -> Option<String> {
+fn series_grid(
+    ui: &mut egui::Ui,
+    series: &[Series],
+    posters: &mut PosterCache,
+    strings: Strings,
+) -> Option<String> {
     let mut clicked = None;
     let available_width = ui.available_width() - 2.0 * metrics::GUTTER;
     let columns = ((available_width + CARD_GAP) / (CARD_WIDTH + CARD_GAP))
@@ -584,7 +616,7 @@ fn series_grid(ui: &mut egui::Ui, series: &[Series], posters: &mut PosterCache) 
                             ui,
                             &item,
                             &series.title,
-                            &format!("{} eps", series.episode_count()),
+                            &format!("{} {}", series.episode_count(), strings.episodes()),
                             posters,
                         );
                         if response.clicked() {
@@ -790,6 +822,7 @@ fn episode_row(
     ui: &mut egui::Ui,
     item: &MediaItem,
     progress: Option<&PlaybackProgress>,
+    strings: Strings,
 ) -> egui::Response {
     let width = ui.available_width() - 2.0 * metrics::GUTTER;
     let (rect, response) =
@@ -817,12 +850,12 @@ fn episode_row(
                 let percent =
                     ((progress.position_ms as f64 / duration as f64) * 100.0).round() as i64;
                 if duration - progress.position_ms < MINIMUM_REMAINING_MS {
-                    "Watched".to_owned()
+                    strings.watched().to_owned()
                 } else {
-                    format!("Resume {percent}%")
+                    format!("{} {percent}%", strings.resume())
                 }
             }
-            _ => "Started".to_owned(),
+            _ => strings.started().to_owned(),
         },
         None => String::new(),
     };
@@ -839,6 +872,217 @@ fn episode_row(
         ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
     }
     response
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SettingsAction {
+    Back,
+    ChangeServer,
+}
+
+pub fn show_settings(
+    ctx: &egui::Context,
+    preferences: &mut PlayerPreferences,
+    connected_url: Option<&str>,
+    return_to_playback: bool,
+) -> Option<SettingsAction> {
+    let strings = Strings::new(preferences.language);
+    let mut action = None;
+    egui::TopBottomPanel::top("settings_top")
+        .exact_height(56.0)
+        .frame(Frame::NONE.fill(palette::BG_DEEP))
+        .show(ctx, |ui| {
+            ui.horizontal_centered(|ui| {
+                ui.add_space(metrics::GUTTER);
+                if ui.button(strings.back()).clicked() {
+                    action = Some(SettingsAction::Back);
+                }
+                ui.label(
+                    RichText::new(strings.settings())
+                        .font(FontId::proportional(20.0))
+                        .strong()
+                        .color(palette::TEXT_PRIMARY),
+                );
+            });
+        });
+    egui::CentralPanel::default()
+        .frame(Frame::NONE.fill(palette::BG_PANEL))
+        .show(ctx, |ui| {
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                ui.set_max_width(680.0);
+                ui.add_space(20.0);
+                section_heading(ui, strings.language_label());
+                ui.horizontal(|ui| {
+                    ui.add_space(metrics::GUTTER);
+                    for language in Language::ALL {
+                        ui.selectable_value(
+                            &mut preferences.language,
+                            language,
+                            language.native_name(),
+                        );
+                    }
+                });
+
+                let strings = Strings::new(preferences.language);
+                ui.add_space(20.0);
+                section_heading(ui, strings.preferences());
+                settings_slider_u8(
+                    ui,
+                    strings.default_volume(),
+                    &mut preferences.volume_percent,
+                    0..=130,
+                    "%",
+                );
+                settings_slider_f64(
+                    ui,
+                    strings.playback_rate(),
+                    &mut preferences.playback_rate,
+                    0.5..=2.0,
+                    "x",
+                );
+                settings_checkbox(ui, strings.auto_next(), &mut preferences.auto_next);
+
+                ui.add_space(20.0);
+                section_heading(ui, strings.danmaku_defaults());
+                settings_checkbox(ui, strings.show_danmaku(), &mut preferences.danmaku_enabled);
+                settings_slider_f32(
+                    ui,
+                    strings.opacity(),
+                    &mut preferences.danmaku_opacity,
+                    0.0..=1.0,
+                    "",
+                );
+                settings_slider_f32(
+                    ui,
+                    strings.speed(),
+                    &mut preferences.danmaku_speed,
+                    0.25..=4.0,
+                    "x",
+                );
+                settings_slider_f32(
+                    ui,
+                    strings.density(),
+                    &mut preferences.danmaku_density,
+                    0.0..=1.0,
+                    "",
+                );
+                let mut lanes = preferences.danmaku_lanes as u32;
+                settings_slider_u32(ui, strings.lanes(), &mut lanes, 1..=32, "");
+                preferences.danmaku_lanes = lanes as usize;
+
+                ui.add_space(20.0);
+                section_heading(ui, strings.server_connection());
+                let server = connected_url
+                    .map(str::to_owned)
+                    .or_else(|| preferences.last_server_url.clone());
+                muted_line(
+                    ui,
+                    &server
+                        .as_deref()
+                        .map(|url| {
+                            format!(
+                                "{}: {url}",
+                                if connected_url.is_some() {
+                                    strings.connected_to()
+                                } else {
+                                    strings.remembered_server()
+                                }
+                            )
+                        })
+                        .unwrap_or_else(|| strings.no_server().to_owned()),
+                );
+                ui.horizontal(|ui| {
+                    ui.add_space(metrics::GUTTER);
+                    if !return_to_playback && ui.button(strings.change_server()).clicked() {
+                        action = Some(SettingsAction::ChangeServer);
+                    }
+                    if preferences.last_server_url.is_some()
+                        && ui.button(strings.forget_server()).clicked()
+                    {
+                        preferences.last_server_url = None;
+                    }
+                });
+
+                if let Some(server) = server.as_deref() {
+                    ui.add_space(20.0);
+                    section_heading(ui, strings.administration());
+                    muted_line(ui, strings.administration_note());
+                    ui.horizontal(|ui| {
+                        ui.add_space(metrics::GUTTER);
+                        ui.hyperlink_to(
+                            strings.open_web_admin(),
+                            format!("{}/web/", server.trim_end_matches('/')),
+                        );
+                    });
+                }
+                ui.add_space(20.0);
+                muted_line(ui, strings.saved());
+            });
+        });
+    action
+}
+
+fn settings_checkbox(ui: &mut egui::Ui, label: &str, value: &mut bool) {
+    ui.horizontal(|ui| {
+        ui.add_space(metrics::GUTTER);
+        ui.checkbox(value, label);
+    });
+}
+
+fn settings_slider_u8(
+    ui: &mut egui::Ui,
+    label: &str,
+    value: &mut u8,
+    range: std::ops::RangeInclusive<u8>,
+    suffix: &str,
+) {
+    ui.horizontal(|ui| {
+        ui.add_space(metrics::GUTTER);
+        ui.label(label);
+        ui.add(egui::Slider::new(value, range).suffix(suffix));
+    });
+}
+
+fn settings_slider_u32(
+    ui: &mut egui::Ui,
+    label: &str,
+    value: &mut u32,
+    range: std::ops::RangeInclusive<u32>,
+    suffix: &str,
+) {
+    ui.horizontal(|ui| {
+        ui.add_space(metrics::GUTTER);
+        ui.label(label);
+        ui.add(egui::Slider::new(value, range).suffix(suffix));
+    });
+}
+
+fn settings_slider_f32(
+    ui: &mut egui::Ui,
+    label: &str,
+    value: &mut f32,
+    range: std::ops::RangeInclusive<f32>,
+    suffix: &str,
+) {
+    ui.horizontal(|ui| {
+        ui.add_space(metrics::GUTTER);
+        ui.label(label);
+        ui.add(egui::Slider::new(value, range).suffix(suffix));
+    });
+}
+
+fn settings_slider_f64(
+    ui: &mut egui::Ui,
+    label: &str,
+    value: &mut f64,
+    range: std::ops::RangeInclusive<f64>,
+    suffix: &str,
+) {
+    ui.horizontal(|ui| {
+        ui.add_space(metrics::GUTTER);
+        ui.label(label);
+        ui.add(egui::Slider::new(value, range).suffix(suffix));
+    });
 }
 
 #[cfg(test)]

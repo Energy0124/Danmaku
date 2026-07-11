@@ -60,13 +60,14 @@ experimental JVM headless application remains available during migration.
 
 The `native/player-app` migration client is an egui/glow Windows player that
 composites libmpv's OpenGL render API output beneath native controls and
-danmaku. Its current playback/danmaku slice accepts direct media paths or URLs,
-loads normalized comments through the Rust server's client-facing
-`/api/danmaku/{mediaId}` route, supports local XML/JSON drag-and-drop, and
-keeps existing ASS overlays playable through mpv. Library browsing, discovery,
-progress sync, localization, and packaging remain later Phase 3 milestones.
-The client must not duplicate library hosting, provider settings, sync, or
-metadata storage.
+danmaku. It accepts direct media paths or URLs, loads normalized comments
+through the Rust server, supports local XML/JSON drag-and-drop and ASS
+compatibility, and provides discovery, library browsing, progress sync, and
+English/Traditional Chinese UI. User-scoped preferences own playback/danmaku
+defaults and the last server URL; pairing tokens remain session-only. Server
+administration stays in the `/web/` UI and the client only links to it. Release
+packaging remains the final Phase 3 milestone. The client must not duplicate
+library hosting, provider settings, sync, or metadata storage.
 
 ## Module Boundaries
 

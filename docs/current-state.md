@@ -133,9 +133,12 @@ trusted-LAN clients.
 - XML, JSON, `.danmaku`, and ASS files can be attached at startup or dropped
   onto the player. XML/JSON render natively; existing cached ASS overlays use
   mpv's subtitle renderer for compatibility.
-- Library browsing/discovery, progress upload, previous/next and auto-next,
-  localization, durable preferences, and release packaging remain Phase 3
-  M3-M5 work. Compose desktop remains the default application.
+- The M3 library client covers discovery/manual pairing, catalog browsing and
+  search, progress/resume, previous/next, and auto-next. M4 adds English and
+  Traditional Chinese from the initial connect screen, durable playback and
+  danmaku preferences, remembered server URL management without storing pairing
+  tokens, and a web-admin link. Release packaging remains Phase 3 M5 work;
+  Compose desktop remains the default application.
 
 ### Android Mobile
 
