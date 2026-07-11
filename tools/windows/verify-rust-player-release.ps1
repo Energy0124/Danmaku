@@ -15,17 +15,21 @@ if (-not (Test-Path -LiteralPath $distributionPath -PathType Container)) {
 }
 
 $playerPath = Join-Path $distributionPath "danmaku-player.exe"
+$serverPath = Join-Path $distributionPath "library-server.exe"
 $libmpvPath = Join-Path $distributionPath "libmpv-2.dll"
 $launcherPath = Join-Path $distributionPath "run-danmaku-player.ps1"
 $dependencyPath = Join-Path $distributionPath "dependencies\libmpv"
 $manifestPath = Join-Path $dependencyPath "zhongfly-lgpl-x86_64-20260708.json"
 $requiredFiles = @(
     $playerPath,
+    $serverPath,
     $libmpvPath,
     $launcherPath,
     (Join-Path $distributionPath "LICENSE"),
     (Join-Path $distributionPath "THIRD_PARTY_NOTICES.md"),
     (Join-Path $distributionPath "RUST_CRATE_LICENSES.md"),
+    (Join-Path $distributionPath "RUST_SERVER_CRATE_LICENSES.md"),
+    (Join-Path $distributionPath "web\index.html"),
     (Join-Path $distributionPath "README.md"),
     $manifestPath,
     (Join-Path $dependencyPath "SOURCE.md"),
@@ -67,6 +71,11 @@ if ($LASTEXITCODE -ne 0 -or ($helpOutput | Out-String) -notmatch "Usage: danmaku
     throw "Packaged native player --help check failed."
 }
 
+$serverHelpOutput = & $serverPath --help 2>&1
+if ($LASTEXITCODE -ne 0 -or ($serverHelpOutput | Out-String) -notmatch "Usage: library-server") {
+    throw "Packaged library server --help check failed."
+}
+
 if (-not [string]::IsNullOrWhiteSpace($ProbeExecutable)) {
     $probePath = [System.IO.Path]::GetFullPath($ProbeExecutable)
     if (-not (Test-Path -LiteralPath $probePath -PathType Leaf)) {
@@ -90,5 +99,6 @@ if (-not [string]::IsNullOrWhiteSpace($ProbeExecutable)) {
 
 Write-Host "Verified Rust-native player release at $distributionPath"
 Write-Host "  player: $playerPath"
+Write-Host "  server: $serverPath"
 Write-Host "  libmpv SHA-256: $actualDllHash"
 

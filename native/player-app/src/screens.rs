@@ -1,5 +1,7 @@
 //! Library-mode screens: server connect and catalog browse.
 
+use std::path::PathBuf;
+
 use eframe::egui::{
     self, Align, Align2, Color32, CursorIcon, FontId, Frame, Layout, Rect, RichText, Sense,
     TextEdit, vec2,
@@ -7,6 +9,7 @@ use eframe::egui::{
 
 use crate::{
     discovery::DiscoveredServer,
+    hosting::LocalHostStatus,
     library::{
         DEFAULT_NEXT_UP_LIMIT, LibraryCatalog, MINIMUM_REMAINING_MS, MINIMUM_RESUME_POSITION_MS,
         MediaItem, NextUpItem, NextUpReason, PlaybackProgress, ProgressItem, Series,
@@ -34,10 +37,17 @@ pub struct ConnectRequest {
     pub pairing_token: Option<String>,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum ConnectAction {
+    Connect(ConnectRequest),
+    StartLocal(PathBuf),
+}
+
 #[derive(Default)]
 pub struct ConnectScreen {
     pub manual_url: String,
     pub manual_token: String,
+    pub local_library_root: String,
     pub error: Option<String>,
 }
 
@@ -47,9 +57,10 @@ impl ConnectScreen {
         ctx: &egui::Context,
         discovered: &[DiscoveredServer],
         language: &mut Language,
-    ) -> Option<ConnectRequest> {
+        local_host_status: Option<&LocalHostStatus>,
+    ) -> Option<ConnectAction> {
         let strings = Strings::new(*language);
-        let mut request = None;
+        let mut action = None;
         egui::CentralPanel::default()
             .frame(Frame::NONE.fill(palette::BG_PANEL))
             .show(ctx, |ui| {
@@ -77,8 +88,80 @@ impl ConnectScreen {
                     ui.scope(|ui| {
                         ui.set_max_width(panel_width);
                         ui.vertical(|ui| {
+                            if let Some(status) = local_host_status
+                                && status.is_available()
+                            {
+                                ui.label(
+                                    RichText::new(strings.this_pc())
+                                        .font(typography::heading())
+                                        .color(palette::TEXT_SECONDARY),
+                                );
+                                ui.add_space(6.0);
+                                match status {
+                                    LocalHostStatus::Starting => {
+                                        ui.horizontal(|ui| {
+                                            ui.spinner();
+                                            ui.label(strings.starting_local_server());
+                                        });
+                                    }
+                                    LocalHostStatus::Running { .. } => {
+                                        ui.label(strings.local_server_running());
+                                    }
+                                    LocalHostStatus::Failed(error) => {
+                                        ui.label(
+                                            RichText::new(error)
+                                                .font(typography::caption())
+                                                .color(palette::DANGER),
+                                        );
+                                    }
+                                    LocalHostStatus::Stopped => {
+                                        ui.label(strings.local_server_stopped());
+                                    }
+                                    _ => {
+                                        ui.label(
+                                            RichText::new(strings.local_host_note())
+                                                .font(typography::caption())
+                                                .color(palette::TEXT_MUTED),
+                                        );
+                                    }
+                                }
+                                if !matches!(
+                                    status,
+                                    LocalHostStatus::Starting | LocalHostStatus::Running { .. }
+                                ) {
+                                    ui.add_space(6.0);
+                                    ui.horizontal(|ui| {
+                                        ui.add(
+                                            TextEdit::singleline(&mut self.local_library_root)
+                                                .hint_text(strings.library_folder())
+                                                .desired_width(panel_width - 128.0),
+                                        );
+                                        if ui.button(strings.choose_folder()).clicked()
+                                            && let Some(folder) = rfd::FileDialog::new()
+                                                .set_title(strings.library_folder())
+                                                .pick_folder()
+                                        {
+                                            self.local_library_root =
+                                                folder.to_string_lossy().into_owned();
+                                        }
+                                    });
+                                    let root = PathBuf::from(self.local_library_root.trim());
+                                    if ui
+                                        .add_enabled(
+                                            root.is_dir(),
+                                            egui::Button::new(strings.start_local_library())
+                                                .min_size(vec2(panel_width, 36.0)),
+                                        )
+                                        .clicked()
+                                    {
+                                        action = Some(ConnectAction::StartLocal(root));
+                                    }
+                                }
+                                ui.add_space(20.0);
+                            }
+
                             ui.label(
-                                RichText::new(strings.discovered())
+                                RichText::new(strings.other_servers())
                                     .font(typography::heading())
                                     .color(palette::TEXT_SECONDARY),
                             );
@@ -101,10 +184,10 @@ impl ConnectScreen {
                                     )
                                     .clicked()
                                 {
-                                    request = Some(ConnectRequest {
+                                    action = Some(ConnectAction::Connect(ConnectRequest {
                                         base_url: server.base_url.clone(),
                                         pairing_token: token_or_none(&self.manual_token),
-                                    });
+                                    }));
                                 }
                             }
 
@@ -138,10 +221,10 @@ impl ConnectScreen {
                                 )
                                 .clicked()
                             {
-                                request = Some(ConnectRequest {
+                                action = Some(ConnectAction::Connect(ConnectRequest {
                                     base_url: self.manual_url.trim().to_owned(),
                                     pairing_token: token_or_none(&self.manual_token),
-                                });
+                                }));
                             }
                             if let Some(error) = &self.error {
                                 ui.add_space(8.0);
@@ -155,7 +238,7 @@ impl ConnectScreen {
                     });
                 });
             });
-        request
+        action
     }
 }
 
@@ -874,10 +957,13 @@ fn episode_row(
     response
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum SettingsAction {
     Back,
     ChangeServer,
+    RestartLocalServer,
+    StopLocalServer,
+    SetLocalRoot(PathBuf),
 }
 
 pub fn show_settings(
@@ -885,6 +971,8 @@ pub fn show_settings(
     preferences: &mut PlayerPreferences,
     connected_url: Option<&str>,
     return_to_playback: bool,
+    local_host_status: Option<&LocalHostStatus>,
+    local_roots: &[String],
 ) -> Option<SettingsAction> {
     let strings = Strings::new(preferences.language);
     let mut action = None;
@@ -1002,6 +1090,54 @@ pub fn show_settings(
                         preferences.last_server_url = None;
                     }
                 });
+
+                if let Some(status) = local_host_status {
+                    ui.add_space(20.0);
+                    section_heading(ui, strings.local_hosting());
+                    let status_text = match status {
+                        LocalHostStatus::Unavailable => {
+                            strings.local_server_unavailable().to_owned()
+                        }
+                        LocalHostStatus::NeedsSetup => strings.local_host_note().to_owned(),
+                        LocalHostStatus::Starting => strings.starting_local_server().to_owned(),
+                        LocalHostStatus::Running { base_url, managed } => format!(
+                            "{}: {base_url}",
+                            if *managed {
+                                strings.managed_by_player()
+                            } else {
+                                strings.attached_server()
+                            }
+                        ),
+                        LocalHostStatus::Stopped => strings.local_server_stopped().to_owned(),
+                        LocalHostStatus::Failed(error) => error.clone(),
+                    };
+                    muted_line(ui, &status_text);
+                    if !return_to_playback && status.is_available() {
+                        ui.horizontal(|ui| {
+                            ui.add_space(metrics::GUTTER);
+                            if ui.button(strings.change_library_folder()).clicked() {
+                                let mut dialog =
+                                    rfd::FileDialog::new().set_title(strings.library_folder());
+                                if let Some(root) = local_roots.first() {
+                                    dialog = dialog.set_directory(root);
+                                }
+                                if let Some(folder) = dialog.pick_folder() {
+                                    action = Some(SettingsAction::SetLocalRoot(folder));
+                                }
+                            }
+                            if status.is_managed_running()
+                                && ui.button(strings.restart_server()).clicked()
+                            {
+                                action = Some(SettingsAction::RestartLocalServer);
+                            }
+                            if status.is_managed_running()
+                                && ui.button(strings.stop_server()).clicked()
+                            {
+                                action = Some(SettingsAction::StopLocalServer);
+                            }
+                        });
+                    }
+                }
 
                 if let Some(server) = server.as_deref() {
                     ui.add_space(20.0);

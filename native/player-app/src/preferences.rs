@@ -22,6 +22,7 @@ pub struct PlayerPreferences {
     pub danmaku_density: f32,
     pub danmaku_lanes: usize,
     pub last_server_url: Option<String>,
+    pub local_library_roots: Vec<String>,
 }
 
 impl Default for PlayerPreferences {
@@ -38,6 +39,7 @@ impl Default for PlayerPreferences {
             danmaku_density: danmaku.density,
             danmaku_lanes: danmaku.max_lanes,
             last_server_url: None,
+            local_library_roots: Vec::new(),
         }
     }
 }
@@ -61,6 +63,17 @@ impl PlayerPreferences {
             .take()
             .map(|url| url.trim().trim_end_matches('/').to_owned())
             .filter(|url| url.starts_with("http://") && url.len() > "http://".len());
+        self.local_library_roots = self
+            .local_library_roots
+            .into_iter()
+            .map(|root| root.trim().to_owned())
+            .filter(|root| !root.is_empty())
+            .fold(Vec::new(), |mut roots, root| {
+                if !roots.contains(&root) {
+                    roots.push(root);
+                }
+                roots
+            });
         self
     }
 
@@ -146,6 +159,7 @@ mod tests {
             playback_rate: 1.25,
             auto_next: true,
             last_server_url: Some("http://192.168.1.2:8686".to_owned()),
+            local_library_roots: vec!["W:/Anime".to_owned()],
             ..Default::default()
         };
         store.save(&expected).expect("preferences save");

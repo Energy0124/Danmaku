@@ -14,9 +14,12 @@ Status legend:
 - `[~]` Migrate the library server core and Windows player client to Rust.
   Server parity and sidecar ownership are complete. Native player M1-M4 now
   cover playback, danmaku, the design system, discovery/library/progress, and
-  settings/localization. M5 now produces and verifies the Rust-native portable
-  zip, and its supervised four-file real-media playback matrix passes. Phase 3
-  is complete; Phase 4 retirement and cleanup are next. Plan and task
+  settings/localization. M5 produces and verifies the Rust-native portable zip,
+  and its supervised four-file real-media playback matrix passes. Phase 4 now
+  has a unified default launcher: first-run local-folder setup starts and
+  connects the bundled Rust server, while remote LAN connection remains
+  available. Optional Windows service installation and the remaining retirement
+  cleanup are next. Plan and task
   checklists: `docs/design/rust-migration-plan.md`.
 - `[~]` Split the desktop library host into compatibility-preserving host,
   client, and web surfaces. The accepted direction is boundary-first:
@@ -299,9 +302,10 @@ Status legend:
   Desktop Home route orchestration now lives in `DesktopHomeTab.kt`, while
   reusable Home cards/status components live in `DesktopHomeContent.kt`.
 - `[~]` Add release checklist automation for Android APKs and Windows portable
-  archives. CI now builds and uploads the verified Rust-native player zip and
-  the Rust library-server zip alongside existing Android and compatibility
-  desktop artifacts; broader signed-release orchestration remains.
+  archives. CI now builds and uploads the verified unified Rust-native
+  player/server/web zip and the standalone Rust library-server zip alongside
+  existing Android and compatibility desktop artifacts; broader signed-release
+  orchestration remains.
 - `[x]` Move the remaining desktop player surface out of `Main.kt`; playback
   tab, shortcut, overlay, panel, constants, and cycling helpers are now split
   into focused desktop playback files.

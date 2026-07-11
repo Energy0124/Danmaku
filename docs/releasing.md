@@ -17,13 +17,15 @@ development outputs built by CI and local scripts.
 
 ### Rust Native Player
 
-- Runtime-free Windows x64 artifact for the Phase 3 migration client.
-- Includes `danmaku-player.exe`, the approved pinned `libmpv-2.dll`, native
-  launcher, project/third-party license texts, libmpv source provenance, and a
-  Cargo-metadata dependency license inventory.
-- Package verification checks the approved DLL hash, rejects legacy Java/JNA
-  layout files, exercises `--help`, and initializes libmpv through the native
-  probe before creating the versioned zip.
+- Runtime-free Windows x64 unified player and local-host artifact.
+- Includes `danmaku-player.exe`, `library-server.exe`, built web assets under
+  `web/`, the approved pinned `libmpv-2.dll`, native launcher,
+  project/third-party license texts, libmpv source provenance, and separate
+  Cargo-metadata dependency license inventories for player and server.
+- Package verification checks both executables and the web entry point, checks
+  the approved DLL hash, rejects legacy Java/JNA layout files, exercises both
+  `--help` surfaces, and initializes libmpv through the native probe before
+  creating the versioned zip.
 - CI publishes the zip as `danmaku-rust-native-player` while the Compose
   compatibility artifact remains available through Phase 4 retirement.
 
@@ -89,8 +91,10 @@ Prepare and verify the Rust-native player release:
 
 The generic `verify-windows-mpv-runtime.ps1`,
 `smoke-windows-playback.ps1`, and `run-windows-playback-release-qa.ps1`
-auto-detect the Rust-native package layout. Playback smoke and the media matrix
-launch the GUI and remain supervised checks.
+auto-detect the Rust-native package layout. Launching the packaged player
+without direct-media arguments offers first-run local-folder setup and then
+starts/connects the sibling server automatically. Playback smoke and the media
+matrix launch the GUI and remain supervised checks.
 
 Prepare the standalone Rust headless server release:
 

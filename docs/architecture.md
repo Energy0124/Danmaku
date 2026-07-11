@@ -64,9 +64,14 @@ danmaku. It accepts direct media paths or URLs, loads normalized comments
 through the Rust server, supports local XML/JSON drag-and-drop and ASS
 compatibility, and provides discovery, library browsing, progress sync, and
 English/Traditional Chinese UI. User-scoped preferences own playback/danmaku
-defaults and the last server URL; pairing tokens remain session-only. Server
-administration stays in the `/web/` UI and the client only links to it. A
-Rust-native portable zip now carries the executable, pinned libmpv, and
+defaults, local library roots,
+and the last server URL; pairing tokens remain session-only. In local mode a
+small player supervisor discovers the sibling `library-server.exe`, attaches
+to a healthy server already on the default loopback port or starts a child
+with the packaged `web/` assets, waits asynchronously for readiness, and
+connects. Only a player-owned child is restarted or stopped, including on
+player exit. Server administration remains in `/web/`. The Rust-native
+portable zip carries the player, server, web assets, pinned libmpv, and
 license/provenance inventory. The pinned-runtime probe and four-file release
 media matrix pass, completing Phase 3. The client must not duplicate
 library hosting, provider settings, sync, or metadata storage.
@@ -137,9 +142,10 @@ native:rust-core
 5. Clients stream over HTTP byte ranges and upload progress.
 6. Compose desktop local playback uses the same catalog/progress concepts and
    writes local progress directly.
-7. The native player currently accepts a direct media source and can request
-   normalized dandanplay comments from the Rust server by catalog media ID;
-   Phase 3 M3 will add catalog/progress client flows.
+7. The native player browses the server catalog, streams media, synchronizes
+   progress, and requests normalized dandanplay comments by catalog media ID.
+   In packaged local mode it supervises the sibling Rust server; remote LAN
+   connection uses the same HTTP client flow without starting a child.
 8. External tracking derives provider-neutral updates from local progress and
    mapped series, then writes through provider-specific clients only when the
    user triggers sync.

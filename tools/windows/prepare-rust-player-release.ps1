@@ -2,6 +2,7 @@
 param(
     [string]$ReleaseRoot = (Join-Path $PSScriptRoot "..\..\build\release\rust-player"),
     [string]$LibmpvPath = (Join-Path $PSScriptRoot "..\..\runtime\windows\libmpv\libmpv-2.dll"),
+    [string]$WebUiDistPath = (Join-Path $PSScriptRoot "..\..\apps\web-ui\dist"),
     [bool]$ProbeLibmpv = $true
 )
 
@@ -90,11 +91,12 @@ function ConvertTo-MarkdownCell {
 function Write-RustCrateLicenses {
     param(
         [Parameter(Mandatory = $true)]$Metadata,
-        [Parameter(Mandatory = $true)]$PlayerPackage,
+        [Parameter(Mandatory = $true)]$RootPackage,
+        [Parameter(Mandatory = $true)][string]$DisplayName,
         [Parameter(Mandatory = $true)][string]$DestinationPath
     )
 
-    $scopeById = Get-ReleasePackageIds -Metadata $Metadata -RootPackageId ([string]$PlayerPackage.id)
+    $scopeById = Get-ReleasePackageIds -Metadata $Metadata -RootPackageId ([string]$RootPackage.id)
     $packagesById = @{}
     foreach ($package in $Metadata.packages) {
         $packagesById[[string]$package.id] = $package
@@ -103,7 +105,7 @@ function Write-RustCrateLicenses {
     $lines = [System.Collections.Generic.List[string]]::new()
     $lines.Add("# Rust Crate Licenses")
     $lines.Add("")
-    $lines.Add("Generated from cargo metadata --locked for the danmaku-player release dependency graph.")
+    $lines.Add("Generated from cargo metadata --locked for the $DisplayName release dependency graph.")
     $lines.Add("")
     $lines.Add("| Crate | Version | Scope | License | Source |")
     $lines.Add("| --- | --- | --- | --- | --- |")
@@ -143,13 +145,18 @@ function Write-PackageReadme {
     $readme = @'
 # Danmaku Native Player __VERSION__
 
-This package contains the Rust-native Danmaku Windows player. It is runtime
-free: Java and the legacy JNA mpv bridge are not required.
+This package contains the unified Rust-native Danmaku Windows player and local
+library server. It is runtime free: Java and the legacy JNA mpv bridge are not
+required.
 
 ## Run
 
-Launch run-danmaku-player.ps1 or danmaku-player.exe. Starting without arguments
-opens LAN discovery and library connection. For direct playback:
+Launch run-danmaku-player.ps1 or danmaku-player.exe. On first run, choose a
+library folder. The player starts the packaged local server, waits for it to be
+ready, and connects automatically. It stops the server when the player exits.
+
+The player can also discover and connect to another server on your LAN. For
+direct playback:
 
     .\run-danmaku-player.ps1 --media "D:\Anime\Episode 01.mkv"
 
@@ -158,10 +165,13 @@ Use --help for direct playback, danmaku, and QA options.
 ## Contents
 
 - danmaku-player.exe: egui/libmpv player and LAN library client.
+- library-server.exe: local library, streaming, danmaku, and web server.
+- web/: packaged server administration UI.
 - libmpv-2.dll: pinned, separately licensed LGPL libmpv dependency.
 - run-danmaku-player.ps1: launcher that selects the packaged libmpv.
 - dependencies/libmpv/: pinned manifest and source provenance.
-- RUST_CRATE_LICENSES.md: generated Rust dependency inventory.
+- RUST_CRATE_LICENSES.md: generated player Rust dependency inventory.
+- RUST_SERVER_CRATE_LICENSES.md: generated server Rust dependency inventory.
 - licenses/, LICENSE, and THIRD_PARTY_NOTICES.md: license texts and notices.
 
 ## Trust And Credentials
@@ -192,6 +202,10 @@ $playerPackage = $metadata.packages | Where-Object { $_.name -eq "danmaku-player
 if ($null -eq $playerPackage) {
     throw "Cargo package 'danmaku-player' was not found."
 }
+$serverPackage = $metadata.packages | Where-Object { $_.name -eq "library-server" } | Select-Object -First 1
+if ($null -eq $serverPackage) {
+    throw "Cargo package 'library-server' was not found."
+}
 $version = [string]$playerPackage.version
 $packageName = "danmaku-player-$version-windows-x64"
 $stagePath = Join-Path $releaseRootFullPath $packageName
@@ -199,9 +213,9 @@ $zipPath = Join-Path $releaseRootFullPath "$packageName.zip"
 
 Push-Location $repoRoot
 try {
-    & cargo build --release -p danmaku-player
+    & cargo build --release -p danmaku-player -p library-server
     if ($LASTEXITCODE -ne 0) {
-        throw "danmaku-player release build failed."
+        throw "danmaku-player/library-server release build failed."
     }
     & cargo build --release -p player-windows-mpv --bin mpv-probe
     if ($LASTEXITCODE -ne 0) {
@@ -213,11 +227,18 @@ try {
 
 $cargoTargetDir = Get-CargoTargetDir
 $playerExecutable = Join-Path $cargoTargetDir "release\danmaku-player.exe"
+$serverExecutable = Join-Path $cargoTargetDir "release\library-server.exe"
 $probeExecutable = Join-Path $cargoTargetDir "release\mpv-probe.exe"
-foreach ($requiredExecutable in @($playerExecutable, $probeExecutable)) {
+foreach ($requiredExecutable in @($playerExecutable, $serverExecutable, $probeExecutable)) {
     if (-not (Test-Path -LiteralPath $requiredExecutable -PathType Leaf)) {
         throw "Rust release executable does not exist: $requiredExecutable"
     }
+}
+
+$webUiDistFullPath = [System.IO.Path]::GetFullPath($WebUiDistPath)
+$webUiIndexPath = Join-Path $webUiDistFullPath "index.html"
+if (-not (Test-Path -LiteralPath $webUiIndexPath -PathType Leaf)) {
+    throw "Built web UI does not exist at $webUiIndexPath. Run npm ci and npm run build in apps/web-ui first."
 }
 
 $manifestPath = Join-Path $repoRoot "third_party\windows\libmpv\zhongfly-lgpl-x86_64-20260708.json"
@@ -251,6 +272,8 @@ New-Item -ItemType Directory -Path $dependencyStagePath -Force | Out-Null
 New-Item -ItemType Directory -Path $licenseStagePath -Force | Out-Null
 
 Copy-Item -LiteralPath $playerExecutable -Destination $stagePath -Force
+Copy-Item -LiteralPath $serverExecutable -Destination $stagePath -Force
+Copy-Item -LiteralPath $webUiDistFullPath -Destination (Join-Path $stagePath "web") -Recurse -Force
 Copy-Item -LiteralPath $libmpvFullPath -Destination $stagePath -Force
 Copy-Item -LiteralPath (Join-Path $repoRoot "tools\windows\run-rust-player.ps1") -Destination (Join-Path $stagePath "run-danmaku-player.ps1") -Force
 Copy-Item -LiteralPath $manifestPath -Destination $dependencyStagePath -Force
@@ -261,7 +284,8 @@ foreach ($licenseFile in @("APACHE-2.0.txt", "GPL-3.0.txt", "LGPL-2.1.txt", "LGP
     Copy-Item -LiteralPath (Join-Path $repoRoot "third_party\licenses\$licenseFile") -Destination $licenseStagePath -Force
 }
 
-Write-RustCrateLicenses -Metadata $metadata -PlayerPackage $playerPackage -DestinationPath (Join-Path $stagePath "RUST_CRATE_LICENSES.md")
+Write-RustCrateLicenses -Metadata $metadata -RootPackage $playerPackage -DisplayName "danmaku-player" -DestinationPath (Join-Path $stagePath "RUST_CRATE_LICENSES.md")
+Write-RustCrateLicenses -Metadata $metadata -RootPackage $serverPackage -DisplayName "library-server" -DestinationPath (Join-Path $stagePath "RUST_SERVER_CRATE_LICENSES.md")
 Write-PackageReadme -DestinationPath (Join-Path $stagePath "README.md") -Version $version
 
 $verifyArguments = @{ WindowsDistributionPath = $stagePath }
