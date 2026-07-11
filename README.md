@@ -193,11 +193,16 @@ cargo run -p danmaku-player -- --media "W:\Anime\Show\Episode 01.mkv" `
 
 Use `--help` for the full playback and danmaku option list.
 
-Runtime-free Windows portable build/run:
+Rust-native runtime-free Windows package:
 
 ```powershell
-.\run-windows.ps1 -Portable
+.\tools\windows\prepare-rust-player-release.ps1
+.\build\release\rust-player\danmaku-player-0.1.0-windows-x64\run-danmaku-player.ps1
 ```
+
+The versioned zip is written under `build/release/rust-player/`. The legacy
+Compose-compatible portable build remains available during migration through
+`.\run-windows.ps1 -Portable`.
 
 Experimental macOS desktop shell:
 

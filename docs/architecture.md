@@ -65,8 +65,10 @@ through the Rust server, supports local XML/JSON drag-and-drop and ASS
 compatibility, and provides discovery, library browsing, progress sync, and
 English/Traditional Chinese UI. User-scoped preferences own playback/danmaku
 defaults and the last server URL; pairing tokens remain session-only. Server
-administration stays in the `/web/` UI and the client only links to it. Release
-packaging remains the final Phase 3 milestone. The client must not duplicate
+administration stays in the `/web/` UI and the client only links to it. A
+Rust-native portable zip now carries the executable, pinned libmpv, and
+license/provenance inventory. The pinned-runtime probe and four-file release
+media matrix pass, completing Phase 3. The client must not duplicate
 library hosting, provider settings, sync, or metadata storage.
 
 ## Module Boundaries

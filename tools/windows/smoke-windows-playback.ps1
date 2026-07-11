@@ -159,6 +159,51 @@ if (-not (Test-Path -LiteralPath $mediaFullPath -PathType Leaf)) {
     throw "Smoke media file does not exist: $mediaFullPath"
 }
 
+$rustPlayerExecutable = Join-Path $windowsFullPath "danmaku-player.exe"
+if (Test-Path -LiteralPath $rustPlayerExecutable -PathType Leaf) {
+    $libmpvPath = Join-Path $windowsFullPath "libmpv-2.dll"
+    if (-not (Test-Path -LiteralPath $libmpvPath -PathType Leaf)) {
+        throw "Packaged Rust player libmpv does not exist: $libmpvPath"
+    }
+
+    $processInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $processInfo.FileName = $rustPlayerExecutable
+    $processInfo.WorkingDirectory = $windowsFullPath
+    $processInfo.UseShellExecute = $false
+    $processInfo.Environment["DANMAKU_LIBMPV_PATH"] = $libmpvPath
+    [void]$processInfo.ArgumentList.Add("--media")
+    [void]$processInfo.ArgumentList.Add($mediaFullPath)
+    if (-not $KeepOpen) {
+        [void]$processInfo.ArgumentList.Add("--smoke")
+        [void]$processInfo.ArgumentList.Add([string]$Seconds)
+        $processInfo.RedirectStandardOutput = $true
+        $processInfo.RedirectStandardError = $true
+    }
+
+    $process = [System.Diagnostics.Process]::Start($processInfo)
+    if ($null -eq $process) {
+        throw "Failed to start packaged Rust player smoke playback."
+    }
+    if ($KeepOpen) {
+        Write-Host "Started Rust player playback and left it open: process $($process.Id)"
+        exit 0
+    }
+
+    $timeoutMilliseconds = ($StartupTimeoutSeconds + $Seconds) * 1000
+    if (-not $process.WaitForExit($timeoutMilliseconds)) {
+        Stop-SmokeProcess -Process $process
+        throw "Rust player smoke timed out after $timeoutMilliseconds ms."
+    }
+    $stdout = $process.StandardOutput.ReadToEnd()
+    $stderr = $process.StandardError.ReadToEnd()
+    if ($process.ExitCode -ne 0 -or $stdout -notmatch "danmaku-player smoke: PASS") {
+        throw "Rust player smoke failed with exit code $($process.ExitCode). stdout=$stdout stderr=$stderr"
+    }
+    Write-Host $stdout.Trim()
+    Write-Host "Windows playback smoke passed for packaged Rust player."
+    exit 0
+}
+
 $appExecutable = Join-Path $windowsFullPath "desktop-windows.exe"
 $portableLauncher = Join-Path $windowsFullPath "run-danmaku.ps1"
 $launchesAppImage = Test-Path -LiteralPath $appExecutable -PathType Leaf

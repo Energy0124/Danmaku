@@ -12,6 +12,20 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $windowsFullPath = [System.IO.Path]::GetFullPath($WindowsDistributionPath)
+$rustPlayerPath = Join-Path $windowsFullPath "danmaku-player.exe"
+if (Test-Path -LiteralPath $rustPlayerPath -PathType Leaf) {
+    $rustVerifier = Join-Path $PSScriptRoot "verify-rust-player-release.ps1"
+    if (-not (Test-Path -LiteralPath $rustVerifier -PathType Leaf)) {
+        throw "Rust player release verifier does not exist: $rustVerifier"
+    }
+    & $rustVerifier -WindowsDistributionPath $windowsFullPath
+    if ($LASTEXITCODE -ne 0) {
+        throw "Packaged Rust player runtime verification failed."
+    }
+    Write-Host "Packaged Rust player runtime probe passed."
+    exit 0
+}
+
 $appPath = Join-Path $windowsFullPath "app"
 if (-not (Test-Path -LiteralPath $appPath -PathType Container)) {
     throw "Windows desktop application directory does not exist: $appPath"
