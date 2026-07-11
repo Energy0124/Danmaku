@@ -773,7 +773,7 @@ fn configure_fonts(ctx: &egui::Context) {
     fonts.font_data.insert(
         name.clone(),
         Arc::new(FontData::from_static(include_bytes!(
-            "../assets/NotoSansCJKtc-Regular.otf"
+            "../../player-app/assets/NotoSansCJKtc-Regular.otf"
         ))),
     );
     fonts
