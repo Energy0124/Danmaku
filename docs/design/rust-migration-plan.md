@@ -295,9 +295,15 @@ Milestones, each shippable while the Compose app remains the default:
   rail rendering from seeded progress. Deferred: series watch-state
   badges, attaching LAN sidecar subtitle tracks to mpv, and rail poster
   art for metadata-matched items without local posters.)
-- `[ ]` M4 settings and localization: English + `zh-TW` from the first
-  screen (e.g. Fluent), playback preferences, server connection
-  management. Admin workflows intentionally absent; link out to the web UI.
+- `[x]` M4 settings and localization: English + `zh-TW` from the first
+  screen, playback preferences, and server connection management. Shipped
+  with typed bundled translations and an initial-screen language selector;
+  user-scoped JSON preferences for volume, rate, auto-next, and danmaku
+  display defaults; remembered server URLs without persisted pairing tokens;
+  change/forget connection controls; and an explicit `/web/` administration
+  link while keeping admin workflows out of the native client. Focused tests
+  cover language selection plus preference round-trip, sanitization, and
+  credential exclusion.
 - `[ ]` M5 packaging: portable build with the pinned libmpv bundle; port
   the relevant `tools/windows` release/verify scripts; pass
   `tools\windows\run-windows-playback-release-qa.ps1` media matrix (1080p
