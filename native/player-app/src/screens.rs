@@ -4,12 +4,13 @@ use std::path::PathBuf;
 
 use eframe::egui::{
     self, Align, Align2, Color32, CursorIcon, FontId, Frame, Layout, Rect, RichText, Sense,
-    TextEdit, vec2,
+    TextEdit, pos2, vec2,
 };
 
 use crate::{
     discovery::DiscoveredServer,
     hosting::LocalHostStatus,
+    icons::{Icon, paint_icon},
     library::{
         DEFAULT_NEXT_UP_LIMIT, LibraryCatalog, MINIMUM_REMAINING_MS, MINIMUM_RESUME_POSITION_MS,
         MediaItem, NextUpItem, NextUpReason, PlaybackProgress, ProgressItem, Series,
@@ -63,28 +64,16 @@ impl ConnectScreen {
         let strings = Strings::new(*language);
         let mut action = None;
 
-        egui::TopBottomPanel::top("connect_brand")
-            .exact_height(64.0)
-            .frame(Frame::NONE.fill(palette::BG_NAV))
+        egui::TopBottomPanel::bottom("connect_language")
+            .exact_height(42.0)
+            .frame(Frame::NONE.fill(palette::BG_DEEP))
             .show(ctx, |ui| {
                 ui.horizontal_centered(|ui| {
-                    ui.add_space(24.0);
-                    paint_brand_mark(ui, 30.0);
-                    ui.label(
-                        RichText::new("Danmaku")
-                            .font(FontId::proportional(20.0))
-                            .strong()
-                            .color(palette::TEXT_PRIMARY),
-                    );
-                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        ui.add_space(24.0);
-                        for option in Language::ALL.into_iter().rev() {
-                            ui.selectable_value(language, option, option.native_name());
-                        }
-                    });
+                    for option in Language::ALL {
+                        ui.selectable_value(language, option, option.native_name());
+                    }
                 });
             });
-
         egui::CentralPanel::default()
             .frame(Frame::NONE.fill(palette::BG_DEEP))
             .show(ctx, |ui| {
@@ -120,18 +109,17 @@ impl ConnectScreen {
                             } else {
                                 strings.choose_anime_folder()
                             };
-                            let response = ui.add_enabled(
-                                !starting && status.is_available(),
-                                egui::Button::new(
-                                    RichText::new(format!("▣  {button_text}"))
-                                        .font(typography::heading())
-                                        .strong()
-                                        .color(Color32::WHITE),
-                                )
-                                .fill(palette::ACCENT_BRIGHT)
-                                .corner_radius(8.0)
-                                .min_size(vec2(380.0, 48.0)),
-                            );
+                            let response = ui
+                                .add_enabled_ui(!starting && status.is_available(), |ui| {
+                                    labeled_icon_button(
+                                        ui,
+                                        Icon::Folder,
+                                        button_text,
+                                        vec2(380.0, 48.0),
+                                        true,
+                                    )
+                                })
+                                .inner;
                             if response.clicked()
                                 && let Some(folder) = rfd::FileDialog::new()
                                     .set_title(strings.library_folder())
@@ -160,19 +148,14 @@ impl ConnectScreen {
                             }
 
                             ui.add_space(12.0);
-                            if ui
-                                .add(
-                                    egui::Button::new(
-                                        RichText::new(format!(
-                                            "⇄  {}",
-                                            strings.connect_another_server()
-                                        ))
-                                        .font(typography::body())
-                                        .color(palette::ACCENT_OUTLINE),
-                                    )
-                                    .frame(false),
-                                )
-                                .clicked()
+                            if labeled_icon_button(
+                                ui,
+                                Icon::Swap,
+                                strings.connect_another_server(),
+                                vec2(300.0, 38.0),
+                                false,
+                            )
+                            .clicked()
                             {
                                 self.show_remote_options = !self.show_remote_options;
                             }
@@ -256,12 +239,12 @@ fn paint_library_illustration(ui: &egui::Ui, rect: Rect) {
         18.0,
         palette::ACCENT_BRIGHT,
     );
-    painter.text(
-        folder.right_bottom() - vec2(26.0, 24.0),
-        Align2::CENTER_CENTER,
-        "▶",
-        FontId::proportional(15.0),
+    paint_icon(
+        painter,
+        Rect::from_center_size(folder.right_bottom() - vec2(26.0, 24.0), vec2(18.0, 18.0)),
+        Icon::Play,
         Color32::WHITE,
+        1.5,
     );
 }
 
@@ -271,25 +254,49 @@ fn setup_progress(ui: &mut egui::Ui, strings: Strings, starting: bool) {
         strings.setup_server_step(),
         strings.setup_ready_step(),
     ];
-    ui.horizontal(|ui| {
-        for (index, label) in labels.into_iter().enumerate() {
-            if index > 0 {
-                ui.add(egui::Separator::default().horizontal().spacing(18.0));
-            }
-            let active = index == 0 || (starting && index == 1);
-            ui.label(
-                RichText::new(format!("{}  {label}", index + 1))
-                    .font(typography::small())
-                    .color(if active {
-                        palette::ACCENT_OUTLINE
-                    } else {
-                        palette::TEXT_MUTED
-                    }),
-            );
-        }
-    });
+    let (rect, _) = ui.allocate_exact_size(vec2(460.0, 50.0), Sense::hover());
+    let line_y = rect.top() + 14.0;
+    let centers = [
+        pos2(rect.left() + 28.0, line_y),
+        pos2(rect.center().x, line_y),
+        pos2(rect.right() - 28.0, line_y),
+    ];
+    ui.painter().line_segment(
+        [centers[0], centers[2]],
+        egui::Stroke::new(1.0, Color32::from_white_alpha(42)),
+    );
+    for (index, (center, label)) in centers.into_iter().zip(labels).enumerate() {
+        let active = index == 0 || (starting && index == 1);
+        let color = if active {
+            palette::ACCENT_BRIGHT
+        } else {
+            palette::SURFACE_FAINT
+        };
+        ui.painter().circle_filled(center, 11.0, color);
+        ui.painter().text(
+            center,
+            Align2::CENTER_CENTER,
+            (index + 1).to_string(),
+            typography::small(),
+            if active {
+                Color32::WHITE
+            } else {
+                palette::TEXT_MUTED
+            },
+        );
+        ui.painter().text(
+            pos2(center.x, rect.bottom()),
+            Align2::CENTER_BOTTOM,
+            label,
+            typography::small(),
+            if active {
+                palette::ACCENT_OUTLINE
+            } else {
+                palette::TEXT_MUTED
+            },
+        );
+    }
 }
-
 fn local_status_card(ui: &mut egui::Ui, status: &LocalHostStatus, strings: Strings) {
     let (rect, _) = ui.allocate_exact_size(vec2(460.0, 62.0), Sense::hover());
     ui.painter()
@@ -447,7 +454,7 @@ impl LibraryScreen {
                     ui.add_space(28.0);
                     if nav_button(
                         ui,
-                        "⌂",
+                        Icon::Home,
                         strings.home(),
                         self.view == LibraryView::Home && self.query.is_empty(),
                     )
@@ -459,7 +466,7 @@ impl LibraryScreen {
                     ui.add_space(6.0);
                     if nav_button(
                         ui,
-                        "▤",
+                        Icon::Library,
                         strings.library(),
                         self.view == LibraryView::AllSeries,
                     )
@@ -469,19 +476,21 @@ impl LibraryScreen {
                         self.query.clear();
                     }
                     ui.add_space(6.0);
-                    if nav_button(ui, "⌕", strings.search(), !self.query.is_empty()).clicked() {
+                    if nav_button(ui, Icon::Search, strings.search(), !self.query.is_empty())
+                        .clicked()
+                    {
                         ctx.memory_mut(|memory| memory.request_focus(search_id));
                     }
                 });
                 ui.with_layout(Layout::bottom_up(Align::Center), |ui| {
                     ui.add_space(16.0);
-                    if nav_button(ui, "⏻", strings.disconnect(), false).clicked() {
+                    if nav_button(ui, Icon::Power, strings.disconnect(), false).clicked() {
                         action = Some(LibraryAction::Disconnect);
                     }
-                    if nav_button(ui, "⚙", strings.settings(), false).clicked() {
+                    if nav_button(ui, Icon::Settings, strings.settings(), false).clicked() {
                         action = Some(LibraryAction::Settings);
                     }
-                    if nav_button(ui, "↻", strings.refresh(), false).clicked() {
+                    if nav_button(ui, Icon::Refresh, strings.refresh(), false).clicked() {
                         action = Some(LibraryAction::Refresh);
                     }
                 });
@@ -523,7 +532,19 @@ impl LibraryScreen {
                         [search_width, 38.0],
                         TextEdit::singleline(&mut self.query)
                             .id(search_id)
-                            .hint_text(format!("⌕  {}", strings.search())),
+                            .hint_text(format!("      {}", strings.search()))
+                            .background_color(palette::SURFACE_RAISED)
+                            .text_color(palette::TEXT_PRIMARY),
+                    );
+                    paint_icon(
+                        ui.painter(),
+                        Rect::from_center_size(
+                            pos2(response.rect.left() + 18.0, response.rect.center().y),
+                            vec2(18.0, 18.0),
+                        ),
+                        Icon::Search,
+                        palette::TEXT_MUTED,
+                        1.4,
                     );
                     ctx.send_viewport_cmd(egui::ViewportCommand::IMEAllowed(response.has_focus()));
                     if response.has_focus() {
@@ -615,8 +636,33 @@ impl LibraryScreen {
             .auto_shrink([false, false])
             .show(ui, |ui| {
                 ui.add_space(20.0);
+                let mut featured_next_up = false;
                 if let Some(featured) = continue_watching.first() {
-                    if featured_continue_card(ui, featured, posters, strings).clicked() {
+                    if featured_media_card(
+                        ui,
+                        &featured.item,
+                        Some(&featured.progress),
+                        strings.continue_watching(),
+                        posters,
+                    )
+                    .clicked()
+                    {
+                        action = Some(LibraryAction::Play {
+                            media_id: featured.item.id.clone(),
+                        });
+                    }
+                    ui.add_space(24.0);
+                } else if let Some(featured) = next_up.first() {
+                    featured_next_up = true;
+                    if featured_media_card(
+                        ui,
+                        &featured.item,
+                        featured.progress.as_ref(),
+                        strings.next_up(),
+                        posters,
+                    )
+                    .clicked()
+                    {
                         action = Some(LibraryAction::Play {
                             media_id: featured.item.id.clone(),
                         });
@@ -633,9 +679,14 @@ impl LibraryScreen {
                     }
                     ui.add_space(22.0);
                 }
-                if !next_up.is_empty() {
+                let remaining_next_up = if featured_next_up {
+                    &next_up[1..]
+                } else {
+                    next_up.as_slice()
+                };
+                if !remaining_next_up.is_empty() {
                     section_heading(ui, strings.next_up());
-                    if let Some(clicked) = next_up_rail(ui, &next_up, posters, strings) {
+                    if let Some(clicked) = next_up_rail(ui, remaining_next_up, posters, strings) {
                         action = Some(LibraryAction::Play { media_id: clicked });
                     }
                     ui.add_space(22.0);
@@ -824,30 +875,94 @@ impl LibraryScreen {
     }
 }
 
-fn nav_button(ui: &mut egui::Ui, icon: &str, label: &str, selected: bool) -> egui::Response {
+fn nav_button(ui: &mut egui::Ui, icon: Icon, label: &str, selected: bool) -> egui::Response {
+    let (rect, response) = ui.allocate_exact_size(vec2(68.0, 64.0), Sense::click());
     let fill = if selected {
-        Color32::from_rgba_premultiplied(54, 112, 168, 42)
+        Color32::from_rgb(22, 42, 67)
+    } else if response.hovered() {
+        palette::SURFACE_RAISED
     } else {
         Color32::TRANSPARENT
     };
+    ui.painter().rect_filled(rect, 10.0, fill);
+    if selected {
+        ui.painter().rect_filled(
+            Rect::from_min_size(
+                rect.left_top() + vec2(0.0, 8.0),
+                vec2(3.0, rect.height() - 16.0),
+            ),
+            1.5,
+            palette::ACCENT_BRIGHT,
+        );
+    }
     let color = if selected {
         palette::ACCENT_OUTLINE
     } else {
         palette::TEXT_MUTED
     };
-    ui.add(
-        egui::Button::new(
-            RichText::new(format!("{icon}\n{label}"))
-                .font(typography::small())
-                .color(color),
-        )
-        .fill(fill)
-        .corner_radius(10.0)
-        .frame(selected)
-        .min_size(vec2(68.0, 58.0)),
-    )
+    let icon_rect = Rect::from_center_size(rect.center_top() + vec2(0.0, 22.0), vec2(24.0, 24.0));
+    paint_icon(ui.painter(), icon_rect, icon, color, 1.7);
+    ui.painter().text(
+        rect.center_bottom() - vec2(0.0, 12.0),
+        Align2::CENTER_BOTTOM,
+        label,
+        typography::small(),
+        color,
+    );
+    if response.hovered() {
+        ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
+    }
+    response
 }
 
+fn labeled_icon_button(
+    ui: &mut egui::Ui,
+    icon: Icon,
+    label: &str,
+    size: egui::Vec2,
+    prominent: bool,
+) -> egui::Response {
+    let (rect, response) = ui.allocate_exact_size(size, Sense::click());
+    let fill = if prominent {
+        if response.hovered() {
+            palette::ACCENT_OUTLINE
+        } else {
+            palette::ACCENT_BRIGHT
+        }
+    } else if response.hovered() {
+        palette::SURFACE_RAISED
+    } else {
+        Color32::TRANSPARENT
+    };
+    ui.painter().rect_filled(rect, 8.0, fill);
+    if !prominent {
+        ui.painter().rect_stroke(
+            rect,
+            8.0,
+            egui::Stroke::new(1.0, Color32::from_white_alpha(20)),
+            egui::StrokeKind::Inside,
+        );
+    }
+    let color = if prominent {
+        Color32::WHITE
+    } else {
+        palette::ACCENT_OUTLINE
+    };
+    let icon_rect =
+        Rect::from_center_size(pos2(rect.left() + 28.0, rect.center().y), vec2(22.0, 22.0));
+    paint_icon(ui.painter(), icon_rect, icon, color, 1.7);
+    ui.painter().text(
+        pos2(rect.left() + 50.0, rect.center().y),
+        Align2::LEFT_CENTER,
+        label,
+        typography::heading(),
+        color,
+    );
+    if response.hovered() {
+        ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
+    }
+    response
+}
 fn online_pill(ui: &mut egui::Ui, label: &str, server_url: &str) {
     let (rect, response) = ui.allocate_exact_size(vec2(148.0, 34.0), Sense::hover());
     ui.painter().rect_filled(rect, 9.0, palette::SURFACE_RAISED);
@@ -869,11 +984,12 @@ fn online_pill(ui: &mut egui::Ui, label: &str, server_url: &str) {
     response.on_hover_text(server_url);
 }
 
-fn featured_continue_card(
+fn featured_media_card(
     ui: &mut egui::Ui,
-    entry: &ProgressItem,
+    item: &MediaItem,
+    progress: Option<&PlaybackProgress>,
+    eyebrow: &str,
     posters: &mut PosterCache,
-    strings: Strings,
 ) -> egui::Response {
     let mut result = None;
     ui.horizontal(|ui| {
@@ -888,7 +1004,7 @@ fn featured_continue_card(
             egui::pos2(rect.left() + rect.width() * 0.43, rect.top()),
             rect.right_bottom(),
         );
-        paint_poster_area(ui, image_rect, &entry.item, posters);
+        paint_poster_area(ui, image_rect, item, posters);
 
         let mut mesh = egui::Mesh::default();
         let base = mesh.vertices.len() as u32;
@@ -919,37 +1035,39 @@ fn featured_continue_card(
         ui.painter().text(
             content.left_top(),
             Align2::LEFT_TOP,
-            strings.continue_watching(),
+            eyebrow,
             typography::caption(),
             palette::ACCENT_OUTLINE,
         );
         ui.painter().text(
             content.left_top() + vec2(0.0, 30.0),
             Align2::LEFT_TOP,
-            &entry.item.series_title,
+            &item.series_title,
             typography::hero(),
             palette::TEXT_PRIMARY,
         );
         ui.painter().text(
             content.left_top() + vec2(0.0, 70.0),
             Align2::LEFT_TOP,
-            &entry.item.episode_title,
+            &item.episode_title,
             typography::body(),
             palette::TEXT_SECONDARY,
         );
         let play_center = content.left_bottom() + vec2(24.0, -34.0);
         ui.painter()
             .circle_filled(play_center, 23.0, palette::ACCENT_BRIGHT);
-        ui.painter().text(
-            play_center + vec2(1.0, 0.0),
-            Align2::CENTER_CENTER,
-            "▶",
-            FontId::proportional(16.0),
+        paint_icon(
+            ui.painter(),
+            Rect::from_center_size(play_center + vec2(1.0, 0.0), vec2(18.0, 18.0)),
+            Icon::Play,
             Color32::WHITE,
+            1.5,
         );
 
-        if let Some(duration) = entry.progress.duration_ms.filter(|duration| *duration > 0) {
-            let fraction = (entry.progress.position_ms as f32 / duration as f32).clamp(0.0, 1.0);
+        if let Some(progress) = progress
+            && let Some(duration) = progress.duration_ms.filter(|duration| *duration > 0)
+        {
+            let fraction = (progress.position_ms as f32 / duration as f32).clamp(0.0, 1.0);
             let bar = Rect::from_min_size(
                 egui::pos2(content.left() + 62.0, content.bottom() - 39.0),
                 vec2((content.width() - 76.0).max(80.0), 5.0),
@@ -1115,7 +1233,7 @@ fn poster_card(
     paint_card_background(ui, rect, response.hovered());
     let image_rect = Rect::from_min_max(
         rect.min + vec2(6.0, 6.0),
-        egui::pos2(rect.max.x - 6.0, rect.max.y - 44.0),
+        egui::pos2(rect.max.x - 6.0, rect.max.y - 56.0),
     );
     paint_poster_area(ui, image_rect, item, posters);
 
@@ -1167,7 +1285,7 @@ fn poster_card_with_title(
     paint_card_background(ui, rect, response.hovered());
     let image_rect = Rect::from_min_max(
         rect.min + vec2(6.0, 6.0),
-        egui::pos2(rect.max.x - 6.0, rect.max.y - 44.0),
+        egui::pos2(rect.max.x - 6.0, rect.max.y - 56.0),
     );
     paint_poster_area(ui, image_rect, representative, posters);
     paint_card_caption(ui, rect, title, Some(subtitle));
@@ -1190,28 +1308,37 @@ fn paint_card_background(ui: &egui::Ui, rect: Rect, hovered: bool) {
 
 fn paint_card_caption(ui: &egui::Ui, rect: Rect, title: &str, subtitle: Option<&str>) {
     let caption_rect = Rect::from_min_max(
-        egui::pos2(rect.left() + 8.0, rect.bottom() - 40.0),
+        egui::pos2(rect.left() + 8.0, rect.bottom() - 52.0),
         rect.max - vec2(8.0, 6.0),
     );
     let painter = ui.painter().with_clip_rect(caption_rect);
-    painter.text(
-        caption_rect.left_top(),
-        Align2::LEFT_TOP,
-        title,
+    let title_height = if subtitle.is_some() {
+        caption_rect.height() - 18.0
+    } else {
+        caption_rect.height()
+    };
+    let title_galley = painter.layout(
+        title.to_owned(),
         typography::small(),
         palette::TEXT_PRIMARY,
+        caption_rect.width(),
     );
+    painter
+        .with_clip_rect(Rect::from_min_size(
+            caption_rect.min,
+            vec2(caption_rect.width(), title_height),
+        ))
+        .galley(caption_rect.min, title_galley, palette::TEXT_PRIMARY);
     if let Some(subtitle) = subtitle {
         painter.text(
-            caption_rect.left_top() + vec2(0.0, 18.0),
-            Align2::LEFT_TOP,
+            egui::pos2(caption_rect.left(), caption_rect.bottom()),
+            Align2::LEFT_BOTTOM,
             subtitle,
             typography::small(),
             palette::TEXT_MUTED,
         );
     }
 }
-
 fn poster_thumbnail(
     ui: &mut egui::Ui,
     item: &MediaItem,
@@ -1250,6 +1377,7 @@ fn paint_initials_poster(ui: &egui::Ui, rect: Rect, series_title: &str) {
     });
     let top = color_from_seed(seed.wrapping_mul(73).wrapping_add(19));
     let bottom = color_from_seed(seed.wrapping_mul(137).wrapping_add(91));
+    let painter = ui.painter().with_clip_rect(rect);
     let mut mesh = egui::Mesh::default();
     let base = mesh.vertices.len() as u32;
     mesh.colored_vertex(rect.left_top(), top);
@@ -1258,16 +1386,63 @@ fn paint_initials_poster(ui: &egui::Ui, rect: Rect, series_title: &str) {
     mesh.colored_vertex(rect.right_bottom(), bottom);
     mesh.add_triangle(base, base + 1, base + 2);
     mesh.add_triangle(base + 2, base + 1, base + 3);
-    ui.painter().add(egui::Shape::mesh(mesh));
-    ui.painter().text(
+    painter.add(egui::Shape::mesh(mesh));
+
+    let glow_center = rect.center() + vec2(rect.width() * 0.18, -rect.height() * 0.18);
+    for (radius, alpha) in [(0.24, 14), (0.16, 18), (0.09, 24)] {
+        painter.circle_filled(
+            glow_center,
+            rect.width().min(rect.height()) * radius,
+            Color32::from_rgba_unmultiplied(180, 220, 255, alpha),
+        );
+    }
+    for index in 0..14_u32 {
+        let mixed = seed
+            .wrapping_mul(1_664_525)
+            .wrapping_add(index.wrapping_mul(1_013_904_223));
+        let px = rect.left() + rect.width() * (0.08 + (mixed % 840) as f32 / 1000.0);
+        let py =
+            rect.top() + rect.height() * (0.08 + (mixed.rotate_left(11) % 560) as f32 / 1000.0);
+        let radius = 0.7 + (mixed % 3) as f32 * 0.45;
+        painter.circle_filled(
+            pos2(px, py),
+            radius,
+            Color32::from_rgba_unmultiplied(255, 255, 255, 80 + (mixed % 100) as u8),
+        );
+    }
+    let ridge = vec![
+        rect.left_bottom(),
+        pos2(
+            rect.left() + rect.width() * 0.22,
+            rect.bottom() - rect.height() * 0.18,
+        ),
+        pos2(
+            rect.left() + rect.width() * 0.40,
+            rect.bottom() - rect.height() * 0.08,
+        ),
+        pos2(
+            rect.left() + rect.width() * 0.62,
+            rect.bottom() - rect.height() * 0.24,
+        ),
+        pos2(
+            rect.left() + rect.width() * 0.82,
+            rect.bottom() - rect.height() * 0.12,
+        ),
+        rect.right_bottom(),
+    ];
+    painter.add(egui::Shape::convex_polygon(
+        ridge,
+        Color32::from_rgba_unmultiplied(8, 12, 20, 105),
+        egui::Stroke::NONE,
+    ));
+    painter.text(
         rect.center(),
         Align2::CENTER_CENTER,
         initials(series_title),
-        FontId::proportional(26.0),
-        Color32::from_rgba_premultiplied(255, 255, 255, 220),
+        FontId::proportional((rect.height() * 0.15).clamp(24.0, 52.0)),
+        Color32::from_rgba_unmultiplied(255, 255, 255, 210),
     );
 }
-
 fn color_from_seed(seed: u32) -> Color32 {
     Color32::from_rgb(
         40 + (seed.wrapping_mul(37) % 120) as u8,

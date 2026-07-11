@@ -21,6 +21,7 @@ use crate::{
     },
     discovery::{DEFAULT_DISCOVERY_PORT, DiscoveryListener},
     hosting::{LocalConnection, LocalServerSupervisor},
+    icons::{Icon, paint_icon},
     library::PlaybackProgress,
     localization::Strings,
     posters::PosterCache,
@@ -780,6 +781,73 @@ impl PlayerApp {
         }
     }
 
+    fn show_window_title_bar(&mut self, ctx: &egui::Context) {
+        if self.fullscreen {
+            return;
+        }
+        egui::TopBottomPanel::top("app_window_title_bar")
+            .exact_height(38.0)
+            .frame(Frame::NONE.fill(palette::BG_NAV))
+            .show(ctx, |ui| {
+                let full = ui.max_rect();
+                let controls_width = 138.0;
+                let drag_rect = Rect::from_min_max(
+                    full.min,
+                    pos2(full.right() - controls_width, full.bottom()),
+                );
+                let drag_response = ui.interact(
+                    drag_rect,
+                    ui.id().with("window_drag"),
+                    Sense::click_and_drag(),
+                );
+                if drag_response.drag_started() {
+                    ctx.send_viewport_cmd(ViewportCommand::StartDrag);
+                }
+                if drag_response.double_clicked() {
+                    let maximized = ctx.input(|input| input.viewport().maximized.unwrap_or(false));
+                    ctx.send_viewport_cmd(ViewportCommand::Maximized(!maximized));
+                }
+
+                let brand_center = pos2(full.left() + 20.0, full.center().y);
+                ui.painter()
+                    .circle_filled(brand_center, 12.0, palette::ACCENT_BRIGHT);
+                paint_icon(
+                    ui.painter(),
+                    Rect::from_center_size(brand_center + vec2(0.5, 0.0), vec2(12.0, 12.0)),
+                    Icon::Play,
+                    Color32::WHITE,
+                    1.4,
+                );
+                ui.painter().text(
+                    pos2(full.left() + 40.0, full.center().y),
+                    Align2::LEFT_CENTER,
+                    "Danmaku",
+                    typography::body(),
+                    palette::TEXT_PRIMARY,
+                );
+
+                let controls_rect = Rect::from_min_max(
+                    pos2(full.right() - controls_width, full.top()),
+                    full.right_bottom(),
+                );
+                ui.scope_builder(egui::UiBuilder::new().max_rect(controls_rect), |ui| {
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if window_control_button(ui, Icon::Close, true).clicked() {
+                            ctx.send_viewport_cmd(ViewportCommand::Close);
+                        }
+                        let maximized =
+                            ctx.input(|input| input.viewport().maximized.unwrap_or(false));
+                        if window_control_button(ui, Icon::Maximize, false).clicked() {
+                            ctx.send_viewport_cmd(ViewportCommand::Maximized(!maximized));
+                        }
+                        if window_control_button(ui, Icon::Minimize, false).clicked() {
+                            ctx.send_viewport_cmd(ViewportCommand::Minimized(true));
+                        }
+                    });
+                });
+            });
+    }
+
     fn show_video(&mut self, ctx: &egui::Context, now: Instant, overlay_position_s: f64) {
         egui::CentralPanel::default()
             .frame(Frame::NONE.fill(palette::VIDEO_BACKDROP))
@@ -900,18 +968,7 @@ impl PlayerApp {
                 ui.multiply_opacity(alpha);
                 ui.horizontal_centered(|ui| {
                     if self.session.is_some()
-                        && ui
-                            .add(
-                                egui::Button::new(
-                                    RichText::new("←")
-                                        .font(FontId::proportional(23.0))
-                                        .color(palette::TEXT_PRIMARY),
-                                )
-                                .frame(false)
-                                .min_size(vec2(40.0, 36.0)),
-                            )
-                            .on_hover_text(strings.library())
-                            .clicked()
+                        && playback_icon_button(ui, Icon::Back, strings.library(), false).clicked()
                     {
                         self.back_to_library();
                     }
@@ -980,29 +1037,39 @@ impl PlayerApp {
 
                     if self.session.is_some()
                         && self.active_media_id.is_some()
-                        && playback_icon_button(ui, "│◀", strings.previous_episode(), false)
-                            .clicked()
+                        && playback_icon_button(
+                            ui,
+                            Icon::Previous,
+                            strings.previous_episode(),
+                            false,
+                        )
+                        .clicked()
                     {
                         self.play_adjacent_episode(-1);
                     }
-                    if playback_icon_button(ui, "↶ 10", "-10 seconds", false).clicked() {
+                    if playback_icon_button(ui, Icon::Replay10, "-10 seconds", false).clicked() {
                         self.seek_relative(-10.0, now);
                     }
-                    let play_symbol = if self.snapshot.paused { "▶" } else { "Ⅱ" };
+                    let play_icon = if self.snapshot.paused {
+                        Icon::Play
+                    } else {
+                        Icon::Pause
+                    };
                     let play_label = if self.snapshot.paused {
                         strings.play()
                     } else {
                         strings.pause()
                     };
-                    if playback_icon_button(ui, play_symbol, play_label, true).clicked() {
+                    if playback_icon_button(ui, play_icon, play_label, true).clicked() {
                         self.toggle_pause(now);
                     }
-                    if playback_icon_button(ui, "30 ↷", "+30 seconds", false).clicked() {
+                    if playback_icon_button(ui, Icon::Forward30, "+30 seconds", false).clicked() {
                         self.seek_relative(30.0, now);
                     }
                     if self.session.is_some()
                         && self.active_media_id.is_some()
-                        && playback_icon_button(ui, "▶│", strings.next_episode(), false).clicked()
+                        && playback_icon_button(ui, Icon::Next, strings.next_episode(), false)
+                            .clicked()
                     {
                         self.play_adjacent_episode(1);
                     }
@@ -1015,7 +1082,11 @@ impl PlayerApp {
                     };
                     if playback_icon_button(
                         ui,
-                        if self.snapshot.muted { "M" } else { "VOL" },
+                        if self.snapshot.muted {
+                            Icon::Muted
+                        } else {
+                            Icon::Volume
+                        },
                         mute_label,
                         false,
                     )
@@ -1045,7 +1116,7 @@ impl PlayerApp {
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         if playback_icon_button(
                             ui,
-                            "⛶",
+                            Icon::Fullscreen,
                             if self.fullscreen {
                                 strings.windowed()
                             } else {
@@ -1058,7 +1129,9 @@ impl PlayerApp {
                             let ctx = ui.ctx().clone();
                             self.toggle_fullscreen(&ctx);
                         }
-                        if playback_icon_button(ui, "⚙", strings.settings(), false).clicked() {
+                        if playback_icon_button(ui, Icon::Settings, strings.settings(), false)
+                            .clicked()
+                        {
                             self.open_settings(AppScreen::Playback);
                         }
                         self.show_danmaku_menu(ui, active_danmaku);
@@ -1245,6 +1318,7 @@ impl PlayerApp {
 impl eframe::App for PlayerApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let now = Instant::now();
+        self.show_window_title_bar(ctx);
         self.posters.poll(ctx);
         self.handle_session_events(ctx);
         let local_connection = self
@@ -1404,32 +1478,66 @@ impl eframe::App for PlayerApp {
     }
 }
 
+fn window_control_button(ui: &mut egui::Ui, icon: Icon, close: bool) -> egui::Response {
+    let (rect, response) = ui.allocate_exact_size(vec2(46.0, 38.0), Sense::click());
+    let fill = if response.hovered() {
+        if close {
+            Color32::from_rgb(190, 48, 48)
+        } else {
+            Color32::from_white_alpha(18)
+        }
+    } else {
+        Color32::TRANSPARENT
+    };
+    ui.painter().rect_filled(rect, 0.0, fill);
+    paint_icon(
+        ui.painter(),
+        Rect::from_center_size(rect.center(), vec2(15.0, 15.0)),
+        icon,
+        palette::TEXT_SECONDARY,
+        1.4,
+    );
+    response
+}
+
 fn playback_icon_button(
     ui: &mut egui::Ui,
-    symbol: &str,
+    icon: Icon,
     tooltip: &str,
     prominent: bool,
 ) -> egui::Response {
-    let button = egui::Button::new(
-        RichText::new(symbol)
-            .font(FontId::proportional(if prominent { 19.0 } else { 15.0 }))
-            .color(palette::TEXT_PRIMARY),
-    )
-    .fill(if prominent {
-        palette::ACCENT_BRIGHT
-    } else {
-        Color32::TRANSPARENT
-    })
-    .corner_radius(if prominent { 22.0 } else { 8.0 })
-    .frame(prominent)
-    .min_size(if prominent {
+    let size = if prominent {
         vec2(46.0, 42.0)
     } else {
         vec2(38.0, 34.0)
-    });
-    ui.add(button).on_hover_text(tooltip)
+    };
+    let (rect, response) = ui.allocate_exact_size(size, Sense::click());
+    let fill = if prominent {
+        if response.hovered() {
+            palette::ACCENT_OUTLINE
+        } else {
+            palette::ACCENT_BRIGHT
+        }
+    } else if response.hovered() {
+        Color32::from_white_alpha(18)
+    } else {
+        Color32::TRANSPARENT
+    };
+    ui.painter()
+        .rect_filled(rect, if prominent { 21.0 } else { 8.0 }, fill);
+    let icon_size = if prominent { 23.0 } else { 20.0 };
+    paint_icon(
+        ui.painter(),
+        Rect::from_center_size(rect.center(), vec2(icon_size, icon_size)),
+        icon,
+        palette::TEXT_PRIMARY,
+        if prominent { 2.0 } else { 1.6 },
+    );
+    if response.hovered() {
+        ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+    }
+    response.on_hover_text(tooltip)
 }
-
 #[derive(Clone, Debug)]
 pub struct PlaybackSnapshot {
     pub position_s: f64,

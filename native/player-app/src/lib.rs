@@ -14,6 +14,7 @@ pub mod clock;
 pub mod danmaku;
 pub mod discovery;
 pub mod hosting;
+pub mod icons;
 pub mod library;
 pub mod localization;
 mod net;

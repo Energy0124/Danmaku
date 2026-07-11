@@ -54,13 +54,14 @@ does not depend on generated imagery or copy a commercial streaming product.
 
 ## Follow-up
 
-- [ ] Run supervised screenshot QA at 1280x720, 1600x900, and fullscreen.
+- [x] Run supervised screenshot QA at 1280x720 and maximized desktop size,
+  including live-video playback with the controls visible.
 - [ ] Refine the Settings screen into grouped consumer cards.
 - [ ] Add keyboard-focus and hover-state screenshot coverage.
 - [ ] Add a compact responsive fallback if Windows minimum-size QA finds
   clipping in the library hero or playback control row.
-- [ ] Replace temporary glyph symbols only if a small bundled icon set clearly
-  improves consistency without adding a heavy UI dependency.
+- [x] Replace temporary glyph symbols with a small code-native vector icon set,
+  avoiding font-dependent missing-glyph boxes and a new UI dependency.
 
 ## Verification Gates
 

@@ -36,7 +36,8 @@ fn main() {
         renderer: eframe::Renderer::Glow,
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([1280.0, 720.0])
-            .with_min_inner_size([640.0, 360.0])
+            .with_min_inner_size([960.0, 600.0])
+            .with_decorations(false)
             .with_title(window_title.clone()),
         vsync: true,
         ..Default::default()
