@@ -23,10 +23,45 @@ use crate::{
     theme::{self, metrics, palette, typography},
 };
 
-const CARD_WIDTH: f32 = 148.0;
-const CARD_HEIGHT: f32 = 222.0;
+const CARD_WIDTH: f32 = 158.0;
+const CARD_HEIGHT: f32 = 236.0;
 const CARD_GAP: f32 = 16.0;
 const RAIL_LIMIT: usize = 12;
+/// Left inset of library page content, beyond the navigation rail.
+const PAGE_GUTTER: f32 = 26.0;
+
+/// Local wall-clock hour (0-23) for the greeting line.
+#[cfg(windows)]
+fn local_hour() -> u8 {
+    #[repr(C)]
+    #[derive(Default)]
+    struct Win32SystemTime {
+        year: u16,
+        month: u16,
+        day_of_week: u16,
+        day: u16,
+        hour: u16,
+        minute: u16,
+        second: u16,
+        milliseconds: u16,
+    }
+    unsafe extern "system" {
+        fn GetLocalTime(system_time: *mut Win32SystemTime);
+    }
+    let mut time = Win32SystemTime::default();
+    unsafe { GetLocalTime(&mut time) };
+    (time.hour % 24) as u8
+}
+
+#[cfg(not(windows))]
+fn local_hour() -> u8 {
+    // UTC fallback: close enough for a greeting on non-Windows dev builds.
+    let seconds = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_secs())
+        .unwrap_or(0);
+    ((seconds / 3600) % 24) as u8
+}
 
 // ---------------------------------------------------------------------------
 // Connect screen
@@ -65,24 +100,28 @@ impl ConnectScreen {
         let mut action = None;
 
         egui::TopBottomPanel::bottom("connect_language")
-            .exact_height(42.0)
+            .exact_height(46.0)
             .frame(Frame::NONE.fill(palette::BG_DEEP))
             .show(ctx, |ui| {
-                ui.horizontal_centered(|ui| {
-                    for option in Language::ALL {
-                        ui.selectable_value(language, option, option.native_name());
-                    }
-                });
+                language_bar(ui, language);
             });
         egui::CentralPanel::default()
             .frame(Frame::NONE.fill(palette::BG_DEEP))
             .show(ctx, |ui| {
+                let viewport_height = ui.available_height();
                 egui::ScrollArea::vertical()
                     .auto_shrink([false, false])
                     .show(ui, |ui| {
                         let content_width = 640.0_f32.min(ui.available_width() - 32.0);
                         ui.vertical_centered(|ui| {
-                            ui.add_space(24.0);
+                            // Center the setup column when the window is tall;
+                            // the estimate covers the fixed-height widgets below.
+                            let content_estimate = if self.show_remote_options {
+                                760.0
+                            } else {
+                                560.0
+                            };
+                            ui.add_space(((viewport_height - content_estimate) / 2.0).max(16.0));
                             let (illustration, _) =
                                 ui.allocate_exact_size(vec2(300.0, 138.0), Sense::hover());
                             paint_library_illustration(ui, illustration);
@@ -147,15 +186,9 @@ impl ConnectScreen {
                                 );
                             }
 
-                            ui.add_space(12.0);
-                            if labeled_icon_button(
-                                ui,
-                                Icon::Swap,
-                                strings.connect_another_server(),
-                                vec2(300.0, 38.0),
-                                false,
-                            )
-                            .clicked()
+                            ui.add_space(14.0);
+                            if link_icon_button(ui, Icon::Swap, strings.connect_another_server())
+                                .clicked()
                             {
                                 self.show_remote_options = !self.show_remote_options;
                             }
@@ -298,16 +331,16 @@ fn setup_progress(ui: &mut egui::Ui, strings: Strings, starting: bool) {
     }
 }
 fn local_status_card(ui: &mut egui::Ui, status: &LocalHostStatus, strings: Strings) {
-    let (rect, _) = ui.allocate_exact_size(vec2(460.0, 62.0), Sense::hover());
+    let width = ui.available_width().clamp(460.0, 620.0);
+    let (rect, _) = ui.allocate_exact_size(vec2(width, 72.0), Sense::hover());
     ui.painter()
-        .rect_filled(rect, 10.0, palette::SURFACE_RAISED);
+        .rect_filled(rect, 12.0, palette::SURFACE_RAISED);
     ui.painter().rect_stroke(
         rect,
-        10.0,
+        12.0,
         egui::Stroke::new(1.0, Color32::from_white_alpha(24)),
         egui::StrokeKind::Inside,
     );
-    let dot = rect.left_center() + vec2(24.0, 0.0);
     let (color, detail) = match status {
         LocalHostStatus::Starting => (palette::ACCENT_OUTLINE, strings.starting_local_server()),
         LocalHostStatus::Running { .. } => (palette::SUCCESS, strings.ready_automatically()),
@@ -316,21 +349,143 @@ fn local_status_card(ui: &mut egui::Ui, status: &LocalHostStatus, strings: Strin
         LocalHostStatus::Stopped => (palette::TEXT_MUTED, strings.local_server_stopped()),
         LocalHostStatus::NeedsSetup => (palette::ACCENT_OUTLINE, strings.local_host_note()),
     };
-    ui.painter().circle_filled(dot, 5.0, color);
+
+    // Icon tile with a status dot pinned to its corner, like a device badge.
+    let tile = Rect::from_center_size(rect.left_center() + vec2(38.0, 0.0), vec2(44.0, 44.0));
+    ui.painter().rect_filled(tile, 12.0, palette::SURFACE_FAINT);
+    paint_icon(
+        ui.painter(),
+        Rect::from_center_size(tile.center(), vec2(22.0, 22.0)),
+        Icon::Home,
+        palette::TEXT_SECONDARY,
+        1.6,
+    );
+    let dot = tile.right_bottom() - vec2(6.0, 6.0);
+    ui.painter()
+        .circle_filled(dot, 6.0, palette::SURFACE_RAISED);
+    ui.painter().circle_filled(dot, 4.0, color);
+
+    let text_left = tile.right() + 14.0;
     ui.painter().text(
-        dot + vec2(16.0, -9.0),
+        pos2(text_left, rect.center().y - 10.0),
         Align2::LEFT_CENTER,
         strings.local_hosting(),
         typography::body(),
         palette::TEXT_PRIMARY,
     );
-    ui.painter().text(
-        dot + vec2(16.0, 11.0),
+    let detail_clip = Rect::from_min_max(
+        pos2(text_left, rect.top()),
+        rect.right_bottom() - vec2(12.0, 0.0),
+    );
+    ui.painter().with_clip_rect(detail_clip).text(
+        pos2(text_left, rect.center().y + 11.0),
         Align2::LEFT_CENTER,
         detail,
         typography::small(),
         palette::TEXT_MUTED,
     );
+}
+
+/// Centered bottom language selector: globe, then languages with separators.
+fn language_bar(ui: &mut egui::Ui, language: &mut Language) {
+    let bar = ui.max_rect();
+    let mut widths: Vec<f32> = Vec::with_capacity(Language::ALL.len());
+    let mut total = 26.0; // globe icon + gap
+    for option in Language::ALL {
+        let galley = ui.painter().layout_no_wrap(
+            option.native_name().to_owned(),
+            typography::body(),
+            palette::TEXT_MUTED,
+        );
+        widths.push(galley.size().x);
+        total += galley.size().x + 30.0;
+    }
+    total -= 30.0;
+    let mut cursor = bar.center().x - total / 2.0;
+    paint_icon(
+        ui.painter(),
+        Rect::from_center_size(pos2(cursor + 9.0, bar.center().y), vec2(18.0, 18.0)),
+        Icon::Globe,
+        palette::TEXT_MUTED,
+        1.3,
+    );
+    cursor += 26.0;
+    for (index, option) in Language::ALL.into_iter().enumerate() {
+        let selected = *language == option;
+        let rect = Rect::from_min_max(
+            pos2(cursor - 6.0, bar.center().y - 14.0),
+            pos2(cursor + widths[index] + 6.0, bar.center().y + 14.0),
+        );
+        let response = ui.interact(
+            rect,
+            ui.id().with(("language_option", index)),
+            Sense::click(),
+        );
+        let color = if selected {
+            palette::ACCENT_OUTLINE
+        } else if response.hovered() {
+            palette::TEXT_SECONDARY
+        } else {
+            palette::TEXT_MUTED
+        };
+        ui.painter().text(
+            pos2(cursor, bar.center().y),
+            Align2::LEFT_CENTER,
+            option.native_name(),
+            typography::body(),
+            color,
+        );
+        if response.clicked() {
+            *language = option;
+        }
+        if response.hovered() {
+            ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
+        }
+        cursor += widths[index] + 30.0;
+        if index + 1 < Language::ALL.len() {
+            ui.painter().text(
+                pos2(cursor - 15.0, bar.center().y),
+                Align2::CENTER_CENTER,
+                "|",
+                typography::body(),
+                Color32::from_white_alpha(40),
+            );
+        }
+    }
+}
+
+/// Borderless accent text button with a leading icon (quiet secondary action).
+fn link_icon_button(ui: &mut egui::Ui, icon: Icon, label: &str) -> egui::Response {
+    let galley = ui.painter().layout_no_wrap(
+        label.to_owned(),
+        typography::heading(),
+        palette::ACCENT_OUTLINE,
+    );
+    let size = vec2(galley.size().x + 34.0, 32.0);
+    let (rect, response) = ui.allocate_exact_size(size, Sense::click());
+    let color = if response.hovered() {
+        theme::mix(palette::ACCENT_OUTLINE, Color32::WHITE, 0.35)
+    } else {
+        palette::ACCENT_OUTLINE
+    };
+    paint_icon(
+        ui.painter(),
+        Rect::from_center_size(pos2(rect.left() + 11.0, rect.center().y), vec2(20.0, 20.0)),
+        icon,
+        color,
+        1.6,
+    );
+    ui.painter().text(
+        pos2(rect.left() + 28.0, rect.center().y),
+        Align2::LEFT_CENTER,
+        label,
+        typography::heading(),
+        color,
+    );
+    if response.hovered() {
+        ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
+    }
+    response
 }
 
 fn remote_connection_panel(
@@ -479,86 +634,20 @@ impl LibraryScreen {
                     if nav_button(ui, Icon::Search, strings.search(), !self.query.is_empty())
                         .clicked()
                     {
+                        if matches!(self.view, LibraryView::Series(_)) {
+                            self.view = LibraryView::Home;
+                        }
                         ctx.memory_mut(|memory| memory.request_focus(search_id));
                     }
                 });
                 ui.with_layout(Layout::bottom_up(Align::Center), |ui| {
                     ui.add_space(16.0);
-                    if nav_button(ui, Icon::Power, strings.disconnect(), false).clicked() {
-                        action = Some(LibraryAction::Disconnect);
-                    }
                     if nav_button(ui, Icon::Settings, strings.settings(), false).clicked() {
                         action = Some(LibraryAction::Settings);
                     }
-                    if nav_button(ui, Icon::Refresh, strings.refresh(), false).clicked() {
-                        action = Some(LibraryAction::Refresh);
+                    if nav_button(ui, Icon::Power, strings.disconnect(), false).clicked() {
+                        action = Some(LibraryAction::Disconnect);
                     }
-                });
-            });
-
-        egui::TopBottomPanel::top("library_header")
-            .exact_height(metrics::LIBRARY_HEADER_HEIGHT)
-            .frame(Frame::NONE.fill(palette::BG_PANEL))
-            .show(ctx, |ui| {
-                ui.horizontal_centered(|ui| {
-                    ui.add_space(24.0);
-                    ui.vertical(|ui| {
-                        ui.add_space(15.0);
-                        ui.label(
-                            RichText::new(strings.your_library())
-                                .font(typography::hero())
-                                .strong()
-                                .color(palette::TEXT_PRIMARY),
-                        );
-                        ui.label(
-                            RichText::new(format!(
-                                "{} {}  •  {} {}",
-                                self.cached_series.len(),
-                                strings.titles(),
-                                session
-                                    .catalog
-                                    .as_ref()
-                                    .map(|catalog| catalog.items.len())
-                                    .unwrap_or_default(),
-                                strings.episodes()
-                            ))
-                            .font(typography::caption())
-                            .color(palette::TEXT_MUTED),
-                        );
-                    });
-                    ui.add_space(28.0);
-                    let search_width = (ui.available_width() * 0.42).clamp(220.0, 480.0);
-                    let response = ui.add_sized(
-                        [search_width, 38.0],
-                        TextEdit::singleline(&mut self.query)
-                            .id(search_id)
-                            .hint_text(format!("      {}", strings.search()))
-                            .background_color(palette::SURFACE_RAISED)
-                            .text_color(palette::TEXT_PRIMARY),
-                    );
-                    paint_icon(
-                        ui.painter(),
-                        Rect::from_center_size(
-                            pos2(response.rect.left() + 18.0, response.rect.center().y),
-                            vec2(18.0, 18.0),
-                        ),
-                        Icon::Search,
-                        palette::TEXT_MUTED,
-                        1.4,
-                    );
-                    ctx.send_viewport_cmd(egui::ViewportCommand::IMEAllowed(response.has_focus()));
-                    if response.has_focus() {
-                        ctx.send_viewport_cmd(egui::ViewportCommand::IMERect(response.rect));
-                    }
-                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        ui.add_space(24.0);
-                        online_pill(ui, strings.library_online(), &session.base_url);
-                        if matches!(self.view, LibraryView::Series(_))
-                            && ui.button(strings.back()).clicked()
-                        {
-                            self.view = LibraryView::Home;
-                        }
-                    });
                 });
             });
 
@@ -583,11 +672,13 @@ impl LibraryScreen {
                 self.refresh_series_cache(catalog);
 
                 let inner_action = if !self.query.trim().is_empty() {
-                    self.show_search_results(ui, catalog, posters, strings)
+                    self.show_search_results(ui, catalog, session, posters, strings)
                 } else {
                     match self.view.clone() {
                         LibraryView::Home => self.show_home(ui, catalog, session, posters, strings),
-                        LibraryView::AllSeries => self.show_all_series(ui, posters, strings),
+                        LibraryView::AllSeries => {
+                            self.show_all_series(ui, session, posters, strings)
+                        }
                         LibraryView::Series(series_id) => {
                             self.show_series(ui, &series_id, &session.progresses, posters, strings)
                         }
@@ -597,6 +688,86 @@ impl LibraryScreen {
                     action = inner_action;
                 }
             });
+        action
+    }
+
+    /// Wordmark, greeting, quiet status, and the search field. Rendered at the
+    /// top of every scrolling library page (mirrors the approved mockup).
+    fn page_header(
+        &mut self,
+        ui: &mut egui::Ui,
+        session: &LibrarySession,
+        strings: Strings,
+    ) -> Option<LibraryAction> {
+        let mut action = None;
+        ui.add_space(22.0);
+        ui.horizontal(|ui| {
+            ui.add_space(PAGE_GUTTER);
+            ui.vertical(|ui| {
+                ui.spacing_mut().item_spacing.y = 4.0;
+                ui.label(
+                    RichText::new("Danmaku")
+                        .font(typography::display())
+                        .strong()
+                        .color(palette::TEXT_PRIMARY),
+                );
+                ui.label(
+                    RichText::new(strings.greeting(local_hour()))
+                        .font(typography::body())
+                        .color(palette::TEXT_MUTED),
+                );
+            });
+            ui.with_layout(Layout::right_to_left(Align::Min), |ui| {
+                ui.add_space(PAGE_GUTTER);
+                let local = session.base_url.starts_with("http://127.")
+                    || session.base_url.starts_with("http://localhost");
+                let label = if local {
+                    format!("{}  •  {}", strings.local_library(), strings.online())
+                } else {
+                    strings.library_online().to_owned()
+                };
+                online_pill(ui, &label, &session.base_url);
+                if icon_chip_button(ui, Icon::Refresh, strings.refresh()).clicked() {
+                    action = Some(LibraryAction::Refresh);
+                }
+            });
+        });
+        ui.add_space(16.0);
+        ui.horizontal(|ui| {
+            ui.add_space(PAGE_GUTTER);
+            let search_width = (ui.available_width() * 0.40).clamp(260.0, 460.0);
+            let response = ui.add_sized(
+                [search_width, 38.0],
+                TextEdit::singleline(&mut self.query)
+                    .id(egui::Id::new("library_search_field"))
+                    .hint_text(strings.search())
+                    .margin(egui::Margin {
+                        left: 36,
+                        right: 10,
+                        top: 10,
+                        bottom: 10,
+                    })
+                    .background_color(palette::SURFACE_RAISED)
+                    .text_color(palette::TEXT_PRIMARY),
+            );
+            paint_icon(
+                ui.painter(),
+                Rect::from_center_size(
+                    pos2(response.rect.left() + 18.0, response.rect.center().y),
+                    vec2(18.0, 18.0),
+                ),
+                Icon::Search,
+                palette::TEXT_MUTED,
+                1.4,
+            );
+            ui.ctx()
+                .send_viewport_cmd(egui::ViewportCommand::IMEAllowed(response.has_focus()));
+            if response.has_focus() {
+                ui.ctx()
+                    .send_viewport_cmd(egui::ViewportCommand::IMERect(response.rect));
+            }
+        });
+        ui.add_space(20.0);
         action
     }
     fn refresh_series_cache(&mut self, catalog: &LibraryCatalog) {
@@ -635,7 +806,9 @@ impl LibraryScreen {
             .id_salt("library_home")
             .auto_shrink([false, false])
             .show(ui, |ui| {
-                ui.add_space(20.0);
+                if let Some(header_action) = self.page_header(ui, session, strings) {
+                    action = Some(header_action);
+                }
                 let mut featured_next_up = false;
                 if let Some(featured) = continue_watching.first() {
                     if featured_media_card(
@@ -643,6 +816,7 @@ impl LibraryScreen {
                         &featured.item,
                         Some(&featured.progress),
                         strings.continue_watching(),
+                        strings,
                         posters,
                     )
                     .clicked()
@@ -651,7 +825,7 @@ impl LibraryScreen {
                             media_id: featured.item.id.clone(),
                         });
                     }
-                    ui.add_space(24.0);
+                    ui.add_space(26.0);
                 } else if let Some(featured) = next_up.first() {
                     featured_next_up = true;
                     if featured_media_card(
@@ -659,6 +833,7 @@ impl LibraryScreen {
                         &featured.item,
                         featured.progress.as_ref(),
                         strings.next_up(),
+                        strings,
                         posters,
                     )
                     .clicked()
@@ -667,7 +842,7 @@ impl LibraryScreen {
                             media_id: featured.item.id.clone(),
                         });
                     }
-                    ui.add_space(24.0);
+                    ui.add_space(26.0);
                 }
 
                 if continue_watching.len() > 1 {
@@ -679,29 +854,28 @@ impl LibraryScreen {
                     }
                     ui.add_space(22.0);
                 }
-                let remaining_next_up = if featured_next_up {
-                    &next_up[1..]
+                // The featured hero item must not repeat inside the rail.
+                let featured_id = if featured_next_up {
+                    next_up.first().map(|entry| entry.item.id.as_str())
                 } else {
-                    next_up.as_slice()
+                    continue_watching
+                        .first()
+                        .map(|entry| entry.item.id.as_str())
                 };
+                let remaining_next_up: Vec<&NextUpItem> = next_up
+                    .iter()
+                    .filter(|entry| Some(entry.item.id.as_str()) != featured_id)
+                    .collect();
                 if !remaining_next_up.is_empty() {
                     section_heading(ui, strings.next_up());
-                    if let Some(clicked) = next_up_rail(ui, remaining_next_up, posters, strings) {
+                    if let Some(clicked) = next_up_rail(ui, &remaining_next_up, posters, strings) {
                         action = Some(LibraryAction::Play { media_id: clicked });
                     }
                     ui.add_space(22.0);
                 }
 
-                section_heading(
-                    ui,
-                    &format!(
-                        "{}  ·  {} {}",
-                        strings.recently_added(),
-                        self.cached_series.len(),
-                        strings.titles()
-                    ),
-                );
-                if let Some(series_id) = series_grid(ui, &self.cached_series, posters, strings) {
+                section_heading(ui, strings.recently_added());
+                if let Some(series_id) = series_rail(ui, &self.cached_series, posters, strings) {
                     self.view = LibraryView::Series(series_id);
                 }
                 ui.add_space(28.0);
@@ -711,14 +885,18 @@ impl LibraryScreen {
     fn show_all_series(
         &mut self,
         ui: &mut egui::Ui,
+        session: &LibrarySession,
         posters: &mut PosterCache,
         strings: Strings,
     ) -> Option<LibraryAction> {
+        let mut action = None;
         egui::ScrollArea::vertical()
             .id_salt("library_all_series")
             .auto_shrink([false, false])
             .show(ui, |ui| {
-                ui.add_space(20.0);
+                if let Some(header_action) = self.page_header(ui, session, strings) {
+                    action = Some(header_action);
+                }
                 section_heading(
                     ui,
                     &format!(
@@ -733,25 +911,20 @@ impl LibraryScreen {
                 }
                 ui.add_space(28.0);
             });
-        None
+        action
     }
 
     fn show_search_results(
         &mut self,
         ui: &mut egui::Ui,
         catalog: &LibraryCatalog,
+        session: &LibrarySession,
         posters: &mut PosterCache,
         strings: Strings,
     ) -> Option<LibraryAction> {
         let query = self.query.trim().to_lowercase();
         let mut action = None;
 
-        let matching_series: Vec<&Series> = self
-            .cached_series
-            .iter()
-            .filter(|series| series.title.to_lowercase().contains(&query))
-            .take(60)
-            .collect();
         let matching_episodes: Vec<&MediaItem> = catalog
             .items
             .iter()
@@ -766,7 +939,15 @@ impl LibraryScreen {
             .id_salt("library_search")
             .auto_shrink([false, false])
             .show(ui, |ui| {
-                ui.add_space(12.0);
+                if let Some(header_action) = self.page_header(ui, session, strings) {
+                    action = Some(header_action);
+                }
+                let matching_series: Vec<&Series> = self
+                    .cached_series
+                    .iter()
+                    .filter(|series| series.title.to_lowercase().contains(&query))
+                    .take(60)
+                    .collect();
                 section_heading(
                     ui,
                     &format!("{} \"{}\"", strings.series_matching(), self.query.trim()),
@@ -834,9 +1015,16 @@ impl LibraryScreen {
             .id_salt("library_series")
             .auto_shrink([false, false])
             .show(ui, |ui| {
+                ui.add_space(18.0);
+                ui.horizontal(|ui| {
+                    ui.add_space(PAGE_GUTTER);
+                    if icon_chip_button(ui, Icon::Back, strings.back()).clicked() {
+                        self.view = LibraryView::Home;
+                    }
+                });
                 ui.add_space(12.0);
                 ui.horizontal(|ui| {
-                    ui.add_space(metrics::GUTTER);
+                    ui.add_space(PAGE_GUTTER);
                     let poster_item = series.items().next().cloned();
                     if let Some(item) = poster_item {
                         poster_thumbnail(ui, &item, posters, vec2(96.0, 144.0));
@@ -964,7 +1152,13 @@ fn labeled_icon_button(
     response
 }
 fn online_pill(ui: &mut egui::Ui, label: &str, server_url: &str) {
-    let (rect, response) = ui.allocate_exact_size(vec2(148.0, 34.0), Sense::hover());
+    let galley = ui.painter().layout_no_wrap(
+        label.to_owned(),
+        typography::small(),
+        palette::TEXT_SECONDARY,
+    );
+    let (rect, response) =
+        ui.allocate_exact_size(vec2(galley.size().x + 44.0, 34.0), Sense::hover());
     ui.painter().rect_filled(rect, 9.0, palette::SURFACE_RAISED);
     ui.painter().rect_stroke(
         rect,
@@ -984,76 +1178,127 @@ fn online_pill(ui: &mut egui::Ui, label: &str, server_url: &str) {
     response.on_hover_text(server_url);
 }
 
+/// Small squared icon button used in headers (refresh, back).
+fn icon_chip_button(ui: &mut egui::Ui, icon: Icon, tooltip: &str) -> egui::Response {
+    let (rect, response) = ui.allocate_exact_size(vec2(34.0, 34.0), Sense::click());
+    let fill = if response.hovered() {
+        palette::WIDGET_HOVER
+    } else {
+        palette::SURFACE_RAISED
+    };
+    ui.painter().rect_filled(rect, 9.0, fill);
+    ui.painter().rect_stroke(
+        rect,
+        9.0,
+        egui::Stroke::new(1.0, Color32::from_white_alpha(24)),
+        egui::StrokeKind::Inside,
+    );
+    paint_icon(
+        ui.painter(),
+        Rect::from_center_size(rect.center(), vec2(18.0, 18.0)),
+        icon,
+        palette::TEXT_SECONDARY,
+        1.5,
+    );
+    if response.hovered() {
+        ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
+    }
+    response.on_hover_text(tooltip)
+}
+
 fn featured_media_card(
     ui: &mut egui::Ui,
     item: &MediaItem,
     progress: Option<&PlaybackProgress>,
     eyebrow: &str,
+    strings: Strings,
     posters: &mut PosterCache,
 ) -> egui::Response {
     let mut result = None;
     ui.horizontal(|ui| {
-        ui.add_space(24.0);
-        let width = (ui.available_width() - 24.0).max(480.0);
+        ui.add_space(PAGE_GUTTER);
+        let width = (ui.available_width() - PAGE_GUTTER).max(480.0);
         let (rect, response) =
             ui.allocate_exact_size(vec2(width, metrics::HERO_HEIGHT), Sense::click());
-        ui.painter()
-            .rect_filled(rect, 12.0, palette::SURFACE_RAISED);
 
-        let image_rect = Rect::from_min_max(
-            egui::pos2(rect.left() + rect.width() * 0.43, rect.top()),
-            rect.right_bottom(),
-        );
-        paint_poster_area(ui, image_rect, item, posters);
-
+        // Full-bleed artwork with a left scrim that keeps text legible.
+        paint_poster_rounded(ui, rect, item, posters, 14.0);
+        let scrim_edge = rect.left() + rect.width() * 0.68;
         let mut mesh = egui::Mesh::default();
         let base = mesh.vertices.len() as u32;
-        mesh.colored_vertex(rect.left_top(), Color32::from_rgb(10, 14, 22));
-        mesh.colored_vertex(
-            egui::pos2(rect.left() + rect.width() * 0.72, rect.top()),
-            Color32::from_rgba_premultiplied(10, 14, 22, 210),
-        );
-        mesh.colored_vertex(rect.left_bottom(), Color32::from_rgb(10, 14, 22));
-        mesh.colored_vertex(
-            egui::pos2(rect.left() + rect.width() * 0.72, rect.bottom()),
-            Color32::from_rgba_premultiplied(10, 14, 22, 210),
-        );
+        let scrim = Color32::from_rgba_premultiplied(7, 10, 16, 232);
+        mesh.colored_vertex(rect.left_top(), scrim);
+        mesh.colored_vertex(egui::pos2(scrim_edge, rect.top()), Color32::TRANSPARENT);
+        mesh.colored_vertex(rect.left_bottom(), scrim);
+        mesh.colored_vertex(egui::pos2(scrim_edge, rect.bottom()), Color32::TRANSPARENT);
         mesh.add_triangle(base, base + 1, base + 2);
         mesh.add_triangle(base + 2, base + 1, base + 3);
         ui.painter().add(egui::Shape::mesh(mesh));
+        mask_rounded_corners(ui, rect, 14.0, palette::BG_DEEP);
 
         ui.painter().rect_stroke(
             rect,
-            12.0,
+            14.0,
             theme::card_outline(if response.hovered() { 1.0 } else { 0.0 }),
             egui::StrokeKind::Inside,
         );
-        let content = Rect::from_min_max(
-            rect.min + vec2(38.0, 30.0),
-            egui::pos2(rect.left() + rect.width() * 0.55, rect.bottom() - 26.0),
-        );
-        ui.painter().text(
-            content.left_top(),
+
+        let content_left = rect.left() + 36.0;
+        let text_clip = ui.painter().with_clip_rect(Rect::from_min_max(
+            rect.min,
+            egui::pos2(rect.left() + rect.width() * 0.66, rect.bottom()),
+        ));
+        text_clip.text(
+            pos2(content_left, rect.top() + 30.0),
             Align2::LEFT_TOP,
             eyebrow,
-            typography::caption(),
+            typography::heading(),
             palette::ACCENT_OUTLINE,
         );
-        ui.painter().text(
-            content.left_top() + vec2(0.0, 30.0),
+        text_clip.text(
+            pos2(content_left, rect.top() + 56.0),
             Align2::LEFT_TOP,
             &item.series_title,
-            typography::hero(),
+            typography::display(),
             palette::TEXT_PRIMARY,
         );
-        ui.painter().text(
-            content.left_top() + vec2(0.0, 70.0),
+        text_clip.text(
+            pos2(content_left, rect.top() + 102.0),
             Align2::LEFT_TOP,
             &item.episode_title,
             typography::body(),
             palette::TEXT_SECONDARY,
         );
-        let play_center = content.left_bottom() + vec2(24.0, -34.0);
+
+        // Progress bar plus remaining time, mirrored from the mockup hero.
+        let bar_top = rect.top() + 140.0;
+        if let Some(progress) = progress
+            && let Some(duration) = progress.duration_ms.filter(|duration| *duration > 0)
+        {
+            let fraction = (progress.position_ms as f32 / duration as f32).clamp(0.0, 1.0);
+            let bar = Rect::from_min_size(
+                pos2(content_left, bar_top),
+                vec2((rect.width() * 0.30).clamp(180.0, 380.0), 5.0),
+            );
+            ui.painter()
+                .rect_filled(bar, 2.5, Color32::from_white_alpha(36));
+            ui.painter().rect_filled(
+                Rect::from_min_size(bar.min, vec2(bar.width() * fraction, bar.height())),
+                2.5,
+                palette::ACCENT_BRIGHT,
+            );
+            let remaining_minutes =
+                (((duration - progress.position_ms).max(0) as f64) / 60_000.0).ceil() as i64;
+            text_clip.text(
+                pos2(content_left, bar.bottom() + 10.0),
+                Align2::LEFT_TOP,
+                strings.minutes_left(remaining_minutes),
+                typography::caption(),
+                palette::TEXT_MUTED,
+            );
+        }
+
+        let play_center = pos2(content_left + 23.0, rect.bottom() - 52.0);
         ui.painter()
             .circle_filled(play_center, 23.0, palette::ACCENT_BRIGHT);
         paint_icon(
@@ -1064,22 +1309,6 @@ fn featured_media_card(
             1.5,
         );
 
-        if let Some(progress) = progress
-            && let Some(duration) = progress.duration_ms.filter(|duration| *duration > 0)
-        {
-            let fraction = (progress.position_ms as f32 / duration as f32).clamp(0.0, 1.0);
-            let bar = Rect::from_min_size(
-                egui::pos2(content.left() + 62.0, content.bottom() - 39.0),
-                vec2((content.width() - 76.0).max(80.0), 5.0),
-            );
-            ui.painter()
-                .rect_filled(bar, 2.5, Color32::from_white_alpha(28));
-            ui.painter().rect_filled(
-                Rect::from_min_size(bar.min, vec2(bar.width() * fraction, bar.height())),
-                2.5,
-                palette::ACCENT_BRIGHT,
-            );
-        }
         if response.hovered() {
             ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
         }
@@ -1093,20 +1322,20 @@ fn featured_media_card(
 
 fn section_heading(ui: &mut egui::Ui, text: &str) {
     ui.horizontal(|ui| {
-        ui.add_space(metrics::GUTTER);
+        ui.add_space(PAGE_GUTTER);
         ui.label(
             RichText::new(text)
-                .font(typography::heading())
+                .font(typography::title())
                 .strong()
-                .color(palette::TEXT_SECONDARY),
+                .color(palette::TEXT_PRIMARY),
         );
     });
-    ui.add_space(6.0);
+    ui.add_space(8.0);
 }
 
 fn muted_line(ui: &mut egui::Ui, text: &str) {
     ui.horizontal(|ui| {
-        ui.add_space(metrics::GUTTER);
+        ui.add_space(PAGE_GUTTER);
         ui.label(
             RichText::new(text)
                 .font(typography::caption())
@@ -1125,7 +1354,7 @@ fn continue_watching_rail(
         .id_salt("rail_continue")
         .show(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.add_space(metrics::GUTTER);
+                ui.add_space(PAGE_GUTTER);
                 for entry in entries {
                     let fraction = entry
                         .progress
@@ -1145,7 +1374,7 @@ fn continue_watching_rail(
 
 fn next_up_rail(
     ui: &mut egui::Ui,
-    entries: &[NextUpItem],
+    entries: &[&NextUpItem],
     posters: &mut PosterCache,
     strings: Strings,
 ) -> Option<String> {
@@ -1154,7 +1383,7 @@ fn next_up_rail(
         .id_salt("rail_next_up")
         .show(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.add_space(metrics::GUTTER);
+                ui.add_space(PAGE_GUTTER);
                 for entry in entries {
                     let badge = match entry.reason {
                         NextUpReason::Resume => strings.resume(),
@@ -1170,6 +1399,39 @@ fn next_up_rail(
     clicked
 }
 
+/// Single-row horizontal rail of series posters (the Home "Recently added").
+fn series_rail(
+    ui: &mut egui::Ui,
+    series: &[Series],
+    posters: &mut PosterCache,
+    strings: Strings,
+) -> Option<String> {
+    let mut clicked = None;
+    egui::ScrollArea::horizontal()
+        .id_salt("rail_series")
+        .show(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.add_space(PAGE_GUTTER);
+                for series in series.iter().take(24) {
+                    let Some(item) = series.items().next().cloned() else {
+                        continue;
+                    };
+                    let response = poster_card_with_title(
+                        ui,
+                        &item,
+                        &series.title,
+                        &format!("{} {}", series.episode_count(), strings.episodes()),
+                        posters,
+                    );
+                    if response.clicked() {
+                        clicked = Some(series.id.clone());
+                    }
+                }
+            });
+        });
+    clicked
+}
+
 fn series_grid(
     ui: &mut egui::Ui,
     series: &[Series],
@@ -1177,7 +1439,7 @@ fn series_grid(
     strings: Strings,
 ) -> Option<String> {
     let mut clicked = None;
-    let available_width = ui.available_width() - 2.0 * metrics::GUTTER;
+    let available_width = ui.available_width() - 2.0 * PAGE_GUTTER;
     let columns = ((available_width + CARD_GAP) / (CARD_WIDTH + CARD_GAP))
         .floor()
         .max(1.0) as usize;
@@ -1190,7 +1452,7 @@ fn series_grid(
         let row_rect = Rect::from_min_size(ui.cursor().min, vec2(available_width, row_height));
         if ui.is_rect_visible(row_rect) {
             ui.horizontal(|ui| {
-                ui.add_space(metrics::GUTTER);
+                ui.add_space(PAGE_GUTTER);
                 for column in 0..columns {
                     let index = row * columns + column;
                     let Some(series) = series.get(index) else {
@@ -1226,49 +1488,8 @@ fn poster_card(
     progress_fraction: Option<f32>,
     badge: Option<&str>,
 ) -> egui::Response {
-    let (rect, response) = ui.allocate_exact_size(vec2(CARD_WIDTH, CARD_HEIGHT), Sense::click());
-    if !ui.is_rect_visible(rect) {
-        return response;
-    }
-    paint_card_background(ui, rect, response.hovered());
-    let image_rect = Rect::from_min_max(
-        rect.min + vec2(6.0, 6.0),
-        egui::pos2(rect.max.x - 6.0, rect.max.y - 56.0),
-    );
-    paint_poster_area(ui, image_rect, item, posters);
-
-    if let Some(fraction) = progress_fraction {
-        let bar = Rect::from_min_max(
-            egui::pos2(image_rect.left(), image_rect.bottom() - 5.0),
-            image_rect.right_bottom(),
-        );
-        ui.painter()
-            .rect_filled(bar, 2.0, Color32::from_rgba_premultiplied(0, 0, 0, 140));
-        let filled = Rect::from_min_size(bar.min, vec2(bar.width() * fraction, bar.height()));
-        ui.painter().rect_filled(filled, 2.0, palette::ACCENT);
-    }
-    if let Some(badge) = badge {
-        let badge_rect = Rect::from_min_size(image_rect.min + vec2(6.0, 6.0), vec2(52.0, 20.0));
-        ui.painter().rect_filled(
-            badge_rect,
-            4.0,
-            Color32::from_rgba_premultiplied(8, 10, 13, 200),
-        );
-        ui.painter().text(
-            badge_rect.center(),
-            Align2::CENTER_CENTER,
-            badge,
-            typography::small(),
-            palette::TEXT_SECONDARY,
-        );
-    }
-
     let title = format!("{} - {}", item.series_title, item.episode_title);
-    paint_card_caption(ui, rect, &title, None);
-    if response.hovered() {
-        ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
-    }
-    response
+    poster_card_impl(ui, item, &title, None, posters, progress_fraction, badge)
 }
 
 fn poster_card_with_title(
@@ -1278,42 +1499,55 @@ fn poster_card_with_title(
     subtitle: &str,
     posters: &mut PosterCache,
 ) -> egui::Response {
+    poster_card_impl(
+        ui,
+        representative,
+        title,
+        Some(subtitle),
+        posters,
+        None,
+        None,
+    )
+}
+
+/// Full-bleed poster with the caption on a bottom scrim, like the mockups.
+fn poster_card_impl(
+    ui: &mut egui::Ui,
+    item: &MediaItem,
+    title: &str,
+    subtitle: Option<&str>,
+    posters: &mut PosterCache,
+    progress_fraction: Option<f32>,
+    badge: Option<&str>,
+) -> egui::Response {
+    let radius = metrics::CARD_RADIUS + 2.0;
     let (rect, response) = ui.allocate_exact_size(vec2(CARD_WIDTH, CARD_HEIGHT), Sense::click());
     if !ui.is_rect_visible(rect) {
         return response;
     }
-    paint_card_background(ui, rect, response.hovered());
-    let image_rect = Rect::from_min_max(
-        rect.min + vec2(6.0, 6.0),
-        egui::pos2(rect.max.x - 6.0, rect.max.y - 56.0),
-    );
-    paint_poster_area(ui, image_rect, representative, posters);
-    paint_card_caption(ui, rect, title, Some(subtitle));
-    if response.hovered() {
-        ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
-    }
-    response
-}
+    paint_poster_rounded(ui, rect, item, posters, radius);
 
-fn paint_card_background(ui: &egui::Ui, rect: Rect, hovered: bool) {
-    ui.painter()
-        .rect_filled(rect, metrics::CARD_RADIUS, palette::SURFACE);
-    ui.painter().rect_stroke(
-        rect,
-        metrics::CARD_RADIUS,
-        theme::card_outline(if hovered { 1.0 } else { 0.0 }),
-        egui::StrokeKind::Inside,
-    );
-}
+    // Bottom scrim keeps caption text readable over any artwork.
+    let scrim_top = rect.bottom() - 74.0;
+    let mut mesh = egui::Mesh::default();
+    let base = mesh.vertices.len() as u32;
+    let dark = Color32::from_rgba_premultiplied(4, 6, 9, 208);
+    mesh.colored_vertex(egui::pos2(rect.left(), scrim_top), Color32::TRANSPARENT);
+    mesh.colored_vertex(egui::pos2(rect.right(), scrim_top), Color32::TRANSPARENT);
+    mesh.colored_vertex(rect.left_bottom(), dark);
+    mesh.colored_vertex(rect.right_bottom(), dark);
+    mesh.add_triangle(base, base + 1, base + 2);
+    mesh.add_triangle(base + 2, base + 1, base + 3);
+    ui.painter().add(egui::Shape::mesh(mesh));
+    mask_rounded_corners(ui, rect, radius, palette::BG_DEEP);
 
-fn paint_card_caption(ui: &egui::Ui, rect: Rect, title: &str, subtitle: Option<&str>) {
     let caption_rect = Rect::from_min_max(
-        egui::pos2(rect.left() + 8.0, rect.bottom() - 52.0),
-        rect.max - vec2(8.0, 6.0),
+        egui::pos2(rect.left() + 10.0, rect.bottom() - 46.0),
+        rect.max - vec2(10.0, 8.0),
     );
     let painter = ui.painter().with_clip_rect(caption_rect);
     let title_height = if subtitle.is_some() {
-        caption_rect.height() - 18.0
+        caption_rect.height() - 17.0
     } else {
         caption_rect.height()
     };
@@ -1338,6 +1572,52 @@ fn paint_card_caption(ui: &egui::Ui, rect: Rect, title: &str, subtitle: Option<&
             palette::TEXT_MUTED,
         );
     }
+
+    if let Some(fraction) = progress_fraction {
+        let bar = Rect::from_min_max(
+            egui::pos2(rect.left() + 10.0, rect.bottom() - 58.0),
+            egui::pos2(rect.right() - 10.0, rect.bottom() - 54.0),
+        );
+        ui.painter()
+            .rect_filled(bar, 2.0, Color32::from_white_alpha(40));
+        let filled = Rect::from_min_size(bar.min, vec2(bar.width() * fraction, bar.height()));
+        ui.painter()
+            .rect_filled(filled, 2.0, palette::ACCENT_BRIGHT);
+    }
+    if let Some(badge) = badge {
+        let galley = ui.painter().layout_no_wrap(
+            badge.to_owned(),
+            typography::small(),
+            palette::TEXT_PRIMARY,
+        );
+        let badge_rect = Rect::from_min_size(
+            rect.min + vec2(8.0, 8.0),
+            vec2(galley.size().x + 16.0, 20.0),
+        );
+        ui.painter().rect_filled(
+            badge_rect,
+            6.0,
+            Color32::from_rgba_premultiplied(8, 10, 13, 200),
+        );
+        ui.painter().text(
+            badge_rect.center(),
+            Align2::CENTER_CENTER,
+            badge,
+            typography::small(),
+            palette::TEXT_PRIMARY,
+        );
+    }
+
+    ui.painter().rect_stroke(
+        rect,
+        radius,
+        theme::card_outline(if response.hovered() { 1.0 } else { 0.0 }),
+        egui::StrokeKind::Inside,
+    );
+    if response.hovered() {
+        ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
+    }
+    response
 }
 fn poster_thumbnail(
     ui: &mut egui::Ui,
@@ -1349,6 +1629,62 @@ fn poster_thumbnail(
     if ui.is_rect_visible(rect) {
         paint_poster_area(ui, rect, item, posters);
     }
+}
+
+/// Small rounded poster thumbnail for chrome surfaces (next-episode card).
+pub(crate) fn paint_poster_thumb(
+    ui: &egui::Ui,
+    rect: Rect,
+    item: &MediaItem,
+    posters: &mut PosterCache,
+    radius: f32,
+) {
+    paint_poster_rounded(ui, rect, item, posters, radius);
+}
+
+/// Cover-cropped poster art clipped to rounded corners. Falls back to the
+/// procedural initials poster with masked corners.
+fn paint_poster_rounded(
+    ui: &egui::Ui,
+    rect: Rect,
+    item: &MediaItem,
+    posters: &mut PosterCache,
+    radius: f32,
+) {
+    match posters.poster(&item.id, item.poster_path.as_deref()) {
+        Some(PosterState::Ready(texture)) => {
+            let size = texture.size_vec2();
+            let scale = (rect.width() / size.x).max(rect.height() / size.y);
+            let scaled = size * scale;
+            let offset = (scaled - rect.size()) / 2.0;
+            let uv_min = egui::pos2(
+                (offset.x / scaled.x).clamp(0.0, 1.0),
+                (offset.y / scaled.y).clamp(0.0, 1.0),
+            );
+            let uv = Rect::from_min_max(uv_min, egui::pos2(1.0 - uv_min.x, 1.0 - uv_min.y));
+            egui::Image::from_texture(egui::load::SizedTexture::from_handle(&texture))
+                .uv(uv)
+                .corner_radius(radius)
+                .paint_at(ui, rect);
+        }
+        _ => {
+            paint_initials_poster(ui, rect, &item.series_title);
+            mask_rounded_corners(ui, rect, radius, palette::BG_DEEP);
+        }
+    }
+}
+
+/// Covers the square-corner bleed of non-rounded painting with an outside
+/// stroke in the page background color (classic corner-mask trick). Only
+/// valid when the widget sits on a solid `background` and neighbors are at
+/// least `radius` away.
+fn mask_rounded_corners(ui: &egui::Ui, rect: Rect, radius: f32, background: Color32) {
+    ui.painter().rect_stroke(
+        rect,
+        radius,
+        egui::Stroke::new(radius, background),
+        egui::StrokeKind::Outside,
+    );
 }
 
 fn paint_poster_area(ui: &egui::Ui, rect: Rect, item: &MediaItem, posters: &mut PosterCache) {

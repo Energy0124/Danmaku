@@ -381,6 +381,34 @@ impl Strings {
             "快捷鍵：D 切換原生彈幕。",
         )
     }
+    pub fn greeting(self, local_hour: u8) -> &'static str {
+        match local_hour {
+            5..=11 => self.text("Good morning", "早安"),
+            12..=17 => self.text("Good afternoon", "午安"),
+            _ => self.text("Good evening", "晚安"),
+        }
+    }
+    pub fn local_library(self) -> &'static str {
+        self.text("Local library", "本機媒體庫")
+    }
+    pub fn online(self) -> &'static str {
+        self.text("Online", "已上線")
+    }
+    pub fn minutes_left(self, minutes: i64) -> String {
+        match self.language {
+            Language::English => format!("{minutes} min left"),
+            Language::TraditionalChinese => format!("剩餘 {minutes} 分鐘"),
+        }
+    }
+    pub fn up_next(self, title: &str) -> String {
+        match self.language {
+            Language::English => format!("Next: {title}"),
+            Language::TraditionalChinese => format!("接下來：{title}"),
+        }
+    }
+    pub fn danmaku_label(self) -> &'static str {
+        self.text("Danmaku", "彈幕")
+    }
 }
 
 #[cfg(test)]
@@ -392,6 +420,22 @@ mod tests {
         assert_eq!(Language::parse("en"), Some(Language::English));
         assert_eq!(Language::parse("zh-TW"), Some(Language::TraditionalChinese));
         assert_eq!(Language::parse("zh-CN"), None);
+    }
+
+    #[test]
+    fn consumer_surfaces_are_localized() {
+        let zh = Strings::new(Language::TraditionalChinese);
+        let en = Strings::new(Language::English);
+        assert_eq!(en.greeting(8), "Good morning");
+        assert_eq!(en.greeting(14), "Good afternoon");
+        assert_eq!(en.greeting(22), "Good evening");
+        assert_eq!(zh.greeting(22), "晚安");
+        assert_eq!(en.minutes_left(42), "42 min left");
+        assert_eq!(zh.minutes_left(42), "剩餘 42 分鐘");
+        assert_eq!(en.up_next("Episode 19"), "Next: Episode 19");
+        assert_eq!(zh.up_next("第 19 集"), "接下來：第 19 集");
+        assert_ne!(zh.local_library(), en.local_library());
+        assert_ne!(zh.online(), en.online());
     }
 
     #[test]

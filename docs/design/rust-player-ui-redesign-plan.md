@@ -63,6 +63,21 @@ does not depend on generated imagery or copy a commercial streaming product.
 - [x] Replace temporary glyph symbols with a small code-native vector icon set,
   avoiding font-dependent missing-glyph boxes and a new UI dependency.
 
+### Second alignment pass (2026-07)
+
+- [x] Library home restructured to the mockup order: wordmark + greeting,
+  search, full-bleed Continue Watching hero (episode line, progress,
+  remaining minutes), rails, and a quiet Local library / Online pill.
+- [x] Poster cards switched to full-bleed art with caption scrims.
+- [x] Playback control bar rebuilt: full-width thumbed seek bar; time and
+  volume on the left, centered transport, track/danmaku/speed/settings/
+  fullscreen on the right; labeled Danmaku toggle; gradient title band with
+  series and episode lines; "Next:" episode preview card.
+- [x] Onboarding: vertically centered column, badge-style local server card,
+  link-style secondary action, centered globe language selector.
+- [x] Screenshot QA re-run against the three mockups with a neutral generated
+  media fixture (onboarding, library home, playback with controls).
+
 ## Verification Gates
 
 - cargo fmt --all --check
