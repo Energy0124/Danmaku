@@ -137,8 +137,10 @@ trusted-LAN clients.
   search, progress/resume, previous/next, and auto-next. M4 adds English and
   Traditional Chinese from the initial connect screen, durable playback and
   danmaku preferences, remembered server URL management without storing pairing
-  tokens, and a web-admin link. Release packaging remains Phase 3 M5 work;
-  Compose desktop remains the default application.
+  tokens, and a web-admin link. M5 now builds and non-interactively verifies a
+  Rust-native portable zip. Its four-file real-media matrix passes with zero
+  render failures and NVDEC active, completing the Phase 3 release gate.
+  Compose desktop remains available during Phase 4 retirement work.
 
 ### Android Mobile
 
@@ -181,9 +183,12 @@ trusted-LAN clients.
 - Rust `player-windows-mpv` crate for libmpv loading/probing and the desktop
   native playback command bridge.
 - Rust `rust-core` timeline/indexing foundation.
-- Windows scripts for pinned libmpv install, bundle verification, portable
-  release preparation, mpv runtime verification, GUI playback smoke tests, and
-  playback release-QA report generation across supplied media files.
+- Windows scripts for pinned libmpv install and verification plus separate
+  Compose-compatibility and Rust-native portable release preparation. The
+  Rust-native package is a versioned runtime-free zip with the player, approved
+  DLL, launcher, provenance, license texts, and generated crate inventory.
+  Runtime verification and supervised GUI smoke/release-QA scripts auto-detect
+  both layouts.
 - Desktop app-level QA screenshot capture now raises the app window, waits for
   focus to settle, and restores the previous always-on-top state so captures are
   less likely to include unrelated foreground Windows apps.

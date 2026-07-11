@@ -304,11 +304,17 @@ Milestones, each shippable while the Compose app remains the default:
   link while keeping admin workflows out of the native client. Focused tests
   cover language selection plus preference round-trip, sanitization, and
   credential exclusion.
-- `[ ]` M5 packaging: portable build with the pinned libmpv bundle; port
-  the relevant `tools/windows` release/verify scripts; pass
-  `tools\windows\run-windows-playback-release-qa.ps1` media matrix (1080p
-  H.264 MP4, HEVC/ASS MKV, 4K HEVC MKV, large BD MKV) against the Rust
-  player.
+- `[x]` M5 packaging: the Rust-native portable builder produces a versioned
+  runtime-free zip with `danmaku-player.exe`, the verified pinned libmpv DLL,
+  launcher, project/third-party licenses, source provenance, and a generated
+  Rust dependency-license inventory. The generic Windows runtime verifier and
+  playback smoke runner detect this native layout, and CI uploads the zip
+  alongside the compatibility desktop artifact. Non-GUI verification covers
+  libmpv API initialization, pinned hash validation, package shape, and an
+  extracted-zip check. The supervised 2026-07-11 release matrix passed against
+  1080p H.264 MP4, 1080p HEVC/ASS MKV, 4K HEVC MKV, and a large BD MKV: all
+  four eight-second runs rendered 174-181 frames with zero render failures and
+  NVDEC active.
 
 ### Phase 4: Retirement And Cleanup
 

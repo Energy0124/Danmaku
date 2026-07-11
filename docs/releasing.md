@@ -15,6 +15,18 @@ development outputs built by CI and local scripts.
 - Third-party license text, notices, source provenance, and dependency versions
   must ship with the artifact.
 
+### Rust Native Player
+
+- Runtime-free Windows x64 artifact for the Phase 3 migration client.
+- Includes `danmaku-player.exe`, the approved pinned `libmpv-2.dll`, native
+  launcher, project/third-party license texts, libmpv source provenance, and a
+  Cargo-metadata dependency license inventory.
+- Package verification checks the approved DLL hash, rejects legacy Java/JNA
+  layout files, exercises `--help`, and initializes libmpv through the native
+  probe before creating the versioned zip.
+- CI publishes the zip as `danmaku-rust-native-player` while the Compose
+  compatibility artifact remains available through Phase 4 retirement.
+
 ### Rust Library Server
 
 - Standalone Windows headless server artifact for the Rust Phase 1 migration.
@@ -66,6 +78,20 @@ cargo build --release -p player-windows-mpv --lib
 .\tools\windows\run-windows-playback-release-qa.ps1 -WindowsDistributionPath .\apps\desktop-windows\build\release\windows-portable -MediaPath <known-good-media>
 ```
 
+Prepare and verify the Rust-native player release:
+
+```powershell
+.\tools\windows\prepare-rust-player-release.ps1
+.\tools\windows\verify-rust-player-release.ps1 `
+  -WindowsDistributionPath .\build\release\rust-player\danmaku-player-0.1.0-windows-x64 `
+  -ProbeExecutable .\target\release\mpv-probe.exe
+```
+
+The generic `verify-windows-mpv-runtime.ps1`,
+`smoke-windows-playback.ps1`, and `run-windows-playback-release-qa.ps1`
+auto-detect the Rust-native package layout. Playback smoke and the media matrix
+launch the GUI and remain supervised checks.
+
 Prepare the standalone Rust headless server release:
 
 ```powershell
@@ -100,7 +126,9 @@ macOS development build:
 - `[ ]` Verify the pinned libmpv bundle hash and license/source provenance.
 - `[ ]` Build the standalone Rust library server zip and verify the packaged
   smoke check passes.
-- `[ ]` Run Windows playback release QA automation with representative real media.
+- `[ ]` Build and non-interactively verify the Rust native player zip.
+- `[ ]` Run supervised Windows playback release QA automation against the Rust
+  player with representative real media.
 - `[ ]` Validate Windows fullscreen, resize, aspect, and hardware decoding manually.
 - `[ ]` Validate Android mobile and TV streaming against a Windows host.
 - `[ ]` Confirm no local SDK paths, provider credentials, pairing tokens, or
