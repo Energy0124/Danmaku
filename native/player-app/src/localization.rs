@@ -409,6 +409,45 @@ impl Strings {
     pub fn danmaku_label(self) -> &'static str {
         self.text("Danmaku", "彈幕")
     }
+    pub fn no_library_folders(self) -> &'static str {
+        self.text("No library folders yet.", "尚未加入媒體庫資料夾。")
+    }
+    pub fn add_library_folder(self) -> &'static str {
+        self.text("Add folder…", "新增資料夾…")
+    }
+    pub fn remove_folder(self) -> &'static str {
+        self.text("Remove", "移除")
+    }
+    pub fn danmaku_provider(self) -> &'static str {
+        self.text("Danmaku provider", "彈幕來源")
+    }
+    pub fn dandanplay_configured(self) -> &'static str {
+        self.text("dandanplay credentials saved.", "已儲存 dandanplay 憑證。")
+    }
+    pub fn dandanplay_not_configured(self) -> &'static str {
+        self.text(
+            "Add dandanplay credentials to load danmaku automatically.",
+            "新增 dandanplay 憑證即可自動載入彈幕。",
+        )
+    }
+    pub fn dandanplay_app_id(self) -> &'static str {
+        self.text("App ID", "App ID")
+    }
+    pub fn dandanplay_app_secret(self) -> &'static str {
+        self.text("App secret", "App Secret")
+    }
+    pub fn dandanplay_restart_hint(self) -> &'static str {
+        self.text(
+            "Saving restarts the local server to apply new credentials.",
+            "儲存後會重新啟動本機伺服器以套用新憑證。",
+        )
+    }
+    pub fn save_and_apply(self) -> &'static str {
+        self.text("Save & apply", "儲存並套用")
+    }
+    pub fn clear_credentials(self) -> &'static str {
+        self.text("Clear", "清除")
+    }
 }
 
 #[cfg(test)]

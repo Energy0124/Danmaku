@@ -26,7 +26,7 @@ use crate::{
     library::PlaybackProgress,
     localization::Strings,
     posters::PosterCache,
-    preferences::{PlayerPreferences, PreferenceStore},
+    preferences::{CredentialStore, DandanplayCredentials, PlayerPreferences, PreferenceStore},
     screens::{
         ConnectAction, ConnectRequest, ConnectScreen, LibraryAction, LibraryScreen, SettingsAction,
         show_settings,
@@ -86,6 +86,8 @@ pub struct PlayerApp {
     preferences: PlayerPreferences,
     preference_store: PreferenceStore,
     saved_preferences: PlayerPreferences,
+    credential_store: CredentialStore,
+    dandanplay_credentials: DandanplayCredentials,
     settings_return: AppScreen,
     local_host: Option<LocalServerSupervisor>,
     window_effects_applied: bool,
@@ -107,9 +109,12 @@ impl PlayerApp {
         let preference_store = PreferenceStore::for_current_user();
         let mut preferences = preference_store.load();
         let saved_preferences = preferences.clone();
+        let credential_store = CredentialStore::for_current_user();
+        let dandanplay_credentials = credential_store.load();
         let local_host = (cli.media.is_none() && cli.server_url.is_none()).then(|| {
             LocalServerSupervisor::new(
                 &preferences.local_library_roots,
+                Some(dandanplay_credentials.clone()),
                 creation_context.egui_ctx.clone(),
             )
         });
@@ -241,6 +246,8 @@ impl PlayerApp {
             preferences,
             preference_store,
             saved_preferences,
+            credential_store,
+            dandanplay_credentials,
             settings_return: AppScreen::Library,
             local_host,
             window_effects_applied: false,
@@ -612,6 +619,21 @@ impl PlayerApp {
             .iter()
             .map(PathBuf::from)
             .collect()
+    }
+
+    /// Restarts the managed sidecar against the currently saved roots, or stops
+    /// it when no folders remain. Used when folders or credentials change.
+    fn restart_local_host_with_saved_roots(&mut self) {
+        let roots = self.local_roots();
+        self.prepare_for_host_transition();
+        let Some(local_host) = &mut self.local_host else {
+            return;
+        };
+        if roots.is_empty() {
+            local_host.stop();
+        } else if let Err(error) = local_host.restart(roots) {
+            self.connect_screen.error = Some(error);
+        }
     }
 
     fn request_library_play(&mut self, media_id: String) {
@@ -1527,6 +1549,7 @@ impl eframe::App for PlayerApp {
                     return_to_playback,
                     self.local_host.as_ref().map(LocalServerSupervisor::status),
                     &local_roots,
+                    &mut self.dandanplay_credentials,
                 ) {
                     Some(SettingsAction::Back) => self.screen = self.settings_return,
                     Some(SettingsAction::ChangeServer) => {
@@ -1560,6 +1583,53 @@ impl eframe::App for PlayerApp {
                         {
                             self.connect_screen.error = Some(error);
                         }
+                    }
+                    Some(SettingsAction::AddLibraryFolder(root)) => {
+                        let root_string = root.to_string_lossy().into_owned();
+                        if !self
+                            .preferences
+                            .local_library_roots
+                            .iter()
+                            .any(|existing| existing == &root_string)
+                        {
+                            self.preferences.local_library_roots.push(root_string);
+                        }
+                        if self.connect_screen.local_library_root.trim().is_empty() {
+                            self.connect_screen.local_library_root =
+                                root.to_string_lossy().into_owned();
+                        }
+                        self.restart_local_host_with_saved_roots();
+                    }
+                    Some(SettingsAction::RemoveLibraryFolder(root)) => {
+                        self.preferences
+                            .local_library_roots
+                            .retain(|existing| existing != &root);
+                        self.restart_local_host_with_saved_roots();
+                    }
+                    Some(SettingsAction::SaveDandanplayCredentials) => {
+                        self.dandanplay_credentials =
+                            self.dandanplay_credentials.clone().sanitized();
+                        if let Err(error) = self.credential_store.save(&self.dandanplay_credentials)
+                        {
+                            self.connect_screen.error =
+                                Some(format!("failed to save credentials: {error}"));
+                        }
+                        if let Some(local_host) = &mut self.local_host {
+                            local_host.set_dandanplay(Some(self.dandanplay_credentials.clone()));
+                        }
+                        self.restart_local_host_with_saved_roots();
+                    }
+                    Some(SettingsAction::ClearDandanplayCredentials) => {
+                        self.dandanplay_credentials = DandanplayCredentials::default();
+                        if let Err(error) = self.credential_store.save(&self.dandanplay_credentials)
+                        {
+                            self.connect_screen.error =
+                                Some(format!("failed to clear credentials: {error}"));
+                        }
+                        if let Some(local_host) = &mut self.local_host {
+                            local_host.set_dandanplay(None);
+                        }
+                        self.restart_local_host_with_saved_roots();
                     }
                     None => {}
                 }

@@ -154,6 +154,17 @@ trusted-LAN clients.
   kept in menus. The approved references and remaining screenshot/settings work
   are tracked in `docs/design/rust-player-ui-redesign-plan.md`. Compose desktop
   remains available during the remaining retirement work.
+- The native player Settings now configures the danmaku provider directly: a
+  dandanplay App ID/App Secret card persists credentials to a user-scoped
+  `player-credentials.json` (kept out of the general preferences file) and
+  injects `DANMAKU_DANDANPLAY_APP_ID`/`DANMAKU_DANDANPLAY_APP_SECRET` into the
+  managed sidecar so its signed resolver is built and danmaku auto-loads on
+  play without any web-UI step. The Local server card manages multiple library
+  folders (add/remove) persisted to `local_library_roots`, restarting the
+  sidecar with every root. The web UI now auto-loads danmaku when an episode is
+  selected and surfaces resolver/upstream failures as readable status text
+  instead of a raw HTTP 502. Server-side auto-recognition/categorization of the
+  catalog from dandanplay matches is the tracked follow-up.
 
 ### Android Mobile
 
