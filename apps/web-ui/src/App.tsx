@@ -300,6 +300,21 @@ function PlayerPanel({
     if (video) updateDanmakuOverlay(video);
   }, [dandanplay, danmakuOverlayEnabled, danmakuDensity, danmakuOffsetSeconds]);
 
+  // Auto-load danmaku when the selected episode changes so the browser client
+  // matches the native player: no manual button press is required. The fetch is
+  // skipped (with a quiet note) when the server reports dandanplay is not ready.
+  const dandanplayReady = providerRuntime?.dandanplay.commentFetchAvailable ?? true;
+  useEffect(() => {
+    if (!dandanplayReady) {
+      setDandanplayMessage(
+        "Danmaku provider is not configured on this server. Add dandanplay credentials in the player settings."
+      );
+      return;
+    }
+    void loadDandanplay();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item.id, dandanplayReady]);
+
   useEffect(() => {
     saveDanmakuOverlayPreferences(danmakuOverlayPreferences);
   }, [danmakuOverlayPreferences]);
@@ -335,7 +350,7 @@ function PlayerPanel({
       );
     } catch (error) {
       setDandanplay(null);
-      setDandanplayMessage(error instanceof DanmakuApiError ? error.message : "Dandanplay lookup failed.");
+      setDandanplayMessage(describeDandanplayError(error));
     } finally {
       setIsDandanplayLoading(false);
     }
@@ -470,8 +485,12 @@ function PlayerPanel({
             <h3>Dandanplay</h3>
             <p>{dandanplayMessage || "No danmaku loaded for this episode."}</p>
           </div>
-          <button disabled={isDandanplayLoading} onClick={() => void loadDandanplay()} type="button">
-            {isDandanplayLoading ? "Loading" : "Load danmaku"}
+          <button
+            disabled={isDandanplayLoading || !dandanplayReady}
+            onClick={() => void loadDandanplay()}
+            type="button"
+          >
+            {isDandanplayLoading ? "Loading" : dandanplay ? "Reload danmaku" : "Load danmaku"}
           </button>
         </div>
         <div className="danmaku-controls">
@@ -774,6 +793,19 @@ function formatProgress(progress?: PlaybackProgress): string {
   const position = Math.round(progress.positionMs / 60_000);
   const duration = progress.durationMs ? Math.round(progress.durationMs / 60_000) : null;
   return duration ? `${position} / ${duration} min` : `${position} min`;
+}
+
+function describeDandanplayError(error: unknown): string {
+  if (error instanceof DanmakuApiError) {
+    if (error.status === 502) {
+      return "Danmaku is unavailable: the server could not reach dandanplay (check credentials or try again).";
+    }
+    if (error.status === 404) {
+      return "This episode is not published on the server anymore.";
+    }
+    return error.message;
+  }
+  return "Dandanplay lookup failed.";
 }
 
 function formatDandanplayMatch(match?: DandanplayResolveResult["selectedMatch"]): string {

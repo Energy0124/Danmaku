@@ -14,6 +14,7 @@ use eframe::egui;
 use serde::Deserialize;
 
 use crate::net::http_get;
+use crate::preferences::DandanplayCredentials;
 
 const DEFAULT_BASE_URL: &str = "http://127.0.0.1:8686";
 const DEFAULT_PORT: u16 = 8_686;
@@ -88,12 +89,17 @@ pub struct LocalServerSupervisor {
     sender: Sender<SupervisorEvent>,
     child: Option<Child>,
     roots: Vec<PathBuf>,
+    dandanplay: Option<DandanplayCredentials>,
     restart_count: u8,
     repaint: egui::Context,
 }
 
 impl LocalServerSupervisor {
-    pub fn new(saved_roots: &[String], repaint: egui::Context) -> Self {
+    pub fn new(
+        saved_roots: &[String],
+        dandanplay: Option<DandanplayCredentials>,
+        repaint: egui::Context,
+    ) -> Self {
         let (sender, receiver) = mpsc::channel();
         let package = LocalServerPackage::discover();
         let state = if package.is_some() {
@@ -110,6 +116,7 @@ impl LocalServerSupervisor {
             sender,
             child: None,
             roots: normalize_roots(saved_roots),
+            dandanplay: dandanplay.filter(DandanplayCredentials::is_complete),
             restart_count: 0,
             repaint,
         };
@@ -153,6 +160,12 @@ impl LocalServerSupervisor {
         self.generation = self.generation.wrapping_add(1);
         self.stop_owned();
         self.state = LocalHostStatus::Stopped;
+    }
+
+    /// Updates the dandanplay credentials injected into future server launches.
+    /// Restarting the server (or a fresh launch) is what actually applies them.
+    pub fn set_dandanplay(&mut self, dandanplay: Option<DandanplayCredentials>) {
+        self.dandanplay = dandanplay.filter(DandanplayCredentials::is_complete);
     }
 
     pub fn poll(&mut self) -> Option<LocalConnection> {
@@ -219,6 +232,7 @@ impl LocalServerSupervisor {
         self.state = LocalHostStatus::Starting;
         let sender = self.sender.clone();
         let data_directory = self.data_directory.clone();
+        let dandanplay = self.dandanplay.clone();
         let repaint = self.repaint.clone();
         thread::spawn(move || {
             let event = launch_or_attach(
@@ -226,6 +240,7 @@ impl LocalServerSupervisor {
                 package,
                 data_directory,
                 roots,
+                dandanplay,
                 allow_attach,
                 start_if_missing,
             );
@@ -270,6 +285,7 @@ fn launch_or_attach(
     package: LocalServerPackage,
     data_directory: PathBuf,
     roots: Vec<PathBuf>,
+    dandanplay: Option<DandanplayCredentials>,
     allow_attach: bool,
     start_if_missing: bool,
 ) -> SupervisorEvent {
@@ -287,7 +303,7 @@ fn launch_or_attach(
         return SupervisorEvent::NeedsSetup { generation };
     }
 
-    match launch_server(package, data_directory, roots) {
+    match launch_server(package, data_directory, roots, dandanplay) {
         Ok((connection, child)) => SupervisorEvent::Ready {
             generation,
             connection,
@@ -304,6 +320,7 @@ fn launch_server(
     package: LocalServerPackage,
     data_directory: PathBuf,
     roots: Vec<PathBuf>,
+    dandanplay: Option<DandanplayCredentials>,
 ) -> Result<(LocalConnection, Child), String> {
     fs::create_dir_all(&data_directory)
         .map_err(|error| format!("failed to create server data directory: {error}"))?;
@@ -321,6 +338,16 @@ fn launch_server(
         .arg(port.to_string())
         .stdout(Stdio::from(log))
         .stderr(Stdio::from(error_log));
+    // The sidecar reads these at startup via apply_dandanplay_local_defaults and
+    // builds a signed resolver; without them the resolve route returns HTTP 502.
+    if let Some(credentials) = dandanplay.filter(DandanplayCredentials::is_complete) {
+        command
+            .env("DANMAKU_DANDANPLAY_APP_ID", credentials.app_id.trim())
+            .env(
+                "DANMAKU_DANDANPLAY_APP_SECRET",
+                credentials.app_secret.trim(),
+            );
+    }
     if let Some(web_assets) = &package.web_assets {
         command.arg("--web-assets-dir").arg(web_assets);
     }

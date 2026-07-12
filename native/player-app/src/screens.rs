@@ -19,7 +19,7 @@ use crate::{
     },
     localization::{Language, Strings},
     posters::{PosterCache, PosterState},
-    preferences::PlayerPreferences,
+    preferences::{DandanplayCredentials, PlayerPreferences},
     session::LibrarySession,
     theme::{self, metrics, palette, typography},
 };
@@ -1802,6 +1802,10 @@ pub enum SettingsAction {
     RestartLocalServer,
     StopLocalServer,
     SetLocalRoot(PathBuf),
+    AddLibraryFolder(PathBuf),
+    RemoveLibraryFolder(String),
+    SaveDandanplayCredentials,
+    ClearDandanplayCredentials,
 }
 
 pub fn show_settings(
@@ -1811,6 +1815,7 @@ pub fn show_settings(
     return_to_playback: bool,
     local_host_status: Option<&LocalHostStatus>,
     local_roots: &[String],
+    dandanplay: &mut DandanplayCredentials,
 ) -> Option<SettingsAction> {
     let mut action = None;
     egui::CentralPanel::default()
@@ -1832,6 +1837,7 @@ pub fn show_settings(
                                 return_to_playback,
                                 local_host_status,
                                 local_roots,
+                                dandanplay,
                                 &mut action,
                             ) {
                                 action = Some(SettingsAction::Back);
@@ -1853,6 +1859,7 @@ fn settings_body(
     return_to_playback: bool,
     local_host_status: Option<&LocalHostStatus>,
     local_roots: &[String],
+    dandanplay: &mut DandanplayCredentials,
     action: &mut Option<SettingsAction>,
 ) -> bool {
     let strings = Strings::new(preferences.language);
@@ -2031,15 +2038,41 @@ fn settings_body(
             };
             card_status_dot(ui, &status_text, status_color);
             if !return_to_playback && status.is_available() {
-                ui.add_space(4.0);
+                ui.add_space(8.0);
+                // Each configured library folder with an inline remove control.
+                if local_roots.is_empty() {
+                    card_status_line(ui, strings.no_library_folders());
+                } else {
+                    for root in local_roots {
+                        ui.horizontal(|ui| {
+                            ui.label(
+                                RichText::new(root)
+                                    .font(typography::body())
+                                    .color(palette::TEXT_PRIMARY),
+                            );
+                            ui.with_layout(
+                                egui::Layout::right_to_left(egui::Align::Center),
+                                |ui| {
+                                    if settings_pill_button(ui, strings.remove_folder(), false)
+                                        .clicked()
+                                    {
+                                        *action =
+                                            Some(SettingsAction::RemoveLibraryFolder(root.clone()));
+                                    }
+                                },
+                            );
+                        });
+                    }
+                }
+                ui.add_space(6.0);
                 ui.horizontal(|ui| {
-                    if settings_pill_button(ui, strings.change_library_folder(), false).clicked() {
+                    if settings_pill_button(ui, strings.add_library_folder(), false).clicked() {
                         let mut dialog = rfd::FileDialog::new().set_title(strings.library_folder());
-                        if let Some(root) = local_roots.first() {
+                        if let Some(root) = local_roots.last() {
                             dialog = dialog.set_directory(root);
                         }
                         if let Some(folder) = dialog.pick_folder() {
-                            *action = Some(SettingsAction::SetLocalRoot(folder));
+                            *action = Some(SettingsAction::AddLibraryFolder(folder));
                         }
                     }
                     if status.is_managed_running()
@@ -2054,6 +2087,58 @@ fn settings_body(
                     }
                 });
             }
+        });
+
+        // Danmaku provider (dandanplay) credentials for the local sidecar.
+        ui.add_space(14.0);
+        settings_card(ui, strings.danmaku_provider(), |ui| {
+            let configured = dandanplay.is_complete();
+            card_status_dot(
+                ui,
+                if configured {
+                    strings.dandanplay_configured()
+                } else {
+                    strings.dandanplay_not_configured()
+                },
+                if configured {
+                    palette::SUCCESS
+                } else {
+                    palette::TEXT_MUTED
+                },
+            );
+            ui.add_space(6.0);
+            settings_row(ui, strings.dandanplay_app_id(), |ui| {
+                ui.add(
+                    TextEdit::singleline(&mut dandanplay.app_id)
+                        .desired_width(320.0)
+                        .hint_text("app id"),
+                );
+            });
+            settings_row(ui, strings.dandanplay_app_secret(), |ui| {
+                ui.add(
+                    TextEdit::singleline(&mut dandanplay.app_secret)
+                        .password(true)
+                        .desired_width(320.0)
+                        .hint_text("app secret"),
+                );
+            });
+            card_status_line(ui, strings.dandanplay_restart_hint());
+            ui.add_space(4.0);
+            ui.horizontal(|ui| {
+                let can_save = !dandanplay.app_id.trim().is_empty()
+                    && !dandanplay.app_secret.trim().is_empty();
+                if settings_pill_button(ui, strings.save_and_apply(), can_save).clicked()
+                    && can_save
+                {
+                    *action = Some(SettingsAction::SaveDandanplayCredentials);
+                }
+                if (!dandanplay.app_id.trim().is_empty()
+                    || !dandanplay.app_secret.trim().is_empty())
+                    && settings_pill_button(ui, strings.clear_credentials(), false).clicked()
+                {
+                    *action = Some(SettingsAction::ClearDandanplayCredentials);
+                }
+            });
         });
     }
 
