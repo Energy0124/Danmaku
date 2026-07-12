@@ -13,6 +13,7 @@ use eframe::egui::{
 use egui_glow::CallbackFn;
 
 use crate::{
+    branding::Branding,
     cli::Cli,
     clock::OverlayClock,
     danmaku::{
@@ -88,6 +89,7 @@ pub struct PlayerApp {
     settings_return: AppScreen,
     local_host: Option<LocalServerSupervisor>,
     window_effects_applied: bool,
+    branding: Branding,
 }
 
 impl PlayerApp {
@@ -101,6 +103,7 @@ impl PlayerApp {
         }
 
         let counters = Arc::new(Mutex::new(RenderCounters::default()));
+        let branding = Branding::load(&creation_context.egui_ctx)?;
         let preference_store = PreferenceStore::for_current_user();
         let mut preferences = preference_store.load();
         let saved_preferences = preferences.clone();
@@ -241,6 +244,7 @@ impl PlayerApp {
             settings_return: AppScreen::Library,
             local_host,
             window_effects_applied: false,
+            branding,
         })
     }
 
@@ -811,14 +815,11 @@ impl PlayerApp {
                 }
 
                 let brand_center = pos2(full.left() + 20.0, full.center().y);
-                ui.painter()
-                    .circle_filled(brand_center, 12.0, palette::ACCENT_BRIGHT);
-                paint_icon(
-                    ui.painter(),
-                    Rect::from_center_size(brand_center + vec2(0.5, 0.0), vec2(12.0, 12.0)),
-                    Icon::Play,
+                ui.painter().image(
+                    self.branding.icon.id(),
+                    Rect::from_center_size(brand_center, vec2(28.0, 28.0)),
+                    Rect::from_min_max(pos2(0.07, 0.07), pos2(0.93, 0.93)),
                     Color32::WHITE,
-                    1.4,
                 );
                 ui.painter().text(
                     pos2(full.left() + 40.0, full.center().y),
@@ -1449,6 +1450,7 @@ impl eframe::App for PlayerApp {
                     &discovered,
                     &mut self.preferences.language,
                     self.local_host.as_ref().map(LocalServerSupervisor::status),
+                    &self.branding,
                 );
                 match action {
                     Some(ConnectAction::Connect(request)) => {
@@ -1488,6 +1490,7 @@ impl eframe::App for PlayerApp {
                         session,
                         &mut self.posters,
                         Strings::new(self.preferences.language),
+                        &self.branding,
                     ),
                     None => {
                         self.screen = AppScreen::Connect;

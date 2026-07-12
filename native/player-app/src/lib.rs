@@ -9,6 +9,7 @@
 //! `native/spike-egui-player` and the `player-windows-mpv` bridge crate.
 
 pub mod app;
+pub mod branding;
 pub mod cli;
 pub mod clock;
 pub mod danmaku;
