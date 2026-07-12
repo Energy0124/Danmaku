@@ -56,7 +56,7 @@ does not depend on generated imagery or copy a commercial streaming product.
 
 - [x] Run supervised screenshot QA at 1280x720 and maximized desktop size,
   including live-video playback with the controls visible.
-- [ ] Refine the Settings screen into grouped consumer cards.
+- [x] Refine the Settings screen into grouped consumer cards.
 - [ ] Add keyboard-focus and hover-state screenshot coverage.
 - [ ] Add a compact responsive fallback if Windows minimum-size QA finds
   clipping in the library hero or playback control row.
@@ -77,6 +77,11 @@ does not depend on generated imagery or copy a commercial streaming product.
   link-style secondary action, centered globe language selector.
 - [x] Screenshot QA re-run against the three mockups with a neutral generated
   media fixture (onboarding, library home, playback with controls).
+- [x] Settings rebuilt into grouped consumer cards: a back chip + title
+  header, a centered content column, rounded raised cards per group, a
+  segmented language selector, themed accent sliders with value readouts,
+  animated pill toggles, and styled action buttons. Removes the raw egui
+  slider/checkbox/button look.
 
 ## Verification Gates
 
