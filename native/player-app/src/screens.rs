@@ -8,6 +8,7 @@ use eframe::egui::{
 };
 
 use crate::{
+    branding::Branding,
     discovery::DiscoveredServer,
     hosting::LocalHostStatus,
     icons::{Icon, paint_icon},
@@ -95,6 +96,7 @@ impl ConnectScreen {
         discovered: &[DiscoveredServer],
         language: &mut Language,
         local_host_status: Option<&LocalHostStatus>,
+        branding: &Branding,
     ) -> Option<ConnectAction> {
         let strings = Strings::new(*language);
         let mut action = None;
@@ -123,8 +125,8 @@ impl ConnectScreen {
                             };
                             ui.add_space(((viewport_height - content_estimate) / 2.0).max(16.0));
                             let (illustration, _) =
-                                ui.allocate_exact_size(vec2(300.0, 138.0), Sense::hover());
-                            paint_library_illustration(ui, illustration);
+                                ui.allocate_exact_size(vec2(320.0, 190.0), Sense::hover());
+                            paint_library_illustration(ui, illustration, branding);
 
                             ui.add_space(12.0);
                             ui.label(
@@ -214,70 +216,22 @@ impl ConnectScreen {
     }
 }
 
-fn paint_brand_mark(ui: &mut egui::Ui, size: f32) {
+fn paint_brand_mark(ui: &mut egui::Ui, size: f32, branding: &Branding) {
     let (rect, _) = ui.allocate_exact_size(vec2(size, size), Sense::hover());
-    ui.painter()
-        .circle_filled(rect.center(), size * 0.5, palette::ACCENT_BRIGHT);
-    let points = vec![
-        rect.center() + vec2(-4.0, -7.0),
-        rect.center() + vec2(8.0, 0.0),
-        rect.center() + vec2(-4.0, 7.0),
-    ];
-    ui.painter().add(egui::Shape::convex_polygon(
-        points,
+    ui.painter().image(
+        branding.icon.id(),
+        rect,
+        Rect::from_min_max(pos2(0.07, 0.07), pos2(0.93, 0.93)),
         Color32::WHITE,
-        egui::Stroke::NONE,
-    ));
+    );
 }
 
-fn paint_library_illustration(ui: &egui::Ui, rect: Rect) {
-    let painter = ui.painter();
-    painter.circle_filled(
-        rect.center() + vec2(0.0, 4.0),
-        92.0,
-        Color32::from_rgba_premultiplied(54, 112, 168, 26),
-    );
-    let folder = Rect::from_center_size(rect.center() + vec2(0.0, 18.0), vec2(190.0, 94.0));
-    let tab = Rect::from_min_size(folder.min + vec2(18.0, -16.0), vec2(72.0, 28.0));
-    painter.rect_filled(tab, 10.0, palette::ACCENT);
-    painter.rect_filled(folder, 14.0, palette::SURFACE_RAISED);
-    painter.rect_stroke(
-        folder,
-        14.0,
-        egui::Stroke::new(1.5, palette::ACCENT_OUTLINE),
-        egui::StrokeKind::Inside,
-    );
-    for (index, color) in [
-        palette::ACCENT,
-        Color32::from_rgb(83, 91, 132),
-        Color32::from_rgb(56, 124, 132),
-        Color32::from_rgb(125, 87, 135),
-    ]
-    .into_iter()
-    .enumerate()
-    {
-        let x = folder.left() + 28.0 + index as f32 * 38.0;
-        let card = Rect::from_min_size(egui::pos2(x, folder.top() - 24.0), vec2(28.0, 76.0));
-        painter.rect_filled(card, 5.0, color);
-        painter.line_segment(
-            [
-                card.left_bottom() + vec2(5.0, -12.0),
-                card.right_bottom() + vec2(-5.0, -12.0),
-            ],
-            egui::Stroke::new(2.0, Color32::from_white_alpha(100)),
-        );
-    }
-    painter.circle_filled(
-        folder.right_bottom() - vec2(26.0, 24.0),
-        18.0,
-        palette::ACCENT_BRIGHT,
-    );
-    paint_icon(
-        painter,
-        Rect::from_center_size(folder.right_bottom() - vec2(26.0, 24.0), vec2(18.0, 18.0)),
-        Icon::Play,
+fn paint_library_illustration(ui: &egui::Ui, rect: Rect, branding: &Branding) {
+    ui.painter().image(
+        branding.mascot.id(),
+        rect,
+        Rect::from_min_max(pos2(0.10, 0.22), pos2(0.90, 0.78)),
         Color32::WHITE,
-        1.5,
     );
 }
 
@@ -594,6 +548,7 @@ impl LibraryScreen {
         session: &LibrarySession,
         posters: &mut PosterCache,
         strings: Strings,
+        branding: &Branding,
     ) -> Option<LibraryAction> {
         let mut action = None;
         let search_id = egui::Id::new("library_search_field");
@@ -605,7 +560,7 @@ impl LibraryScreen {
             .show(ctx, |ui| {
                 ui.vertical_centered(|ui| {
                     ui.add_space(18.0);
-                    paint_brand_mark(ui, 42.0);
+                    paint_brand_mark(ui, 42.0, branding);
                     ui.add_space(28.0);
                     if nav_button(
                         ui,

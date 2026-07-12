@@ -10,6 +10,21 @@ use danmaku_player::{
 };
 use eframe::egui;
 
+/// Decodes the bundled mascot icon for the window/taskbar. Downscaled to 256
+/// so the in-memory RGBA stays small; the OS scales it per surface.
+fn load_app_icon() -> Option<egui::IconData> {
+    let image = image::load_from_memory(include_bytes!("../assets/app-icon.png"))
+        .ok()?
+        .resize_exact(256, 256, image::imageops::FilterType::Lanczos3)
+        .into_rgba8();
+    let (width, height) = image.dimensions();
+    Some(egui::IconData {
+        rgba: image.into_raw(),
+        width,
+        height,
+    })
+}
+
 fn main() {
     let cli = match Cli::parse_env() {
         Ok(cli) => cli,
@@ -32,13 +47,17 @@ fn main() {
     let report_slot = Arc::new(Mutex::new(None));
     let app_cli = cli.clone();
     let app_report_slot = Arc::clone(&report_slot);
+    let mut viewport = egui::ViewportBuilder::default()
+        .with_inner_size([1280.0, 720.0])
+        .with_min_inner_size([960.0, 600.0])
+        .with_decorations(false)
+        .with_title(window_title.clone());
+    if let Some(icon) = load_app_icon() {
+        viewport = viewport.with_icon(Arc::new(icon));
+    }
     let native_options = eframe::NativeOptions {
         renderer: eframe::Renderer::Glow,
-        viewport: egui::ViewportBuilder::default()
-            .with_inner_size([1280.0, 720.0])
-            .with_min_inner_size([960.0, 600.0])
-            .with_decorations(false)
-            .with_title(window_title.clone()),
+        viewport,
         vsync: true,
         ..Default::default()
     };
