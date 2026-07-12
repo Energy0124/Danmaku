@@ -159,7 +159,11 @@ trusted-LAN clients.
   `player-credentials.json` (kept out of the general preferences file) and
   injects `DANMAKU_DANDANPLAY_APP_ID`/`DANMAKU_DANDANPLAY_APP_SECRET` into the
   managed sidecar so its signed resolver is built and danmaku auto-loads on
-  play without any web-UI step. The Local server card manages multiple library
+  play without any web-UI step. The sidecar's dandanplay credential path now
+  also auto-discovers `local.properties` (working dir, `%LOCALAPPDATA%/Danmaku`,
+  `~/.danmaku`, `DANMAKU_LOCAL_PROPERTIES`), matching the external-anime path
+  and the Kotlin desktop, so credentials configured there work in any sidecar
+  launch (player-owned, standalone, or web-UI-facing) without re-entry. The Local server card manages multiple library
   folders (add/remove) persisted to `local_library_roots`, restarting the
   sidecar with every root. The web UI now auto-loads danmaku when an episode is
   selected and surfaces resolver/upstream failures as readable status text
