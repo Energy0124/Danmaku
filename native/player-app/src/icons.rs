@@ -28,6 +28,10 @@ pub enum Icon {
     Minimize,
     Maximize,
     Close,
+    Subtitles,
+    AudioTrack,
+    Danmaku,
+    Globe,
 }
 
 pub fn paint_icon(painter: &Painter, rect: Rect, icon: Icon, color: Color32, width: f32) {
@@ -82,12 +86,22 @@ pub fn paint_icon(painter: &Painter, rect: Rect, icon: Icon, color: Color32, wid
             );
         }
         Icon::Refresh => {
-            painter.circle_stroke(center, rect.width().min(rect.height()) * 0.28, stroke);
+            // 300-degree arc with an arrowhead at its open end.
+            let radius = rect.width().min(rect.height()) * 0.30;
+            let mut arc = Vec::with_capacity(25);
+            for step in 0..=24 {
+                let angle = -std::f32::consts::FRAC_PI_2
+                    + std::f32::consts::TAU * (step as f32 / 24.0) * (300.0 / 360.0);
+                arc.push(center + vec2(angle.cos(), angle.sin()) * radius);
+            }
+            painter.line(arc, stroke);
+            let tip_angle = -std::f32::consts::FRAC_PI_2;
+            let tip = center + vec2(tip_angle.cos(), tip_angle.sin()) * radius;
             painter.add(egui::Shape::convex_polygon(
                 vec![
-                    pos2(x(0.66), y(0.18)),
-                    pos2(x(0.84), y(0.24)),
-                    pos2(x(0.72), y(0.38)),
+                    tip + vec2(-radius * 0.42, -radius * 0.38),
+                    tip + vec2(radius * 0.40, -radius * 0.18),
+                    tip + vec2(-radius * 0.10, radius * 0.45),
                 ],
                 color,
                 Stroke::NONE,
@@ -282,6 +296,70 @@ pub fn paint_icon(painter: &Painter, rect: Rect, icon: Icon, color: Color32, wid
         Icon::Close => {
             painter.line_segment([pos2(x(0.26), y(0.26)), pos2(x(0.74), y(0.74))], stroke);
             painter.line_segment([pos2(x(0.74), y(0.26)), pos2(x(0.26), y(0.74))], stroke);
+        }
+        Icon::Subtitles => {
+            painter.rect_stroke(
+                Rect::from_min_max(pos2(x(0.14), y(0.26)), pos2(x(0.86), y(0.74))),
+                3.0,
+                stroke,
+                StrokeKind::Inside,
+            );
+            painter.line_segment([pos2(x(0.24), y(0.52)), pos2(x(0.48), y(0.52))], stroke);
+            painter.line_segment([pos2(x(0.56), y(0.52)), pos2(x(0.76), y(0.52))], stroke);
+            painter.line_segment([pos2(x(0.24), y(0.63)), pos2(x(0.40), y(0.63))], stroke);
+            painter.line_segment([pos2(x(0.48), y(0.63)), pos2(x(0.76), y(0.63))], stroke);
+        }
+        Icon::AudioTrack => {
+            painter.line_segment(
+                [pos2(x(0.60), y(0.20)), pos2(x(0.60), y(0.66))],
+                Stroke::new(width, color),
+            );
+            painter.line_segment([pos2(x(0.60), y(0.20)), pos2(x(0.80), y(0.30))], stroke);
+            painter.circle_filled(
+                pos2(x(0.52), y(0.68)),
+                rect.width().min(rect.height()) * 0.14,
+                color,
+            );
+        }
+        Icon::Danmaku => {
+            // Speech bubble with flowing comment dashes.
+            painter.rect_stroke(
+                Rect::from_min_max(pos2(x(0.14), y(0.22)), pos2(x(0.86), y(0.66))),
+                4.0,
+                stroke,
+                StrokeKind::Inside,
+            );
+            painter.add(egui::Shape::convex_polygon(
+                vec![
+                    pos2(x(0.30), y(0.66)),
+                    pos2(x(0.46), y(0.66)),
+                    pos2(x(0.30), y(0.82)),
+                ],
+                color,
+                Stroke::NONE,
+            ));
+            painter.line_segment([pos2(x(0.26), y(0.37)), pos2(x(0.58), y(0.37))], stroke);
+            painter.line_segment([pos2(x(0.42), y(0.51)), pos2(x(0.74), y(0.51))], stroke);
+        }
+        Icon::Globe => {
+            let radius = rect.width().min(rect.height()) * 0.34;
+            painter.circle_stroke(center, radius, stroke);
+            painter.line_segment(
+                [center - vec2(radius, 0.0), center + vec2(radius, 0.0)],
+                stroke,
+            );
+            // Meridian ellipse approximated with two arcs of points.
+            let mut left_arc = Vec::with_capacity(17);
+            let mut right_arc = Vec::with_capacity(17);
+            for step in 0..=16 {
+                let angle = std::f32::consts::PI * step as f32 / 16.0;
+                let sine = angle.sin();
+                let cosine = angle.cos();
+                left_arc.push(center + vec2(-radius * 0.45 * sine, -radius * cosine));
+                right_arc.push(center + vec2(radius * 0.45 * sine, -radius * cosine));
+            }
+            painter.line(left_arc, stroke);
+            painter.line(right_arc, stroke);
         }
     }
 }

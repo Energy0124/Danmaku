@@ -97,13 +97,11 @@ pub mod metrics {
     /// Corner radius of cards (posters, dialogs).
     pub const CARD_RADIUS: f32 = 8.0;
     /// Control bar height in the playback view.
-    pub const CONTROL_BAR_HEIGHT: f32 = 108.0;
+    pub const CONTROL_BAR_HEIGHT: f32 = 96.0;
     /// Width of the compact consumer navigation rail.
     pub const NAV_RAIL_WIDTH: f32 = 88.0;
-    /// Height of the library title/search band.
-    pub const LIBRARY_HEADER_HEIGHT: f32 = 88.0;
     /// Height of the featured continue-watching card.
-    pub const HERO_HEIGHT: f32 = 248.0;
+    pub const HERO_HEIGHT: f32 = 258.0;
     /// Vertical rhythm between stacked control rows.
     pub const ROW_GAP: f32 = 8.0;
 }
