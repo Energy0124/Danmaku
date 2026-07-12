@@ -23,7 +23,7 @@ use crate::{
     discovery::{DEFAULT_DISCOVERY_PORT, DiscoveryListener},
     hosting::{LocalConnection, LocalServerSupervisor},
     icons::{Icon, paint_icon},
-    library::PlaybackProgress,
+    library::{LibraryCatalog, PlaybackProgress},
     localization::Strings,
     posters::PosterCache,
     preferences::{CredentialStore, DandanplayCredentials, PlayerPreferences, PreferenceStore},
@@ -582,12 +582,31 @@ impl PlayerApp {
                 }
                 SessionEvent::Danmaku { media_id, load } => {
                     if self.active_media_id.as_deref() == Some(media_id.as_str()) {
+                        if let Ok(load) = &load
+                            && let Some(match_title) = &load.match_title
+                            && self.library_grouping_is_stale(&media_id, match_title)
+                            && let Some(session) = self.session.as_mut()
+                        {
+                            session.refresh_catalog();
+                        }
                         self.danmaku = load.unwrap_or_else(DanmakuLoad::failed);
                     }
                 }
                 _ => {}
             }
         }
+    }
+
+    /// True when the session's cached catalog does not yet reflect a
+    /// dandanplay recognition for `media_id`. See `catalog_grouping_is_stale`.
+    fn library_grouping_is_stale(&self, media_id: &str, match_title: &str) -> bool {
+        catalog_grouping_is_stale(
+            self.session
+                .as_ref()
+                .and_then(|session| session.catalog.as_ref()),
+            media_id,
+            match_title,
+        )
     }
 
     fn connect_to_server(&mut self, ctx: &egui::Context, request: ConnectRequest) {
@@ -748,6 +767,7 @@ impl PlayerApp {
         self.screen = AppScreen::Library;
         if let Some(session) = &mut self.session {
             session.refresh_progress();
+            session.refresh_catalog();
         }
     }
 
@@ -1891,6 +1911,26 @@ fn load_danmaku(cli: &Cli) -> DanmakuLoad {
     result.unwrap_or_else(DanmakuLoad::failed)
 }
 
+/// True when `catalog` does not yet reflect a dandanplay recognition for
+/// `media_id` matching `match_title` — either the item has no catalog entry
+/// yet, carries no recognized anime metadata, or carries a different one.
+/// The server records a recognition lazily when danmaku resolves and only
+/// merges it onto `/api/library` on the next read, so the player must
+/// re-fetch the catalog to pick up a new or changed series grouping/poster.
+fn catalog_grouping_is_stale(
+    catalog: Option<&LibraryCatalog>,
+    media_id: &str,
+    match_title: &str,
+) -> bool {
+    catalog
+        .and_then(|catalog| catalog.item(media_id))
+        .is_none_or(|item| {
+            item.anime_metadata
+                .as_ref()
+                .is_none_or(|metadata| metadata.display_title != match_title)
+        })
+}
+
 fn danmaku_color(color_argb: u32, opacity: f32) -> Color32 {
     let source_alpha = ((color_argb >> 24) & 0xff) as f32;
     let alpha = (source_alpha * opacity.clamp(0.0, 1.0))
@@ -1955,7 +1995,10 @@ fn parse_u64(value: Option<String>) -> Option<u64> {
 mod tests {
     use std::path::Path;
 
-    use super::{danmaku_color, format_time, is_danmaku_path, media_display_title};
+    use super::{
+        catalog_grouping_is_stale, danmaku_color, format_time, is_danmaku_path, media_display_title,
+    };
+    use crate::library::LibraryCatalog;
 
     #[test]
     fn formats_times_with_and_without_hours() {
@@ -1990,5 +2033,63 @@ mod tests {
         assert!(is_danmaku_path(Path::new("comments.danmaku")));
         assert!(is_danmaku_path(Path::new("cached.ass")));
         assert!(!is_danmaku_path(Path::new("episode.mkv")));
+    }
+
+    fn catalog_with_item(id: &str, anime_metadata: Option<&str>) -> LibraryCatalog {
+        let metadata = anime_metadata
+            .map(|title| {
+                format!(
+                    r#","animeMetadata":{{"animeId":{{"provider":"DANDANPLAY","value":1}},"displayTitle":"{title}"}}"#
+                )
+            })
+            .unwrap_or_default();
+        serde_json::from_value(serde_json::json!({
+            "rootName": "root",
+            "indexedAtEpochMs": 0,
+            "items": [serde_json::from_str::<serde_json::Value>(&format!(
+                r#"{{"id":"{id}","seriesTitle":"S","episodeTitle":"E1","relativePath":"S/E1.mkv","sizeBytes":1,"mediaType":"video/x-matroska","streamPath":"/media/{id}"{metadata}}}"#
+            )).expect("item json parses")],
+        }))
+        .expect("catalog parses")
+    }
+
+    #[test]
+    fn catalog_grouping_is_stale_when_item_or_recognition_is_missing() {
+        // No catalog fetched yet.
+        assert!(catalog_grouping_is_stale(None, "a", "Example Anime"));
+
+        // Catalog present but the item is unknown to it.
+        let catalog = catalog_with_item("other", None);
+        assert!(catalog_grouping_is_stale(
+            Some(&catalog),
+            "a",
+            "Example Anime"
+        ));
+
+        // Item present but not yet recognized.
+        let catalog = catalog_with_item("a", None);
+        assert!(catalog_grouping_is_stale(
+            Some(&catalog),
+            "a",
+            "Example Anime"
+        ));
+
+        // Item recognized under a different title than the new match.
+        let catalog = catalog_with_item("a", Some("Old Title"));
+        assert!(catalog_grouping_is_stale(
+            Some(&catalog),
+            "a",
+            "Example Anime"
+        ));
+    }
+
+    #[test]
+    fn catalog_grouping_is_fresh_once_it_matches_the_recognition() {
+        let catalog = catalog_with_item("a", Some("Example Anime"));
+        assert!(!catalog_grouping_is_stale(
+            Some(&catalog),
+            "a",
+            "Example Anime"
+        ));
     }
 }

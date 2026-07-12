@@ -23,6 +23,7 @@ use crate::external_provider::{
     ExternalAnimeListEntry, ExternalAnimeMatchQuery, ExternalAnimeTrackingUpdate,
     ExternalProviderError, ExternalProviderService, parse_provider_alias, provider_runtime_status,
 };
+use crate::poster_cache::PosterCacheStore;
 use crate::progress::PlaybackProgressStore;
 use crate::settings::HeadlessServerSettings;
 
@@ -40,6 +41,7 @@ pub struct HttpServerConfig {
     pub authenticated_post_hooks: Vec<AuthenticatedPostHookConfig>,
     pub dandanplay_resolver: Option<Arc<DandanplayResolver>>,
     pub catalog_metadata: Option<Arc<CatalogMetadataStore>>,
+    pub poster_cache: Option<Arc<PosterCacheStore>>,
 }
 
 impl HttpServerConfig {
@@ -48,6 +50,7 @@ impl HttpServerConfig {
         settings: &HeadlessServerSettings,
         dandanplay_resolver: Option<Arc<DandanplayResolver>>,
         catalog_metadata: Option<Arc<CatalogMetadataStore>>,
+        poster_cache: Option<Arc<PosterCacheStore>>,
     ) -> Self {
         Self {
             web_assets_root,
@@ -60,6 +63,7 @@ impl HttpServerConfig {
             authenticated_post_hooks: Vec::new(),
             dandanplay_resolver,
             catalog_metadata,
+            poster_cache,
         }
     }
 
@@ -77,6 +81,7 @@ impl HttpServerConfig {
             }],
             dandanplay_resolver: None,
             catalog_metadata: None,
+            poster_cache: None,
         }
     }
 }
@@ -98,6 +103,7 @@ pub struct HttpServerState {
     external_provider_service: Option<Arc<ExternalProviderService>>,
     dandanplay_resolver: Option<Arc<DandanplayResolver>>,
     catalog_metadata: Option<Arc<CatalogMetadataStore>>,
+    poster_cache: Option<Arc<PosterCacheStore>>,
 }
 
 impl HttpServerState {
@@ -129,6 +135,7 @@ impl HttpServerState {
             external_provider_service: config.external_provider_service,
             dandanplay_resolver: config.dandanplay_resolver,
             catalog_metadata: config.catalog_metadata,
+            poster_cache: config.poster_cache,
         }
     }
 }
@@ -185,14 +192,7 @@ async fn dispatch(State(state): State<HttpServerState>, request: Request<Body>) 
         .await;
     }
     if path.starts_with("/posters/") {
-        return handle_static_mapped_file(
-            &state.library.poster_files_by_id,
-            "/posters/",
-            "private, max-age=3600",
-            &method,
-            &path,
-        )
-        .await;
+        return handle_poster(&state, &method, &path).await;
     }
     if path.starts_with("/web") {
         return handle_web_asset(&state, &method, &path, &headers).await;
@@ -249,13 +249,77 @@ fn record_recognized_identity(
     else {
         return;
     };
-    if let Err(error) = store.record(
+    let changed = match store.record(
         media_id,
         anime_id,
-        anime_title,
+        anime_title.clone(),
         candidate.episode_title.clone(),
     ) {
-        eprintln!("failed to record catalog metadata for {media_id}: {error}");
+        Ok(changed) => changed,
+        Err(error) => {
+            eprintln!("failed to record catalog metadata for {media_id}: {error}");
+            return;
+        }
+    };
+    if changed {
+        spawn_poster_resolution(state, media_id.to_owned(), anime_title);
+    }
+}
+
+/// Best-effort background fetch: looks up a poster image for the newly
+/// recognized anime via the configured external providers and caches it
+/// locally so `/api/library` can serve `posterPath` on a later read.
+/// Fire-and-forget (spawned, not awaited) so the danmaku response is never
+/// delayed by an external search or image download.
+fn spawn_poster_resolution(state: &HttpServerState, media_id: String, anime_title: String) {
+    let (Some(catalog_metadata), Some(poster_cache), Some(provider_service)) = (
+        state.catalog_metadata.clone(),
+        state.poster_cache.clone(),
+        state.external_provider_service.clone(),
+    ) else {
+        return;
+    };
+    tokio::spawn(async move {
+        resolve_and_cache_recognized_poster(
+            &catalog_metadata,
+            &poster_cache,
+            &provider_service,
+            &media_id,
+            anime_title,
+        )
+        .await;
+    });
+}
+
+async fn resolve_and_cache_recognized_poster(
+    catalog_metadata: &CatalogMetadataStore,
+    poster_cache: &Arc<PosterCacheStore>,
+    provider_service: &ExternalProviderService,
+    media_id: &str,
+    anime_title: String,
+) {
+    let query = ExternalAnimeMatchQuery {
+        title: anime_title,
+        alternate_titles: Vec::new(),
+        episode_count: None,
+        start_year: None,
+    };
+    let candidates = provider_service.search(query, BTreeSet::new(), 1).await;
+    let Some(image_url) = candidates
+        .into_iter()
+        .find_map(|candidate| candidate.anime.image_url)
+    else {
+        return;
+    };
+    let cache = Arc::clone(poster_cache);
+    let cached_path = tokio::task::spawn_blocking(move || cache.resolve(&image_url))
+        .await
+        .ok()
+        .flatten();
+    if let Some(path) = cached_path
+        && let Err(error) = catalog_metadata.record_poster(media_id, path)
+    {
+        eprintln!("failed to record poster for {media_id}: {error}");
     }
 }
 
@@ -701,6 +765,25 @@ async fn handle_media(
     }
     let stream = ReaderStream::new(file.take(content_length));
     response_with_headers(status, response_headers, Body::from_stream(stream))
+}
+
+/// Serves `/posters/{mediaId}`, checking the scan-time static poster map
+/// first and falling back to a poster cached from anime recognition (see
+/// `spawn_poster_resolution`), which is not known until runtime.
+async fn handle_poster(state: &HttpServerState, method: &Method, path: &str) -> Response<Body> {
+    if method != Method::GET && method != Method::HEAD {
+        return empty_status(StatusCode::METHOD_NOT_ALLOWED);
+    }
+    let id = path.strip_prefix("/posters/").unwrap_or_default();
+    if let Some(file) = state.library.poster_files_by_id.get(id) {
+        return serve_file(file, method, "private, max-age=3600").await;
+    }
+    if let Some(store) = &state.catalog_metadata
+        && let Some(file) = store.poster_file(id)
+    {
+        return serve_file(&file, method, "private, max-age=3600").await;
+    }
+    empty_status(StatusCode::NOT_FOUND)
 }
 
 async fn handle_static_mapped_file(
@@ -1274,8 +1357,9 @@ mod tests {
         DandanplayResolver,
     };
     use crate::external_provider::{
-        BangumiSearchClient, BangumiTrackingClient, ExternalProviderService,
-        MyAnimeListSearchClient, MyAnimeListTrackingClient,
+        BangumiSearchClient, BangumiTrackingClient, ExternalAnimeInfo, ExternalAnimeSearchClient,
+        ExternalAnimeTitleSet, ExternalProviderService, MyAnimeListSearchClient,
+        MyAnimeListTrackingClient,
     };
     use crate::settings::HeadlessDandanplayAuthenticationMode;
 
@@ -1468,6 +1552,63 @@ mod tests {
             item_after["animeMetadata"]["animeId"]["provider"]
         );
         assert_eq!(333, item_after["animeMetadata"]["animeId"]["value"]);
+    }
+
+    #[tokio::test]
+    async fn resolving_danmaku_caches_and_serves_a_recognized_anime_poster() {
+        const POSTER_BYTES: &[u8] = &[0xff, 0xd8, 0xff, 0xd9];
+
+        let fixture = FixtureEnvironment::new();
+        let dandanplay_server = MockDandanplayServer::start(MockDandanplayBehavior::default());
+        let catalog_metadata = Arc::new(CatalogMetadataStore::new(
+            fixture.temp.join("catalog-metadata-poster-route.json"),
+        ));
+        let poster_cache = Arc::new(PosterCacheStore::new(fixture.temp.join("poster-cache")));
+        let image_url = start_test_image_server(POSTER_BYTES);
+        let provider_service = Arc::new(ExternalProviderService::new_for_tests(
+            vec![Arc::new(FixedAnimeSearchClient { image_url })],
+            Vec::new(),
+        ));
+        let app = dandanplay_test_app_full(
+            &fixture,
+            Some(test_resolver(&fixture, &dandanplay_server)),
+            Some(catalog_metadata.clone()),
+            Some(poster_cache),
+            Some(provider_service),
+        );
+
+        // Resolving danmaku records the identity and spawns a background
+        // poster fetch; the danmaku response itself does not wait on it.
+        let _ = request_json(&app, "/api/danmaku/episode-id").await;
+        let poster_recorded = wait_for(Duration::from_secs(2), || {
+            catalog_metadata.poster_file("episode-id").is_some()
+        })
+        .await;
+        assert!(poster_recorded, "poster should be cached in the background");
+        let cached_file = catalog_metadata
+            .poster_file("episode-id")
+            .expect("poster file recorded");
+        assert_eq!(
+            POSTER_BYTES,
+            fs::read(&cached_file).expect("poster bytes").as_slice()
+        );
+
+        // The fixture item already carries a static scan-time poster, so the
+        // published catalog and `/posters/` route keep serving that one
+        // untouched rather than switching to the newly cached image.
+        let catalog = request_json(&app, "/api/library").await;
+        let item = find_catalog_item(&catalog, "episode-id");
+        assert_eq!(Some("/posters/episode-id"), item["posterPath"].as_str());
+        let response = app
+            .clone()
+            .oneshot(get("/posters/episode-id"))
+            .await
+            .expect("poster response");
+        assert_eq!(StatusCode::OK, response.status());
+        let bytes = to_bytes(response.into_body(), 1_048_576)
+            .await
+            .expect("poster bytes");
+        assert_eq!([1_u8, 35, 69, 103], bytes.as_ref());
     }
 
     #[tokio::test]
@@ -2036,6 +2177,16 @@ mod tests {
         resolver: Option<Arc<DandanplayResolver>>,
         catalog_metadata: Option<Arc<CatalogMetadataStore>>,
     ) -> Router {
+        dandanplay_test_app_full(fixture, resolver, catalog_metadata, None, None)
+    }
+
+    fn dandanplay_test_app_full(
+        fixture: &FixtureEnvironment,
+        resolver: Option<Arc<DandanplayResolver>>,
+        catalog_metadata: Option<Arc<CatalogMetadataStore>>,
+        poster_cache: Option<Arc<PosterCacheStore>>,
+        external_provider_service: Option<Arc<ExternalProviderService>>,
+    ) -> Router {
         let state = HttpServerState::new(
             fixture.library.clone(),
             Arc::new(PlaybackProgressStore::new(
@@ -2046,10 +2197,11 @@ mod tests {
                 host_mode: HOST_MODE_HEADLESS_SERVER.to_owned(),
                 provider_settings: None,
                 provider_runtime_status: None,
-                external_provider_service: None,
+                external_provider_service,
                 authenticated_post_hooks: Vec::new(),
                 dandanplay_resolver: resolver,
                 catalog_metadata,
+                poster_cache,
             },
         );
         app(state)
@@ -2073,6 +2225,7 @@ mod tests {
                 authenticated_post_hooks: Vec::new(),
                 dandanplay_resolver: None,
                 catalog_metadata: None,
+                poster_cache: None,
             },
         );
         app(state)
@@ -2105,6 +2258,96 @@ mod tests {
             30,
             || 2 * 24 * 60 * 60 * 1_000,
         ))
+    }
+
+    /// Polls `condition` until it is true or `timeout` elapses, for asserting
+    /// on state set by a fire-and-forget background task.
+    async fn wait_for(timeout: Duration, mut condition: impl FnMut() -> bool) -> bool {
+        let deadline = tokio::time::Instant::now() + timeout;
+        loop {
+            if condition() {
+                return true;
+            }
+            if tokio::time::Instant::now() >= deadline {
+                return false;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    }
+
+    /// A one-shot plain-HTTP server that returns `body` for any request, used
+    /// to stand in for a provider's poster CDN in tests.
+    fn start_test_image_server(body: &'static [u8]) -> String {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("mock image listener");
+        let address = listener.local_addr().expect("mock image addr").to_string();
+        thread::spawn(move || {
+            for stream in listener.incoming().flatten() {
+                serve_test_image(stream, body);
+            }
+        });
+        thread::sleep(Duration::from_millis(25));
+        format!("http://{address}/poster.jpg")
+    }
+
+    fn serve_test_image(mut stream: TcpStream, body: &[u8]) {
+        let mut request = Vec::new();
+        let mut chunk = [0_u8; 512];
+        loop {
+            let Ok(count) = stream.read(&mut chunk) else {
+                return;
+            };
+            if count == 0 {
+                return;
+            }
+            request.extend_from_slice(&chunk[..count]);
+            if request.windows(4).any(|window| window == b"\r\n\r\n") {
+                break;
+            }
+        }
+        let _ = write!(
+            stream,
+            "HTTP/1.1 200 OK\r\nContent-Type: image/jpeg\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+            body.len(),
+        );
+        let _ = stream.write_all(body);
+    }
+
+    /// A fake external-provider search client that always matches with a
+    /// fixed poster image URL, for exercising the poster-cache pipeline
+    /// without a real MyAnimeList/Bangumi dependency.
+    struct FixedAnimeSearchClient {
+        image_url: String,
+    }
+
+    impl ExternalAnimeSearchClient for FixedAnimeSearchClient {
+        fn provider(&self) -> crate::catalog::ExternalAnimeProvider {
+            crate::catalog::ExternalAnimeProvider::Bangumi
+        }
+
+        fn search(
+            &self,
+            query: &ExternalAnimeMatchQuery,
+            _limit: u32,
+        ) -> crate::Result<Vec<ExternalAnimeInfo>> {
+            Ok(vec![ExternalAnimeInfo {
+                id: crate::catalog::ExternalAnimeId {
+                    provider: crate::catalog::ExternalAnimeProvider::Bangumi,
+                    value: 1,
+                },
+                titles: ExternalAnimeTitleSet {
+                    primary: query.title.clone(),
+                    chinese: None,
+                    english: None,
+                    japanese: None,
+                    alternate_names: Vec::new(),
+                },
+                episode_count: None,
+                start_year: None,
+                image_url: Some(self.image_url.clone()),
+                summary: None,
+                external_links: Vec::new(),
+            }])
+        }
     }
 
     async fn request_json(app: &Router, path: &str) -> Value {

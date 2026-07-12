@@ -172,7 +172,17 @@ trusted-LAN clients.
   match, the recognized anime identity is persisted to a `catalog-metadata.json`
   overlay and merged onto items lacking provider metadata when `/api/library`
   is served, so clients group episodes under the matched anime with no web-UI
-  step. Existing provider metadata is preserved.
+  step. Existing provider metadata is preserved. The native player refreshes
+  its catalog in the background as soon as a danmaku resolve reports a
+  recognition the cached catalog does not reflect yet (and again when
+  returning to the library screen), so the new series/grouping appears
+  without an app restart. The sidecar also best-effort resolves and caches a
+  poster image for a newly recognized anime (looked up via the configured
+  MyAnimeList/Bangumi providers when dandanplay's match has none) under the
+  data directory, served at `/posters/{mediaId}` and exposed as `posterPath`
+  on `/api/library` items that do not already have a scan-time poster; the
+  native player and web UI both render it through their existing poster
+  loading paths.
 
 ### Android Mobile
 

@@ -314,6 +314,10 @@ pub struct DanmakuLoad {
     pub track: DanmakuTrack,
     pub status: String,
     pub ass_path: Option<PathBuf>,
+    /// Recognized anime display title from a server danmaku match, when the
+    /// server resolved one. Used to detect that the library catalog's
+    /// grouping for this item is now stale (see `PlayerApp::handle_session_events`).
+    pub match_title: Option<String>,
 }
 
 impl DanmakuLoad {
@@ -323,6 +327,7 @@ impl DanmakuLoad {
             track: DanmakuTrack::default(),
             status: "No danmaku source attached".to_owned(),
             ass_path: None,
+            match_title: None,
         }
     }
 
@@ -332,6 +337,7 @@ impl DanmakuLoad {
             track: DanmakuTrack::default(),
             status: message.into(),
             ass_path: None,
+            match_title: None,
         }
     }
 }
@@ -350,6 +356,7 @@ pub fn load_local_danmaku(path: &Path) -> Result<DanmakuLoad, String> {
             track: DanmakuTrack::default(),
             status: format!("ASS overlay attached: {}", path.display()),
             ass_path: Some(path),
+            match_title: None,
         });
     }
 
@@ -375,6 +382,7 @@ pub fn load_local_danmaku(path: &Path) -> Result<DanmakuLoad, String> {
         track: DanmakuTrack::new(comments),
         status: format!("Local danmaku: {count} comments"),
         ass_path: None,
+        match_title: None,
     })
 }
 
@@ -398,6 +406,11 @@ pub fn fetch_server_danmaku(
         .and_then(Value::as_str)
         .unwrap_or("FAILED");
     let message = root.get("message").and_then(Value::as_str);
+    let match_title = root
+        .get("matchTitle")
+        .and_then(Value::as_str)
+        .map(str::to_owned)
+        .filter(|title| !title.trim().is_empty());
     if status != "READY" {
         return Ok(DanmakuLoad {
             kind: DanmakuLoadKind::Server,
@@ -406,6 +419,7 @@ pub fn fetch_server_danmaku(
                 .map(str::to_owned)
                 .unwrap_or_else(|| format!("Server danmaku status: {status}")),
             ass_path: None,
+            match_title,
         });
     }
     let comments = root
@@ -423,6 +437,7 @@ pub fn fetch_server_danmaku(
         track: DanmakuTrack::new(comments),
         status: format!("Server danmaku ({source}): {count} comments"),
         ass_path: None,
+        match_title,
     })
 }
 
@@ -929,7 +944,7 @@ mod tests {
                 request.starts_with("GET /api/danmaku/episode%20id?forceRefresh=true "),
                 "{request}"
             );
-            let body = r#"{"mediaId":"episode id","status":"READY","source":"CACHE","comments":[{"id":"1","timestampMs":1000,"text":"hello","style":{"colorArgb":4294967295,"mode":"SCROLLING","size":"NORMAL"}}]}"#;
+            let body = r#"{"mediaId":"episode id","status":"READY","source":"CACHE","matchTitle":"Example Anime","comments":[{"id":"1","timestampMs":1000,"text":"hello","style":{"colorArgb":4294967295,"mode":"SCROLLING","size":"NORMAL"}}]}"#;
             write!(
                 stream,
                 "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
@@ -946,6 +961,7 @@ mod tests {
         assert_eq!(load.kind, DanmakuLoadKind::Server);
         assert_eq!(load.track.len(), 1);
         assert!(load.status.contains("CACHE"));
+        assert_eq!(load.match_title.as_deref(), Some("Example Anime"));
     }
 
     #[test]

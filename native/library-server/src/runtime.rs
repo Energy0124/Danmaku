@@ -13,6 +13,7 @@ use crate::discovery::DiscoveryAnnouncer;
 use crate::http::{self, HttpServerConfig, HttpServerState};
 use crate::lock::DataDirectoryLock;
 use crate::logging::{CatalogScanSummary, StartupSummary};
+use crate::poster_cache::PosterCacheStore;
 use crate::progress::PlaybackProgressStore;
 use crate::scanner::scan_roots;
 use crate::settings::{
@@ -122,6 +123,9 @@ impl LoadedServer {
         let catalog_metadata = Some(Arc::new(CatalogMetadataStore::new(
             self.options.data_directory.join("catalog-metadata.json"),
         )));
+        let poster_cache = Some(Arc::new(PosterCacheStore::new(
+            self.options.data_directory.join("poster-cache"),
+        )));
         let state = HttpServerState::new(
             published_library,
             progress_store,
@@ -130,6 +134,7 @@ impl LoadedServer {
                 &self.settings,
                 dandanplay_resolver,
                 catalog_metadata,
+                poster_cache,
             ),
         );
         http::app(state)
