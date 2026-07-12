@@ -216,16 +216,6 @@ impl ConnectScreen {
     }
 }
 
-fn paint_brand_mark(ui: &mut egui::Ui, size: f32, branding: &Branding) {
-    let (rect, _) = ui.allocate_exact_size(vec2(size, size), Sense::hover());
-    ui.painter().image(
-        branding.icon.id(),
-        rect,
-        Rect::from_min_max(pos2(0.07, 0.07), pos2(0.93, 0.93)),
-        Color32::WHITE,
-    );
-}
-
 fn paint_library_illustration(ui: &egui::Ui, rect: Rect, branding: &Branding) {
     ui.painter().image(
         branding.mascot.id(),
@@ -548,7 +538,6 @@ impl LibraryScreen {
         session: &LibrarySession,
         posters: &mut PosterCache,
         strings: Strings,
-        branding: &Branding,
     ) -> Option<LibraryAction> {
         let mut action = None;
         let search_id = egui::Id::new("library_search_field");
@@ -559,9 +548,7 @@ impl LibraryScreen {
             .frame(Frame::NONE.fill(palette::BG_NAV))
             .show(ctx, |ui| {
                 ui.vertical_centered(|ui| {
-                    ui.add_space(18.0);
-                    paint_brand_mark(ui, 42.0, branding);
-                    ui.add_space(28.0);
+                    ui.add_space(24.0);
                     if nav_button(
                         ui,
                         Icon::Home,
