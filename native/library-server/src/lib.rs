@@ -1,4 +1,5 @@
 pub mod catalog;
+pub mod catalog_metadata;
 pub mod cli;
 pub mod dandanplay;
 pub mod desktop_import;

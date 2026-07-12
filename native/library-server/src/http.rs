@@ -16,7 +16,8 @@ use tokio::io::{AsyncReadExt, AsyncSeekExt};
 use tokio_util::io::ReaderStream;
 
 use crate::catalog::{PublishedLibrary, normalize_lexically};
-use crate::dandanplay::{DandanplayResolver, LanDanmakuTrack};
+use crate::catalog_metadata::CatalogMetadataStore;
+use crate::dandanplay::{DandanplayResolveResult, DandanplayResolver, LanDanmakuTrack};
 use crate::domain::PlaybackProgress;
 use crate::external_provider::{
     ExternalAnimeListEntry, ExternalAnimeMatchQuery, ExternalAnimeTrackingUpdate,
@@ -38,6 +39,7 @@ pub struct HttpServerConfig {
     pub external_provider_service: Option<Arc<ExternalProviderService>>,
     pub authenticated_post_hooks: Vec<AuthenticatedPostHookConfig>,
     pub dandanplay_resolver: Option<Arc<DandanplayResolver>>,
+    pub catalog_metadata: Option<Arc<CatalogMetadataStore>>,
 }
 
 impl HttpServerConfig {
@@ -45,6 +47,7 @@ impl HttpServerConfig {
         web_assets_root: Option<PathBuf>,
         settings: &HeadlessServerSettings,
         dandanplay_resolver: Option<Arc<DandanplayResolver>>,
+        catalog_metadata: Option<Arc<CatalogMetadataStore>>,
     ) -> Self {
         Self {
             web_assets_root,
@@ -56,6 +59,7 @@ impl HttpServerConfig {
             ))),
             authenticated_post_hooks: Vec::new(),
             dandanplay_resolver,
+            catalog_metadata,
         }
     }
 
@@ -72,6 +76,7 @@ impl HttpServerConfig {
                 token: "0123456789abcdef".to_owned(),
             }],
             dandanplay_resolver: None,
+            catalog_metadata: None,
         }
     }
 }
@@ -92,6 +97,7 @@ pub struct HttpServerState {
     provider_runtime_status: Option<crate::external_provider::LanProviderRuntimeStatus>,
     external_provider_service: Option<Arc<ExternalProviderService>>,
     dandanplay_resolver: Option<Arc<DandanplayResolver>>,
+    catalog_metadata: Option<Arc<CatalogMetadataStore>>,
 }
 
 impl HttpServerState {
@@ -122,6 +128,7 @@ impl HttpServerState {
             provider_runtime_status: config.provider_runtime_status,
             external_provider_service: config.external_provider_service,
             dandanplay_resolver: config.dandanplay_resolver,
+            catalog_metadata: config.catalog_metadata,
         }
     }
 }
@@ -212,7 +219,44 @@ fn handle_catalog(state: &HttpServerState, method: &Method) -> Response<Body> {
     if method != Method::GET {
         return empty_status(StatusCode::METHOD_NOT_ALLOWED);
     }
-    json_response(StatusCode::OK, &state.library.catalog)
+    // Merge dandanplay-recognized anime identities onto items lacking provider
+    // metadata so clients auto-group episodes under the matched anime.
+    match &state.catalog_metadata {
+        Some(store) => json_response(
+            StatusCode::OK,
+            &store.enrich_catalog(&state.library.catalog),
+        ),
+        None => json_response(StatusCode::OK, &state.library.catalog),
+    }
+}
+
+/// Records the recognized dandanplay identity from a resolve result so the
+/// catalog can categorize the item on the next `/api/library` read. Best-effort:
+/// a persistence failure must not fail the danmaku response.
+fn record_recognized_identity(
+    state: &HttpServerState,
+    media_id: &str,
+    result: &DandanplayResolveResult,
+) {
+    let Some(store) = &state.catalog_metadata else {
+        return;
+    };
+    let Some(track) = result.selected_track.as_ref() else {
+        return;
+    };
+    let candidate = &track.match_candidate;
+    let (Some(anime_id), Some(anime_title)) = (candidate.anime_id, candidate.anime_title.clone())
+    else {
+        return;
+    };
+    if let Err(error) = store.record(
+        media_id,
+        anime_id,
+        anime_title,
+        candidate.episode_title.clone(),
+    ) {
+        eprintln!("failed to record catalog metadata for {media_id}: {error}");
+    }
 }
 
 async fn handle_progress(
@@ -333,7 +377,10 @@ async fn handle_danmaku(
         .resolve(&media_id, path, None, true, force_refresh)
         .await
     {
-        Ok(result) => LanDanmakuTrack::from_resolve_result(media_id, result),
+        Ok(result) => {
+            record_recognized_identity(state, &media_id, &result);
+            LanDanmakuTrack::from_resolve_result(media_id, result)
+        }
         Err(error) => LanDanmakuTrack::failed(media_id, error),
     };
     json_response(StatusCode::OK, &track)
@@ -580,7 +627,10 @@ async fn handle_dandanplay_resolve(
         .resolve(&media_id, path, preferred_episode_id, with_related, false)
         .await
     {
-        Ok(result) => json_response(StatusCode::OK, &result.to_provider_response(&media_id)),
+        Ok(result) => {
+            record_recognized_identity(state, &media_id, &result);
+            json_response(StatusCode::OK, &result.to_provider_response(&media_id))
+        }
         Err(error) => text_response(
             StatusCode::BAD_GATEWAY,
             &format!("dandanplay request failed: {error}"),
@@ -1382,6 +1432,45 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn resolving_danmaku_records_identity_and_enriches_catalog() {
+        let fixture = FixtureEnvironment::new();
+        let server = MockDandanplayServer::start(MockDandanplayBehavior::default());
+        let store = Arc::new(CatalogMetadataStore::new(
+            fixture.temp.join("catalog-metadata-route.json"),
+        ));
+        let app = dandanplay_test_app_with_metadata(
+            &fixture,
+            Some(test_resolver(&fixture, &server)),
+            Some(store.clone()),
+        );
+
+        // The catalog item carries no provider metadata before any resolve.
+        let before = request_json(&app, "/api/library").await;
+        let item_before = find_catalog_item(&before, "episode-id");
+        assert!(item_before.get("animeMetadata").is_none());
+
+        // Resolving danmaku records the recognized dandanplay identity.
+        let _ = request_json(&app, "/api/danmaku/episode-id").await;
+        assert_eq!(
+            333,
+            store
+                .get("episode-id")
+                .expect("identity recorded")
+                .dandanplay_anime_id
+        );
+
+        // The catalog route now groups the item under the matched anime.
+        let after = request_json(&app, "/api/library").await;
+        let item_after = find_catalog_item(&after, "episode-id");
+        assert_eq!("Example Anime", item_after["animeMetadata"]["displayTitle"]);
+        assert_eq!(
+            "DANDANPLAY",
+            item_after["animeMetadata"]["animeId"]["provider"]
+        );
+        assert_eq!(333, item_after["animeMetadata"]["animeId"]["value"]);
+    }
+
+    #[tokio::test]
     async fn provider_search_merges_mock_mal_and_bangumi_results() {
         let fixture = FixtureEnvironment::new();
         let provider_server =
@@ -1939,6 +2028,14 @@ mod tests {
         fixture: &FixtureEnvironment,
         resolver: Option<Arc<DandanplayResolver>>,
     ) -> Router {
+        dandanplay_test_app_with_metadata(fixture, resolver, None)
+    }
+
+    fn dandanplay_test_app_with_metadata(
+        fixture: &FixtureEnvironment,
+        resolver: Option<Arc<DandanplayResolver>>,
+        catalog_metadata: Option<Arc<CatalogMetadataStore>>,
+    ) -> Router {
         let state = HttpServerState::new(
             fixture.library.clone(),
             Arc::new(PlaybackProgressStore::new(
@@ -1952,6 +2049,7 @@ mod tests {
                 external_provider_service: None,
                 authenticated_post_hooks: Vec::new(),
                 dandanplay_resolver: resolver,
+                catalog_metadata,
             },
         );
         app(state)
@@ -1974,9 +2072,19 @@ mod tests {
                 external_provider_service: Some(service),
                 authenticated_post_hooks: Vec::new(),
                 dandanplay_resolver: None,
+                catalog_metadata: None,
             },
         );
         app(state)
+    }
+
+    fn find_catalog_item<'a>(catalog: &'a Value, id: &str) -> &'a Value {
+        catalog["items"]
+            .as_array()
+            .expect("catalog items")
+            .iter()
+            .find(|item| item["id"] == id)
+            .expect("catalog item present")
     }
 
     fn test_resolver(

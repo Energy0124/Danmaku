@@ -163,8 +163,12 @@ trusted-LAN clients.
   folders (add/remove) persisted to `local_library_roots`, restarting the
   sidecar with every root. The web UI now auto-loads danmaku when an episode is
   selected and surfaces resolver/upstream failures as readable status text
-  instead of a raw HTTP 502. Server-side auto-recognition/categorization of the
-  catalog from dandanplay matches is the tracked follow-up.
+  instead of a raw HTTP 502. The sidecar now auto-recognizes and categorizes
+  the catalog from dandanplay matches: whenever danmaku resolves a selected
+  match, the recognized anime identity is persisted to a `catalog-metadata.json`
+  overlay and merged onto items lacking provider metadata when `/api/library`
+  is served, so clients group episodes under the matched anime with no web-UI
+  step. Existing provider metadata is preserved.
 
 ### Android Mobile
 

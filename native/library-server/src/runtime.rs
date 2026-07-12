@@ -6,6 +6,7 @@ use axum::Router;
 use tokio::net::TcpListener;
 
 use crate::catalog::{CatalogStore, HeadlessStoredLibrary, PublishedLibrary};
+use crate::catalog_metadata::CatalogMetadataStore;
 use crate::cli::ServerOptions;
 use crate::dandanplay::{DandanplayResolver, apply_dandanplay_local_defaults};
 use crate::discovery::DiscoveryAnnouncer;
@@ -118,6 +119,9 @@ impl LoadedServer {
         let dandanplay_resolver =
             DandanplayResolver::from_settings(&self.settings, &self.options.data_directory)
                 .map(Arc::new);
+        let catalog_metadata = Some(Arc::new(CatalogMetadataStore::new(
+            self.options.data_directory.join("catalog-metadata.json"),
+        )));
         let state = HttpServerState::new(
             published_library,
             progress_store,
@@ -125,6 +129,7 @@ impl LoadedServer {
                 self.options.web_assets_root.clone(),
                 &self.settings,
                 dandanplay_resolver,
+                catalog_metadata,
             ),
         );
         http::app(state)
