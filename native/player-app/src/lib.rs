@@ -18,6 +18,7 @@ pub mod icons;
 pub mod library;
 pub mod localization;
 mod net;
+pub mod platform;
 pub mod posters;
 pub mod preferences;
 pub mod screens;

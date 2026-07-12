@@ -87,6 +87,7 @@ pub struct PlayerApp {
     saved_preferences: PlayerPreferences,
     settings_return: AppScreen,
     local_host: Option<LocalServerSupervisor>,
+    window_effects_applied: bool,
 }
 
 impl PlayerApp {
@@ -239,6 +240,7 @@ impl PlayerApp {
             saved_preferences,
             settings_return: AppScreen::Library,
             local_host,
+            window_effects_applied: false,
         })
     }
 
@@ -1418,8 +1420,12 @@ impl PlayerApp {
 }
 
 impl eframe::App for PlayerApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         let now = Instant::now();
+        if !self.window_effects_applied {
+            crate::platform::apply_rounded_corners(frame);
+            self.window_effects_applied = true;
+        }
         self.show_window_title_bar(ctx);
         self.posters.poll(ctx);
         self.handle_session_events(ctx);
