@@ -7,6 +7,14 @@ fn main() {
     println!("cargo:rerun-if-changed=assets/app.ico");
     println!("cargo:rerun-if-changed=build.rs");
 
+    embed_windows_icon();
+}
+
+#[cfg(not(windows))]
+fn embed_windows_icon() {}
+
+#[cfg(windows)]
+fn embed_windows_icon() {
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() != Ok("windows") {
         return;
     }
