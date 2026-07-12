@@ -1,7 +1,8 @@
 # Assets
 
-- `app-icon.png`: selected G mascot artwork used for runtime window and in-app
-  identity; `app.ico` contains the matching Windows multi-size executable icon.
+- `app-icon.png`: transparent selected G mascot artwork used for Explorer,
+  taskbar, runtime window, and title-bar identity; `app.ico` contains the matching
+  Windows multi-size executable icon.
 - `app-mascot.png`: selected F storybook mascot artwork used for the larger
   onboarding illustration.
 - Both mascot images were generated for this project with OpenAI image generation

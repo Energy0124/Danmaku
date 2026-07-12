@@ -1490,7 +1490,6 @@ impl eframe::App for PlayerApp {
                         session,
                         &mut self.posters,
                         Strings::new(self.preferences.language),
-                        &self.branding,
                     ),
                     None => {
                         self.screen = AppScreen::Connect;

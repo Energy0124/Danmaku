@@ -36,7 +36,7 @@ fn load_texture(
 #[cfg(test)]
 mod tests {
     #[test]
-    fn bundled_branding_images_decode_and_are_square() {
+    fn bundled_branding_images_decode_and_icon_has_transparent_corners() {
         for bytes in [
             include_bytes!("../assets/app-icon.png").as_slice(),
             include_bytes!("../assets/app-mascot.png").as_slice(),
@@ -44,6 +44,15 @@ mod tests {
             let image = image::load_from_memory(bytes).expect("bundled branding image decodes");
             assert_eq!(image.width(), image.height());
             assert!(image.width() >= 512);
+        }
+
+        let icon = image::load_from_memory(include_bytes!("../assets/app-icon.png"))
+            .expect("bundled app icon decodes")
+            .into_rgba8();
+        let max_x = icon.width() - 1;
+        let max_y = icon.height() - 1;
+        for (x, y) in [(0, 0), (max_x, 0), (0, max_y), (max_x, max_y)] {
+            assert_eq!(icon.get_pixel(x, y).0[3], 0);
         }
     }
 }
