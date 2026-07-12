@@ -120,6 +120,78 @@ impl DandanplayCredentials {
     pub fn is_complete(&self) -> bool {
         !self.app_id.trim().is_empty() && !self.app_secret.trim().is_empty()
     }
+
+    /// Imports credentials from the same `local.properties` locations the Kotlin
+    /// desktop app reads (`danmaku.dandanplay.appId`/`appSecret`), so a user who
+    /// configured the old app keeps working without re-entering anything. The
+    /// headless sidecar intentionally ignores these files, so the player reads
+    /// them and injects the result explicitly.
+    pub fn from_local_properties() -> Option<Self> {
+        Self::from_local_properties_at(&local_properties_search_paths())
+    }
+
+    fn from_local_properties_at(paths: &[PathBuf]) -> Option<Self> {
+        let mut app_id: Option<String> = None;
+        let mut app_secret: Option<String> = None;
+        for path in paths {
+            let Ok(text) = fs::read_to_string(path) else {
+                continue;
+            };
+            for line in text.lines() {
+                let trimmed = line.trim();
+                if trimmed.is_empty() || trimmed.starts_with('#') || trimmed.starts_with('!') {
+                    continue;
+                }
+                let Some((key, value)) =
+                    trimmed.split_once('=').or_else(|| trimmed.split_once(':'))
+                else {
+                    continue;
+                };
+                let value = value.trim();
+                if value.is_empty() {
+                    continue;
+                }
+                match key.trim() {
+                    "danmaku.dandanplay.appId" => app_id = Some(value.to_owned()),
+                    "danmaku.dandanplay.appSecret" => app_secret = Some(value.to_owned()),
+                    _ => {}
+                }
+            }
+        }
+        let credentials = Self {
+            app_id: app_id?,
+            app_secret: app_secret?,
+        }
+        .sanitized();
+        credentials.is_complete().then_some(credentials)
+    }
+}
+
+/// The `local.properties` search order the Kotlin desktop app uses.
+fn local_properties_search_paths() -> Vec<PathBuf> {
+    let mut paths = Vec::new();
+    if let Ok(cwd) = std::env::current_dir() {
+        paths.push(cwd.join("local.properties"));
+    }
+    if let Some(local_app_data) = std::env::var_os("LOCALAPPDATA") {
+        paths.push(
+            PathBuf::from(local_app_data)
+                .join("Danmaku")
+                .join("local.properties"),
+        );
+    }
+    if let Some(home) = std::env::var_os("USERPROFILE").or_else(|| std::env::var_os("HOME")) {
+        paths.push(
+            PathBuf::from(home)
+                .join(".danmaku")
+                .join("local.properties"),
+        );
+    }
+    if let Some(explicit) = std::env::var_os("DANMAKU_LOCAL_PROPERTIES") {
+        paths.push(PathBuf::from(explicit));
+    }
+    paths.dedup();
+    paths
 }
 
 #[derive(Clone, Debug)]
@@ -253,6 +325,32 @@ mod tests {
         assert_eq!(loaded.app_id, "app-123");
         assert_eq!(loaded.app_secret, "secret-xyz");
         assert!(loaded.is_complete());
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn imports_dandanplay_credentials_from_local_properties() {
+        let path = temporary_path("local-properties");
+        fs::write(
+            &path,
+            "sdk.dir=W\\:\\\\Android\\\\Sdk\n\
+             # comment\n\
+             danmaku.dandanplay.appId = app-77 \n\
+             danmaku.dandanplay.appSecret= secret-88\n\
+             danmaku.myanimelist.clientId=ignored\n",
+        )
+        .expect("fixture write");
+        let credentials =
+            DandanplayCredentials::from_local_properties_at(std::slice::from_ref(&path))
+                .expect("credentials imported");
+        assert_eq!(credentials.app_id, "app-77");
+        assert_eq!(credentials.app_secret, "secret-88");
+
+        // Missing either half yields nothing.
+        fs::write(&path, "danmaku.dandanplay.appId=only-id\n").expect("fixture write");
+        assert!(
+            DandanplayCredentials::from_local_properties_at(std::slice::from_ref(&path)).is_none()
+        );
         let _ = fs::remove_file(path);
     }
 

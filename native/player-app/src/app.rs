@@ -110,7 +110,15 @@ impl PlayerApp {
         let mut preferences = preference_store.load();
         let saved_preferences = preferences.clone();
         let credential_store = CredentialStore::for_current_user();
-        let dandanplay_credentials = credential_store.load();
+        let mut dandanplay_credentials = credential_store.load();
+        // First run: adopt dandanplay credentials the Kotlin desktop app saved in
+        // local.properties so danmaku works without re-entering them.
+        if !dandanplay_credentials.is_complete()
+            && let Some(imported) = DandanplayCredentials::from_local_properties()
+        {
+            dandanplay_credentials = imported;
+            let _ = credential_store.save(&dandanplay_credentials);
+        }
         let local_host = (cli.media.is_none() && cli.server_url.is_none()).then(|| {
             LocalServerSupervisor::new(
                 &preferences.local_library_roots,
