@@ -36,6 +36,12 @@ pub struct LibrarySession {
     pub progresses: Vec<PlaybackProgress>,
     pub catalog_error: Option<String>,
     pub loading_catalog: bool,
+    /// Bumped every time a new catalog is received. The catalog's own
+    /// `indexedAtEpochMs`/item count do not change when only per-item
+    /// metadata (recognized anime, poster) is enriched server-side, so UI
+    /// caches must key off this instead of catalog content to notice an
+    /// enrichment-only refresh (see `LibraryScreen::refresh_series_cache`).
+    pub catalog_version: u64,
     inbox: Arc<Mutex<Vec<SessionEvent>>>,
     egui_context: egui::Context,
 }
@@ -53,6 +59,7 @@ impl LibrarySession {
             progresses: Vec::new(),
             catalog_error: None,
             loading_catalog: false,
+            catalog_version: 0,
             inbox: Arc::new(Mutex::new(Vec::new())),
             egui_context,
         };
@@ -133,6 +140,7 @@ impl LibrarySession {
                         Ok(catalog) => {
                             self.catalog = Some(catalog);
                             self.catalog_error = None;
+                            self.catalog_version = self.catalog_version.wrapping_add(1);
                         }
                         Err(error) => self.catalog_error = Some(error),
                     }
@@ -187,6 +195,7 @@ mod tests {
             progresses: Vec::new(),
             catalog_error: None,
             loading_catalog: false,
+            catalog_version: 0,
             inbox: Arc::new(Mutex::new(Vec::new())),
             egui_context: egui::Context::default(),
         }
@@ -226,5 +235,43 @@ mod tests {
 
         assert_eq!(session.progresses.len(), 1);
         assert_eq!(session.progresses[0].position_ms, 200);
+    }
+
+    #[test]
+    fn catalog_version_bumps_on_success_and_not_on_error() {
+        let mut session = test_session("http://127.0.0.1:1");
+        let catalog = LibraryCatalog {
+            root_name: "root".to_owned(),
+            indexed_at_epoch_ms: 0,
+            items: Vec::new(),
+        };
+
+        session
+            .inbox
+            .lock()
+            .expect("inbox lock")
+            .push(SessionEvent::Catalog(Ok(catalog.clone())));
+        session.drain_events();
+        assert_eq!(session.catalog_version, 1);
+
+        // A later refresh returning an identical catalog still bumps the
+        // version, since the caller's whole point was noticing a refresh
+        // happened (unlike catalog content, which may be unchanged when only
+        // per-item metadata was enriched server-side).
+        session
+            .inbox
+            .lock()
+            .expect("inbox lock")
+            .push(SessionEvent::Catalog(Ok(catalog)));
+        session.drain_events();
+        assert_eq!(session.catalog_version, 2);
+
+        session
+            .inbox
+            .lock()
+            .expect("inbox lock")
+            .push(SessionEvent::Catalog(Err("boom".to_owned())));
+        session.drain_events();
+        assert_eq!(session.catalog_version, 2);
     }
 }

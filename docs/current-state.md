@@ -182,7 +182,13 @@ trusted-LAN clients.
   data directory, served at `/posters/{mediaId}` and exposed as `posterPath`
   on `/api/library` items that do not already have a scan-time poster; the
   native player and web UI both render it through their existing poster
-  loading paths.
+  loading paths. The library screen's grouped-series cache now keys off a
+  session-tracked catalog version rather than the catalog's scan
+  timestamp/item count, since server-side enrichment can change items
+  without touching either. A series page also exposes a "match episodes"
+  action that resolves danmaku (and records the anime association) for its
+  still-unmatched episodes in the background, without navigating to
+  playback.
 
 ### Android Mobile
 

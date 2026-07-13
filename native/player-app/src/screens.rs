@@ -500,7 +500,14 @@ fn token_or_none(token: &str) -> Option<String> {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum LibraryAction {
-    Play { media_id: String },
+    Play {
+        media_id: String,
+    },
+    /// Resolves danmaku (and records the anime match server-side) for the
+    /// given episodes without navigating to playback.
+    PreloadDanmaku {
+        media_ids: Vec<String>,
+    },
     Refresh,
     Disconnect,
     Settings,
@@ -517,7 +524,10 @@ pub struct LibraryScreen {
     query: String,
     view: LibraryView,
     cached_series: Vec<Series>,
-    cached_catalog_stamp: i64,
+    /// The `LibrarySession::catalog_version` the cache was last built from.
+    /// `None` never matches a real version, so the first render always
+    /// (re)builds the cache.
+    cached_catalog_version: Option<u64>,
 }
 
 impl Default for LibraryScreen {
@@ -526,7 +536,7 @@ impl Default for LibraryScreen {
             query: String::new(),
             view: LibraryView::Home,
             cached_series: Vec::new(),
-            cached_catalog_stamp: i64::MIN,
+            cached_catalog_version: None,
         }
     }
 }
@@ -537,6 +547,7 @@ impl LibraryScreen {
         ctx: &egui::Context,
         session: &LibrarySession,
         posters: &mut PosterCache,
+        pending_preloads: &std::collections::HashSet<String>,
         strings: Strings,
     ) -> Option<LibraryAction> {
         let mut action = None;
@@ -611,7 +622,7 @@ impl LibraryScreen {
                     });
                     return;
                 };
-                self.refresh_series_cache(catalog);
+                self.refresh_series_cache(catalog, session.catalog_version);
 
                 let inner_action = if !self.query.trim().is_empty() {
                     self.show_search_results(ui, catalog, session, posters, strings)
@@ -621,9 +632,14 @@ impl LibraryScreen {
                         LibraryView::AllSeries => {
                             self.show_all_series(ui, session, posters, strings)
                         }
-                        LibraryView::Series(series_id) => {
-                            self.show_series(ui, &series_id, &session.progresses, posters, strings)
-                        }
+                        LibraryView::Series(series_id) => self.show_series(
+                            ui,
+                            &series_id,
+                            &session.progresses,
+                            posters,
+                            pending_preloads,
+                            strings,
+                        ),
                     }
                 };
                 if inner_action.is_some() {
@@ -712,11 +728,15 @@ impl LibraryScreen {
         ui.add_space(20.0);
         action
     }
-    fn refresh_series_cache(&mut self, catalog: &LibraryCatalog) {
-        let stamp = catalog.indexed_at_epoch_ms ^ (catalog.items.len() as i64) << 20;
-        if stamp != self.cached_catalog_stamp {
+    /// Rebuilds the grouped-series cache whenever the session has received a
+    /// newer catalog. Keyed off `catalog_version` rather than catalog
+    /// content: server-side enrichment (recognized anime, cached poster) can
+    /// change items without touching `indexedAtEpochMs` or the item count,
+    /// which a content-derived stamp would otherwise miss.
+    fn refresh_series_cache(&mut self, catalog: &LibraryCatalog, catalog_version: u64) {
+        if self.cached_catalog_version != Some(catalog_version) {
             self.cached_series = grouped_series(catalog);
-            self.cached_catalog_stamp = stamp;
+            self.cached_catalog_version = Some(catalog_version);
         }
     }
 
@@ -926,6 +946,7 @@ impl LibraryScreen {
         series_id: &str,
         progresses: &[PlaybackProgress],
         posters: &mut PosterCache,
+        pending_preloads: &std::collections::HashSet<String>,
         strings: Strings,
     ) -> Option<LibraryAction> {
         let Some(series) = self
@@ -938,6 +959,14 @@ impl LibraryScreen {
             return None;
         };
         let mut action = None;
+        let unmatched_ids: Vec<String> = series
+            .items()
+            .filter(|item| item.anime_metadata.is_none())
+            .map(|item| item.id.clone())
+            .collect();
+        let matching_in_progress = series
+            .items()
+            .any(|item| pending_preloads.contains(&item.id));
         let latest: std::collections::HashMap<&str, &PlaybackProgress> = {
             let mut map: std::collections::HashMap<&str, &PlaybackProgress> =
                 std::collections::HashMap::new();
@@ -962,6 +991,27 @@ impl LibraryScreen {
                     ui.add_space(PAGE_GUTTER);
                     if icon_chip_button(ui, Icon::Back, strings.back()).clicked() {
                         self.view = LibraryView::Home;
+                    }
+                    if !unmatched_ids.is_empty() {
+                        ui.add_space(8.0);
+                        let tooltip = if matching_in_progress {
+                            strings.matching_episodes()
+                        } else {
+                            strings.match_episodes()
+                        };
+                        let response = icon_chip_button(ui, Icon::Danmaku, tooltip);
+                        if matching_in_progress {
+                            ui.add_space(8.0);
+                            ui.label(
+                                RichText::new(strings.matching_episodes())
+                                    .font(typography::caption())
+                                    .color(palette::TEXT_MUTED),
+                            );
+                        } else if response.clicked() {
+                            action = Some(LibraryAction::PreloadDanmaku {
+                                media_ids: unmatched_ids.clone(),
+                            });
+                        }
                     }
                 });
                 ui.add_space(12.0);

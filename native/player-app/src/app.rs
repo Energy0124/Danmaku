@@ -79,6 +79,10 @@ pub struct PlayerApp {
     posters: PosterCache,
     active_media_id: Option<String>,
     pending_play_media_id: Option<String>,
+    /// Media IDs currently resolving danmaku/anime recognition in the
+    /// background without playback (triggered from the library, not the
+    /// player). See `LibraryAction::PreloadDanmaku`.
+    pending_preloads: std::collections::HashSet<String>,
     auto_next: bool,
     eof_handled: bool,
     last_progress_upload: Instant,
@@ -247,6 +251,7 @@ impl PlayerApp {
             posters,
             active_media_id: None,
             pending_play_media_id: None,
+            pending_preloads: std::collections::HashSet::new(),
             auto_next,
             eof_handled: false,
             last_progress_upload: now,
@@ -581,14 +586,20 @@ impl PlayerApp {
                     }
                 }
                 SessionEvent::Danmaku { media_id, load } => {
-                    if self.active_media_id.as_deref() == Some(media_id.as_str()) {
-                        if let Ok(load) = &load
-                            && let Some(match_title) = &load.match_title
-                            && self.library_grouping_is_stale(&media_id, match_title)
-                            && let Some(session) = self.session.as_mut()
-                        {
-                            session.refresh_catalog();
-                        }
+                    let is_active = self.active_media_id.as_deref() == Some(media_id.as_str());
+                    // A preload (see `LibraryAction::PreloadDanmaku`) resolves the same
+                    // way as a playback-triggered fetch but must not touch `self.danmaku`,
+                    // since it can run for an item other than the one on screen.
+                    let is_preload = self.pending_preloads.remove(&media_id);
+                    if (is_active || is_preload)
+                        && let Ok(load) = &load
+                        && let Some(match_title) = &load.match_title
+                        && self.library_grouping_is_stale(&media_id, match_title)
+                        && let Some(session) = self.session.as_mut()
+                    {
+                        session.refresh_catalog();
+                    }
+                    if is_active {
                         self.danmaku = load.unwrap_or_else(DanmakuLoad::failed);
                     }
                 }
@@ -636,6 +647,7 @@ impl PlayerApp {
         self.run_mpv_command(&["stop"]);
         self.active_media_id = None;
         self.session = None;
+        self.pending_preloads.clear();
         self.posters.set_base_url(None);
         self.screen = AppScreen::Connect;
     }
@@ -776,6 +788,7 @@ impl PlayerApp {
         self.run_mpv_command(&["stop"]);
         self.active_media_id = None;
         self.session = None;
+        self.pending_preloads.clear();
         self.posters.set_base_url(None);
         self.screen = AppScreen::Connect;
         if self.discovery.is_none() {
@@ -1539,6 +1552,7 @@ impl eframe::App for PlayerApp {
                         ctx,
                         session,
                         &mut self.posters,
+                        &self.pending_preloads,
                         Strings::new(self.preferences.language),
                     ),
                     None => {
@@ -1549,6 +1563,15 @@ impl eframe::App for PlayerApp {
                 match action {
                     Some(LibraryAction::Play { media_id }) => {
                         self.request_library_play(media_id);
+                    }
+                    Some(LibraryAction::PreloadDanmaku { media_ids }) => {
+                        if let Some(session) = &self.session {
+                            for media_id in media_ids {
+                                if self.pending_preloads.insert(media_id.clone()) {
+                                    session.fetch_danmaku(media_id, false);
+                                }
+                            }
+                        }
                     }
                     Some(LibraryAction::Refresh) => {
                         if let Some(session) = &mut self.session {

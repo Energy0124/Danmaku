@@ -448,6 +448,12 @@ impl Strings {
     pub fn clear_credentials(self) -> &'static str {
         self.text("Clear", "清除")
     }
+    pub fn match_episodes(self) -> &'static str {
+        self.text("Match episodes without playing", "在不播放的情況下比對集數")
+    }
+    pub fn matching_episodes(self) -> &'static str {
+        self.text("Matching episodes…", "正在比對集數…")
+    }
 }
 
 #[cfg(test)]
