@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use axum::Router;
 use axum::body::Body;
@@ -23,6 +23,7 @@ use crate::external_provider::{
     ExternalAnimeListEntry, ExternalAnimeMatchQuery, ExternalAnimeTrackingUpdate,
     ExternalProviderError, ExternalProviderService, parse_provider_alias, provider_runtime_status,
 };
+use crate::poster_cache::PosterCacheStore;
 use crate::progress::PlaybackProgressStore;
 use crate::settings::HeadlessServerSettings;
 
@@ -40,6 +41,7 @@ pub struct HttpServerConfig {
     pub authenticated_post_hooks: Vec<AuthenticatedPostHookConfig>,
     pub dandanplay_resolver: Option<Arc<DandanplayResolver>>,
     pub catalog_metadata: Option<Arc<CatalogMetadataStore>>,
+    pub poster_cache: Option<Arc<PosterCacheStore>>,
 }
 
 impl HttpServerConfig {
@@ -48,6 +50,7 @@ impl HttpServerConfig {
         settings: &HeadlessServerSettings,
         dandanplay_resolver: Option<Arc<DandanplayResolver>>,
         catalog_metadata: Option<Arc<CatalogMetadataStore>>,
+        poster_cache: Option<Arc<PosterCacheStore>>,
     ) -> Self {
         Self {
             web_assets_root,
@@ -60,6 +63,7 @@ impl HttpServerConfig {
             authenticated_post_hooks: Vec::new(),
             dandanplay_resolver,
             catalog_metadata,
+            poster_cache,
         }
     }
 
@@ -77,6 +81,7 @@ impl HttpServerConfig {
             }],
             dandanplay_resolver: None,
             catalog_metadata: None,
+            poster_cache: None,
         }
     }
 }
@@ -98,6 +103,12 @@ pub struct HttpServerState {
     external_provider_service: Option<Arc<ExternalProviderService>>,
     dandanplay_resolver: Option<Arc<DandanplayResolver>>,
     catalog_metadata: Option<Arc<CatalogMetadataStore>>,
+    poster_cache: Option<Arc<PosterCacheStore>>,
+    /// Media IDs with a poster search/download currently in flight, so
+    /// concurrent `/api/library` reads (which retry missing posters — see
+    /// `handle_catalog`) don't pile up redundant external requests for the
+    /// same item while one is already running.
+    poster_resolution_in_flight: Arc<Mutex<BTreeSet<String>>>,
 }
 
 impl HttpServerState {
@@ -129,6 +140,8 @@ impl HttpServerState {
             external_provider_service: config.external_provider_service,
             dandanplay_resolver: config.dandanplay_resolver,
             catalog_metadata: config.catalog_metadata,
+            poster_cache: config.poster_cache,
+            poster_resolution_in_flight: Arc::new(Mutex::new(BTreeSet::new())),
         }
     }
 }
@@ -171,6 +184,9 @@ async fn dispatch(State(state): State<HttpServerState>, request: Request<Body>) 
     if path.starts_with("/api/providers/dandanplay/resolve") {
         return handle_dandanplay_resolve(&state, &method, &path, query.as_deref()).await;
     }
+    if path.starts_with("/api/providers/dandanplay/search") {
+        return handle_dandanplay_search(&state, &method, &path, query.as_deref()).await;
+    }
     if path.starts_with("/media/") {
         return handle_media(&state, &method, &path, &headers).await;
     }
@@ -185,14 +201,7 @@ async fn dispatch(State(state): State<HttpServerState>, request: Request<Body>) 
         .await;
     }
     if path.starts_with("/posters/") {
-        return handle_static_mapped_file(
-            &state.library.poster_files_by_id,
-            "/posters/",
-            "private, max-age=3600",
-            &method,
-            &path,
-        )
-        .await;
+        return handle_poster(&state, &method, &path).await;
     }
     if path.starts_with("/web") {
         return handle_web_asset(&state, &method, &path, &headers).await;
@@ -221,13 +230,28 @@ fn handle_catalog(state: &HttpServerState, method: &Method) -> Response<Body> {
     }
     // Merge dandanplay-recognized anime identities onto items lacking provider
     // metadata so clients auto-group episodes under the matched anime.
-    match &state.catalog_metadata {
-        Some(store) => json_response(
-            StatusCode::OK,
-            &store.enrich_catalog(&state.library.catalog),
-        ),
-        None => json_response(StatusCode::OK, &state.library.catalog),
+    let Some(store) = &state.catalog_metadata else {
+        return json_response(StatusCode::OK, &state.library.catalog);
+    };
+    let enriched = store.enrich_catalog(&state.library.catalog);
+    // Best-effort retry for items that were recognized but never got a
+    // poster cached — the local server can be hard-killed (the desktop host
+    // stops its managed sidecar with a process kill, not a graceful signal)
+    // mid-download, so a one-shot fetch on recognition alone can be lost with
+    // no other retry. Retrying here piggybacks on every catalog read instead.
+    for item in &enriched.items {
+        if item.poster_path.is_none()
+            && let Some(metadata) = &item.anime_metadata
+        {
+            ensure_poster_resolved(
+                state,
+                &item.id,
+                metadata.image_url.clone(),
+                Some(metadata.display_title.clone()),
+            );
+        }
     }
+    json_response(StatusCode::OK, &enriched)
 }
 
 /// Records the recognized dandanplay identity from a resolve result so the
@@ -252,10 +276,115 @@ fn record_recognized_identity(
     if let Err(error) = store.record(
         media_id,
         anime_id,
-        anime_title,
+        anime_title.clone(),
         candidate.episode_title.clone(),
     ) {
         eprintln!("failed to record catalog metadata for {media_id}: {error}");
+        return;
+    }
+    // Dandanplay matches never carry a poster image (see `ensure_poster_resolved`'s
+    // external-provider fallback); always attempt one here regardless of whether
+    // this call changed the recorded identity; a no-op when a poster already
+    // exists or another attempt is already in flight.
+    ensure_poster_resolved(state, media_id, None, Some(anime_title));
+}
+
+/// Best-effort background fetch: caches a poster image for a recognized
+/// item, either from `image_url_hint` (already known, e.g. from provider
+/// metadata) or by searching the configured external providers by
+/// `anime_title`. Deduplicated per media ID via `poster_resolution_in_flight`
+/// so repeated retries (see `handle_catalog`) don't pile up redundant
+/// requests while one is already running. Fire-and-forget (spawned, not
+/// awaited) so the caller is never delayed by an external search or download.
+fn ensure_poster_resolved(
+    state: &HttpServerState,
+    media_id: &str,
+    image_url_hint: Option<String>,
+    anime_title: Option<String>,
+) {
+    if image_url_hint
+        .as_deref()
+        .unwrap_or_default()
+        .trim()
+        .is_empty()
+        && anime_title.as_deref().unwrap_or_default().trim().is_empty()
+    {
+        return;
+    }
+    let (Some(catalog_metadata), Some(poster_cache)) =
+        (state.catalog_metadata.clone(), state.poster_cache.clone())
+    else {
+        return;
+    };
+    let media_id = media_id.to_owned();
+    {
+        let mut in_flight = state
+            .poster_resolution_in_flight
+            .lock()
+            .expect("poster in-flight lock should not be poisoned");
+        if !in_flight.insert(media_id.clone()) {
+            return;
+        }
+    }
+    let in_flight_set = Arc::clone(&state.poster_resolution_in_flight);
+    let provider_service = state.external_provider_service.clone();
+    tokio::spawn(async move {
+        resolve_and_cache_poster(
+            &catalog_metadata,
+            &poster_cache,
+            provider_service.as_deref(),
+            &media_id,
+            image_url_hint,
+            anime_title,
+        )
+        .await;
+        in_flight_set
+            .lock()
+            .expect("poster in-flight lock should not be poisoned")
+            .remove(&media_id);
+    });
+}
+
+async fn resolve_and_cache_poster(
+    catalog_metadata: &CatalogMetadataStore,
+    poster_cache: &Arc<PosterCacheStore>,
+    provider_service: Option<&ExternalProviderService>,
+    media_id: &str,
+    image_url_hint: Option<String>,
+    anime_title: Option<String>,
+) {
+    let image_url = match image_url_hint.filter(|url| !url.trim().is_empty()) {
+        Some(url) => Some(url),
+        None => {
+            let (Some(provider_service), Some(anime_title)) = (provider_service, anime_title)
+            else {
+                return;
+            };
+            let query = ExternalAnimeMatchQuery {
+                title: anime_title,
+                alternate_titles: Vec::new(),
+                episode_count: None,
+                start_year: None,
+            };
+            provider_service
+                .search(query, BTreeSet::new(), 1)
+                .await
+                .into_iter()
+                .find_map(|candidate| candidate.anime.image_url)
+        }
+    };
+    let Some(image_url) = image_url else {
+        return;
+    };
+    let cache = Arc::clone(poster_cache);
+    let cached_path = tokio::task::spawn_blocking(move || cache.resolve(&image_url))
+        .await
+        .ok()
+        .flatten();
+    if let Some(path) = cached_path
+        && let Err(error) = catalog_metadata.record_poster(media_id, path)
+    {
+        eprintln!("failed to record poster for {media_id}: {error}");
     }
 }
 
@@ -611,6 +740,55 @@ async fn handle_dandanplay_resolve(
         },
         None => true,
     };
+    // Selecting a specific episodeId already bypasses the single-candidate
+    // cache (see `DandanplayResolver::resolve`), but listing candidates
+    // (no episodeId) does not by default — a prior auto-match's cache entry
+    // only remembers the one candidate it picked, not the full list, so a
+    // match picker must force a fresh match to see alternatives.
+    let force_refresh = match query.get("forceRefresh") {
+        Some(value) => match parse_boolean_query_parameter(value) {
+            Some(value) => value,
+            None => {
+                return text_response(
+                    StatusCode::BAD_REQUEST,
+                    "Query parameter 'forceRefresh' must be true or false.",
+                );
+            }
+        },
+        None => false,
+    };
+    let anime_id = match query.get("animeId") {
+        Some(value) => match value.trim().parse::<u64>().ok().filter(|value| *value > 0) {
+            Some(value) => Some(value),
+            None => {
+                return text_response(
+                    StatusCode::BAD_REQUEST,
+                    "Query parameter 'animeId' must be positive.",
+                );
+            }
+        },
+        None => None,
+    };
+    // An episode picked from a keyword search may not be among the hash
+    // matches, so the caller passes the titles it saw; a synthesized match
+    // candidate carries them through selection into the recognized-identity
+    // record. animeId falls back to dandanplay's episodeId convention
+    // (animeId * 10000 + episode index) when not given.
+    let preferred_match = preferred_episode_id.map(|episode_id| {
+        crate::dandanplay::DandanplayMatch::new(
+            episode_id,
+            anime_id.or_else(|| Some(episode_id / 10_000).filter(|id| *id > 0)),
+            query
+                .get("animeTitle")
+                .map(|value| value.trim().to_owned())
+                .filter(|value| !value.is_empty()),
+            query
+                .get("episodeTitle")
+                .map(|value| value.trim().to_owned())
+                .filter(|value| !value.is_empty()),
+            None,
+        )
+    });
     let Some(path) = state.library.files_by_id.get(&media_id) else {
         return text_response(StatusCode::NOT_FOUND, "Media item was not found.");
     };
@@ -624,13 +802,60 @@ async fn handle_dandanplay_resolve(
         );
     };
     match resolver
-        .resolve(&media_id, path, preferred_episode_id, with_related, false)
+        .resolve(
+            &media_id,
+            path,
+            preferred_match,
+            with_related,
+            force_refresh,
+        )
         .await
     {
         Ok(result) => {
             record_recognized_identity(state, &media_id, &result);
             json_response(StatusCode::OK, &result.to_provider_response(&media_id))
         }
+        Err(error) => text_response(
+            StatusCode::BAD_GATEWAY,
+            &format!("dandanplay request failed: {error}"),
+        ),
+    }
+}
+
+/// Searches the dandanplay database by anime keyword for the manual match
+/// picker, returning each anime with its full episode list.
+async fn handle_dandanplay_search(
+    state: &HttpServerState,
+    method: &Method,
+    path: &str,
+    query: Option<&str>,
+) -> Response<Body> {
+    if method != Method::GET {
+        return empty_status(StatusCode::METHOD_NOT_ALLOWED);
+    }
+    if path != "/api/providers/dandanplay/search" {
+        return empty_status(StatusCode::NOT_FOUND);
+    }
+    let query = parse_query_parameters(query);
+    let Some(keyword) = query
+        .get("keyword")
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+    else {
+        return text_response(
+            StatusCode::BAD_REQUEST,
+            "Query parameter 'keyword' is required.",
+        );
+    };
+    let Some(resolver) = &state.dandanplay_resolver else {
+        return text_response(
+            StatusCode::BAD_GATEWAY,
+            "dandanplay request failed: Danmaku resolver is not available.",
+        );
+    };
+    match resolver.search_episodes(&keyword).await {
+        Ok(animes) => json_response(StatusCode::OK, &serde_json::json!({ "animes": animes })),
         Err(error) => text_response(
             StatusCode::BAD_GATEWAY,
             &format!("dandanplay request failed: {error}"),
@@ -701,6 +926,25 @@ async fn handle_media(
     }
     let stream = ReaderStream::new(file.take(content_length));
     response_with_headers(status, response_headers, Body::from_stream(stream))
+}
+
+/// Serves `/posters/{mediaId}`, checking the scan-time static poster map
+/// first and falling back to a poster cached from anime recognition (see
+/// `spawn_poster_resolution`), which is not known until runtime.
+async fn handle_poster(state: &HttpServerState, method: &Method, path: &str) -> Response<Body> {
+    if method != Method::GET && method != Method::HEAD {
+        return empty_status(StatusCode::METHOD_NOT_ALLOWED);
+    }
+    let id = path.strip_prefix("/posters/").unwrap_or_default();
+    if let Some(file) = state.library.poster_files_by_id.get(id) {
+        return serve_file(file, method, "private, max-age=3600").await;
+    }
+    if let Some(store) = &state.catalog_metadata
+        && let Some(file) = store.poster_file(id)
+    {
+        return serve_file(&file, method, "private, max-age=3600").await;
+    }
+    empty_status(StatusCode::NOT_FOUND)
 }
 
 async fn handle_static_mapped_file(
@@ -1274,8 +1518,9 @@ mod tests {
         DandanplayResolver,
     };
     use crate::external_provider::{
-        BangumiSearchClient, BangumiTrackingClient, ExternalProviderService,
-        MyAnimeListSearchClient, MyAnimeListTrackingClient,
+        BangumiSearchClient, BangumiTrackingClient, ExternalAnimeInfo, ExternalAnimeSearchClient,
+        ExternalAnimeTitleSet, ExternalProviderService, MyAnimeListSearchClient,
+        MyAnimeListTrackingClient,
     };
     use crate::settings::HeadlessDandanplayAuthenticationMode;
 
@@ -1432,6 +1677,124 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn force_refresh_returns_full_candidate_list_after_a_cached_single_pick() {
+        let fixture = FixtureEnvironment::new();
+        let server = MockDandanplayServer::start(MockDandanplayBehavior::default());
+        let app = dandanplay_test_app(&fixture, Some(test_resolver(&fixture, &server)));
+
+        // The first auto-resolve (no episodeId) caches only the one
+        // candidate it ended up selecting.
+        let _ = request_json(&app, "/api/providers/dandanplay/resolve?mediaId=episode-id").await;
+
+        // Without forceRefresh, listing again just replays that single
+        // cached pick instead of the original full candidate list — a match
+        // picker cannot offer alternatives from this response.
+        let cached =
+            request_json(&app, "/api/providers/dandanplay/resolve?mediaId=episode-id").await;
+        assert_eq!(1, cached["matches"].as_array().expect("matches").len());
+
+        // forceRefresh bypasses that cache and returns every candidate again.
+        let refreshed = request_json(
+            &app,
+            "/api/providers/dandanplay/resolve?mediaId=episode-id&forceRefresh=true",
+        )
+        .await;
+        assert_eq!(2, refreshed["matches"].as_array().expect("matches").len());
+
+        let invalid = app
+            .clone()
+            .oneshot(get(
+                "/api/providers/dandanplay/resolve?mediaId=episode-id&forceRefresh=maybe",
+            ))
+            .await
+            .expect("invalid response");
+        assert_eq!(StatusCode::BAD_REQUEST, invalid.status());
+        assert_text_body(
+            invalid,
+            "Query parameter 'forceRefresh' must be true or false.",
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn dandanplay_search_lists_animes_with_episodes() {
+        let fixture = FixtureEnvironment::new();
+        let server = MockDandanplayServer::start(MockDandanplayBehavior::default());
+        let app = dandanplay_test_app(&fixture, Some(test_resolver(&fixture, &server)));
+
+        let missing = app
+            .clone()
+            .oneshot(get("/api/providers/dandanplay/search"))
+            .await
+            .expect("missing keyword response");
+        assert_eq!(StatusCode::BAD_REQUEST, missing.status());
+        assert_text_body(missing, "Query parameter 'keyword' is required.").await;
+
+        let response = request_json(
+            &app,
+            "/api/providers/dandanplay/search?keyword=Searched%20Anime",
+        )
+        .await;
+        let animes = response["animes"].as_array().expect("animes");
+        assert_eq!(1, animes.len());
+        assert_eq!(999, animes[0]["animeId"]);
+        assert_eq!("Searched Anime", animes[0]["animeTitle"]);
+        assert_eq!("TV Series", animes[0]["typeDescription"]);
+        let episodes = animes[0]["episodes"].as_array().expect("episodes");
+        assert_eq!(2, episodes.len());
+        assert_eq!(9990001, episodes[0]["episodeId"]);
+        assert_eq!("Episode 1", episodes[0]["episodeTitle"]);
+
+        // The keyword reaches the dandanplay API URL-encoded.
+        let search_request = server
+            .requests()
+            .into_iter()
+            .find(|request| request.path == "/api/v2/search/episodes")
+            .expect("search request");
+        assert_eq!(
+            Some("anime=Searched+Anime"),
+            search_request.query.as_deref()
+        );
+    }
+
+    #[tokio::test]
+    async fn selecting_a_searched_episode_outside_hash_matches_pins_and_records_it() {
+        let fixture = FixtureEnvironment::new();
+        let server = MockDandanplayServer::start(MockDandanplayBehavior::default());
+        let store = Arc::new(CatalogMetadataStore::new(
+            fixture.temp.join("catalog-metadata-search-pin.json"),
+        ));
+        let app = dandanplay_test_app_with_metadata(
+            &fixture,
+            Some(test_resolver(&fixture, &server)),
+            Some(store.clone()),
+        );
+
+        // Episode 9990002 comes from a keyword search; the mock hash match
+        // only ever proposes 111/222, so pinning it must survive not being
+        // among the candidates.
+        let response = request_json(
+            &app,
+            "/api/providers/dandanplay/resolve?mediaId=episode-id&episodeId=9990002&animeId=999&animeTitle=Searched%20Anime&episodeTitle=Episode%202",
+        )
+        .await;
+        assert_eq!(9990002, response["selectedMatch"]["episodeId"]);
+        assert_eq!("Searched Anime", response["selectedMatch"]["animeTitle"]);
+        assert_eq!(2, response["commentCount"]);
+
+        let recorded = store.get("episode-id").expect("identity recorded");
+        assert_eq!(999, recorded.dandanplay_anime_id);
+        assert_eq!("Searched Anime", recorded.anime_title);
+        assert_eq!(Some("Episode 2"), recorded.episode_title.as_deref());
+
+        // The pinned selection becomes the cached match for later plain reads.
+        let cached = request_json(&app, "/api/danmaku/episode-id").await;
+        assert_eq!("READY", cached["status"]);
+        assert_eq!(9990002, cached["episodeId"]);
+        assert_eq!("Searched Anime", cached["animeTitle"]);
+    }
+
+    #[tokio::test]
     async fn resolving_danmaku_records_identity_and_enriches_catalog() {
         let fixture = FixtureEnvironment::new();
         let server = MockDandanplayServer::start(MockDandanplayBehavior::default());
@@ -1468,6 +1831,163 @@ mod tests {
             item_after["animeMetadata"]["animeId"]["provider"]
         );
         assert_eq!(333, item_after["animeMetadata"]["animeId"]["value"]);
+    }
+
+    #[tokio::test]
+    async fn resolving_danmaku_caches_and_serves_a_recognized_anime_poster() {
+        const POSTER_BYTES: &[u8] = &[0xff, 0xd8, 0xff, 0xd9];
+
+        let fixture = FixtureEnvironment::new();
+        let dandanplay_server = MockDandanplayServer::start(MockDandanplayBehavior::default());
+        let catalog_metadata = Arc::new(CatalogMetadataStore::new(
+            fixture.temp.join("catalog-metadata-poster-route.json"),
+        ));
+        let poster_cache = Arc::new(PosterCacheStore::new(fixture.temp.join("poster-cache")));
+        let image_url = start_test_image_server(POSTER_BYTES);
+        let provider_service = Arc::new(ExternalProviderService::new_for_tests(
+            vec![Arc::new(FixedAnimeSearchClient { image_url })],
+            Vec::new(),
+        ));
+        let app = dandanplay_test_app_full(
+            &fixture,
+            Some(test_resolver(&fixture, &dandanplay_server)),
+            Some(catalog_metadata.clone()),
+            Some(poster_cache),
+            Some(provider_service),
+        );
+
+        // Resolving danmaku records the identity and spawns a background
+        // poster fetch; the danmaku response itself does not wait on it.
+        let _ = request_json(&app, "/api/danmaku/episode-id").await;
+        let poster_recorded = wait_for(Duration::from_secs(2), || {
+            catalog_metadata.poster_file("episode-id").is_some()
+        })
+        .await;
+        assert!(poster_recorded, "poster should be cached in the background");
+        let cached_file = catalog_metadata
+            .poster_file("episode-id")
+            .expect("poster file recorded");
+        assert_eq!(
+            POSTER_BYTES,
+            fs::read(&cached_file).expect("poster bytes").as_slice()
+        );
+
+        // The fixture item already carries a static scan-time poster, so the
+        // published catalog and `/posters/` route keep serving that one
+        // untouched rather than switching to the newly cached image.
+        let catalog = request_json(&app, "/api/library").await;
+        let item = find_catalog_item(&catalog, "episode-id");
+        assert_eq!(Some("/posters/episode-id"), item["posterPath"].as_str());
+        let response = app
+            .clone()
+            .oneshot(get("/posters/episode-id"))
+            .await
+            .expect("poster response");
+        assert_eq!(StatusCode::OK, response.status());
+        let bytes = to_bytes(response.into_body(), 1_048_576)
+            .await
+            .expect("poster bytes");
+        assert_eq!([1_u8, 35, 69, 103], bytes.as_ref());
+    }
+
+    #[tokio::test]
+    async fn catalog_reads_backfill_a_poster_left_unresolved_by_a_prior_process() {
+        const POSTER_BYTES: &[u8] = &[0x89, 0x50, 0x4e, 0x47];
+
+        // Simulates a real failure mode found in production data: the local
+        // server is hard-killed (not gracefully shut down) whenever the
+        // desktop host stops its managed sidecar, so a recognition's
+        // fire-and-forget poster fetch can be lost with the identity already
+        // recorded — here reproduced by recording the identity directly,
+        // bypassing the danmaku route the initial fetch would have used.
+        let temp = temp_dir("danmaku-poster-backfill");
+        let item = LibraryMediaItem {
+            id: "unposted-id".to_owned(),
+            series_title: "Example Show".to_owned(),
+            episode_title: "Episode 01".to_owned(),
+            relative_path: "Example Show/Episode 01.bin".to_owned(),
+            size_bytes: 6,
+            media_type: "application/octet-stream".to_owned(),
+            stream_path: "/media/unposted-id".to_owned(),
+            indexed_at_epoch_ms: 1_700_000_000_000,
+            subtitles: Vec::new(),
+            poster_path: None,
+            anime_metadata: None,
+            metadata_status: Default::default(),
+        };
+        let library = PublishedLibrary {
+            catalog: LibraryCatalog {
+                root_name: "Fixture Library".to_owned(),
+                indexed_at_epoch_ms: 1_700_000_000_000,
+                items: vec![item],
+            },
+            files_by_id: PathMap::new(),
+            subtitle_files_by_id: PathMap::new(),
+            poster_files_by_id: PathMap::new(),
+        };
+        let catalog_metadata = Arc::new(CatalogMetadataStore::new(
+            temp.join("catalog-metadata-backfill.json"),
+        ));
+        catalog_metadata
+            .record("unposted-id", 42, "Backfill Anime".to_owned(), None)
+            .expect("identity recorded as if by a prior process");
+        assert!(
+            catalog_metadata.poster_file("unposted-id").is_none(),
+            "no poster recorded yet, matching the interrupted-process scenario"
+        );
+
+        let poster_cache = Arc::new(PosterCacheStore::new(temp.join("poster-cache")));
+        let image_url = start_test_image_server(POSTER_BYTES);
+        let provider_service = Arc::new(ExternalProviderService::new_for_tests(
+            vec![Arc::new(FixedAnimeSearchClient { image_url })],
+            Vec::new(),
+        ));
+        let state = HttpServerState::new(
+            library,
+            Arc::new(PlaybackProgressStore::new(
+                temp.join("progress-backfill.json"),
+            )),
+            HttpServerConfig {
+                web_assets_root: None,
+                host_mode: HOST_MODE_HEADLESS_SERVER.to_owned(),
+                provider_settings: None,
+                provider_runtime_status: None,
+                external_provider_service: Some(provider_service),
+                authenticated_post_hooks: Vec::new(),
+                dandanplay_resolver: None,
+                catalog_metadata: Some(catalog_metadata.clone()),
+                poster_cache: Some(poster_cache),
+            },
+        );
+
+        // A plain catalog read (no danmaku resolve involved) is enough to
+        // notice the missing poster and retry it in the background.
+        let _ = handle_catalog(&state, &Method::GET);
+        let poster_recorded = wait_for(Duration::from_secs(2), || {
+            catalog_metadata.poster_file("unposted-id").is_some()
+        })
+        .await;
+        assert!(
+            poster_recorded,
+            "a later catalog read should backfill the lost poster"
+        );
+        let cached_file = catalog_metadata
+            .poster_file("unposted-id")
+            .expect("poster file recorded");
+        assert_eq!(
+            POSTER_BYTES,
+            fs::read(&cached_file).expect("poster bytes").as_slice()
+        );
+
+        let enriched = handle_catalog(&state, &Method::GET);
+        let body = to_bytes(enriched.into_body(), 1_048_576)
+            .await
+            .expect("body");
+        let catalog: Value = serde_json::from_slice(&body).expect("json body");
+        let item = find_catalog_item(&catalog, "unposted-id");
+        assert_eq!(Some("/posters/unposted-id"), item["posterPath"].as_str());
+
+        fs::remove_dir_all(temp).ok();
     }
 
     #[tokio::test]
@@ -2036,6 +2556,16 @@ mod tests {
         resolver: Option<Arc<DandanplayResolver>>,
         catalog_metadata: Option<Arc<CatalogMetadataStore>>,
     ) -> Router {
+        dandanplay_test_app_full(fixture, resolver, catalog_metadata, None, None)
+    }
+
+    fn dandanplay_test_app_full(
+        fixture: &FixtureEnvironment,
+        resolver: Option<Arc<DandanplayResolver>>,
+        catalog_metadata: Option<Arc<CatalogMetadataStore>>,
+        poster_cache: Option<Arc<PosterCacheStore>>,
+        external_provider_service: Option<Arc<ExternalProviderService>>,
+    ) -> Router {
         let state = HttpServerState::new(
             fixture.library.clone(),
             Arc::new(PlaybackProgressStore::new(
@@ -2046,10 +2576,11 @@ mod tests {
                 host_mode: HOST_MODE_HEADLESS_SERVER.to_owned(),
                 provider_settings: None,
                 provider_runtime_status: None,
-                external_provider_service: None,
+                external_provider_service,
                 authenticated_post_hooks: Vec::new(),
                 dandanplay_resolver: resolver,
                 catalog_metadata,
+                poster_cache,
             },
         );
         app(state)
@@ -2073,6 +2604,7 @@ mod tests {
                 authenticated_post_hooks: Vec::new(),
                 dandanplay_resolver: None,
                 catalog_metadata: None,
+                poster_cache: None,
             },
         );
         app(state)
@@ -2105,6 +2637,96 @@ mod tests {
             30,
             || 2 * 24 * 60 * 60 * 1_000,
         ))
+    }
+
+    /// Polls `condition` until it is true or `timeout` elapses, for asserting
+    /// on state set by a fire-and-forget background task.
+    async fn wait_for(timeout: Duration, mut condition: impl FnMut() -> bool) -> bool {
+        let deadline = tokio::time::Instant::now() + timeout;
+        loop {
+            if condition() {
+                return true;
+            }
+            if tokio::time::Instant::now() >= deadline {
+                return false;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    }
+
+    /// A one-shot plain-HTTP server that returns `body` for any request, used
+    /// to stand in for a provider's poster CDN in tests.
+    fn start_test_image_server(body: &'static [u8]) -> String {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("mock image listener");
+        let address = listener.local_addr().expect("mock image addr").to_string();
+        thread::spawn(move || {
+            for stream in listener.incoming().flatten() {
+                serve_test_image(stream, body);
+            }
+        });
+        thread::sleep(Duration::from_millis(25));
+        format!("http://{address}/poster.jpg")
+    }
+
+    fn serve_test_image(mut stream: TcpStream, body: &[u8]) {
+        let mut request = Vec::new();
+        let mut chunk = [0_u8; 512];
+        loop {
+            let Ok(count) = stream.read(&mut chunk) else {
+                return;
+            };
+            if count == 0 {
+                return;
+            }
+            request.extend_from_slice(&chunk[..count]);
+            if request.windows(4).any(|window| window == b"\r\n\r\n") {
+                break;
+            }
+        }
+        let _ = write!(
+            stream,
+            "HTTP/1.1 200 OK\r\nContent-Type: image/jpeg\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+            body.len(),
+        );
+        let _ = stream.write_all(body);
+    }
+
+    /// A fake external-provider search client that always matches with a
+    /// fixed poster image URL, for exercising the poster-cache pipeline
+    /// without a real MyAnimeList/Bangumi dependency.
+    struct FixedAnimeSearchClient {
+        image_url: String,
+    }
+
+    impl ExternalAnimeSearchClient for FixedAnimeSearchClient {
+        fn provider(&self) -> crate::catalog::ExternalAnimeProvider {
+            crate::catalog::ExternalAnimeProvider::Bangumi
+        }
+
+        fn search(
+            &self,
+            query: &ExternalAnimeMatchQuery,
+            _limit: u32,
+        ) -> crate::Result<Vec<ExternalAnimeInfo>> {
+            Ok(vec![ExternalAnimeInfo {
+                id: crate::catalog::ExternalAnimeId {
+                    provider: crate::catalog::ExternalAnimeProvider::Bangumi,
+                    value: 1,
+                },
+                titles: ExternalAnimeTitleSet {
+                    primary: query.title.clone(),
+                    chinese: None,
+                    english: None,
+                    japanese: None,
+                    alternate_names: Vec::new(),
+                },
+                episode_count: None,
+                start_year: None,
+                image_url: Some(self.image_url.clone()),
+                summary: None,
+                external_links: Vec::new(),
+            }])
+        }
     }
 
     async fn request_json(app: &Router, path: &str) -> Value {
@@ -2429,9 +3051,13 @@ mod tests {
                 behavior.match_status,
                 r#"{"success":true,"matches":[{"episodeId":111,"animeId":333,"animeTitle":"Example Anime","episodeTitle":"Episode 00"},{"episodeId":222,"animeId":333,"animeTitle":"Example Anime","episodeTitle":"Episode 01","shift":0.5}]}"#,
             ),
-            "/api/v2/comment/111" | "/api/v2/comment/222" => (
+            "/api/v2/comment/111" | "/api/v2/comment/222" | "/api/v2/comment/9990002" => (
                 behavior.comment_status,
                 r#"{"success":true,"comments":[{"cid":"c-1","p":"1.5,1,25,16777215,0,0,user,row-1","m":"hello"},{"cid":"c-2","p":"2.0,5,18,16711680,0,0,user,row-2","m":"top"}]}"#,
+            ),
+            "/api/v2/search/episodes" => (
+                200,
+                r#"{"success":true,"animes":[{"animeId":999,"animeTitle":"Searched Anime","typeDescription":"TV Series","episodes":[{"episodeId":9990001,"episodeTitle":"Episode 1"},{"episodeId":9990002,"episodeTitle":"Episode 2"}]}]}"#,
             ),
             _ => (404, r#"{"success":false,"message":"not found"}"#),
         };

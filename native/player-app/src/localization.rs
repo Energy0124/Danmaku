@@ -448,6 +448,45 @@ impl Strings {
     pub fn clear_credentials(self) -> &'static str {
         self.text("Clear", "清除")
     }
+    pub fn match_episodes(self) -> &'static str {
+        self.text("Match episodes without playing", "在不播放的情況下比對集數")
+    }
+    pub fn matching_episodes(self) -> &'static str {
+        self.text("Matching episodes…", "正在比對集數…")
+    }
+    pub fn change_match(self) -> &'static str {
+        self.text("Change danmaku match", "變更彈幕比對結果")
+    }
+    pub fn no_matches_found(self) -> &'static str {
+        self.text(
+            "No dandanplay matches found.",
+            "找不到 dandanplay 比對結果。",
+        )
+    }
+    pub fn loading_matches(self) -> &'static str {
+        self.text("Looking up matches…", "正在查詢比對結果…")
+    }
+    pub fn matched_anime(self) -> &'static str {
+        self.text("Matched anime", "已比對動畫")
+    }
+    pub fn folders(self) -> &'static str {
+        self.text("Folders", "資料夾")
+    }
+    pub fn hash_matches(self) -> &'static str {
+        self.text("Matches for this file", "此檔案的比對結果")
+    }
+    pub fn search_dandanplay(self) -> &'static str {
+        self.text("Search dandanplay", "搜尋 dandanplay")
+    }
+    pub fn search_dandanplay_hint(self) -> &'static str {
+        self.text("Anime title keyword…", "動畫標題關鍵字…")
+    }
+    pub fn parent_folder(self) -> &'static str {
+        self.text("Up one level", "返回上一級")
+    }
+    pub fn items_label(self) -> &'static str {
+        self.text("items", "個項目")
+    }
 }
 
 #[cfg(test)]

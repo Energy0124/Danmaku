@@ -172,7 +172,47 @@ trusted-LAN clients.
   match, the recognized anime identity is persisted to a `catalog-metadata.json`
   overlay and merged onto items lacking provider metadata when `/api/library`
   is served, so clients group episodes under the matched anime with no web-UI
-  step. Existing provider metadata is preserved.
+  step. Existing provider metadata is preserved. The native player refreshes
+  its catalog in the background as soon as a danmaku resolve reports a
+  recognition the cached catalog does not reflect yet (and again when
+  returning to the library screen), so the new series/grouping appears
+  without an app restart. The sidecar also best-effort resolves and caches a
+  poster image for a newly recognized anime (looked up via the configured
+  MyAnimeList/Bangumi providers when dandanplay's match has none) under the
+  data directory, served at `/posters/{mediaId}` and exposed as `posterPath`
+  on `/api/library` items that do not already have a scan-time poster; the
+  native player and web UI both render it through their existing poster
+  loading paths. The library screen's grouped-series cache now keys off a
+  session-tracked catalog version rather than the catalog's scan
+  timestamp/item count, since server-side enrichment can change items
+  without touching either. A series page also exposes a "match episodes"
+  action that resolves danmaku (and records the anime association) for its
+  still-unmatched episodes in the background, without navigating to
+  playback. Poster resolution now also retries on every `/api/library` read
+  for a recognized item still missing one (deduplicated in-flight per media
+  ID), since the local server can be hard-killed by the desktop host
+  mid-download and a one-shot fetch on recognition alone has no other retry.
+  The dandanplay resolve route (`/api/providers/dandanplay/resolve`) now
+  accepts `forceRefresh` to bypass the single-candidate comment cache, plus
+  `animeId`/`animeTitle`/`episodeTitle` so an episode picked from a keyword
+  search — which file-hash matching may never propose — can still be pinned,
+  cached, and recorded. A sibling `/api/providers/dandanplay/search` route
+  searches the dandanplay database by anime keyword and returns each anime
+  with its full episode list. The native player uses both to power a manual
+  match picker from the library: each episode row (series pages, search
+  results, and the folder explorer) has a small danmaku-icon button opening
+  a floating window that shows the file-hash candidates and a keyword search
+  with an anime → episode drill-down, like the official dandanplay client's
+  manual matching; picking an episode pins it, records the anime
+  association, and reloads danmaku. Danmaku responses now also carry a bare
+  `animeTitle` so the player's catalog-staleness check compares like with
+  like (`matchTitle` embeds the episode suffix and never equals the
+  catalog's recognized title). The "All series" library page now separates
+  "Matched anime" (poster grid, grouped by recognized identity only) from
+  "Folders", a file-explorer-style list of the on-disk layout modeled on the
+  official client's media library: folder rows navigate with an up-one-level
+  row, file rows show file name and size plus the matched anime and episode
+  titles in columns, and each file row keeps the change-match button.
 
 ### Android Mobile
 

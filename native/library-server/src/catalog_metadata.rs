@@ -31,6 +31,11 @@ pub struct CatalogMetadataEntry {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub episode_title: Option<String>,
     pub recorded_at_epoch_ms: u64,
+    /// Local path of a cached poster image for the recognized anime, set
+    /// separately (best-effort, after an external provider lookup) once the
+    /// identity above is recorded. See `PosterCacheStore`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub poster_file: Option<PathBuf>,
 }
 
 impl CatalogMetadataEntry {
@@ -98,6 +103,7 @@ impl CatalogMetadataStore {
                 .map(|title| title.trim().to_owned())
                 .filter(|title| !title.is_empty()),
             recorded_at_epoch_ms: current_epoch_ms(),
+            poster_file: None,
         };
         if entry.anime_title.is_empty() || entry.dandanplay_anime_id == 0 {
             return Ok(false);
@@ -128,6 +134,38 @@ impl CatalogMetadataStore {
             .cloned()
     }
 
+    /// Records a locally cached poster file for an already-recognized media
+    /// item. Best-effort: a no-op (returns `Ok(false)`) when the item has no
+    /// recorded identity yet or already points at this file.
+    pub fn record_poster(&self, media_id: &str, poster_file: PathBuf) -> Result<bool> {
+        let snapshot = {
+            let mut entries = self
+                .entries_by_media_id
+                .lock()
+                .expect("catalog metadata lock should not be poisoned");
+            let Some(entry) = entries.get_mut(media_id) else {
+                return Ok(false);
+            };
+            if entry.poster_file.as_deref() == Some(poster_file.as_path()) {
+                return Ok(false);
+            }
+            entry.poster_file = Some(poster_file);
+            entries.values().cloned().collect::<Vec<_>>()
+        };
+        self.write_snapshot(snapshot)?;
+        Ok(true)
+    }
+
+    /// Returns the cached poster file path for a recognized item, if any, for
+    /// serving under `/posters/{mediaId}`.
+    pub fn poster_file(&self, media_id: &str) -> Option<PathBuf> {
+        self.entries_by_media_id
+            .lock()
+            .expect("catalog metadata lock should not be poisoned")
+            .get(media_id)
+            .and_then(|entry| entry.poster_file.clone())
+    }
+
     /// Returns a catalog clone with recognized identities merged onto items that
     /// do not already carry provider metadata.
     pub fn enrich_catalog(&self, catalog: &LibraryCatalog) -> LibraryCatalog {
@@ -152,6 +190,9 @@ impl CatalogMetadataStore {
                 && !episode_title.is_empty()
             {
                 item.episode_title = episode_title.clone();
+            }
+            if item.poster_path.is_none() && entry.poster_file.is_some() {
+                item.poster_path = Some(format!("/posters/{}", item.id));
             }
         }
         enriched
@@ -312,6 +353,61 @@ mod tests {
             reloaded.get("m1").expect("reloaded m1").anime_title,
             "Frieren"
         );
+
+        fs::remove_dir_all(temp).expect("temp dir should delete");
+    }
+
+    #[test]
+    fn enrich_sets_poster_path_once_a_poster_is_recorded() {
+        let temp = temp_dir("danmaku-catalog-metadata-poster");
+        let file = temp.join("catalog-metadata.json");
+        let store = CatalogMetadataStore::new(&file);
+        store
+            .record("m1", 42, "Frieren".to_owned(), None)
+            .expect("record identity");
+
+        let catalog = LibraryCatalog {
+            root_name: "Anime".to_owned(),
+            indexed_at_epoch_ms: 0,
+            items: vec![item("m1", "raw.folder.name")],
+        };
+        // No poster recorded yet: enrichment leaves poster_path unset.
+        assert!(
+            store.enrich_catalog(&catalog).items[0]
+                .poster_path
+                .is_none()
+        );
+
+        // Recording a poster for an unrecognized item is a no-op.
+        assert!(
+            !store
+                .record_poster("missing", temp.join("poster.jpg"))
+                .expect("no-op for unrecognized item")
+        );
+
+        let poster_file = temp.join("poster.jpg");
+        assert!(
+            store
+                .record_poster("m1", poster_file.clone())
+                .expect("record poster")
+        );
+        // Recording the same poster path again is a no-op write.
+        assert!(
+            !store
+                .record_poster("m1", poster_file.clone())
+                .expect("record poster again")
+        );
+        assert_eq!(store.poster_file("m1"), Some(poster_file));
+
+        let enriched = store.enrich_catalog(&catalog);
+        assert_eq!(
+            enriched.items[0].poster_path.as_deref(),
+            Some("/posters/m1")
+        );
+
+        // A fresh store reloads the persisted poster file path.
+        let reloaded = CatalogMetadataStore::new(&file);
+        assert!(reloaded.poster_file("m1").is_some());
 
         fs::remove_dir_all(temp).expect("temp dir should delete");
     }

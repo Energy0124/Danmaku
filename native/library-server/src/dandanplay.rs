@@ -58,11 +58,16 @@ impl DandanplayResolver {
         }
     }
 
+    /// Resolves danmaku for a media file. `preferred_match` pins a specific
+    /// episode: when its ID is among the hash-match candidates that richer
+    /// candidate is used, otherwise `preferred_match` itself is (so an
+    /// episode chosen from a keyword search — which hash matching may never
+    /// propose — can still be selected, cached, and recorded).
     pub async fn resolve(
         &self,
         media_id: &str,
         media_path: &Path,
-        preferred_episode_id: Option<u64>,
+        preferred_match: Option<DandanplayMatch>,
         with_related: bool,
         force_refresh: bool,
     ) -> Result<DandanplayResolveResult> {
@@ -72,19 +77,20 @@ impl DandanplayResolver {
         let fingerprint = DandanplayMediaFingerprint::from_path(media_path)?;
         self.cleanup_expired_caches()?;
         if !force_refresh
-            && preferred_episode_id.is_none()
+            && preferred_match.is_none()
             && let Some(cached) = self.resolve_cached(media_id, &fingerprint)?
         {
             return Ok(cached);
         }
 
         let matches = self.client.match_media(&fingerprint).await?;
-        let selected_match = preferred_episode_id
-            .and_then(|episode_id| {
+        let selected_match = preferred_match
+            .map(|preferred| {
                 matches
                     .iter()
-                    .find(|candidate| candidate.episode_id == episode_id)
+                    .find(|candidate| candidate.episode_id == preferred.episode_id)
                     .cloned()
+                    .unwrap_or(preferred)
             })
             .or_else(|| matches.first().cloned());
         let selected_track = match selected_match {
@@ -142,6 +148,12 @@ impl DandanplayResolver {
         let cutoff =
             (self.now_epoch_ms)().saturating_sub(self.cache_max_age_days as u64 * MILLIS_PER_DAY);
         self.cache_store.delete_older_than(cutoff)
+    }
+
+    /// Searches the dandanplay database by anime keyword, returning each
+    /// matching anime with its full episode list (for a manual match picker).
+    pub async fn search_episodes(&self, keyword: &str) -> Result<Vec<DandanplaySearchAnime>> {
+        self.client.search_episodes(keyword).await
     }
 }
 
@@ -260,6 +272,30 @@ impl DandanplayDanmakuClient {
             .filter_map(|(index, value)| DanmakuComment::from_dandanplay_json(index, value))
             .collect();
         Ok(comments)
+    }
+
+    pub async fn search_episodes(&self, keyword: &str) -> Result<Vec<DandanplaySearchAnime>> {
+        let keyword = keyword.trim();
+        if keyword.is_empty() {
+            return Err(LibraryServerError::new("search keyword must not be blank"));
+        }
+        let query = format!("anime={}", url_encode(keyword));
+        let data = self
+            .request_json("GET", "/api/v2/search/episodes", Some(&query), None)
+            .await?;
+        if json_bool(&data, "success") == Some(false) {
+            return Err(LibraryServerError::new(format!(
+                "dandanplay search failed: {}",
+                json_string(&data, "message").unwrap_or_else(|| "unknown error".to_owned())
+            )));
+        }
+        Ok(data
+            .get("animes")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(DandanplaySearchAnime::from_json)
+            .collect())
     }
 
     async fn request_json(
@@ -462,7 +498,7 @@ pub struct DandanplayMatch {
 }
 
 impl DandanplayMatch {
-    fn new(
+    pub(crate) fn new(
         episode_id: u64,
         anime_id: Option<u64>,
         anime_title: Option<String>,
@@ -496,6 +532,51 @@ impl DandanplayMatch {
             json_string_any(value, &["episodeTitle", "EpisodeTitle"]),
             json_f64_any(value, &["shift", "Shift"]),
         ))
+    }
+}
+
+/// One anime from a dandanplay keyword search (`/api/v2/search/episodes`),
+/// carrying its full episode list so a picker can drill down to an episode.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DandanplaySearchAnime {
+    pub anime_id: u64,
+    pub anime_title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub type_description: Option<String>,
+    pub episodes: Vec<DandanplaySearchEpisode>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DandanplaySearchEpisode {
+    pub episode_id: u64,
+    pub episode_title: String,
+}
+
+impl DandanplaySearchAnime {
+    fn from_json(value: &Value) -> Option<Self> {
+        let anime_id = json_u64_any(value, &["animeId", "AnimeId"])?;
+        let anime_title = json_string_any(value, &["animeTitle", "AnimeTitle"])?;
+        let episodes = value
+            .get("episodes")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(|episode| {
+                Some(DandanplaySearchEpisode {
+                    episode_id: json_u64_any(episode, &["episodeId", "EpisodeId"])?,
+                    episode_title: json_string_any(episode, &["episodeTitle", "EpisodeTitle"])
+                        .unwrap_or_default(),
+                })
+            })
+            .collect();
+        Some(Self {
+            anime_id,
+            anime_title,
+            type_description: json_string_any(value, &["typeDescription", "TypeDescription"]),
+            episodes,
+        })
     }
 }
 
@@ -563,6 +644,11 @@ pub struct LanDanmakuTrack {
     pub comments: Vec<DanmakuComment>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub match_title: Option<String>,
+    /// The matched anime's title alone (no episode suffix), matching the
+    /// `displayTitle` the catalog's recognized `animeMetadata` will carry —
+    /// clients compare the two to detect a stale catalog grouping.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub anime_title: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub episode_id: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -579,6 +665,7 @@ impl LanDanmakuTrack {
             source: None,
             comments: Vec::new(),
             match_title: None,
+            anime_title: None,
             episode_id: None,
             fetched_at_epoch_ms: None,
             message: Some("Danmaku resolver is not available.".to_owned()),
@@ -593,6 +680,7 @@ impl LanDanmakuTrack {
             source: None,
             comments: Vec::new(),
             match_title: None,
+            anime_title: None,
             episode_id: None,
             fetched_at_epoch_ms: None,
             message: Some(if message.trim().is_empty() {
@@ -627,6 +715,9 @@ impl LanDanmakuTrack {
             match_title: track
                 .as_ref()
                 .map(|track| track.match_candidate.display_title.clone()),
+            anime_title: track
+                .as_ref()
+                .and_then(|track| track.match_candidate.anime_title.clone()),
             episode_id: track.as_ref().map(|track| track.match_candidate.episode_id),
             fetched_at_epoch_ms: Some(result.fetched_at_epoch_ms),
             message,
@@ -1759,6 +1850,20 @@ fn current_epoch_seconds() -> u64 {
 fn non_blank(value: String) -> Option<String> {
     let trimmed = value.trim();
     (!trimmed.is_empty()).then(|| trimmed.to_owned())
+}
+
+pub(crate) fn url_encode(value: &str) -> String {
+    let mut encoded = String::new();
+    for byte in value.as_bytes() {
+        match *byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'.' | b'-' | b'*' | b'_' => {
+                encoded.push(*byte as char);
+            }
+            b' ' => encoded.push('+'),
+            other => encoded.push_str(&format!("%{other:02X}")),
+        }
+    }
+    encoded
 }
 
 fn authentication_mode_or_default(value: &str) -> HeadlessDandanplayAuthenticationMode {

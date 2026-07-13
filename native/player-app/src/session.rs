@@ -9,7 +9,11 @@ use std::sync::{Arc, Mutex};
 use eframe::egui;
 
 use crate::{
-    danmaku::{DanmakuLoad, fetch_server_danmaku},
+    danmaku::{
+        DandanplayMatchCandidate, DandanplaySearchAnime, DandanplaySelection, DanmakuLoad,
+        fetch_dandanplay_candidates, fetch_server_danmaku, search_dandanplay,
+        select_dandanplay_match,
+    },
     library::{
         LibraryCatalog, PlaybackProgress, fetch_catalog, fetch_progress, fetch_progress_list,
         upload_progress,
@@ -27,6 +31,19 @@ pub enum SessionEvent {
         media_id: String,
         load: Result<DanmakuLoad, String>,
     },
+    DandanplayCandidates {
+        media_id: String,
+        result: Result<Vec<DandanplayMatchCandidate>, String>,
+    },
+    DandanplaySearch {
+        media_id: String,
+        result: Result<Vec<DandanplaySearchAnime>, String>,
+    },
+    DandanplaySelected {
+        media_id: String,
+        selection: DandanplaySelection,
+        result: Result<(), String>,
+    },
 }
 
 pub struct LibrarySession {
@@ -36,6 +53,12 @@ pub struct LibrarySession {
     pub progresses: Vec<PlaybackProgress>,
     pub catalog_error: Option<String>,
     pub loading_catalog: bool,
+    /// Bumped every time a new catalog is received. The catalog's own
+    /// `indexedAtEpochMs`/item count do not change when only per-item
+    /// metadata (recognized anime, poster) is enriched server-side, so UI
+    /// caches must key off this instead of catalog content to notice an
+    /// enrichment-only refresh (see `LibraryScreen::refresh_series_cache`).
+    pub catalog_version: u64,
     inbox: Arc<Mutex<Vec<SessionEvent>>>,
     egui_context: egui::Context,
 }
@@ -53,6 +76,7 @@ impl LibrarySession {
             progresses: Vec::new(),
             catalog_error: None,
             loading_catalog: false,
+            catalog_version: 0,
             inbox: Arc::new(Mutex::new(Vec::new())),
             egui_context,
         };
@@ -102,6 +126,47 @@ impl LibrarySession {
         );
     }
 
+    /// Lists dandanplay match candidates for a manual match picker.
+    pub fn fetch_dandanplay_candidates(&self, media_id: String) {
+        let base_url = self.base_url.clone();
+        self.spawn(
+            move |base| {
+                let result = fetch_dandanplay_candidates(&base, &media_id);
+                SessionEvent::DandanplayCandidates { media_id, result }
+            },
+            base_url,
+        );
+    }
+
+    /// Searches the dandanplay database by keyword for the match picker
+    /// opened on `media_id`.
+    pub fn search_dandanplay(&self, media_id: String, keyword: String) {
+        let base_url = self.base_url.clone();
+        self.spawn(
+            move |base| {
+                let result = search_dandanplay(&base, &keyword);
+                SessionEvent::DandanplaySearch { media_id, result }
+            },
+            base_url,
+        );
+    }
+
+    /// Pins a media item to a manually chosen dandanplay episode.
+    pub fn select_dandanplay_match(&self, media_id: String, selection: DandanplaySelection) {
+        let base_url = self.base_url.clone();
+        self.spawn(
+            move |base| {
+                let result = select_dandanplay_match(&base, &media_id, &selection);
+                SessionEvent::DandanplaySelected {
+                    media_id,
+                    selection,
+                    result,
+                }
+            },
+            base_url,
+        );
+    }
+
     /// Fire-and-forget progress upload; errors only surface in stderr since
     /// the next list refresh reconciles state anyway.
     pub fn upload_progress(&mut self, progress: PlaybackProgress) {
@@ -133,6 +198,7 @@ impl LibrarySession {
                         Ok(catalog) => {
                             self.catalog = Some(catalog);
                             self.catalog_error = None;
+                            self.catalog_version = self.catalog_version.wrapping_add(1);
                         }
                         Err(error) => self.catalog_error = Some(error),
                     }
@@ -187,6 +253,7 @@ mod tests {
             progresses: Vec::new(),
             catalog_error: None,
             loading_catalog: false,
+            catalog_version: 0,
             inbox: Arc::new(Mutex::new(Vec::new())),
             egui_context: egui::Context::default(),
         }
@@ -226,5 +293,43 @@ mod tests {
 
         assert_eq!(session.progresses.len(), 1);
         assert_eq!(session.progresses[0].position_ms, 200);
+    }
+
+    #[test]
+    fn catalog_version_bumps_on_success_and_not_on_error() {
+        let mut session = test_session("http://127.0.0.1:1");
+        let catalog = LibraryCatalog {
+            root_name: "root".to_owned(),
+            indexed_at_epoch_ms: 0,
+            items: Vec::new(),
+        };
+
+        session
+            .inbox
+            .lock()
+            .expect("inbox lock")
+            .push(SessionEvent::Catalog(Ok(catalog.clone())));
+        session.drain_events();
+        assert_eq!(session.catalog_version, 1);
+
+        // A later refresh returning an identical catalog still bumps the
+        // version, since the caller's whole point was noticing a refresh
+        // happened (unlike catalog content, which may be unchanged when only
+        // per-item metadata was enriched server-side).
+        session
+            .inbox
+            .lock()
+            .expect("inbox lock")
+            .push(SessionEvent::Catalog(Ok(catalog)));
+        session.drain_events();
+        assert_eq!(session.catalog_version, 2);
+
+        session
+            .inbox
+            .lock()
+            .expect("inbox lock")
+            .push(SessionEvent::Catalog(Err("boom".to_owned())));
+        session.drain_events();
+        assert_eq!(session.catalog_version, 2);
     }
 }

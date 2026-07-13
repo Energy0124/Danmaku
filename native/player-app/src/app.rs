@@ -17,13 +17,13 @@ use crate::{
     cli::Cli,
     clock::OverlayClock,
     danmaku::{
-        DanmakuDisplaySettings, DanmakuLayout, DanmakuLoad, DanmakuLoadKind, estimate_text_width,
-        fetch_server_danmaku, load_local_danmaku,
+        DandanplayMatchCandidate, DanmakuDisplaySettings, DanmakuLayout, DanmakuLoad,
+        DanmakuLoadKind, estimate_text_width, fetch_server_danmaku, load_local_danmaku,
     },
     discovery::{DEFAULT_DISCOVERY_PORT, DiscoveryListener},
     hosting::{LocalConnection, LocalServerSupervisor},
     icons::{Icon, paint_icon},
-    library::PlaybackProgress,
+    library::{LibraryCatalog, PlaybackProgress},
     localization::Strings,
     posters::PosterCache,
     preferences::{CredentialStore, DandanplayCredentials, PlayerPreferences, PreferenceStore},
@@ -51,6 +51,37 @@ enum AppScreen {
     Settings,
 }
 
+/// Manual danmaku match picker: shows the hash-match candidates for an item
+/// and a keyword search against the dandanplay database (anime → episode
+/// drill-down), letting the user pick or change a match. Opened from the
+/// library (`LibraryAction::ChangeMatch`).
+#[derive(Default)]
+struct MatchPickerState {
+    open: bool,
+    /// The item the currently loaded/loading candidates belong to; guards
+    /// against a stale response landing after the user closed the picker or
+    /// switched to another episode.
+    media_id: Option<String>,
+    loading: bool,
+    candidates: Vec<DandanplayMatchCandidate>,
+    error: Option<String>,
+    /// Set while a selection request is in flight, so the row shows a
+    /// pending state and other rows can be disabled.
+    selecting_episode_id: Option<u64>,
+    /// The anime title of the in-flight selection, kept for the catalog
+    /// staleness check once the server confirms it (the episode may come
+    /// from search results, not `candidates`).
+    selecting_anime_title: Option<String>,
+    search_query: String,
+    searching: bool,
+    search_results: Vec<crate::danmaku::DandanplaySearchAnime>,
+    /// Whether a search has completed for the current results (distinguishes
+    /// "no results" from "not searched yet").
+    searched: bool,
+    /// The anime whose episode list is expanded in the search results.
+    expanded_anime_id: Option<u64>,
+}
+
 pub struct PlayerApp {
     cli: Cli,
     display_title: String,
@@ -63,6 +94,7 @@ pub struct PlayerApp {
     danmaku: DanmakuLoad,
     danmaku_layout: DanmakuLayout,
     danmaku_settings: DanmakuDisplaySettings,
+    match_picker: MatchPickerState,
     last_property_refresh: Instant,
     last_track_refresh: Instant,
     last_pointer_activity: Instant,
@@ -79,6 +111,10 @@ pub struct PlayerApp {
     posters: PosterCache,
     active_media_id: Option<String>,
     pending_play_media_id: Option<String>,
+    /// Media IDs currently resolving danmaku/anime recognition in the
+    /// background without playback (triggered from the library, not the
+    /// player). See `LibraryAction::PreloadDanmaku`.
+    pending_preloads: std::collections::HashSet<String>,
     auto_next: bool,
     eof_handled: bool,
     last_progress_upload: Instant,
@@ -232,6 +268,7 @@ impl PlayerApp {
             danmaku,
             danmaku_layout: DanmakuLayout::default(),
             danmaku_settings,
+            match_picker: MatchPickerState::default(),
             last_property_refresh: now - PROPERTY_REFRESH_INTERVAL,
             last_track_refresh: now - TRACK_REFRESH_INTERVAL,
             last_pointer_activity: now,
@@ -247,6 +284,7 @@ impl PlayerApp {
             posters,
             active_media_id: None,
             pending_play_media_id: None,
+            pending_preloads: std::collections::HashSet::new(),
             auto_next,
             eof_handled: false,
             last_progress_upload: now,
@@ -581,13 +619,112 @@ impl PlayerApp {
                     }
                 }
                 SessionEvent::Danmaku { media_id, load } => {
-                    if self.active_media_id.as_deref() == Some(media_id.as_str()) {
+                    let is_active = self.active_media_id.as_deref() == Some(media_id.as_str());
+                    // A preload (see `LibraryAction::PreloadDanmaku`) resolves the same
+                    // way as a playback-triggered fetch but must not touch `self.danmaku`,
+                    // since it can run for an item other than the one on screen.
+                    let is_preload = self.pending_preloads.remove(&media_id);
+                    if (is_active || is_preload)
+                        && let Ok(load) = &load
+                        && let Some(match_title) = &load.match_title
+                        && self.library_grouping_is_stale(&media_id, match_title)
+                        && let Some(session) = self.session.as_mut()
+                    {
+                        session.refresh_catalog();
+                    }
+                    if is_active {
                         self.danmaku = load.unwrap_or_else(DanmakuLoad::failed);
+                    }
+                }
+                SessionEvent::DandanplayCandidates { media_id, result } => {
+                    // Discard a response for an item the picker isn't showing
+                    // anymore (closed, or the user moved to another episode).
+                    if self.match_picker.media_id.as_deref() == Some(media_id.as_str()) {
+                        self.match_picker.loading = false;
+                        match result {
+                            Ok(candidates) => {
+                                self.match_picker.candidates = candidates;
+                                self.match_picker.error = None;
+                            }
+                            Err(error) => self.match_picker.error = Some(error),
+                        }
+                    }
+                }
+                SessionEvent::DandanplaySearch { media_id, result } => {
+                    if self.match_picker.media_id.as_deref() == Some(media_id.as_str()) {
+                        self.match_picker.searching = false;
+                        match result {
+                            Ok(animes) => {
+                                // Auto-expand a lone anime so the episode list
+                                // is one click closer.
+                                self.match_picker.expanded_anime_id = (animes.len() == 1)
+                                    .then(|| animes[0].anime_id)
+                                    .or(self.match_picker.expanded_anime_id);
+                                self.match_picker.search_results = animes;
+                                self.match_picker.searched = true;
+                                self.match_picker.error = None;
+                            }
+                            Err(error) => self.match_picker.error = Some(error),
+                        }
+                    }
+                }
+                SessionEvent::DandanplaySelected {
+                    media_id,
+                    selection,
+                    result,
+                } => {
+                    if self.match_picker.media_id.as_deref() == Some(media_id.as_str())
+                        && self.match_picker.selecting_episode_id == Some(selection.episode_id)
+                    {
+                        match result {
+                            Ok(()) => {
+                                // Selecting from the library doesn't necessarily
+                                // touch the actively playing item, so run the
+                                // catalog-staleness check directly here rather
+                                // than relying on the active/preload branches in
+                                // the `Danmaku` event above.
+                                let anime_title = self
+                                    .match_picker
+                                    .selecting_anime_title
+                                    .clone()
+                                    .or(selection.anime_title.clone());
+                                if let Some(anime_title) = &anime_title
+                                    && self.library_grouping_is_stale(&media_id, anime_title)
+                                    && let Some(session) = self.session.as_mut()
+                                {
+                                    session.refresh_catalog();
+                                }
+                                self.match_picker = MatchPickerState::default();
+                                // Keep the server-side comment cache warm for
+                                // this episode, and update the live overlay if
+                                // it happens to be the item currently playing.
+                                if let Some(session) = &self.session {
+                                    session.fetch_danmaku(media_id, false);
+                                }
+                            }
+                            Err(error) => {
+                                self.match_picker.selecting_episode_id = None;
+                                self.match_picker.selecting_anime_title = None;
+                                self.match_picker.error = Some(error);
+                            }
+                        }
                     }
                 }
                 _ => {}
             }
         }
+    }
+
+    /// True when the session's cached catalog does not yet reflect a
+    /// dandanplay recognition for `media_id`. See `catalog_grouping_is_stale`.
+    fn library_grouping_is_stale(&self, media_id: &str, match_title: &str) -> bool {
+        catalog_grouping_is_stale(
+            self.session
+                .as_ref()
+                .and_then(|session| session.catalog.as_ref()),
+            media_id,
+            match_title,
+        )
     }
 
     fn connect_to_server(&mut self, ctx: &egui::Context, request: ConnectRequest) {
@@ -617,6 +754,7 @@ impl PlayerApp {
         self.run_mpv_command(&["stop"]);
         self.active_media_id = None;
         self.session = None;
+        self.pending_preloads.clear();
         self.posters.set_base_url(None);
         self.screen = AppScreen::Connect;
     }
@@ -707,6 +845,7 @@ impl PlayerApp {
             self.overlay_clock.seek(resume_position_s, now);
         }
         self.danmaku = DanmakuLoad::none();
+        self.match_picker = MatchPickerState::default();
         if let Some(session) = &self.session {
             session.fetch_danmaku(media_id, self.cli.danmaku_force_refresh);
         }
@@ -748,6 +887,7 @@ impl PlayerApp {
         self.screen = AppScreen::Library;
         if let Some(session) = &mut self.session {
             session.refresh_progress();
+            session.refresh_catalog();
         }
     }
 
@@ -756,6 +896,7 @@ impl PlayerApp {
         self.run_mpv_command(&["stop"]);
         self.active_media_id = None;
         self.session = None;
+        self.pending_preloads.clear();
         self.posters.set_base_url(None);
         self.screen = AppScreen::Connect;
         if self.discovery.is_none() {
@@ -1281,6 +1422,188 @@ impl PlayerApp {
             self.play_adjacent_episode(1);
         }
     }
+    /// Opens the match picker for `media_id` and requests its candidates.
+    /// Opens the manual match picker (see `show_match_picker_overlay`) for
+    /// `media_id`, requesting its dandanplay candidates. Triggered from the
+    /// library (`LibraryAction::ChangeMatch`), not from playback, so the
+    /// item does not need to be actively playing.
+    fn open_match_picker(&mut self, media_id: String) {
+        if let Some(session) = &self.session {
+            session.fetch_dandanplay_candidates(media_id.clone());
+        }
+        self.match_picker = MatchPickerState {
+            open: true,
+            media_id: Some(media_id),
+            loading: true,
+            ..MatchPickerState::default()
+        };
+    }
+
+    /// Floating window with every dandanplay candidate for the item the
+    /// match picker is open for. Rendered on top of whichever screen is
+    /// active; only `open_match_picker` (from the library) sets it open.
+    /// Fires a selection request for a picked episode and marks it pending.
+    fn request_match_selection(&mut self, selection: crate::danmaku::DandanplaySelection) {
+        let Some(media_id) = self.match_picker.media_id.clone() else {
+            return;
+        };
+        let Some(session) = &self.session else {
+            return;
+        };
+        self.match_picker.selecting_episode_id = Some(selection.episode_id);
+        self.match_picker.selecting_anime_title = selection.anime_title.clone();
+        session.select_dandanplay_match(media_id, selection);
+    }
+
+    fn show_match_picker_overlay(&mut self, ctx: &egui::Context) {
+        if !self.match_picker.open {
+            return;
+        }
+        let strings = Strings::new(self.preferences.language);
+        let mut still_open = true;
+        let mut pick: Option<crate::danmaku::DandanplaySelection> = None;
+        let mut search_requested = false;
+        egui::Window::new(strings.change_match())
+            .open(&mut still_open)
+            .collapsible(false)
+            .resizable(false)
+            .anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0))
+            .default_width(420.0)
+            .show(ctx, |ui| {
+                let selecting = self.match_picker.selecting_episode_id;
+                if let Some(error) = &self.match_picker.error {
+                    ui.colored_label(palette::DANGER, error.as_str());
+                }
+
+                // File-hash candidates first: usually the right answer and
+                // requires no typing.
+                ui.label(RichText::new(strings.hash_matches()).strong());
+                if self.match_picker.loading {
+                    ui.horizontal(|ui| {
+                        ui.spinner();
+                        ui.label(strings.loading_matches());
+                    });
+                } else if self.match_picker.candidates.is_empty() {
+                    ui.label(RichText::new(strings.no_matches_found()).weak());
+                } else {
+                    for candidate in self.match_picker.candidates.clone() {
+                        let pending = selecting == Some(candidate.episode_id);
+                        let label = if pending {
+                            format!("{} …", candidate.display_title)
+                        } else {
+                            candidate.display_title.clone()
+                        };
+                        ui.add_enabled_ui(selecting.is_none(), |ui| {
+                            if ui.selectable_label(false, label).clicked() {
+                                pick = Some(crate::danmaku::DandanplaySelection {
+                                    episode_id: candidate.episode_id,
+                                    anime_id: None,
+                                    anime_title: candidate.anime_title.clone(),
+                                    episode_title: candidate.episode_title.clone(),
+                                });
+                            }
+                        });
+                    }
+                }
+
+                ui.separator();
+
+                // Keyword search against the dandanplay database, with an
+                // anime -> episode drill-down like the official client.
+                ui.label(RichText::new(strings.search_dandanplay()).strong());
+                ui.horizontal(|ui| {
+                    let field = ui.add(
+                        egui::TextEdit::singleline(&mut self.match_picker.search_query)
+                            .hint_text(strings.search_dandanplay_hint())
+                            .desired_width(280.0),
+                    );
+                    let submitted =
+                        field.lost_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter));
+                    if (ui.button(strings.search()).clicked() || submitted)
+                        && !self.match_picker.search_query.trim().is_empty()
+                    {
+                        search_requested = true;
+                    }
+                });
+                if self.match_picker.searching {
+                    ui.horizontal(|ui| {
+                        ui.spinner();
+                        ui.label(strings.loading_matches());
+                    });
+                } else if self.match_picker.searched && self.match_picker.search_results.is_empty()
+                {
+                    ui.label(RichText::new(strings.no_matches_found()).weak());
+                }
+                let results = self.match_picker.search_results.clone();
+                if !results.is_empty() {
+                    egui::ScrollArea::vertical()
+                        .max_height(300.0)
+                        .show(ui, |ui| {
+                            for anime in &results {
+                                let expanded =
+                                    self.match_picker.expanded_anime_id == Some(anime.anime_id);
+                                let heading = match &anime.type_description {
+                                    Some(kind) => format!(
+                                        "{} {}  ·  {kind}",
+                                        if expanded { "▾" } else { "▸" },
+                                        anime.anime_title
+                                    ),
+                                    None => format!(
+                                        "{} {}",
+                                        if expanded { "▾" } else { "▸" },
+                                        anime.anime_title
+                                    ),
+                                };
+                                if ui.selectable_label(expanded, heading).clicked() {
+                                    self.match_picker.expanded_anime_id =
+                                        (!expanded).then_some(anime.anime_id);
+                                }
+                                if !expanded {
+                                    continue;
+                                }
+                                ui.indent(("picker-episodes", anime.anime_id), |ui| {
+                                    for episode in &anime.episodes {
+                                        let pending = selecting == Some(episode.episode_id);
+                                        let label = if pending {
+                                            format!("{} …", episode.episode_title)
+                                        } else {
+                                            episode.episode_title.clone()
+                                        };
+                                        ui.add_enabled_ui(selecting.is_none(), |ui| {
+                                            if ui.selectable_label(false, label).clicked() {
+                                                pick = Some(crate::danmaku::DandanplaySelection {
+                                                    episode_id: episode.episode_id,
+                                                    anime_id: Some(anime.anime_id),
+                                                    anime_title: Some(anime.anime_title.clone()),
+                                                    episode_title: Some(
+                                                        episode.episode_title.clone(),
+                                                    ),
+                                                });
+                                            }
+                                        });
+                                    }
+                                });
+                            }
+                        });
+                }
+            });
+        if search_requested
+            && let (Some(media_id), Some(session)) =
+                (self.match_picker.media_id.clone(), &self.session)
+        {
+            self.match_picker.searching = true;
+            self.match_picker.searched = false;
+            self.match_picker.error = None;
+            session.search_dandanplay(media_id, self.match_picker.search_query.trim().to_owned());
+        }
+        if let Some(selection) = pick {
+            self.request_match_selection(selection);
+        }
+        if !still_open {
+            self.match_picker = MatchPickerState::default();
+        }
+    }
+
     fn show_danmaku_menu(&mut self, ui: &mut egui::Ui, active: usize) {
         let strings = Strings::new(self.preferences.language);
         let status = match self.danmaku.kind {
@@ -1519,6 +1842,7 @@ impl eframe::App for PlayerApp {
                         ctx,
                         session,
                         &mut self.posters,
+                        &self.pending_preloads,
                         Strings::new(self.preferences.language),
                     ),
                     None => {
@@ -1529,6 +1853,18 @@ impl eframe::App for PlayerApp {
                 match action {
                     Some(LibraryAction::Play { media_id }) => {
                         self.request_library_play(media_id);
+                    }
+                    Some(LibraryAction::PreloadDanmaku { media_ids }) => {
+                        if let Some(session) = &self.session {
+                            for media_id in media_ids {
+                                if self.pending_preloads.insert(media_id.clone()) {
+                                    session.fetch_danmaku(media_id, false);
+                                }
+                            }
+                        }
+                    }
+                    Some(LibraryAction::ChangeMatch { media_id }) => {
+                        self.open_match_picker(media_id);
                     }
                     Some(LibraryAction::Refresh) => {
                         if let Some(session) = &mut self.session {
@@ -1662,6 +1998,7 @@ impl eframe::App for PlayerApp {
                 }
             }
         }
+        self.show_match_picker_overlay(ctx);
         self.save_preferences_if_changed();
     }
 }
@@ -1891,6 +2228,26 @@ fn load_danmaku(cli: &Cli) -> DanmakuLoad {
     result.unwrap_or_else(DanmakuLoad::failed)
 }
 
+/// True when `catalog` does not yet reflect a dandanplay recognition for
+/// `media_id` matching `match_title` — either the item has no catalog entry
+/// yet, carries no recognized anime metadata, or carries a different one.
+/// The server records a recognition lazily when danmaku resolves and only
+/// merges it onto `/api/library` on the next read, so the player must
+/// re-fetch the catalog to pick up a new or changed series grouping/poster.
+fn catalog_grouping_is_stale(
+    catalog: Option<&LibraryCatalog>,
+    media_id: &str,
+    match_title: &str,
+) -> bool {
+    catalog
+        .and_then(|catalog| catalog.item(media_id))
+        .is_none_or(|item| {
+            item.anime_metadata
+                .as_ref()
+                .is_none_or(|metadata| metadata.display_title != match_title)
+        })
+}
+
 fn danmaku_color(color_argb: u32, opacity: f32) -> Color32 {
     let source_alpha = ((color_argb >> 24) & 0xff) as f32;
     let alpha = (source_alpha * opacity.clamp(0.0, 1.0))
@@ -1955,7 +2312,10 @@ fn parse_u64(value: Option<String>) -> Option<u64> {
 mod tests {
     use std::path::Path;
 
-    use super::{danmaku_color, format_time, is_danmaku_path, media_display_title};
+    use super::{
+        catalog_grouping_is_stale, danmaku_color, format_time, is_danmaku_path, media_display_title,
+    };
+    use crate::library::LibraryCatalog;
 
     #[test]
     fn formats_times_with_and_without_hours() {
@@ -1990,5 +2350,63 @@ mod tests {
         assert!(is_danmaku_path(Path::new("comments.danmaku")));
         assert!(is_danmaku_path(Path::new("cached.ass")));
         assert!(!is_danmaku_path(Path::new("episode.mkv")));
+    }
+
+    fn catalog_with_item(id: &str, anime_metadata: Option<&str>) -> LibraryCatalog {
+        let metadata = anime_metadata
+            .map(|title| {
+                format!(
+                    r#","animeMetadata":{{"animeId":{{"provider":"DANDANPLAY","value":1}},"displayTitle":"{title}"}}"#
+                )
+            })
+            .unwrap_or_default();
+        serde_json::from_value(serde_json::json!({
+            "rootName": "root",
+            "indexedAtEpochMs": 0,
+            "items": [serde_json::from_str::<serde_json::Value>(&format!(
+                r#"{{"id":"{id}","seriesTitle":"S","episodeTitle":"E1","relativePath":"S/E1.mkv","sizeBytes":1,"mediaType":"video/x-matroska","streamPath":"/media/{id}"{metadata}}}"#
+            )).expect("item json parses")],
+        }))
+        .expect("catalog parses")
+    }
+
+    #[test]
+    fn catalog_grouping_is_stale_when_item_or_recognition_is_missing() {
+        // No catalog fetched yet.
+        assert!(catalog_grouping_is_stale(None, "a", "Example Anime"));
+
+        // Catalog present but the item is unknown to it.
+        let catalog = catalog_with_item("other", None);
+        assert!(catalog_grouping_is_stale(
+            Some(&catalog),
+            "a",
+            "Example Anime"
+        ));
+
+        // Item present but not yet recognized.
+        let catalog = catalog_with_item("a", None);
+        assert!(catalog_grouping_is_stale(
+            Some(&catalog),
+            "a",
+            "Example Anime"
+        ));
+
+        // Item recognized under a different title than the new match.
+        let catalog = catalog_with_item("a", Some("Old Title"));
+        assert!(catalog_grouping_is_stale(
+            Some(&catalog),
+            "a",
+            "Example Anime"
+        ));
+    }
+
+    #[test]
+    fn catalog_grouping_is_fresh_once_it_matches_the_recognition() {
+        let catalog = catalog_with_item("a", Some("Example Anime"));
+        assert!(!catalog_grouping_is_stale(
+            Some(&catalog),
+            "a",
+            "Example Anime"
+        ));
     }
 }
