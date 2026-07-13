@@ -98,8 +98,8 @@ pub mod metrics {
     pub const CARD_RADIUS: f32 = 8.0;
     /// Control bar height in the playback view.
     pub const CONTROL_BAR_HEIGHT: f32 = 96.0;
-    /// Width of the compact consumer navigation rail.
-    pub const NAV_RAIL_WIDTH: f32 = 88.0;
+    /// Width of the readable media-library navigation sidebar.
+    pub const NAV_RAIL_WIDTH: f32 = 218.0;
     /// Height of the featured continue-watching card.
     pub const HERO_HEIGHT: f32 = 258.0;
     /// Vertical rhythm between stacked control rows.

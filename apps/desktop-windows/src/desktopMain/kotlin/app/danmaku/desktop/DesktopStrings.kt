@@ -291,14 +291,6 @@ internal class DesktopStrings {
     var startWatchingLibraryLabel: String = ""
     var episodeCountShortLabel: (Int) -> String = { _ -> "" }
     var libraryViewTitles: Map<WindowsLibraryView, String> = emptyMap()
-    var librarySeriesViewModeTitles: Map<LibrarySeriesViewMode, String> = emptyMap()
-    var allLibraryFoldersLabel: String = ""
-    var libraryRecentMonthLabel: (String) -> String = { _ -> "" }
-    var libraryReleaseYearLabel: (String) -> String = { _ -> "" }
-    var libraryUnknownRecentLabel: String = ""
-    var libraryUnknownSeasonLabel: String = ""
-    var libraryUnassignedFolderLabel: String = ""
-    var librarySeriesCountLabel: (Int) -> String = { _ -> "" }
     var libraryHostSubtitle: String = ""
     var librarySearchLabel: String = ""
     var libraryToolbarCompactDescription: String = ""
@@ -433,13 +425,6 @@ internal class DesktopStrings {
     var notCheckedYetLabel: String = ""
     var subtitlesIndexedLabel: (Int) -> String = { _ -> "" }
     var episodesTitle: String = ""
-    var seriesOverviewTitle: String = ""
-    var releaseYearLabel: String = ""
-    var seasonsCountLabel: (Int) -> String = { _ -> "" }
-    var totalSizeLabel: String = ""
-    var subtitleTracksLabel: String = ""
-    var libraryFolderLabel: String = ""
-    var selectedEpisodeLabel: String = ""
     var advancedTitle: String = ""
     var favoriteStatusLabel: String = ""
     var pairedLibraryTitle: String = ""
@@ -808,22 +793,12 @@ internal class DesktopStrings {
     var metadataMatchCurrentMappingsPrefix: String = ""
     var metadataMatchEmptyState: String = ""
     var metadataMatchMatchedTitlePrefix: String = ""
-    var metadataMatchResultsLabel: (Int) -> String = { _ -> "" }
-    var dandanplayMatchCandidatesTitle: String = ""
-    var dandanplayMatchCandidatesDescription: (Int) -> String = { _ -> "" }
-    var dandanplaySelectedMatchLabel: String = ""
-    var dandanplayUseMatchAction: String = ""
-    var dandanplayEpisodeIdLabel: (Long) -> String = { _ -> "" }
-    var dandanplayAnimeIdLabel: (Long) -> String = { _ -> "" }
-    var dandanplayShiftLabel: (String) -> String = { _ -> "" }
     var suggestMissingMappingsAction: String = ""
     var suggestingMappingsAction: String = ""
     fun tabTitle(tab: DesktopShellTab): String = tabTitles[tab] ?: tab.title
     fun settingsSectionTitle(section: DesktopSettingsSection): String =
         settingsSectionTitles[section] ?: section.title
     fun libraryViewTitle(view: WindowsLibraryView): String = libraryViewTitles[view] ?: view.label
-    fun librarySeriesViewModeTitle(mode: LibrarySeriesViewMode): String =
-        librarySeriesViewModeTitles[mode] ?: mode.label
     fun libraryQualityIssueTypeLabel(type: LibraryQualityIssueType): String =
         libraryQualityIssueTypeLabels[type] ?: type.name
     fun libraryQualitySeverityLabel(severity: LibraryQualityIssueSeverity): String =

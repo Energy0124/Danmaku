@@ -210,7 +210,6 @@ internal fun LibraryInspectorPane(
     refreshingMetadataMediaIds: Set<String>,
     refreshingMetadataSeriesIds: Set<String>,
     coverPath: Path?,
-    libraryFolderName: String?,
     watchSummary: LibrarySeriesWatchSummary?,
     watchStatusById: Map<String, LibraryWatchStatus>,
     favoriteMediaIds: Set<String>,
@@ -261,101 +260,40 @@ internal fun LibraryInspectorPane(
         val originalSeriesTitle = originalSeriesTitleByMediaId[selectedItem.id]
         var episodeActionsExpanded by remember(selectedItem.id, activePreparation?.item?.id) { mutableStateOf(false) }
 
-        val animeMetadata = selectedSeries.seasons
-            .asSequence()
-            .flatMap { it.items.asSequence() }
-            .mapNotNull(LibraryMediaItem::animeMetadata)
-            .firstOrNull()
-        Row(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(DanmakuColors.SurfaceRaised.copy(alpha = 0.76f))
-                .padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
+                .height(if (compact) 166.dp else 210.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(DanmakuColors.SurfaceRaised),
         ) {
-            Box(
+            SeriesPosterImage(
+                coverPath = coverPath,
+                title = selectedSeries.title,
+                modifier = Modifier.fillMaxSize(),
+            )
+            Text(
+                watchSummary.progressLabel(strings),
+                color = Color.White,
                 modifier = Modifier
-                    .width(if (compact) 112.dp else 132.dp)
-                    .height(if (compact) 160.dp else 188.dp)
-                    .clip(RoundedCornerShape(9.dp))
-                    .background(DanmakuColors.Surface),
-            ) {
-                SeriesPosterImage(
-                    coverPath = coverPath,
-                    title = selectedSeries.title,
-                    modifier = Modifier.fillMaxSize(),
-                )
-                Text(
-                    watchSummary.progressLabel(strings),
-                    color = Color.White,
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .background(Color.Black.copy(alpha = 0.76f), RoundedCornerShape(topEnd = 6.dp))
-                        .padding(horizontal = 8.dp, vertical = 5.dp),
-                    maxLines = 1,
-                )
-            }
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(7.dp),
-            ) {
-                Text(
-                    selectedSeries.title,
-                    style = MaterialTheme.typography.h6,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                animeMetadata
-                    ?.let { metadata ->
-                        listOfNotNull(metadata.englishTitle, metadata.japaneseTitle, metadata.chineseTitle)
-                            .firstOrNull { it != selectedSeries.title }
-                    }
-                    ?.let { alternateTitle ->
-                        Text(alternateTitle, color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    StatusPill(strings.episodeCountShortLabel(selectedSeries.episodeCount))
-                    StatusPill(strings.seasonsCountLabel(selectedSeries.seasons.size))
-                }
-                animeMetadata?.startYear?.let { year ->
-                    Text("${strings.releaseYearLabel}: $year", color = DanmakuColors.TextMuted)
-                }
-                Text(
-                    "${strings.totalSizeLabel}: ${selectedSeries.totalSizeBytes.formatLibrarySize()}  •  " +
-                        "${strings.subtitleTracksLabel}: ${selectedSeries.subtitleTrackCount}",
-                    color = DanmakuColors.TextMuted,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    "${strings.selectedEpisodeLabel}: " +
-                        (selectedEpisodeDetail?.mediaItem?.episodeTitle ?: selectedItem.episodeTitle),
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                libraryFolderName?.let { folder ->
-                    Text(
-                        "${strings.libraryFolderLabel}: $folder",
-                        color = DanmakuColors.TextMuted,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-                originalSeriesTitle
-                    ?.takeIf { it.isNotBlank() && it != selectedItem.seriesTitle }
-                    ?.let { fileGroup ->
-                        Text(
-                            strings.fileGroupLabel(fileGroup),
-                            color = DanmakuColors.TextMuted,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-            }
+                    .align(Alignment.BottomStart)
+                    .background(Color.Black.copy(alpha = 0.72f), RoundedCornerShape(topEnd = 6.dp))
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                maxLines = 1,
+            )
         }
+        Text(selectedSeries.title, style = MaterialTheme.typography.h6, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(
+            selectedEpisodeDetail?.mediaItem?.episodeTitle ?: strings.nextPlayableLabel(selectedItem.episodeTitle),
+            color = DanmakuColors.TextMuted,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        originalSeriesTitle
+            ?.takeIf { it.isNotBlank() && it != selectedItem.seriesTitle }
+            ?.let { fileGroup ->
+                Text(strings.fileGroupLabel(fileGroup), color = DanmakuColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
         MiniProgressBar(percent = watchStatusById[selectedItem.id]?.progress?.progressPercent())
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
@@ -636,7 +574,6 @@ internal fun LibraryInspectorPane(
             }
             status?.let {
                 DandanplayMatchCandidatePicker(
-                    strings = strings,
                     preparation = preparation,
                     status = it,
                     isPreparing = isPreparing,

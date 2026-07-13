@@ -37,15 +37,6 @@ internal enum class WindowsLibraryView(
     PAIRED("Paired"),
 }
 
-internal enum class LibrarySeriesViewMode(
-    val label: String,
-) {
-    ALL("All"),
-    RECENT("Recent"),
-    SEASON("Season"),
-    FOLDER("Folder"),
-}
-
 internal enum class DownloadQueueFilter(
     val label: String,
 ) {

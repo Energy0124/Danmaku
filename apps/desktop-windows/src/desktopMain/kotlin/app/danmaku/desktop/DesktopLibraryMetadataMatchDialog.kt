@@ -111,28 +111,12 @@ internal fun MetadataMatchDialog(
     }
 
     AlertDialog(
-        modifier = Modifier.width(980.dp),
+        modifier = Modifier.width(860.dp),
         onDismissRequest = onDismiss,
-        title = {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    Icons.Filled.Search,
-                    contentDescription = strings.metadataMatchTitle,
-                    tint = DanmakuColors.Accent,
-                    modifier = Modifier.size(26.dp),
-                )
-                Column {
-                    Text(strings.metadataMatchTitle, fontWeight = FontWeight.Bold)
-                    Text(selectedSeries.title, color = DanmakuColors.TextMuted, style = MaterialTheme.typography.caption)
-                }
-            }
-        },
+        title = { Text(strings.metadataMatchTitle) },
         text = {
             Column(
-                modifier = Modifier.heightIn(max = 700.dp),
+                modifier = Modifier.heightIn(max = 620.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Text(
@@ -200,19 +184,12 @@ internal fun MetadataMatchDialog(
                 searchError?.let { error ->
                     Text(error, color = DanmakuColors.Warning, maxLines = 3, overflow = TextOverflow.Ellipsis)
                 }
-                if (candidates.isNotEmpty()) {
-                    Text(
-                        strings.metadataMatchResultsLabel(candidates.size),
-                        color = DanmakuColors.TextMuted,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                }
                 Divider(color = DanmakuColors.SurfaceRaised)
                 if (candidates.isEmpty()) {
                     EmptyState(strings.metadataMatchEmptyState)
                 } else {
                     LazyColumn(
-                        modifier = Modifier.heightIn(max = 430.dp),
+                        modifier = Modifier.heightIn(max = 360.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         items(candidates, key = { "${it.anime.id.provider.name}:${it.anime.id.value}" }) { candidate ->
@@ -271,10 +248,10 @@ internal fun MetadataMatchProviderToggle(
     }
     Row(
         modifier = Modifier
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(999.dp))
             .background(backgroundColor)
             .clickable(enabled = enabled, onClick = onToggle)
-            .padding(horizontal = 12.dp, vertical = 9.dp),
+            .padding(horizontal = 10.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
@@ -320,9 +297,9 @@ internal fun MetadataMatchCandidateRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(DanmakuColors.SurfaceRaised.copy(alpha = 0.82f))
-            .padding(12.dp),
+            .clip(RoundedCornerShape(8.dp))
+            .background(DanmakuColors.SurfaceRaised.copy(alpha = 0.62f))
+            .padding(10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
@@ -387,9 +364,9 @@ internal fun MetadataMatchPosterPreview(
     val bitmap = rememberLocalImageBitmap(posterPath)
     Box(
         modifier = Modifier
-            .width(64.dp)
-            .height(90.dp)
-            .clip(RoundedCornerShape(8.dp))
+            .width(54.dp)
+            .height(76.dp)
+            .clip(RoundedCornerShape(6.dp))
             .background(DanmakuColors.AccentSoft),
         contentAlignment = Alignment.Center,
     ) {

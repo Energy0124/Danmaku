@@ -164,24 +164,6 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
     val libraryViewQuality = stringResource(Res.string.desktop_library_view_quality)
     val libraryViewExternalSync = stringResource(Res.string.desktop_library_view_external_sync)
     val libraryViewPaired = stringResource(Res.string.desktop_library_view_paired)
-    val librarySeriesViewAll = stringResource(Res.string.desktop_library_series_view_all)
-    val librarySeriesViewRecent = stringResource(Res.string.desktop_library_series_view_recent)
-    val librarySeriesViewSeason = stringResource(Res.string.desktop_library_series_view_season)
-    val librarySeriesViewFolder = stringResource(Res.string.desktop_library_series_view_folder)
-    val allLibraryFoldersLabel = stringResource(Res.string.desktop_all_library_folders_label)
-    val libraryRecentMonthLabel = stringResource(Res.string.desktop_library_recent_month_label)
-    val libraryReleaseYearLabel = stringResource(Res.string.desktop_library_release_year_label)
-    val libraryUnknownRecentLabel = stringResource(Res.string.desktop_library_unknown_recent_label)
-    val libraryUnknownSeasonLabel = stringResource(Res.string.desktop_library_unknown_season_label)
-    val libraryUnassignedFolderLabel = stringResource(Res.string.desktop_library_unassigned_folder_label)
-    val librarySeriesCountLabel = stringResource(Res.string.desktop_library_series_count_label)
-    val seriesOverviewTitle = stringResource(Res.string.desktop_series_overview_title)
-    val releaseYearLabel = stringResource(Res.string.desktop_release_year_label)
-    val seasonsCountLabel = stringResource(Res.string.desktop_seasons_count_label)
-    val totalSizeLabel = stringResource(Res.string.desktop_total_size_label)
-    val subtitleTracksLabel = stringResource(Res.string.desktop_subtitle_tracks_label)
-    val libraryFolderLabel = stringResource(Res.string.desktop_library_folder_label)
-    val selectedEpisodeLabel = stringResource(Res.string.desktop_selected_episode_label)
     val pairedLibraryTitle = stringResource(Res.string.desktop_paired_library_title)
     val pairedLibraryDescription = stringResource(Res.string.desktop_paired_library_description)
     val pairedLibraryServerUrlLabel = stringResource(Res.string.desktop_paired_library_server_url_label)
@@ -402,14 +384,6 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
         stringResource(Res.string.desktop_metadata_match_current_mappings_prefix)
     val metadataMatchEmptyState = stringResource(Res.string.desktop_metadata_match_empty_state)
     val metadataMatchMatchedTitlePrefix = stringResource(Res.string.desktop_metadata_match_matched_title_prefix)
-    val metadataMatchResultsLabel = stringResource(Res.string.desktop_metadata_match_results_label)
-    val dandanplayMatchCandidatesTitle = stringResource(Res.string.desktop_dandanplay_match_candidates_title)
-    val dandanplayMatchCandidatesDescription = stringResource(Res.string.desktop_dandanplay_match_candidates_description)
-    val dandanplaySelectedMatchLabel = stringResource(Res.string.desktop_dandanplay_selected_match_label)
-    val dandanplayUseMatchAction = stringResource(Res.string.desktop_dandanplay_use_match_action)
-    val dandanplayEpisodeIdLabel = stringResource(Res.string.desktop_dandanplay_episode_id_label)
-    val dandanplayAnimeIdLabel = stringResource(Res.string.desktop_dandanplay_anime_id_label)
-    val dandanplayShiftLabel = stringResource(Res.string.desktop_dandanplay_shift_label)
     val suggestMissingMappingsAction = stringResource(Res.string.desktop_suggest_missing_mappings_action)
     val suggestingMappingsAction = stringResource(Res.string.desktop_suggesting_mappings_action)
     val favoriteStatusLabel = stringResource(Res.string.desktop_favorite_status_label)
@@ -899,19 +873,6 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
                 WindowsLibraryView.EXTERNAL_SYNC to libraryViewExternalSync,
                 WindowsLibraryView.PAIRED to libraryViewPaired,
             )
-            librarySeriesViewModeTitles = mapOf(
-                LibrarySeriesViewMode.ALL to librarySeriesViewAll,
-                LibrarySeriesViewMode.RECENT to librarySeriesViewRecent,
-                LibrarySeriesViewMode.SEASON to librarySeriesViewSeason,
-                LibrarySeriesViewMode.FOLDER to librarySeriesViewFolder,
-            )
-            this.allLibraryFoldersLabel = allLibraryFoldersLabel
-            this.libraryRecentMonthLabel = { month -> libraryRecentMonthLabel.formatResourceString(month) }
-            this.libraryReleaseYearLabel = { year -> libraryReleaseYearLabel.formatResourceString(year) }
-            this.libraryUnknownRecentLabel = libraryUnknownRecentLabel
-            this.libraryUnknownSeasonLabel = libraryUnknownSeasonLabel
-            this.libraryUnassignedFolderLabel = libraryUnassignedFolderLabel
-            this.librarySeriesCountLabel = { count -> librarySeriesCountLabel.formatResourceString(count) }
             this.pairedLibraryTitle = pairedLibraryTitle
             this.pairedLibraryDescription = pairedLibraryDescription
             this.pairedLibraryServerUrlLabel = pairedLibraryServerUrlLabel
@@ -1128,23 +1089,6 @@ internal fun rememberDesktopResourceStrings(language: DesktopUiLanguage): Deskto
             this.metadataMatchCurrentMappingsPrefix = metadataMatchCurrentMappingsPrefix
             this.metadataMatchEmptyState = metadataMatchEmptyState
             this.metadataMatchMatchedTitlePrefix = metadataMatchMatchedTitlePrefix
-            this.metadataMatchResultsLabel = { count -> metadataMatchResultsLabel.formatResourceString(count) }
-            this.dandanplayMatchCandidatesTitle = dandanplayMatchCandidatesTitle
-            this.dandanplayMatchCandidatesDescription = { count ->
-                dandanplayMatchCandidatesDescription.formatResourceString(count)
-            }
-            this.dandanplaySelectedMatchLabel = dandanplaySelectedMatchLabel
-            this.dandanplayUseMatchAction = dandanplayUseMatchAction
-            this.dandanplayEpisodeIdLabel = { id -> dandanplayEpisodeIdLabel.formatResourceString(id) }
-            this.dandanplayAnimeIdLabel = { id -> dandanplayAnimeIdLabel.formatResourceString(id) }
-            this.dandanplayShiftLabel = { shift -> dandanplayShiftLabel.formatResourceString(shift) }
-            this.seriesOverviewTitle = seriesOverviewTitle
-            this.releaseYearLabel = releaseYearLabel
-            this.seasonsCountLabel = { count -> seasonsCountLabel.formatResourceString(count) }
-            this.totalSizeLabel = totalSizeLabel
-            this.subtitleTracksLabel = subtitleTracksLabel
-            this.libraryFolderLabel = libraryFolderLabel
-            this.selectedEpisodeLabel = selectedEpisodeLabel
             this.suggestMissingMappingsAction = suggestMissingMappingsAction
             this.suggestingMappingsAction = suggestingMappingsAction
             this.favoriteStatusLabel = favoriteStatusLabel

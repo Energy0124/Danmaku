@@ -1,6 +1,6 @@
 //! Library-mode screens: server connect and catalog browse.
 
-use std::path::PathBuf;
+use std::{collections::BTreeMap, path::PathBuf};
 
 use eframe::egui::{
     self, Align, Align2, Color32, CursorIcon, FontId, Frame, Layout, Rect, RichText, Sense,
@@ -542,10 +542,59 @@ enum LibrarySeriesTab {
     Folder,
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+enum LibraryMatchFilter {
+    #[default]
+    All,
+    Matched,
+    Unmatched,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+enum LibraryProgressFilter {
+    #[default]
+    All,
+    Unwatched,
+    InProgress,
+    Completed,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+enum LibrarySeriesSort {
+    #[default]
+    Title,
+    Newest,
+    ReleaseYear,
+    EpisodeCount,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+enum LibraryGridDensity {
+    Compact,
+    #[default]
+    Comfortable,
+    Large,
+}
+
+impl LibraryGridDensity {
+    fn card_size(self) -> egui::Vec2 {
+        match self {
+            Self::Compact => vec2(126.0, 190.0),
+            Self::Comfortable => vec2(CARD_WIDTH, CARD_HEIGHT),
+            Self::Large => vec2(190.0, 284.0),
+        }
+    }
+}
+
 pub struct LibraryScreen {
     query: String,
     view: LibraryView,
     all_series_tab: LibrarySeriesTab,
+    match_filter: LibraryMatchFilter,
+    progress_filter: LibraryProgressFilter,
+    series_sort: LibrarySeriesSort,
+    grid_density: LibraryGridDensity,
+    selected_folder: Option<String>,
     /// Mixed grouping (anime identity when recognized, folder otherwise) —
     /// only used for the low-visibility Home "recently added" rail, where a
     /// little mixing is a reasonable tradeoff for always showing every item.
@@ -574,6 +623,11 @@ impl Default for LibraryScreen {
             query: String::new(),
             view: LibraryView::Home,
             all_series_tab: LibrarySeriesTab::default(),
+            match_filter: LibraryMatchFilter::default(),
+            progress_filter: LibraryProgressFilter::default(),
+            series_sort: LibrarySeriesSort::default(),
+            grid_density: LibraryGridDensity::default(),
+            selected_folder: None,
             cached_series: Vec::new(),
             cached_anime_series: Vec::new(),
             cached_folder_series: Vec::new(),
@@ -595,50 +649,93 @@ impl LibraryScreen {
         strings: Strings,
     ) -> Option<LibraryAction> {
         let mut action = None;
-        let search_id = egui::Id::new("library_search_field");
+        let top_level_folders = session
+            .catalog
+            .as_ref()
+            .map(library_top_level_folders)
+            .unwrap_or_default();
 
         egui::SidePanel::left("library_navigation")
             .exact_width(metrics::NAV_RAIL_WIDTH)
             .resizable(false)
             .frame(Frame::NONE.fill(palette::BG_NAV))
             .show(ctx, |ui| {
-                ui.vertical_centered(|ui| {
-                    ui.add_space(24.0);
-                    if nav_button(
-                        ui,
-                        Icon::Home,
-                        strings.home(),
-                        self.view == LibraryView::Home && self.query.is_empty(),
-                    )
-                    .clicked()
-                    {
-                        self.view = LibraryView::Home;
-                        self.query.clear();
-                    }
-                    ui.add_space(6.0);
-                    if nav_button(
-                        ui,
-                        Icon::Library,
-                        strings.library(),
-                        self.view == LibraryView::AllSeries,
-                    )
-                    .clicked()
-                    {
-                        self.view = LibraryView::AllSeries;
-                        self.query.clear();
-                    }
-                    ui.add_space(6.0);
-                    if nav_button(ui, Icon::Search, strings.search(), !self.query.is_empty())
-                        .clicked()
-                    {
-                        if matches!(self.view, LibraryView::Series(_)) {
-                            self.view = LibraryView::Home;
-                        }
-                        ctx.memory_mut(|memory| memory.request_focus(search_id));
-                    }
+                ui.add_space(22.0);
+                ui.horizontal(|ui| {
+                    ui.add_space(18.0);
+                    ui.label(
+                        RichText::new("Danmaku")
+                            .font(typography::hero())
+                            .strong()
+                            .color(palette::TEXT_PRIMARY),
+                    );
                 });
+                ui.add_space(20.0);
+                if nav_button(
+                    ui,
+                    Icon::Home,
+                    strings.home(),
+                    self.view == LibraryView::Home && self.query.is_empty(),
+                )
+                .clicked()
+                {
+                    self.view = LibraryView::Home;
+                    self.query.clear();
+                }
+
+                sidebar_heading(ui, strings.library_views());
+                for (tab, icon, label) in [
+                    (
+                        LibrarySeriesTab::Recent,
+                        Icon::Refresh,
+                        strings.recent_view(),
+                    ),
+                    (
+                        LibrarySeriesTab::Season,
+                        Icon::Library,
+                        strings.season_view(),
+                    ),
+                    (
+                        LibrarySeriesTab::MatchedAnime,
+                        Icon::Danmaku,
+                        strings.matched_anime(),
+                    ),
+                    (LibrarySeriesTab::Folder, Icon::Folder, strings.folders()),
+                ] {
+                    let selected =
+                        self.view == LibraryView::AllSeries && self.all_series_tab == tab;
+                    if nav_button(ui, icon, label, selected).clicked() {
+                        self.view = LibraryView::AllSeries;
+                        self.all_series_tab = tab;
+                        if tab != LibrarySeriesTab::Folder {
+                            self.folder_path.clear();
+                        }
+                    }
+                }
+
+                if !top_level_folders.is_empty() {
+                    sidebar_heading(ui, strings.library_folders());
+                    egui::ScrollArea::vertical()
+                        .id_salt("library-root-navigation")
+                        .max_height((ui.available_height() - 150.0).max(100.0))
+                        .show(ui, |ui| {
+                            for (folder, item_count) in top_level_folders.iter().take(12) {
+                                let selected = self.view == LibraryView::AllSeries
+                                    && self.all_series_tab == LibrarySeriesTab::Folder
+                                    && self.folder_path.first() == Some(folder);
+                                if folder_nav_button(ui, folder, *item_count, selected).clicked() {
+                                    self.view = LibraryView::AllSeries;
+                                    self.all_series_tab = LibrarySeriesTab::Folder;
+                                    self.folder_path = vec![folder.clone()];
+                                    self.selected_folder = Some(folder.clone());
+                                    self.query.clear();
+                                }
+                            }
+                        });
+                }
+
                 ui.with_layout(Layout::bottom_up(Align::Center), |ui| {
-                    ui.add_space(16.0);
+                    ui.add_space(12.0);
                     if nav_button(ui, Icon::Settings, strings.settings(), false).clicked() {
                         action = Some(LibraryAction::Settings);
                     }
@@ -668,7 +765,9 @@ impl LibraryScreen {
                 };
                 self.refresh_series_cache(catalog, session.catalog_version);
 
-                let inner_action = if !self.query.trim().is_empty() {
+                let inner_action = if !self.query.trim().is_empty()
+                    && self.view != LibraryView::AllSeries
+                {
                     self.show_search_results(ui, catalog, session, posters, strings)
                 } else {
                     match self.view.clone() {
@@ -924,97 +1023,289 @@ impl LibraryScreen {
                 if let Some(header_action) = self.page_header(ui, session, strings) {
                     action = Some(header_action);
                 }
-                ui.horizontal(|ui| {
-                    ui.add_space(PAGE_GUTTER);
-                    Frame::NONE
-                        .fill(palette::SURFACE)
-                        .corner_radius(egui::CornerRadius::same(11))
-                        .inner_margin(egui::Margin::symmetric(8, 6))
-                        .stroke(egui::Stroke::new(1.0, Color32::from_white_alpha(16)))
-                        .show(ui, |ui| {
-                            ui.horizontal(|ui| {
-                                ui.selectable_value(
-                                    &mut self.all_series_tab,
-                                    LibrarySeriesTab::Recent,
-                                    strings.recent_view(),
-                                );
-                                ui.selectable_value(
-                                    &mut self.all_series_tab,
-                                    LibrarySeriesTab::Season,
-                                    strings.season_view(),
-                                );
-                                ui.selectable_value(
-                                    &mut self.all_series_tab,
-                                    LibrarySeriesTab::MatchedAnime,
-                                    strings.matched_anime(),
-                                );
-                                ui.selectable_value(
-                                    &mut self.all_series_tab,
-                                    LibrarySeriesTab::Folder,
-                                    strings.folders(),
-                                );
-                            });
-                        });
-                });
-                ui.add_space(14.0);
+                let folders = session
+                    .catalog
+                    .as_ref()
+                    .map(library_top_level_folders)
+                    .unwrap_or_default();
+                self.show_series_filter_toolbar(ui, &folders, strings);
+                ui.add_space(16.0);
+
+                if self.all_series_tab == LibrarySeriesTab::Folder {
+                    if let Some(explorer_action) = self.show_folder_explorer(ui, session, strings) {
+                        action = Some(explorer_action);
+                    }
+                    ui.add_space(28.0);
+                    return;
+                }
+
+                let source = match self.all_series_tab {
+                    LibrarySeriesTab::Recent => &self.cached_series,
+                    LibrarySeriesTab::Season | LibrarySeriesTab::MatchedAnime => {
+                        &self.cached_anime_series
+                    }
+                    LibrarySeriesTab::Folder => unreachable!(),
+                };
+                let filtered = filtered_library_series(
+                    source,
+                    &self.query,
+                    self.match_filter,
+                    self.progress_filter,
+                    self.selected_folder.as_deref(),
+                    self.series_sort,
+                    &session.progresses,
+                );
+                let view_label = match self.all_series_tab {
+                    LibrarySeriesTab::Recent => strings.recent_view(),
+                    LibrarySeriesTab::Season => strings.season_view(),
+                    LibrarySeriesTab::MatchedAnime => strings.matched_anime(),
+                    LibrarySeriesTab::Folder => strings.folders(),
+                };
+                section_heading(
+                    ui,
+                    &format!("{view_label}  ·  {} {}", filtered.len(), strings.titles()),
+                );
+                if filtered.is_empty() {
+                    muted_line(ui, strings.no_filtered_series());
+                    ui.add_space(28.0);
+                    return;
+                }
+
                 match self.all_series_tab {
                     LibrarySeriesTab::Recent => {
-                        let groups = recent_series_groups(&self.cached_series, strings);
-                        for (heading, series) in groups {
-                            section_heading(
-                                ui,
-                                &format!("{heading}  ·  {} {}", series.len(), strings.titles()),
-                            );
-                            if let Some(series_id) = series_grid(ui, &series, posters, strings) {
+                        for (heading, series) in recent_series_groups(&filtered, strings) {
+                            section_subheading(ui, &format!("{heading}  ·  {}", series.len()));
+                            if let Some(series_id) =
+                                series_grid(ui, &series, posters, strings, self.grid_density)
+                            {
                                 self.view = LibraryView::Series(series_id);
                             }
-                            ui.add_space(12.0);
+                            ui.add_space(14.0);
                         }
                     }
                     LibrarySeriesTab::Season => {
-                        let groups = season_series_groups(&self.cached_anime_series, strings);
-                        if groups.is_empty() {
-                            muted_line(ui, strings.no_series());
-                        }
-                        for (heading, series) in groups {
-                            section_heading(
-                                ui,
-                                &format!("{heading}  ·  {} {}", series.len(), strings.titles()),
-                            );
-                            if let Some(series_id) = series_grid(ui, &series, posters, strings) {
+                        for (heading, series) in season_series_groups(&filtered, strings) {
+                            section_subheading(ui, &format!("{heading}  ·  {}", series.len()));
+                            if let Some(series_id) =
+                                series_grid(ui, &series, posters, strings, self.grid_density)
+                            {
                                 self.view = LibraryView::Series(series_id);
                             }
-                            ui.add_space(12.0);
+                            ui.add_space(14.0);
                         }
                     }
                     LibrarySeriesTab::MatchedAnime => {
-                        let series = &self.cached_anime_series;
-                        section_heading(
-                            ui,
-                            &format!(
-                                "{}  ·  {} {}",
-                                strings.matched_anime(),
-                                series.len(),
-                                strings.titles()
-                            ),
-                        );
-                        if series.is_empty() {
-                            muted_line(ui, strings.no_series());
-                        } else if let Some(series_id) = series_grid(ui, series, posters, strings) {
+                        if let Some(series_id) =
+                            series_grid(ui, &filtered, posters, strings, self.grid_density)
+                        {
                             self.view = LibraryView::Series(series_id);
                         }
                     }
-                    LibrarySeriesTab::Folder => {
-                        if let Some(explorer_action) =
-                            self.show_folder_explorer(ui, session, strings)
-                        {
-                            action = Some(explorer_action);
-                        }
-                    }
+                    LibrarySeriesTab::Folder => unreachable!(),
                 }
                 ui.add_space(28.0);
             });
         action
+    }
+
+    fn show_series_filter_toolbar(
+        &mut self,
+        ui: &mut egui::Ui,
+        folders: &[(String, usize)],
+        strings: Strings,
+    ) {
+        let tab_before = self.all_series_tab;
+        let folder_before = self.selected_folder.clone();
+        ui.horizontal(|ui| {
+            ui.add_space(PAGE_GUTTER);
+            Frame::NONE
+                .fill(palette::SURFACE_RAISED)
+                .corner_radius(egui::CornerRadius::same(12))
+                .inner_margin(egui::Margin::symmetric(12, 10))
+                .stroke(egui::Stroke::new(1.0, Color32::from_white_alpha(16)))
+                .show(ui, |ui| {
+                    ui.set_width((ui.available_width() - PAGE_GUTTER).max(560.0));
+                    ui.horizontal_wrapped(|ui| {
+                        ui.label(
+                            RichText::new(strings.library_views())
+                                .font(typography::small())
+                                .strong()
+                                .color(palette::TEXT_MUTED),
+                        );
+                        for (tab, label) in [
+                            (LibrarySeriesTab::Recent, strings.recent_view()),
+                            (LibrarySeriesTab::Season, strings.season_view()),
+                            (LibrarySeriesTab::MatchedAnime, strings.matched_anime()),
+                            (LibrarySeriesTab::Folder, strings.folders()),
+                        ] {
+                            ui.selectable_value(&mut self.all_series_tab, tab, label);
+                        }
+                    });
+                    ui.add_space(8.0);
+                    ui.separator();
+                    ui.add_space(8.0);
+                    ui.horizontal_wrapped(|ui| {
+                        ui.label(
+                            RichText::new(strings.filters())
+                                .font(typography::small())
+                                .strong()
+                                .color(palette::TEXT_MUTED),
+                        );
+                        if self.all_series_tab != LibrarySeriesTab::Folder {
+                            egui::ComboBox::from_id_salt("library-match-filter")
+                                .selected_text(match self.match_filter {
+                                    LibraryMatchFilter::All => strings.all_matches(),
+                                    LibraryMatchFilter::Matched => strings.matched_only(),
+                                    LibraryMatchFilter::Unmatched => strings.unmatched_only(),
+                                })
+                                .show_ui(ui, |ui| {
+                                    ui.selectable_value(
+                                        &mut self.match_filter,
+                                        LibraryMatchFilter::All,
+                                        strings.all_matches(),
+                                    );
+                                    ui.selectable_value(
+                                        &mut self.match_filter,
+                                        LibraryMatchFilter::Matched,
+                                        strings.matched_only(),
+                                    );
+                                    ui.selectable_value(
+                                        &mut self.match_filter,
+                                        LibraryMatchFilter::Unmatched,
+                                        strings.unmatched_only(),
+                                    );
+                                });
+                            egui::ComboBox::from_id_salt("library-progress-filter")
+                                .selected_text(match self.progress_filter {
+                                    LibraryProgressFilter::All => strings.all_progress(),
+                                    LibraryProgressFilter::Unwatched => strings.unwatched(),
+                                    LibraryProgressFilter::InProgress => strings.in_progress(),
+                                    LibraryProgressFilter::Completed => strings.completed(),
+                                })
+                                .show_ui(ui, |ui| {
+                                    ui.selectable_value(
+                                        &mut self.progress_filter,
+                                        LibraryProgressFilter::All,
+                                        strings.all_progress(),
+                                    );
+                                    ui.selectable_value(
+                                        &mut self.progress_filter,
+                                        LibraryProgressFilter::Unwatched,
+                                        strings.unwatched(),
+                                    );
+                                    ui.selectable_value(
+                                        &mut self.progress_filter,
+                                        LibraryProgressFilter::InProgress,
+                                        strings.in_progress(),
+                                    );
+                                    ui.selectable_value(
+                                        &mut self.progress_filter,
+                                        LibraryProgressFilter::Completed,
+                                        strings.completed(),
+                                    );
+                                });
+                        }
+                        egui::ComboBox::from_id_salt("library-folder-filter")
+                            .selected_text(
+                                self.selected_folder
+                                    .as_deref()
+                                    .unwrap_or(strings.all_folders()),
+                            )
+                            .show_ui(ui, |ui| {
+                                ui.selectable_value(
+                                    &mut self.selected_folder,
+                                    None,
+                                    strings.all_folders(),
+                                );
+                                for (folder, item_count) in folders {
+                                    ui.selectable_value(
+                                        &mut self.selected_folder,
+                                        Some(folder.clone()),
+                                        format!("{folder}  ·  {item_count}"),
+                                    );
+                                }
+                            });
+                        if self.all_series_tab != LibrarySeriesTab::Folder {
+                            egui::ComboBox::from_id_salt("library-sort")
+                                .selected_text(match self.series_sort {
+                                    LibrarySeriesSort::Title => strings.sort_title(),
+                                    LibrarySeriesSort::Newest => strings.sort_newest(),
+                                    LibrarySeriesSort::ReleaseYear => strings.sort_release_year(),
+                                    LibrarySeriesSort::EpisodeCount => strings.sort_episode_count(),
+                                })
+                                .show_ui(ui, |ui| {
+                                    ui.selectable_value(
+                                        &mut self.series_sort,
+                                        LibrarySeriesSort::Title,
+                                        strings.sort_title(),
+                                    );
+                                    ui.selectable_value(
+                                        &mut self.series_sort,
+                                        LibrarySeriesSort::Newest,
+                                        strings.sort_newest(),
+                                    );
+                                    ui.selectable_value(
+                                        &mut self.series_sort,
+                                        LibrarySeriesSort::ReleaseYear,
+                                        strings.sort_release_year(),
+                                    );
+                                    ui.selectable_value(
+                                        &mut self.series_sort,
+                                        LibrarySeriesSort::EpisodeCount,
+                                        strings.sort_episode_count(),
+                                    );
+                                });
+                            egui::ComboBox::from_id_salt("library-grid-density")
+                                .selected_text(match self.grid_density {
+                                    LibraryGridDensity::Compact => strings.compact(),
+                                    LibraryGridDensity::Comfortable => strings.comfortable(),
+                                    LibraryGridDensity::Large => strings.large(),
+                                })
+                                .show_ui(ui, |ui| {
+                                    ui.selectable_value(
+                                        &mut self.grid_density,
+                                        LibraryGridDensity::Compact,
+                                        strings.compact(),
+                                    );
+                                    ui.selectable_value(
+                                        &mut self.grid_density,
+                                        LibraryGridDensity::Comfortable,
+                                        strings.comfortable(),
+                                    );
+                                    ui.selectable_value(
+                                        &mut self.grid_density,
+                                        LibraryGridDensity::Large,
+                                        strings.large(),
+                                    );
+                                });
+                        }
+                        let filters_active = self.match_filter != LibraryMatchFilter::All
+                            || self.progress_filter != LibraryProgressFilter::All
+                            || self.selected_folder.is_some()
+                            || self.series_sort != LibrarySeriesSort::Title
+                            || self.grid_density != LibraryGridDensity::Comfortable
+                            || !self.query.trim().is_empty();
+                        if ui
+                            .add_enabled(filters_active, egui::Button::new(strings.clear_filters()))
+                            .clicked()
+                        {
+                            self.match_filter = LibraryMatchFilter::All;
+                            self.progress_filter = LibraryProgressFilter::All;
+                            self.selected_folder = None;
+                            self.series_sort = LibrarySeriesSort::Title;
+                            self.grid_density = LibraryGridDensity::Comfortable;
+                            self.query.clear();
+                            self.folder_path.clear();
+                        }
+                    });
+                });
+        });
+        if self.all_series_tab == LibrarySeriesTab::Folder
+            && (tab_before != LibrarySeriesTab::Folder || folder_before != self.selected_folder)
+        {
+            self.folder_path = self.selected_folder.clone().into_iter().collect();
+            self.cached_folder_listing_key = None;
+        }
     }
 
     /// File-explorer style browse of the library's on-disk layout, like the
@@ -1036,13 +1327,31 @@ impl LibraryScreen {
             self.cached_folder_listing_key = Some(key);
         }
 
+        let query = self.query.trim().to_lowercase();
+        let visible_folders: Vec<_> = self
+            .cached_folder_listing
+            .folders
+            .iter()
+            .filter(|folder| query.is_empty() || folder.name.to_lowercase().contains(&query))
+            .collect();
+        let visible_files: Vec<_> = self
+            .cached_folder_listing
+            .files
+            .iter()
+            .filter(|item| {
+                query.is_empty()
+                    || item.episode_title.to_lowercase().contains(&query)
+                    || item.relative_path.to_lowercase().contains(&query)
+                    || item.series_title.to_lowercase().contains(&query)
+            })
+            .collect();
+
         let heading = if self.folder_path.is_empty() {
             catalog.root_name.clone()
         } else {
             format!("{}\\{}", catalog.root_name, self.folder_path.join("\\"))
         };
-        let total =
-            self.cached_folder_listing.folders.len() + self.cached_folder_listing.files.len();
+        let total = visible_folders.len() + visible_files.len();
         section_heading(
             ui,
             &format!("{heading}  ·  {total} {}", strings.items_label()),
@@ -1053,12 +1362,12 @@ impl LibraryScreen {
         if !self.folder_path.is_empty() && explorer_folder_row(ui, None, 0, strings).clicked() {
             navigate = Some(None);
         }
-        for folder in &self.cached_folder_listing.folders {
+        for folder in visible_folders {
             if explorer_folder_row(ui, Some(&folder.name), folder.item_count, strings).clicked() {
                 navigate = Some(Some(folder.name.clone()));
             }
         }
-        for item in &self.cached_folder_listing.files {
+        for item in visible_files {
             let row = explorer_file_row(ui, item, strings);
             if row.play_clicked {
                 action = Some(LibraryAction::Play {
@@ -1125,7 +1434,13 @@ impl LibraryScreen {
                     muted_line(ui, strings.no_series());
                 } else {
                     let owned: Vec<Series> = matching_series.into_iter().cloned().collect();
-                    if let Some(series_id) = series_grid(ui, &owned, posters, strings) {
+                    if let Some(series_id) = series_grid(
+                        ui,
+                        &owned,
+                        posters,
+                        strings,
+                        LibraryGridDensity::Comfortable,
+                    ) {
                         self.query.clear();
                         self.view = LibraryView::Series(series_id);
                     }
@@ -1152,6 +1467,7 @@ impl LibraryScreen {
         action
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn show_series(
         &mut self,
         ui: &mut egui::Ui,
@@ -1263,14 +1579,13 @@ impl LibraryScreen {
                                     );
                                     if let Some(metadata) =
                                         items.iter().find_map(|item| item.anime_metadata.as_ref())
+                                        && metadata.display_title != series.title
                                     {
-                                        if metadata.display_title != series.title {
-                                            ui.label(
-                                                RichText::new(&metadata.display_title)
-                                                    .font(typography::body())
-                                                    .color(palette::TEXT_MUTED),
-                                            );
-                                        }
+                                        ui.label(
+                                            RichText::new(&metadata.display_title)
+                                                .font(typography::body())
+                                                .color(palette::TEXT_MUTED),
+                                        );
                                     }
                                     ui.add_space(10.0);
                                     ui.label(
@@ -1349,8 +1664,24 @@ impl LibraryScreen {
     }
 }
 
+fn sidebar_heading(ui: &mut egui::Ui, label: &str) {
+    ui.add_space(16.0);
+    ui.horizontal(|ui| {
+        ui.add_space(20.0);
+        ui.label(
+            RichText::new(label.to_uppercase())
+                .font(typography::small())
+                .strong()
+                .color(palette::TEXT_MUTED),
+        );
+    });
+    ui.add_space(6.0);
+}
+
 fn nav_button(ui: &mut egui::Ui, icon: Icon, label: &str, selected: bool) -> egui::Response {
-    let (rect, response) = ui.allocate_exact_size(vec2(68.0, 64.0), Sense::click());
+    let width = (ui.available_width() - 20.0).max(120.0);
+    let (rect, response) = ui.allocate_exact_size(vec2(width, 42.0), Sense::click());
+    let rect = rect.translate(vec2(10.0, 0.0));
     let fill = if selected {
         Color32::from_rgb(22, 42, 67)
     } else if response.hovered() {
@@ -1358,13 +1689,10 @@ fn nav_button(ui: &mut egui::Ui, icon: Icon, label: &str, selected: bool) -> egu
     } else {
         Color32::TRANSPARENT
     };
-    ui.painter().rect_filled(rect, 10.0, fill);
+    ui.painter().rect_filled(rect, 9.0, fill);
     if selected {
         ui.painter().rect_filled(
-            Rect::from_min_size(
-                rect.left_top() + vec2(0.0, 8.0),
-                vec2(3.0, rect.height() - 16.0),
-            ),
+            Rect::from_min_size(rect.left_top() + vec2(0.0, 7.0), vec2(3.0, 28.0)),
             1.5,
             palette::ACCENT_BRIGHT,
         );
@@ -1374,14 +1702,81 @@ fn nav_button(ui: &mut egui::Ui, icon: Icon, label: &str, selected: bool) -> egu
     } else {
         palette::TEXT_MUTED
     };
-    let icon_rect = Rect::from_center_size(rect.center_top() + vec2(0.0, 22.0), vec2(24.0, 24.0));
-    paint_icon(ui.painter(), icon_rect, icon, color, 1.7);
-    ui.painter().text(
-        rect.center_bottom() - vec2(0.0, 12.0),
-        Align2::CENTER_BOTTOM,
-        label,
-        typography::small(),
+    paint_icon(
+        ui.painter(),
+        Rect::from_center_size(pos2(rect.left() + 24.0, rect.center().y), vec2(20.0, 20.0)),
+        icon,
         color,
+        1.6,
+    );
+    ui.painter().text(
+        pos2(rect.left() + 46.0, rect.center().y),
+        Align2::LEFT_CENTER,
+        label,
+        typography::body(),
+        if selected {
+            palette::TEXT_PRIMARY
+        } else {
+            palette::TEXT_SECONDARY
+        },
+    );
+    if response.hovered() {
+        ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
+    }
+    response
+}
+
+fn folder_nav_button(
+    ui: &mut egui::Ui,
+    folder: &str,
+    item_count: usize,
+    selected: bool,
+) -> egui::Response {
+    let width = (ui.available_width() - 20.0).max(120.0);
+    let (rect, response) = ui.allocate_exact_size(vec2(width, 36.0), Sense::click());
+    let rect = rect.translate(vec2(10.0, 0.0));
+    let fill = if selected {
+        palette::WIDGET_ACTIVE
+    } else if response.hovered() {
+        palette::SURFACE_RAISED
+    } else {
+        Color32::TRANSPARENT
+    };
+    ui.painter().rect_filled(rect, 8.0, fill);
+    paint_icon(
+        ui.painter(),
+        Rect::from_center_size(pos2(rect.left() + 23.0, rect.center().y), vec2(18.0, 18.0)),
+        Icon::Folder,
+        if selected {
+            palette::ACCENT_OUTLINE
+        } else {
+            palette::TEXT_MUTED
+        },
+        1.4,
+    );
+    let count_text = item_count.to_string();
+    let count_width = ui
+        .painter()
+        .layout_no_wrap(count_text.clone(), typography::small(), palette::TEXT_MUTED)
+        .size()
+        .x;
+    ui.painter().text(
+        pos2(rect.right() - 10.0, rect.center().y),
+        Align2::RIGHT_CENTER,
+        count_text,
+        typography::small(),
+        palette::TEXT_MUTED,
+    );
+    let label_clip = Rect::from_min_max(
+        pos2(rect.left() + 44.0, rect.top()),
+        pos2(rect.right() - count_width - 18.0, rect.bottom()),
+    );
+    ui.painter().with_clip_rect(label_clip).text(
+        pos2(rect.left() + 44.0, rect.center().y),
+        Align2::LEFT_CENTER,
+        folder,
+        typography::caption(),
+        palette::TEXT_SECONDARY,
     );
     if response.hovered() {
         ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
@@ -1619,6 +2014,25 @@ fn section_heading(ui: &mut egui::Ui, text: &str) {
     ui.add_space(8.0);
 }
 
+fn section_subheading(ui: &mut egui::Ui, text: &str) {
+    ui.horizontal(|ui| {
+        ui.add_space(PAGE_GUTTER);
+        Frame::NONE
+            .fill(palette::SURFACE)
+            .corner_radius(egui::CornerRadius::same(8))
+            .inner_margin(egui::Margin::symmetric(11, 7))
+            .show(ui, |ui| {
+                ui.label(
+                    RichText::new(text)
+                        .font(typography::heading())
+                        .strong()
+                        .color(palette::TEXT_SECONDARY),
+                );
+            });
+    });
+    ui.add_space(10.0);
+}
+
 fn muted_line(ui: &mut egui::Ui, text: &str) {
     ui.horizontal(|ui| {
         ui.add_space(PAGE_GUTTER);
@@ -1740,6 +2154,131 @@ fn series_rail(
     clicked
 }
 
+fn top_level_folder(relative_path: &str) -> Option<&str> {
+    relative_path
+        .split(['/', '\\'])
+        .find(|component| !component.trim().is_empty())
+}
+
+fn library_top_level_folders(catalog: &LibraryCatalog) -> Vec<(String, usize)> {
+    let mut counts = BTreeMap::<String, usize>::new();
+    for item in &catalog.items {
+        if let Some(folder) = top_level_folder(&item.relative_path) {
+            *counts.entry(folder.to_owned()).or_default() += 1;
+        }
+    }
+    counts.into_iter().collect()
+}
+
+fn series_matches_query(series: &Series, query: &str) -> bool {
+    let query = query.trim().to_lowercase();
+    query.is_empty()
+        || series.title.to_lowercase().contains(&query)
+        || series.items().any(|item| {
+            item.episode_title.to_lowercase().contains(&query)
+                || item.relative_path.to_lowercase().contains(&query)
+                || item
+                    .anime_metadata
+                    .as_ref()
+                    .is_some_and(|metadata| metadata.display_title.to_lowercase().contains(&query))
+        })
+}
+
+fn series_is_matched(series: &Series) -> bool {
+    series.items().any(|item| item.anime_metadata.is_some())
+}
+
+fn series_progress_state(
+    series: &Series,
+    progresses: &[PlaybackProgress],
+) -> LibraryProgressFilter {
+    let latest = progresses
+        .iter()
+        .filter(|progress| series.items().any(|item| item.id == progress.media_id))
+        .fold(
+            std::collections::HashMap::<&str, &PlaybackProgress>::new(),
+            |mut by_media_id, progress| {
+                match by_media_id.get(progress.media_id.as_str()) {
+                    Some(existing)
+                        if existing.updated_at_epoch_ms >= progress.updated_at_epoch_ms => {}
+                    _ => {
+                        by_media_id.insert(progress.media_id.as_str(), progress);
+                    }
+                }
+                by_media_id
+            },
+        );
+    let mut any_started = false;
+    let mut all_completed = series.episode_count() > 0;
+    for item in series.items() {
+        let progress = latest.get(item.id.as_str()).copied();
+        let completed = progress.is_some_and(|progress| {
+            progress.duration_ms.is_some_and(|duration| {
+                duration > 0 && duration - progress.position_ms < MINIMUM_REMAINING_MS
+            })
+        });
+        any_started |= progress.is_some_and(|progress| {
+            progress.position_ms >= MINIMUM_RESUME_POSITION_MS && !completed
+        });
+        all_completed &= completed;
+    }
+    if all_completed {
+        LibraryProgressFilter::Completed
+    } else if any_started {
+        LibraryProgressFilter::InProgress
+    } else {
+        LibraryProgressFilter::Unwatched
+    }
+}
+
+fn filtered_library_series(
+    series: &[Series],
+    query: &str,
+    match_filter: LibraryMatchFilter,
+    progress_filter: LibraryProgressFilter,
+    selected_folder: Option<&str>,
+    sort: LibrarySeriesSort,
+    progresses: &[PlaybackProgress],
+) -> Vec<Series> {
+    let mut filtered: Vec<Series> = series
+        .iter()
+        .filter(|series| series_matches_query(series, query))
+        .filter(|series| match match_filter {
+            LibraryMatchFilter::All => true,
+            LibraryMatchFilter::Matched => series_is_matched(series),
+            LibraryMatchFilter::Unmatched => !series_is_matched(series),
+        })
+        .filter(|series| {
+            selected_folder.is_none_or(|folder| {
+                series
+                    .items()
+                    .filter_map(|item| top_level_folder(&item.relative_path))
+                    .any(|item_folder| item_folder.eq_ignore_ascii_case(folder))
+            })
+        })
+        .filter(|series| {
+            progress_filter == LibraryProgressFilter::All
+                || series_progress_state(series, progresses) == progress_filter
+        })
+        .cloned()
+        .collect();
+
+    filtered.sort_by(|left, right| match sort {
+        LibrarySeriesSort::Title => left.title.to_lowercase().cmp(&right.title.to_lowercase()),
+        LibrarySeriesSort::Newest => series_latest_indexed_at(right)
+            .cmp(&series_latest_indexed_at(left))
+            .then_with(|| left.title.to_lowercase().cmp(&right.title.to_lowercase())),
+        LibrarySeriesSort::ReleaseYear => series_release_year(right)
+            .cmp(&series_release_year(left))
+            .then_with(|| left.title.to_lowercase().cmp(&right.title.to_lowercase())),
+        LibrarySeriesSort::EpisodeCount => right
+            .episode_count()
+            .cmp(&left.episode_count())
+            .then_with(|| left.title.to_lowercase().cmp(&right.title.to_lowercase())),
+    });
+    filtered
+}
+
 fn series_latest_indexed_at(series: &Series) -> i64 {
     series
         .items()
@@ -1756,47 +2295,41 @@ fn series_release_year(series: &Series) -> Option<i32> {
 }
 
 fn recent_series_groups(series: &[Series], strings: Strings) -> Vec<(String, Vec<Series>)> {
-    let mut sorted = series.to_vec();
-    sorted.sort_by(|left, right| {
-        series_latest_indexed_at(right)
-            .cmp(&series_latest_indexed_at(left))
-            .then_with(|| left.title.to_lowercase().cmp(&right.title.to_lowercase()))
-    });
-
-    let mut groups: Vec<(String, Vec<Series>)> = Vec::new();
-    for series in sorted {
-        let label = year_month_from_epoch_ms(series_latest_indexed_at(&series))
-            .map(|(year, month)| recent_month_label(year, month, strings))
-            .unwrap_or_else(|| strings.unknown_date().to_owned());
-        if let Some((_, entries)) = groups.last_mut().filter(|(name, _)| name == &label) {
-            entries.push(series);
-        } else {
-            groups.push((label, vec![series]));
-        }
+    let mut groups = BTreeMap::<Option<(i32, u32)>, Vec<Series>>::new();
+    for entry in series {
+        let key = year_month_from_epoch_ms(series_latest_indexed_at(entry));
+        groups.entry(key).or_default().push(entry.clone());
     }
     groups
+        .into_iter()
+        .rev()
+        .map(|(key, entries)| {
+            let label = key
+                .map(|(year, month)| recent_month_label(year, month, strings))
+                .unwrap_or_else(|| strings.unknown_date().to_owned());
+            (label, entries)
+        })
+        .collect()
 }
 
 fn season_series_groups(series: &[Series], strings: Strings) -> Vec<(String, Vec<Series>)> {
-    let mut sorted = series.to_vec();
-    sorted.sort_by(|left, right| {
-        series_release_year(right)
-            .cmp(&series_release_year(left))
-            .then_with(|| left.title.to_lowercase().cmp(&right.title.to_lowercase()))
-    });
-
-    let mut groups: Vec<(String, Vec<Series>)> = Vec::new();
-    for series in sorted {
-        let label = series_release_year(&series)
-            .map(|year| year.to_string())
-            .unwrap_or_else(|| strings.unknown_season().to_owned());
-        if let Some((_, entries)) = groups.last_mut().filter(|(name, _)| name == &label) {
-            entries.push(series);
-        } else {
-            groups.push((label, vec![series]));
-        }
+    let mut groups = BTreeMap::<Option<i32>, Vec<Series>>::new();
+    for entry in series {
+        groups
+            .entry(series_release_year(entry))
+            .or_default()
+            .push(entry.clone());
     }
     groups
+        .into_iter()
+        .rev()
+        .map(|(year, entries)| {
+            let label = year
+                .map(|year| year.to_string())
+                .unwrap_or_else(|| strings.unknown_season().to_owned());
+            (label, entries)
+        })
+        .collect()
 }
 
 fn recent_month_label(year: i32, month: u32, strings: Strings) -> String {
@@ -1850,14 +2383,16 @@ fn series_grid(
     series: &[Series],
     posters: &mut PosterCache,
     strings: Strings,
+    density: LibraryGridDensity,
 ) -> Option<String> {
     let mut clicked = None;
+    let card_size = density.card_size();
     let available_width = ui.available_width() - 2.0 * PAGE_GUTTER;
-    let columns = ((available_width + CARD_GAP) / (CARD_WIDTH + CARD_GAP))
+    let columns = ((available_width + CARD_GAP) / (card_size.x + CARD_GAP))
         .floor()
         .max(1.0) as usize;
     let rows = series.len().div_ceil(columns);
-    let row_height = CARD_HEIGHT + CARD_GAP;
+    let row_height = card_size.y + CARD_GAP;
 
     // The grid lives inside the page ScrollArea, so paint rows directly;
     // per-row culling comes from ScrollArea clipping and cheap card paint.
@@ -1873,12 +2408,13 @@ fn series_grid(
                     };
                     let representative = series.items().next().cloned();
                     if let Some(item) = representative {
-                        let response = poster_card_with_title(
+                        let response = poster_card_with_title_sized(
                             ui,
                             &item,
                             &series.title,
                             &format!("{} {}", series.episode_count(), strings.episodes()),
                             posters,
+                            card_size,
                         );
                         if response.clicked() {
                             clicked = Some(series.id.clone());
@@ -1902,7 +2438,16 @@ fn poster_card(
     badge: Option<&str>,
 ) -> egui::Response {
     let title = format!("{} - {}", item.series_title, item.episode_title);
-    poster_card_impl(ui, item, &title, None, posters, progress_fraction, badge)
+    poster_card_impl(
+        ui,
+        item,
+        &title,
+        None,
+        posters,
+        vec2(CARD_WIDTH, CARD_HEIGHT),
+        progress_fraction,
+        badge,
+    )
 }
 
 fn poster_card_with_title(
@@ -1918,23 +2463,46 @@ fn poster_card_with_title(
         title,
         Some(subtitle),
         posters,
+        vec2(CARD_WIDTH, CARD_HEIGHT),
+        None,
+        None,
+    )
+}
+
+fn poster_card_with_title_sized(
+    ui: &mut egui::Ui,
+    representative: &MediaItem,
+    title: &str,
+    subtitle: &str,
+    posters: &mut PosterCache,
+    size: egui::Vec2,
+) -> egui::Response {
+    poster_card_impl(
+        ui,
+        representative,
+        title,
+        Some(subtitle),
+        posters,
+        size,
         None,
         None,
     )
 }
 
 /// Full-bleed poster with the caption on a bottom scrim, like the mockups.
+#[allow(clippy::too_many_arguments)]
 fn poster_card_impl(
     ui: &mut egui::Ui,
     item: &MediaItem,
     title: &str,
     subtitle: Option<&str>,
     posters: &mut PosterCache,
+    size: egui::Vec2,
     progress_fraction: Option<f32>,
     badge: Option<&str>,
 ) -> egui::Response {
     let radius = metrics::CARD_RADIUS + 2.0;
-    let (rect, response) = ui.allocate_exact_size(vec2(CARD_WIDTH, CARD_HEIGHT), Sense::click());
+    let (rect, response) = ui.allocate_exact_size(size, Sense::click());
     if !ui.is_rect_visible(rect) {
         return response;
     }
@@ -3092,7 +3660,11 @@ fn card_status_dot(ui: &mut egui::Ui, text: &str, color: Color32) {
 
 #[cfg(test)]
 mod tests {
-    use super::{format_size, initials, year_month_from_epoch_ms};
+    use super::{
+        LibraryMatchFilter, LibraryProgressFilter, LibrarySeriesSort, filtered_library_series,
+        format_size, initials, series_progress_state, year_month_from_epoch_ms,
+    };
+    use crate::library::{AnimeMetadata, MediaItem, PlaybackProgress, Season, Series};
 
     #[test]
     fn derives_initials_from_titles() {
@@ -3115,5 +3687,121 @@ mod tests {
         assert_eq!(format_size(1_503_238_554), "1.40GB");
         assert_eq!(format_size(0), "0.0MB");
         assert_eq!(format_size(-5), "0.0MB");
+    }
+    fn item(id: &str, path: &str, indexed_at: i64, year: Option<i32>) -> MediaItem {
+        MediaItem {
+            id: id.to_owned(),
+            series_title: path
+                .split(['/', '\\'])
+                .next()
+                .unwrap_or_default()
+                .to_owned(),
+            episode_title: format!("Episode {id}"),
+            relative_path: path.to_owned(),
+            indexed_at_epoch_ms: indexed_at,
+            anime_metadata: year.map(|start_year| AnimeMetadata {
+                display_title: format!("Anime {id}"),
+                start_year: Some(start_year),
+                ..AnimeMetadata::default()
+            }),
+            ..MediaItem::default()
+        }
+    }
+
+    fn series(title: &str, items: Vec<MediaItem>) -> Series {
+        Series {
+            id: title.to_lowercase(),
+            title: title.to_owned(),
+            seasons: vec![Season {
+                id: format!("{title}-season"),
+                label: "Season 1".to_owned(),
+                sort_key: 1,
+                items,
+            }],
+        }
+    }
+
+    #[test]
+    fn filters_library_series_by_query_match_folder_and_sort() {
+        let alpha = series(
+            "Alpha",
+            vec![item("a", "Library A\\Alpha\\01.mkv", 20, Some(2024))],
+        );
+        let beta = series(
+            "Beta",
+            vec![
+                item("b1", "Library B\\Beta\\01.mkv", 30, None),
+                item("b2", "Library B\\Beta\\02.mkv", 31, None),
+            ],
+        );
+        let source = vec![alpha, beta];
+
+        let matched = filtered_library_series(
+            &source,
+            "alpha",
+            LibraryMatchFilter::Matched,
+            LibraryProgressFilter::All,
+            Some("Library A"),
+            LibrarySeriesSort::Title,
+            &[],
+        );
+        assert_eq!(
+            matched
+                .iter()
+                .map(|entry| entry.title.as_str())
+                .collect::<Vec<_>>(),
+            vec!["Alpha"]
+        );
+
+        let newest = filtered_library_series(
+            &source,
+            "",
+            LibraryMatchFilter::All,
+            LibraryProgressFilter::All,
+            None,
+            LibrarySeriesSort::Newest,
+            &[],
+        );
+        assert_eq!(
+            newest
+                .iter()
+                .map(|entry| entry.title.as_str())
+                .collect::<Vec<_>>(),
+            vec!["Beta", "Alpha"]
+        );
+    }
+
+    #[test]
+    fn classifies_unwatched_in_progress_and_completed_series() {
+        let entry = series(
+            "Alpha",
+            vec![item("a", "Library A\\Alpha\\01.mkv", 20, Some(2024))],
+        );
+        assert_eq!(
+            series_progress_state(&entry, &[]),
+            LibraryProgressFilter::Unwatched
+        );
+
+        let in_progress = PlaybackProgress {
+            media_id: "a".to_owned(),
+            position_ms: 20_000,
+            duration_ms: Some(100_000),
+            updated_at_epoch_ms: 1,
+        };
+        assert_eq!(
+            series_progress_state(&entry, &[in_progress]),
+            LibraryProgressFilter::InProgress
+        );
+
+        let completed = PlaybackProgress {
+            media_id: "a".to_owned(),
+            position_ms: 90_000,
+            duration_ms: Some(100_000),
+            updated_at_epoch_ms: 2,
+        };
+        assert_eq!(
+            series_progress_state(&entry, &[completed]),
+            LibraryProgressFilter::Completed
+        );
     }
 }
