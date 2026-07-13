@@ -134,6 +134,12 @@ pub fn apply(ctx: &egui::Context) {
         .push(name);
     ctx.set_fonts(fonts);
 
+    // The visual system is dark-only; without pinning this, egui follows
+    // the OS theme and any surface not explicitly painted (popup menus,
+    // stock widgets) falls back to the default light visuals on a
+    // light-mode Windows.
+    ctx.set_theme(egui::ThemePreference::Dark);
+
     let mut visuals = egui::Visuals::dark();
     visuals.panel_fill = palette::BG_PANEL;
     visuals.window_fill = palette::SURFACE;

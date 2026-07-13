@@ -2085,6 +2085,21 @@ fn filter_dropdown(
         .id(egui::Id::new(("library-filter-dropdown", id_salt)))
         .gap(6.0)
         .width(rect.width().max(200.0))
+        // Explicit card frame: the option list must stay on the dark
+        // raised surface regardless of what egui derives for menus.
+        .frame(
+            Frame::NONE
+                .fill(palette::SURFACE_RAISED)
+                .corner_radius(egui::CornerRadius::same(12))
+                .inner_margin(egui::Margin::symmetric(8, 8))
+                .stroke(egui::Stroke::new(1.0, Color32::from_white_alpha(24)))
+                .shadow(egui::Shadow {
+                    offset: [0, 6],
+                    blur: 18,
+                    spread: 0,
+                    color: Color32::from_black_alpha(140),
+                }),
+        )
         .show(|ui| {
             ui.spacing_mut().item_spacing.y = 2.0;
             for (index, (text, selected)) in options.iter().enumerate() {
