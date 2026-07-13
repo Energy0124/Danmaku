@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use axum::Router;
 use axum::body::Body;
@@ -104,6 +104,11 @@ pub struct HttpServerState {
     dandanplay_resolver: Option<Arc<DandanplayResolver>>,
     catalog_metadata: Option<Arc<CatalogMetadataStore>>,
     poster_cache: Option<Arc<PosterCacheStore>>,
+    /// Media IDs with a poster search/download currently in flight, so
+    /// concurrent `/api/library` reads (which retry missing posters — see
+    /// `handle_catalog`) don't pile up redundant external requests for the
+    /// same item while one is already running.
+    poster_resolution_in_flight: Arc<Mutex<BTreeSet<String>>>,
 }
 
 impl HttpServerState {
@@ -136,6 +141,7 @@ impl HttpServerState {
             dandanplay_resolver: config.dandanplay_resolver,
             catalog_metadata: config.catalog_metadata,
             poster_cache: config.poster_cache,
+            poster_resolution_in_flight: Arc::new(Mutex::new(BTreeSet::new())),
         }
     }
 }
@@ -221,13 +227,28 @@ fn handle_catalog(state: &HttpServerState, method: &Method) -> Response<Body> {
     }
     // Merge dandanplay-recognized anime identities onto items lacking provider
     // metadata so clients auto-group episodes under the matched anime.
-    match &state.catalog_metadata {
-        Some(store) => json_response(
-            StatusCode::OK,
-            &store.enrich_catalog(&state.library.catalog),
-        ),
-        None => json_response(StatusCode::OK, &state.library.catalog),
+    let Some(store) = &state.catalog_metadata else {
+        return json_response(StatusCode::OK, &state.library.catalog);
+    };
+    let enriched = store.enrich_catalog(&state.library.catalog);
+    // Best-effort retry for items that were recognized but never got a
+    // poster cached — the local server can be hard-killed (the desktop host
+    // stops its managed sidecar with a process kill, not a graceful signal)
+    // mid-download, so a one-shot fetch on recognition alone can be lost with
+    // no other retry. Retrying here piggybacks on every catalog read instead.
+    for item in &enriched.items {
+        if item.poster_path.is_none()
+            && let Some(metadata) = &item.anime_metadata
+        {
+            ensure_poster_resolved(
+                state,
+                &item.id,
+                metadata.image_url.clone(),
+                Some(metadata.display_title.clone()),
+            );
+        }
     }
+    json_response(StatusCode::OK, &enriched)
 }
 
 /// Records the recognized dandanplay identity from a resolve result so the
@@ -249,66 +270,107 @@ fn record_recognized_identity(
     else {
         return;
     };
-    let changed = match store.record(
+    if let Err(error) = store.record(
         media_id,
         anime_id,
         anime_title.clone(),
         candidate.episode_title.clone(),
     ) {
-        Ok(changed) => changed,
-        Err(error) => {
-            eprintln!("failed to record catalog metadata for {media_id}: {error}");
-            return;
-        }
-    };
-    if changed {
-        spawn_poster_resolution(state, media_id.to_owned(), anime_title);
+        eprintln!("failed to record catalog metadata for {media_id}: {error}");
+        return;
     }
+    // Dandanplay matches never carry a poster image (see `ensure_poster_resolved`'s
+    // external-provider fallback); always attempt one here regardless of whether
+    // this call changed the recorded identity; a no-op when a poster already
+    // exists or another attempt is already in flight.
+    ensure_poster_resolved(state, media_id, None, Some(anime_title));
 }
 
-/// Best-effort background fetch: looks up a poster image for the newly
-/// recognized anime via the configured external providers and caches it
-/// locally so `/api/library` can serve `posterPath` on a later read.
-/// Fire-and-forget (spawned, not awaited) so the danmaku response is never
-/// delayed by an external search or image download.
-fn spawn_poster_resolution(state: &HttpServerState, media_id: String, anime_title: String) {
-    let (Some(catalog_metadata), Some(poster_cache), Some(provider_service)) = (
-        state.catalog_metadata.clone(),
-        state.poster_cache.clone(),
-        state.external_provider_service.clone(),
-    ) else {
+/// Best-effort background fetch: caches a poster image for a recognized
+/// item, either from `image_url_hint` (already known, e.g. from provider
+/// metadata) or by searching the configured external providers by
+/// `anime_title`. Deduplicated per media ID via `poster_resolution_in_flight`
+/// so repeated retries (see `handle_catalog`) don't pile up redundant
+/// requests while one is already running. Fire-and-forget (spawned, not
+/// awaited) so the caller is never delayed by an external search or download.
+fn ensure_poster_resolved(
+    state: &HttpServerState,
+    media_id: &str,
+    image_url_hint: Option<String>,
+    anime_title: Option<String>,
+) {
+    if image_url_hint
+        .as_deref()
+        .unwrap_or_default()
+        .trim()
+        .is_empty()
+        && anime_title.as_deref().unwrap_or_default().trim().is_empty()
+    {
+        return;
+    }
+    let (Some(catalog_metadata), Some(poster_cache)) =
+        (state.catalog_metadata.clone(), state.poster_cache.clone())
+    else {
         return;
     };
+    let media_id = media_id.to_owned();
+    {
+        let mut in_flight = state
+            .poster_resolution_in_flight
+            .lock()
+            .expect("poster in-flight lock should not be poisoned");
+        if !in_flight.insert(media_id.clone()) {
+            return;
+        }
+    }
+    let in_flight_set = Arc::clone(&state.poster_resolution_in_flight);
+    let provider_service = state.external_provider_service.clone();
     tokio::spawn(async move {
-        resolve_and_cache_recognized_poster(
+        resolve_and_cache_poster(
             &catalog_metadata,
             &poster_cache,
-            &provider_service,
+            provider_service.as_deref(),
             &media_id,
+            image_url_hint,
             anime_title,
         )
         .await;
+        in_flight_set
+            .lock()
+            .expect("poster in-flight lock should not be poisoned")
+            .remove(&media_id);
     });
 }
 
-async fn resolve_and_cache_recognized_poster(
+async fn resolve_and_cache_poster(
     catalog_metadata: &CatalogMetadataStore,
     poster_cache: &Arc<PosterCacheStore>,
-    provider_service: &ExternalProviderService,
+    provider_service: Option<&ExternalProviderService>,
     media_id: &str,
-    anime_title: String,
+    image_url_hint: Option<String>,
+    anime_title: Option<String>,
 ) {
-    let query = ExternalAnimeMatchQuery {
-        title: anime_title,
-        alternate_titles: Vec::new(),
-        episode_count: None,
-        start_year: None,
+    let image_url = match image_url_hint.filter(|url| !url.trim().is_empty()) {
+        Some(url) => Some(url),
+        None => {
+            let (Some(provider_service), Some(anime_title)) = (provider_service, anime_title)
+            else {
+                return;
+            };
+            let query = ExternalAnimeMatchQuery {
+                title: anime_title,
+                alternate_titles: Vec::new(),
+                episode_count: None,
+                start_year: None,
+            };
+            provider_service
+                .search(query, BTreeSet::new(), 1)
+                .await
+                .into_iter()
+                .find_map(|candidate| candidate.anime.image_url)
+        }
     };
-    let candidates = provider_service.search(query, BTreeSet::new(), 1).await;
-    let Some(image_url) = candidates
-        .into_iter()
-        .find_map(|candidate| candidate.anime.image_url)
-    else {
+    let Some(image_url) = image_url else {
         return;
     };
     let cache = Arc::clone(poster_cache);
@@ -675,6 +737,23 @@ async fn handle_dandanplay_resolve(
         },
         None => true,
     };
+    // Selecting a specific episodeId already bypasses the single-candidate
+    // cache (see `DandanplayResolver::resolve`), but listing candidates
+    // (no episodeId) does not by default — a prior auto-match's cache entry
+    // only remembers the one candidate it picked, not the full list, so a
+    // match picker must force a fresh match to see alternatives.
+    let force_refresh = match query.get("forceRefresh") {
+        Some(value) => match parse_boolean_query_parameter(value) {
+            Some(value) => value,
+            None => {
+                return text_response(
+                    StatusCode::BAD_REQUEST,
+                    "Query parameter 'forceRefresh' must be true or false.",
+                );
+            }
+        },
+        None => false,
+    };
     let Some(path) = state.library.files_by_id.get(&media_id) else {
         return text_response(StatusCode::NOT_FOUND, "Media item was not found.");
     };
@@ -688,7 +767,13 @@ async fn handle_dandanplay_resolve(
         );
     };
     match resolver
-        .resolve(&media_id, path, preferred_episode_id, with_related, false)
+        .resolve(
+            &media_id,
+            path,
+            preferred_episode_id,
+            with_related,
+            force_refresh,
+        )
         .await
     {
         Ok(result) => {
@@ -1516,6 +1601,46 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn force_refresh_returns_full_candidate_list_after_a_cached_single_pick() {
+        let fixture = FixtureEnvironment::new();
+        let server = MockDandanplayServer::start(MockDandanplayBehavior::default());
+        let app = dandanplay_test_app(&fixture, Some(test_resolver(&fixture, &server)));
+
+        // The first auto-resolve (no episodeId) caches only the one
+        // candidate it ended up selecting.
+        let _ = request_json(&app, "/api/providers/dandanplay/resolve?mediaId=episode-id").await;
+
+        // Without forceRefresh, listing again just replays that single
+        // cached pick instead of the original full candidate list — a match
+        // picker cannot offer alternatives from this response.
+        let cached =
+            request_json(&app, "/api/providers/dandanplay/resolve?mediaId=episode-id").await;
+        assert_eq!(1, cached["matches"].as_array().expect("matches").len());
+
+        // forceRefresh bypasses that cache and returns every candidate again.
+        let refreshed = request_json(
+            &app,
+            "/api/providers/dandanplay/resolve?mediaId=episode-id&forceRefresh=true",
+        )
+        .await;
+        assert_eq!(2, refreshed["matches"].as_array().expect("matches").len());
+
+        let invalid = app
+            .clone()
+            .oneshot(get(
+                "/api/providers/dandanplay/resolve?mediaId=episode-id&forceRefresh=maybe",
+            ))
+            .await
+            .expect("invalid response");
+        assert_eq!(StatusCode::BAD_REQUEST, invalid.status());
+        assert_text_body(
+            invalid,
+            "Query parameter 'forceRefresh' must be true or false.",
+        )
+        .await;
+    }
+
+    #[tokio::test]
     async fn resolving_danmaku_records_identity_and_enriches_catalog() {
         let fixture = FixtureEnvironment::new();
         let server = MockDandanplayServer::start(MockDandanplayBehavior::default());
@@ -1609,6 +1734,106 @@ mod tests {
             .await
             .expect("poster bytes");
         assert_eq!([1_u8, 35, 69, 103], bytes.as_ref());
+    }
+
+    #[tokio::test]
+    async fn catalog_reads_backfill_a_poster_left_unresolved_by_a_prior_process() {
+        const POSTER_BYTES: &[u8] = &[0x89, 0x50, 0x4e, 0x47];
+
+        // Simulates a real failure mode found in production data: the local
+        // server is hard-killed (not gracefully shut down) whenever the
+        // desktop host stops its managed sidecar, so a recognition's
+        // fire-and-forget poster fetch can be lost with the identity already
+        // recorded — here reproduced by recording the identity directly,
+        // bypassing the danmaku route the initial fetch would have used.
+        let temp = temp_dir("danmaku-poster-backfill");
+        let item = LibraryMediaItem {
+            id: "unposted-id".to_owned(),
+            series_title: "Example Show".to_owned(),
+            episode_title: "Episode 01".to_owned(),
+            relative_path: "Example Show/Episode 01.bin".to_owned(),
+            size_bytes: 6,
+            media_type: "application/octet-stream".to_owned(),
+            stream_path: "/media/unposted-id".to_owned(),
+            indexed_at_epoch_ms: 1_700_000_000_000,
+            subtitles: Vec::new(),
+            poster_path: None,
+            anime_metadata: None,
+            metadata_status: Default::default(),
+        };
+        let library = PublishedLibrary {
+            catalog: LibraryCatalog {
+                root_name: "Fixture Library".to_owned(),
+                indexed_at_epoch_ms: 1_700_000_000_000,
+                items: vec![item],
+            },
+            files_by_id: PathMap::new(),
+            subtitle_files_by_id: PathMap::new(),
+            poster_files_by_id: PathMap::new(),
+        };
+        let catalog_metadata = Arc::new(CatalogMetadataStore::new(
+            temp.join("catalog-metadata-backfill.json"),
+        ));
+        catalog_metadata
+            .record("unposted-id", 42, "Backfill Anime".to_owned(), None)
+            .expect("identity recorded as if by a prior process");
+        assert!(
+            catalog_metadata.poster_file("unposted-id").is_none(),
+            "no poster recorded yet, matching the interrupted-process scenario"
+        );
+
+        let poster_cache = Arc::new(PosterCacheStore::new(temp.join("poster-cache")));
+        let image_url = start_test_image_server(POSTER_BYTES);
+        let provider_service = Arc::new(ExternalProviderService::new_for_tests(
+            vec![Arc::new(FixedAnimeSearchClient { image_url })],
+            Vec::new(),
+        ));
+        let state = HttpServerState::new(
+            library,
+            Arc::new(PlaybackProgressStore::new(
+                temp.join("progress-backfill.json"),
+            )),
+            HttpServerConfig {
+                web_assets_root: None,
+                host_mode: HOST_MODE_HEADLESS_SERVER.to_owned(),
+                provider_settings: None,
+                provider_runtime_status: None,
+                external_provider_service: Some(provider_service),
+                authenticated_post_hooks: Vec::new(),
+                dandanplay_resolver: None,
+                catalog_metadata: Some(catalog_metadata.clone()),
+                poster_cache: Some(poster_cache),
+            },
+        );
+
+        // A plain catalog read (no danmaku resolve involved) is enough to
+        // notice the missing poster and retry it in the background.
+        let _ = handle_catalog(&state, &Method::GET);
+        let poster_recorded = wait_for(Duration::from_secs(2), || {
+            catalog_metadata.poster_file("unposted-id").is_some()
+        })
+        .await;
+        assert!(
+            poster_recorded,
+            "a later catalog read should backfill the lost poster"
+        );
+        let cached_file = catalog_metadata
+            .poster_file("unposted-id")
+            .expect("poster file recorded");
+        assert_eq!(
+            POSTER_BYTES,
+            fs::read(&cached_file).expect("poster bytes").as_slice()
+        );
+
+        let enriched = handle_catalog(&state, &Method::GET);
+        let body = to_bytes(enriched.into_body(), 1_048_576)
+            .await
+            .expect("body");
+        let catalog: Value = serde_json::from_slice(&body).expect("json body");
+        let item = find_catalog_item(&catalog, "unposted-id");
+        assert_eq!(Some("/posters/unposted-id"), item["posterPath"].as_str());
+
+        fs::remove_dir_all(temp).ok();
     }
 
     #[tokio::test]

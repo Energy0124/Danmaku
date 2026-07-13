@@ -188,7 +188,20 @@ trusted-LAN clients.
   without touching either. A series page also exposes a "match episodes"
   action that resolves danmaku (and records the anime association) for its
   still-unmatched episodes in the background, without navigating to
-  playback.
+  playback. Poster resolution now also retries on every `/api/library` read
+  for a recognized item still missing one (deduplicated in-flight per media
+  ID), since the local server can be hard-killed by the desktop host
+  mid-download and a one-shot fetch on recognition alone has no other retry.
+  The dandanplay resolve route (`/api/providers/dandanplay/resolve`) now
+  accepts `forceRefresh` to bypass the single-candidate comment cache, and
+  the native player uses it to power a manual match picker in the playback
+  danmaku menu: lists every candidate for the active item and lets the user
+  pick one (or change an existing auto-match), which pins that episode,
+  records the anime association, and reloads danmaku for it. The "All
+  series" library page now separates "Matched anime" (grouped by recognized
+  identity only) from "Folders" (every item grouped strictly by its on-disk
+  folder, ignoring recognition) as two switchable tabs instead of mixing
+  both groupings into one list.
 
 ### Android Mobile
 

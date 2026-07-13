@@ -15,7 +15,8 @@ use crate::{
     library::{
         DEFAULT_NEXT_UP_LIMIT, LibraryCatalog, MINIMUM_REMAINING_MS, MINIMUM_RESUME_POSITION_MS,
         MediaItem, NextUpItem, NextUpReason, PlaybackProgress, ProgressItem, Series,
-        continue_watching_items, grouped_series, next_up_items,
+        continue_watching_items, folder_grouped_series, grouped_series, matched_anime_series,
+        next_up_items,
     },
     localization::{Language, Strings},
     posters::{PosterCache, PosterState},
@@ -520,13 +521,37 @@ enum LibraryView {
     Series(String),
 }
 
+/// Which grouping the "All series" page is browsing. Kept as UI-only state
+/// (not part of `LibraryView`'s navigation history) since switching it is a
+/// filter change, not a new page.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+enum LibrarySeriesTab {
+    /// Only items with a recognized dandanplay/provider anime match,
+    /// grouped by that identity.
+    #[default]
+    MatchedAnime,
+    /// Every item, grouped strictly by its on-disk folder, ignoring any
+    /// recognized anime metadata.
+    Folder,
+}
+
 pub struct LibraryScreen {
     query: String,
     view: LibraryView,
+    all_series_tab: LibrarySeriesTab,
+    /// Mixed grouping (anime identity when recognized, folder otherwise) —
+    /// only used for the low-visibility Home "recently added" rail, where a
+    /// little mixing is a reasonable tradeoff for always showing every item.
     cached_series: Vec<Series>,
-    /// The `LibrarySession::catalog_version` the cache was last built from.
-    /// `None` never matches a real version, so the first render always
-    /// (re)builds the cache.
+    /// Recognized-anime-only grouping, never mixed with folder entries. Used
+    /// by the "All series" page's "Matched anime" tab.
+    cached_anime_series: Vec<Series>,
+    /// Folder-only grouping, ignoring recognition entirely. Used by the
+    /// "All series" page's "Folders" tab.
+    cached_folder_series: Vec<Series>,
+    /// The `LibrarySession::catalog_version` the caches above were last
+    /// built from. `None` never matches a real version, so the first render
+    /// always (re)builds them.
     cached_catalog_version: Option<u64>,
 }
 
@@ -535,7 +560,10 @@ impl Default for LibraryScreen {
         Self {
             query: String::new(),
             view: LibraryView::Home,
+            all_series_tab: LibrarySeriesTab::default(),
             cached_series: Vec::new(),
+            cached_anime_series: Vec::new(),
+            cached_folder_series: Vec::new(),
             cached_catalog_version: None,
         }
     }
@@ -736,8 +764,28 @@ impl LibraryScreen {
     fn refresh_series_cache(&mut self, catalog: &LibraryCatalog, catalog_version: u64) {
         if self.cached_catalog_version != Some(catalog_version) {
             self.cached_series = grouped_series(catalog);
+            self.cached_anime_series = matched_anime_series(catalog);
+            self.cached_folder_series = folder_grouped_series(catalog);
             self.cached_catalog_version = Some(catalog_version);
         }
+    }
+
+    /// Looks up a series by ID across every cache, since it may have been
+    /// clicked from the mixed Home rail, either "All series" tab, or search.
+    fn find_series(&self, series_id: &str) -> Option<&Series> {
+        self.cached_series
+            .iter()
+            .find(|series| series.id == series_id)
+            .or_else(|| {
+                self.cached_anime_series
+                    .iter()
+                    .find(|series| series.id == series_id)
+            })
+            .or_else(|| {
+                self.cached_folder_series
+                    .iter()
+                    .find(|series| series.id == series_id)
+            })
     }
 
     fn show_home(
@@ -859,16 +907,46 @@ impl LibraryScreen {
                 if let Some(header_action) = self.page_header(ui, session, strings) {
                     action = Some(header_action);
                 }
+                ui.horizontal(|ui| {
+                    ui.add_space(PAGE_GUTTER);
+                    if ui
+                        .selectable_label(
+                            self.all_series_tab == LibrarySeriesTab::MatchedAnime,
+                            strings.matched_anime(),
+                        )
+                        .clicked()
+                    {
+                        self.all_series_tab = LibrarySeriesTab::MatchedAnime;
+                    }
+                    if ui
+                        .selectable_label(
+                            self.all_series_tab == LibrarySeriesTab::Folder,
+                            strings.folders(),
+                        )
+                        .clicked()
+                    {
+                        self.all_series_tab = LibrarySeriesTab::Folder;
+                    }
+                });
+                ui.add_space(10.0);
+                let (series, heading_label) = match self.all_series_tab {
+                    LibrarySeriesTab::MatchedAnime => {
+                        (&self.cached_anime_series, strings.matched_anime())
+                    }
+                    LibrarySeriesTab::Folder => (&self.cached_folder_series, strings.folders()),
+                };
                 section_heading(
                     ui,
                     &format!(
                         "{}  ·  {} {}",
-                        strings.all_series(),
-                        self.cached_series.len(),
+                        heading_label,
+                        series.len(),
                         strings.titles()
                     ),
                 );
-                if let Some(series_id) = series_grid(ui, &self.cached_series, posters, strings) {
+                if series.is_empty() {
+                    muted_line(ui, strings.no_series());
+                } else if let Some(series_id) = series_grid(ui, series, posters, strings) {
                     self.view = LibraryView::Series(series_id);
                 }
                 ui.add_space(28.0);
@@ -949,12 +1027,7 @@ impl LibraryScreen {
         pending_preloads: &std::collections::HashSet<String>,
         strings: Strings,
     ) -> Option<LibraryAction> {
-        let Some(series) = self
-            .cached_series
-            .iter()
-            .find(|series| series.id == series_id)
-            .cloned()
-        else {
+        let Some(series) = self.find_series(series_id).cloned() else {
             self.view = LibraryView::Home;
             return None;
         };

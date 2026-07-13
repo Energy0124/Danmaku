@@ -9,7 +9,10 @@ use std::sync::{Arc, Mutex};
 use eframe::egui;
 
 use crate::{
-    danmaku::{DanmakuLoad, fetch_server_danmaku},
+    danmaku::{
+        DandanplayMatchCandidate, DanmakuLoad, fetch_dandanplay_candidates, fetch_server_danmaku,
+        select_dandanplay_match,
+    },
     library::{
         LibraryCatalog, PlaybackProgress, fetch_catalog, fetch_progress, fetch_progress_list,
         upload_progress,
@@ -26,6 +29,15 @@ pub enum SessionEvent {
     Danmaku {
         media_id: String,
         load: Result<DanmakuLoad, String>,
+    },
+    DandanplayCandidates {
+        media_id: String,
+        result: Result<Vec<DandanplayMatchCandidate>, String>,
+    },
+    DandanplaySelected {
+        media_id: String,
+        episode_id: u64,
+        result: Result<(), String>,
     },
 }
 
@@ -104,6 +116,34 @@ impl LibrarySession {
             move |base| {
                 let load = fetch_server_danmaku(&base, &media_id, force_refresh);
                 SessionEvent::Danmaku { media_id, load }
+            },
+            base_url,
+        );
+    }
+
+    /// Lists dandanplay match candidates for a manual match picker.
+    pub fn fetch_dandanplay_candidates(&self, media_id: String) {
+        let base_url = self.base_url.clone();
+        self.spawn(
+            move |base| {
+                let result = fetch_dandanplay_candidates(&base, &media_id);
+                SessionEvent::DandanplayCandidates { media_id, result }
+            },
+            base_url,
+        );
+    }
+
+    /// Pins a media item to a manually chosen dandanplay episode.
+    pub fn select_dandanplay_match(&self, media_id: String, episode_id: u64) {
+        let base_url = self.base_url.clone();
+        self.spawn(
+            move |base| {
+                let result = select_dandanplay_match(&base, &media_id, episode_id);
+                SessionEvent::DandanplaySelected {
+                    media_id,
+                    episode_id,
+                    result,
+                }
             },
             base_url,
         );

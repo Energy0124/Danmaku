@@ -172,15 +172,53 @@ pub struct Season {
     pub items: Vec<MediaItem>,
 }
 
-/// Port of `LibraryCatalog.groupedSeries()`.
+/// Port of `LibraryCatalog.groupedSeries()`. Groups by recognized anime
+/// identity when an item has one, falling back to its folder title
+/// otherwise — the same item can therefore land in an anime-identified group
+/// alongside folder-identified groups. Kept pixel-identical to the Kotlin
+/// reference (conformance-tested); see `folder_grouped_series` for a view
+/// that never mixes the two.
 pub fn grouped_series(catalog: &LibraryCatalog) -> Vec<Series> {
+    grouped_series_with_identity(catalog, SeriesIdentity::from_item)
+}
+
+/// Groups every item strictly by its folder (`series_title`), ignoring any
+/// recognized anime metadata. Pairs with `matched_anime_series` to give the
+/// library two separate, non-mixed views: "by folder" (this) and "by
+/// matched anime".
+pub fn folder_grouped_series(catalog: &LibraryCatalog) -> Vec<Series> {
+    grouped_series_with_identity(catalog, SeriesIdentity::from_folder)
+}
+
+/// Groups only items with a recognized anime match, by that identity. Every
+/// item passed to `grouped_series` here has `anime_metadata`, so it always
+/// takes the anime-identity branch — never the folder-title fallback — which
+/// is what keeps this view from mixing in unmatched folders.
+pub fn matched_anime_series(catalog: &LibraryCatalog) -> Vec<Series> {
+    let recognized: Vec<MediaItem> = catalog
+        .items
+        .iter()
+        .filter(|item| item.anime_metadata.is_some())
+        .cloned()
+        .collect();
+    grouped_series(&LibraryCatalog {
+        root_name: catalog.root_name.clone(),
+        indexed_at_epoch_ms: catalog.indexed_at_epoch_ms,
+        items: recognized,
+    })
+}
+
+fn grouped_series_with_identity(
+    catalog: &LibraryCatalog,
+    identity_of: impl Fn(&MediaItem) -> SeriesIdentity,
+) -> Vec<Series> {
     // Group items by series identity while preserving first-seen order for
     // deterministic tie-breaks that match Kotlin's stable groupBy.
     let mut order: Vec<String> = Vec::new();
     let mut groups: std::collections::HashMap<String, Vec<(SeriesIdentity, MediaItem)>> =
         std::collections::HashMap::new();
     for item in &catalog.items {
-        let identity = SeriesIdentity::from_item(item);
+        let identity = identity_of(item);
         let entry = groups.entry(identity.id.clone()).or_default();
         if entry.is_empty() {
             order.push(identity.id.clone());
@@ -273,6 +311,12 @@ impl SeriesIdentity {
                 title: metadata.display_title.clone(),
             };
         }
+        Self::from_folder(item)
+    }
+
+    /// Identity from the item's folder title alone, ignoring any recognized
+    /// anime metadata.
+    fn from_folder(item: &MediaItem) -> Self {
         let normalized = item.series_title.trim();
         let normalized = if normalized.is_empty() {
             "Series"
@@ -740,6 +784,61 @@ mod tests {
                 assert_eq!(actual_items, expected_items);
             }
         }
+    }
+
+    #[test]
+    fn folder_and_matched_anime_views_never_mix() {
+        let catalog: LibraryCatalog = serde_json::from_value(serde_json::json!({
+            "rootName": "root",
+            "indexedAtEpochMs": 0,
+            "items": [
+                {
+                    "id": "recognized",
+                    "seriesTitle": "raw.folder.name",
+                    "episodeTitle": "E1",
+                    "relativePath": "raw.folder.name/E1.mkv",
+                    "sizeBytes": 1,
+                    "mediaType": "video/x-matroska",
+                    "streamPath": "/media/recognized",
+                    "animeMetadata": {
+                        "animeId": {"provider": "DANDANPLAY", "value": 42},
+                        "displayTitle": "Recognized Anime"
+                    }
+                },
+                {
+                    "id": "unrecognized",
+                    "seriesTitle": "Other Folder",
+                    "episodeTitle": "E1",
+                    "relativePath": "Other Folder/E1.mkv",
+                    "sizeBytes": 1,
+                    "mediaType": "video/x-matroska",
+                    "streamPath": "/media/unrecognized"
+                }
+            ]
+        }))
+        .expect("catalog parses");
+
+        // The folder view groups by series_title regardless of recognition,
+        // so the recognized item lands under its raw folder name, not its
+        // matched anime title.
+        let by_folder = folder_grouped_series(&catalog);
+        assert_eq!(by_folder.len(), 2);
+        assert!(
+            by_folder
+                .iter()
+                .any(|series| series.title == "raw.folder.name"
+                    && series.items().any(|item| item.id == "recognized"))
+        );
+        assert!(by_folder.iter().any(|series| series.title == "Other Folder"
+            && series.items().any(|item| item.id == "unrecognized")));
+
+        // The matched-anime view only contains recognized items, under their
+        // matched title — the unmatched folder never appears here.
+        let by_anime = matched_anime_series(&catalog);
+        assert_eq!(by_anime.len(), 1);
+        assert_eq!(by_anime[0].title, "Recognized Anime");
+        let anime_items: Vec<&str> = by_anime[0].items().map(|item| item.id.as_str()).collect();
+        assert_eq!(anime_items, vec!["recognized"]);
     }
 
     #[test]

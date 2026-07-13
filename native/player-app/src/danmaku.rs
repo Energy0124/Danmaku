@@ -441,6 +441,87 @@ pub fn fetch_server_danmaku(
     })
 }
 
+/// One dandanplay match candidate for a media item, as offered by a manual
+/// match picker (see `fetch_dandanplay_candidates`/`select_dandanplay_match`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DandanplayMatchCandidate {
+    pub episode_id: u64,
+    pub anime_title: Option<String>,
+    pub episode_title: Option<String>,
+    pub display_title: String,
+}
+
+/// Lists every dandanplay match candidate for `media_id`, always forcing a
+/// fresh match: once an item has been auto-resolved, the server's comment
+/// cache only remembers the single candidate it picked, not the full list
+/// (see `DandanplayResolver::resolve`), so a picker must bypass it to show
+/// alternatives.
+pub fn fetch_dandanplay_candidates(
+    base_url: &str,
+    media_id: &str,
+) -> Result<Vec<DandanplayMatchCandidate>, String> {
+    if media_id.trim().is_empty() {
+        return Err("dandanplay match listing requires a non-blank media ID".to_owned());
+    }
+    let endpoint = format!(
+        "/api/providers/dandanplay/resolve?mediaId={}&forceRefresh=true&withRelated=false",
+        percent_encode_path_segment(media_id.trim())
+    );
+    let body = http_get(base_url, &endpoint)?;
+    let root: Value = serde_json::from_str(&body)
+        .map_err(|error| format!("server returned invalid match JSON: {error}"))?;
+    Ok(root
+        .get("matches")
+        .and_then(Value::as_array)
+        .map(|matches| matches.iter().filter_map(parse_match_candidate).collect())
+        .unwrap_or_default())
+}
+
+fn parse_match_candidate(value: &Value) -> Option<DandanplayMatchCandidate> {
+    let object = value.as_object()?;
+    let episode_id = object.get("episodeId")?.as_u64()?;
+    let anime_title = object
+        .get("animeTitle")
+        .and_then(Value::as_str)
+        .map(str::to_owned);
+    let episode_title = object
+        .get("episodeTitle")
+        .and_then(Value::as_str)
+        .map(str::to_owned);
+    let display_title = object
+        .get("displayTitle")
+        .and_then(Value::as_str)
+        .filter(|title| !title.trim().is_empty())
+        .map(str::to_owned)
+        .unwrap_or_else(|| episode_id.to_string());
+    Some(DandanplayMatchCandidate {
+        episode_id,
+        anime_title,
+        episode_title,
+        display_title,
+    })
+}
+
+/// Pins `media_id` to a specific dandanplay `episode_id`, replacing whatever
+/// match (auto or manual) it currently has. Records the anime association
+/// server-side and refreshes the cached comments for the new episode; call
+/// `fetch_server_danmaku` afterward to load them into the active session.
+pub fn select_dandanplay_match(
+    base_url: &str,
+    media_id: &str,
+    episode_id: u64,
+) -> Result<(), String> {
+    if media_id.trim().is_empty() {
+        return Err("dandanplay match selection requires a non-blank media ID".to_owned());
+    }
+    let endpoint = format!(
+        "/api/providers/dandanplay/resolve?mediaId={}&episodeId={episode_id}",
+        percent_encode_path_segment(media_id.trim())
+    );
+    http_get(base_url, &endpoint)?;
+    Ok(())
+}
+
 pub fn parse_normalized_json(source: &str) -> Result<Vec<DanmakuComment>, String> {
     let root: Value = serde_json::from_str(source)
         .map_err(|error| format!("invalid normalized danmaku JSON: {error}"))?;
@@ -962,6 +1043,88 @@ mod tests {
         assert_eq!(load.track.len(), 1);
         assert!(load.status.contains("CACHE"));
         assert_eq!(load.match_title.as_deref(), Some("Example Anime"));
+    }
+
+    #[test]
+    fn candidate_listing_always_forces_a_fresh_match() {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("listener");
+        let address = listener.local_addr().expect("address");
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("accept");
+            let mut request = Vec::new();
+            while !request.windows(4).any(|window| window == b"\r\n\r\n") {
+                let mut chunk = [0_u8; 512];
+                let count = stream.read(&mut chunk).expect("request");
+                if count == 0 {
+                    break;
+                }
+                request.extend_from_slice(&chunk[..count]);
+            }
+            let request = String::from_utf8_lossy(&request);
+            assert!(
+                request.starts_with(
+                    "GET /api/providers/dandanplay/resolve?mediaId=episode%20id&forceRefresh=true&withRelated=false "
+                ),
+                "{request}"
+            );
+            let body = r#"{"mediaId":"episode id","matches":[{"episodeId":111,"animeTitle":"Example Anime","episodeTitle":"Episode 1","displayTitle":"Example Anime - Episode 1"},{"episodeId":222,"episodeTitle":"Episode 2","displayTitle":"222"}]}"#;
+            write!(
+                stream,
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body.len(),
+                body
+            )
+            .expect("response");
+        });
+
+        let candidates = fetch_dandanplay_candidates(&format!("http://{address}"), "episode id")
+            .expect("candidates");
+        server.join().expect("server thread");
+
+        assert_eq!(candidates.len(), 2);
+        assert_eq!(candidates[0].episode_id, 111);
+        assert_eq!(candidates[0].anime_title.as_deref(), Some("Example Anime"));
+        assert_eq!(candidates[0].display_title, "Example Anime - Episode 1");
+        assert_eq!(candidates[1].episode_id, 222);
+        assert_eq!(candidates[1].anime_title, None);
+        assert_eq!(candidates[1].display_title, "222");
+    }
+
+    #[test]
+    fn selecting_a_match_pins_the_given_episode_id() {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("listener");
+        let address = listener.local_addr().expect("address");
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("accept");
+            let mut request = Vec::new();
+            while !request.windows(4).any(|window| window == b"\r\n\r\n") {
+                let mut chunk = [0_u8; 512];
+                let count = stream.read(&mut chunk).expect("request");
+                if count == 0 {
+                    break;
+                }
+                request.extend_from_slice(&chunk[..count]);
+            }
+            let request = String::from_utf8_lossy(&request);
+            assert!(
+                request.starts_with(
+                    "GET /api/providers/dandanplay/resolve?mediaId=episode%20id&episodeId=222 "
+                ),
+                "{request}"
+            );
+            let body = r#"{"mediaId":"episode id","matches":[]}"#;
+            write!(
+                stream,
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body.len(),
+                body
+            )
+            .expect("response");
+        });
+
+        select_dandanplay_match(&format!("http://{address}"), "episode id", 222)
+            .expect("selection succeeds");
+        server.join().expect("server thread");
     }
 
     #[test]
