@@ -594,6 +594,116 @@ fn parse_search_anime(value: &Value) -> Option<DandanplaySearchAnime> {
     })
 }
 
+/// Full dandanplay profile of one anime for the library's information
+/// page: community rating, synopsis, tags, per-episode air dates, and
+/// links into the public anime databases.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct BangumiDetail {
+    pub anime_id: u64,
+    pub anime_title: String,
+    pub type_description: Option<String>,
+    pub summary: Option<String>,
+    pub rating: Option<f64>,
+    pub is_on_air: Option<bool>,
+    pub tags: Vec<String>,
+    pub episodes: Vec<BangumiEpisode>,
+    pub online_databases: Vec<BangumiOnlineDatabase>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct BangumiEpisode {
+    pub episode_id: u64,
+    pub episode_title: String,
+    pub air_date: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct BangumiOnlineDatabase {
+    pub name: String,
+    pub url: String,
+}
+
+/// Fetches the bangumi profile of `anime_id` through the library server's
+/// dandanplay proxy.
+pub fn fetch_bangumi_detail(base_url: &str, anime_id: u64) -> Result<BangumiDetail, String> {
+    if anime_id == 0 {
+        return Err("bangumi detail requires a positive anime ID".to_owned());
+    }
+    let body = http_get(
+        base_url,
+        &format!("/api/providers/dandanplay/bangumi?animeId={anime_id}"),
+    )?;
+    let root: Value = serde_json::from_str(&body)
+        .map_err(|error| format!("server returned invalid bangumi JSON: {error}"))?;
+    parse_bangumi_detail(&root).ok_or_else(|| "server returned no bangumi profile".to_owned())
+}
+
+fn parse_bangumi_detail(value: &Value) -> Option<BangumiDetail> {
+    let object = value.as_object()?;
+    let anime_id = object.get("animeId")?.as_u64()?;
+    let anime_title = object
+        .get("animeTitle")
+        .and_then(Value::as_str)
+        .filter(|title| !title.trim().is_empty())?
+        .to_owned();
+    let string_field = |key: &str| {
+        object
+            .get(key)
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|text| !text.is_empty())
+            .map(str::to_owned)
+    };
+    Some(BangumiDetail {
+        anime_id,
+        anime_title,
+        type_description: string_field("typeDescription"),
+        summary: string_field("summary"),
+        rating: object.get("rating").and_then(Value::as_f64),
+        is_on_air: object.get("isOnAir").and_then(Value::as_bool),
+        tags: object
+            .get("tags")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+            .map(str::to_owned)
+            .collect(),
+        episodes: object
+            .get("episodes")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(|episode| {
+                Some(BangumiEpisode {
+                    episode_id: episode.get("episodeId")?.as_u64()?,
+                    episode_title: episode
+                        .get("episodeTitle")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                        .to_owned(),
+                    air_date: episode
+                        .get("airDate")
+                        .and_then(Value::as_str)
+                        .map(str::to_owned),
+                })
+            })
+            .collect(),
+        online_databases: object
+            .get("onlineDatabases")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(|database| {
+                Some(BangumiOnlineDatabase {
+                    name: database.get("name")?.as_str()?.to_owned(),
+                    url: database.get("url")?.as_str()?.to_owned(),
+                })
+            })
+            .collect(),
+    })
+}
+
 /// Pins `media_id` to a specific dandanplay episode, replacing whatever
 /// match (auto or manual) it currently has. Records the anime association
 /// server-side and refreshes the cached comments for the new episode; call
@@ -969,6 +1079,44 @@ mod tests {
             text: text.to_owned(),
             style: DanmakuStyle::default(),
         }
+    }
+
+    #[test]
+    fn parses_bangumi_detail_profile() {
+        let detail = parse_bangumi_detail(&serde_json::json!({
+            "animeId": 999,
+            "animeTitle": "Sagrada Reset",
+            "typeDescription": "TV动画",
+            "summary": "A town where half the residents have powers.",
+            "rating": 7.7,
+            "isOnAir": false,
+            "tags": ["悬疑", "校园"],
+            "episodes": [
+                {"episodeId": 9990001, "episodeTitle": "第1话", "airDate": "2017-04-05T00:00:00"},
+                {"episodeId": 9990002, "episodeTitle": "第2话"}
+            ],
+            "onlineDatabases": [
+                {"name": "Bangumi.tv", "url": "https://bangumi.tv/subject/179949"}
+            ]
+        }))
+        .expect("detail parses");
+
+        assert_eq!(detail.anime_id, 999);
+        assert_eq!(detail.anime_title, "Sagrada Reset");
+        assert_eq!(detail.type_description.as_deref(), Some("TV动画"));
+        assert_eq!(detail.rating, Some(7.7));
+        assert_eq!(detail.is_on_air, Some(false));
+        assert_eq!(detail.tags, vec!["悬疑", "校园"]);
+        assert_eq!(detail.episodes.len(), 2);
+        assert_eq!(
+            detail.episodes[0].air_date.as_deref(),
+            Some("2017-04-05T00:00:00")
+        );
+        assert_eq!(detail.episodes[1].air_date, None);
+        assert_eq!(detail.online_databases[0].name, "Bangumi.tv");
+
+        // A profile without the identifying fields is rejected.
+        assert!(parse_bangumi_detail(&serde_json::json!({"animeTitle": "x"})).is_none());
     }
 
     #[test]

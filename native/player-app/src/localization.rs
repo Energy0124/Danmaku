@@ -589,6 +589,39 @@ impl Strings {
     pub fn items_label(self) -> &'static str {
         self.text("items", "個項目")
     }
+    pub fn recently_played(self) -> &'static str {
+        self.text("Recently played", "最近播放")
+    }
+    pub fn all_years(self) -> &'static str {
+        self.text("All years", "所有年份")
+    }
+    pub fn group_display(self) -> &'static str {
+        self.text("Grouped", "分組顯示")
+    }
+    pub fn synopsis(self) -> &'static str {
+        self.text("Synopsis", "簡介")
+    }
+    pub fn tags_label(self) -> &'static str {
+        self.text("Tags", "標籤")
+    }
+    pub fn online_databases(self) -> &'static str {
+        self.text("Online databases", "線上資料庫")
+    }
+    pub fn on_air(self) -> &'static str {
+        self.text("Airing", "連載中")
+    }
+    pub fn finished_airing(self) -> &'static str {
+        self.text("Finished airing", "已完結")
+    }
+    pub fn loading_details(self) -> &'static str {
+        self.text("Loading anime details…", "正在載入動畫資料…")
+    }
+    pub fn details_unavailable(self) -> &'static str {
+        self.text(
+            "Online anime details are unavailable right now.",
+            "目前無法取得線上動畫資料。",
+        )
+    }
 }
 
 #[cfg(test)]
@@ -619,6 +652,10 @@ mod tests {
         assert_eq!(en.recent_view(), "Recent");
         assert_eq!(zh.season_view(), "季度");
         assert_eq!(zh.database_search(), "資料庫搜尋");
+        assert_eq!(en.recently_played(), "Recently played");
+        assert_eq!(zh.recently_played(), "最近播放");
+        assert_eq!(zh.synopsis(), "簡介");
+        assert_eq!(zh.online_databases(), "線上資料庫");
     }
 
     #[test]

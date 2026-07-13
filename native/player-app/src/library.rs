@@ -34,6 +34,10 @@ pub struct MediaItem {
     pub indexed_at_epoch_ms: i64,
     pub subtitles: Vec<SubtitleTrack>,
     pub poster_path: Option<String>,
+    /// Absolute path of the library root this item was scanned from
+    /// (e.g. `M:\Anime`); absent on servers that predate multi-root
+    /// attribution.
+    pub root_label: Option<String>,
     pub anime_metadata: Option<AnimeMetadata>,
 }
 
@@ -52,6 +56,11 @@ pub struct SubtitleTrack {
 pub struct AnimeMetadata {
     pub anime_id: ExternalAnimeId,
     pub display_title: String,
+    pub chinese_title: Option<String>,
+    pub english_title: Option<String>,
+    pub japanese_title: Option<String>,
+    pub alternate_names: Vec<String>,
+    pub external_links: Vec<ExternalAnimeLink>,
     pub image_url: Option<String>,
     pub episode_count: Option<u32>,
     pub start_year: Option<i32>,
@@ -62,6 +71,46 @@ pub struct AnimeMetadata {
 pub struct ExternalAnimeId {
     pub provider: String,
     pub value: i64,
+}
+
+impl ExternalAnimeId {
+    /// Human-readable database name, mirroring the official client's
+    /// online-database link row.
+    pub fn provider_name(&self) -> &'static str {
+        match self.provider.as_str() {
+            "MY_ANIME_LIST" => "MyAnimeList",
+            "BANGUMI" => "Bangumi.tv",
+            "DANDANPLAY" => "dandanplay",
+            _ => "Database",
+        }
+    }
+
+    /// Public web page for this identity; mirrors the server's
+    /// `ExternalAnimeId.web_url`, which the wire format omits when
+    /// derivable.
+    pub fn web_url(&self) -> Option<String> {
+        match self.provider.as_str() {
+            "MY_ANIME_LIST" => Some(format!("https://myanimelist.net/anime/{}", self.value)),
+            "BANGUMI" => Some(format!("https://bangumi.tv/subject/{}", self.value)),
+            "DANDANPLAY" => Some(format!("https://www.dandanplay.com/bangumi/{}", self.value)),
+            _ => None,
+        }
+    }
+}
+
+/// A recognized identity in an external anime database. The server omits
+/// `url` when it equals the provider's canonical web URL.
+#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase", default)]
+pub struct ExternalAnimeLink {
+    pub anime_id: ExternalAnimeId,
+    pub url: Option<String>,
+}
+
+impl ExternalAnimeLink {
+    pub fn web_url(&self) -> Option<String> {
+        self.url.clone().or_else(|| self.anime_id.web_url())
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
@@ -228,9 +277,16 @@ pub struct FolderEntry {
 /// `relative_path`s): subfolders with their recursive item counts, then the
 /// media files directly inside. Both are sorted case-insensitively by name.
 pub fn folder_listing(catalog: &LibraryCatalog, path: &[String]) -> FolderListing {
+    folder_listing_of(catalog.items.iter(), path)
+}
+
+fn folder_listing_of<'a>(
+    items: impl Iterator<Item = &'a MediaItem>,
+    path: &[String],
+) -> FolderListing {
     let mut folder_counts: Vec<FolderEntry> = Vec::new();
     let mut files: Vec<MediaItem> = Vec::new();
-    for item in &catalog.items {
+    for item in items {
         let segments: Vec<&str> = item
             .relative_path
             .split(['/', '\\'])
@@ -267,6 +323,100 @@ pub fn folder_listing(catalog: &LibraryCatalog, path: &[String]) -> FolderListin
     FolderListing {
         folders: folder_counts,
         files,
+    }
+}
+
+/// Distinct library roots present in the catalog with their item counts,
+/// in the server's stable item order. Empty when the server predates
+/// per-root attribution.
+pub fn library_root_labels(catalog: &LibraryCatalog) -> Vec<(String, usize)> {
+    let mut labels: Vec<(String, usize)> = Vec::new();
+    for item in &catalog.items {
+        let Some(label) = item.root_label.as_deref().filter(|label| !label.is_empty()) else {
+            continue;
+        };
+        match labels
+            .iter_mut()
+            .find(|(existing, _)| existing.eq_ignore_ascii_case(label))
+        {
+            Some((_, count)) => *count += 1,
+            None => labels.push((label.to_owned(), 1)),
+        }
+    }
+    labels
+}
+
+/// The sidebar/filter shortcuts for "browse one file system location":
+/// the actual library roots when the server reports several (like the
+/// official client's 本機文件夾 list), otherwise the catalog's top-level
+/// folders. Mirrors `scoped_folder_listing`, whose explorer paths start
+/// with a root label only in the multi-root case.
+pub fn library_folder_shortcuts(catalog: &LibraryCatalog) -> Vec<(String, usize)> {
+    let roots = library_root_labels(catalog);
+    if roots.len() >= 2 {
+        return roots;
+    }
+    let mut folders: Vec<(String, usize)> = Vec::new();
+    for item in &catalog.items {
+        let Some(folder) = top_level_folder(&item.relative_path) else {
+            continue;
+        };
+        match folders
+            .iter_mut()
+            .find(|(existing, _)| existing.eq_ignore_ascii_case(folder))
+        {
+            Some((_, count)) => *count += 1,
+            None => folders.push((folder.to_owned(), 1)),
+        }
+    }
+    folders.sort_by(|(left, _), (right, _)| left.to_lowercase().cmp(&right.to_lowercase()));
+    folders
+}
+
+/// First non-empty component of a relative path.
+pub fn top_level_folder(relative_path: &str) -> Option<&str> {
+    relative_path
+        .split(['/', '\\'])
+        .find(|component| !component.trim().is_empty())
+}
+
+/// Whether an item lives under the given folder shortcut (a library root
+/// when the server reports them, otherwise a top-level folder name).
+pub fn item_in_folder_shortcut(item: &MediaItem, shortcut: &str) -> bool {
+    item.root_label
+        .as_deref()
+        .is_some_and(|label| label.eq_ignore_ascii_case(shortcut))
+        || top_level_folder(&item.relative_path)
+            .is_some_and(|folder| folder.eq_ignore_ascii_case(shortcut))
+}
+
+/// Folder-explorer listing that browses library roots as the top level
+/// when the server publishes more than one root (matching the official
+/// client, whose explorer starts at the selected local folder). With one
+/// or no attributed root the plain relative-path listing is used and
+/// `path` holds only relative components; with several, `path[0]` is the
+/// root label.
+pub fn scoped_folder_listing(catalog: &LibraryCatalog, path: &[String]) -> FolderListing {
+    let roots = library_root_labels(catalog);
+    if roots.len() < 2 {
+        return folder_listing(catalog, path);
+    }
+    match path.split_first() {
+        None => FolderListing {
+            folders: roots
+                .into_iter()
+                .map(|(name, item_count)| FolderEntry { name, item_count })
+                .collect(),
+            files: Vec::new(),
+        },
+        Some((root, rest)) => folder_listing_of(
+            catalog.items.iter().filter(|item| {
+                item.root_label
+                    .as_deref()
+                    .is_some_and(|label| label.eq_ignore_ascii_case(root))
+            }),
+            rest,
+        ),
     }
 }
 
@@ -972,6 +1122,94 @@ mod tests {
 
         assert_eq!(file_name("Show A/Season 1/ep1.mkv"), "ep1.mkv");
         assert_eq!(file_name("plain.mkv"), "plain.mkv");
+    }
+
+    #[test]
+    fn scoped_listing_browses_roots_then_their_relative_paths() {
+        let item = |id: &str, root: &str, relative_path: &str| {
+            serde_json::json!({
+                "id": id,
+                "seriesTitle": "S",
+                "episodeTitle": id,
+                "relativePath": relative_path,
+                "rootLabel": root,
+                "sizeBytes": 1,
+                "mediaType": "video/x-matroska",
+                "streamPath": format!("/media/{id}")
+            })
+        };
+        let catalog: LibraryCatalog = serde_json::from_value(serde_json::json!({
+            "rootName": "Headless Library",
+            "indexedAtEpochMs": 0,
+            "items": [
+                item("m1", "M:\\Anime", "Show A/ep1.mkv"),
+                item("m2", "M:\\Anime", "Show A/ep2.mkv"),
+                item("d1", "D:\\AniRss", "Show B/ep1.mkv"),
+            ]
+        }))
+        .expect("catalog parses");
+
+        // Shortcuts and the explorer's top level are the roots themselves.
+        assert_eq!(
+            library_folder_shortcuts(&catalog),
+            vec![("M:\\Anime".to_owned(), 2), ("D:\\AniRss".to_owned(), 1)]
+        );
+        let top = scoped_folder_listing(&catalog, &[]);
+        assert_eq!(
+            top.folders
+                .iter()
+                .map(|entry| (entry.name.as_str(), entry.item_count))
+                .collect::<Vec<_>>(),
+            vec![("M:\\Anime", 2), ("D:\\AniRss", 1)]
+        );
+        assert!(top.files.is_empty());
+
+        // Entering a root browses only that root's relative paths,
+        // case-insensitively.
+        let inside_root = scoped_folder_listing(&catalog, &["m:\\anime".to_owned()]);
+        assert_eq!(
+            inside_root
+                .folders
+                .iter()
+                .map(|entry| entry.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["Show A"]
+        );
+        let show_a =
+            scoped_folder_listing(&catalog, &["M:\\Anime".to_owned(), "Show A".to_owned()]);
+        assert_eq!(
+            show_a
+                .files
+                .iter()
+                .map(|item| item.id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["m1", "m2"]
+        );
+
+        assert!(item_in_folder_shortcut(&catalog.items[0], "M:\\ANIME"));
+        assert!(!item_in_folder_shortcut(&catalog.items[0], "D:\\AniRss"));
+    }
+
+    #[test]
+    fn single_root_catalogs_keep_top_level_folder_shortcuts() {
+        let catalog: LibraryCatalog = serde_json::from_value(serde_json::json!({
+            "rootName": "Anime",
+            "indexedAtEpochMs": 0,
+            "items": [
+                {"id": "a", "seriesTitle": "S", "episodeTitle": "E1", "relativePath": "Show A/E1.mkv", "rootLabel": "M:\\Anime", "sizeBytes": 1, "mediaType": "video/x-matroska", "streamPath": "/media/a"},
+                {"id": "b", "seriesTitle": "S", "episodeTitle": "E2", "relativePath": "Show B/E2.mkv", "rootLabel": "M:\\Anime", "sizeBytes": 1, "mediaType": "video/x-matroska", "streamPath": "/media/b"}
+            ]
+        }))
+        .expect("catalog parses");
+
+        // One root: shortcuts fall back to top-level folders and the
+        // explorer starts directly in the relative tree.
+        assert_eq!(
+            library_folder_shortcuts(&catalog),
+            vec![("Show A".to_owned(), 1), ("Show B".to_owned(), 1)]
+        );
+        let top = scoped_folder_listing(&catalog, &[]);
+        assert_eq!(top.folders.len(), 2);
     }
 
     #[test]

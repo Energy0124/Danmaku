@@ -104,6 +104,24 @@ does not depend on generated imagery or copy a commercial streaming product.
 - [x] Capture supervised filter, folder-search, series-detail, and match-picker
   screenshots from the packaged Windows binary against a 635-item library.
 
+### Official-client parity pass (2026-07-13, second)
+
+- [x] Attribute every catalog item to its library root on the Rust server
+  (`rootLabel`) so multi-root libraries stay distinguishable.
+- [x] List the actual configured folders in the sidebar (官方 本機文件夾) and
+  scope the folder explorer and folder filter to one file-system root.
+- [x] Add a Recently Played view grouped by last-played month.
+- [x] Add release-year filtering and the 分組顯示 grouped-display toggle to
+  the library toolbar.
+- [x] Proxy dandanplay bangumi profiles through the server and render
+  rating, type, airing state, synopsis, tags, and online-database links on
+  the series page, plus alternate titles and the real on-disk root.
+- [x] Add watched checkmarks, file size, and last-watched dates to episode
+  rows.
+- [x] Count series with some finished episodes as in progress; align
+  sidebar hit-areas with their visuals; drop the 12-folder sidebar cap.
+- [x] Keep all new copy localized in English and Traditional Chinese.
+
 ## Verification Gates
 
 - cargo fmt --all --check

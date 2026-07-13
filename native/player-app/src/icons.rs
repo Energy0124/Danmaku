@@ -32,6 +32,7 @@ pub enum Icon {
     AudioTrack,
     Danmaku,
     Globe,
+    Check,
 }
 
 pub fn paint_icon(painter: &Painter, rect: Rect, icon: Icon, color: Color32, width: f32) {
@@ -132,6 +133,10 @@ pub fn paint_icon(painter: &Painter, rect: Rect, icon: Icon, color: Color32, wid
                 [pos2(center.x, y(0.12)), pos2(center.x, y(0.52))],
                 Stroke::new(width + 0.8, color),
             );
+        }
+        Icon::Check => {
+            painter.line_segment([pos2(x(0.20), y(0.55)), pos2(x(0.42), y(0.76))], stroke);
+            painter.line_segment([pos2(x(0.42), y(0.76)), pos2(x(0.80), y(0.28))], stroke);
         }
         Icon::Back => {
             painter.line_segment([pos2(x(0.78), y(0.50)), pos2(x(0.22), y(0.50))], stroke);

@@ -97,6 +97,7 @@ Body shape is `LibraryCatalog`:
       "indexedAtEpochMs": 1700000000000,
       "subtitles": [],
       "posterPath": "/posters/episode-id",
+      "rootLabel": "M:\\Anime",
       "animeMetadata": null,
       "metadataStatus": "NOT_AVAILABLE"
     }
@@ -105,6 +106,11 @@ Body shape is `LibraryCatalog`:
 ```
 
 Default item fields may be omitted by the core JSON encoder.
+
+`rootLabel` is a Rust-server extension (2026-07-13): the absolute path of
+the library root the item was scanned from, so clients can browse and
+filter per configured folder when several roots are merged into one
+catalog. Servers that predate it simply omit the field.
 
 Status codes:
 
@@ -556,6 +562,70 @@ Status codes:
 - `404`: media item is unpublished or the file is missing; text body.
 - `502`: dandanplay request failed; text body.
 - `500`: unhandled hook exception; text body `Request failed.`
+
+### `GET /api/providers/dandanplay/search`
+
+Rust-server extension for the manual match picker.
+
+Query parameters:
+
+- `keyword`: required, non-blank anime title keyword.
+
+Success: `200 application/json; charset=utf-8` with
+`{"animes": [{"animeId": 999, "animeTitle": "…", "typeDescription": "…",
+"episodes": [{"episodeId": 9990001, "episodeTitle": "…"}]}]}`.
+
+Status codes:
+
+- `200`: search completed.
+- `400`: missing `keyword`; text body.
+- `502`: dandanplay request failed or the resolver is unavailable; text
+  body.
+
+### `GET /api/providers/dandanplay/bangumi`
+
+Rust-server extension (2026-07-13) for the library's anime information
+page. Proxies dandanplay `/api/v2/bangumi/{animeId}`.
+
+Query parameters:
+
+- `animeId`: required positive integer.
+
+Success: `200 application/json; charset=utf-8`.
+
+Body shape:
+
+```json
+{
+  "animeId": 999,
+  "animeTitle": "Example Anime",
+  "typeDescription": "TV Series",
+  "summary": "Synopsis text.",
+  "rating": 7.7,
+  "isOnAir": false,
+  "tags": ["Mystery", "School"],
+  "episodes": [
+    {
+      "episodeId": 9990001,
+      "episodeTitle": "Episode 1",
+      "airDate": "2017-04-05T00:00:00"
+    }
+  ],
+  "onlineDatabases": [
+    { "name": "Bangumi.tv", "url": "https://bangumi.tv/subject/1" }
+  ]
+}
+```
+
+Empty collections and unknown fields are omitted; `rating` is omitted
+when dandanplay reports `0` (unrated).
+
+Status codes:
+
+- `200`: profile returned.
+- `400`: missing or non-positive `animeId`; text body.
+- `502`: dandanplay request failed or the resolver is unavailable; text
+  body.
 
 ### `GET /api/providers/list/entry`
 

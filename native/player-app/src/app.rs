@@ -28,8 +28,8 @@ use crate::{
     posters::PosterCache,
     preferences::{CredentialStore, DandanplayCredentials, PlayerPreferences, PreferenceStore},
     screens::{
-        ConnectAction, ConnectRequest, ConnectScreen, LibraryAction, LibraryScreen, SettingsAction,
-        show_settings,
+        BangumiDetailState, ConnectAction, ConnectRequest, ConnectScreen, LibraryAction,
+        LibraryScreen, SettingsAction, show_settings,
     },
     session::{LibrarySession, SessionEvent},
     smoke::SmokeReport,
@@ -95,6 +95,9 @@ pub struct PlayerApp {
     danmaku_layout: DanmakuLayout,
     danmaku_settings: DanmakuDisplaySettings,
     match_picker: MatchPickerState,
+    /// Bangumi profiles fetched for series pages, keyed by dandanplay
+    /// anime ID. Kept for the whole session; profiles rarely change.
+    bangumi_details: std::collections::HashMap<u64, BangumiDetailState>,
     last_property_refresh: Instant,
     last_track_refresh: Instant,
     last_pointer_activity: Instant,
@@ -269,6 +272,7 @@ impl PlayerApp {
             danmaku_layout: DanmakuLayout::default(),
             danmaku_settings,
             match_picker: MatchPickerState::default(),
+            bangumi_details: std::collections::HashMap::new(),
             last_property_refresh: now - PROPERTY_REFRESH_INTERVAL,
             last_track_refresh: now - TRACK_REFRESH_INTERVAL,
             last_pointer_activity: now,
@@ -710,6 +714,15 @@ impl PlayerApp {
                         }
                     }
                 }
+                SessionEvent::BangumiDetail { anime_id, result } => {
+                    self.bangumi_details.insert(
+                        anime_id,
+                        match result {
+                            Ok(detail) => BangumiDetailState::Ready(detail),
+                            Err(error) => BangumiDetailState::Failed(error),
+                        },
+                    );
+                }
                 _ => {}
             }
         }
@@ -755,6 +768,7 @@ impl PlayerApp {
         self.active_media_id = None;
         self.session = None;
         self.pending_preloads.clear();
+        self.bangumi_details.clear();
         self.posters.set_base_url(None);
         self.screen = AppScreen::Connect;
     }
@@ -897,6 +911,7 @@ impl PlayerApp {
         self.active_media_id = None;
         self.session = None;
         self.pending_preloads.clear();
+        self.bangumi_details.clear();
         self.posters.set_base_url(None);
         self.screen = AppScreen::Connect;
         if self.discovery.is_none() {
@@ -2008,6 +2023,7 @@ impl eframe::App for PlayerApp {
                         session,
                         &mut self.posters,
                         &self.pending_preloads,
+                        &self.bangumi_details,
                         Strings::new(self.preferences.language),
                     ),
                     None => {
@@ -2030,6 +2046,15 @@ impl eframe::App for PlayerApp {
                     }
                     Some(LibraryAction::ChangeMatch { media_id }) => {
                         self.open_match_picker(media_id);
+                    }
+                    Some(LibraryAction::FetchBangumiDetail { anime_id }) => {
+                        if let Some(session) = &self.session
+                            && !self.bangumi_details.contains_key(&anime_id)
+                        {
+                            self.bangumi_details
+                                .insert(anime_id, BangumiDetailState::Loading);
+                            session.fetch_bangumi_detail(anime_id);
+                        }
                     }
                     Some(LibraryAction::Refresh) => {
                         if let Some(session) = &mut self.session {

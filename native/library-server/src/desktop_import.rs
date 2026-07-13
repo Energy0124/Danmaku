@@ -884,6 +884,7 @@ fn import_item_row(
             },
             subtitles,
             poster_path,
+            root_label: Some(row.root_path.to_string_lossy().into_owned()),
             anime_metadata,
             metadata_status,
         });

@@ -182,6 +182,7 @@ fn scan_root(
             item.series_title = series_title;
             item.episode_title = episode_title;
             item.media_type = media_type;
+            item.root_label = Some(id_namespace.clone());
             item.indexed_at_epoch_ms = if item.indexed_at_epoch_ms > 0 {
                 item.indexed_at_epoch_ms
             } else {
@@ -208,6 +209,7 @@ fn scan_root(
                     .map(|subtitle| subtitle.track.clone())
                     .collect(),
                 poster_path: None,
+                root_label: Some(id_namespace.clone()),
                 anime_metadata: None,
                 metadata_status: Default::default(),
             }
@@ -870,6 +872,12 @@ mod tests {
         assert_eq!(format!("/media/{expected_id}"), alpha_two.stream_path);
         assert_eq!("video/mp4", alpha_two.media_type);
         assert_eq!(4, alpha_two.size_bytes);
+        assert!(
+            catalog
+                .items
+                .iter()
+                .all(|item| item.root_label.as_deref() == Some(root_namespace.as_str()))
+        );
         assert_eq!(
             vec![
                 ("ASS", "Alpha Show/Episode 02.ass", "text/x-ass"),
@@ -911,6 +919,45 @@ mod tests {
         assert_eq!(
             "Example Show",
             scan.published_library.catalog.items[0].series_title
+        );
+
+        fs::remove_dir_all(temp).expect("temp should delete");
+    }
+
+    #[test]
+    fn labels_items_with_their_own_root_across_multiple_roots() {
+        let temp = temp_dir("danmaku-scan-multi-root-labels");
+        let first_root = temp.join("Anime");
+        let second_root = temp.join("AniRss");
+        fs::create_dir_all(first_root.join("Alpha Show")).expect("first show dir");
+        fs::create_dir_all(second_root.join("Beta Show")).expect("second show dir");
+        write_bytes(&first_root.join("Alpha Show").join("Episode 01.mkv"), &[1]);
+        write_bytes(&second_root.join("Beta Show").join("Episode 01.mkv"), &[2]);
+
+        let scan =
+            scan_roots(&[first_root.clone(), second_root.clone()], None).expect("scan succeeds");
+        let catalog = &scan.published_library.catalog;
+
+        assert_eq!("Headless Library", catalog.root_name);
+        let labels = catalog
+            .items
+            .iter()
+            .map(|item| {
+                (
+                    item.series_title.as_str(),
+                    item.root_label.as_deref().expect("root label"),
+                )
+            })
+            .collect::<Vec<_>>();
+        let first_label = path_string(&absolute_normalized_path(&first_root).expect("first root"));
+        let second_label =
+            path_string(&absolute_normalized_path(&second_root).expect("second root"));
+        assert_eq!(
+            vec![
+                ("Alpha Show", first_label.as_str()),
+                ("Beta Show", second_label.as_str()),
+            ],
+            labels
         );
 
         fs::remove_dir_all(temp).expect("temp should delete");

@@ -155,6 +155,12 @@ impl DandanplayResolver {
     pub async fn search_episodes(&self, keyword: &str) -> Result<Vec<DandanplaySearchAnime>> {
         self.client.search_episodes(keyword).await
     }
+
+    /// Fetches the full bangumi profile of one anime (rating, synopsis,
+    /// tags, per-episode air dates, database links) for the detail page.
+    pub async fn bangumi_detail(&self, anime_id: u64) -> Result<DandanplayBangumiDetail> {
+        self.client.bangumi_detail(anime_id).await
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -296,6 +302,25 @@ impl DandanplayDanmakuClient {
             .flatten()
             .filter_map(DandanplaySearchAnime::from_json)
             .collect())
+    }
+
+    pub async fn bangumi_detail(&self, anime_id: u64) -> Result<DandanplayBangumiDetail> {
+        if anime_id == 0 {
+            return Err(LibraryServerError::new("animeId must be positive"));
+        }
+        let api_path = format!("/api/v2/bangumi/{anime_id}");
+        let data = self.request_json("GET", &api_path, None, None).await?;
+        if json_bool(&data, "success") == Some(false) {
+            return Err(LibraryServerError::new(format!(
+                "dandanplay bangumi fetch failed: {}",
+                json_string(&data, "message").unwrap_or_else(|| "unknown error".to_owned())
+            )));
+        }
+        data.get("bangumi")
+            .and_then(DandanplayBangumiDetail::from_json)
+            .ok_or_else(|| {
+                LibraryServerError::new("dandanplay bangumi response was missing the anime")
+            })
     }
 
     async fn request_json(
@@ -576,6 +601,102 @@ impl DandanplaySearchAnime {
             anime_title,
             type_description: json_string_any(value, &["typeDescription", "TypeDescription"]),
             episodes,
+        })
+    }
+}
+
+/// Full profile of one anime from `/api/v2/bangumi/{animeId}`: the fields
+/// the library's information page shows beyond what hash matching stores —
+/// community rating, synopsis, tags, per-episode air dates, and links into
+/// the public anime databases.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DandanplayBangumiDetail {
+    pub anime_id: u64,
+    pub anime_title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub type_description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rating: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_on_air: Option<bool>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub tags: Vec<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub episodes: Vec<DandanplayBangumiEpisode>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub online_databases: Vec<DandanplayOnlineDatabase>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DandanplayBangumiEpisode {
+    pub episode_id: u64,
+    pub episode_title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub air_date: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DandanplayOnlineDatabase {
+    pub name: String,
+    pub url: String,
+}
+
+impl DandanplayBangumiDetail {
+    fn from_json(value: &Value) -> Option<Self> {
+        let anime_id = json_u64_any(value, &["animeId", "AnimeId"])?;
+        let anime_title = json_string_any(value, &["animeTitle", "AnimeTitle"])?;
+        let tags = value
+            .get("tags")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(|tag| json_string_any(tag, &["name", "Name"]))
+            .collect();
+        let episodes = value
+            .get("episodes")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(|episode| {
+                Some(DandanplayBangumiEpisode {
+                    episode_id: json_u64_any(episode, &["episodeId", "EpisodeId"])?,
+                    episode_title: json_string_any(episode, &["episodeTitle", "EpisodeTitle"])
+                        .unwrap_or_default(),
+                    air_date: json_string_any(episode, &["airDate", "AirDate"]),
+                })
+            })
+            .collect();
+        let online_databases = value
+            .get("onlineDatabases")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(|database| {
+                Some(DandanplayOnlineDatabase {
+                    name: json_string_any(database, &["name", "Name"])?,
+                    url: json_string_any(database, &["url", "Url"])?,
+                })
+            })
+            .collect();
+        Some(Self {
+            anime_id,
+            anime_title,
+            type_description: json_string_any(value, &["typeDescription", "TypeDescription"]),
+            summary: json_string_any(value, &["summary", "Summary"]),
+            // dandanplay reports 0 for titles nobody has rated yet.
+            rating: json_f64_any(value, &["rating", "Rating"]).filter(|rating| *rating > 0.0),
+            is_on_air: value
+                .get("isOnAir")
+                .or_else(|| value.get("IsOnAir"))
+                .and_then(Value::as_bool),
+            tags,
+            episodes,
+            online_databases,
         })
     }
 }
