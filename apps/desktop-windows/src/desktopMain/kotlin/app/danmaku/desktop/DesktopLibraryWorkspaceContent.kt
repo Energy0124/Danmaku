@@ -1,14 +1,19 @@
 package app.danmaku.desktop
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Divider
 import androidx.compose.material.DropdownMenu
 import androidx.compose.material.DropdownMenuItem
@@ -34,6 +39,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.danmaku.domain.ExternalAnimeTrackingPlan
@@ -68,6 +74,12 @@ internal fun LibraryCenterWorkspace(
     onToggleFavoriteFilter: () -> Unit,
     localWatchListFilter: LocalWatchListFilter,
     onLocalWatchListFilterChange: (LocalWatchListFilter) -> Unit,
+    seriesViewMode: LibrarySeriesViewMode,
+    onSeriesViewModeChange: (LibrarySeriesViewMode) -> Unit,
+    registeredRoots: List<DesktopLibraryRoot>,
+    selectedLibraryRootId: String?,
+    onSelectedLibraryRootIdChange: (String?) -> Unit,
+    rootIdByMediaId: Map<String, String>,
     catalog: LibraryCatalog?,
     visibleSeries: List<LibrarySeries>,
     selectedSeries: LibrarySeries?,
@@ -136,6 +148,11 @@ internal fun LibraryCenterWorkspace(
             onToggleFavoriteFilter = onToggleFavoriteFilter,
             localWatchListFilter = localWatchListFilter,
             onLocalWatchListFilterChange = onLocalWatchListFilterChange,
+            seriesViewMode = seriesViewMode,
+            onSeriesViewModeChange = onSeriesViewModeChange,
+            registeredRoots = registeredRoots,
+            selectedLibraryRootId = selectedLibraryRootId,
+            onSelectedLibraryRootIdChange = onSelectedLibraryRootIdChange,
             compact = compact,
         )
         FlowRow(
@@ -173,6 +190,11 @@ internal fun LibraryCenterWorkspace(
             if (localWatchListFilter != LocalWatchListFilter.ANY) {
                 StatusPill(localWatchListFilter.localizedLabel(strings), icon = Icons.Filled.CheckCircle, active = true)
             }
+            selectedLibraryRootId
+                ?.let { selectedId -> registeredRoots.firstOrNull { it.id == selectedId } }
+                ?.let { root ->
+                    StatusPill(root.displayName, icon = Icons.Filled.FolderOpen, active = true)
+                }
             if (sort != LibraryCatalogSort.TITLE) {
                 StatusPill(strings.pathSortLabel, icon = Icons.Filled.FolderOpen, active = true)
             }
@@ -261,6 +283,9 @@ internal fun LibraryCenterWorkspace(
                 strings = strings,
                 catalog = catalog,
                 visibleSeries = visibleSeries,
+                seriesViewMode = seriesViewMode,
+                registeredRoots = registeredRoots,
+                rootIdByMediaId = rootIdByMediaId,
                 selectedSeries = selectedSeries,
                 coverBySeriesId = coverBySeriesId,
                 refreshingMetadataSeriesIds = refreshingMetadataSeriesIds,
@@ -297,6 +322,11 @@ internal fun LibraryWorkspaceToolbar(
     onToggleFavoriteFilter: () -> Unit,
     localWatchListFilter: LocalWatchListFilter,
     onLocalWatchListFilterChange: (LocalWatchListFilter) -> Unit,
+    seriesViewMode: LibrarySeriesViewMode,
+    onSeriesViewModeChange: (LibrarySeriesViewMode) -> Unit,
+    registeredRoots: List<DesktopLibraryRoot>,
+    selectedLibraryRootId: String?,
+    onSelectedLibraryRootIdChange: (String?) -> Unit,
     compact: Boolean,
 ) {
     @Composable
@@ -408,6 +438,79 @@ internal fun LibraryWorkspaceToolbar(
                 }
                 LibrarySearchField(Modifier.width(360.dp))
                 ToolbarActions()
+            }
+        }
+    }
+    if (selectedView == WindowsLibraryView.ALL_SERIES) {
+        SeriesLibraryViewControls(
+            strings = strings,
+            selectedMode = seriesViewMode,
+            onModeChange = onSeriesViewModeChange,
+            registeredRoots = registeredRoots,
+            selectedRootId = selectedLibraryRootId,
+            onRootChange = onSelectedLibraryRootIdChange,
+        )
+    }
+}
+
+@Composable
+internal fun SeriesLibraryViewControls(
+    strings: DesktopStrings,
+    selectedMode: LibrarySeriesViewMode,
+    onModeChange: (LibrarySeriesViewMode) -> Unit,
+    registeredRoots: List<DesktopLibraryRoot>,
+    selectedRootId: String?,
+    onRootChange: (String?) -> Unit,
+) {
+    var rootMenuExpanded by remember { mutableStateOf(false) }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        LibrarySeriesViewMode.entries.forEach { mode ->
+            Text(
+                text = strings.librarySeriesViewModeTitle(mode),
+                fontWeight = if (mode == selectedMode) FontWeight.Bold else FontWeight.Normal,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(
+                        if (mode == selectedMode) DanmakuColors.AccentSoft else DanmakuColors.SurfaceRaised.copy(alpha = 0.64f),
+                    )
+                    .clickable { onModeChange(mode) }
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+            )
+        }
+        Spacer(modifier = Modifier.weight(1f))
+        Box {
+            val selectedRoot = registeredRoots.firstOrNull { it.id == selectedRootId }
+            Text(
+                text = selectedRoot?.displayName ?: strings.allLibraryFoldersLabel,
+                fontWeight = if (selectedRoot != null) FontWeight.Bold else FontWeight.Normal,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(DanmakuColors.SurfaceRaised.copy(alpha = 0.64f))
+                    .clickable(enabled = registeredRoots.isNotEmpty()) { rootMenuExpanded = true }
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+            )
+            DropdownMenu(
+                expanded = rootMenuExpanded,
+                onDismissRequest = { rootMenuExpanded = false },
+            ) {
+                DropdownMenuItem(onClick = {
+                    onRootChange(null)
+                    rootMenuExpanded = false
+                }) {
+                    Text(strings.allLibraryFoldersLabel, fontWeight = if (selectedRootId == null) FontWeight.Bold else FontWeight.Normal)
+                }
+                registeredRoots.forEach { root ->
+                    DropdownMenuItem(onClick = {
+                        onRootChange(root.id)
+                        rootMenuExpanded = false
+                    }) {
+                        Text(root.displayName, fontWeight = if (root.id == selectedRootId) FontWeight.Bold else FontWeight.Normal)
+                    }
+                }
             }
         }
     }

@@ -1460,133 +1460,298 @@ impl PlayerApp {
             return;
         }
         let strings = Strings::new(self.preferences.language);
+        let media_context = self
+            .match_picker
+            .media_id
+            .as_deref()
+            .and_then(|media_id| self.session.as_ref()?.catalog.as_ref()?.item(media_id))
+            .map(|item| format!("{}  ·  {}", item.series_title, item.episode_title));
         let mut still_open = true;
         let mut pick: Option<crate::danmaku::DandanplaySelection> = None;
         let mut search_requested = false;
+
         egui::Window::new(strings.change_match())
             .open(&mut still_open)
             .collapsible(false)
-            .resizable(false)
+            .resizable(true)
             .anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0))
-            .default_width(420.0)
+            .default_size(vec2(680.0, 620.0))
+            .min_width(560.0)
+            .frame(
+                Frame::NONE
+                    .fill(palette::SURFACE)
+                    .corner_radius(egui::CornerRadius::same(14))
+                    .inner_margin(egui::Margin::symmetric(20, 18))
+                    .stroke(egui::Stroke::new(1.0, Color32::from_white_alpha(24))),
+            )
             .show(ctx, |ui| {
                 let selecting = self.match_picker.selecting_episode_id;
+                ui.label(
+                    RichText::new(media_context.as_deref().unwrap_or(strings.change_match()))
+                        .font(typography::title())
+                        .strong()
+                        .color(palette::TEXT_PRIMARY),
+                );
+                ui.label(
+                    RichText::new(strings.match_picker_hint())
+                        .font(typography::caption())
+                        .color(palette::TEXT_MUTED),
+                );
+                ui.add_space(12.0);
+
                 if let Some(error) = &self.match_picker.error {
-                    ui.colored_label(palette::DANGER, error.as_str());
-                }
-
-                // File-hash candidates first: usually the right answer and
-                // requires no typing.
-                ui.label(RichText::new(strings.hash_matches()).strong());
-                if self.match_picker.loading {
-                    ui.horizontal(|ui| {
-                        ui.spinner();
-                        ui.label(strings.loading_matches());
-                    });
-                } else if self.match_picker.candidates.is_empty() {
-                    ui.label(RichText::new(strings.no_matches_found()).weak());
-                } else {
-                    for candidate in self.match_picker.candidates.clone() {
-                        let pending = selecting == Some(candidate.episode_id);
-                        let label = if pending {
-                            format!("{} …", candidate.display_title)
-                        } else {
-                            candidate.display_title.clone()
-                        };
-                        ui.add_enabled_ui(selecting.is_none(), |ui| {
-                            if ui.selectable_label(false, label).clicked() {
-                                pick = Some(crate::danmaku::DandanplaySelection {
-                                    episode_id: candidate.episode_id,
-                                    anime_id: None,
-                                    anime_title: candidate.anime_title.clone(),
-                                    episode_title: candidate.episode_title.clone(),
-                                });
-                            }
-                        });
-                    }
-                }
-
-                ui.separator();
-
-                // Keyword search against the dandanplay database, with an
-                // anime -> episode drill-down like the official client.
-                ui.label(RichText::new(strings.search_dandanplay()).strong());
-                ui.horizontal(|ui| {
-                    let field = ui.add(
-                        egui::TextEdit::singleline(&mut self.match_picker.search_query)
-                            .hint_text(strings.search_dandanplay_hint())
-                            .desired_width(280.0),
-                    );
-                    let submitted =
-                        field.lost_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter));
-                    if (ui.button(strings.search()).clicked() || submitted)
-                        && !self.match_picker.search_query.trim().is_empty()
-                    {
-                        search_requested = true;
-                    }
-                });
-                if self.match_picker.searching {
-                    ui.horizontal(|ui| {
-                        ui.spinner();
-                        ui.label(strings.loading_matches());
-                    });
-                } else if self.match_picker.searched && self.match_picker.search_results.is_empty()
-                {
-                    ui.label(RichText::new(strings.no_matches_found()).weak());
-                }
-                let results = self.match_picker.search_results.clone();
-                if !results.is_empty() {
-                    egui::ScrollArea::vertical()
-                        .max_height(300.0)
+                    Frame::NONE
+                        .fill(Color32::from_rgba_unmultiplied(92, 28, 32, 180))
+                        .corner_radius(egui::CornerRadius::same(9))
+                        .inner_margin(egui::Margin::symmetric(12, 9))
                         .show(ui, |ui| {
-                            for anime in &results {
-                                let expanded =
-                                    self.match_picker.expanded_anime_id == Some(anime.anime_id);
-                                let heading = match &anime.type_description {
-                                    Some(kind) => format!(
-                                        "{} {}  ·  {kind}",
-                                        if expanded { "▾" } else { "▸" },
-                                        anime.anime_title
-                                    ),
-                                    None => format!(
-                                        "{} {}",
-                                        if expanded { "▾" } else { "▸" },
-                                        anime.anime_title
-                                    ),
-                                };
-                                if ui.selectable_label(expanded, heading).clicked() {
-                                    self.match_picker.expanded_anime_id =
-                                        (!expanded).then_some(anime.anime_id);
-                                }
-                                if !expanded {
-                                    continue;
-                                }
-                                ui.indent(("picker-episodes", anime.anime_id), |ui| {
-                                    for episode in &anime.episodes {
-                                        let pending = selecting == Some(episode.episode_id);
-                                        let label = if pending {
-                                            format!("{} …", episode.episode_title)
-                                        } else {
-                                            episode.episode_title.clone()
-                                        };
-                                        ui.add_enabled_ui(selecting.is_none(), |ui| {
-                                            if ui.selectable_label(false, label).clicked() {
-                                                pick = Some(crate::danmaku::DandanplaySelection {
-                                                    episode_id: episode.episode_id,
-                                                    anime_id: Some(anime.anime_id),
-                                                    anime_title: Some(anime.anime_title.clone()),
-                                                    episode_title: Some(
-                                                        episode.episode_title.clone(),
-                                                    ),
+                            ui.colored_label(palette::DANGER, error.as_str());
+                        });
+                    ui.add_space(10.0);
+                }
+
+                Frame::NONE
+                    .fill(palette::SURFACE_RAISED)
+                    .corner_radius(egui::CornerRadius::same(12))
+                    .inner_margin(egui::Margin::symmetric(14, 12))
+                    .stroke(egui::Stroke::new(1.0, Color32::from_white_alpha(16)))
+                    .show(ui, |ui| {
+                        ui.set_width(ui.available_width());
+                        ui.label(
+                            RichText::new(strings.file_suggestions())
+                                .font(typography::heading())
+                                .strong()
+                                .color(palette::TEXT_PRIMARY),
+                        );
+                        ui.label(
+                            RichText::new(strings.hash_matches())
+                                .font(typography::small())
+                                .color(palette::TEXT_MUTED),
+                        );
+                        ui.add_space(8.0);
+
+                        if self.match_picker.loading {
+                            ui.horizontal(|ui| {
+                                ui.spinner();
+                                ui.label(strings.loading_matches());
+                            });
+                        } else if self.match_picker.candidates.is_empty() {
+                            ui.label(
+                                RichText::new(strings.no_matches_found())
+                                    .font(typography::caption())
+                                    .color(palette::TEXT_MUTED),
+                            );
+                        } else {
+                            egui::ScrollArea::vertical()
+                                .id_salt("picker-file-suggestions")
+                                .max_height(160.0)
+                                .show(ui, |ui| {
+                                    for candidate in self.match_picker.candidates.clone() {
+                                        let pending = selecting == Some(candidate.episode_id);
+                                        Frame::NONE
+                                            .fill(palette::SURFACE_FAINT)
+                                            .corner_radius(egui::CornerRadius::same(9))
+                                            .inner_margin(egui::Margin::symmetric(11, 8))
+                                            .show(ui, |ui| {
+                                                ui.set_width(ui.available_width());
+                                                ui.horizontal(|ui| {
+                                                    ui.vertical(|ui| {
+                                                        ui.set_width(
+                                                            (ui.available_width() - 110.0)
+                                                                .max(240.0),
+                                                        );
+                                                        ui.label(
+                                                            RichText::new(
+                                                                candidate
+                                                                    .anime_title
+                                                                    .as_deref()
+                                                                    .unwrap_or(
+                                                                        &candidate.display_title,
+                                                                    ),
+                                                            )
+                                                            .font(typography::body())
+                                                            .strong()
+                                                            .color(palette::TEXT_PRIMARY),
+                                                        );
+                                                        ui.label(
+                                                            RichText::new(
+                                                                candidate
+                                                                    .episode_title
+                                                                    .as_deref()
+                                                                    .unwrap_or(
+                                                                        &candidate.display_title,
+                                                                    ),
+                                                            )
+                                                            .font(typography::caption())
+                                                            .color(palette::TEXT_MUTED),
+                                                        );
+                                                    });
+                                                    let label = if pending {
+                                                        format!("{} …", strings.select_match())
+                                                    } else {
+                                                        strings.select_match().to_owned()
+                                                    };
+                                                    if ui
+                                                        .add_enabled(
+                                                            selecting.is_none(),
+                                                            egui::Button::new(label),
+                                                        )
+                                                        .clicked()
+                                                    {
+                                                        pick = Some(
+                                                            crate::danmaku::DandanplaySelection {
+                                                                episode_id: candidate.episode_id,
+                                                                anime_id: None,
+                                                                anime_title: candidate
+                                                                    .anime_title
+                                                                    .clone(),
+                                                                episode_title: candidate
+                                                                    .episode_title
+                                                                    .clone(),
+                                                            },
+                                                        );
+                                                    }
                                                 });
-                                            }
-                                        });
+                                            });
+                                        ui.add_space(6.0);
                                     }
                                 });
+                        }
+                    });
+
+                ui.add_space(12.0);
+
+                Frame::NONE
+                    .fill(palette::SURFACE_RAISED)
+                    .corner_radius(egui::CornerRadius::same(12))
+                    .inner_margin(egui::Margin::symmetric(14, 12))
+                    .stroke(egui::Stroke::new(1.0, Color32::from_white_alpha(16)))
+                    .show(ui, |ui| {
+                        ui.set_width(ui.available_width());
+                        ui.label(
+                            RichText::new(strings.database_search())
+                                .font(typography::heading())
+                                .strong()
+                                .color(palette::TEXT_PRIMARY),
+                        );
+                        ui.label(
+                            RichText::new(strings.search_dandanplay())
+                                .font(typography::small())
+                                .color(palette::TEXT_MUTED),
+                        );
+                        ui.add_space(8.0);
+                        ui.horizontal(|ui| {
+                            let field_width = (ui.available_width() - 92.0).max(260.0);
+                            let field = ui.add(
+                                egui::TextEdit::singleline(&mut self.match_picker.search_query)
+                                    .hint_text(strings.search_dandanplay_hint())
+                                    .desired_width(field_width),
+                            );
+                            let submitted = field.lost_focus()
+                                && ui.input(|input| input.key_pressed(egui::Key::Enter));
+                            if (ui.button(strings.search()).clicked() || submitted)
+                                && !self.match_picker.search_query.trim().is_empty()
+                            {
+                                search_requested = true;
                             }
                         });
-                }
+
+                        if self.match_picker.searching {
+                            ui.horizontal(|ui| {
+                                ui.spinner();
+                                ui.label(strings.loading_matches());
+                            });
+                        } else if self.match_picker.searched
+                            && self.match_picker.search_results.is_empty()
+                        {
+                            ui.label(
+                                RichText::new(strings.no_matches_found())
+                                    .font(typography::caption())
+                                    .color(palette::TEXT_MUTED),
+                            );
+                        }
+
+                        let results = self.match_picker.search_results.clone();
+                        if !results.is_empty() {
+                            ui.add_space(8.0);
+                            egui::ScrollArea::vertical()
+                                .id_salt("picker-database-results")
+                                .max_height(280.0)
+                                .show(ui, |ui| {
+                                    for anime in &results {
+                                        let expanded = self.match_picker.expanded_anime_id
+                                            == Some(anime.anime_id);
+                                        let metadata = match &anime.type_description {
+                                            Some(kind) => format!(
+                                                "{kind}  ·  {} {}",
+                                                anime.episodes.len(),
+                                                strings.episodes()
+                                            ),
+                                            None => format!(
+                                                "{} {}",
+                                                anime.episodes.len(),
+                                                strings.episodes()
+                                            ),
+                                        };
+                                        let heading = format!(
+                                            "{}  {}\n     {}",
+                                            if expanded { "▾" } else { "▸" },
+                                            anime.anime_title,
+                                            metadata
+                                        );
+                                        let response = ui.add_sized(
+                                            [ui.available_width(), 52.0],
+                                            egui::Button::new(
+                                                RichText::new(heading).font(typography::body()),
+                                            )
+                                            .selected(expanded),
+                                        );
+                                        if response.clicked() {
+                                            self.match_picker.expanded_anime_id =
+                                                (!expanded).then_some(anime.anime_id);
+                                        }
+                                        if expanded {
+                                            ui.indent(("picker-episodes", anime.anime_id), |ui| {
+                                                for episode in &anime.episodes {
+                                                    let pending =
+                                                        selecting == Some(episode.episode_id);
+                                                    let label = if pending {
+                                                        format!("{} …", episode.episode_title)
+                                                    } else {
+                                                        episode.episode_title.clone()
+                                                    };
+                                                    if ui
+                                                        .add_enabled(
+                                                            selecting.is_none(),
+                                                            egui::Button::new(label).min_size(
+                                                                vec2(ui.available_width(), 34.0),
+                                                            ),
+                                                        )
+                                                        .clicked()
+                                                    {
+                                                        pick = Some(
+                                                            crate::danmaku::DandanplaySelection {
+                                                                episode_id: episode.episode_id,
+                                                                anime_id: Some(anime.anime_id),
+                                                                anime_title: Some(
+                                                                    anime.anime_title.clone(),
+                                                                ),
+                                                                episode_title: Some(
+                                                                    episode.episode_title.clone(),
+                                                                ),
+                                                            },
+                                                        );
+                                                    }
+                                                }
+                                            });
+                                        }
+                                        ui.add_space(6.0);
+                                    }
+                                });
+                        }
+                    });
             });
+
         if search_requested
             && let (Some(media_id), Some(session)) =
                 (self.match_picker.media_id.clone(), &self.session)

@@ -417,10 +417,12 @@ internal fun SeriesPosterCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(if (isSelected) DanmakuColors.SurfaceRaised else Color.Transparent)
+            .clip(RoundedCornerShape(12.dp))
+            .background(
+                if (isSelected) DanmakuColors.AccentSoft else DanmakuColors.Surface.copy(alpha = 0.72f),
+            )
             .clickable(onClick = onSelect)
-            .padding(6.dp),
+            .padding(8.dp),
         verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
         Box(
@@ -483,7 +485,8 @@ internal fun SeriesPosterCard(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (isSelected) {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Box(modifier = Modifier.weight(0.28f)) {
                 Button(
                     onClick = { watchListMenuExpanded = true },
@@ -539,6 +542,7 @@ internal fun SeriesPosterCard(
                 enabled = !isPreparing,
                 onClick = onPlay,
             )
+            }
         }
     }
 }

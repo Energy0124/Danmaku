@@ -83,6 +83,22 @@ does not depend on generated imagery or copy a commercial streaming product.
   animated pill toggles, and styled action buttons. Removes the raw egui
   slider/checkbox/button look.
 
+### Library discovery and matching pass (2026-07-13)
+
+- [x] Add Recent, Season, Matched Anime, and Folder presentation modes to the
+  full library page.
+- [x] Group Recent by indexed month and Season by the provider release year
+  currently available in the catalog model.
+- [x] Preserve the folder explorer as the drill-down filter for registered
+  library roots and nested directories.
+- [x] Replace the sparse series header with a poster-led overview card and
+  useful library/watch facts.
+- [x] Rebuild the comprehensive dandanplay picker as a resizable two-section
+  workflow for file suggestions and full database anime/episode search.
+- [x] Keep all new copy localized in English and Traditional Chinese.
+- [ ] Capture supervised hover, narrow-window, and large-library screenshots;
+  the automated test pass deliberately does not launch or take over the GUI.
+
 ## Verification Gates
 
 - cargo fmt --all --check

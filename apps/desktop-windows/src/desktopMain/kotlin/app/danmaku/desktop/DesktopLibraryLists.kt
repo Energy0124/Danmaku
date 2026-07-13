@@ -26,6 +26,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
@@ -198,6 +199,9 @@ internal fun AllSeriesView(
     strings: DesktopStrings,
     catalog: LibraryCatalog?,
     visibleSeries: List<LibrarySeries>,
+    seriesViewMode: LibrarySeriesViewMode,
+    registeredRoots: List<DesktopLibraryRoot>,
+    rootIdByMediaId: Map<String, String>,
     selectedSeries: LibrarySeries?,
     coverBySeriesId: Map<String, Path?>,
     refreshingMetadataSeriesIds: Set<String>,
@@ -216,6 +220,10 @@ internal fun AllSeriesView(
     onRefreshSeriesMetadata: (LibrarySeries) -> Unit,
     onPlayLocalPlayback: (LibraryMediaItem) -> Unit,
 ) {
+    val groups = remember(visibleSeries, seriesViewMode, registeredRoots, rootIdByMediaId) {
+        visibleSeries.groupForLibraryPresentation(seriesViewMode, registeredRoots, rootIdByMediaId)
+    }
+    val orderedSeries = remember(groups) { groups.flatMap(LibrarySeriesGroup::series).distinctBy(LibrarySeries::id) }
     LibraryProgressOverview(
         strings = strings,
         continueWatchingItems = continueWatchingItems,
@@ -225,7 +233,7 @@ internal fun AllSeriesView(
         onShowDetails = onShowDetails,
         onPlayLocalPlayback = onPlayLocalPlayback,
     )
-    Text(strings.libraryViewTitle(WindowsLibraryView.ALL_SERIES), style = MaterialTheme.typography.h6, fontWeight = FontWeight.Bold)
+    Text(strings.librarySeriesViewModeTitle(seriesViewMode), style = MaterialTheme.typography.h6, fontWeight = FontWeight.Bold)
     when {
         catalog == null || catalog.items.isEmpty() -> EmptyState(strings.noIndexedSeriesText)
         visibleSeries.isEmpty() -> EmptyState(
@@ -237,20 +245,20 @@ internal fun AllSeriesView(
             columns = GridCells.Adaptive(minSize = if (compact) 132.dp else 150.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(if (compact) 460.dp else 500.dp)
+                .height(if (compact) 520.dp else 580.dp)
                 .libraryCollectionKeyboard(
-                    itemCount = visibleSeries.size,
-                    selectedIndex = visibleSeries.indexOfFirst { it.id == selectedSeries?.id }.coerceAtLeast(0),
+                    itemCount = orderedSeries.size,
+                    selectedIndex = orderedSeries.indexOfFirst { it.id == selectedSeries?.id }.coerceAtLeast(0),
                     columnStride = if (compact) 4 else 6,
-                    onSelectedIndexChange = { index -> visibleSeries.getOrNull(index)?.let(onSelectSeries) },
+                    onSelectedIndexChange = { index -> orderedSeries.getOrNull(index)?.let(onSelectSeries) },
                     onOpenSelected = {
-                        visibleSeries
-                            .getOrNull(visibleSeries.indexOfFirst { it.id == selectedSeries?.id }.coerceAtLeast(0))
+                        orderedSeries
+                            .getOrNull(orderedSeries.indexOfFirst { it.id == selectedSeries?.id }.coerceAtLeast(0))
                             ?.let(onSelectSeries)
                     },
                     onPlaySelected = {
-                        visibleSeries
-                            .getOrNull(visibleSeries.indexOfFirst { it.id == selectedSeries?.id }.coerceAtLeast(0))
+                        orderedSeries
+                            .getOrNull(orderedSeries.indexOfFirst { it.id == selectedSeries?.id }.coerceAtLeast(0))
                             ?.let { librarySeries ->
                                 onPlayLocalPlayback(
                                     nextPlayableEpisode(
@@ -264,8 +272,35 @@ internal fun AllSeriesView(
             horizontalArrangement = Arrangement.spacedBy(if (compact) 12.dp else 16.dp),
             verticalArrangement = Arrangement.spacedBy(if (compact) 16.dp else 20.dp),
         ) {
-            items(visibleSeries, key = { it.id }) { librarySeries ->
-                SeriesPosterCard(
+            groups.forEach { group ->
+                if (group.kind != LibrarySeriesGroupKind.ALL) {
+                    item(key = "header:${group.key}", span = { GridItemSpan(maxLineSpan) }) {
+                        val label = when (group.kind) {
+                            LibrarySeriesGroupKind.RECENT_MONTH -> strings.libraryRecentMonthLabel(group.value.orEmpty())
+                            LibrarySeriesGroupKind.RELEASE_YEAR -> strings.libraryReleaseYearLabel(group.value.orEmpty())
+                            LibrarySeriesGroupKind.FOLDER -> group.value ?: strings.libraryUnassignedFolderLabel
+                            LibrarySeriesGroupKind.UNKNOWN -> if (seriesViewMode == LibrarySeriesViewMode.RECENT) {
+                                strings.libraryUnknownRecentLabel
+                            } else {
+                                strings.libraryUnknownSeasonLabel
+                            }
+                            LibrarySeriesGroupKind.ALL -> ""
+                        }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(DanmakuColors.SurfaceRaised.copy(alpha = 0.58f))
+                                .padding(horizontal = 12.dp, vertical = 9.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(label, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                            Text(strings.librarySeriesCountLabel(group.series.size), color = DanmakuColors.TextMuted)
+                        }
+                    }
+                }
+                items(group.series, key = { "${group.key}:${it.id}" }) { librarySeries ->
+                    SeriesPosterCard(
                     strings = strings,
                     series = librarySeries,
                     coverPath = coverBySeriesId[librarySeries.id],
@@ -289,6 +324,7 @@ internal fun AllSeriesView(
                         )
                     },
                 )
+                }
             }
         }
     }

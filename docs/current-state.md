@@ -1,6 +1,6 @@
 # Current State
 
-Last reviewed: 2026-07-10.
+Last reviewed: 2026-07-13.
 
 Danmaku is in active foundation work. The strongest vertical slice is Windows
 desktop as the local library host/player, with Android mobile and Android TV as
@@ -213,6 +213,21 @@ trusted-LAN clients.
   official client's media library: folder rows navigate with an up-one-level
   row, file rows show file name and size plus the matched anime and episode
   titles in columns, and each file row keeps the change-match button.
+- The July 13 library polish adds a mode bar for Recent, Season, Matched Anime,
+  and Folder views. Recent groups all series by the latest indexed month;
+  Season groups recognized titles by the available release year; Folder keeps
+  the hierarchical root/subfolder drill-down. Series pages now use a poster-led
+  overview card with alternate title, episode/watch counts, release year, total
+  size, subtitle count, and library-root context. The comprehensive dandanplay
+  picker now follows the same native card system: it identifies the current
+  episode, separates file suggestions from full database search, presents
+  explicit selectable candidate rows, and keeps anime-to-episode drill-down in
+  a resizable, scrollable dialog. English and Traditional Chinese are covered
+  for all new visible copy.
+- The compatibility Compose desktop library mirrors the same presentation modes
+  and registered-root filtering, adds grouped recent/season sections and a
+  richer inspector overview, and restyles both metadata search and dandanplay
+  candidate surfaces while that host remains available during retirement.
 
 ### Android Mobile
 

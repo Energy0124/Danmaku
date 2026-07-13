@@ -530,12 +530,15 @@ enum LibraryView {
 /// filter change, not a new page.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 enum LibrarySeriesTab {
+    /// Every series ordered by the newest file indexed into the library.
+    #[default]
+    Recent,
+    /// Recognized anime grouped by release year.
+    Season,
     /// Only items with a recognized dandanplay/provider anime match,
     /// grouped by that identity.
-    #[default]
     MatchedAnime,
-    /// Every item, grouped strictly by its on-disk folder, ignoring any
-    /// recognized anime metadata.
+    /// Every item, browsed through its on-disk folder hierarchy.
     Folder,
 }
 
@@ -676,6 +679,7 @@ impl LibraryScreen {
                         LibraryView::Series(series_id) => self.show_series(
                             ui,
                             &series_id,
+                            &catalog.root_name,
                             &session.progresses,
                             posters,
                             pending_preloads,
@@ -922,27 +926,67 @@ impl LibraryScreen {
                 }
                 ui.horizontal(|ui| {
                     ui.add_space(PAGE_GUTTER);
-                    if ui
-                        .selectable_label(
-                            self.all_series_tab == LibrarySeriesTab::MatchedAnime,
-                            strings.matched_anime(),
-                        )
-                        .clicked()
-                    {
-                        self.all_series_tab = LibrarySeriesTab::MatchedAnime;
-                    }
-                    if ui
-                        .selectable_label(
-                            self.all_series_tab == LibrarySeriesTab::Folder,
-                            strings.folders(),
-                        )
-                        .clicked()
-                    {
-                        self.all_series_tab = LibrarySeriesTab::Folder;
-                    }
+                    Frame::NONE
+                        .fill(palette::SURFACE)
+                        .corner_radius(egui::CornerRadius::same(11))
+                        .inner_margin(egui::Margin::symmetric(8, 6))
+                        .stroke(egui::Stroke::new(1.0, Color32::from_white_alpha(16)))
+                        .show(ui, |ui| {
+                            ui.horizontal(|ui| {
+                                ui.selectable_value(
+                                    &mut self.all_series_tab,
+                                    LibrarySeriesTab::Recent,
+                                    strings.recent_view(),
+                                );
+                                ui.selectable_value(
+                                    &mut self.all_series_tab,
+                                    LibrarySeriesTab::Season,
+                                    strings.season_view(),
+                                );
+                                ui.selectable_value(
+                                    &mut self.all_series_tab,
+                                    LibrarySeriesTab::MatchedAnime,
+                                    strings.matched_anime(),
+                                );
+                                ui.selectable_value(
+                                    &mut self.all_series_tab,
+                                    LibrarySeriesTab::Folder,
+                                    strings.folders(),
+                                );
+                            });
+                        });
                 });
-                ui.add_space(10.0);
+                ui.add_space(14.0);
                 match self.all_series_tab {
+                    LibrarySeriesTab::Recent => {
+                        let groups = recent_series_groups(&self.cached_series, strings);
+                        for (heading, series) in groups {
+                            section_heading(
+                                ui,
+                                &format!("{heading}  ·  {} {}", series.len(), strings.titles()),
+                            );
+                            if let Some(series_id) = series_grid(ui, &series, posters, strings) {
+                                self.view = LibraryView::Series(series_id);
+                            }
+                            ui.add_space(12.0);
+                        }
+                    }
+                    LibrarySeriesTab::Season => {
+                        let groups = season_series_groups(&self.cached_anime_series, strings);
+                        if groups.is_empty() {
+                            muted_line(ui, strings.no_series());
+                        }
+                        for (heading, series) in groups {
+                            section_heading(
+                                ui,
+                                &format!("{heading}  ·  {} {}", series.len(), strings.titles()),
+                            );
+                            if let Some(series_id) = series_grid(ui, &series, posters, strings) {
+                                self.view = LibraryView::Series(series_id);
+                            }
+                            ui.add_space(12.0);
+                        }
+                    }
                     LibrarySeriesTab::MatchedAnime => {
                         let series = &self.cached_anime_series;
                         section_heading(
@@ -1112,6 +1156,7 @@ impl LibraryScreen {
         &mut self,
         ui: &mut egui::Ui,
         series_id: &str,
+        library_root_name: &str,
         progresses: &[PlaybackProgress],
         posters: &mut PosterCache,
         pending_preloads: &std::collections::HashSet<String>,
@@ -1144,6 +1189,23 @@ impl LibraryScreen {
             }
             map
         };
+
+        let items: Vec<&MediaItem> = series.items().collect();
+        let total_size = items.iter().map(|item| item.size_bytes.max(0)).sum::<i64>();
+        let subtitle_count = items.iter().map(|item| item.subtitles.len()).sum::<usize>();
+        let release_year = items
+            .iter()
+            .find_map(|item| item.anime_metadata.as_ref()?.start_year);
+        let watched_count = items
+            .iter()
+            .filter(|item| {
+                latest.get(item.id.as_str()).is_some_and(|progress| {
+                    progress.duration_ms.is_some_and(|duration| {
+                        duration > 0 && duration - progress.position_ms < MINIMUM_REMAINING_MS
+                    })
+                })
+            })
+            .count();
 
         egui::ScrollArea::vertical()
             .id_salt("library_series")
@@ -1180,24 +1242,88 @@ impl LibraryScreen {
                 ui.add_space(12.0);
                 ui.horizontal(|ui| {
                     ui.add_space(PAGE_GUTTER);
-                    let poster_item = series.items().next().cloned();
-                    if let Some(item) = poster_item {
-                        poster_thumbnail(ui, &item, posters, vec2(96.0, 144.0));
-                    }
-                    ui.vertical(|ui| {
-                        ui.label(
-                            RichText::new(&series.title)
-                                .font(FontId::proportional(22.0))
-                                .strong()
-                                .color(palette::TEXT_PRIMARY),
-                        );
-                        muted_line(
-                            ui,
-                            &format!("{} {}", series.episode_count(), strings.episodes()),
-                        );
-                    });
+                    Frame::NONE
+                        .fill(palette::SURFACE_RAISED)
+                        .corner_radius(egui::CornerRadius::same(16))
+                        .inner_margin(egui::Margin::symmetric(20, 20))
+                        .stroke(egui::Stroke::new(1.0, Color32::from_white_alpha(18)))
+                        .show(ui, |ui| {
+                            ui.set_width((ui.available_width() - PAGE_GUTTER).max(420.0));
+                            ui.horizontal(|ui| {
+                                if let Some(item) = items.first() {
+                                    poster_thumbnail(ui, item, posters, vec2(132.0, 198.0));
+                                }
+                                ui.add_space(16.0);
+                                ui.vertical(|ui| {
+                                    ui.label(
+                                        RichText::new(&series.title)
+                                            .font(typography::hero())
+                                            .strong()
+                                            .color(palette::TEXT_PRIMARY),
+                                    );
+                                    if let Some(metadata) =
+                                        items.iter().find_map(|item| item.anime_metadata.as_ref())
+                                    {
+                                        if metadata.display_title != series.title {
+                                            ui.label(
+                                                RichText::new(&metadata.display_title)
+                                                    .font(typography::body())
+                                                    .color(palette::TEXT_MUTED),
+                                            );
+                                        }
+                                    }
+                                    ui.add_space(10.0);
+                                    ui.label(
+                                        RichText::new(strings.library_overview())
+                                            .font(typography::heading())
+                                            .strong()
+                                            .color(palette::TEXT_SECONDARY),
+                                    );
+                                    ui.add_space(6.0);
+                                    ui.horizontal_wrapped(|ui| {
+                                        series_fact(
+                                            ui,
+                                            strings.episodes(),
+                                            &series.episode_count().to_string(),
+                                        );
+                                        series_fact(
+                                            ui,
+                                            strings.watched(),
+                                            &format!("{watched_count}/{}", series.episode_count()),
+                                        );
+                                        if let Some(year) = release_year {
+                                            series_fact(
+                                                ui,
+                                                strings.season_view(),
+                                                &year.to_string(),
+                                            );
+                                        }
+                                        series_fact(
+                                            ui,
+                                            strings.total_size(),
+                                            &format_size(total_size),
+                                        );
+                                        series_fact(
+                                            ui,
+                                            strings.subtitles(),
+                                            &subtitle_count.to_string(),
+                                        );
+                                    });
+                                    ui.add_space(12.0);
+                                    ui.label(
+                                        RichText::new(format!(
+                                            "{}  ·  {}",
+                                            strings.folders(),
+                                            library_root_name
+                                        ))
+                                        .font(typography::caption())
+                                        .color(palette::TEXT_MUTED),
+                                    );
+                                });
+                            });
+                        });
                 });
-                ui.add_space(12.0);
+                ui.add_space(20.0);
                 for season in &series.seasons {
                     if series.seasons.len() > 1 {
                         section_heading(ui, &season.label);
@@ -1504,6 +1630,28 @@ fn muted_line(ui: &mut egui::Ui, text: &str) {
     });
 }
 
+fn series_fact(ui: &mut egui::Ui, label: &str, value: &str) {
+    Frame::NONE
+        .fill(palette::SURFACE_FAINT)
+        .corner_radius(egui::CornerRadius::same(8))
+        .inner_margin(egui::Margin::symmetric(10, 7))
+        .show(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.label(
+                    RichText::new(label)
+                        .font(typography::small())
+                        .color(palette::TEXT_MUTED),
+                );
+                ui.label(
+                    RichText::new(value)
+                        .font(typography::caption())
+                        .strong()
+                        .color(palette::TEXT_PRIMARY),
+                );
+            });
+        });
+}
+
 fn continue_watching_rail(
     ui: &mut egui::Ui,
     entries: &[ProgressItem],
@@ -1590,6 +1738,111 @@ fn series_rail(
             });
         });
     clicked
+}
+
+fn series_latest_indexed_at(series: &Series) -> i64 {
+    series
+        .items()
+        .map(|item| item.indexed_at_epoch_ms)
+        .max()
+        .unwrap_or_default()
+}
+
+fn series_release_year(series: &Series) -> Option<i32> {
+    series
+        .items()
+        .filter_map(|item| item.anime_metadata.as_ref()?.start_year)
+        .next()
+}
+
+fn recent_series_groups(series: &[Series], strings: Strings) -> Vec<(String, Vec<Series>)> {
+    let mut sorted = series.to_vec();
+    sorted.sort_by(|left, right| {
+        series_latest_indexed_at(right)
+            .cmp(&series_latest_indexed_at(left))
+            .then_with(|| left.title.to_lowercase().cmp(&right.title.to_lowercase()))
+    });
+
+    let mut groups: Vec<(String, Vec<Series>)> = Vec::new();
+    for series in sorted {
+        let label = year_month_from_epoch_ms(series_latest_indexed_at(&series))
+            .map(|(year, month)| recent_month_label(year, month, strings))
+            .unwrap_or_else(|| strings.unknown_date().to_owned());
+        if let Some((_, entries)) = groups.last_mut().filter(|(name, _)| name == &label) {
+            entries.push(series);
+        } else {
+            groups.push((label, vec![series]));
+        }
+    }
+    groups
+}
+
+fn season_series_groups(series: &[Series], strings: Strings) -> Vec<(String, Vec<Series>)> {
+    let mut sorted = series.to_vec();
+    sorted.sort_by(|left, right| {
+        series_release_year(right)
+            .cmp(&series_release_year(left))
+            .then_with(|| left.title.to_lowercase().cmp(&right.title.to_lowercase()))
+    });
+
+    let mut groups: Vec<(String, Vec<Series>)> = Vec::new();
+    for series in sorted {
+        let label = series_release_year(&series)
+            .map(|year| year.to_string())
+            .unwrap_or_else(|| strings.unknown_season().to_owned());
+        if let Some((_, entries)) = groups.last_mut().filter(|(name, _)| name == &label) {
+            entries.push(series);
+        } else {
+            groups.push((label, vec![series]));
+        }
+    }
+    groups
+}
+
+fn recent_month_label(year: i32, month: u32, strings: Strings) -> String {
+    match strings.language() {
+        Language::English => {
+            const MONTHS: [&str; 12] = [
+                "January",
+                "February",
+                "March",
+                "April",
+                "May",
+                "June",
+                "July",
+                "August",
+                "September",
+                "October",
+                "November",
+                "December",
+            ];
+            format!(
+                "{} {year}",
+                MONTHS[(month.saturating_sub(1) as usize).min(11)]
+            )
+        }
+        Language::TraditionalChinese => format!("{year}年{month}月"),
+    }
+}
+
+/// Converts a Unix epoch millisecond timestamp to a Gregorian year/month
+/// without pulling a date-time dependency into the lightweight player.
+fn year_month_from_epoch_ms(epoch_ms: i64) -> Option<(i32, u32)> {
+    if epoch_ms <= 0 {
+        return None;
+    }
+    let days = epoch_ms.div_euclid(86_400_000);
+    let z = days + 719_468;
+    let era = if z >= 0 { z } else { z - 146_096 }.div_euclid(146_097);
+    let day_of_era = z - era * 146_097;
+    let year_of_era =
+        (day_of_era - day_of_era / 1_460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
+    let year = year_of_era + era * 400;
+    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
+    let month_prime = (5 * day_of_year + 2) / 153;
+    let month = month_prime + if month_prime < 10 { 3 } else { -9 };
+    let year = year + i64::from(month <= 2);
+    Some((i32::try_from(year).ok()?, u32::try_from(month).ok()?))
 }
 
 fn series_grid(
@@ -2839,7 +3092,7 @@ fn card_status_dot(ui: &mut egui::Ui, text: &str, color: Color32) {
 
 #[cfg(test)]
 mod tests {
-    use super::{format_size, initials};
+    use super::{format_size, initials, year_month_from_epoch_ms};
 
     #[test]
     fn derives_initials_from_titles() {
@@ -2847,6 +3100,13 @@ mod tests {
         assert_eq!(initials("16bit Sensation"), "1S");
         assert_eq!(initials("約束のネバーランド"), "約");
         assert_eq!(initials(""), "");
+    }
+
+    #[test]
+    fn converts_index_timestamps_to_recent_month_groups() {
+        assert_eq!(year_month_from_epoch_ms(1), Some((1970, 1)));
+        assert_eq!(year_month_from_epoch_ms(1_704_067_200_000), Some((2024, 1)));
+        assert_eq!(year_month_from_epoch_ms(0), None);
     }
 
     #[test]

@@ -233,6 +233,7 @@ internal fun DesktopSeriesRow(
 
 @Composable
 internal fun DandanplayMatchCandidatePicker(
+    strings: DesktopStrings,
     preparation: DesktopLocalPlaybackPreparation,
     status: DandanplayPlaybackUiStatus,
     isPreparing: Boolean,
@@ -242,55 +243,101 @@ internal fun DandanplayMatchCandidatePicker(
     if (candidates.size <= 1) return
 
     Spacer(modifier = Modifier.height(8.dp))
-    Divider(color = DanmakuColors.SurfaceRaised)
-    Spacer(modifier = Modifier.height(8.dp))
-    Text(
-        "Match candidates",
-        color = Color.White,
-        fontWeight = FontWeight.SemiBold,
-    )
-    Spacer(modifier = Modifier.height(6.dp))
-    LazyColumn(modifier = Modifier.heightIn(max = 180.dp)) {
-        items(candidates, key = { it.episodeId }) { match ->
-            val isSelected = match.episodeId == status.selectedEpisodeId
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 3.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        match.displayTitle,
-                        color = Color.White,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        dandanplayMatchCandidateDetail(match),
-                        color = DanmakuColors.TextMuted,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-                Button(
-                    onClick = { onSelectDandanplayMatch(preparation, match) },
-                    enabled = !isPreparing && !isSelected,
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(DanmakuColors.AccentSoft.copy(alpha = 0.58f))
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                Icons.Filled.Subtitles,
+                contentDescription = strings.dandanplayMatchCandidatesTitle,
+                tint = DanmakuColors.Accent,
+                modifier = Modifier.size(22.dp),
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    strings.dandanplayMatchCandidatesTitle,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    strings.dandanplayMatchCandidatesDescription(candidates.size),
+                    color = DanmakuColors.TextMuted,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            StatusPill(candidates.size.toString(), active = true)
+        }
+        LazyColumn(
+            modifier = Modifier.heightIn(max = 280.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp),
+        ) {
+            items(candidates, key = { it.episodeId }) { match ->
+                val isSelected = match.episodeId == status.selectedEpisodeId
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(9.dp))
+                        .background(
+                            if (isSelected) DanmakuColors.SurfaceRaised else DanmakuColors.Surface.copy(alpha = 0.72f),
+                        )
+                        .padding(horizontal = 10.dp, vertical = 9.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(if (isSelected) "Selected" else "Use match")
+                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(
+                            match.displayTitle,
+                            color = Color.White,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            dandanplayMatchCandidateDetail(match, strings),
+                            color = DanmakuColors.TextMuted,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    if (isSelected) {
+                        StatusPill(
+                            strings.dandanplaySelectedMatchLabel,
+                            icon = Icons.Filled.CheckCircle,
+                            active = true,
+                            color = DanmakuColors.Good,
+                        )
+                    } else {
+                        Button(
+                            onClick = { onSelectDandanplayMatch(preparation, match) },
+                            enabled = !isPreparing,
+                        ) {
+                            Text(strings.dandanplayUseMatchAction)
+                        }
+                    }
                 }
             }
         }
     }
 }
 
-internal fun dandanplayMatchCandidateDetail(match: DandanplayMatch): String =
-    buildList {
-        add("Episode ID ${match.episodeId}")
-        match.animeId?.let { add("Anime ID $it") }
-        match.shiftSeconds?.let { add("Shift ${it}s") }
-    }.joinToString(" / ")
+internal fun dandanplayMatchCandidateDetail(
+    match: DandanplayMatch,
+    strings: DesktopStrings,
+): String = buildList {
+    add(strings.dandanplayEpisodeIdLabel(match.episodeId))
+    match.animeId?.let { add(strings.dandanplayAnimeIdLabel(it)) }
+    match.shiftSeconds?.let { add(strings.dandanplayShiftLabel(it.toString())) }
+}.joinToString("  •  ")
 
 internal fun LibrarySeriesWatchSummary?.progressLabel(strings: DesktopStrings): String =
     if (this == null) {

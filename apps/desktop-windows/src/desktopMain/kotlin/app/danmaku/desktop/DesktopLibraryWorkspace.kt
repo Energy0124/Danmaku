@@ -271,6 +271,8 @@ internal fun WindowsLibraryWorkspace(
     var subtitleFilter by remember { mutableStateOf(LibrarySubtitleFilter.ANY) }
     var favoriteFilter by remember { mutableStateOf(LibraryFavoriteFilter.ANY) }
     var localWatchListFilter by remember { mutableStateOf(LocalWatchListFilter.ANY) }
+    var seriesViewMode by remember { mutableStateOf(LibrarySeriesViewMode.ALL) }
+    var selectedLibraryRootId by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(searchSeed, searchSeedVersion) {
         val query = searchSeed.trim()
         if (query.isNotBlank()) {
@@ -297,6 +299,13 @@ internal fun WindowsLibraryWorkspace(
         favoriteFilter
     }
     val seriesIdByMediaId = remember(series) { series.seriesIdByMediaId() }
+    val rootIdByMediaId = remember(indexedLibrary?.filesById, registeredRoots) {
+        indexedLibrary?.filesById.orEmpty()
+            .mapNotNull { (mediaId, path) ->
+                libraryRootIdForPath(path, registeredRoots)?.let { mediaId to it }
+            }
+            .toMap()
+    }
     val filteredEpisodes = remember(
         catalog,
         searchText,
@@ -307,6 +316,8 @@ internal fun WindowsLibraryWorkspace(
         seriesIdByMediaId,
         localAnimeListEntryBySeriesId,
         localWatchListFilter,
+        selectedLibraryRootId,
+        rootIdByMediaId,
     ) {
         catalog
             ?.filteredItems(
@@ -324,12 +335,14 @@ internal fun WindowsLibraryWorkspace(
                 filter = localWatchListFilter,
             )
             .orEmpty()
+            .filterToLibraryRoot(selectedLibraryRootId, rootIdByMediaId)
     }
     val filtersAreDefault = searchText.isBlank() &&
         sort == LibraryCatalogSort.TITLE &&
         subtitleFilter == LibrarySubtitleFilter.ANY &&
         effectiveFavoriteFilter == LibraryFavoriteFilter.ANY &&
-        localWatchListFilter == LocalWatchListFilter.ANY
+        localWatchListFilter == LocalWatchListFilter.ANY &&
+        selectedLibraryRootId == null
     val visibleSeries = remember(series, filteredEpisodes, filtersAreDefault) {
         val visibleMediaIds = filteredEpisodes.mapTo(mutableSetOf(), LibraryMediaItem::id)
         if (visibleMediaIds.isEmpty() && filtersAreDefault) {
@@ -421,6 +434,12 @@ internal fun WindowsLibraryWorkspace(
                 },
                 localWatchListFilter = localWatchListFilter,
                 onLocalWatchListFilterChange = { localWatchListFilter = it },
+                seriesViewMode = seriesViewMode,
+                onSeriesViewModeChange = { seriesViewMode = it },
+                registeredRoots = registeredRoots,
+                selectedLibraryRootId = selectedLibraryRootId,
+                onSelectedLibraryRootIdChange = { selectedLibraryRootId = it },
+                rootIdByMediaId = rootIdByMediaId,
                 catalog = catalog,
                 visibleSeries = visibleSeries,
                 selectedSeries = selectedSeries,
@@ -463,6 +482,7 @@ internal fun WindowsLibraryWorkspace(
                     subtitleFilter = LibrarySubtitleFilter.ANY
                     favoriteFilter = LibraryFavoriteFilter.ANY
                     localWatchListFilter = LocalWatchListFilter.ANY
+                    selectedLibraryRootId = null
                 },
                 remoteBrowser = remoteBrowser,
                 modifier = Modifier.weight(1f),
@@ -496,6 +516,10 @@ internal fun WindowsLibraryWorkspace(
                 refreshingMetadataMediaIds = refreshingMetadataMediaIds,
                 refreshingMetadataSeriesIds = refreshingMetadataSeriesIds,
                 coverPath = selectedInspectorSeries?.let { seriesPosterById[it.id] },
+                libraryFolderName = selectedInspectorItem?.id
+                    ?.let(rootIdByMediaId::get)
+                    ?.let { rootId -> registeredRoots.firstOrNull { it.id == rootId } }
+                    ?.displayName,
                 watchSummary = selectedInspectorSeries?.let { seriesWatchSummaryById[it.id] },
                 watchStatusById = watchStatusById,
                 favoriteMediaIds = favoriteMediaIds,

@@ -466,6 +466,39 @@ impl Strings {
     pub fn loading_matches(self) -> &'static str {
         self.text("Looking up matches…", "正在查詢比對結果…")
     }
+    pub fn recent_view(self) -> &'static str {
+        self.text("Recent", "最近")
+    }
+    pub fn season_view(self) -> &'static str {
+        self.text("Season", "季度")
+    }
+    pub fn unknown_date(self) -> &'static str {
+        self.text("Earlier", "較早")
+    }
+    pub fn unknown_season(self) -> &'static str {
+        self.text("Unknown season", "季度不明")
+    }
+    pub fn library_overview(self) -> &'static str {
+        self.text("Library overview", "媒體庫概覽")
+    }
+    pub fn total_size(self) -> &'static str {
+        self.text("Total size", "總大小")
+    }
+    pub fn file_suggestions(self) -> &'static str {
+        self.text("Suggested for this file", "此檔案的建議比對")
+    }
+    pub fn database_search(self) -> &'static str {
+        self.text("Database search", "資料庫搜尋")
+    }
+    pub fn select_match(self) -> &'static str {
+        self.text("Use match", "套用比對")
+    }
+    pub fn match_picker_hint(self) -> &'static str {
+        self.text(
+            "Choose a suggested episode or search the complete dandanplay database.",
+            "選擇建議集數，或搜尋完整的 dandanplay 資料庫。",
+        )
+    }
     pub fn matched_anime(self) -> &'static str {
         self.text("Matched anime", "已比對動畫")
     }
@@ -514,6 +547,9 @@ mod tests {
         assert_eq!(zh.up_next("第 19 集"), "接下來：第 19 集");
         assert_ne!(zh.local_library(), en.local_library());
         assert_ne!(zh.online(), en.online());
+        assert_eq!(en.recent_view(), "Recent");
+        assert_eq!(zh.season_view(), "季度");
+        assert_eq!(zh.database_search(), "資料庫搜尋");
     }
 
     #[test]
