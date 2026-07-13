@@ -208,6 +208,76 @@ pub fn matched_anime_series(catalog: &LibraryCatalog) -> Vec<Series> {
     })
 }
 
+// ---------------------------------------------------------------------------
+// Folder explorer listing (file-manager style browse of relative paths)
+// ---------------------------------------------------------------------------
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct FolderListing {
+    pub folders: Vec<FolderEntry>,
+    pub files: Vec<MediaItem>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FolderEntry {
+    pub name: String,
+    pub item_count: usize,
+}
+
+/// Lists the immediate children of `path` (folder components of the items'
+/// `relative_path`s): subfolders with their recursive item counts, then the
+/// media files directly inside. Both are sorted case-insensitively by name.
+pub fn folder_listing(catalog: &LibraryCatalog, path: &[String]) -> FolderListing {
+    let mut folder_counts: Vec<FolderEntry> = Vec::new();
+    let mut files: Vec<MediaItem> = Vec::new();
+    for item in &catalog.items {
+        let segments: Vec<&str> = item
+            .relative_path
+            .split(['/', '\\'])
+            .filter(|segment| !segment.is_empty())
+            .collect();
+        // Skip items outside the current path.
+        if segments.len() <= path.len()
+            || !path
+                .iter()
+                .zip(&segments)
+                .all(|(wanted, actual)| wanted == actual)
+        {
+            continue;
+        }
+        if segments.len() == path.len() + 1 {
+            files.push(item.clone());
+        } else {
+            let name = segments[path.len()];
+            match folder_counts.iter_mut().find(|entry| entry.name == name) {
+                Some(entry) => entry.item_count += 1,
+                None => folder_counts.push(FolderEntry {
+                    name: name.to_owned(),
+                    item_count: 1,
+                }),
+            }
+        }
+    }
+    folder_counts.sort_by(|left, right| left.name.to_lowercase().cmp(&right.name.to_lowercase()));
+    files.sort_by(|left, right| {
+        file_name(&left.relative_path)
+            .to_lowercase()
+            .cmp(&file_name(&right.relative_path).to_lowercase())
+    });
+    FolderListing {
+        folders: folder_counts,
+        files,
+    }
+}
+
+/// Last path component of a relative path (the file name).
+pub fn file_name(relative_path: &str) -> &str {
+    relative_path
+        .rsplit(['/', '\\'])
+        .find(|segment| !segment.is_empty())
+        .unwrap_or(relative_path)
+}
+
 fn grouped_series_with_identity(
     catalog: &LibraryCatalog,
     identity_of: impl Fn(&MediaItem) -> SeriesIdentity,
@@ -839,6 +909,69 @@ mod tests {
         assert_eq!(by_anime[0].title, "Recognized Anime");
         let anime_items: Vec<&str> = by_anime[0].items().map(|item| item.id.as_str()).collect();
         assert_eq!(anime_items, vec!["recognized"]);
+    }
+
+    #[test]
+    fn folder_listing_navigates_relative_paths_like_a_file_explorer() {
+        let item = |id: &str, relative_path: &str| {
+            serde_json::json!({
+                "id": id,
+                "seriesTitle": "S",
+                "episodeTitle": id,
+                "relativePath": relative_path,
+                "sizeBytes": 1,
+                "mediaType": "video/x-matroska",
+                "streamPath": format!("/media/{id}")
+            })
+        };
+        let catalog: LibraryCatalog = serde_json::from_value(serde_json::json!({
+            "rootName": "root",
+            "indexedAtEpochMs": 0,
+            "items": [
+                item("loose", "loose episode.mkv"),
+                item("s1e1", "Show A/Season 1/ep1.mkv"),
+                item("s1e2", "Show A/Season 1/ep2.mkv"),
+                item("s2e1", "Show A/Season 2/ep1.mkv"),
+                item("b1", "show b/ep1.mkv"),
+            ]
+        }))
+        .expect("catalog parses");
+
+        // Root: two folders (sorted case-insensitively) and one loose file.
+        let root = folder_listing(&catalog, &[]);
+        assert_eq!(
+            root.folders,
+            vec![
+                FolderEntry {
+                    name: "Show A".to_owned(),
+                    item_count: 3
+                },
+                FolderEntry {
+                    name: "show b".to_owned(),
+                    item_count: 1
+                },
+            ]
+        );
+        assert_eq!(root.files.len(), 1);
+        assert_eq!(root.files[0].id, "loose");
+
+        // Inside "Show A": two season folders, no direct files.
+        let show_a = folder_listing(&catalog, &["Show A".to_owned()]);
+        assert_eq!(show_a.folders.len(), 2);
+        assert!(show_a.files.is_empty());
+
+        // Inside a season: files sorted by name.
+        let season_1 = folder_listing(&catalog, &["Show A".to_owned(), "Season 1".to_owned()]);
+        assert!(season_1.folders.is_empty());
+        let ids: Vec<&str> = season_1.files.iter().map(|item| item.id.as_str()).collect();
+        assert_eq!(ids, vec!["s1e1", "s1e2"]);
+
+        // A path that no longer exists lists nothing.
+        let gone = folder_listing(&catalog, &["Removed".to_owned()]);
+        assert_eq!(gone, FolderListing::default());
+
+        assert_eq!(file_name("Show A/Season 1/ep1.mkv"), "ep1.mkv");
+        assert_eq!(file_name("plain.mkv"), "plain.mkv");
     }
 
     #[test]

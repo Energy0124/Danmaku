@@ -13,10 +13,10 @@ use crate::{
     hosting::LocalHostStatus,
     icons::{Icon, paint_icon},
     library::{
-        DEFAULT_NEXT_UP_LIMIT, LibraryCatalog, MINIMUM_REMAINING_MS, MINIMUM_RESUME_POSITION_MS,
-        MediaItem, NextUpItem, NextUpReason, PlaybackProgress, ProgressItem, Series,
-        continue_watching_items, folder_grouped_series, grouped_series, matched_anime_series,
-        next_up_items,
+        DEFAULT_NEXT_UP_LIMIT, FolderListing, LibraryCatalog, MINIMUM_REMAINING_MS,
+        MINIMUM_RESUME_POSITION_MS, MediaItem, NextUpItem, NextUpReason, PlaybackProgress,
+        ProgressItem, Series, continue_watching_items, file_name, folder_grouped_series,
+        folder_listing, grouped_series, matched_anime_series, next_up_items,
     },
     localization::{Language, Strings},
     posters::{PosterCache, PosterState},
@@ -550,13 +550,19 @@ pub struct LibraryScreen {
     /// Recognized-anime-only grouping, never mixed with folder entries. Used
     /// by the "All series" page's "Matched anime" tab.
     cached_anime_series: Vec<Series>,
-    /// Folder-only grouping, ignoring recognition entirely. Used by the
-    /// "All series" page's "Folders" tab.
+    /// Folder-only grouping, kept for `find_series` so episode pages reached
+    /// from older folder cards keep working.
     cached_folder_series: Vec<Series>,
     /// The `LibrarySession::catalog_version` the caches above were last
     /// built from. `None` never matches a real version, so the first render
     /// always (re)builds them.
     cached_catalog_version: Option<u64>,
+    /// Current location inside the "Folders" explorer tab (path components
+    /// of the items' `relative_path`s).
+    folder_path: Vec<String>,
+    cached_folder_listing: FolderListing,
+    /// (catalog version, path) the listing above was computed for.
+    cached_folder_listing_key: Option<(u64, Vec<String>)>,
 }
 
 impl Default for LibraryScreen {
@@ -569,6 +575,9 @@ impl Default for LibraryScreen {
             cached_anime_series: Vec::new(),
             cached_folder_series: Vec::new(),
             cached_catalog_version: None,
+            folder_path: Vec::new(),
+            cached_folder_listing: FolderListing::default(),
+            cached_folder_listing_key: None,
         }
     }
 }
@@ -933,28 +942,100 @@ impl LibraryScreen {
                     }
                 });
                 ui.add_space(10.0);
-                let (series, heading_label) = match self.all_series_tab {
+                match self.all_series_tab {
                     LibrarySeriesTab::MatchedAnime => {
-                        (&self.cached_anime_series, strings.matched_anime())
+                        let series = &self.cached_anime_series;
+                        section_heading(
+                            ui,
+                            &format!(
+                                "{}  ·  {} {}",
+                                strings.matched_anime(),
+                                series.len(),
+                                strings.titles()
+                            ),
+                        );
+                        if series.is_empty() {
+                            muted_line(ui, strings.no_series());
+                        } else if let Some(series_id) = series_grid(ui, series, posters, strings) {
+                            self.view = LibraryView::Series(series_id);
+                        }
                     }
-                    LibrarySeriesTab::Folder => (&self.cached_folder_series, strings.folders()),
-                };
-                section_heading(
-                    ui,
-                    &format!(
-                        "{}  ·  {} {}",
-                        heading_label,
-                        series.len(),
-                        strings.titles()
-                    ),
-                );
-                if series.is_empty() {
-                    muted_line(ui, strings.no_series());
-                } else if let Some(series_id) = series_grid(ui, series, posters, strings) {
-                    self.view = LibraryView::Series(series_id);
+                    LibrarySeriesTab::Folder => {
+                        if let Some(explorer_action) =
+                            self.show_folder_explorer(ui, session, strings)
+                        {
+                            action = Some(explorer_action);
+                        }
+                    }
                 }
                 ui.add_space(28.0);
             });
+        action
+    }
+
+    /// File-explorer style browse of the library's on-disk layout, like the
+    /// official dandanplay client's media library: folder rows navigate,
+    /// file rows show the file name/size plus the matched anime and episode
+    /// titles, with the per-row match button to fix a wrong match.
+    fn show_folder_explorer(
+        &mut self,
+        ui: &mut egui::Ui,
+        session: &LibrarySession,
+        strings: Strings,
+    ) -> Option<LibraryAction> {
+        let Some(catalog) = &session.catalog else {
+            return None;
+        };
+        let key = (session.catalog_version, self.folder_path.clone());
+        if self.cached_folder_listing_key.as_ref() != Some(&key) {
+            self.cached_folder_listing = folder_listing(catalog, &self.folder_path);
+            self.cached_folder_listing_key = Some(key);
+        }
+
+        let heading = if self.folder_path.is_empty() {
+            catalog.root_name.clone()
+        } else {
+            format!("{}\\{}", catalog.root_name, self.folder_path.join("\\"))
+        };
+        let total =
+            self.cached_folder_listing.folders.len() + self.cached_folder_listing.files.len();
+        section_heading(
+            ui,
+            &format!("{heading}  ·  {total} {}", strings.items_label()),
+        );
+
+        let mut action = None;
+        let mut navigate: Option<Option<String>> = None;
+        if !self.folder_path.is_empty() && explorer_folder_row(ui, None, 0, strings).clicked() {
+            navigate = Some(None);
+        }
+        for folder in &self.cached_folder_listing.folders {
+            if explorer_folder_row(ui, Some(&folder.name), folder.item_count, strings).clicked() {
+                navigate = Some(Some(folder.name.clone()));
+            }
+        }
+        for item in &self.cached_folder_listing.files {
+            let row = explorer_file_row(ui, item, strings);
+            if row.play_clicked {
+                action = Some(LibraryAction::Play {
+                    media_id: item.id.clone(),
+                });
+            } else if row.change_match_clicked {
+                action = Some(LibraryAction::ChangeMatch {
+                    media_id: item.id.clone(),
+                });
+            }
+        }
+        if total == 0 {
+            muted_line(ui, strings.no_episodes());
+        }
+        match navigate {
+            Some(None) => {
+                self.folder_path.pop();
+            }
+            Some(Some(folder)) => self.folder_path.push(folder),
+            None => {}
+        }
         action
     }
 
@@ -1979,6 +2060,185 @@ fn episode_row(
     }
 }
 
+/// One folder row in the explorer view. `name` of `None` renders the
+/// "up one level" row.
+fn explorer_folder_row(
+    ui: &mut egui::Ui,
+    name: Option<&str>,
+    item_count: usize,
+    strings: Strings,
+) -> egui::Response {
+    let width = ui.available_width() - 2.0 * metrics::GUTTER;
+    let (rect, response) =
+        ui.allocate_exact_size(vec2(width + 2.0 * metrics::GUTTER, 40.0), Sense::click());
+    if !ui.is_rect_visible(rect) {
+        return response;
+    }
+    let row_rect = Rect::from_min_size(rect.min + vec2(metrics::GUTTER, 2.0), vec2(width, 36.0));
+    let fill = if response.hovered() {
+        palette::WIDGET_HOVER
+    } else {
+        palette::SURFACE
+    };
+    ui.painter().rect_filled(row_rect, 6.0, fill);
+    let icon_rect = Rect::from_center_size(
+        pos2(row_rect.left() + 22.0, row_rect.center().y),
+        vec2(18.0, 18.0),
+    );
+    paint_icon(
+        ui.painter(),
+        icon_rect,
+        if name.is_some() {
+            Icon::Folder
+        } else {
+            Icon::Back
+        },
+        palette::TEXT_SECONDARY,
+        1.5,
+    );
+    ui.painter().text(
+        pos2(row_rect.left() + 40.0, row_rect.center().y),
+        Align2::LEFT_CENTER,
+        name.unwrap_or(strings.parent_folder()),
+        typography::body(),
+        palette::TEXT_PRIMARY,
+    );
+    if name.is_some() {
+        ui.painter().text(
+            row_rect.right_center() - vec2(12.0, 0.0),
+            Align2::RIGHT_CENTER,
+            format!("{item_count} {}", strings.items_label()),
+            typography::caption(),
+            palette::TEXT_MUTED,
+        );
+    }
+    if response.hovered() {
+        ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
+    }
+    response
+}
+
+/// One media file row in the explorer view, columned like the official
+/// client's library list: file name + size, matched anime title, matched
+/// episode title, and the change-match button.
+fn explorer_file_row(ui: &mut egui::Ui, item: &MediaItem, strings: Strings) -> EpisodeRowAction {
+    let width = ui.available_width() - 2.0 * metrics::GUTTER;
+    let (rect, _) =
+        ui.allocate_exact_size(vec2(width + 2.0 * metrics::GUTTER, 48.0), Sense::hover());
+    if !ui.is_rect_visible(rect) {
+        return EpisodeRowAction {
+            play_clicked: false,
+            change_match_clicked: false,
+        };
+    }
+    let row_rect = Rect::from_min_size(rect.min + vec2(metrics::GUTTER, 2.0), vec2(width, 44.0));
+    const MATCH_BUTTON_SIZE: f32 = 28.0;
+    let match_rect = Rect::from_center_size(
+        row_rect.right_center() - vec2(MATCH_BUTTON_SIZE / 2.0 + 6.0, 0.0),
+        vec2(MATCH_BUTTON_SIZE, MATCH_BUTTON_SIZE),
+    );
+    let play_rect = Rect::from_min_max(row_rect.min, pos2(match_rect.left() - 4.0, row_rect.max.y));
+
+    let match_id = ui.id().with(("explorer-row-match", item.id.as_str()));
+    let play_id = ui.id().with(("explorer-row-play", item.id.as_str()));
+    let match_response = ui
+        .interact(match_rect, match_id, Sense::click())
+        .on_hover_text(strings.change_match());
+    let play_response = ui.interact(play_rect, play_id, Sense::click());
+
+    let fill = if play_response.hovered() {
+        palette::WIDGET_HOVER
+    } else {
+        palette::SURFACE
+    };
+    ui.painter().rect_filled(row_rect, 6.0, fill);
+
+    // Columns: name+size up to 52%, anime title to 74%, episode title to the
+    // match button. Each column clips its own text.
+    let name_right = row_rect.left() + row_rect.width() * 0.52;
+    let anime_right = row_rect.left() + row_rect.width() * 0.74;
+    let name_clip = ui.painter().with_clip_rect(Rect::from_min_max(
+        row_rect.min,
+        pos2(name_right - 8.0, row_rect.max.y),
+    ));
+    name_clip.text(
+        pos2(row_rect.left() + 12.0, row_rect.top() + 13.0),
+        Align2::LEFT_CENTER,
+        file_name(&item.relative_path),
+        typography::body(),
+        palette::TEXT_PRIMARY,
+    );
+    name_clip.text(
+        pos2(row_rect.left() + 12.0, row_rect.bottom() - 11.0),
+        Align2::LEFT_CENTER,
+        format_size(item.size_bytes),
+        typography::caption(),
+        palette::TEXT_MUTED,
+    );
+    if let Some(metadata) = &item.anime_metadata {
+        let anime_clip = ui.painter().with_clip_rect(Rect::from_min_max(
+            pos2(name_right, row_rect.min.y),
+            pos2(anime_right - 8.0, row_rect.max.y),
+        ));
+        anime_clip.text(
+            pos2(name_right, row_rect.center().y),
+            Align2::LEFT_CENTER,
+            &metadata.display_title,
+            typography::caption(),
+            palette::TEXT_SECONDARY,
+        );
+        let episode_clip = ui.painter().with_clip_rect(Rect::from_min_max(
+            pos2(anime_right, row_rect.min.y),
+            pos2(match_rect.left() - 8.0, row_rect.max.y),
+        ));
+        episode_clip.text(
+            pos2(anime_right, row_rect.center().y),
+            Align2::LEFT_CENTER,
+            &item.episode_title,
+            typography::caption(),
+            palette::TEXT_MUTED,
+        );
+    }
+
+    let match_fill = if match_response.hovered() {
+        palette::WIDGET_HOVER
+    } else {
+        Color32::TRANSPARENT
+    };
+    ui.painter().rect_filled(match_rect, 6.0, match_fill);
+    paint_icon(
+        ui.painter(),
+        match_rect.shrink(6.0),
+        Icon::Danmaku,
+        if item.anime_metadata.is_some() {
+            palette::TEXT_SECONDARY
+        } else {
+            palette::ACCENT_OUTLINE
+        },
+        1.4,
+    );
+    if play_response.hovered() || match_response.hovered() {
+        ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
+    }
+    EpisodeRowAction {
+        play_clicked: play_response.clicked(),
+        change_match_clicked: match_response.clicked(),
+    }
+}
+
+/// Formats a byte count the way the official client's library list does
+/// ("113.2MB", "1.40GB").
+fn format_size(size_bytes: i64) -> String {
+    const MB: f64 = 1024.0 * 1024.0;
+    const GB: f64 = MB * 1024.0;
+    let size = size_bytes.max(0) as f64;
+    if size >= GB {
+        format!("{:.2}GB", size / GB)
+    } else {
+        format!("{:.1}MB", size / MB)
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum SettingsAction {
     Back,
@@ -2579,7 +2839,7 @@ fn card_status_dot(ui: &mut egui::Ui, text: &str, color: Color32) {
 
 #[cfg(test)]
 mod tests {
-    use super::initials;
+    use super::{format_size, initials};
 
     #[test]
     fn derives_initials_from_titles() {
@@ -2587,5 +2847,13 @@ mod tests {
         assert_eq!(initials("16bit Sensation"), "1S");
         assert_eq!(initials("約束のネバーランド"), "約");
         assert_eq!(initials(""), "");
+    }
+
+    #[test]
+    fn formats_sizes_like_the_official_library_list() {
+        assert_eq!(format_size(118_720_922), "113.2MB");
+        assert_eq!(format_size(1_503_238_554), "1.40GB");
+        assert_eq!(format_size(0), "0.0MB");
+        assert_eq!(format_size(-5), "0.0MB");
     }
 }

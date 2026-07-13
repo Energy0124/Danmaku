@@ -8,7 +8,7 @@ use serde_json::{Value, json};
 use tokio::task;
 
 use crate::catalog::{ExternalAnimeExternalLink, ExternalAnimeId, ExternalAnimeProvider};
-use crate::dandanplay::{HttpRequest, ParsedUrl, parse_url, send_http_request};
+use crate::dandanplay::{HttpRequest, ParsedUrl, parse_url, send_http_request, url_encode};
 use crate::settings::HeadlessServerSettings;
 use crate::{LibraryServerError, Result};
 
@@ -1244,20 +1244,6 @@ fn form_encode(fields: &[(String, String)]) -> String {
         .map(|(key, value)| format!("{}={}", url_encode(key), url_encode(value)))
         .collect::<Vec<_>>()
         .join("&")
-}
-
-fn url_encode(value: &str) -> String {
-    let mut encoded = String::new();
-    for byte in value.as_bytes() {
-        match *byte {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'.' | b'-' | b'*' | b'_' => {
-                encoded.push(*byte as char);
-            }
-            b' ' => encoded.push('+'),
-            other => encoded.push_str(&format!("%{other:02X}")),
-        }
-    }
-    encoded
 }
 
 pub fn current_epoch_ms() -> u64 {

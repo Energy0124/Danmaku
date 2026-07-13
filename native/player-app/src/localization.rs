@@ -472,6 +472,21 @@ impl Strings {
     pub fn folders(self) -> &'static str {
         self.text("Folders", "資料夾")
     }
+    pub fn hash_matches(self) -> &'static str {
+        self.text("Matches for this file", "此檔案的比對結果")
+    }
+    pub fn search_dandanplay(self) -> &'static str {
+        self.text("Search dandanplay", "搜尋 dandanplay")
+    }
+    pub fn search_dandanplay_hint(self) -> &'static str {
+        self.text("Anime title keyword…", "動畫標題關鍵字…")
+    }
+    pub fn parent_folder(self) -> &'static str {
+        self.text("Up one level", "返回上一級")
+    }
+    pub fn items_label(self) -> &'static str {
+        self.text("items", "個項目")
+    }
 }
 
 #[cfg(test)]

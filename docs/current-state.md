@@ -193,16 +193,26 @@ trusted-LAN clients.
   ID), since the local server can be hard-killed by the desktop host
   mid-download and a one-shot fetch on recognition alone has no other retry.
   The dandanplay resolve route (`/api/providers/dandanplay/resolve`) now
-  accepts `forceRefresh` to bypass the single-candidate comment cache, and
-  the native player uses it to power a manual match picker from the library:
-  each episode row has a small danmaku-icon button that opens a floating
-  window listing every candidate for that item and lets the user pick one
-  (or change an existing auto-match) without navigating to playback; picking
-  one pins that episode, records the anime association, and reloads danmaku
-  for it. The "All series" library page now separates "Matched anime"
-  (grouped by recognized identity only) from "Folders" (every item grouped
-  strictly by its on-disk folder, ignoring recognition) as two switchable
-  tabs instead of mixing both groupings into one list.
+  accepts `forceRefresh` to bypass the single-candidate comment cache, plus
+  `animeId`/`animeTitle`/`episodeTitle` so an episode picked from a keyword
+  search — which file-hash matching may never propose — can still be pinned,
+  cached, and recorded. A sibling `/api/providers/dandanplay/search` route
+  searches the dandanplay database by anime keyword and returns each anime
+  with its full episode list. The native player uses both to power a manual
+  match picker from the library: each episode row (series pages, search
+  results, and the folder explorer) has a small danmaku-icon button opening
+  a floating window that shows the file-hash candidates and a keyword search
+  with an anime → episode drill-down, like the official dandanplay client's
+  manual matching; picking an episode pins it, records the anime
+  association, and reloads danmaku. Danmaku responses now also carry a bare
+  `animeTitle` so the player's catalog-staleness check compares like with
+  like (`matchTitle` embeds the episode suffix and never equals the
+  catalog's recognized title). The "All series" library page now separates
+  "Matched anime" (poster grid, grouped by recognized identity only) from
+  "Folders", a file-explorer-style list of the on-disk layout modeled on the
+  official client's media library: folder rows navigate with an up-one-level
+  row, file rows show file name and size plus the matched anime and episode
+  titles in columns, and each file row keeps the change-match button.
 
 ### Android Mobile
 

@@ -314,9 +314,10 @@ pub struct DanmakuLoad {
     pub track: DanmakuTrack,
     pub status: String,
     pub ass_path: Option<PathBuf>,
-    /// Recognized anime display title from a server danmaku match, when the
-    /// server resolved one. Used to detect that the library catalog's
-    /// grouping for this item is now stale (see `PlayerApp::handle_session_events`).
+    /// Recognized anime title (no episode suffix) from a server danmaku
+    /// match, when the server resolved one. Compared against the catalog's
+    /// recognized `animeMetadata.displayTitle` to detect that the library
+    /// grouping for this item is stale (see `PlayerApp::handle_session_events`).
     pub match_title: Option<String>,
 }
 
@@ -406,8 +407,13 @@ pub fn fetch_server_danmaku(
         .and_then(Value::as_str)
         .unwrap_or("FAILED");
     let message = root.get("message").and_then(Value::as_str);
+    // `animeTitle` (anime only) matches the catalog's recognized
+    // displayTitle exactly; `matchTitle` ("Anime - Episode") is only a
+    // fallback for older servers and can cause a spurious (harmless)
+    // catalog refresh since it never equals the catalog title.
     let match_title = root
-        .get("matchTitle")
+        .get("animeTitle")
+        .or_else(|| root.get("matchTitle"))
         .and_then(Value::as_str)
         .map(str::to_owned)
         .filter(|title| !title.trim().is_empty());
@@ -502,22 +508,128 @@ fn parse_match_candidate(value: &Value) -> Option<DandanplayMatchCandidate> {
     })
 }
 
-/// Pins `media_id` to a specific dandanplay `episode_id`, replacing whatever
+/// The episode a user picked in the match picker, with the identity the
+/// server should record for it. `anime_id`/titles matter when the episode
+/// came from a keyword search: hash matching may never propose it, so the
+/// server cannot learn them any other way.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DandanplaySelection {
+    pub episode_id: u64,
+    pub anime_id: Option<u64>,
+    pub anime_title: Option<String>,
+    pub episode_title: Option<String>,
+}
+
+/// One anime from a dandanplay keyword search, with its episode list.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DandanplaySearchAnime {
+    pub anime_id: u64,
+    pub anime_title: String,
+    pub type_description: Option<String>,
+    pub episodes: Vec<DandanplaySearchEpisode>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DandanplaySearchEpisode {
+    pub episode_id: u64,
+    pub episode_title: String,
+}
+
+/// Searches the dandanplay database by anime keyword for the match picker.
+pub fn search_dandanplay(
+    base_url: &str,
+    keyword: &str,
+) -> Result<Vec<DandanplaySearchAnime>, String> {
+    if keyword.trim().is_empty() {
+        return Err("dandanplay search requires a non-blank keyword".to_owned());
+    }
+    let endpoint = format!(
+        "/api/providers/dandanplay/search?keyword={}",
+        percent_encode_path_segment(keyword.trim())
+    );
+    let body = http_get(base_url, &endpoint)?;
+    let root: Value = serde_json::from_str(&body)
+        .map_err(|error| format!("server returned invalid search JSON: {error}"))?;
+    Ok(root
+        .get("animes")
+        .and_then(Value::as_array)
+        .map(|animes| animes.iter().filter_map(parse_search_anime).collect())
+        .unwrap_or_default())
+}
+
+fn parse_search_anime(value: &Value) -> Option<DandanplaySearchAnime> {
+    let object = value.as_object()?;
+    let anime_id = object.get("animeId")?.as_u64()?;
+    let anime_title = object
+        .get("animeTitle")
+        .and_then(Value::as_str)
+        .filter(|title| !title.trim().is_empty())?
+        .to_owned();
+    let episodes = object
+        .get("episodes")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|episode| {
+            let episode_id = episode.get("episodeId")?.as_u64()?;
+            Some(DandanplaySearchEpisode {
+                episode_id,
+                episode_title: episode
+                    .get("episodeTitle")
+                    .and_then(Value::as_str)
+                    .filter(|title| !title.trim().is_empty())
+                    .map(str::to_owned)
+                    .unwrap_or_else(|| episode_id.to_string()),
+            })
+        })
+        .collect();
+    Some(DandanplaySearchAnime {
+        anime_id,
+        anime_title,
+        type_description: object
+            .get("typeDescription")
+            .and_then(Value::as_str)
+            .map(str::to_owned),
+        episodes,
+    })
+}
+
+/// Pins `media_id` to a specific dandanplay episode, replacing whatever
 /// match (auto or manual) it currently has. Records the anime association
 /// server-side and refreshes the cached comments for the new episode; call
 /// `fetch_server_danmaku` afterward to load them into the active session.
 pub fn select_dandanplay_match(
     base_url: &str,
     media_id: &str,
-    episode_id: u64,
+    selection: &DandanplaySelection,
 ) -> Result<(), String> {
     if media_id.trim().is_empty() {
         return Err("dandanplay match selection requires a non-blank media ID".to_owned());
     }
-    let endpoint = format!(
-        "/api/providers/dandanplay/resolve?mediaId={}&episodeId={episode_id}",
-        percent_encode_path_segment(media_id.trim())
+    let mut endpoint = format!(
+        "/api/providers/dandanplay/resolve?mediaId={}&episodeId={}",
+        percent_encode_path_segment(media_id.trim()),
+        selection.episode_id,
     );
+    if let Some(anime_id) = selection.anime_id {
+        endpoint.push_str(&format!("&animeId={anime_id}"));
+    }
+    if let Some(anime_title) = selection.anime_title.as_deref().map(str::trim)
+        && !anime_title.is_empty()
+    {
+        endpoint.push_str(&format!(
+            "&animeTitle={}",
+            percent_encode_path_segment(anime_title)
+        ));
+    }
+    if let Some(episode_title) = selection.episode_title.as_deref().map(str::trim)
+        && !episode_title.is_empty()
+    {
+        endpoint.push_str(&format!(
+            "&episodeTitle={}",
+            percent_encode_path_segment(episode_title)
+        ));
+    }
     http_get(base_url, &endpoint)?;
     Ok(())
 }
@@ -1108,7 +1220,7 @@ mod tests {
             let request = String::from_utf8_lossy(&request);
             assert!(
                 request.starts_with(
-                    "GET /api/providers/dandanplay/resolve?mediaId=episode%20id&episodeId=222 "
+                    "GET /api/providers/dandanplay/resolve?mediaId=episode%20id&episodeId=222&animeId=99&animeTitle=Example%20Anime&episodeTitle=Episode%202 "
                 ),
                 "{request}"
             );
@@ -1122,9 +1234,62 @@ mod tests {
             .expect("response");
         });
 
-        select_dandanplay_match(&format!("http://{address}"), "episode id", 222)
-            .expect("selection succeeds");
+        select_dandanplay_match(
+            &format!("http://{address}"),
+            "episode id",
+            &DandanplaySelection {
+                episode_id: 222,
+                anime_id: Some(99),
+                anime_title: Some("Example Anime".to_owned()),
+                episode_title: Some("Episode 2".to_owned()),
+            },
+        )
+        .expect("selection succeeds");
         server.join().expect("server thread");
+    }
+
+    #[test]
+    fn dandanplay_search_parses_animes_and_episodes() {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("listener");
+        let address = listener.local_addr().expect("address");
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("accept");
+            let mut request = Vec::new();
+            while !request.windows(4).any(|window| window == b"\r\n\r\n") {
+                let mut chunk = [0_u8; 512];
+                let count = stream.read(&mut chunk).expect("request");
+                if count == 0 {
+                    break;
+                }
+                request.extend_from_slice(&chunk[..count]);
+            }
+            let request = String::from_utf8_lossy(&request);
+            assert!(
+                request
+                    .starts_with("GET /api/providers/dandanplay/search?keyword=lycoris%20recoil "),
+                "{request}"
+            );
+            let body = r#"{"animes":[{"animeId":17097,"animeTitle":"莉可丽丝","typeDescription":"TV动画","episodes":[{"episodeId":170970001,"episodeTitle":"第1话 慢慢来"},{"episodeId":170970002,"episodeTitle":"第2话"}]}]}"#;
+            write!(
+                stream,
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body.len(),
+                body
+            )
+            .expect("response");
+        });
+
+        let animes = search_dandanplay(&format!("http://{address}"), " lycoris recoil ")
+            .expect("search succeeds");
+        server.join().expect("server thread");
+
+        assert_eq!(animes.len(), 1);
+        assert_eq!(animes[0].anime_id, 17097);
+        assert_eq!(animes[0].anime_title, "莉可丽丝");
+        assert_eq!(animes[0].type_description.as_deref(), Some("TV动画"));
+        assert_eq!(animes[0].episodes.len(), 2);
+        assert_eq!(animes[0].episodes[0].episode_id, 170970001);
+        assert_eq!(animes[0].episodes[0].episode_title, "第1话 慢慢来");
     }
 
     #[test]

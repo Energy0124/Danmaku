@@ -10,7 +10,8 @@ use eframe::egui;
 
 use crate::{
     danmaku::{
-        DandanplayMatchCandidate, DanmakuLoad, fetch_dandanplay_candidates, fetch_server_danmaku,
+        DandanplayMatchCandidate, DandanplaySearchAnime, DandanplaySelection, DanmakuLoad,
+        fetch_dandanplay_candidates, fetch_server_danmaku, search_dandanplay,
         select_dandanplay_match,
     },
     library::{
@@ -34,9 +35,13 @@ pub enum SessionEvent {
         media_id: String,
         result: Result<Vec<DandanplayMatchCandidate>, String>,
     },
+    DandanplaySearch {
+        media_id: String,
+        result: Result<Vec<DandanplaySearchAnime>, String>,
+    },
     DandanplaySelected {
         media_id: String,
-        episode_id: u64,
+        selection: DandanplaySelection,
         result: Result<(), String>,
     },
 }
@@ -133,15 +138,28 @@ impl LibrarySession {
         );
     }
 
-    /// Pins a media item to a manually chosen dandanplay episode.
-    pub fn select_dandanplay_match(&self, media_id: String, episode_id: u64) {
+    /// Searches the dandanplay database by keyword for the match picker
+    /// opened on `media_id`.
+    pub fn search_dandanplay(&self, media_id: String, keyword: String) {
         let base_url = self.base_url.clone();
         self.spawn(
             move |base| {
-                let result = select_dandanplay_match(&base, &media_id, episode_id);
+                let result = search_dandanplay(&base, &keyword);
+                SessionEvent::DandanplaySearch { media_id, result }
+            },
+            base_url,
+        );
+    }
+
+    /// Pins a media item to a manually chosen dandanplay episode.
+    pub fn select_dandanplay_match(&self, media_id: String, selection: DandanplaySelection) {
+        let base_url = self.base_url.clone();
+        self.spawn(
+            move |base| {
+                let result = select_dandanplay_match(&base, &media_id, &selection);
                 SessionEvent::DandanplaySelected {
                     media_id,
-                    episode_id,
+                    selection,
                     result,
                 }
             },

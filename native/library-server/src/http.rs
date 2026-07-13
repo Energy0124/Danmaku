@@ -184,6 +184,9 @@ async fn dispatch(State(state): State<HttpServerState>, request: Request<Body>) 
     if path.starts_with("/api/providers/dandanplay/resolve") {
         return handle_dandanplay_resolve(&state, &method, &path, query.as_deref()).await;
     }
+    if path.starts_with("/api/providers/dandanplay/search") {
+        return handle_dandanplay_search(&state, &method, &path, query.as_deref()).await;
+    }
     if path.starts_with("/media/") {
         return handle_media(&state, &method, &path, &headers).await;
     }
@@ -754,6 +757,38 @@ async fn handle_dandanplay_resolve(
         },
         None => false,
     };
+    let anime_id = match query.get("animeId") {
+        Some(value) => match value.trim().parse::<u64>().ok().filter(|value| *value > 0) {
+            Some(value) => Some(value),
+            None => {
+                return text_response(
+                    StatusCode::BAD_REQUEST,
+                    "Query parameter 'animeId' must be positive.",
+                );
+            }
+        },
+        None => None,
+    };
+    // An episode picked from a keyword search may not be among the hash
+    // matches, so the caller passes the titles it saw; a synthesized match
+    // candidate carries them through selection into the recognized-identity
+    // record. animeId falls back to dandanplay's episodeId convention
+    // (animeId * 10000 + episode index) when not given.
+    let preferred_match = preferred_episode_id.map(|episode_id| {
+        crate::dandanplay::DandanplayMatch::new(
+            episode_id,
+            anime_id.or_else(|| Some(episode_id / 10_000).filter(|id| *id > 0)),
+            query
+                .get("animeTitle")
+                .map(|value| value.trim().to_owned())
+                .filter(|value| !value.is_empty()),
+            query
+                .get("episodeTitle")
+                .map(|value| value.trim().to_owned())
+                .filter(|value| !value.is_empty()),
+            None,
+        )
+    });
     let Some(path) = state.library.files_by_id.get(&media_id) else {
         return text_response(StatusCode::NOT_FOUND, "Media item was not found.");
     };
@@ -770,7 +805,7 @@ async fn handle_dandanplay_resolve(
         .resolve(
             &media_id,
             path,
-            preferred_episode_id,
+            preferred_match,
             with_related,
             force_refresh,
         )
@@ -780,6 +815,47 @@ async fn handle_dandanplay_resolve(
             record_recognized_identity(state, &media_id, &result);
             json_response(StatusCode::OK, &result.to_provider_response(&media_id))
         }
+        Err(error) => text_response(
+            StatusCode::BAD_GATEWAY,
+            &format!("dandanplay request failed: {error}"),
+        ),
+    }
+}
+
+/// Searches the dandanplay database by anime keyword for the manual match
+/// picker, returning each anime with its full episode list.
+async fn handle_dandanplay_search(
+    state: &HttpServerState,
+    method: &Method,
+    path: &str,
+    query: Option<&str>,
+) -> Response<Body> {
+    if method != Method::GET {
+        return empty_status(StatusCode::METHOD_NOT_ALLOWED);
+    }
+    if path != "/api/providers/dandanplay/search" {
+        return empty_status(StatusCode::NOT_FOUND);
+    }
+    let query = parse_query_parameters(query);
+    let Some(keyword) = query
+        .get("keyword")
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+    else {
+        return text_response(
+            StatusCode::BAD_REQUEST,
+            "Query parameter 'keyword' is required.",
+        );
+    };
+    let Some(resolver) = &state.dandanplay_resolver else {
+        return text_response(
+            StatusCode::BAD_GATEWAY,
+            "dandanplay request failed: Danmaku resolver is not available.",
+        );
+    };
+    match resolver.search_episodes(&keyword).await {
+        Ok(animes) => json_response(StatusCode::OK, &serde_json::json!({ "animes": animes })),
         Err(error) => text_response(
             StatusCode::BAD_GATEWAY,
             &format!("dandanplay request failed: {error}"),
@@ -1638,6 +1714,84 @@ mod tests {
             "Query parameter 'forceRefresh' must be true or false.",
         )
         .await;
+    }
+
+    #[tokio::test]
+    async fn dandanplay_search_lists_animes_with_episodes() {
+        let fixture = FixtureEnvironment::new();
+        let server = MockDandanplayServer::start(MockDandanplayBehavior::default());
+        let app = dandanplay_test_app(&fixture, Some(test_resolver(&fixture, &server)));
+
+        let missing = app
+            .clone()
+            .oneshot(get("/api/providers/dandanplay/search"))
+            .await
+            .expect("missing keyword response");
+        assert_eq!(StatusCode::BAD_REQUEST, missing.status());
+        assert_text_body(missing, "Query parameter 'keyword' is required.").await;
+
+        let response = request_json(
+            &app,
+            "/api/providers/dandanplay/search?keyword=Searched%20Anime",
+        )
+        .await;
+        let animes = response["animes"].as_array().expect("animes");
+        assert_eq!(1, animes.len());
+        assert_eq!(999, animes[0]["animeId"]);
+        assert_eq!("Searched Anime", animes[0]["animeTitle"]);
+        assert_eq!("TV Series", animes[0]["typeDescription"]);
+        let episodes = animes[0]["episodes"].as_array().expect("episodes");
+        assert_eq!(2, episodes.len());
+        assert_eq!(9990001, episodes[0]["episodeId"]);
+        assert_eq!("Episode 1", episodes[0]["episodeTitle"]);
+
+        // The keyword reaches the dandanplay API URL-encoded.
+        let search_request = server
+            .requests()
+            .into_iter()
+            .find(|request| request.path == "/api/v2/search/episodes")
+            .expect("search request");
+        assert_eq!(
+            Some("anime=Searched+Anime"),
+            search_request.query.as_deref()
+        );
+    }
+
+    #[tokio::test]
+    async fn selecting_a_searched_episode_outside_hash_matches_pins_and_records_it() {
+        let fixture = FixtureEnvironment::new();
+        let server = MockDandanplayServer::start(MockDandanplayBehavior::default());
+        let store = Arc::new(CatalogMetadataStore::new(
+            fixture.temp.join("catalog-metadata-search-pin.json"),
+        ));
+        let app = dandanplay_test_app_with_metadata(
+            &fixture,
+            Some(test_resolver(&fixture, &server)),
+            Some(store.clone()),
+        );
+
+        // Episode 9990002 comes from a keyword search; the mock hash match
+        // only ever proposes 111/222, so pinning it must survive not being
+        // among the candidates.
+        let response = request_json(
+            &app,
+            "/api/providers/dandanplay/resolve?mediaId=episode-id&episodeId=9990002&animeId=999&animeTitle=Searched%20Anime&episodeTitle=Episode%202",
+        )
+        .await;
+        assert_eq!(9990002, response["selectedMatch"]["episodeId"]);
+        assert_eq!("Searched Anime", response["selectedMatch"]["animeTitle"]);
+        assert_eq!(2, response["commentCount"]);
+
+        let recorded = store.get("episode-id").expect("identity recorded");
+        assert_eq!(999, recorded.dandanplay_anime_id);
+        assert_eq!("Searched Anime", recorded.anime_title);
+        assert_eq!(Some("Episode 2"), recorded.episode_title.as_deref());
+
+        // The pinned selection becomes the cached match for later plain reads.
+        let cached = request_json(&app, "/api/danmaku/episode-id").await;
+        assert_eq!("READY", cached["status"]);
+        assert_eq!(9990002, cached["episodeId"]);
+        assert_eq!("Searched Anime", cached["animeTitle"]);
     }
 
     #[tokio::test]
@@ -2897,9 +3051,13 @@ mod tests {
                 behavior.match_status,
                 r#"{"success":true,"matches":[{"episodeId":111,"animeId":333,"animeTitle":"Example Anime","episodeTitle":"Episode 00"},{"episodeId":222,"animeId":333,"animeTitle":"Example Anime","episodeTitle":"Episode 01","shift":0.5}]}"#,
             ),
-            "/api/v2/comment/111" | "/api/v2/comment/222" => (
+            "/api/v2/comment/111" | "/api/v2/comment/222" | "/api/v2/comment/9990002" => (
                 behavior.comment_status,
                 r#"{"success":true,"comments":[{"cid":"c-1","p":"1.5,1,25,16777215,0,0,user,row-1","m":"hello"},{"cid":"c-2","p":"2.0,5,18,16711680,0,0,user,row-2","m":"top"}]}"#,
+            ),
+            "/api/v2/search/episodes" => (
+                200,
+                r#"{"success":true,"animes":[{"animeId":999,"animeTitle":"Searched Anime","typeDescription":"TV Series","episodes":[{"episodeId":9990001,"episodeTitle":"Episode 1"},{"episodeId":9990002,"episodeTitle":"Episode 2"}]}]}"#,
             ),
             _ => (404, r#"{"success":false,"message":"not found"}"#),
         };
