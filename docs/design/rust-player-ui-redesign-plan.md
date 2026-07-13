@@ -121,6 +121,11 @@ does not depend on generated imagery or copy a commercial streaming product.
 - [x] Count series with some finished episodes as in progress; align
   sidebar hit-areas with their visuals; drop the 12-folder sidebar cap.
 - [x] Keep all new copy localized in English and Traditional Chinese.
+- [x] Replace the stock egui combo boxes in the filter toolbar with themed
+  dropdown chips (rounded pill + card-styled option menu with check marks),
+  turn the grouped-display checkbox into a matching toggle chip, show
+  "Clear filters" only when something is active, and drop the toolbar's
+  duplicate view-selection row — the sidebar owns view navigation.
 
 ## Verification Gates
 

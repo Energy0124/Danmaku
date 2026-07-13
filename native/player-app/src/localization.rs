@@ -505,9 +505,6 @@ impl Strings {
     pub fn library_folders(self) -> &'static str {
         self.text("Library folders", "媒體庫資料夾")
     }
-    pub fn filters(self) -> &'static str {
-        self.text("Filters", "篩選")
-    }
     pub fn sort_by(self) -> &'static str {
         self.text("Sort", "排序")
     }

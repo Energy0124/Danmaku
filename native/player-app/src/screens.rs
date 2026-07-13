@@ -1153,13 +1153,15 @@ impl LibraryScreen {
         action
     }
 
+    /// One wrapped row of themed filter chips. View selection lives in
+    /// the sidebar only; this bar is purely about narrowing the current
+    /// view.
     fn show_series_filter_toolbar(
         &mut self,
         ui: &mut egui::Ui,
         folders: &[(String, usize)],
         strings: Strings,
     ) {
-        let tab_before = self.all_series_tab;
         let folder_before = self.selected_folder.clone();
         ui.horizontal(|ui| {
             ui.add_space(PAGE_GUTTER);
@@ -1171,107 +1173,72 @@ impl LibraryScreen {
                 .show(ui, |ui| {
                     ui.set_width((ui.available_width() - PAGE_GUTTER).max(560.0));
                     ui.horizontal_wrapped(|ui| {
-                        ui.label(
-                            RichText::new(strings.library_views())
-                                .font(typography::small())
-                                .strong()
-                                .color(palette::TEXT_MUTED),
-                        );
-                        for (tab, label) in [
-                            (LibrarySeriesTab::Recent, strings.recent_view()),
-                            (LibrarySeriesTab::RecentlyPlayed, strings.recently_played()),
-                            (LibrarySeriesTab::Season, strings.season_view()),
-                            (LibrarySeriesTab::MatchedAnime, strings.matched_anime()),
-                            (LibrarySeriesTab::Folder, strings.folders()),
-                        ] {
-                            ui.selectable_value(&mut self.all_series_tab, tab, label);
-                        }
-                    });
-                    ui.add_space(8.0);
-                    ui.separator();
-                    ui.add_space(8.0);
-                    ui.horizontal_wrapped(|ui| {
-                        ui.label(
-                            RichText::new(strings.filters())
-                                .font(typography::small())
-                                .strong()
-                                .color(palette::TEXT_MUTED),
-                        );
-                        if self.all_series_tab != LibrarySeriesTab::Folder {
-                            egui::ComboBox::from_id_salt("library-match-filter")
-                                .selected_text(match self.match_filter {
-                                    LibraryMatchFilter::All => strings.all_matches(),
-                                    LibraryMatchFilter::Matched => strings.matched_only(),
-                                    LibraryMatchFilter::Unmatched => strings.unmatched_only(),
+                        ui.spacing_mut().item_spacing = vec2(8.0, 8.0);
+                        let browsing_folders = self.all_series_tab == LibrarySeriesTab::Folder;
+
+                        if !browsing_folders {
+                            const MATCH_CHOICES: [LibraryMatchFilter; 3] = [
+                                LibraryMatchFilter::All,
+                                LibraryMatchFilter::Matched,
+                                LibraryMatchFilter::Unmatched,
+                            ];
+                            let match_label = |filter: LibraryMatchFilter| match filter {
+                                LibraryMatchFilter::All => strings.all_matches(),
+                                LibraryMatchFilter::Matched => strings.matched_only(),
+                                LibraryMatchFilter::Unmatched => strings.unmatched_only(),
+                            };
+                            let options: Vec<(String, bool)> = MATCH_CHOICES
+                                .iter()
+                                .map(|choice| {
+                                    (
+                                        match_label(*choice).to_owned(),
+                                        *choice == self.match_filter,
+                                    )
                                 })
-                                .show_ui(ui, |ui| {
-                                    ui.selectable_value(
-                                        &mut self.match_filter,
-                                        LibraryMatchFilter::All,
-                                        strings.all_matches(),
-                                    );
-                                    ui.selectable_value(
-                                        &mut self.match_filter,
-                                        LibraryMatchFilter::Matched,
-                                        strings.matched_only(),
-                                    );
-                                    ui.selectable_value(
-                                        &mut self.match_filter,
-                                        LibraryMatchFilter::Unmatched,
-                                        strings.unmatched_only(),
-                                    );
-                                });
-                            egui::ComboBox::from_id_salt("library-progress-filter")
-                                .selected_text(match self.progress_filter {
-                                    LibraryProgressFilter::All => strings.all_progress(),
-                                    LibraryProgressFilter::Unwatched => strings.unwatched(),
-                                    LibraryProgressFilter::InProgress => strings.in_progress(),
-                                    LibraryProgressFilter::Completed => strings.completed(),
+                                .collect();
+                            if let Some(picked) = filter_dropdown(
+                                ui,
+                                "library-match-filter",
+                                "",
+                                match_label(self.match_filter),
+                                &options,
+                                self.match_filter != LibraryMatchFilter::All,
+                            ) {
+                                self.match_filter = MATCH_CHOICES[picked];
+                            }
+
+                            const PROGRESS_CHOICES: [LibraryProgressFilter; 4] = [
+                                LibraryProgressFilter::All,
+                                LibraryProgressFilter::Unwatched,
+                                LibraryProgressFilter::InProgress,
+                                LibraryProgressFilter::Completed,
+                            ];
+                            let progress_label = |filter: LibraryProgressFilter| match filter {
+                                LibraryProgressFilter::All => strings.all_progress(),
+                                LibraryProgressFilter::Unwatched => strings.unwatched(),
+                                LibraryProgressFilter::InProgress => strings.in_progress(),
+                                LibraryProgressFilter::Completed => strings.completed(),
+                            };
+                            let options: Vec<(String, bool)> = PROGRESS_CHOICES
+                                .iter()
+                                .map(|choice| {
+                                    (
+                                        progress_label(*choice).to_owned(),
+                                        *choice == self.progress_filter,
+                                    )
                                 })
-                                .show_ui(ui, |ui| {
-                                    ui.selectable_value(
-                                        &mut self.progress_filter,
-                                        LibraryProgressFilter::All,
-                                        strings.all_progress(),
-                                    );
-                                    ui.selectable_value(
-                                        &mut self.progress_filter,
-                                        LibraryProgressFilter::Unwatched,
-                                        strings.unwatched(),
-                                    );
-                                    ui.selectable_value(
-                                        &mut self.progress_filter,
-                                        LibraryProgressFilter::InProgress,
-                                        strings.in_progress(),
-                                    );
-                                    ui.selectable_value(
-                                        &mut self.progress_filter,
-                                        LibraryProgressFilter::Completed,
-                                        strings.completed(),
-                                    );
-                                });
-                        }
-                        egui::ComboBox::from_id_salt("library-folder-filter")
-                            .selected_text(
-                                self.selected_folder
-                                    .as_deref()
-                                    .unwrap_or(strings.all_folders()),
-                            )
-                            .show_ui(ui, |ui| {
-                                ui.selectable_value(
-                                    &mut self.selected_folder,
-                                    None,
-                                    strings.all_folders(),
-                                );
-                                for (folder, item_count) in folders {
-                                    ui.selectable_value(
-                                        &mut self.selected_folder,
-                                        Some(folder.clone()),
-                                        format!("{folder}  ·  {item_count}"),
-                                    );
-                                }
-                            });
-                        if self.all_series_tab != LibrarySeriesTab::Folder {
+                                .collect();
+                            if let Some(picked) = filter_dropdown(
+                                ui,
+                                "library-progress-filter",
+                                "",
+                                progress_label(self.progress_filter),
+                                &options,
+                                self.progress_filter != LibraryProgressFilter::All,
+                            ) {
+                                self.progress_filter = PROGRESS_CHOICES[picked];
+                            }
+
                             let mut years: Vec<i32> = self
                                 .cached_anime_series
                                 .iter()
@@ -1280,88 +1247,131 @@ impl LibraryScreen {
                             years.sort_unstable_by(|left, right| right.cmp(left));
                             years.dedup();
                             if !years.is_empty() || self.selected_year.is_some() {
-                                egui::ComboBox::from_id_salt("library-year-filter")
-                                    .selected_text(
-                                        self.selected_year
-                                            .map(|year| year.to_string())
-                                            .unwrap_or_else(|| strings.all_years().to_owned()),
-                                    )
-                                    .show_ui(ui, |ui| {
-                                        ui.selectable_value(
-                                            &mut self.selected_year,
-                                            None,
-                                            strings.all_years(),
-                                        );
-                                        for year in years {
-                                            ui.selectable_value(
-                                                &mut self.selected_year,
-                                                Some(year),
-                                                year.to_string(),
-                                            );
-                                        }
-                                    });
+                                let mut options = vec![(
+                                    strings.all_years().to_owned(),
+                                    self.selected_year.is_none(),
+                                )];
+                                options.extend(years.iter().map(|year| {
+                                    (year.to_string(), self.selected_year == Some(*year))
+                                }));
+                                let value = self
+                                    .selected_year
+                                    .map(|year| year.to_string())
+                                    .unwrap_or_else(|| strings.all_years().to_owned());
+                                if let Some(picked) = filter_dropdown(
+                                    ui,
+                                    "library-year-filter",
+                                    "",
+                                    &value,
+                                    &options,
+                                    self.selected_year.is_some(),
+                                ) {
+                                    self.selected_year = (picked > 0).then(|| years[picked - 1]);
+                                }
                             }
-                            egui::ComboBox::from_id_salt("library-sort")
-                                .selected_text(match self.series_sort {
-                                    LibrarySeriesSort::Title => strings.sort_title(),
-                                    LibrarySeriesSort::Newest => strings.sort_newest(),
-                                    LibrarySeriesSort::ReleaseYear => strings.sort_release_year(),
-                                    LibrarySeriesSort::EpisodeCount => strings.sort_episode_count(),
-                                })
-                                .show_ui(ui, |ui| {
-                                    ui.selectable_value(
-                                        &mut self.series_sort,
-                                        LibrarySeriesSort::Title,
-                                        strings.sort_title(),
-                                    );
-                                    ui.selectable_value(
-                                        &mut self.series_sort,
-                                        LibrarySeriesSort::Newest,
-                                        strings.sort_newest(),
-                                    );
-                                    ui.selectable_value(
-                                        &mut self.series_sort,
-                                        LibrarySeriesSort::ReleaseYear,
-                                        strings.sort_release_year(),
-                                    );
-                                    ui.selectable_value(
-                                        &mut self.series_sort,
-                                        LibrarySeriesSort::EpisodeCount,
-                                        strings.sort_episode_count(),
-                                    );
-                                });
-                            egui::ComboBox::from_id_salt("library-grid-density")
-                                .selected_text(match self.grid_density {
-                                    LibraryGridDensity::Compact => strings.compact(),
-                                    LibraryGridDensity::Comfortable => strings.comfortable(),
-                                    LibraryGridDensity::Large => strings.large(),
-                                })
-                                .show_ui(ui, |ui| {
-                                    ui.selectable_value(
-                                        &mut self.grid_density,
-                                        LibraryGridDensity::Compact,
-                                        strings.compact(),
-                                    );
-                                    ui.selectable_value(
-                                        &mut self.grid_density,
-                                        LibraryGridDensity::Comfortable,
-                                        strings.comfortable(),
-                                    );
-                                    ui.selectable_value(
-                                        &mut self.grid_density,
-                                        LibraryGridDensity::Large,
-                                        strings.large(),
-                                    );
-                                });
                         }
+
+                        let mut options = vec![(
+                            strings.all_folders().to_owned(),
+                            self.selected_folder.is_none(),
+                        )];
+                        options.extend(folders.iter().map(|(folder, item_count)| {
+                            (
+                                format!("{folder}  \u{b7}  {item_count}"),
+                                self.selected_folder.as_deref() == Some(folder.as_str()),
+                            )
+                        }));
+                        let value = self
+                            .selected_folder
+                            .as_deref()
+                            .unwrap_or(strings.all_folders())
+                            .to_owned();
+                        if let Some(picked) = filter_dropdown(
+                            ui,
+                            "library-folder-filter",
+                            "",
+                            &value,
+                            &options,
+                            self.selected_folder.is_some(),
+                        ) {
+                            self.selected_folder =
+                                (picked > 0).then(|| folders[picked - 1].0.clone());
+                        }
+
+                        if !browsing_folders {
+                            const SORT_CHOICES: [LibrarySeriesSort; 4] = [
+                                LibrarySeriesSort::Title,
+                                LibrarySeriesSort::Newest,
+                                LibrarySeriesSort::ReleaseYear,
+                                LibrarySeriesSort::EpisodeCount,
+                            ];
+                            let sort_label = |sort: LibrarySeriesSort| match sort {
+                                LibrarySeriesSort::Title => strings.sort_title(),
+                                LibrarySeriesSort::Newest => strings.sort_newest(),
+                                LibrarySeriesSort::ReleaseYear => strings.sort_release_year(),
+                                LibrarySeriesSort::EpisodeCount => strings.sort_episode_count(),
+                            };
+                            let options: Vec<(String, bool)> = SORT_CHOICES
+                                .iter()
+                                .map(|choice| {
+                                    (sort_label(*choice).to_owned(), *choice == self.series_sort)
+                                })
+                                .collect();
+                            if let Some(picked) = filter_dropdown(
+                                ui,
+                                "library-sort",
+                                strings.sort_by(),
+                                sort_label(self.series_sort),
+                                &options,
+                                self.series_sort != LibrarySeriesSort::Title,
+                            ) {
+                                self.series_sort = SORT_CHOICES[picked];
+                            }
+
+                            const DENSITY_CHOICES: [LibraryGridDensity; 3] = [
+                                LibraryGridDensity::Compact,
+                                LibraryGridDensity::Comfortable,
+                                LibraryGridDensity::Large,
+                            ];
+                            let density_label = |density: LibraryGridDensity| match density {
+                                LibraryGridDensity::Compact => strings.compact(),
+                                LibraryGridDensity::Comfortable => strings.comfortable(),
+                                LibraryGridDensity::Large => strings.large(),
+                            };
+                            let options: Vec<(String, bool)> = DENSITY_CHOICES
+                                .iter()
+                                .map(|choice| {
+                                    (
+                                        density_label(*choice).to_owned(),
+                                        *choice == self.grid_density,
+                                    )
+                                })
+                                .collect();
+                            if let Some(picked) = filter_dropdown(
+                                ui,
+                                "library-grid-density",
+                                strings.grid_size(),
+                                density_label(self.grid_density),
+                                &options,
+                                self.grid_density != LibraryGridDensity::Comfortable,
+                            ) {
+                                self.grid_density = DENSITY_CHOICES[picked];
+                            }
+                        }
+
                         if matches!(
                             self.all_series_tab,
                             LibrarySeriesTab::Recent
                                 | LibrarySeriesTab::RecentlyPlayed
                                 | LibrarySeriesTab::Season
                         ) {
-                            ui.checkbox(&mut self.group_display, strings.group_display());
+                            filter_toggle_chip(
+                                ui,
+                                strings.group_display(),
+                                &mut self.group_display,
+                            );
                         }
+
                         let filters_active = self.match_filter != LibraryMatchFilter::All
                             || self.progress_filter != LibraryProgressFilter::All
                             || self.selected_folder.is_some()
@@ -1370,9 +1380,8 @@ impl LibraryScreen {
                             || self.grid_density != LibraryGridDensity::Comfortable
                             || !self.group_display
                             || !self.query.trim().is_empty();
-                        if ui
-                            .add_enabled(filters_active, egui::Button::new(strings.clear_filters()))
-                            .clicked()
+                        if filters_active
+                            && toolbar_chip_button(ui, strings.clear_filters()).clicked()
                         {
                             self.match_filter = LibraryMatchFilter::All;
                             self.progress_filter = LibraryProgressFilter::All;
@@ -1387,8 +1396,7 @@ impl LibraryScreen {
                     });
                 });
         });
-        if self.all_series_tab == LibrarySeriesTab::Folder
-            && (tab_before != LibrarySeriesTab::Folder || folder_before != self.selected_folder)
+        if self.all_series_tab == LibrarySeriesTab::Folder && folder_before != self.selected_folder
         {
             self.folder_path = self.selected_folder.clone().into_iter().collect();
             self.cached_folder_listing_key = None;
@@ -1980,6 +1988,242 @@ fn sidebar_heading(ui: &mut egui::Ui, label: &str) {
         );
     });
     ui.add_space(6.0);
+}
+
+/// Themed dropdown chip for the filter toolbar: a rounded pill showing an
+/// optional muted category label plus the active value, opening a
+/// card-styled option menu. Returns the index of a newly picked option.
+/// Replaces the stock egui `ComboBox`, whose plain rectangle reads as a
+/// debug control inside the library's card system.
+fn filter_dropdown(
+    ui: &mut egui::Ui,
+    id_salt: &str,
+    label: &str,
+    value: &str,
+    options: &[(String, bool)],
+    active: bool,
+) -> Option<usize> {
+    const HEIGHT: f32 = 32.0;
+    const PAD: f32 = 12.0;
+    const GAP: f32 = 7.0;
+    const CARET: f32 = 16.0;
+    let label_galley = (!label.is_empty()).then(|| {
+        ui.painter()
+            .layout_no_wrap(label.to_owned(), typography::small(), palette::TEXT_MUTED)
+    });
+    let value_color = if active {
+        palette::ACCENT_OUTLINE
+    } else {
+        palette::TEXT_PRIMARY
+    };
+    let value_galley =
+        ui.painter()
+            .layout_no_wrap(value.to_owned(), typography::caption(), value_color);
+    let label_width = label_galley
+        .as_ref()
+        .map(|galley| galley.size().x + GAP)
+        .unwrap_or(0.0);
+    let width = (PAD + label_width + value_galley.size().x + GAP + CARET + PAD).min(320.0);
+    let (rect, response) = ui.allocate_exact_size(vec2(width, HEIGHT), Sense::click());
+    if ui.is_rect_visible(rect) {
+        let fill = if response.hovered() {
+            palette::WIDGET_HOVER
+        } else {
+            palette::SURFACE_FAINT
+        };
+        ui.painter().rect_filled(rect, 9.0, fill);
+        if active {
+            ui.painter().rect_stroke(
+                rect,
+                9.0,
+                egui::Stroke::new(1.0, palette::ACCENT),
+                egui::StrokeKind::Inside,
+            );
+        }
+        let mut cursor = rect.left() + PAD;
+        if let Some(galley) = label_galley {
+            let position = pos2(cursor, rect.center().y - galley.size().y / 2.0);
+            cursor += galley.size().x + GAP;
+            ui.painter().galley(position, galley, palette::TEXT_MUTED);
+        }
+        // Long values (folder paths) clip in front of the caret.
+        let value_clip = ui.painter().with_clip_rect(Rect::from_min_max(
+            rect.min,
+            pos2(rect.right() - PAD - CARET, rect.max.y),
+        ));
+        value_clip.galley(
+            pos2(cursor, rect.center().y - value_galley.size().y / 2.0),
+            value_galley,
+            value_color,
+        );
+        let caret_center = pos2(
+            rect.right() - PAD - CARET / 2.0 + 3.0,
+            rect.center().y + 1.0,
+        );
+        let caret_stroke = egui::Stroke::new(1.6, palette::TEXT_MUTED);
+        ui.painter().line_segment(
+            [
+                caret_center + vec2(-4.0, -2.0),
+                caret_center + vec2(0.0, 2.5),
+            ],
+            caret_stroke,
+        );
+        ui.painter().line_segment(
+            [
+                caret_center + vec2(4.0, -2.0),
+                caret_center + vec2(0.0, 2.5),
+            ],
+            caret_stroke,
+        );
+    }
+    if response.hovered() {
+        ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
+    }
+
+    let mut picked = None;
+    egui::Popup::menu(&response)
+        .id(egui::Id::new(("library-filter-dropdown", id_salt)))
+        .gap(6.0)
+        .width(rect.width().max(200.0))
+        .show(|ui| {
+            ui.spacing_mut().item_spacing.y = 2.0;
+            for (index, (text, selected)) in options.iter().enumerate() {
+                let (row, row_response) = ui.allocate_exact_size(
+                    vec2(ui.available_width().max(176.0), 30.0),
+                    Sense::click(),
+                );
+                let row_fill = if row_response.hovered() {
+                    palette::WIDGET_HOVER
+                } else if *selected {
+                    palette::SURFACE_FAINT
+                } else {
+                    Color32::TRANSPARENT
+                };
+                ui.painter().rect_filled(row, 7.0, row_fill);
+                if *selected {
+                    paint_icon(
+                        ui.painter(),
+                        Rect::from_center_size(
+                            pos2(row.left() + 15.0, row.center().y),
+                            vec2(12.0, 12.0),
+                        ),
+                        Icon::Check,
+                        palette::ACCENT_OUTLINE,
+                        1.8,
+                    );
+                }
+                ui.painter().text(
+                    pos2(row.left() + 30.0, row.center().y),
+                    Align2::LEFT_CENTER,
+                    text,
+                    typography::caption(),
+                    if *selected {
+                        palette::TEXT_PRIMARY
+                    } else {
+                        palette::TEXT_SECONDARY
+                    },
+                );
+                if row_response.hovered() {
+                    ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
+                }
+                if row_response.clicked() {
+                    picked = Some(index);
+                }
+            }
+        });
+    picked
+}
+
+/// On/off pill for the filter toolbar (the grouped-display toggle).
+fn filter_toggle_chip(ui: &mut egui::Ui, label: &str, on: &mut bool) -> bool {
+    const HEIGHT: f32 = 32.0;
+    let galley = ui.painter().layout_no_wrap(
+        label.to_owned(),
+        typography::caption(),
+        palette::TEXT_PRIMARY,
+    );
+    let width = galley.size().x + 46.0;
+    let (rect, response) = ui.allocate_exact_size(vec2(width, HEIGHT), Sense::click());
+    if response.clicked() {
+        *on = !*on;
+    }
+    if ui.is_rect_visible(rect) {
+        let fill = if *on {
+            palette::WIDGET_ACTIVE
+        } else if response.hovered() {
+            palette::WIDGET_HOVER
+        } else {
+            palette::SURFACE_FAINT
+        };
+        ui.painter().rect_filled(rect, 9.0, fill);
+        if *on {
+            ui.painter().rect_stroke(
+                rect,
+                9.0,
+                egui::Stroke::new(1.0, palette::ACCENT),
+                egui::StrokeKind::Inside,
+            );
+        }
+        paint_icon(
+            ui.painter(),
+            Rect::from_center_size(pos2(rect.left() + 16.0, rect.center().y), vec2(12.0, 12.0)),
+            Icon::Check,
+            if *on {
+                palette::ACCENT_OUTLINE
+            } else {
+                palette::TEXT_MUTED
+            },
+            1.8,
+        );
+        ui.painter().galley(
+            pos2(rect.left() + 30.0, rect.center().y - galley.size().y / 2.0),
+            galley,
+            if *on {
+                palette::TEXT_PRIMARY
+            } else {
+                palette::TEXT_MUTED
+            },
+        );
+    }
+    if response.hovered() {
+        ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
+    }
+    response.clicked()
+}
+
+/// Plain action chip matching the dropdown chips (e.g. "Clear filters").
+fn toolbar_chip_button(ui: &mut egui::Ui, label: &str) -> egui::Response {
+    const HEIGHT: f32 = 32.0;
+    let galley = ui.painter().layout_no_wrap(
+        label.to_owned(),
+        typography::caption(),
+        palette::TEXT_SECONDARY,
+    );
+    let width = galley.size().x + 28.0;
+    let (rect, response) = ui.allocate_exact_size(vec2(width, HEIGHT), Sense::click());
+    if ui.is_rect_visible(rect) {
+        let fill = if response.hovered() {
+            palette::WIDGET_HOVER
+        } else {
+            Color32::TRANSPARENT
+        };
+        ui.painter().rect_filled(rect, 9.0, fill);
+        ui.painter().rect_stroke(
+            rect,
+            9.0,
+            egui::Stroke::new(1.0, Color32::from_white_alpha(28)),
+            egui::StrokeKind::Inside,
+        );
+        ui.painter().galley(
+            pos2(rect.left() + 14.0, rect.center().y - galley.size().y / 2.0),
+            galley,
+            palette::TEXT_SECONDARY,
+        );
+    }
+    if response.hovered() {
+        ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
+    }
+    response
 }
 
 fn nav_button(ui: &mut egui::Ui, icon: Icon, label: &str, selected: bool) -> egui::Response {
