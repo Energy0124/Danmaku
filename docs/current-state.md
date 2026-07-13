@@ -194,14 +194,15 @@ trusted-LAN clients.
   mid-download and a one-shot fetch on recognition alone has no other retry.
   The dandanplay resolve route (`/api/providers/dandanplay/resolve`) now
   accepts `forceRefresh` to bypass the single-candidate comment cache, and
-  the native player uses it to power a manual match picker in the playback
-  danmaku menu: lists every candidate for the active item and lets the user
-  pick one (or change an existing auto-match), which pins that episode,
-  records the anime association, and reloads danmaku for it. The "All
-  series" library page now separates "Matched anime" (grouped by recognized
-  identity only) from "Folders" (every item grouped strictly by its on-disk
-  folder, ignoring recognition) as two switchable tabs instead of mixing
-  both groupings into one list.
+  the native player uses it to power a manual match picker from the library:
+  each episode row has a small danmaku-icon button that opens a floating
+  window listing every candidate for that item and lets the user pick one
+  (or change an existing auto-match) without navigating to playback; picking
+  one pins that episode, records the anime association, and reloads danmaku
+  for it. The "All series" library page now separates "Matched anime"
+  (grouped by recognized identity only) from "Folders" (every item grouped
+  strictly by its on-disk folder, ignoring recognition) as two switchable
+  tabs instead of mixing both groupings into one list.
 
 ### Android Mobile
 

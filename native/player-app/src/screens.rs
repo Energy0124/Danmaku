@@ -509,6 +509,10 @@ pub enum LibraryAction {
     PreloadDanmaku {
         media_ids: Vec<String>,
     },
+    /// Opens the manual danmaku match picker for one episode.
+    ChangeMatch {
+        media_id: String,
+    },
     Refresh,
     Disconnect,
     Settings,
@@ -1007,8 +1011,13 @@ impl LibraryScreen {
                     muted_line(ui, strings.no_episodes());
                 }
                 for item in matching_episodes {
-                    if episode_row(ui, item, None, strings).clicked() {
+                    let row = episode_row(ui, item, None, strings);
+                    if row.play_clicked {
                         action = Some(LibraryAction::Play {
+                            media_id: item.id.clone(),
+                        });
+                    } else if row.change_match_clicked {
+                        action = Some(LibraryAction::ChangeMatch {
                             media_id: item.id.clone(),
                         });
                     }
@@ -1114,8 +1123,13 @@ impl LibraryScreen {
                     }
                     for item in &season.items {
                         let progress = latest.get(item.id.as_str()).copied();
-                        if episode_row(ui, item, progress, strings).clicked() {
+                        let row = episode_row(ui, item, progress, strings);
+                        if row.play_clicked {
                             action = Some(LibraryAction::Play {
+                                media_id: item.id.clone(),
+                            });
+                        } else if row.change_match_clicked {
+                            action = Some(LibraryAction::ChangeMatch {
                                 media_id: item.id.clone(),
                             });
                         }
@@ -1862,20 +1876,47 @@ pub(crate) fn initials(title: &str) -> String {
         .to_uppercase()
 }
 
+struct EpisodeRowAction {
+    play_clicked: bool,
+    change_match_clicked: bool,
+}
+
+/// Renders one episode row with two independent click targets: the row body
+/// (play) and a small trailing icon button (open the manual match picker —
+/// see `LibraryAction::ChangeMatch`). Interact regions are carved out of the
+/// row explicitly (rather than nesting widgets) so clicking the icon can
+/// never also register as clicking play.
 fn episode_row(
     ui: &mut egui::Ui,
     item: &MediaItem,
     progress: Option<&PlaybackProgress>,
     strings: Strings,
-) -> egui::Response {
+) -> EpisodeRowAction {
     let width = ui.available_width() - 2.0 * metrics::GUTTER;
-    let (rect, response) =
-        ui.allocate_exact_size(vec2(width + 2.0 * metrics::GUTTER, 44.0), Sense::click());
+    let (rect, _) =
+        ui.allocate_exact_size(vec2(width + 2.0 * metrics::GUTTER, 44.0), Sense::hover());
     if !ui.is_rect_visible(rect) {
-        return response;
+        return EpisodeRowAction {
+            play_clicked: false,
+            change_match_clicked: false,
+        };
     }
     let row_rect = Rect::from_min_size(rect.min + vec2(metrics::GUTTER, 2.0), vec2(width, 40.0));
-    let fill = if response.hovered() {
+    const MATCH_BUTTON_SIZE: f32 = 28.0;
+    let match_rect = Rect::from_center_size(
+        row_rect.right_center() - vec2(MATCH_BUTTON_SIZE / 2.0 + 6.0, 0.0),
+        vec2(MATCH_BUTTON_SIZE, MATCH_BUTTON_SIZE),
+    );
+    let play_rect = Rect::from_min_max(row_rect.min, pos2(match_rect.left() - 4.0, row_rect.max.y));
+
+    let match_id = ui.id().with(("episode-row-match", item.id.as_str()));
+    let play_id = ui.id().with(("episode-row-play", item.id.as_str()));
+    let match_response = ui
+        .interact(match_rect, match_id, Sense::click())
+        .on_hover_text(strings.change_match());
+    let play_response = ui.interact(play_rect, play_id, Sense::click());
+
+    let fill = if play_response.hovered() {
         palette::WIDGET_HOVER
     } else {
         palette::SURFACE
@@ -1905,17 +1946,37 @@ fn episode_row(
     };
     if !status.is_empty() {
         ui.painter().text(
-            row_rect.right_center() - vec2(12.0, 0.0),
+            pos2(match_rect.left() - 10.0, row_rect.center().y),
             Align2::RIGHT_CENTER,
             status,
             typography::caption(),
             palette::TEXT_MUTED,
         );
     }
-    if response.hovered() {
+    let match_fill = if match_response.hovered() {
+        palette::WIDGET_HOVER
+    } else {
+        Color32::TRANSPARENT
+    };
+    ui.painter().rect_filled(match_rect, 6.0, match_fill);
+    paint_icon(
+        ui.painter(),
+        match_rect.shrink(6.0),
+        Icon::Danmaku,
+        if item.anime_metadata.is_some() {
+            palette::TEXT_SECONDARY
+        } else {
+            palette::ACCENT_OUTLINE
+        },
+        1.4,
+    );
+    if play_response.hovered() || match_response.hovered() {
         ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
     }
-    response
+    EpisodeRowAction {
+        play_clicked: play_response.clicked(),
+        change_match_clicked: match_response.clicked(),
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

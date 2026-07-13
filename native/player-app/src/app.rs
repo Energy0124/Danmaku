@@ -647,11 +647,27 @@ impl PlayerApp {
                     {
                         match result {
                             Ok(()) => {
-                                // The selection is now the server's cached match;
-                                // reload danmaku for it like a normal (re)play,
-                                // which also updates `self.danmaku` and runs the
-                                // usual catalog-staleness check.
+                                // Selecting from the library doesn't necessarily
+                                // touch the actively playing item, so run the
+                                // catalog-staleness check directly here rather
+                                // than relying on the active/preload branches in
+                                // the `Danmaku` event above.
+                                let match_title = self
+                                    .match_picker
+                                    .candidates
+                                    .iter()
+                                    .find(|candidate| candidate.episode_id == episode_id)
+                                    .map(|candidate| candidate.display_title.clone());
+                                if let Some(match_title) = &match_title
+                                    && self.library_grouping_is_stale(&media_id, match_title)
+                                    && let Some(session) = self.session.as_mut()
+                                {
+                                    session.refresh_catalog();
+                                }
                                 self.match_picker = MatchPickerState::default();
+                                // Keep the server-side comment cache warm for
+                                // this episode, and update the live overlay if
+                                // it happens to be the item currently playing.
                                 if let Some(session) = &self.session {
                                     session.fetch_danmaku(media_id, false);
                                 }
@@ -1376,6 +1392,10 @@ impl PlayerApp {
         }
     }
     /// Opens the match picker for `media_id` and requests its candidates.
+    /// Opens the manual match picker (see `show_match_picker_overlay`) for
+    /// `media_id`, requesting its dandanplay candidates. Triggered from the
+    /// library (`LibraryAction::ChangeMatch`), not from playback, so the
+    /// item does not need to be actively playing.
     fn open_match_picker(&mut self, media_id: String) {
         if let Some(session) = &self.session {
             session.fetch_dandanplay_candidates(media_id.clone());
@@ -1388,57 +1408,68 @@ impl PlayerApp {
         };
     }
 
-    /// Renders the candidate list in place of the danmaku settings section
-    /// (see `show_danmaku_menu`). Selecting a row pins that dandanplay
-    /// episode for the active item and reloads danmaku for it.
-    fn show_match_picker_rows(&mut self, ui: &mut egui::Ui, strings: Strings) {
-        ui.horizontal(|ui| {
-            if ui.button(strings.back()).clicked() {
-                self.match_picker = MatchPickerState::default();
-            }
-            ui.label(RichText::new(strings.change_match()).strong());
-        });
-        ui.separator();
-        if let Some(error) = &self.match_picker.error {
-            ui.colored_label(palette::DANGER, error.as_str());
-        }
-        if self.match_picker.loading {
-            ui.horizontal(|ui| {
-                ui.spinner();
-                ui.label(strings.loading_matches());
-            });
+    /// Floating window with every dandanplay candidate for the item the
+    /// match picker is open for. Rendered on top of whichever screen is
+    /// active; only `open_match_picker` (from the library) sets it open.
+    fn show_match_picker_overlay(&mut self, ctx: &egui::Context) {
+        if !self.match_picker.open {
             return;
         }
-        if self.match_picker.candidates.is_empty() {
-            ui.label(strings.no_matches_found());
-            return;
-        }
-        let selecting = self.match_picker.selecting_episode_id;
-        let media_id = self.match_picker.media_id.clone();
-        let candidates = self.match_picker.candidates.clone();
-        egui::ScrollArea::vertical()
-            .max_height(240.0)
-            .show(ui, |ui| {
-                for candidate in candidates {
-                    let is_current = self.danmaku.match_title.as_deref()
-                        == Some(candidate.display_title.as_str());
-                    let pending = selecting == Some(candidate.episode_id);
-                    let label = if pending {
-                        format!("{} …", candidate.display_title)
-                    } else {
-                        candidate.display_title.clone()
-                    };
-                    ui.add_enabled_ui(selecting.is_none(), |ui| {
-                        if ui.selectable_label(is_current, label).clicked()
-                            && let Some(media_id) = &media_id
-                            && let Some(session) = &self.session
-                        {
-                            self.match_picker.selecting_episode_id = Some(candidate.episode_id);
-                            session.select_dandanplay_match(media_id.clone(), candidate.episode_id);
+        let strings = Strings::new(self.preferences.language);
+        let mut still_open = true;
+        egui::Window::new(strings.change_match())
+            .open(&mut still_open)
+            .collapsible(false)
+            .resizable(false)
+            .anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0))
+            .default_width(360.0)
+            .show(ctx, |ui| {
+                if let Some(error) = &self.match_picker.error {
+                    ui.colored_label(palette::DANGER, error.as_str());
+                }
+                if self.match_picker.loading {
+                    ui.horizontal(|ui| {
+                        ui.spinner();
+                        ui.label(strings.loading_matches());
+                    });
+                    return;
+                }
+                if self.match_picker.candidates.is_empty() {
+                    ui.label(strings.no_matches_found());
+                    return;
+                }
+                let selecting = self.match_picker.selecting_episode_id;
+                let media_id = self.match_picker.media_id.clone();
+                let candidates = self.match_picker.candidates.clone();
+                egui::ScrollArea::vertical()
+                    .max_height(320.0)
+                    .show(ui, |ui| {
+                        for candidate in candidates {
+                            let pending = selecting == Some(candidate.episode_id);
+                            let label = if pending {
+                                format!("{} …", candidate.display_title)
+                            } else {
+                                candidate.display_title.clone()
+                            };
+                            ui.add_enabled_ui(selecting.is_none(), |ui| {
+                                if ui.selectable_label(false, label).clicked()
+                                    && let Some(media_id) = &media_id
+                                    && let Some(session) = &self.session
+                                {
+                                    self.match_picker.selecting_episode_id =
+                                        Some(candidate.episode_id);
+                                    session.select_dandanplay_match(
+                                        media_id.clone(),
+                                        candidate.episode_id,
+                                    );
+                                }
+                            });
                         }
                     });
-                }
             });
+        if !still_open {
+            self.match_picker = MatchPickerState::default();
+        }
     }
 
     fn show_danmaku_menu(&mut self, ui: &mut egui::Ui, active: usize) {
@@ -1463,17 +1494,7 @@ impl PlayerApp {
                 ui.label(strings.select_subtitles());
                 return;
             }
-            if self.match_picker.open {
-                self.show_match_picker_rows(ui, strings);
-                return;
-            }
             ui.label(strings.drop_danmaku());
-            ui.separator();
-            if let Some(media_id) = self.active_media_id.clone()
-                && ui.button(strings.change_match()).clicked()
-            {
-                self.open_match_picker(media_id);
-            }
             ui.separator();
             ui.checkbox(&mut self.danmaku_settings.enabled, strings.show_danmaku());
             ui.add_enabled_ui(self.danmaku_settings.enabled, |ui| {
@@ -1710,6 +1731,9 @@ impl eframe::App for PlayerApp {
                             }
                         }
                     }
+                    Some(LibraryAction::ChangeMatch { media_id }) => {
+                        self.open_match_picker(media_id);
+                    }
                     Some(LibraryAction::Refresh) => {
                         if let Some(session) = &mut self.session {
                             session.refresh_catalog();
@@ -1842,6 +1866,7 @@ impl eframe::App for PlayerApp {
                 }
             }
         }
+        self.show_match_picker_overlay(ctx);
         self.save_preferences_if_changed();
     }
 }
