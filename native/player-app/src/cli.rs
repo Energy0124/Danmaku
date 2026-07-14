@@ -22,6 +22,16 @@ pub struct Cli {
     /// QA hook: in library mode, plays the first catalog item as soon as
     /// the catalog loads (mirrors the desktop app's autoplay QA hooks).
     pub qa_play_first: bool,
+    /// QA hook: stay on deterministic first-run onboarding without attaching locally.
+    pub qa_onboarding: bool,
+    /// QA hook: render the onboarding primary action in hover or focus state.
+    pub qa_primary_state: Option<String>,
+    /// QA hook: capture the rendered player window to this PNG and exit.
+    pub qa_screenshot: Option<PathBuf>,
+    /// Delay before requesting a QA screenshot, allowing async UI state to settle.
+    pub qa_screenshot_delay: Duration,
+    /// Optional initial inner-window size used by deterministic UI QA.
+    pub qa_window_size: Option<[f32; 2]>,
     pub danmaku_force_refresh: bool,
     pub danmaku_opacity: Option<f32>,
     pub danmaku_speed: Option<f32>,
@@ -51,6 +61,11 @@ impl Cli {
         let mut media_id = None;
         let mut auto_next = false;
         let mut qa_play_first = false;
+        let mut qa_onboarding = false;
+        let mut qa_primary_state = None;
+        let mut qa_screenshot = None;
+        let mut qa_screenshot_delay = None;
+        let mut qa_window_size = None;
         let mut danmaku_force_refresh = false;
         let mut danmaku_opacity = None;
         let mut danmaku_speed = None;
@@ -122,7 +137,38 @@ impl Cli {
                 }
                 "--auto-next" => auto_next = true,
                 "--qa-play-first" => qa_play_first = true,
+                "--qa-onboarding" => qa_onboarding = true,
+                "--qa-primary-state" => {
+                    let value =
+                        next_string(&mut args, "--qa-primary-state requires hover or focus")?;
+                    match value.as_str() {
+                        "hover" | "focus" => qa_primary_state = Some(value),
+                        _ => return Err(format!("invalid --qa-primary-state: {value}")),
+                    }
+                }
                 "--danmaku-force-refresh" => danmaku_force_refresh = true,
+                "--qa-screenshot" => {
+                    qa_screenshot = Some(PathBuf::from(next_string(
+                        &mut args,
+                        "--qa-screenshot requires a PNG path",
+                    )?));
+                }
+                "--qa-screenshot-delay-ms" => {
+                    let value =
+                        next_string(&mut args, "--qa-screenshot-delay-ms requires milliseconds")?;
+                    let milliseconds = value
+                        .parse::<u64>()
+                        .ok()
+                        .filter(|value| (100..=60_000).contains(value))
+                        .ok_or_else(|| {
+                            format!("invalid --qa-screenshot-delay-ms (100-60000): {value}")
+                        })?;
+                    qa_screenshot_delay = Some(Duration::from_millis(milliseconds));
+                }
+                "--qa-window-size" => {
+                    let value = next_string(&mut args, "--qa-window-size requires WIDTHxHEIGHT")?;
+                    qa_window_size = Some(parse_window_size(&value)?);
+                }
                 "--danmaku-opacity" => {
                     danmaku_opacity = Some(parse_f32_range(
                         next_string(&mut args, "--danmaku-opacity requires 0-1")?,
@@ -162,6 +208,9 @@ impl Cli {
             }
         }
 
+        let qa_screenshot_delay_specified = qa_screenshot_delay.is_some();
+        let qa_screenshot_delay =
+            qa_screenshot_delay.unwrap_or_else(|| Duration::from_millis(1_500));
         let cli = Self {
             media,
             title,
@@ -174,11 +223,16 @@ impl Cli {
             media_id,
             auto_next,
             qa_play_first,
+            qa_onboarding,
+            qa_primary_state,
             danmaku_force_refresh,
             danmaku_opacity,
             danmaku_speed,
             danmaku_density,
             danmaku_lanes,
+            qa_screenshot,
+            qa_screenshot_delay,
+            qa_window_size,
             help,
         };
         if cli.help {
@@ -186,6 +240,17 @@ impl Cli {
         }
         if cli.qa_play_first && (cli.media.is_some() || cli.server_url.is_none()) {
             return Err("--qa-play-first requires --server-url library mode".to_owned());
+        }
+        if qa_screenshot_delay_specified && cli.qa_screenshot.is_none() {
+            return Err("--qa-screenshot-delay-ms requires --qa-screenshot".to_owned());
+        }
+        if cli.qa_onboarding && (cli.media.is_some() || cli.server_url.is_some()) {
+            return Err(
+                "--qa-onboarding cannot be combined with --media or --server-url".to_owned(),
+            );
+        }
+        if cli.qa_primary_state.is_some() && !cli.qa_onboarding {
+            return Err("--qa-primary-state requires --qa-onboarding".to_owned());
         }
         if cli.media.is_some() {
             if cli.danmaku_path.is_some() && (cli.server_url.is_some() || cli.media_id.is_some()) {
@@ -248,13 +313,34 @@ fn parse_f32_range(value: String, option: &str, minimum: f32, maximum: f32) -> R
         .ok_or_else(|| format!("invalid {option} ({minimum}-{maximum}): {value}"))
 }
 
+fn parse_window_size(value: &str) -> Result<[f32; 2], String> {
+    let (width, height) = value
+        .split_once(['x', 'X'])
+        .ok_or_else(|| format!("invalid --qa-window-size WIDTHxHEIGHT: {value}"))?;
+    let width = width
+        .parse::<u32>()
+        .ok()
+        .filter(|value| (960..=7680).contains(value))
+        .ok_or_else(|| format!("invalid --qa-window-size width (960-7680): {width}"))?;
+    let height = height
+        .parse::<u32>()
+        .ok()
+        .filter(|value| (600..=4320).contains(value))
+        .ok_or_else(|| format!("invalid --qa-window-size height (600-4320): {height}"))?;
+    Ok([width as f32, height as f32])
+}
+
 pub fn usage() -> &'static str {
     "Usage: danmaku-player [--media <path-or-url>] [--title <text>] [--start <seconds>] \
 [--volume <0-130>] [--danmaku <xml-json-ass>] \
 [--server-url <http-url> [--pairing-token <token>]] [--media-id <id>] \
 [--auto-next] [--danmaku-force-refresh] \
 [--danmaku-opacity <0-1>] [--danmaku-speed <0.25-4>] \
-[--danmaku-density <0-1>] [--danmaku-lanes <1-64>] [--smoke <seconds>]
+[--danmaku-density <0-1>] [--danmaku-lanes <1-64>] [--smoke <seconds>] \
+[--qa-screenshot <png> [--qa-screenshot-delay-ms <100-60000>]] \
+[--qa-window-size <WIDTHxHEIGHT>] \
+[--qa-onboarding] \
+[--qa-primary-state <hover|focus>]
 
 Without --media the player starts in library mode: --server-url connects
 directly, otherwise the connect screen lists LAN-discovered servers."
@@ -359,6 +445,46 @@ mod tests {
         assert_eq!(cli.server_url.as_deref(), Some("http://127.0.0.1:8686"));
         assert_eq!(cli.media_id.as_deref(), Some("episode-id"));
         assert!(cli.danmaku_force_refresh);
+    }
+
+    #[test]
+    fn parses_qa_screenshot_options() {
+        let cli = Cli::parse_from([
+            "danmaku-player",
+            "--qa-screenshot",
+            "build/qa/player.png",
+            "--qa-screenshot-delay-ms",
+            "2500",
+            "--qa-window-size",
+            "960x600",
+            "--qa-onboarding",
+            "--qa-primary-state",
+            "focus",
+        ])
+        .expect("QA screenshot options parse");
+
+        assert_eq!(
+            cli.qa_screenshot,
+            Some(PathBuf::from("build/qa/player.png"))
+        );
+        assert_eq!(cli.qa_screenshot_delay, Duration::from_millis(2_500));
+        assert_eq!(cli.qa_window_size, Some([960.0, 600.0]));
+        assert!(cli.qa_onboarding);
+        assert_eq!(cli.qa_primary_state.as_deref(), Some("focus"));
+    }
+
+    #[test]
+    fn rejects_invalid_qa_screenshot_options() {
+        let size = Cli::parse_from(["danmaku-player", "--qa-window-size", "959x600"])
+            .expect_err("minimum width must be enforced");
+        assert!(size.contains("width"));
+
+        for milliseconds in ["1500", "2500"] {
+            let delay =
+                Cli::parse_from(["danmaku-player", "--qa-screenshot-delay-ms", milliseconds])
+                    .expect_err("explicit delay without screenshot must fail");
+            assert!(delay.contains("requires --qa-screenshot"));
+        }
     }
 
     #[test]

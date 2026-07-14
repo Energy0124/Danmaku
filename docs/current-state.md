@@ -151,9 +151,13 @@ trusted-LAN clients.
   connection fields collapsed; the library uses an icon-first rail, content
   header, online state, featured Continue Watching hero, and larger poster
   cards; playback uses fading title and control surfaces with technical options
-  kept in menus. The approved references and remaining screenshot/settings work
-  are tracked in `docs/design/rust-player-ui-redesign-plan.md`. Compose desktop
-  remains available during the remaining retirement work.
+  kept in menus; Settings uses grouped consumer cards. Supervised default and
+  maximized review plus repeatable 960x600 default, hover, and keyboard-focus
+  captures pass. The minimum layout scrolls vertically without horizontal
+  clipping, and interactive controls now retain visible focus outlines. The
+  approved references and QA results are tracked in
+  `docs/design/rust-player-ui-redesign-plan.md`. Compose desktop remains
+  available during the remaining retirement work.
 - The native player Settings now configures the danmaku provider directly: a
   dandanplay App ID/App Secret card persists credentials to a user-scoped
   `player-credentials.json` (kept out of the general preferences file) and
@@ -290,7 +294,9 @@ trusted-LAN clients.
   server, built web UI, approved DLL, launcher, provenance, license texts, and
   generated player/server crate inventories.
   Runtime verification and supervised GUI smoke/release-QA scripts auto-detect
-  both layouts.
+  both layouts. `tools/windows/run-rust-player-ui-qa.ps1` adds deterministic
+  native-player onboarding captures at the supported 960x600 minimum for
+  default, hover, and keyboard-focus states.
 - Desktop app-level QA screenshot capture now raises the app window, waits for
   focus to settle, and restores the previous always-on-top state so captures are
   less likely to include unrelated foreground Windows apps.

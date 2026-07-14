@@ -47,8 +47,9 @@ fn main() {
     let report_slot = Arc::new(Mutex::new(None));
     let app_cli = cli.clone();
     let app_report_slot = Arc::clone(&report_slot);
+    let initial_window_size = cli.qa_window_size.unwrap_or([1280.0, 720.0]);
     let mut viewport = egui::ViewportBuilder::default()
-        .with_inner_size([1280.0, 720.0])
+        .with_inner_size(initial_window_size)
         .with_min_inner_size([960.0, 600.0])
         .with_decorations(false)
         .with_title(window_title.clone());
@@ -97,5 +98,12 @@ fn main() {
             });
         println!("{report}");
         process::exit(report.exit_code());
+    }
+
+    if let Some(path) = &cli.qa_screenshot
+        && !path.is_file()
+    {
+        eprintln!("QA screenshot was not written: {}", path.display());
+        process::exit(1);
     }
 }
