@@ -324,11 +324,12 @@ Milestones, each shippable while the Compose app remains the default:
   UI, connects automatically, exposes restart/stop/root-change controls, and
   stops only the child it owns. Existing local servers and remote LAN servers
   remain attachable.
-- `[~]` Replace the native player's migration-tool presentation with the
+- `[x]` Replace the native player's migration-tool presentation with the
   approved consumer UI direction. Onboarding, library/home hierarchy, larger
-  content cards, and cinematic playback chrome are implemented; Settings-card
-  refinement and supervised multi-size screenshot QA remain. See
-  `docs/design/rust-player-ui-redesign-plan.md`.
+  content cards, cinematic playback chrome, and grouped Settings cards are
+  implemented. Supervised default/maximized coverage plus repeatable 960x600
+  default, hover, and keyboard-focus captures now pass; no compact minimum-size
+  fallback was needed. See `docs/design/rust-player-ui-redesign-plan.md`.
 - `[ ]` Add an optional Windows service installer for users who want the
   library available while the player is closed. It must reuse the same server
   binary/data model and avoid competing with a player-owned child.

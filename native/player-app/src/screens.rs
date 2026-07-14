@@ -31,6 +31,16 @@ const CARD_GAP: f32 = 16.0;
 const RAIL_LIMIT: usize = 12;
 /// Left inset of library page content, beyond the navigation rail.
 const PAGE_GUTTER: f32 = 26.0;
+fn paint_focus_outline(ui: &egui::Ui, rect: Rect, radius: f32, response: &egui::Response) {
+    if response.has_focus() {
+        ui.painter().rect_stroke(
+            rect.shrink(1.0),
+            radius,
+            egui::Stroke::new(2.0, palette::TEXT_PRIMARY),
+            egui::StrokeKind::Inside,
+        );
+    }
+}
 
 /// Local wall-clock hour (0-23) for the greeting line.
 #[cfg(windows)]
@@ -97,6 +107,7 @@ impl ConnectScreen {
         discovered: &[DiscoveredServer],
         language: &mut Language,
         local_host_status: Option<&LocalHostStatus>,
+        qa_primary_state: Option<&str>,
         branding: &Branding,
     ) -> Option<ConnectAction> {
         let strings = Strings::new(*language);
@@ -159,6 +170,7 @@ impl ConnectScreen {
                                         button_text,
                                         vec2(380.0, 48.0),
                                         true,
+                                        qa_primary_state,
                                     )
                                 })
                                 .inner;
@@ -366,9 +378,10 @@ fn language_bar(ui: &mut egui::Ui, language: &mut Language) {
             ui.id().with(("language_option", index)),
             Sense::click(),
         );
+        paint_focus_outline(ui, rect, 6.0, &response);
         let color = if selected {
             palette::ACCENT_OUTLINE
-        } else if response.hovered() {
+        } else if response.hovered() || response.has_focus() {
             palette::TEXT_SECONDARY
         } else {
             palette::TEXT_MUTED
@@ -408,11 +421,12 @@ fn link_icon_button(ui: &mut egui::Ui, icon: Icon, label: &str) -> egui::Respons
     );
     let size = vec2(galley.size().x + 34.0, 32.0);
     let (rect, response) = ui.allocate_exact_size(size, Sense::click());
-    let color = if response.hovered() {
+    let color = if response.hovered() || response.has_focus() {
         theme::mix(palette::ACCENT_OUTLINE, Color32::WHITE, 0.35)
     } else {
         palette::ACCENT_OUTLINE
     };
+    paint_focus_outline(ui, rect, 6.0, &response);
     paint_icon(
         ui.painter(),
         Rect::from_center_size(pos2(rect.left() + 11.0, rect.center().y), vec2(20.0, 20.0)),
@@ -1227,7 +1241,7 @@ fn nav_button(ui: &mut egui::Ui, icon: Icon, label: &str, selected: bool) -> egu
     let (rect, response) = ui.allocate_exact_size(vec2(68.0, 64.0), Sense::click());
     let fill = if selected {
         Color32::from_rgb(22, 42, 67)
-    } else if response.hovered() {
+    } else if response.hovered() || response.has_focus() {
         palette::SURFACE_RAISED
     } else {
         Color32::TRANSPARENT
@@ -1243,6 +1257,7 @@ fn nav_button(ui: &mut egui::Ui, icon: Icon, label: &str, selected: bool) -> egu
             palette::ACCENT_BRIGHT,
         );
     }
+    paint_focus_outline(ui, rect, 10.0, &response);
     let color = if selected {
         palette::ACCENT_OUTLINE
     } else {
@@ -1269,15 +1284,23 @@ fn labeled_icon_button(
     label: &str,
     size: egui::Vec2,
     prominent: bool,
+    qa_primary_state: Option<&str>,
 ) -> egui::Response {
     let (rect, response) = ui.allocate_exact_size(size, Sense::click());
+    let force_hover = qa_primary_state == Some("hover");
+    let force_focus = qa_primary_state == Some("focus");
+    if force_focus {
+        response.request_focus();
+    }
+    let focused = force_focus || response.has_focus();
+    let highlighted = force_hover || focused || response.hovered();
     let fill = if prominent {
-        if response.hovered() {
+        if highlighted {
             palette::ACCENT_OUTLINE
         } else {
             palette::ACCENT_BRIGHT
         }
-    } else if response.hovered() {
+    } else if highlighted {
         palette::SURFACE_RAISED
     } else {
         Color32::TRANSPARENT
@@ -1288,6 +1311,14 @@ fn labeled_icon_button(
             rect,
             8.0,
             egui::Stroke::new(1.0, Color32::from_white_alpha(20)),
+            egui::StrokeKind::Inside,
+        );
+    }
+    if focused {
+        ui.painter().rect_stroke(
+            rect.shrink(1.0),
+            8.0,
+            egui::Stroke::new(2.0, palette::TEXT_PRIMARY),
             egui::StrokeKind::Inside,
         );
     }
@@ -1341,7 +1372,7 @@ fn online_pill(ui: &mut egui::Ui, label: &str, server_url: &str) {
 /// Small squared icon button used in headers (refresh, back).
 fn icon_chip_button(ui: &mut egui::Ui, icon: Icon, tooltip: &str) -> egui::Response {
     let (rect, response) = ui.allocate_exact_size(vec2(34.0, 34.0), Sense::click());
-    let fill = if response.hovered() {
+    let fill = if response.hovered() || response.has_focus() {
         palette::WIDGET_HOVER
     } else {
         palette::SURFACE_RAISED
@@ -1353,6 +1384,7 @@ fn icon_chip_button(ui: &mut egui::Ui, icon: Icon, tooltip: &str) -> egui::Respo
         egui::Stroke::new(1.0, Color32::from_white_alpha(24)),
         egui::StrokeKind::Inside,
     );
+    paint_focus_outline(ui, rect, 9.0, &response);
     paint_icon(
         ui.painter(),
         Rect::from_center_size(rect.center(), vec2(18.0, 18.0)),
@@ -2691,12 +2723,13 @@ fn themed_slider(ui: &mut egui::Ui, id_source: &str, rect: Rect, fraction: f32) 
         2.5,
         palette::ACCENT_BRIGHT,
     );
-    let engaged = response.hovered() || response.dragged();
+    let engaged = response.hovered() || response.has_focus() || response.dragged();
     painter.circle_filled(
         pos2(track.left() + track.width() * fraction, track.center().y),
         if engaged { 9.0 } else { 7.0 },
         Color32::WHITE,
     );
+    paint_focus_outline(ui, rect, 8.0, &response);
     if engaged {
         ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
     }
@@ -2724,6 +2757,7 @@ fn settings_toggle_row(ui: &mut egui::Ui, id_source: &str, label: &str, value: &
         let knob_x = rect.left() + 13.0 + (rect.width() - 26.0) * how_on;
         ui.painter()
             .circle_filled(pos2(knob_x, rect.center().y), 9.0, Color32::WHITE);
+        paint_focus_outline(ui, rect, rect.height() / 2.0, &response);
         if response.hovered() {
             ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
         }
@@ -2751,6 +2785,7 @@ fn language_segmented(ui: &mut egui::Ui, current: &mut Language) {
             ui.painter()
                 .rect_filled(segment.shrink(3.0), 7.0, palette::ACCENT);
         }
+        paint_focus_outline(ui, segment, 7.0, &response);
         ui.painter().text(
             segment.center(),
             Align2::CENTER_CENTER,
@@ -2779,12 +2814,12 @@ fn settings_pill_button(ui: &mut egui::Ui, label: &str, primary: bool) -> egui::
     let (rect, response) =
         ui.allocate_exact_size(vec2(galley.size().x + 32.0, 36.0), Sense::click());
     let fill = if primary {
-        if response.hovered() {
+        if response.hovered() || response.has_focus() {
             palette::ACCENT_OUTLINE
         } else {
             palette::ACCENT_BRIGHT
         }
-    } else if response.hovered() {
+    } else if response.hovered() || response.has_focus() {
         palette::WIDGET_HOVER
     } else {
         palette::SURFACE_FAINT
@@ -2798,6 +2833,7 @@ fn settings_pill_button(ui: &mut egui::Ui, label: &str, primary: bool) -> egui::
             egui::StrokeKind::Inside,
         );
     }
+    paint_focus_outline(ui, rect, 9.0, &response);
     ui.painter().text(
         rect.center(),
         Align2::CENTER_CENTER,

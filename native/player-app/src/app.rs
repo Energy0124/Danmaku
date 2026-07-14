@@ -21,7 +21,7 @@ use crate::{
         DanmakuLoadKind, estimate_text_width, fetch_server_danmaku, load_local_danmaku,
     },
     discovery::{DEFAULT_DISCOVERY_PORT, DiscoveryListener},
-    hosting::{LocalConnection, LocalServerSupervisor},
+    hosting::{LocalConnection, LocalHostStatus, LocalServerSupervisor},
     icons::{Icon, paint_icon},
     library::{LibraryCatalog, PlaybackProgress},
     localization::Strings,
@@ -119,6 +119,7 @@ pub struct PlayerApp {
     eof_handled: bool,
     last_progress_upload: Instant,
     qa_play_first_pending: bool,
+    qa_screenshot_requested: bool,
     preferences: PlayerPreferences,
     preference_store: PreferenceStore,
     saved_preferences: PlayerPreferences,
@@ -241,9 +242,11 @@ impl PlayerApp {
             ));
             AppScreen::Library
         } else {
-            match DiscoveryListener::start(DEFAULT_DISCOVERY_PORT) {
-                Ok(listener) => discovery = Some(listener),
-                Err(error) => eprintln!("discovery unavailable: {error}"),
+            if !cli.qa_onboarding {
+                match DiscoveryListener::start(DEFAULT_DISCOVERY_PORT) {
+                    Ok(listener) => discovery = Some(listener),
+                    Err(error) => eprintln!("discovery unavailable: {error}"),
+                }
             }
             AppScreen::Connect
         };
@@ -289,6 +292,7 @@ impl PlayerApp {
             eof_handled: false,
             last_progress_upload: now,
             qa_play_first_pending,
+            qa_screenshot_requested: false,
             preferences,
             preference_store,
             saved_preferences,
@@ -1745,6 +1749,53 @@ impl PlayerApp {
         }
     }
 
+    fn finish_qa_screenshot_if_needed(&mut self, ctx: &egui::Context) {
+        let Some(path) = self.cli.qa_screenshot.clone() else {
+            return;
+        };
+        let screenshot = ctx.input(|input| {
+            input.events.iter().find_map(|event| match event {
+                egui::Event::Screenshot { image, .. } => Some(Arc::clone(image)),
+                _ => None,
+            })
+        });
+        if let Some(screenshot) = screenshot {
+            if let Some(parent) = path.parent()
+                && let Err(error) = std::fs::create_dir_all(parent)
+            {
+                eprintln!(
+                    "failed to create QA screenshot directory {}: {error}",
+                    parent.display()
+                );
+            }
+            let rgba = screenshot
+                .pixels
+                .iter()
+                .flat_map(|pixel| pixel.to_array())
+                .collect::<Vec<_>>();
+            if let Err(error) = image::save_buffer(
+                &path,
+                &rgba,
+                screenshot.size[0] as u32,
+                screenshot.size[1] as u32,
+                image::ColorType::Rgba8,
+            ) {
+                eprintln!("failed to save QA screenshot {}: {error}", path.display());
+            }
+            ctx.send_viewport_cmd(ViewportCommand::Close);
+            return;
+        }
+        if !self.qa_screenshot_requested
+            && self.smoke_started.elapsed() >= self.cli.qa_screenshot_delay
+        {
+            self.qa_screenshot_requested = true;
+            ctx.send_viewport_cmd(ViewportCommand::Screenshot(egui::UserData::default()));
+            ctx.request_repaint();
+        } else {
+            ctx.request_repaint_after(Duration::from_millis(100));
+        }
+    }
+
     fn finish_smoke_if_needed(&mut self, ctx: &egui::Context) {
         let Some(duration) = self.cli.smoke else {
             return;
@@ -1783,10 +1834,13 @@ impl eframe::App for PlayerApp {
         self.show_window_title_bar(ctx);
         self.posters.poll(ctx);
         self.handle_session_events(ctx);
-        let local_connection = self
-            .local_host
-            .as_mut()
-            .and_then(LocalServerSupervisor::poll);
+        let local_connection = if self.cli.qa_onboarding {
+            None
+        } else {
+            self.local_host
+                .as_mut()
+                .and_then(LocalServerSupervisor::poll)
+        };
         if let Some(connection) = local_connection {
             self.connect_to_local_server(ctx, connection);
         }
@@ -1798,11 +1852,18 @@ impl eframe::App for PlayerApp {
                     .as_ref()
                     .map(|listener| listener.servers())
                     .unwrap_or_default();
+                let qa_host_status = LocalHostStatus::NeedsSetup;
+                let local_host_status = if self.cli.qa_onboarding {
+                    Some(&qa_host_status)
+                } else {
+                    self.local_host.as_ref().map(LocalServerSupervisor::status)
+                };
                 let action = self.connect_screen.show(
                     ctx,
                     &discovered,
                     &mut self.preferences.language,
-                    self.local_host.as_ref().map(LocalServerSupervisor::status),
+                    local_host_status,
+                    self.cli.qa_primary_state.as_deref(),
                     &self.branding,
                 );
                 match action {
@@ -2000,6 +2061,7 @@ impl eframe::App for PlayerApp {
         }
         self.show_match_picker_overlay(ctx);
         self.save_preferences_if_changed();
+        self.finish_qa_screenshot_if_needed(ctx);
     }
 }
 

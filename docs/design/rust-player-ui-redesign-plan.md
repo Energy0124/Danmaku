@@ -57,9 +57,12 @@ does not depend on generated imagery or copy a commercial streaming product.
 - [x] Run supervised screenshot QA at 1280x720 and maximized desktop size,
   including live-video playback with the controls visible.
 - [x] Refine the Settings screen into grouped consumer cards.
-- [ ] Add keyboard-focus and hover-state screenshot coverage.
-- [ ] Add a compact responsive fallback if Windows minimum-size QA finds
-  clipping in the library hero or playback control row.
+- [x] Add keyboard-focus and hover-state screenshot coverage. The repeatable
+  `tools/windows/run-rust-player-ui-qa.ps1` wrapper captures deterministic
+  onboarding states with a visible keyboard-focus ring.
+- [x] Run Windows minimum-size QA at 960x600. The onboarding and local-server
+  content fit through vertical scrolling without horizontal clipping, so a
+  separate compact responsive fallback is not required.
 - [x] Replace temporary glyph symbols with a small code-native vector icon set,
   avoiding font-dependent missing-glyph boxes and a new UI dependency.
 
