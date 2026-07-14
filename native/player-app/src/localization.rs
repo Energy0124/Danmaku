@@ -466,6 +466,105 @@ impl Strings {
     pub fn loading_matches(self) -> &'static str {
         self.text("Looking up matches…", "正在查詢比對結果…")
     }
+    pub fn recent_view(self) -> &'static str {
+        self.text("Recent", "最近")
+    }
+    pub fn season_view(self) -> &'static str {
+        self.text("Season", "季度")
+    }
+    pub fn unknown_date(self) -> &'static str {
+        self.text("Earlier", "較早")
+    }
+    pub fn unknown_season(self) -> &'static str {
+        self.text("Unknown season", "季度不明")
+    }
+    pub fn library_overview(self) -> &'static str {
+        self.text("Library overview", "媒體庫概覽")
+    }
+    pub fn total_size(self) -> &'static str {
+        self.text("Total size", "總大小")
+    }
+    pub fn file_suggestions(self) -> &'static str {
+        self.text("Suggested for this file", "此檔案的建議比對")
+    }
+    pub fn database_search(self) -> &'static str {
+        self.text("Database search", "資料庫搜尋")
+    }
+    pub fn select_match(self) -> &'static str {
+        self.text("Use match", "套用比對")
+    }
+    pub fn match_picker_hint(self) -> &'static str {
+        self.text(
+            "Choose a suggested episode or search the complete dandanplay database.",
+            "選擇建議集數，或搜尋完整的 dandanplay 資料庫。",
+        )
+    }
+    pub fn library_views(self) -> &'static str {
+        self.text("Library views", "媒體庫檢視")
+    }
+    pub fn library_folders(self) -> &'static str {
+        self.text("Library folders", "媒體庫資料夾")
+    }
+    pub fn sort_by(self) -> &'static str {
+        self.text("Sort", "排序")
+    }
+    pub fn sort_title(self) -> &'static str {
+        self.text("Title", "名稱")
+    }
+    pub fn sort_newest(self) -> &'static str {
+        self.text("Newest added", "最近加入")
+    }
+    pub fn sort_release_year(self) -> &'static str {
+        self.text("Release year", "推出年份")
+    }
+    pub fn sort_episode_count(self) -> &'static str {
+        self.text("Episode count", "集數")
+    }
+    pub fn all_matches(self) -> &'static str {
+        self.text("All matches", "所有比對狀態")
+    }
+    pub fn matched_only(self) -> &'static str {
+        self.text("Matched", "已比對")
+    }
+    pub fn unmatched_only(self) -> &'static str {
+        self.text("Unmatched", "未比對")
+    }
+    pub fn all_progress(self) -> &'static str {
+        self.text("All progress", "所有觀看狀態")
+    }
+    pub fn unwatched(self) -> &'static str {
+        self.text("Unwatched", "未觀看")
+    }
+    pub fn in_progress(self) -> &'static str {
+        self.text("In progress", "觀看中")
+    }
+    pub fn completed(self) -> &'static str {
+        self.text("Completed", "已看完")
+    }
+    pub fn all_folders(self) -> &'static str {
+        self.text("All folders", "所有資料夾")
+    }
+    pub fn grid_size(self) -> &'static str {
+        self.text("Card size", "卡片大小")
+    }
+    pub fn compact(self) -> &'static str {
+        self.text("Compact", "小")
+    }
+    pub fn comfortable(self) -> &'static str {
+        self.text("Comfortable", "中")
+    }
+    pub fn large(self) -> &'static str {
+        self.text("Large", "大")
+    }
+    pub fn clear_filters(self) -> &'static str {
+        self.text("Clear filters", "清除篩選")
+    }
+    pub fn no_filtered_series(self) -> &'static str {
+        self.text(
+            "No series match the current filters.",
+            "沒有系列符合目前的篩選條件。",
+        )
+    }
     pub fn matched_anime(self) -> &'static str {
         self.text("Matched anime", "已比對動畫")
     }
@@ -486,6 +585,39 @@ impl Strings {
     }
     pub fn items_label(self) -> &'static str {
         self.text("items", "個項目")
+    }
+    pub fn recently_played(self) -> &'static str {
+        self.text("Recently played", "最近播放")
+    }
+    pub fn all_years(self) -> &'static str {
+        self.text("All years", "所有年份")
+    }
+    pub fn group_display(self) -> &'static str {
+        self.text("Grouped", "分組顯示")
+    }
+    pub fn synopsis(self) -> &'static str {
+        self.text("Synopsis", "簡介")
+    }
+    pub fn tags_label(self) -> &'static str {
+        self.text("Tags", "標籤")
+    }
+    pub fn online_databases(self) -> &'static str {
+        self.text("Online databases", "線上資料庫")
+    }
+    pub fn on_air(self) -> &'static str {
+        self.text("Airing", "連載中")
+    }
+    pub fn finished_airing(self) -> &'static str {
+        self.text("Finished airing", "已完結")
+    }
+    pub fn loading_details(self) -> &'static str {
+        self.text("Loading anime details…", "正在載入動畫資料…")
+    }
+    pub fn details_unavailable(self) -> &'static str {
+        self.text(
+            "Online anime details are unavailable right now.",
+            "目前無法取得線上動畫資料。",
+        )
     }
 }
 
@@ -514,6 +646,13 @@ mod tests {
         assert_eq!(zh.up_next("第 19 集"), "接下來：第 19 集");
         assert_ne!(zh.local_library(), en.local_library());
         assert_ne!(zh.online(), en.online());
+        assert_eq!(en.recent_view(), "Recent");
+        assert_eq!(zh.season_view(), "季度");
+        assert_eq!(zh.database_search(), "資料庫搜尋");
+        assert_eq!(en.recently_played(), "Recently played");
+        assert_eq!(zh.recently_played(), "最近播放");
+        assert_eq!(zh.synopsis(), "簡介");
+        assert_eq!(zh.online_databases(), "線上資料庫");
     }
 
     #[test]

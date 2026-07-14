@@ -294,6 +294,7 @@ mod tests {
             indexed_at_epoch_ms: 0,
             subtitles: Vec::new(),
             poster_path: None,
+            root_label: None,
             anime_metadata: None,
             metadata_status: LibraryItemMetadataStatus::NotAvailable,
         }

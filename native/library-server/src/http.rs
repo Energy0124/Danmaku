@@ -187,6 +187,9 @@ async fn dispatch(State(state): State<HttpServerState>, request: Request<Body>) 
     if path.starts_with("/api/providers/dandanplay/search") {
         return handle_dandanplay_search(&state, &method, &path, query.as_deref()).await;
     }
+    if path.starts_with("/api/providers/dandanplay/bangumi") {
+        return handle_dandanplay_bangumi(&state, &method, &path, query.as_deref()).await;
+    }
     if path.starts_with("/media/") {
         return handle_media(&state, &method, &path, &headers).await;
     }
@@ -856,6 +859,47 @@ async fn handle_dandanplay_search(
     };
     match resolver.search_episodes(&keyword).await {
         Ok(animes) => json_response(StatusCode::OK, &serde_json::json!({ "animes": animes })),
+        Err(error) => text_response(
+            StatusCode::BAD_GATEWAY,
+            &format!("dandanplay request failed: {error}"),
+        ),
+    }
+}
+
+/// Proxies one anime's full dandanplay bangumi profile (rating, synopsis,
+/// tags, per-episode air dates, database links) for the library's anime
+/// information page.
+async fn handle_dandanplay_bangumi(
+    state: &HttpServerState,
+    method: &Method,
+    path: &str,
+    query: Option<&str>,
+) -> Response<Body> {
+    if method != Method::GET {
+        return empty_status(StatusCode::METHOD_NOT_ALLOWED);
+    }
+    if path != "/api/providers/dandanplay/bangumi" {
+        return empty_status(StatusCode::NOT_FOUND);
+    }
+    let query = parse_query_parameters(query);
+    let Some(anime_id) = query
+        .get("animeId")
+        .and_then(|value| value.trim().parse::<u64>().ok())
+        .filter(|value| *value > 0)
+    else {
+        return text_response(
+            StatusCode::BAD_REQUEST,
+            "Query parameter 'animeId' must be positive.",
+        );
+    };
+    let Some(resolver) = &state.dandanplay_resolver else {
+        return text_response(
+            StatusCode::BAD_GATEWAY,
+            "dandanplay request failed: Danmaku resolver is not available.",
+        );
+    };
+    match resolver.bangumi_detail(anime_id).await {
+        Ok(detail) => json_response(StatusCode::OK, &detail),
         Err(error) => text_response(
             StatusCode::BAD_GATEWAY,
             &format!("dandanplay request failed: {error}"),
@@ -1758,6 +1802,53 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn dandanplay_bangumi_returns_detail_profile() {
+        let fixture = FixtureEnvironment::new();
+        let server = MockDandanplayServer::start(MockDandanplayBehavior::default());
+        let app = dandanplay_test_app(&fixture, Some(test_resolver(&fixture, &server)));
+
+        let missing = app
+            .clone()
+            .oneshot(get("/api/providers/dandanplay/bangumi"))
+            .await
+            .expect("missing animeId response");
+        assert_eq!(StatusCode::BAD_REQUEST, missing.status());
+        assert_text_body(missing, "Query parameter 'animeId' must be positive.").await;
+
+        let response = request_json(&app, "/api/providers/dandanplay/bangumi?animeId=999").await;
+        assert_eq!(999, response["animeId"]);
+        assert_eq!("Searched Anime", response["animeTitle"]);
+        assert_eq!("TV Series", response["typeDescription"]);
+        assert_eq!(
+            "A town where half the residents have special powers.",
+            response["summary"]
+        );
+        assert_eq!(7.7, response["rating"].as_f64().expect("rating"));
+        assert_eq!(false, response["isOnAir"]);
+        assert_eq!(
+            vec!["Mystery", "School"],
+            response["tags"]
+                .as_array()
+                .expect("tags")
+                .iter()
+                .filter_map(Value::as_str)
+                .collect::<Vec<_>>()
+        );
+        let episodes = response["episodes"].as_array().expect("episodes");
+        assert_eq!(2, episodes.len());
+        assert_eq!("2017-04-05T00:00:00", episodes[0]["airDate"]);
+        let databases = response["onlineDatabases"].as_array().expect("databases");
+        assert_eq!("Bangumi.tv", databases[0]["name"]);
+        assert_eq!("https://bangumi.tv/subject/179949", databases[0]["url"]);
+
+        let unavailable = dandanplay_test_app(&fixture, None)
+            .oneshot(get("/api/providers/dandanplay/bangumi?animeId=999"))
+            .await
+            .expect("unavailable response");
+        assert_eq!(StatusCode::BAD_GATEWAY, unavailable.status());
+    }
+
+    #[tokio::test]
     async fn selecting_a_searched_episode_outside_hash_matches_pins_and_records_it() {
         let fixture = FixtureEnvironment::new();
         let server = MockDandanplayServer::start(MockDandanplayBehavior::default());
@@ -1912,6 +2003,7 @@ mod tests {
             indexed_at_epoch_ms: 1_700_000_000_000,
             subtitles: Vec::new(),
             poster_path: None,
+            root_label: None,
             anime_metadata: None,
             metadata_status: Default::default(),
         };
@@ -2516,6 +2608,7 @@ mod tests {
                 indexed_at_epoch_ms: 1_700_000_000_000,
                 subtitles: vec![subtitle.clone()],
                 poster_path: Some("/posters/episode-id".to_owned()),
+                root_label: None,
                 anime_metadata: None,
                 metadata_status: Default::default(),
             };
@@ -3058,6 +3151,10 @@ mod tests {
             "/api/v2/search/episodes" => (
                 200,
                 r#"{"success":true,"animes":[{"animeId":999,"animeTitle":"Searched Anime","typeDescription":"TV Series","episodes":[{"episodeId":9990001,"episodeTitle":"Episode 1"},{"episodeId":9990002,"episodeTitle":"Episode 2"}]}]}"#,
+            ),
+            "/api/v2/bangumi/999" => (
+                200,
+                r#"{"success":true,"bangumi":{"animeId":999,"animeTitle":"Searched Anime","typeDescription":"TV Series","summary":"A town where half the residents have special powers.","rating":7.7,"isOnAir":false,"tags":[{"id":1,"name":"Mystery"},{"id":2,"name":"School"}],"episodes":[{"episodeId":9990001,"episodeTitle":"Episode 1","airDate":"2017-04-05T00:00:00"},{"episodeId":9990002,"episodeTitle":"Episode 2","airDate":"2017-04-12T00:00:00"}],"onlineDatabases":[{"name":"Bangumi.tv","url":"https://bangumi.tv/subject/179949"},{"name":"MyAnimeList","url":"https://myanimelist.net/anime/34102"}]}}"#,
             ),
             _ => (404, r#"{"success":false,"message":"not found"}"#),
         };

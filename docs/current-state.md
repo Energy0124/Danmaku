@@ -1,6 +1,6 @@
 # Current State
 
-Last reviewed: 2026-07-10.
+Last reviewed: 2026-07-13.
 
 Danmaku is in active foundation work. The strongest vertical slice is Windows
 desktop as the local library host/player, with Android mobile and Android TV as
@@ -213,6 +213,35 @@ trusted-LAN clients.
   official client's media library: folder rows navigate with an up-one-level
   row, file rows show file name and size plus the matched anime and episode
   titles in columns, and each file row keeps the change-match button.
+- The July 13 Rust library polish adds a full-width media navigation sidebar
+  plus Recent, Season, Matched Anime, and Folder views. The library toolbar now
+  applies real inline text, match state, watch progress, top-level folder,
+  title/newest/year/episode-count sort, and compact/comfortable/large poster
+  filters. Recent groups by latest indexed month without discarding the chosen
+  sort; Season groups recognized titles by release year; Folder keeps the
+  hierarchical drill-down and filters visible files and directories while
+  searching. Series pages now use a poster-led overview card with alternate
+  title, episode/watch counts, release year, total size, subtitle count, and
+  library-root context. The comprehensive dandanplay picker follows the same
+  native card system: it identifies the current episode, separates file
+  suggestions from full database search, presents explicit selectable candidate
+  rows, and keeps anime-to-episode drill-down in a resizable, scrollable dialog.
+  English and Traditional Chinese are covered for all new visible copy.
+- The second July 13 pass brings the Rust client closer to the official
+  dandanplay client. The Rust headless server now labels every catalog item
+  with the absolute library root it was scanned from (`rootLabel`, additive)
+  and proxies dandanplay bangumi profiles at
+  `/api/providers/dandanplay/bangumi`. The player sidebar lists the actual
+  configured folders (like the official client's 本機文件夾 section), and the
+  folder explorer plus the folder filter browse per root when the server
+  merges several roots. A new Recently Played view groups titles by
+  last-played month; the toolbar adds a release-year filter and a
+  grouped-display toggle. Series pages fetch the bangumi profile in the
+  background and show rating, type, airing state, synopsis, tags, and
+  online-database links alongside alternate titles and the item's real
+  on-disk root; episode rows gain a watched checkmark, file size, and
+  last-watched date. Watch-state classification now counts a series with
+  some episodes finished as in progress instead of unwatched.
 
 ### Android Mobile
 

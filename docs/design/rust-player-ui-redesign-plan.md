@@ -83,6 +83,50 @@ does not depend on generated imagery or copy a commercial streaming product.
   animated pill toggles, and styled action buttons. Removes the raw egui
   slider/checkbox/button look.
 
+### Library discovery and matching pass (2026-07-13)
+
+- [x] Replace the compact icon rail with a readable media-library sidebar and
+  direct top-level folder shortcuts.
+- [x] Add Recent, Season, Matched Anime, and Folder presentation modes to the
+  full library page.
+- [x] Group Recent by indexed month and Season by the provider release year
+  currently available in the catalog model without overriding the selected
+  within-group sort.
+- [x] Implement inline query, matched/unmatched, unwatched/in-progress/completed,
+  top-level folder, four-way sorting, and three card-density filters.
+- [x] Preserve the folder explorer as the drill-down filter for registered
+  library roots and nested directories, including visible-row search.
+- [x] Replace the sparse series header with a poster-led overview card and
+  useful library/watch facts.
+- [x] Rebuild the comprehensive dandanplay picker as a resizable two-section
+  workflow for file suggestions and full database anime/episode search.
+- [x] Keep all new copy localized in English and Traditional Chinese.
+- [x] Capture supervised filter, folder-search, series-detail, and match-picker
+  screenshots from the packaged Windows binary against a 635-item library.
+
+### Official-client parity pass (2026-07-13, second)
+
+- [x] Attribute every catalog item to its library root on the Rust server
+  (`rootLabel`) so multi-root libraries stay distinguishable.
+- [x] List the actual configured folders in the sidebar (官方 本機文件夾) and
+  scope the folder explorer and folder filter to one file-system root.
+- [x] Add a Recently Played view grouped by last-played month.
+- [x] Add release-year filtering and the 分組顯示 grouped-display toggle to
+  the library toolbar.
+- [x] Proxy dandanplay bangumi profiles through the server and render
+  rating, type, airing state, synopsis, tags, and online-database links on
+  the series page, plus alternate titles and the real on-disk root.
+- [x] Add watched checkmarks, file size, and last-watched dates to episode
+  rows.
+- [x] Count series with some finished episodes as in progress; align
+  sidebar hit-areas with their visuals; drop the 12-folder sidebar cap.
+- [x] Keep all new copy localized in English and Traditional Chinese.
+- [x] Replace the stock egui combo boxes in the filter toolbar with themed
+  dropdown chips (rounded pill + card-styled option menu with check marks),
+  turn the grouped-display checkbox into a matching toggle chip, show
+  "Clear filters" only when something is active, and drop the toolbar's
+  duplicate view-selection row — the sidebar owns view navigation.
+
 ## Verification Gates
 
 - cargo fmt --all --check

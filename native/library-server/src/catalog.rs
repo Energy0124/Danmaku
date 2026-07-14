@@ -157,6 +157,11 @@ pub struct LibraryMediaItem {
     pub subtitles: Vec<LibrarySubtitleTrack>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub poster_path: Option<String>,
+    /// Absolute path of the library root this item was scanned from
+    /// (e.g. `M:\Anime`), so clients can offer per-root browsing when the
+    /// server publishes several roots merged into one catalog.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub root_label: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub anime_metadata: Option<LibraryAnimeMetadata>,
     #[serde(

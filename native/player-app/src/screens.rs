@@ -1,6 +1,6 @@
 //! Library-mode screens: server connect and catalog browse.
 
-use std::path::PathBuf;
+use std::{collections::BTreeMap, path::PathBuf};
 
 use eframe::egui::{
     self, Align, Align2, Color32, CursorIcon, FontId, Frame, Layout, Rect, RichText, Sense,
@@ -9,6 +9,7 @@ use eframe::egui::{
 
 use crate::{
     branding::Branding,
+    danmaku::BangumiDetail,
     discovery::DiscoveredServer,
     hosting::LocalHostStatus,
     icons::{Icon, paint_icon},
@@ -16,7 +17,8 @@ use crate::{
         DEFAULT_NEXT_UP_LIMIT, FolderListing, LibraryCatalog, MINIMUM_REMAINING_MS,
         MINIMUM_RESUME_POSITION_MS, MediaItem, NextUpItem, NextUpReason, PlaybackProgress,
         ProgressItem, Series, continue_watching_items, file_name, folder_grouped_series,
-        folder_listing, grouped_series, matched_anime_series, next_up_items,
+        grouped_series, item_in_folder_shortcut, library_folder_shortcuts, library_root_labels,
+        matched_anime_series, next_up_items, scoped_folder_listing,
     },
     localization::{Language, Strings},
     posters::{PosterCache, PosterState},
@@ -513,9 +515,22 @@ pub enum LibraryAction {
     ChangeMatch {
         media_id: String,
     },
+    /// Requests the dandanplay bangumi profile shown on a series page.
+    FetchBangumiDetail {
+        anime_id: u64,
+    },
     Refresh,
     Disconnect,
     Settings,
+}
+
+/// Lifecycle of one bangumi profile fetch, keyed by dandanplay anime ID
+/// (owned by the app, rendered by the series page).
+#[derive(Clone, Debug, PartialEq)]
+pub enum BangumiDetailState {
+    Loading,
+    Ready(BangumiDetail),
+    Failed(String),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -530,19 +545,78 @@ enum LibraryView {
 /// filter change, not a new page.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 enum LibrarySeriesTab {
+    /// Every series ordered by the newest file indexed into the library.
+    #[default]
+    Recent,
+    /// Series the user has actually watched, grouped by the month they
+    /// were last played (the official client's 最近播放).
+    RecentlyPlayed,
+    /// Recognized anime grouped by release year.
+    Season,
     /// Only items with a recognized dandanplay/provider anime match,
     /// grouped by that identity.
-    #[default]
     MatchedAnime,
-    /// Every item, grouped strictly by its on-disk folder, ignoring any
-    /// recognized anime metadata.
+    /// Every item, browsed through its on-disk folder hierarchy.
     Folder,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+enum LibraryMatchFilter {
+    #[default]
+    All,
+    Matched,
+    Unmatched,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+enum LibraryProgressFilter {
+    #[default]
+    All,
+    Unwatched,
+    InProgress,
+    Completed,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+enum LibrarySeriesSort {
+    #[default]
+    Title,
+    Newest,
+    ReleaseYear,
+    EpisodeCount,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+enum LibraryGridDensity {
+    Compact,
+    #[default]
+    Comfortable,
+    Large,
+}
+
+impl LibraryGridDensity {
+    fn card_size(self) -> egui::Vec2 {
+        match self {
+            Self::Compact => vec2(126.0, 190.0),
+            Self::Comfortable => vec2(CARD_WIDTH, CARD_HEIGHT),
+            Self::Large => vec2(190.0, 284.0),
+        }
+    }
 }
 
 pub struct LibraryScreen {
     query: String,
     view: LibraryView,
     all_series_tab: LibrarySeriesTab,
+    match_filter: LibraryMatchFilter,
+    progress_filter: LibraryProgressFilter,
+    series_sort: LibrarySeriesSort,
+    grid_density: LibraryGridDensity,
+    selected_folder: Option<String>,
+    selected_year: Option<i32>,
+    /// Whether Recent/Season/Recently-played render their month/year
+    /// section groups (the official client's 分組顯示 toggle).
+    group_display: bool,
     /// Mixed grouping (anime identity when recognized, folder otherwise) —
     /// only used for the low-visibility Home "recently added" rail, where a
     /// little mixing is a reasonable tradeoff for always showing every item.
@@ -571,6 +645,13 @@ impl Default for LibraryScreen {
             query: String::new(),
             view: LibraryView::Home,
             all_series_tab: LibrarySeriesTab::default(),
+            match_filter: LibraryMatchFilter::default(),
+            progress_filter: LibraryProgressFilter::default(),
+            series_sort: LibrarySeriesSort::default(),
+            grid_density: LibraryGridDensity::default(),
+            selected_folder: None,
+            selected_year: None,
+            group_display: true,
             cached_series: Vec::new(),
             cached_anime_series: Vec::new(),
             cached_folder_series: Vec::new(),
@@ -589,53 +670,102 @@ impl LibraryScreen {
         session: &LibrarySession,
         posters: &mut PosterCache,
         pending_preloads: &std::collections::HashSet<String>,
+        bangumi: &std::collections::HashMap<u64, BangumiDetailState>,
         strings: Strings,
     ) -> Option<LibraryAction> {
         let mut action = None;
-        let search_id = egui::Id::new("library_search_field");
+        let folder_shortcuts = session
+            .catalog
+            .as_ref()
+            .map(library_folder_shortcuts)
+            .unwrap_or_default();
 
         egui::SidePanel::left("library_navigation")
             .exact_width(metrics::NAV_RAIL_WIDTH)
             .resizable(false)
             .frame(Frame::NONE.fill(palette::BG_NAV))
             .show(ctx, |ui| {
-                ui.vertical_centered(|ui| {
-                    ui.add_space(24.0);
-                    if nav_button(
-                        ui,
-                        Icon::Home,
-                        strings.home(),
-                        self.view == LibraryView::Home && self.query.is_empty(),
-                    )
-                    .clicked()
-                    {
-                        self.view = LibraryView::Home;
-                        self.query.clear();
-                    }
-                    ui.add_space(6.0);
-                    if nav_button(
-                        ui,
-                        Icon::Library,
-                        strings.library(),
-                        self.view == LibraryView::AllSeries,
-                    )
-                    .clicked()
-                    {
-                        self.view = LibraryView::AllSeries;
-                        self.query.clear();
-                    }
-                    ui.add_space(6.0);
-                    if nav_button(ui, Icon::Search, strings.search(), !self.query.is_empty())
-                        .clicked()
-                    {
-                        if matches!(self.view, LibraryView::Series(_)) {
-                            self.view = LibraryView::Home;
-                        }
-                        ctx.memory_mut(|memory| memory.request_focus(search_id));
-                    }
+                ui.add_space(22.0);
+                ui.horizontal(|ui| {
+                    ui.add_space(18.0);
+                    ui.label(
+                        RichText::new("Danmaku")
+                            .font(typography::hero())
+                            .strong()
+                            .color(palette::TEXT_PRIMARY),
+                    );
                 });
+                ui.add_space(20.0);
+                if nav_button(
+                    ui,
+                    Icon::Home,
+                    strings.home(),
+                    self.view == LibraryView::Home && self.query.is_empty(),
+                )
+                .clicked()
+                {
+                    self.view = LibraryView::Home;
+                    self.query.clear();
+                }
+
+                sidebar_heading(ui, strings.library_views());
+                for (tab, icon, label) in [
+                    (
+                        LibrarySeriesTab::Recent,
+                        Icon::Refresh,
+                        strings.recent_view(),
+                    ),
+                    (
+                        LibrarySeriesTab::RecentlyPlayed,
+                        Icon::Play,
+                        strings.recently_played(),
+                    ),
+                    (
+                        LibrarySeriesTab::Season,
+                        Icon::Library,
+                        strings.season_view(),
+                    ),
+                    (
+                        LibrarySeriesTab::MatchedAnime,
+                        Icon::Danmaku,
+                        strings.matched_anime(),
+                    ),
+                    (LibrarySeriesTab::Folder, Icon::Folder, strings.folders()),
+                ] {
+                    let selected =
+                        self.view == LibraryView::AllSeries && self.all_series_tab == tab;
+                    if nav_button(ui, icon, label, selected).clicked() {
+                        self.view = LibraryView::AllSeries;
+                        self.all_series_tab = tab;
+                        if tab != LibrarySeriesTab::Folder {
+                            self.folder_path.clear();
+                        }
+                    }
+                }
+
+                if !folder_shortcuts.is_empty() {
+                    sidebar_heading(ui, strings.library_folders());
+                    egui::ScrollArea::vertical()
+                        .id_salt("library-root-navigation")
+                        .max_height((ui.available_height() - 150.0).max(100.0))
+                        .show(ui, |ui| {
+                            for (folder, item_count) in &folder_shortcuts {
+                                let selected = self.view == LibraryView::AllSeries
+                                    && self.all_series_tab == LibrarySeriesTab::Folder
+                                    && self.folder_path.first() == Some(folder);
+                                if folder_nav_button(ui, folder, *item_count, selected).clicked() {
+                                    self.view = LibraryView::AllSeries;
+                                    self.all_series_tab = LibrarySeriesTab::Folder;
+                                    self.folder_path = vec![folder.clone()];
+                                    self.selected_folder = Some(folder.clone());
+                                    self.query.clear();
+                                }
+                            }
+                        });
+                }
+
                 ui.with_layout(Layout::bottom_up(Align::Center), |ui| {
-                    ui.add_space(16.0);
+                    ui.add_space(12.0);
                     if nav_button(ui, Icon::Settings, strings.settings(), false).clicked() {
                         action = Some(LibraryAction::Settings);
                     }
@@ -665,7 +795,9 @@ impl LibraryScreen {
                 };
                 self.refresh_series_cache(catalog, session.catalog_version);
 
-                let inner_action = if !self.query.trim().is_empty() {
+                let inner_action = if !self.query.trim().is_empty()
+                    && self.view != LibraryView::AllSeries
+                {
                     self.show_search_results(ui, catalog, session, posters, strings)
                 } else {
                     match self.view.clone() {
@@ -676,9 +808,11 @@ impl LibraryScreen {
                         LibraryView::Series(series_id) => self.show_series(
                             ui,
                             &series_id,
+                            &catalog.root_name,
                             &session.progresses,
                             posters,
                             pending_preloads,
+                            bangumi,
                             strings,
                         ),
                     }
@@ -920,57 +1054,353 @@ impl LibraryScreen {
                 if let Some(header_action) = self.page_header(ui, session, strings) {
                     action = Some(header_action);
                 }
-                ui.horizontal(|ui| {
-                    ui.add_space(PAGE_GUTTER);
-                    if ui
-                        .selectable_label(
-                            self.all_series_tab == LibrarySeriesTab::MatchedAnime,
-                            strings.matched_anime(),
-                        )
-                        .clicked()
-                    {
-                        self.all_series_tab = LibrarySeriesTab::MatchedAnime;
+                let folders = session
+                    .catalog
+                    .as_ref()
+                    .map(library_folder_shortcuts)
+                    .unwrap_or_default();
+                self.show_series_filter_toolbar(ui, &folders, strings);
+                ui.add_space(16.0);
+
+                if self.all_series_tab == LibrarySeriesTab::Folder {
+                    if let Some(explorer_action) = self.show_folder_explorer(ui, session, strings) {
+                        action = Some(explorer_action);
                     }
-                    if ui
-                        .selectable_label(
-                            self.all_series_tab == LibrarySeriesTab::Folder,
-                            strings.folders(),
-                        )
-                        .clicked()
-                    {
-                        self.all_series_tab = LibrarySeriesTab::Folder;
+                    ui.add_space(28.0);
+                    return;
+                }
+
+                let source = match self.all_series_tab {
+                    LibrarySeriesTab::Recent | LibrarySeriesTab::RecentlyPlayed => {
+                        &self.cached_series
                     }
-                });
-                ui.add_space(10.0);
-                match self.all_series_tab {
-                    LibrarySeriesTab::MatchedAnime => {
-                        let series = &self.cached_anime_series;
-                        section_heading(
-                            ui,
-                            &format!(
-                                "{}  ·  {} {}",
-                                strings.matched_anime(),
-                                series.len(),
-                                strings.titles()
-                            ),
-                        );
-                        if series.is_empty() {
-                            muted_line(ui, strings.no_series());
-                        } else if let Some(series_id) = series_grid(ui, series, posters, strings) {
-                            self.view = LibraryView::Series(series_id);
+                    LibrarySeriesTab::Season | LibrarySeriesTab::MatchedAnime => {
+                        &self.cached_anime_series
+                    }
+                    LibrarySeriesTab::Folder => unreachable!(),
+                };
+                let mut filtered = filtered_library_series(
+                    source,
+                    &self.query,
+                    self.match_filter,
+                    self.progress_filter,
+                    self.selected_folder.as_deref(),
+                    self.selected_year,
+                    self.series_sort,
+                    &session.progresses,
+                );
+                if self.all_series_tab == LibrarySeriesTab::RecentlyPlayed {
+                    // Only series actually played, most recently played
+                    // first — recency is the whole point of this view.
+                    filtered.retain(|series| {
+                        series_latest_played_at(series, &session.progresses).is_some()
+                    });
+                    filtered.sort_by_key(|series| {
+                        std::cmp::Reverse(series_latest_played_at(series, &session.progresses))
+                    });
+                }
+                let view_label = match self.all_series_tab {
+                    LibrarySeriesTab::Recent => strings.recent_view(),
+                    LibrarySeriesTab::RecentlyPlayed => strings.recently_played(),
+                    LibrarySeriesTab::Season => strings.season_view(),
+                    LibrarySeriesTab::MatchedAnime => strings.matched_anime(),
+                    LibrarySeriesTab::Folder => strings.folders(),
+                };
+                section_heading(
+                    ui,
+                    &format!("{view_label}  ·  {} {}", filtered.len(), strings.titles()),
+                );
+                if filtered.is_empty() {
+                    muted_line(ui, strings.no_filtered_series());
+                    ui.add_space(28.0);
+                    return;
+                }
+
+                let groups = match self.all_series_tab {
+                    _ if !self.group_display => None,
+                    LibrarySeriesTab::Recent => Some(recent_series_groups(&filtered, strings)),
+                    LibrarySeriesTab::RecentlyPlayed => Some(recently_played_groups(
+                        &filtered,
+                        &session.progresses,
+                        strings,
+                    )),
+                    LibrarySeriesTab::Season => Some(season_series_groups(&filtered, strings)),
+                    LibrarySeriesTab::MatchedAnime => None,
+                    LibrarySeriesTab::Folder => unreachable!(),
+                };
+                match groups {
+                    Some(groups) => {
+                        for (heading, series) in groups {
+                            section_subheading(ui, &format!("{heading}  ·  {}", series.len()));
+                            if let Some(series_id) =
+                                series_grid(ui, &series, posters, strings, self.grid_density)
+                            {
+                                self.view = LibraryView::Series(series_id);
+                            }
+                            ui.add_space(14.0);
                         }
                     }
-                    LibrarySeriesTab::Folder => {
-                        if let Some(explorer_action) =
-                            self.show_folder_explorer(ui, session, strings)
+                    None => {
+                        if let Some(series_id) =
+                            series_grid(ui, &filtered, posters, strings, self.grid_density)
                         {
-                            action = Some(explorer_action);
+                            self.view = LibraryView::Series(series_id);
                         }
                     }
                 }
                 ui.add_space(28.0);
             });
         action
+    }
+
+    /// One wrapped row of themed filter chips. View selection lives in
+    /// the sidebar only; this bar is purely about narrowing the current
+    /// view.
+    fn show_series_filter_toolbar(
+        &mut self,
+        ui: &mut egui::Ui,
+        folders: &[(String, usize)],
+        strings: Strings,
+    ) {
+        let folder_before = self.selected_folder.clone();
+        ui.horizontal(|ui| {
+            ui.add_space(PAGE_GUTTER);
+            Frame::NONE
+                .fill(palette::SURFACE_RAISED)
+                .corner_radius(egui::CornerRadius::same(12))
+                .inner_margin(egui::Margin::symmetric(12, 10))
+                .stroke(egui::Stroke::new(1.0, Color32::from_white_alpha(16)))
+                .show(ui, |ui| {
+                    ui.set_width((ui.available_width() - PAGE_GUTTER).max(560.0));
+                    ui.horizontal_wrapped(|ui| {
+                        ui.spacing_mut().item_spacing = vec2(8.0, 8.0);
+                        let browsing_folders = self.all_series_tab == LibrarySeriesTab::Folder;
+
+                        if !browsing_folders {
+                            const MATCH_CHOICES: [LibraryMatchFilter; 3] = [
+                                LibraryMatchFilter::All,
+                                LibraryMatchFilter::Matched,
+                                LibraryMatchFilter::Unmatched,
+                            ];
+                            let match_label = |filter: LibraryMatchFilter| match filter {
+                                LibraryMatchFilter::All => strings.all_matches(),
+                                LibraryMatchFilter::Matched => strings.matched_only(),
+                                LibraryMatchFilter::Unmatched => strings.unmatched_only(),
+                            };
+                            let options: Vec<(String, bool)> = MATCH_CHOICES
+                                .iter()
+                                .map(|choice| {
+                                    (
+                                        match_label(*choice).to_owned(),
+                                        *choice == self.match_filter,
+                                    )
+                                })
+                                .collect();
+                            if let Some(picked) = filter_dropdown(
+                                ui,
+                                "library-match-filter",
+                                "",
+                                match_label(self.match_filter),
+                                &options,
+                                self.match_filter != LibraryMatchFilter::All,
+                            ) {
+                                self.match_filter = MATCH_CHOICES[picked];
+                            }
+
+                            const PROGRESS_CHOICES: [LibraryProgressFilter; 4] = [
+                                LibraryProgressFilter::All,
+                                LibraryProgressFilter::Unwatched,
+                                LibraryProgressFilter::InProgress,
+                                LibraryProgressFilter::Completed,
+                            ];
+                            let progress_label = |filter: LibraryProgressFilter| match filter {
+                                LibraryProgressFilter::All => strings.all_progress(),
+                                LibraryProgressFilter::Unwatched => strings.unwatched(),
+                                LibraryProgressFilter::InProgress => strings.in_progress(),
+                                LibraryProgressFilter::Completed => strings.completed(),
+                            };
+                            let options: Vec<(String, bool)> = PROGRESS_CHOICES
+                                .iter()
+                                .map(|choice| {
+                                    (
+                                        progress_label(*choice).to_owned(),
+                                        *choice == self.progress_filter,
+                                    )
+                                })
+                                .collect();
+                            if let Some(picked) = filter_dropdown(
+                                ui,
+                                "library-progress-filter",
+                                "",
+                                progress_label(self.progress_filter),
+                                &options,
+                                self.progress_filter != LibraryProgressFilter::All,
+                            ) {
+                                self.progress_filter = PROGRESS_CHOICES[picked];
+                            }
+
+                            let mut years: Vec<i32> = self
+                                .cached_anime_series
+                                .iter()
+                                .filter_map(series_release_year)
+                                .collect();
+                            years.sort_unstable_by(|left, right| right.cmp(left));
+                            years.dedup();
+                            if !years.is_empty() || self.selected_year.is_some() {
+                                let mut options = vec![(
+                                    strings.all_years().to_owned(),
+                                    self.selected_year.is_none(),
+                                )];
+                                options.extend(years.iter().map(|year| {
+                                    (year.to_string(), self.selected_year == Some(*year))
+                                }));
+                                let value = self
+                                    .selected_year
+                                    .map(|year| year.to_string())
+                                    .unwrap_or_else(|| strings.all_years().to_owned());
+                                if let Some(picked) = filter_dropdown(
+                                    ui,
+                                    "library-year-filter",
+                                    "",
+                                    &value,
+                                    &options,
+                                    self.selected_year.is_some(),
+                                ) {
+                                    self.selected_year = (picked > 0).then(|| years[picked - 1]);
+                                }
+                            }
+                        }
+
+                        let mut options = vec![(
+                            strings.all_folders().to_owned(),
+                            self.selected_folder.is_none(),
+                        )];
+                        options.extend(folders.iter().map(|(folder, item_count)| {
+                            (
+                                format!("{folder}  \u{b7}  {item_count}"),
+                                self.selected_folder.as_deref() == Some(folder.as_str()),
+                            )
+                        }));
+                        let value = self
+                            .selected_folder
+                            .as_deref()
+                            .unwrap_or(strings.all_folders())
+                            .to_owned();
+                        if let Some(picked) = filter_dropdown(
+                            ui,
+                            "library-folder-filter",
+                            "",
+                            &value,
+                            &options,
+                            self.selected_folder.is_some(),
+                        ) {
+                            self.selected_folder =
+                                (picked > 0).then(|| folders[picked - 1].0.clone());
+                        }
+
+                        if !browsing_folders {
+                            const SORT_CHOICES: [LibrarySeriesSort; 4] = [
+                                LibrarySeriesSort::Title,
+                                LibrarySeriesSort::Newest,
+                                LibrarySeriesSort::ReleaseYear,
+                                LibrarySeriesSort::EpisodeCount,
+                            ];
+                            let sort_label = |sort: LibrarySeriesSort| match sort {
+                                LibrarySeriesSort::Title => strings.sort_title(),
+                                LibrarySeriesSort::Newest => strings.sort_newest(),
+                                LibrarySeriesSort::ReleaseYear => strings.sort_release_year(),
+                                LibrarySeriesSort::EpisodeCount => strings.sort_episode_count(),
+                            };
+                            let options: Vec<(String, bool)> = SORT_CHOICES
+                                .iter()
+                                .map(|choice| {
+                                    (sort_label(*choice).to_owned(), *choice == self.series_sort)
+                                })
+                                .collect();
+                            if let Some(picked) = filter_dropdown(
+                                ui,
+                                "library-sort",
+                                strings.sort_by(),
+                                sort_label(self.series_sort),
+                                &options,
+                                self.series_sort != LibrarySeriesSort::Title,
+                            ) {
+                                self.series_sort = SORT_CHOICES[picked];
+                            }
+
+                            const DENSITY_CHOICES: [LibraryGridDensity; 3] = [
+                                LibraryGridDensity::Compact,
+                                LibraryGridDensity::Comfortable,
+                                LibraryGridDensity::Large,
+                            ];
+                            let density_label = |density: LibraryGridDensity| match density {
+                                LibraryGridDensity::Compact => strings.compact(),
+                                LibraryGridDensity::Comfortable => strings.comfortable(),
+                                LibraryGridDensity::Large => strings.large(),
+                            };
+                            let options: Vec<(String, bool)> = DENSITY_CHOICES
+                                .iter()
+                                .map(|choice| {
+                                    (
+                                        density_label(*choice).to_owned(),
+                                        *choice == self.grid_density,
+                                    )
+                                })
+                                .collect();
+                            if let Some(picked) = filter_dropdown(
+                                ui,
+                                "library-grid-density",
+                                strings.grid_size(),
+                                density_label(self.grid_density),
+                                &options,
+                                self.grid_density != LibraryGridDensity::Comfortable,
+                            ) {
+                                self.grid_density = DENSITY_CHOICES[picked];
+                            }
+                        }
+
+                        if matches!(
+                            self.all_series_tab,
+                            LibrarySeriesTab::Recent
+                                | LibrarySeriesTab::RecentlyPlayed
+                                | LibrarySeriesTab::Season
+                        ) {
+                            filter_toggle_chip(
+                                ui,
+                                strings.group_display(),
+                                &mut self.group_display,
+                            );
+                        }
+
+                        let filters_active = self.match_filter != LibraryMatchFilter::All
+                            || self.progress_filter != LibraryProgressFilter::All
+                            || self.selected_folder.is_some()
+                            || self.selected_year.is_some()
+                            || self.series_sort != LibrarySeriesSort::Title
+                            || self.grid_density != LibraryGridDensity::Comfortable
+                            || !self.group_display
+                            || !self.query.trim().is_empty();
+                        if filters_active
+                            && toolbar_chip_button(ui, strings.clear_filters()).clicked()
+                        {
+                            self.match_filter = LibraryMatchFilter::All;
+                            self.progress_filter = LibraryProgressFilter::All;
+                            self.selected_folder = None;
+                            self.selected_year = None;
+                            self.series_sort = LibrarySeriesSort::Title;
+                            self.grid_density = LibraryGridDensity::Comfortable;
+                            self.group_display = true;
+                            self.query.clear();
+                            self.folder_path.clear();
+                        }
+                    });
+                });
+        });
+        if self.all_series_tab == LibrarySeriesTab::Folder && folder_before != self.selected_folder
+        {
+            self.folder_path = self.selected_folder.clone().into_iter().collect();
+            self.cached_folder_listing_key = None;
+        }
     }
 
     /// File-explorer style browse of the library's on-disk layout, like the
@@ -988,17 +1418,41 @@ impl LibraryScreen {
         };
         let key = (session.catalog_version, self.folder_path.clone());
         if self.cached_folder_listing_key.as_ref() != Some(&key) {
-            self.cached_folder_listing = folder_listing(catalog, &self.folder_path);
+            self.cached_folder_listing = scoped_folder_listing(catalog, &self.folder_path);
             self.cached_folder_listing_key = Some(key);
         }
 
-        let heading = if self.folder_path.is_empty() {
-            catalog.root_name.clone()
-        } else {
-            format!("{}\\{}", catalog.root_name, self.folder_path.join("\\"))
+        let query = self.query.trim().to_lowercase();
+        let visible_folders: Vec<_> = self
+            .cached_folder_listing
+            .folders
+            .iter()
+            .filter(|folder| query.is_empty() || folder.name.to_lowercase().contains(&query))
+            .collect();
+        let visible_files: Vec<_> = self
+            .cached_folder_listing
+            .files
+            .iter()
+            .filter(|item| {
+                query.is_empty()
+                    || item.episode_title.to_lowercase().contains(&query)
+                    || item.relative_path.to_lowercase().contains(&query)
+                    || item.series_title.to_lowercase().contains(&query)
+            })
+            .collect();
+
+        // With several attributed roots the first path component is already
+        // an absolute root path (e.g. `M:\Anime`), so the merged catalog
+        // name would only add noise in front of it.
+        let multi_root = library_root_labels(catalog).len() >= 2;
+        let heading = match (multi_root, self.folder_path.is_empty()) {
+            (_, true) => catalog.root_name.clone(),
+            (true, false) => self.folder_path.join("\\"),
+            (false, false) => {
+                format!("{}\\{}", catalog.root_name, self.folder_path.join("\\"))
+            }
         };
-        let total =
-            self.cached_folder_listing.folders.len() + self.cached_folder_listing.files.len();
+        let total = visible_folders.len() + visible_files.len();
         section_heading(
             ui,
             &format!("{heading}  ·  {total} {}", strings.items_label()),
@@ -1009,12 +1463,12 @@ impl LibraryScreen {
         if !self.folder_path.is_empty() && explorer_folder_row(ui, None, 0, strings).clicked() {
             navigate = Some(None);
         }
-        for folder in &self.cached_folder_listing.folders {
+        for folder in visible_folders {
             if explorer_folder_row(ui, Some(&folder.name), folder.item_count, strings).clicked() {
                 navigate = Some(Some(folder.name.clone()));
             }
         }
-        for item in &self.cached_folder_listing.files {
+        for item in visible_files {
             let row = explorer_file_row(ui, item, strings);
             if row.play_clicked {
                 action = Some(LibraryAction::Play {
@@ -1081,7 +1535,13 @@ impl LibraryScreen {
                     muted_line(ui, strings.no_series());
                 } else {
                     let owned: Vec<Series> = matching_series.into_iter().cloned().collect();
-                    if let Some(series_id) = series_grid(ui, &owned, posters, strings) {
+                    if let Some(series_id) = series_grid(
+                        ui,
+                        &owned,
+                        posters,
+                        strings,
+                        LibraryGridDensity::Comfortable,
+                    ) {
                         self.query.clear();
                         self.view = LibraryView::Series(series_id);
                     }
@@ -1108,13 +1568,16 @@ impl LibraryScreen {
         action
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn show_series(
         &mut self,
         ui: &mut egui::Ui,
         series_id: &str,
+        library_root_name: &str,
         progresses: &[PlaybackProgress],
         posters: &mut PosterCache,
         pending_preloads: &std::collections::HashSet<String>,
+        bangumi: &std::collections::HashMap<u64, BangumiDetailState>,
         strings: Strings,
     ) -> Option<LibraryAction> {
         let Some(series) = self.find_series(series_id).cloned() else {
@@ -1144,6 +1607,43 @@ impl LibraryScreen {
             }
             map
         };
+
+        let items: Vec<&MediaItem> = series.items().collect();
+        let total_size = items.iter().map(|item| item.size_bytes.max(0)).sum::<i64>();
+        let subtitle_count = items.iter().map(|item| item.subtitles.len()).sum::<usize>();
+        let release_year = items
+            .iter()
+            .find_map(|item| item.anime_metadata.as_ref()?.start_year);
+        let watched_count = items
+            .iter()
+            .filter(|item| {
+                latest
+                    .get(item.id.as_str())
+                    .is_some_and(|progress| progress_is_completed(progress))
+            })
+            .count();
+        let metadata = items
+            .iter()
+            .find_map(|item| item.anime_metadata.as_ref())
+            .cloned();
+        let dandanplay_anime_id = metadata.as_ref().and_then(|metadata| {
+            (metadata.anime_id.provider == "DANDANPLAY")
+                .then(|| u64::try_from(metadata.anime_id.value).ok())
+                .flatten()
+        });
+        let detail_state = dandanplay_anime_id.and_then(|anime_id| bangumi.get(&anime_id));
+        if let Some(anime_id) = dandanplay_anime_id
+            && detail_state.is_none()
+        {
+            // Kick off the profile fetch the first time this page renders;
+            // the app marks it Loading so this fires only once.
+            action = Some(LibraryAction::FetchBangumiDetail { anime_id });
+        }
+        let library_location = items
+            .iter()
+            .find_map(|item| item.root_label.as_deref())
+            .unwrap_or(library_root_name)
+            .to_owned();
 
         egui::ScrollArea::vertical()
             .id_salt("library_series")
@@ -1180,24 +1680,131 @@ impl LibraryScreen {
                 ui.add_space(12.0);
                 ui.horizontal(|ui| {
                     ui.add_space(PAGE_GUTTER);
-                    let poster_item = series.items().next().cloned();
-                    if let Some(item) = poster_item {
-                        poster_thumbnail(ui, &item, posters, vec2(96.0, 144.0));
-                    }
-                    ui.vertical(|ui| {
-                        ui.label(
-                            RichText::new(&series.title)
-                                .font(FontId::proportional(22.0))
-                                .strong()
-                                .color(palette::TEXT_PRIMARY),
-                        );
-                        muted_line(
-                            ui,
-                            &format!("{} {}", series.episode_count(), strings.episodes()),
-                        );
-                    });
+                    Frame::NONE
+                        .fill(palette::SURFACE_RAISED)
+                        .corner_radius(egui::CornerRadius::same(16))
+                        .inner_margin(egui::Margin::symmetric(20, 20))
+                        .stroke(egui::Stroke::new(1.0, Color32::from_white_alpha(18)))
+                        .show(ui, |ui| {
+                            ui.set_width((ui.available_width() - PAGE_GUTTER).max(420.0));
+                            ui.horizontal(|ui| {
+                                if let Some(item) = items.first() {
+                                    poster_thumbnail(ui, item, posters, vec2(132.0, 198.0));
+                                }
+                                ui.add_space(16.0);
+                                ui.vertical(|ui| {
+                                    ui.label(
+                                        RichText::new(&series.title)
+                                            .font(typography::hero())
+                                            .strong()
+                                            .color(palette::TEXT_PRIMARY),
+                                    );
+                                    if let Some(metadata) = &metadata {
+                                        // Alternate titles, like the official
+                                        // detail page's secondary title line.
+                                        let mut titles: Vec<&str> = Vec::new();
+                                        for candidate in [
+                                            Some(metadata.display_title.as_str()),
+                                            metadata.japanese_title.as_deref(),
+                                            metadata.english_title.as_deref(),
+                                            metadata.chinese_title.as_deref(),
+                                        ]
+                                        .into_iter()
+                                        .flatten()
+                                        {
+                                            if candidate != series.title
+                                                && !titles.contains(&candidate)
+                                            {
+                                                titles.push(candidate);
+                                            }
+                                        }
+                                        if !titles.is_empty() {
+                                            ui.label(
+                                                RichText::new(titles.join("  ·  "))
+                                                    .font(typography::body())
+                                                    .color(palette::TEXT_MUTED),
+                                            );
+                                        }
+                                    }
+                                    if let Some(BangumiDetailState::Ready(detail)) = detail_state {
+                                        ui.add_space(6.0);
+                                        ui.horizontal_wrapped(|ui| {
+                                            if let Some(rating) = detail.rating {
+                                                rating_chip(ui, rating);
+                                            }
+                                            if let Some(kind) = detail.type_description.as_deref() {
+                                                info_chip(ui, kind, palette::TEXT_SECONDARY);
+                                            }
+                                            if let Some(is_on_air) = detail.is_on_air {
+                                                info_chip(
+                                                    ui,
+                                                    if is_on_air {
+                                                        strings.on_air()
+                                                    } else {
+                                                        strings.finished_airing()
+                                                    },
+                                                    if is_on_air {
+                                                        palette::ACCENT_OUTLINE
+                                                    } else {
+                                                        palette::TEXT_MUTED
+                                                    },
+                                                );
+                                            }
+                                        });
+                                    }
+                                    ui.add_space(10.0);
+                                    ui.label(
+                                        RichText::new(strings.library_overview())
+                                            .font(typography::heading())
+                                            .strong()
+                                            .color(palette::TEXT_SECONDARY),
+                                    );
+                                    ui.add_space(6.0);
+                                    ui.horizontal_wrapped(|ui| {
+                                        series_fact(
+                                            ui,
+                                            strings.episodes(),
+                                            &series.episode_count().to_string(),
+                                        );
+                                        series_fact(
+                                            ui,
+                                            strings.watched(),
+                                            &format!("{watched_count}/{}", series.episode_count()),
+                                        );
+                                        if let Some(year) = release_year {
+                                            series_fact(
+                                                ui,
+                                                strings.season_view(),
+                                                &year.to_string(),
+                                            );
+                                        }
+                                        series_fact(
+                                            ui,
+                                            strings.total_size(),
+                                            &format_size(total_size),
+                                        );
+                                        series_fact(
+                                            ui,
+                                            strings.subtitles(),
+                                            &subtitle_count.to_string(),
+                                        );
+                                    });
+                                    ui.add_space(12.0);
+                                    ui.label(
+                                        RichText::new(format!(
+                                            "{}  ·  {}",
+                                            strings.folders(),
+                                            library_location
+                                        ))
+                                        .font(typography::caption())
+                                        .color(palette::TEXT_MUTED),
+                                    );
+                                });
+                            });
+                        });
                 });
-                ui.add_space(12.0);
+                self.show_series_detail_sections(ui, detail_state, metadata.as_ref(), strings);
+                ui.add_space(20.0);
                 for season in &series.seasons {
                     if series.seasons.len() > 1 {
                         section_heading(ui, &season.label);
@@ -1221,10 +1828,427 @@ impl LibraryScreen {
             });
         action
     }
+
+    /// Synopsis, tags, and online-database links under the series overview
+    /// card, mirroring the official client's 簡介/標籤/線上資料庫 sections.
+    fn show_series_detail_sections(
+        &mut self,
+        ui: &mut egui::Ui,
+        detail_state: Option<&BangumiDetailState>,
+        metadata: Option<&crate::library::AnimeMetadata>,
+        strings: Strings,
+    ) {
+        match detail_state {
+            Some(BangumiDetailState::Loading) => {
+                ui.add_space(10.0);
+                ui.horizontal(|ui| {
+                    ui.add_space(PAGE_GUTTER);
+                    ui.spinner();
+                    ui.label(
+                        RichText::new(strings.loading_details())
+                            .font(typography::caption())
+                            .color(palette::TEXT_MUTED),
+                    );
+                });
+            }
+            Some(BangumiDetailState::Failed(_)) => {
+                // The library page stays useful without the online profile;
+                // a quiet note beats an error banner here.
+                ui.add_space(10.0);
+                muted_line(ui, strings.details_unavailable());
+            }
+            Some(BangumiDetailState::Ready(detail)) => {
+                if let Some(summary) = detail.summary.as_deref() {
+                    ui.add_space(14.0);
+                    ui.horizontal(|ui| {
+                        ui.add_space(PAGE_GUTTER);
+                        Frame::NONE
+                            .fill(palette::SURFACE)
+                            .corner_radius(egui::CornerRadius::same(12))
+                            .inner_margin(egui::Margin::symmetric(16, 14))
+                            .show(ui, |ui| {
+                                ui.set_width((ui.available_width() - PAGE_GUTTER).max(420.0));
+                                ui.label(
+                                    RichText::new(strings.synopsis())
+                                        .font(typography::heading())
+                                        .strong()
+                                        .color(palette::TEXT_SECONDARY),
+                                );
+                                ui.add_space(6.0);
+                                ui.label(
+                                    RichText::new(summary)
+                                        .font(typography::body())
+                                        .color(palette::TEXT_PRIMARY),
+                                );
+                            });
+                    });
+                }
+                if !detail.tags.is_empty() {
+                    ui.add_space(12.0);
+                    ui.horizontal(|ui| {
+                        ui.add_space(PAGE_GUTTER);
+                        ui.vertical(|ui| {
+                            ui.label(
+                                RichText::new(strings.tags_label())
+                                    .font(typography::heading())
+                                    .strong()
+                                    .color(palette::TEXT_SECONDARY),
+                            );
+                            ui.add_space(6.0);
+                            ui.horizontal_wrapped(|ui| {
+                                ui.set_width(ui.available_width() - PAGE_GUTTER);
+                                for tag in &detail.tags {
+                                    info_chip(ui, tag, palette::TEXT_SECONDARY);
+                                }
+                            });
+                        });
+                    });
+                }
+                self.show_database_links(ui, Some(detail), metadata, strings);
+            }
+            None => {
+                self.show_database_links(ui, None, metadata, strings);
+            }
+        }
+    }
+
+    /// Buttons that open the anime in the public databases: the bangumi
+    /// profile's own list when loaded, otherwise the identities the server
+    /// already recognized.
+    fn show_database_links(
+        &mut self,
+        ui: &mut egui::Ui,
+        detail: Option<&BangumiDetail>,
+        metadata: Option<&crate::library::AnimeMetadata>,
+        strings: Strings,
+    ) {
+        let mut links: Vec<(String, String)> = Vec::new();
+        if let Some(detail) = detail {
+            for database in &detail.online_databases {
+                links.push((database.name.clone(), database.url.clone()));
+            }
+        }
+        if let Some(metadata) = metadata {
+            let mut push_link = |name: &str, url: Option<String>| {
+                if let Some(url) = url
+                    && !links.iter().any(|(_, existing)| existing == &url)
+                {
+                    links.push((name.to_owned(), url));
+                }
+            };
+            for link in &metadata.external_links {
+                push_link(link.anime_id.provider_name(), link.web_url());
+            }
+            push_link(
+                metadata.anime_id.provider_name(),
+                metadata.anime_id.web_url(),
+            );
+        }
+        if links.is_empty() {
+            return;
+        }
+        ui.add_space(12.0);
+        ui.horizontal(|ui| {
+            ui.add_space(PAGE_GUTTER);
+            ui.vertical(|ui| {
+                ui.label(
+                    RichText::new(strings.online_databases())
+                        .font(typography::heading())
+                        .strong()
+                        .color(palette::TEXT_SECONDARY),
+                );
+                ui.add_space(6.0);
+                ui.horizontal_wrapped(|ui| {
+                    ui.set_width(ui.available_width() - PAGE_GUTTER);
+                    for (name, url) in links {
+                        if ui
+                            .add(egui::Button::new(
+                                RichText::new(name).font(typography::caption()),
+                            ))
+                            .clicked()
+                        {
+                            ui.ctx().open_url(egui::OpenUrl::new_tab(url));
+                        }
+                    }
+                });
+            });
+        });
+    }
+}
+
+fn sidebar_heading(ui: &mut egui::Ui, label: &str) {
+    ui.add_space(16.0);
+    ui.horizontal(|ui| {
+        ui.add_space(20.0);
+        ui.label(
+            RichText::new(label.to_uppercase())
+                .font(typography::small())
+                .strong()
+                .color(palette::TEXT_MUTED),
+        );
+    });
+    ui.add_space(6.0);
+}
+
+/// Themed dropdown chip for the filter toolbar: a rounded pill showing an
+/// optional muted category label plus the active value, opening a
+/// card-styled option menu. Returns the index of a newly picked option.
+/// Replaces the stock egui `ComboBox`, whose plain rectangle reads as a
+/// debug control inside the library's card system.
+fn filter_dropdown(
+    ui: &mut egui::Ui,
+    id_salt: &str,
+    label: &str,
+    value: &str,
+    options: &[(String, bool)],
+    active: bool,
+) -> Option<usize> {
+    const HEIGHT: f32 = 32.0;
+    const PAD: f32 = 12.0;
+    const GAP: f32 = 7.0;
+    const CARET: f32 = 16.0;
+    let label_galley = (!label.is_empty()).then(|| {
+        ui.painter()
+            .layout_no_wrap(label.to_owned(), typography::small(), palette::TEXT_MUTED)
+    });
+    let value_color = if active {
+        palette::ACCENT_OUTLINE
+    } else {
+        palette::TEXT_PRIMARY
+    };
+    let value_galley =
+        ui.painter()
+            .layout_no_wrap(value.to_owned(), typography::caption(), value_color);
+    let label_width = label_galley
+        .as_ref()
+        .map(|galley| galley.size().x + GAP)
+        .unwrap_or(0.0);
+    let width = (PAD + label_width + value_galley.size().x + GAP + CARET + PAD).min(320.0);
+    let (rect, response) = ui.allocate_exact_size(vec2(width, HEIGHT), Sense::click());
+    if ui.is_rect_visible(rect) {
+        let fill = if response.hovered() {
+            palette::WIDGET_HOVER
+        } else {
+            palette::SURFACE_FAINT
+        };
+        ui.painter().rect_filled(rect, 9.0, fill);
+        if active {
+            ui.painter().rect_stroke(
+                rect,
+                9.0,
+                egui::Stroke::new(1.0, palette::ACCENT),
+                egui::StrokeKind::Inside,
+            );
+        }
+        let mut cursor = rect.left() + PAD;
+        if let Some(galley) = label_galley {
+            let position = pos2(cursor, rect.center().y - galley.size().y / 2.0);
+            cursor += galley.size().x + GAP;
+            ui.painter().galley(position, galley, palette::TEXT_MUTED);
+        }
+        // Long values (folder paths) clip in front of the caret.
+        let value_clip = ui.painter().with_clip_rect(Rect::from_min_max(
+            rect.min,
+            pos2(rect.right() - PAD - CARET, rect.max.y),
+        ));
+        value_clip.galley(
+            pos2(cursor, rect.center().y - value_galley.size().y / 2.0),
+            value_galley,
+            value_color,
+        );
+        let caret_center = pos2(
+            rect.right() - PAD - CARET / 2.0 + 3.0,
+            rect.center().y + 1.0,
+        );
+        let caret_stroke = egui::Stroke::new(1.6, palette::TEXT_MUTED);
+        ui.painter().line_segment(
+            [
+                caret_center + vec2(-4.0, -2.0),
+                caret_center + vec2(0.0, 2.5),
+            ],
+            caret_stroke,
+        );
+        ui.painter().line_segment(
+            [
+                caret_center + vec2(4.0, -2.0),
+                caret_center + vec2(0.0, 2.5),
+            ],
+            caret_stroke,
+        );
+    }
+    if response.hovered() {
+        ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
+    }
+
+    let mut picked = None;
+    egui::Popup::menu(&response)
+        .id(egui::Id::new(("library-filter-dropdown", id_salt)))
+        .gap(6.0)
+        .width(rect.width().max(200.0))
+        // Explicit card frame: the option list must stay on the dark
+        // raised surface regardless of what egui derives for menus.
+        .frame(
+            Frame::NONE
+                .fill(palette::SURFACE_RAISED)
+                .corner_radius(egui::CornerRadius::same(12))
+                .inner_margin(egui::Margin::symmetric(8, 8))
+                .stroke(egui::Stroke::new(1.0, Color32::from_white_alpha(24)))
+                .shadow(egui::Shadow {
+                    offset: [0, 6],
+                    blur: 18,
+                    spread: 0,
+                    color: Color32::from_black_alpha(140),
+                }),
+        )
+        .show(|ui| {
+            ui.spacing_mut().item_spacing.y = 2.0;
+            for (index, (text, selected)) in options.iter().enumerate() {
+                let (row, row_response) = ui.allocate_exact_size(
+                    vec2(ui.available_width().max(176.0), 30.0),
+                    Sense::click(),
+                );
+                let row_fill = if row_response.hovered() {
+                    palette::WIDGET_HOVER
+                } else if *selected {
+                    palette::SURFACE_FAINT
+                } else {
+                    Color32::TRANSPARENT
+                };
+                ui.painter().rect_filled(row, 7.0, row_fill);
+                if *selected {
+                    paint_icon(
+                        ui.painter(),
+                        Rect::from_center_size(
+                            pos2(row.left() + 15.0, row.center().y),
+                            vec2(12.0, 12.0),
+                        ),
+                        Icon::Check,
+                        palette::ACCENT_OUTLINE,
+                        1.8,
+                    );
+                }
+                ui.painter().text(
+                    pos2(row.left() + 30.0, row.center().y),
+                    Align2::LEFT_CENTER,
+                    text,
+                    typography::caption(),
+                    if *selected {
+                        palette::TEXT_PRIMARY
+                    } else {
+                        palette::TEXT_SECONDARY
+                    },
+                );
+                if row_response.hovered() {
+                    ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
+                }
+                if row_response.clicked() {
+                    picked = Some(index);
+                }
+            }
+        });
+    picked
+}
+
+/// On/off pill for the filter toolbar (the grouped-display toggle).
+fn filter_toggle_chip(ui: &mut egui::Ui, label: &str, on: &mut bool) -> bool {
+    const HEIGHT: f32 = 32.0;
+    let galley = ui.painter().layout_no_wrap(
+        label.to_owned(),
+        typography::caption(),
+        palette::TEXT_PRIMARY,
+    );
+    let width = galley.size().x + 46.0;
+    let (rect, response) = ui.allocate_exact_size(vec2(width, HEIGHT), Sense::click());
+    if response.clicked() {
+        *on = !*on;
+    }
+    if ui.is_rect_visible(rect) {
+        let fill = if *on {
+            palette::WIDGET_ACTIVE
+        } else if response.hovered() {
+            palette::WIDGET_HOVER
+        } else {
+            palette::SURFACE_FAINT
+        };
+        ui.painter().rect_filled(rect, 9.0, fill);
+        if *on {
+            ui.painter().rect_stroke(
+                rect,
+                9.0,
+                egui::Stroke::new(1.0, palette::ACCENT),
+                egui::StrokeKind::Inside,
+            );
+        }
+        paint_icon(
+            ui.painter(),
+            Rect::from_center_size(pos2(rect.left() + 16.0, rect.center().y), vec2(12.0, 12.0)),
+            Icon::Check,
+            if *on {
+                palette::ACCENT_OUTLINE
+            } else {
+                palette::TEXT_MUTED
+            },
+            1.8,
+        );
+        ui.painter().galley(
+            pos2(rect.left() + 30.0, rect.center().y - galley.size().y / 2.0),
+            galley,
+            if *on {
+                palette::TEXT_PRIMARY
+            } else {
+                palette::TEXT_MUTED
+            },
+        );
+    }
+    if response.hovered() {
+        ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
+    }
+    response.clicked()
+}
+
+/// Plain action chip matching the dropdown chips (e.g. "Clear filters").
+fn toolbar_chip_button(ui: &mut egui::Ui, label: &str) -> egui::Response {
+    const HEIGHT: f32 = 32.0;
+    let galley = ui.painter().layout_no_wrap(
+        label.to_owned(),
+        typography::caption(),
+        palette::TEXT_SECONDARY,
+    );
+    let width = galley.size().x + 28.0;
+    let (rect, response) = ui.allocate_exact_size(vec2(width, HEIGHT), Sense::click());
+    if ui.is_rect_visible(rect) {
+        let fill = if response.hovered() {
+            palette::WIDGET_HOVER
+        } else {
+            Color32::TRANSPARENT
+        };
+        ui.painter().rect_filled(rect, 9.0, fill);
+        ui.painter().rect_stroke(
+            rect,
+            9.0,
+            egui::Stroke::new(1.0, Color32::from_white_alpha(28)),
+            egui::StrokeKind::Inside,
+        );
+        ui.painter().galley(
+            pos2(rect.left() + 14.0, rect.center().y - galley.size().y / 2.0),
+            galley,
+            palette::TEXT_SECONDARY,
+        );
+    }
+    if response.hovered() {
+        ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
+    }
+    response
 }
 
 fn nav_button(ui: &mut egui::Ui, icon: Icon, label: &str, selected: bool) -> egui::Response {
-    let (rect, response) = ui.allocate_exact_size(vec2(68.0, 64.0), Sense::click());
+    let width = (ui.available_width() - 20.0).max(120.0);
+    let (full_rect, response) =
+        ui.allocate_exact_size(vec2(ui.available_width().max(width), 42.0), Sense::click());
+    let rect = Rect::from_min_size(
+        pos2(full_rect.left() + 10.0, full_rect.top()),
+        vec2(width, 42.0),
+    );
     let fill = if selected {
         Color32::from_rgb(22, 42, 67)
     } else if response.hovered() {
@@ -1232,13 +2256,10 @@ fn nav_button(ui: &mut egui::Ui, icon: Icon, label: &str, selected: bool) -> egu
     } else {
         Color32::TRANSPARENT
     };
-    ui.painter().rect_filled(rect, 10.0, fill);
+    ui.painter().rect_filled(rect, 9.0, fill);
     if selected {
         ui.painter().rect_filled(
-            Rect::from_min_size(
-                rect.left_top() + vec2(0.0, 8.0),
-                vec2(3.0, rect.height() - 16.0),
-            ),
+            Rect::from_min_size(rect.left_top() + vec2(0.0, 7.0), vec2(3.0, 28.0)),
             1.5,
             palette::ACCENT_BRIGHT,
         );
@@ -1248,14 +2269,85 @@ fn nav_button(ui: &mut egui::Ui, icon: Icon, label: &str, selected: bool) -> egu
     } else {
         palette::TEXT_MUTED
     };
-    let icon_rect = Rect::from_center_size(rect.center_top() + vec2(0.0, 22.0), vec2(24.0, 24.0));
-    paint_icon(ui.painter(), icon_rect, icon, color, 1.7);
-    ui.painter().text(
-        rect.center_bottom() - vec2(0.0, 12.0),
-        Align2::CENTER_BOTTOM,
-        label,
-        typography::small(),
+    paint_icon(
+        ui.painter(),
+        Rect::from_center_size(pos2(rect.left() + 24.0, rect.center().y), vec2(20.0, 20.0)),
+        icon,
         color,
+        1.6,
+    );
+    ui.painter().text(
+        pos2(rect.left() + 46.0, rect.center().y),
+        Align2::LEFT_CENTER,
+        label,
+        typography::body(),
+        if selected {
+            palette::TEXT_PRIMARY
+        } else {
+            palette::TEXT_SECONDARY
+        },
+    );
+    if response.hovered() {
+        ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
+    }
+    response
+}
+
+fn folder_nav_button(
+    ui: &mut egui::Ui,
+    folder: &str,
+    item_count: usize,
+    selected: bool,
+) -> egui::Response {
+    let width = (ui.available_width() - 20.0).max(120.0);
+    let (full_rect, response) =
+        ui.allocate_exact_size(vec2(ui.available_width().max(width), 36.0), Sense::click());
+    let rect = Rect::from_min_size(
+        pos2(full_rect.left() + 10.0, full_rect.top()),
+        vec2(width, 36.0),
+    );
+    let fill = if selected {
+        palette::WIDGET_ACTIVE
+    } else if response.hovered() {
+        palette::SURFACE_RAISED
+    } else {
+        Color32::TRANSPARENT
+    };
+    ui.painter().rect_filled(rect, 8.0, fill);
+    paint_icon(
+        ui.painter(),
+        Rect::from_center_size(pos2(rect.left() + 23.0, rect.center().y), vec2(18.0, 18.0)),
+        Icon::Folder,
+        if selected {
+            palette::ACCENT_OUTLINE
+        } else {
+            palette::TEXT_MUTED
+        },
+        1.4,
+    );
+    let count_text = item_count.to_string();
+    let count_width = ui
+        .painter()
+        .layout_no_wrap(count_text.clone(), typography::small(), palette::TEXT_MUTED)
+        .size()
+        .x;
+    ui.painter().text(
+        pos2(rect.right() - 10.0, rect.center().y),
+        Align2::RIGHT_CENTER,
+        count_text,
+        typography::small(),
+        palette::TEXT_MUTED,
+    );
+    let label_clip = Rect::from_min_max(
+        pos2(rect.left() + 44.0, rect.top()),
+        pos2(rect.right() - count_width - 18.0, rect.bottom()),
+    );
+    ui.painter().with_clip_rect(label_clip).text(
+        pos2(rect.left() + 44.0, rect.center().y),
+        Align2::LEFT_CENTER,
+        folder,
+        typography::caption(),
+        palette::TEXT_SECONDARY,
     );
     if response.hovered() {
         ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
@@ -1493,6 +2585,25 @@ fn section_heading(ui: &mut egui::Ui, text: &str) {
     ui.add_space(8.0);
 }
 
+fn section_subheading(ui: &mut egui::Ui, text: &str) {
+    ui.horizontal(|ui| {
+        ui.add_space(PAGE_GUTTER);
+        Frame::NONE
+            .fill(palette::SURFACE)
+            .corner_radius(egui::CornerRadius::same(8))
+            .inner_margin(egui::Margin::symmetric(11, 7))
+            .show(ui, |ui| {
+                ui.label(
+                    RichText::new(text)
+                        .font(typography::heading())
+                        .strong()
+                        .color(palette::TEXT_SECONDARY),
+                );
+            });
+    });
+    ui.add_space(10.0);
+}
+
 fn muted_line(ui: &mut egui::Ui, text: &str) {
     ui.horizontal(|ui| {
         ui.add_space(PAGE_GUTTER);
@@ -1502,6 +2613,62 @@ fn muted_line(ui: &mut egui::Ui, text: &str) {
                 .color(palette::TEXT_MUTED),
         );
     });
+}
+
+fn series_fact(ui: &mut egui::Ui, label: &str, value: &str) {
+    Frame::NONE
+        .fill(palette::SURFACE_FAINT)
+        .corner_radius(egui::CornerRadius::same(8))
+        .inner_margin(egui::Margin::symmetric(10, 7))
+        .show(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.label(
+                    RichText::new(label)
+                        .font(typography::small())
+                        .color(palette::TEXT_MUTED),
+                );
+                ui.label(
+                    RichText::new(value)
+                        .font(typography::caption())
+                        .strong()
+                        .color(palette::TEXT_PRIMARY),
+                );
+            });
+        });
+}
+
+/// Star + score chip like the official detail page's 綜合評分.
+fn rating_chip(ui: &mut egui::Ui, rating: f64) {
+    Frame::NONE
+        .fill(palette::SURFACE_FAINT)
+        .corner_radius(egui::CornerRadius::same(8))
+        .inner_margin(egui::Margin::symmetric(10, 6))
+        .show(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.label(
+                    RichText::new("★")
+                        .font(typography::caption())
+                        .color(Color32::from_rgb(255, 196, 87)),
+                );
+                ui.label(
+                    RichText::new(format!("{rating:.1}"))
+                        .font(typography::caption())
+                        .strong()
+                        .color(palette::TEXT_PRIMARY),
+                );
+            });
+        });
+}
+
+/// Small rounded text chip (anime type, airing state, tag).
+fn info_chip(ui: &mut egui::Ui, text: &str, color: Color32) {
+    Frame::NONE
+        .fill(palette::SURFACE_FAINT)
+        .corner_radius(egui::CornerRadius::same(8))
+        .inner_margin(egui::Margin::symmetric(10, 6))
+        .show(ui, |ui| {
+            ui.label(RichText::new(text).font(typography::caption()).color(color));
+        });
 }
 
 fn continue_watching_rail(
@@ -1592,19 +2759,290 @@ fn series_rail(
     clicked
 }
 
+fn series_matches_query(series: &Series, query: &str) -> bool {
+    let query = query.trim().to_lowercase();
+    query.is_empty()
+        || series.title.to_lowercase().contains(&query)
+        || series.items().any(|item| {
+            item.episode_title.to_lowercase().contains(&query)
+                || item.relative_path.to_lowercase().contains(&query)
+                || item
+                    .anime_metadata
+                    .as_ref()
+                    .is_some_and(|metadata| metadata.display_title.to_lowercase().contains(&query))
+        })
+}
+
+fn series_is_matched(series: &Series) -> bool {
+    series.items().any(|item| item.anime_metadata.is_some())
+}
+
+/// Whether one episode's saved progress means "watched to the end",
+/// matching the resume policy's remaining-time threshold.
+fn progress_is_completed(progress: &PlaybackProgress) -> bool {
+    progress.duration_ms.is_some_and(|duration| {
+        duration > 0 && duration - progress.position_ms < MINIMUM_REMAINING_MS
+    })
+}
+
+fn series_progress_state(
+    series: &Series,
+    progresses: &[PlaybackProgress],
+) -> LibraryProgressFilter {
+    let latest = progresses
+        .iter()
+        .filter(|progress| series.items().any(|item| item.id == progress.media_id))
+        .fold(
+            std::collections::HashMap::<&str, &PlaybackProgress>::new(),
+            |mut by_media_id, progress| {
+                match by_media_id.get(progress.media_id.as_str()) {
+                    Some(existing)
+                        if existing.updated_at_epoch_ms >= progress.updated_at_epoch_ms => {}
+                    _ => {
+                        by_media_id.insert(progress.media_id.as_str(), progress);
+                    }
+                }
+                by_media_id
+            },
+        );
+    let mut any_started = false;
+    let mut all_completed = series.episode_count() > 0;
+    for item in series.items() {
+        let progress = latest.get(item.id.as_str()).copied();
+        let completed = progress.is_some_and(progress_is_completed);
+        // A fully watched episode also means the series was started, so a
+        // series with some episodes done and the rest untouched lands in
+        // "in progress", not "unwatched".
+        any_started |= completed
+            || progress.is_some_and(|progress| progress.position_ms >= MINIMUM_RESUME_POSITION_MS);
+        all_completed &= completed;
+    }
+    if all_completed {
+        LibraryProgressFilter::Completed
+    } else if any_started {
+        LibraryProgressFilter::InProgress
+    } else {
+        LibraryProgressFilter::Unwatched
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn filtered_library_series(
+    series: &[Series],
+    query: &str,
+    match_filter: LibraryMatchFilter,
+    progress_filter: LibraryProgressFilter,
+    selected_folder: Option<&str>,
+    selected_year: Option<i32>,
+    sort: LibrarySeriesSort,
+    progresses: &[PlaybackProgress],
+) -> Vec<Series> {
+    let mut filtered: Vec<Series> = series
+        .iter()
+        .filter(|series| series_matches_query(series, query))
+        .filter(|series| match match_filter {
+            LibraryMatchFilter::All => true,
+            LibraryMatchFilter::Matched => series_is_matched(series),
+            LibraryMatchFilter::Unmatched => !series_is_matched(series),
+        })
+        .filter(|series| {
+            selected_folder.is_none_or(|folder| {
+                series
+                    .items()
+                    .any(|item| item_in_folder_shortcut(item, folder))
+            })
+        })
+        .filter(|series| selected_year.is_none_or(|year| series_release_year(series) == Some(year)))
+        .filter(|series| {
+            progress_filter == LibraryProgressFilter::All
+                || series_progress_state(series, progresses) == progress_filter
+        })
+        .cloned()
+        .collect();
+
+    filtered.sort_by(|left, right| match sort {
+        LibrarySeriesSort::Title => left.title.to_lowercase().cmp(&right.title.to_lowercase()),
+        LibrarySeriesSort::Newest => series_latest_indexed_at(right)
+            .cmp(&series_latest_indexed_at(left))
+            .then_with(|| left.title.to_lowercase().cmp(&right.title.to_lowercase())),
+        LibrarySeriesSort::ReleaseYear => series_release_year(right)
+            .cmp(&series_release_year(left))
+            .then_with(|| left.title.to_lowercase().cmp(&right.title.to_lowercase())),
+        LibrarySeriesSort::EpisodeCount => right
+            .episode_count()
+            .cmp(&left.episode_count())
+            .then_with(|| left.title.to_lowercase().cmp(&right.title.to_lowercase())),
+    });
+    filtered
+}
+
+fn series_latest_indexed_at(series: &Series) -> i64 {
+    series
+        .items()
+        .map(|item| item.indexed_at_epoch_ms)
+        .max()
+        .unwrap_or_default()
+}
+
+fn series_release_year(series: &Series) -> Option<i32> {
+    series
+        .items()
+        .filter_map(|item| item.anime_metadata.as_ref()?.start_year)
+        .next()
+}
+
+fn recent_series_groups(series: &[Series], strings: Strings) -> Vec<(String, Vec<Series>)> {
+    let mut groups = BTreeMap::<Option<(i32, u32)>, Vec<Series>>::new();
+    for entry in series {
+        let key = year_month_from_epoch_ms(series_latest_indexed_at(entry));
+        groups.entry(key).or_default().push(entry.clone());
+    }
+    groups
+        .into_iter()
+        .rev()
+        .map(|(key, entries)| {
+            let label = key
+                .map(|(year, month)| recent_month_label(year, month, strings))
+                .unwrap_or_else(|| strings.unknown_date().to_owned());
+            (label, entries)
+        })
+        .collect()
+}
+
+/// When any episode of the series was last played, from the newest
+/// progress row across its items.
+fn series_latest_played_at(series: &Series, progresses: &[PlaybackProgress]) -> Option<i64> {
+    progresses
+        .iter()
+        .filter(|progress| series.items().any(|item| item.id == progress.media_id))
+        .map(|progress| progress.updated_at_epoch_ms)
+        .max()
+}
+
+/// Groups an already recency-sorted list by the month each series was
+/// last played, preserving the incoming order inside every group.
+fn recently_played_groups(
+    series: &[Series],
+    progresses: &[PlaybackProgress],
+    strings: Strings,
+) -> Vec<(String, Vec<Series>)> {
+    type MonthKey = Option<(i32, u32)>;
+    let mut groups: Vec<(MonthKey, Vec<Series>)> = Vec::new();
+    for entry in series {
+        let key = series_latest_played_at(entry, progresses).and_then(year_month_from_epoch_ms);
+        match groups.last_mut() {
+            Some((last_key, entries)) if *last_key == key => entries.push(entry.clone()),
+            _ => groups.push((key, vec![entry.clone()])),
+        }
+    }
+    groups
+        .into_iter()
+        .map(|(key, entries)| {
+            let label = key
+                .map(|(year, month)| recent_month_label(year, month, strings))
+                .unwrap_or_else(|| strings.unknown_date().to_owned());
+            (label, entries)
+        })
+        .collect()
+}
+
+fn season_series_groups(series: &[Series], strings: Strings) -> Vec<(String, Vec<Series>)> {
+    let mut groups = BTreeMap::<Option<i32>, Vec<Series>>::new();
+    for entry in series {
+        groups
+            .entry(series_release_year(entry))
+            .or_default()
+            .push(entry.clone());
+    }
+    groups
+        .into_iter()
+        .rev()
+        .map(|(year, entries)| {
+            let label = year
+                .map(|year| year.to_string())
+                .unwrap_or_else(|| strings.unknown_season().to_owned());
+            (label, entries)
+        })
+        .collect()
+}
+
+fn recent_month_label(year: i32, month: u32, strings: Strings) -> String {
+    match strings.language() {
+        Language::English => {
+            const MONTHS: [&str; 12] = [
+                "January",
+                "February",
+                "March",
+                "April",
+                "May",
+                "June",
+                "July",
+                "August",
+                "September",
+                "October",
+                "November",
+                "December",
+            ];
+            format!(
+                "{} {year}",
+                MONTHS[(month.saturating_sub(1) as usize).min(11)]
+            )
+        }
+        Language::TraditionalChinese => format!("{year}年{month}月"),
+    }
+}
+
+/// Converts a Unix epoch millisecond timestamp to a Gregorian
+/// year/month/day without pulling a date-time dependency into the
+/// lightweight player.
+fn civil_date_from_epoch_ms(epoch_ms: i64) -> Option<(i32, u32, u32)> {
+    if epoch_ms <= 0 {
+        return None;
+    }
+    let days = epoch_ms.div_euclid(86_400_000);
+    let z = days + 719_468;
+    let era = if z >= 0 { z } else { z - 146_096 }.div_euclid(146_097);
+    let day_of_era = z - era * 146_097;
+    let year_of_era =
+        (day_of_era - day_of_era / 1_460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
+    let year = year_of_era + era * 400;
+    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
+    let month_prime = (5 * day_of_year + 2) / 153;
+    let day = day_of_year - (153 * month_prime + 2) / 5 + 1;
+    let month = month_prime + if month_prime < 10 { 3 } else { -9 };
+    let year = year + i64::from(month <= 2);
+    Some((
+        i32::try_from(year).ok()?,
+        u32::try_from(month).ok()?,
+        u32::try_from(day).ok()?,
+    ))
+}
+
+fn year_month_from_epoch_ms(epoch_ms: i64) -> Option<(i32, u32)> {
+    civil_date_from_epoch_ms(epoch_ms).map(|(year, month, _)| (year, month))
+}
+
+/// `2026/07/13`-style date for compact row captions.
+fn short_date_from_epoch_ms(epoch_ms: i64) -> Option<String> {
+    civil_date_from_epoch_ms(epoch_ms)
+        .map(|(year, month, day)| format!("{year}/{month:02}/{day:02}"))
+}
+
 fn series_grid(
     ui: &mut egui::Ui,
     series: &[Series],
     posters: &mut PosterCache,
     strings: Strings,
+    density: LibraryGridDensity,
 ) -> Option<String> {
     let mut clicked = None;
+    let card_size = density.card_size();
     let available_width = ui.available_width() - 2.0 * PAGE_GUTTER;
-    let columns = ((available_width + CARD_GAP) / (CARD_WIDTH + CARD_GAP))
+    let columns = ((available_width + CARD_GAP) / (card_size.x + CARD_GAP))
         .floor()
         .max(1.0) as usize;
     let rows = series.len().div_ceil(columns);
-    let row_height = CARD_HEIGHT + CARD_GAP;
+    let row_height = card_size.y + CARD_GAP;
 
     // The grid lives inside the page ScrollArea, so paint rows directly;
     // per-row culling comes from ScrollArea clipping and cheap card paint.
@@ -1620,12 +3058,13 @@ fn series_grid(
                     };
                     let representative = series.items().next().cloned();
                     if let Some(item) = representative {
-                        let response = poster_card_with_title(
+                        let response = poster_card_with_title_sized(
                             ui,
                             &item,
                             &series.title,
                             &format!("{} {}", series.episode_count(), strings.episodes()),
                             posters,
+                            card_size,
                         );
                         if response.clicked() {
                             clicked = Some(series.id.clone());
@@ -1649,7 +3088,16 @@ fn poster_card(
     badge: Option<&str>,
 ) -> egui::Response {
     let title = format!("{} - {}", item.series_title, item.episode_title);
-    poster_card_impl(ui, item, &title, None, posters, progress_fraction, badge)
+    poster_card_impl(
+        ui,
+        item,
+        &title,
+        None,
+        posters,
+        vec2(CARD_WIDTH, CARD_HEIGHT),
+        progress_fraction,
+        badge,
+    )
 }
 
 fn poster_card_with_title(
@@ -1665,23 +3113,46 @@ fn poster_card_with_title(
         title,
         Some(subtitle),
         posters,
+        vec2(CARD_WIDTH, CARD_HEIGHT),
+        None,
+        None,
+    )
+}
+
+fn poster_card_with_title_sized(
+    ui: &mut egui::Ui,
+    representative: &MediaItem,
+    title: &str,
+    subtitle: &str,
+    posters: &mut PosterCache,
+    size: egui::Vec2,
+) -> egui::Response {
+    poster_card_impl(
+        ui,
+        representative,
+        title,
+        Some(subtitle),
+        posters,
+        size,
         None,
         None,
     )
 }
 
 /// Full-bleed poster with the caption on a bottom scrim, like the mockups.
+#[allow(clippy::too_many_arguments)]
 fn poster_card_impl(
     ui: &mut egui::Ui,
     item: &MediaItem,
     title: &str,
     subtitle: Option<&str>,
     posters: &mut PosterCache,
+    size: egui::Vec2,
     progress_fraction: Option<f32>,
     badge: Option<&str>,
 ) -> egui::Response {
     let radius = metrics::CARD_RADIUS + 2.0;
-    let (rect, response) = ui.allocate_exact_size(vec2(CARD_WIDTH, CARD_HEIGHT), Sense::click());
+    let (rect, response) = ui.allocate_exact_size(size, Sense::click());
     if !ui.is_rect_visible(rect) {
         return response;
     }
@@ -2003,33 +3474,55 @@ fn episode_row(
         palette::SURFACE
     };
     ui.painter().rect_filled(row_rect, 6.0, fill);
+    let completed = progress.is_some_and(progress_is_completed);
+    let mut title_left = row_rect.left() + 12.0;
+    if completed {
+        // Green check before the title, like the official episode list.
+        paint_icon(
+            ui.painter(),
+            Rect::from_center_size(
+                pos2(row_rect.left() + 18.0, row_rect.center().y),
+                vec2(14.0, 14.0),
+            ),
+            Icon::Check,
+            palette::SUCCESS,
+            2.0,
+        );
+        title_left = row_rect.left() + 32.0;
+    }
     ui.painter().text(
-        row_rect.left_center() + vec2(12.0, 0.0),
+        pos2(title_left, row_rect.center().y),
         Align2::LEFT_CENTER,
         &item.episode_title,
         typography::body(),
         palette::TEXT_PRIMARY,
     );
-    let status = match progress {
-        Some(progress) => match progress.duration_ms {
+    let mut status_parts: Vec<String> = Vec::new();
+    if item.size_bytes > 0 {
+        status_parts.push(format_size(item.size_bytes));
+    }
+    if let Some(progress) = progress {
+        match progress.duration_ms {
             Some(duration) if duration > 0 => {
-                let percent =
-                    ((progress.position_ms as f64 / duration as f64) * 100.0).round() as i64;
-                if duration - progress.position_ms < MINIMUM_REMAINING_MS {
-                    strings.watched().to_owned()
+                if completed {
+                    status_parts.push(strings.watched().to_owned());
                 } else {
-                    format!("{} {percent}%", strings.resume())
+                    let percent =
+                        ((progress.position_ms as f64 / duration as f64) * 100.0).round() as i64;
+                    status_parts.push(format!("{} {percent}%", strings.resume()));
                 }
             }
-            _ => strings.started().to_owned(),
-        },
-        None => String::new(),
-    };
-    if !status.is_empty() {
+            _ => status_parts.push(strings.started().to_owned()),
+        }
+        if let Some(date) = short_date_from_epoch_ms(progress.updated_at_epoch_ms) {
+            status_parts.push(date);
+        }
+    }
+    if !status_parts.is_empty() {
         ui.painter().text(
             pos2(match_rect.left() - 10.0, row_rect.center().y),
             Align2::RIGHT_CENTER,
-            status,
+            status_parts.join("  ·  "),
             typography::caption(),
             palette::TEXT_MUTED,
         );
@@ -2839,7 +4332,11 @@ fn card_status_dot(ui: &mut egui::Ui, text: &str, color: Color32) {
 
 #[cfg(test)]
 mod tests {
-    use super::{format_size, initials};
+    use super::{
+        LibraryMatchFilter, LibraryProgressFilter, LibrarySeriesSort, filtered_library_series,
+        format_size, initials, series_progress_state, year_month_from_epoch_ms,
+    };
+    use crate::library::{AnimeMetadata, MediaItem, PlaybackProgress, Season, Series};
 
     #[test]
     fn derives_initials_from_titles() {
@@ -2850,10 +4347,203 @@ mod tests {
     }
 
     #[test]
+    fn converts_index_timestamps_to_recent_month_groups() {
+        assert_eq!(year_month_from_epoch_ms(1), Some((1970, 1)));
+        assert_eq!(year_month_from_epoch_ms(1_704_067_200_000), Some((2024, 1)));
+        assert_eq!(year_month_from_epoch_ms(0), None);
+    }
+
+    #[test]
     fn formats_sizes_like_the_official_library_list() {
         assert_eq!(format_size(118_720_922), "113.2MB");
         assert_eq!(format_size(1_503_238_554), "1.40GB");
         assert_eq!(format_size(0), "0.0MB");
         assert_eq!(format_size(-5), "0.0MB");
+    }
+    fn item(id: &str, path: &str, indexed_at: i64, year: Option<i32>) -> MediaItem {
+        MediaItem {
+            id: id.to_owned(),
+            series_title: path
+                .split(['/', '\\'])
+                .next()
+                .unwrap_or_default()
+                .to_owned(),
+            episode_title: format!("Episode {id}"),
+            relative_path: path.to_owned(),
+            indexed_at_epoch_ms: indexed_at,
+            anime_metadata: year.map(|start_year| AnimeMetadata {
+                display_title: format!("Anime {id}"),
+                start_year: Some(start_year),
+                ..AnimeMetadata::default()
+            }),
+            ..MediaItem::default()
+        }
+    }
+
+    fn series(title: &str, items: Vec<MediaItem>) -> Series {
+        Series {
+            id: title.to_lowercase(),
+            title: title.to_owned(),
+            seasons: vec![Season {
+                id: format!("{title}-season"),
+                label: "Season 1".to_owned(),
+                sort_key: 1,
+                items,
+            }],
+        }
+    }
+
+    #[test]
+    fn filters_library_series_by_query_match_folder_and_sort() {
+        let alpha = series(
+            "Alpha",
+            vec![item("a", "Library A\\Alpha\\01.mkv", 20, Some(2024))],
+        );
+        let beta = series(
+            "Beta",
+            vec![
+                item("b1", "Library B\\Beta\\01.mkv", 30, None),
+                item("b2", "Library B\\Beta\\02.mkv", 31, None),
+            ],
+        );
+        let source = vec![alpha, beta];
+
+        let matched = filtered_library_series(
+            &source,
+            "alpha",
+            LibraryMatchFilter::Matched,
+            LibraryProgressFilter::All,
+            Some("Library A"),
+            None,
+            LibrarySeriesSort::Title,
+            &[],
+        );
+        assert_eq!(
+            matched
+                .iter()
+                .map(|entry| entry.title.as_str())
+                .collect::<Vec<_>>(),
+            vec!["Alpha"]
+        );
+
+        let newest = filtered_library_series(
+            &source,
+            "",
+            LibraryMatchFilter::All,
+            LibraryProgressFilter::All,
+            None,
+            None,
+            LibrarySeriesSort::Newest,
+            &[],
+        );
+        assert_eq!(
+            newest
+                .iter()
+                .map(|entry| entry.title.as_str())
+                .collect::<Vec<_>>(),
+            vec!["Beta", "Alpha"]
+        );
+
+        let by_year = filtered_library_series(
+            &source,
+            "",
+            LibraryMatchFilter::All,
+            LibraryProgressFilter::All,
+            None,
+            Some(2024),
+            LibrarySeriesSort::Title,
+            &[],
+        );
+        assert_eq!(
+            by_year
+                .iter()
+                .map(|entry| entry.title.as_str())
+                .collect::<Vec<_>>(),
+            vec!["Alpha"]
+        );
+    }
+
+    #[test]
+    fn folder_filter_matches_root_labels_when_present() {
+        let mut first = item("a", "Alpha\\01.mkv", 20, None);
+        first.root_label = Some("M:\\Anime".to_owned());
+        let mut second = item("b", "Beta\\01.mkv", 30, None);
+        second.root_label = Some("D:\\AniRss".to_owned());
+        let source = vec![series("Alpha", vec![first]), series("Beta", vec![second])];
+
+        let scoped = filtered_library_series(
+            &source,
+            "",
+            LibraryMatchFilter::All,
+            LibraryProgressFilter::All,
+            Some("m:\\anime"),
+            None,
+            LibrarySeriesSort::Title,
+            &[],
+        );
+        assert_eq!(
+            scoped
+                .iter()
+                .map(|entry| entry.title.as_str())
+                .collect::<Vec<_>>(),
+            vec!["Alpha"]
+        );
+    }
+
+    #[test]
+    fn classifies_unwatched_in_progress_and_completed_series() {
+        let entry = series(
+            "Alpha",
+            vec![item("a", "Library A\\Alpha\\01.mkv", 20, Some(2024))],
+        );
+        assert_eq!(
+            series_progress_state(&entry, &[]),
+            LibraryProgressFilter::Unwatched
+        );
+
+        let in_progress = PlaybackProgress {
+            media_id: "a".to_owned(),
+            position_ms: 20_000,
+            duration_ms: Some(100_000),
+            updated_at_epoch_ms: 1,
+        };
+        assert_eq!(
+            series_progress_state(&entry, &[in_progress]),
+            LibraryProgressFilter::InProgress
+        );
+
+        let completed = PlaybackProgress {
+            media_id: "a".to_owned(),
+            position_ms: 90_000,
+            duration_ms: Some(100_000),
+            updated_at_epoch_ms: 2,
+        };
+        assert_eq!(
+            series_progress_state(&entry, &[completed]),
+            LibraryProgressFilter::Completed
+        );
+    }
+
+    #[test]
+    fn series_with_some_episodes_completed_counts_as_in_progress() {
+        // Episode 1 fully watched, episode 2 untouched: the series was
+        // started, so it must not land in "unwatched".
+        let entry = series(
+            "Alpha",
+            vec![
+                item("a1", "Library A\\Alpha\\01.mkv", 20, None),
+                item("a2", "Library A\\Alpha\\02.mkv", 21, None),
+            ],
+        );
+        let first_completed = PlaybackProgress {
+            media_id: "a1".to_owned(),
+            position_ms: 99_000,
+            duration_ms: Some(100_000),
+            updated_at_epoch_ms: 5,
+        };
+        assert_eq!(
+            series_progress_state(&entry, &[first_completed]),
+            LibraryProgressFilter::InProgress
+        );
     }
 }

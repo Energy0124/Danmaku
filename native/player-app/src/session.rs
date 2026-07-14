@@ -10,9 +10,9 @@ use eframe::egui;
 
 use crate::{
     danmaku::{
-        DandanplayMatchCandidate, DandanplaySearchAnime, DandanplaySelection, DanmakuLoad,
-        fetch_dandanplay_candidates, fetch_server_danmaku, search_dandanplay,
-        select_dandanplay_match,
+        BangumiDetail, DandanplayMatchCandidate, DandanplaySearchAnime, DandanplaySelection,
+        DanmakuLoad, fetch_bangumi_detail, fetch_dandanplay_candidates, fetch_server_danmaku,
+        search_dandanplay, select_dandanplay_match,
     },
     library::{
         LibraryCatalog, PlaybackProgress, fetch_catalog, fetch_progress, fetch_progress_list,
@@ -43,6 +43,10 @@ pub enum SessionEvent {
         media_id: String,
         selection: DandanplaySelection,
         result: Result<(), String>,
+    },
+    BangumiDetail {
+        anime_id: u64,
+        result: Result<BangumiDetail, String>,
     },
 }
 
@@ -146,6 +150,18 @@ impl LibrarySession {
             move |base| {
                 let result = search_dandanplay(&base, &keyword);
                 SessionEvent::DandanplaySearch { media_id, result }
+            },
+            base_url,
+        );
+    }
+
+    /// Fetches one anime's dandanplay bangumi profile for the series page.
+    pub fn fetch_bangumi_detail(&self, anime_id: u64) {
+        let base_url = self.base_url.clone();
+        self.spawn(
+            move |base| {
+                let result = fetch_bangumi_detail(&base, anime_id);
+                SessionEvent::BangumiDetail { anime_id, result }
             },
             base_url,
         );
