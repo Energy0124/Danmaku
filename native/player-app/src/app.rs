@@ -156,13 +156,14 @@ impl PlayerApp {
             dandanplay_credentials = imported;
             let _ = credential_store.save(&dandanplay_credentials);
         }
-        let local_host = (cli.media.is_none() && cli.server_url.is_none()).then(|| {
-            LocalServerSupervisor::new(
-                &preferences.local_library_roots,
-                Some(dandanplay_credentials.clone()),
-                creation_context.egui_ctx.clone(),
-            )
-        });
+        let local_host = (!cli.qa_onboarding && cli.media.is_none() && cli.server_url.is_none())
+            .then(|| {
+                LocalServerSupervisor::new(
+                    &preferences.local_library_roots,
+                    Some(dandanplay_credentials.clone()),
+                    creation_context.egui_ctx.clone(),
+                )
+            });
         if let Some(volume) = cli.volume_percent {
             preferences.volume_percent = volume;
         }
@@ -1834,13 +1835,10 @@ impl eframe::App for PlayerApp {
         self.show_window_title_bar(ctx);
         self.posters.poll(ctx);
         self.handle_session_events(ctx);
-        let local_connection = if self.cli.qa_onboarding {
-            None
-        } else {
-            self.local_host
-                .as_mut()
-                .and_then(LocalServerSupervisor::poll)
-        };
+        let local_connection = self
+            .local_host
+            .as_mut()
+            .and_then(LocalServerSupervisor::poll);
         if let Some(connection) = local_connection {
             self.connect_to_local_server(ctx, connection);
         }

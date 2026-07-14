@@ -64,7 +64,7 @@ impl Cli {
         let mut qa_onboarding = false;
         let mut qa_primary_state = None;
         let mut qa_screenshot = None;
-        let mut qa_screenshot_delay = Duration::from_millis(1_500);
+        let mut qa_screenshot_delay = None;
         let mut qa_window_size = None;
         let mut danmaku_force_refresh = false;
         let mut danmaku_opacity = None;
@@ -163,7 +163,7 @@ impl Cli {
                         .ok_or_else(|| {
                             format!("invalid --qa-screenshot-delay-ms (100-60000): {value}")
                         })?;
-                    qa_screenshot_delay = Duration::from_millis(milliseconds);
+                    qa_screenshot_delay = Some(Duration::from_millis(milliseconds));
                 }
                 "--qa-window-size" => {
                     let value = next_string(&mut args, "--qa-window-size requires WIDTHxHEIGHT")?;
@@ -208,6 +208,9 @@ impl Cli {
             }
         }
 
+        let qa_screenshot_delay_specified = qa_screenshot_delay.is_some();
+        let qa_screenshot_delay =
+            qa_screenshot_delay.unwrap_or_else(|| Duration::from_millis(1_500));
         let cli = Self {
             media,
             title,
@@ -238,7 +241,7 @@ impl Cli {
         if cli.qa_play_first && (cli.media.is_some() || cli.server_url.is_none()) {
             return Err("--qa-play-first requires --server-url library mode".to_owned());
         }
-        if cli.qa_screenshot.is_none() && cli.qa_screenshot_delay != Duration::from_millis(1_500) {
+        if qa_screenshot_delay_specified && cli.qa_screenshot.is_none() {
             return Err("--qa-screenshot-delay-ms requires --qa-screenshot".to_owned());
         }
         if cli.qa_onboarding && (cli.media.is_some() || cli.server_url.is_some()) {
@@ -476,9 +479,12 @@ mod tests {
             .expect_err("minimum width must be enforced");
         assert!(size.contains("width"));
 
-        let delay = Cli::parse_from(["danmaku-player", "--qa-screenshot-delay-ms", "2500"])
-            .expect_err("delay without screenshot must fail");
-        assert!(delay.contains("requires --qa-screenshot"));
+        for milliseconds in ["1500", "2500"] {
+            let delay =
+                Cli::parse_from(["danmaku-player", "--qa-screenshot-delay-ms", milliseconds])
+                    .expect_err("explicit delay without screenshot must fail");
+            assert!(delay.contains("requires --qa-screenshot"));
+        }
     }
 
     #[test]

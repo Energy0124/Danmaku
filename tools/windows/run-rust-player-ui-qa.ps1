@@ -100,6 +100,8 @@ function Merge-UiCaptureWithBaseline {
         # The Glow screenshot event can return an untouched near-black
         # framebuffer outside the interaction repaint. Key out that narrow
         # range and layer the interaction region over the full baseline.
+        # Genuine near-black interaction pixels are restored from the baseline;
+        # the difference assertions below ensure meaningful state pixels remain.
         $merged = [System.Drawing.Bitmap]::new(
             $baseline.Width,
             $baseline.Height,
@@ -149,6 +151,48 @@ function Merge-UiCaptureWithBaseline {
     Move-Item -Force -LiteralPath $temporaryPath -Destination $OverlayPath
 }
 
+function Assert-UiCaptureChanged {
+    param(
+        [Parameter(Mandatory)]
+        [string]$ReferencePath,
+        [Parameter(Mandatory)]
+        [string]$CandidatePath,
+        [Parameter(Mandatory)]
+        [int]$MinimumDifferenceSamples,
+        [int]$Stride = 4
+    )
+
+    $reference = [System.Drawing.Bitmap]::new($ReferencePath)
+    $candidate = [System.Drawing.Bitmap]::new($CandidatePath)
+    try {
+        if ($reference.Size -ne $candidate.Size) {
+            throw "UI capture dimensions do not match: $ReferencePath and $CandidatePath"
+        }
+        $differenceSamples = 0
+        for ($y = 0; $y -lt $reference.Height; $y += $Stride) {
+            for ($x = 0; $x -lt $reference.Width; $x += $Stride) {
+                if (
+                    $reference.GetPixel($x, $y).ToArgb() -ne
+                    $candidate.GetPixel($x, $y).ToArgb()
+                ) {
+                    $differenceSamples++
+                }
+            }
+        }
+        if ($differenceSamples -lt $MinimumDifferenceSamples) {
+            throw (
+                "UI interaction capture did not differ enough from its reference: " +
+                "$CandidatePath had $differenceSamples changed samples; " +
+                "expected at least $MinimumDifferenceSamples."
+            )
+        }
+        return $differenceSamples
+    } finally {
+        $reference.Dispose()
+        $candidate.Dispose()
+    }
+}
+
 function Test-UiCaptureComplete {
     param(
         [Parameter(Mandatory)]
@@ -183,6 +227,7 @@ foreach ($attempt in 1..3) {
         $completeBaseline = $true
         break
     }
+    Remove-Item -Force -LiteralPath $attemptPath
 }
 if (-not $completeBaseline) {
     throw "Rust player did not produce a complete minimum-size baseline after three attempts."
@@ -192,6 +237,18 @@ $hoverCapture = Invoke-UiCapture -Name "onboarding-hover" -Interaction "hover"
 $focusCapture = Invoke-UiCapture -Name "onboarding-keyboard-focus" -Interaction "focus"
 Merge-UiCaptureWithBaseline -BaselinePath $minimumCapture -OverlayPath $hoverCapture
 Merge-UiCaptureWithBaseline -BaselinePath $minimumCapture -OverlayPath $focusCapture
+$hoverDifferenceSamples = Assert-UiCaptureChanged `
+    -ReferencePath $minimumCapture `
+    -CandidatePath $hoverCapture `
+    -MinimumDifferenceSamples 100
+$focusDifferenceSamples = Assert-UiCaptureChanged `
+    -ReferencePath $minimumCapture `
+    -CandidatePath $focusCapture `
+    -MinimumDifferenceSamples 100
+$focusOutlineDifferenceSamples = Assert-UiCaptureChanged `
+    -ReferencePath $hoverCapture `
+    -CandidatePath $focusCapture `
+    -MinimumDifferenceSamples 40
 $captures = @($minimumCapture, $hoverCapture, $focusCapture)
 
 $reportPath = Join-Path $outputFullPath "rust-player-ui-qa.md"
@@ -201,6 +258,9 @@ $report = @(
     "- Result: PASS"
     "- Window: 960x600 logical pixels (the supported minimum)"
     "- States: default, primary-action hover, keyboard focus"
+    "- Hover difference samples: $hoverDifferenceSamples"
+    "- Focus difference samples: $focusDifferenceSamples"
+    "- Focus-outline difference samples: $focusOutlineDifferenceSamples"
     "- Captured: $([DateTime]::UtcNow.ToString("yyyy-MM-dd HH:mm:ss 'UTC'"))"
     ""
     "## Evidence"
