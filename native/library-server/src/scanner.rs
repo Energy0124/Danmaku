@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::catalog::{
@@ -15,6 +16,23 @@ const VIDEO_EXTENSIONS: &[&str] = &[
     "avi", "flv", "m2ts", "m4v", "mkv", "mov", "mp4", "mpeg", "mpg", "ts", "webm", "wmv",
 ];
 const SUBTITLE_EXTENSIONS: &[&str] = &["ass", "srt", "ssa", "vtt"];
+
+/// Live counters for an in-flight scan, shared with the HTTP status route so
+/// clients can show indexing progress while the background scan runs.
+#[derive(Debug, Default)]
+pub struct ScanProgress {
+    media_files_seen: AtomicU64,
+}
+
+impl ScanProgress {
+    pub fn media_files_seen(&self) -> u64 {
+        self.media_files_seen.load(Ordering::Relaxed)
+    }
+
+    fn record_media_file(&self) {
+        self.media_files_seen.fetch_add(1, Ordering::Relaxed);
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LibraryScan {
@@ -40,6 +58,14 @@ impl LibraryScan {
 pub fn scan_roots(
     roots: &[PathBuf],
     previous: Option<&HeadlessStoredLibrary>,
+) -> Result<LibraryScan> {
+    scan_roots_with_progress(roots, previous, None)
+}
+
+pub fn scan_roots_with_progress(
+    roots: &[PathBuf],
+    previous: Option<&HeadlessStoredLibrary>,
+    progress: Option<&ScanProgress>,
 ) -> Result<LibraryScan> {
     if roots.is_empty() {
         return Ok(LibraryScan {
@@ -92,6 +118,7 @@ pub fn scan_roots(
             &mut reused_item_count,
             &mut refreshed_item_count,
             &mut skipped_unreadable_count,
+            progress,
         )?;
         items.extend(root_items);
     }
@@ -143,6 +170,7 @@ fn scan_root(
     reused_item_count: &mut usize,
     refreshed_item_count: &mut usize,
     skipped_unreadable_count: &mut usize,
+    progress: Option<&ScanProgress>,
 ) -> Result<Vec<LibraryMediaItem>> {
     let id_namespace = path_string(root);
     let mut items = Vec::new();
@@ -150,6 +178,9 @@ fn scan_root(
         let extension = extension_lowercase(&path);
         if !VIDEO_EXTENSIONS.contains(&extension.as_str()) {
             continue;
+        }
+        if let Some(progress) = progress {
+            progress.record_media_file();
         }
 
         let relative_path = relative_media_path(root, &path)?;

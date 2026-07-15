@@ -132,6 +132,21 @@ impl Strings {
     pub fn loading_library(self) -> &'static str {
         self.text("Loading library…", "正在載入媒體庫…")
     }
+    pub fn connecting_to_server(self) -> &'static str {
+        self.text("Connecting…", "連線中…")
+    }
+    pub fn refreshing_library(self) -> &'static str {
+        self.text("Refreshing library…", "正在重新整理媒體庫…")
+    }
+    pub fn indexing_library(self) -> &'static str {
+        self.text("Indexing library…", "正在建立媒體庫索引…")
+    }
+    pub fn indexing_files_found(self, files: u64) -> String {
+        match self.language {
+            Language::English => format!("{files} files found"),
+            Language::TraditionalChinese => format!("已找到 {files} 個檔案"),
+        }
+    }
     pub fn failed_library(self) -> &'static str {
         self.text("Failed to load library", "無法載入媒體庫")
     }

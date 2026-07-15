@@ -10,6 +10,7 @@
 
 pub mod app;
 pub mod branding;
+pub mod cache;
 pub mod cli;
 pub mod clock;
 pub mod danmaku;

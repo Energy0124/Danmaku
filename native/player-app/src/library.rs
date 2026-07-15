@@ -5,7 +5,7 @@
 //! fixtures under `shared/domain/src/jvmTest/resources` assert identical
 //! results in this crate's tests.
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::net::{http_get, http_put_json, percent_encode_path_segment};
 
@@ -13,7 +13,7 @@ pub const DEFAULT_NEXT_UP_LIMIT: usize = 8;
 pub const MINIMUM_RESUME_POSITION_MS: i64 = 10_000;
 pub const MINIMUM_REMAINING_MS: i64 = 30_000;
 
-#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct LibraryCatalog {
     pub root_name: String,
@@ -21,7 +21,7 @@ pub struct LibraryCatalog {
     pub items: Vec<MediaItem>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct MediaItem {
     pub id: String,
@@ -41,7 +41,7 @@ pub struct MediaItem {
     pub anime_metadata: Option<AnimeMetadata>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct SubtitleTrack {
     pub id: String,
@@ -51,7 +51,7 @@ pub struct SubtitleTrack {
     pub stream_path: String,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct AnimeMetadata {
     pub anime_id: ExternalAnimeId,
@@ -66,7 +66,7 @@ pub struct AnimeMetadata {
     pub start_year: Option<i32>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct ExternalAnimeId {
     pub provider: String,
@@ -100,7 +100,7 @@ impl ExternalAnimeId {
 
 /// A recognized identity in an external anime database. The server omits
 /// `url` when it equals the provider's canonical web URL.
-#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct ExternalAnimeLink {
     pub anime_id: ExternalAnimeId,
@@ -113,7 +113,7 @@ impl ExternalAnimeLink {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlaybackProgress {
     pub media_id: String,

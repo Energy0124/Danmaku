@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex, RwLock};
 
 use axum::Router;
 use axum::body::Body;
@@ -25,6 +26,7 @@ use crate::external_provider::{
 };
 use crate::poster_cache::PosterCacheStore;
 use crate::progress::PlaybackProgressStore;
+use crate::scanner::ScanProgress;
 use crate::settings::HeadlessServerSettings;
 
 const WEBHOOK_TOKEN_HEADER: &str = "X-Danmaku-Webhook-Token";
@@ -94,7 +96,9 @@ pub struct AuthenticatedPostHookConfig {
 
 #[derive(Debug, Clone)]
 pub struct HttpServerState {
-    library: Arc<PublishedLibrary>,
+    /// Hot-swappable so a background rescan can publish a fresh library while
+    /// the server keeps answering requests from the previous snapshot.
+    library: Arc<RwLock<Arc<PublishedLibrary>>>,
     progress_store: Arc<PlaybackProgressStore>,
     web_assets: Option<StaticWebAssets>,
     status: LanLibraryServerStatus,
@@ -109,6 +113,10 @@ pub struct HttpServerState {
     /// `handle_catalog`) don't pile up redundant external requests for the
     /// same item while one is already running.
     poster_resolution_in_flight: Arc<Mutex<BTreeSet<String>>>,
+    /// True while a background catalog scan is running; surfaced on
+    /// `/api/server/status` so clients can show indexing progress.
+    scanning: Arc<AtomicBool>,
+    scan_progress: Arc<ScanProgress>,
 }
 
 impl HttpServerState {
@@ -131,7 +139,7 @@ impl HttpServerState {
             .map(|hook| (hook.path, hook.token.into_bytes()))
             .collect();
         Self {
-            library: Arc::new(library),
+            library: Arc::new(RwLock::new(Arc::new(library))),
             progress_store,
             web_assets,
             status,
@@ -142,7 +150,35 @@ impl HttpServerState {
             catalog_metadata: config.catalog_metadata,
             poster_cache: config.poster_cache,
             poster_resolution_in_flight: Arc::new(Mutex::new(BTreeSet::new())),
+            scanning: Arc::new(AtomicBool::new(false)),
+            scan_progress: Arc::new(ScanProgress::default()),
         }
+    }
+
+    /// Snapshot of the currently published library; requests keep using the
+    /// snapshot they read even if a rescan swaps the library mid-request.
+    fn library(&self) -> Arc<PublishedLibrary> {
+        self.library
+            .read()
+            .map(|library| Arc::clone(&library))
+            .unwrap_or_else(|poisoned| Arc::clone(&poisoned.into_inner()))
+    }
+
+    /// Publishes a freshly scanned library, replacing the served snapshot.
+    pub fn publish_library(&self, library: PublishedLibrary) {
+        let library = Arc::new(library);
+        match self.library.write() {
+            Ok(mut guard) => *guard = library,
+            Err(poisoned) => *poisoned.into_inner() = library,
+        }
+    }
+
+    pub fn set_scanning(&self, scanning: bool) {
+        self.scanning.store(scanning, Ordering::Relaxed);
+    }
+
+    pub fn scan_progress(&self) -> Arc<ScanProgress> {
+        Arc::clone(&self.scan_progress)
     }
 }
 
@@ -195,7 +231,7 @@ async fn dispatch(State(state): State<HttpServerState>, request: Request<Body>) 
     }
     if path.starts_with("/subtitles/") {
         return handle_static_mapped_file(
-            &state.library.subtitle_files_by_id,
+            &state.library().subtitle_files_by_id,
             "/subtitles/",
             "no-store",
             &method,
@@ -224,7 +260,12 @@ fn handle_server_status(state: &HttpServerState, method: &Method) -> Response<Bo
     if method != Method::GET {
         return empty_status(StatusCode::METHOD_NOT_ALLOWED);
     }
-    json_response(StatusCode::OK, &state.status)
+    let mut status = state.status.clone();
+    if state.scanning.load(Ordering::Relaxed) {
+        status.scanning = true;
+        status.scan_files_seen = Some(state.scan_progress.media_files_seen());
+    }
+    json_response(StatusCode::OK, &status)
 }
 
 fn handle_catalog(state: &HttpServerState, method: &Method) -> Response<Body> {
@@ -233,10 +274,11 @@ fn handle_catalog(state: &HttpServerState, method: &Method) -> Response<Body> {
     }
     // Merge dandanplay-recognized anime identities onto items lacking provider
     // metadata so clients auto-group episodes under the matched anime.
+    let library = state.library();
     let Some(store) = &state.catalog_metadata else {
-        return json_response(StatusCode::OK, &state.library.catalog);
+        return json_response(StatusCode::OK, &library.catalog);
     };
-    let enriched = store.enrich_catalog(&state.library.catalog);
+    let enriched = store.enrich_catalog(&library.catalog);
     // Best-effort retry for items that were recognized but never got a
     // poster cached — the local server can be hard-killed (the desktop host
     // stops its managed sidecar with a process kill, not a graceful signal)
@@ -405,18 +447,12 @@ async fn handle_progress(
         return empty_status(StatusCode::METHOD_NOT_ALLOWED);
     }
 
+    let library = state.library();
     let media_id = path
         .strip_prefix("/api/progress/")
         .filter(|suffix| !suffix.is_empty())
         .and_then(url_decode)
-        .filter(|id| {
-            state
-                .library
-                .catalog
-                .items
-                .iter()
-                .any(|item| item.id == *id)
-        });
+        .filter(|id| library.catalog.items.iter().any(|item| item.id == *id));
     let Some(media_id) = media_id else {
         return empty_status(StatusCode::NOT_FOUND);
     };
@@ -452,8 +488,8 @@ fn handle_progress_list_exact(
     if method != Method::GET {
         return empty_status(StatusCode::METHOD_NOT_ALLOWED);
     }
-    let published_ids = state
-        .library
+    let library = state.library();
+    let published_ids = library
         .catalog
         .items
         .iter()
@@ -477,22 +513,16 @@ async fn handle_danmaku(
     if method != Method::GET {
         return empty_status(StatusCode::METHOD_NOT_ALLOWED);
     }
+    let library = state.library();
     let media_id = path
         .strip_prefix("/api/danmaku/")
         .filter(|suffix| !suffix.is_empty())
         .and_then(url_decode)
-        .filter(|id| {
-            state
-                .library
-                .catalog
-                .items
-                .iter()
-                .any(|item| item.id == *id)
-        });
+        .filter(|id| library.catalog.items.iter().any(|item| item.id == *id));
     let Some(media_id) = media_id else {
         return empty_status(StatusCode::NOT_FOUND);
     };
-    let Some(path) = state.library.files_by_id.get(&media_id) else {
+    let Some(path) = library.files_by_id.get(&media_id) else {
         return empty_status(StatusCode::NOT_FOUND);
     };
     if !path.is_file() {
@@ -792,7 +822,8 @@ async fn handle_dandanplay_resolve(
             None,
         )
     });
-    let Some(path) = state.library.files_by_id.get(&media_id) else {
+    let library = state.library();
+    let Some(path) = library.files_by_id.get(&media_id) else {
         return text_response(StatusCode::NOT_FOUND, "Media item was not found.");
     };
     if !path.is_file() {
@@ -917,7 +948,8 @@ async fn handle_media(
         return empty_status(StatusCode::METHOD_NOT_ALLOWED);
     }
     let id = path.strip_prefix("/media/").unwrap_or_default();
-    let Some(path) = state.library.files_by_id.get(id) else {
+    let library = state.library();
+    let Some(path) = library.files_by_id.get(id) else {
         return empty_status(StatusCode::NOT_FOUND);
     };
     let Ok(metadata) = tokio::fs::metadata(path).await else {
@@ -980,7 +1012,8 @@ async fn handle_poster(state: &HttpServerState, method: &Method, path: &str) -> 
         return empty_status(StatusCode::METHOD_NOT_ALLOWED);
     }
     let id = path.strip_prefix("/posters/").unwrap_or_default();
-    if let Some(file) = state.library.poster_files_by_id.get(id) {
+    let library = state.library();
+    if let Some(file) = library.poster_files_by_id.get(id) {
         return serve_file(file, method, "private, max-age=3600").await;
     }
     if let Some(store) = &state.catalog_metadata
@@ -1411,6 +1444,14 @@ struct LanLibraryServerStatus {
     host_mode: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     provider_settings: Option<LanProviderSettingsStatus>,
+    /// True while a background catalog scan is indexing the library roots;
+    /// omitted once the published catalog is current.
+    #[serde(skip_serializing_if = "is_false")]
+    scanning: bool,
+    /// Media files discovered so far by the in-flight scan; only present
+    /// while `scanning` is true.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    scan_files_seen: Option<u64>,
 }
 
 impl Default for LanLibraryServerStatus {
@@ -1426,6 +1467,8 @@ impl Default for LanLibraryServerStatus {
             web_ui_path: None,
             host_mode: HOST_MODE_EMBEDDED_DESKTOP.to_owned(),
             provider_settings: None,
+            scanning: false,
+            scan_files_seen: None,
         }
     }
 }

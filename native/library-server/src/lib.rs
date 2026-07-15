@@ -78,7 +78,7 @@ mod tests {
     static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
     #[test]
-    fn run_foundations_scans_configured_roots_and_persists_catalog() {
+    fn run_foundations_loads_without_scanning_so_startup_stays_fast() {
         let temp = temp_dir("danmaku-run-foundations-scan");
         let data_directory = temp.join("data");
         let root = temp.join("Anime");
@@ -95,18 +95,19 @@ mod tests {
             web_assets_root: None,
             import_desktop_catalog: None,
         })
-        .expect("startup should scan");
+        .expect("startup should load");
 
+        // Scanning is deferred to a background task after the HTTP server
+        // binds (see `BoundServer::serve_until_shutdown`), so loading alone
+        // performs no scan and persists no catalog.
         let output = summary.to_log_lines().join("\n");
-        assert!(output.contains("Catalog scan: completed; roots=1; items=1; subtitles=1"));
-        let stored = CatalogStore::new(data_directory.join("catalog.json"))
-            .load()
-            .expect("catalog load should succeed")
-            .expect("catalog should exist");
-        assert_eq!(1, stored.published_library.catalog.items.len());
-        assert_eq!(
-            "Example Show",
-            stored.published_library.catalog.items[0].series_title
+        assert!(output.contains("Catalog scan: not run"));
+        assert!(output.contains("Catalog snapshot: absent"));
+        assert!(
+            CatalogStore::new(data_directory.join("catalog.json"))
+                .load()
+                .expect("catalog load should succeed")
+                .is_none()
         );
 
         fs::remove_dir_all(temp).expect("temp should delete");
