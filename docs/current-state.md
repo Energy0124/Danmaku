@@ -146,6 +146,16 @@ trusted-LAN clients.
   automatically. The player can attach to an already-running local server,
   restart or stop one it owns, and stops its child on exit. Local roots are
   remembered without persisting pairing tokens.
+- The optional always-on Windows mode is implemented as a per-user Task
+  Scheduler logon task, not a privileged service. The packaged
+  `manage-rust-library-background-host.ps1` provides Install/Start/Stop/Status/
+  SetRoots/Uninstall plus a non-mutating `-PlanOnly` path. It installs the same
+  Rust server/web assets under `%LOCALAPPDATA%\Programs\Danmaku`, stores a
+  non-secret schema-1 marker beside the existing server data, waits for mapped
+  roots, and preserves the database/settings on uninstall. The native player
+  recognizes that marker, attaches only after a compatible headless health
+  response, labels background ownership in English and Traditional Chinese,
+  and does not expose player-owned root/credential/process controls for it.
 - The Phase 4 consumer UI pass replaces the native client's tool-like hierarchy:
   first-run local hosting is a single primary folder action with advanced
   connection fields collapsed; the library uses an icon-first rail, content
@@ -291,8 +301,10 @@ trusted-LAN clients.
 - Windows scripts for pinned libmpv install and verification plus separate
   Compose-compatibility and Rust-native portable release preparation. The
   Rust-native package is a versioned runtime-free zip with the player, local
-  server, built web UI, approved DLL, launcher, provenance, license texts, and
-  generated player/server crate inventories.
+  server, built web UI, approved DLL, launcher, background-host manager/runner,
+  provenance, license texts, and generated player/server crate inventories.
+  Package verification exercises the background installer's non-mutating plan
+  path; real task registration remains an explicit manual QA step.
   Runtime verification and supervised GUI smoke/release-QA scripts auto-detect
   both layouts. `tools/windows/run-rust-player-ui-qa.ps1` adds deterministic
   native-player onboarding captures at the supported 960x600 minimum for

@@ -330,9 +330,15 @@ Milestones, each shippable while the Compose app remains the default:
   implemented. Supervised default/maximized coverage plus repeatable 960x600
   default, hover, and keyboard-focus captures now pass; no compact minimum-size
   fallback was needed. See `docs/design/rust-player-ui-redesign-plan.md`.
-- `[ ]` Add an optional Windows service installer for users who want the
-  library available while the player is closed. It must reuse the same server
-  binary/data model and avoid competing with a player-owned child.
+- `[x]` Add an optional Windows background-host installer for users who want
+  the library available while the player is closed. The shipped script creates
+  a limited current-user Task Scheduler job at logon, reuses the packaged Rust
+  server/web assets and existing `%LOCALAPPDATA%\Danmaku\server` data,
+  supports Install/Start/Stop/Status/SetRoots/Uninstall, waits for configured
+  roots, and preserves data on uninstall. A schema-1 non-secret marker makes
+  the native player attach without competing for process ownership. Package QA
+  uses `-PlanOnly`; real registration is covered by the opt-in manual checklist
+  in `docs/qa/windows-background-host-qa.md`.
 - `[x]` Web UI covers provider settings dropped from the native player:
   bearer-authenticated redacted reads/writes, DPAPI-protected write-only
   credentials, and live provider runtime reload.

@@ -351,8 +351,23 @@ impl Strings {
     pub fn managed_by_player(self) -> &'static str {
         self.text("Managed by this player", "由此播放器管理")
     }
+    pub fn managed_by_background_host(self) -> &'static str {
+        self.text("Managed in the background", "由背景主機管理")
+    }
+    pub fn background_host_note(self) -> &'static str {
+        self.text(
+            "Use manage-rust-library-background-host.ps1 to change or stop the background server.",
+            "請使用 manage-rust-library-background-host.ps1 變更或停止背景伺服器。",
+        )
+    }
     pub fn attached_server(self) -> &'static str {
         self.text("Attached to an existing server", "已連線至現有伺服器")
+    }
+    pub fn server_managed_settings_note(self) -> &'static str {
+        self.text(
+            "Manage provider settings in the server web admin.",
+            "請在伺服器網頁管理介面中管理提供者設定。",
+        )
     }
     pub fn restart_server(self) -> &'static str {
         self.text("Restart server", "重新啟動伺服器")

@@ -18,6 +18,8 @@ $playerPath = Join-Path $distributionPath "danmaku-player.exe"
 $serverPath = Join-Path $distributionPath "library-server.exe"
 $libmpvPath = Join-Path $distributionPath "libmpv-2.dll"
 $launcherPath = Join-Path $distributionPath "run-danmaku-player.ps1"
+$backgroundManagerPath = Join-Path $distributionPath "manage-rust-library-background-host.ps1"
+$backgroundRunnerPath = Join-Path $distributionPath "run-rust-library-background-host.ps1"
 $dependencyPath = Join-Path $distributionPath "dependencies\libmpv"
 $manifestPath = Join-Path $dependencyPath "zhongfly-lgpl-x86_64-20260708.json"
 $requiredFiles = @(
@@ -25,6 +27,8 @@ $requiredFiles = @(
     $serverPath,
     $libmpvPath,
     $launcherPath,
+    $backgroundManagerPath,
+    $backgroundRunnerPath,
     (Join-Path $distributionPath "LICENSE"),
     (Join-Path $distributionPath "THIRD_PARTY_NOTICES.md"),
     (Join-Path $distributionPath "RUST_CRATE_LICENSES.md"),
@@ -76,6 +80,27 @@ if ($LASTEXITCODE -ne 0 -or ($serverHelpOutput | Out-String) -notmatch "Usage: l
     throw "Packaged library server --help check failed."
 }
 
+$planRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("danmaku-background-host-plan-" + [guid]::NewGuid())
+New-Item -ItemType Directory -Path $planRoot | Out-Null
+try {
+    $planOutput = & $backgroundManagerPath -Action Install -LibraryRoot $planRoot -PlanOnly
+    if ($LASTEXITCODE -ne 0) {
+        throw "Packaged background-host PlanOnly check failed with exit code $LASTEXITCODE."
+    }
+    $plan = ($planOutput | Out-String) | ConvertFrom-Json
+    if (
+        $plan.action -ne "Install" -or
+        $plan.task -ne "\Danmaku\Library Server" -or
+        $plan.baseUrl -ne "http://127.0.0.1:8686" -or
+        @($plan.libraryRoots).Count -ne 1 -or
+        [System.IO.Path]::GetFullPath([string]$plan.libraryRoots[0]) -ne [System.IO.Path]::GetFullPath($planRoot)
+    ) {
+        throw "Packaged background-host PlanOnly output is invalid."
+    }
+} finally {
+    Remove-Item -LiteralPath $planRoot -Recurse -Force -ErrorAction SilentlyContinue
+}
+
 if (-not [string]::IsNullOrWhiteSpace($ProbeExecutable)) {
     $probePath = [System.IO.Path]::GetFullPath($ProbeExecutable)
     if (-not (Test-Path -LiteralPath $probePath -PathType Leaf)) {
@@ -100,5 +125,6 @@ if (-not [string]::IsNullOrWhiteSpace($ProbeExecutable)) {
 Write-Host "Verified Rust-native player release at $distributionPath"
 Write-Host "  player: $playerPath"
 Write-Host "  server: $serverPath"
+Write-Host "  background host: PlanOnly validated (Task Scheduler unchanged)"
 Write-Host "  libmpv SHA-256: $actualDllHash"
 
