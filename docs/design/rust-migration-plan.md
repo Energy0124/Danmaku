@@ -333,9 +333,11 @@ Milestones, each shippable while the Compose app remains the default:
 - `[ ]` Add an optional Windows service installer for users who want the
   library available while the player is closed. It must reuse the same server
   binary/data model and avoid competing with a player-owned child.
-- `[ ]` Web UI covers the admin workflows the native player dropped
-  (tracking sync, library quality review, provider settings) — coordinate
-  with the server/client/web split plan.
+- `[x]` Web UI covers provider settings dropped from the native player:
+  bearer-authenticated redacted reads/writes, DPAPI-protected write-only
+  credentials, and live provider runtime reload.
+- `[ ]` Web UI covers the remaining dropped admin workflows: tracking
+  sync orchestration and library quality review.
 - `[ ]` Remove `apps/desktop-windows`, `apps/library-server-windows`,
   `shared/library-server-core`, `shared/library-host-core`, and JVM-only
   provider code; keep Kotlin only for Android and the `shared/domain`

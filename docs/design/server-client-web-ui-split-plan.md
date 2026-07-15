@@ -66,8 +66,11 @@ host boundary grows.
   manual external-list read/write controls with metadata-link ID auto-fill,
   and dandanplay match/comment preview plus basic video overlay controls with
   persisted browser preferences first.
-- Keep richer danmaku overlay styling, admin settings, provider sync controls,
-  and library quality workflows as follow-up web features.
+- Provider admin settings now have a Rust-only vertical slice: the web UI can
+  read redacted state, submit write-only secrets to DPAPI-protected storage,
+  and apply refreshed provider clients without a restart.
+- Keep richer danmaku overlay styling, provider sync orchestration, and library
+  quality workflows as follow-up web features.
 
 ### Phase 4: Headless Server
 

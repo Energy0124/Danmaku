@@ -29,6 +29,7 @@ import {
   loadDanmakuOverlayPreferences,
   saveDanmakuOverlayPreferences
 } from "./danmakuOverlayPreferences";
+import { ProviderSettingsPanel } from "./ProviderSettingsPanel";
 
 const externalListStatuses: ExternalAnimeListStatus[] = [
   "WATCHING",
@@ -41,6 +42,7 @@ const externalListStatuses: ExternalAnimeListStatus[] = [
 export function App() {
   const defaultBaseUrl = window.location.origin;
   const [baseUrl, setBaseUrl] = useState(defaultBaseUrl);
+  const [pairingToken, setPairingToken] = useState("");
   const [catalog, setCatalog] = useState<LibraryCatalog | null>(null);
   const [progress, setProgress] = useState<PlaybackProgress[]>([]);
   const [providerRuntime, setProviderRuntime] = useState<LanProviderRuntimeStatus | null>(null);
@@ -67,7 +69,7 @@ export function App() {
     setIsLoading(true);
     setMessage("Connecting...");
     try {
-      const token = "";
+      const token = pairingToken.trim();
       const [snapshot, runtime] = await Promise.all([
         fetchLibrarySnapshot(normalizedBaseUrl, token),
         fetchProviderRuntime(normalizedBaseUrl, token).catch(() => null)
@@ -107,12 +109,31 @@ export function App() {
             Host
             <input value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} />
           </label>
+          <label>
+            Pairing token
+            <input
+              autoComplete="off"
+              inputMode="numeric"
+              type="password"
+              value={pairingToken}
+              onChange={(event) => setPairingToken(event.target.value)}
+              placeholder="Required for administration"
+            />
+          </label>
 
           <button disabled={isLoading} type="submit">
             {isLoading ? "Connecting" : "Connect"}
           </button>
         </form>
       </header>
+
+      {catalog ? (
+        <ProviderSettingsPanel
+          baseUrl={normalizedBaseUrl}
+          token={pairingToken}
+          onRuntimeUpdated={setProviderRuntime}
+        />
+      ) : null}
 
       <section className="workspace">
         <aside className="library-pane">
@@ -149,7 +170,7 @@ export function App() {
           {selectedItem ? (
             <PlayerPanel
               baseUrl={normalizedBaseUrl}
-              token=""
+              token={pairingToken}
               providerRuntime={providerRuntime}
               item={selectedItem}
               savedProgress={progressById.get(selectedItem.id)}

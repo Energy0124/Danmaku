@@ -68,7 +68,10 @@ Status legend:
   match/comment preview with basic video overlay controls, persisted overlay preferences, extracted web
   overlay timing helpers, provider mapping search, and manual MAL/Bangumi
   external-list read/write controls that auto-fill IDs from catalog metadata
-  links for the selected episode. Remaining split work: migrate the desktop's
+  links for the selected episode. The Rust host and web UI now also provide
+  bearer-authenticated, secret-redacted provider settings administration with
+  Windows DPAPI storage and immediate runtime reload. Remaining split work:
+  migrate the desktop's
   JVM provider clients and residual server-core contracts behind sidecar HTTP,
   mapped-series provider admin write flows, live-account read/write QA, broader
   browser interaction QA for remaining admin/quality controls, and web UI

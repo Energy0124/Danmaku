@@ -12,6 +12,7 @@ pub mod lock;
 pub mod logging;
 pub mod poster_cache;
 pub mod progress;
+pub mod provider_secrets;
 pub mod runtime;
 pub mod scanner;
 pub mod settings;

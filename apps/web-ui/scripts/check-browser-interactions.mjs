@@ -58,7 +58,6 @@ try {
 }
 
 async function connectWebUi(cdp) {
-  await evaluate(cdp, `localStorage.setItem(${json(pairingStorageKey(baseUrl))}, ${json(token)});`);
   await reloadAndConnect(cdp);
 }
 
@@ -66,8 +65,20 @@ async function reloadAndConnect(cdp) {
   await evaluate(cdp, "location.reload();");
   await waitForExpression(cdp, "document.readyState === 'complete'");
   await waitForExpression(cdp, "Boolean(document.querySelector('form.connection-form button'))");
-  await evaluate(cdp, "document.querySelector('form.connection-form button').click();");
+  await evaluate(cdp, `(() => {
+    const input = document.querySelector('form.connection-form input[type="password"]');
+    const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+    descriptor.set.call(input, ${json(token)});
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    document.querySelector('form.connection-form button').click();
+  })()`);
   await waitForExpression(cdp, "Boolean(document.querySelector('.player-panel .danmaku-controls'))", 15_000);
+  await waitForExpression(
+    cdp,
+    "document.querySelector('.provider-settings-shell .admin-state')?.textContent.includes('Authorized')",
+    15_000
+  );
 }
 
 async function verifyOverlayPreferences(cdp) {
@@ -185,6 +196,55 @@ async function installQaFetchOverrides(cdp) {
       window.fetch = async (input, init = {}) => {
         const rawUrl = typeof input === "string" ? input : input.url;
         const url = new URL(rawUrl, window.location.href);
+
+        if (url.pathname === "/api/providers/settings") {
+          const authorization = new Headers(init.headers).get("Authorization");
+          if (!authorization?.startsWith("Bearer ")) {
+            return jsonResponse({}, { status: 401 });
+          }
+          return jsonResponse({
+            settings: {
+              dandanplay: {
+                baseUrl: "https://api.dandanplay.net",
+                appId: null,
+                hasAppSecret: false,
+                authenticationMode: "SIGNED",
+                cacheMaxAgeDays: 30
+              },
+              externalAnime: {
+                myAnimeListClientId: "qa-client",
+                hasMyAnimeListClientSecret: false,
+                hasMyAnimeListAccessToken: true,
+                bangumiBaseUrl: "https://api.bgm.tv/",
+                bangumiUserAgent: "Danmaku Browser QA/1.0",
+                hasBangumiAccessToken: true
+              }
+            },
+            runtime: {
+              dandanplay: {
+                matchAvailable: false,
+                commentFetchAvailable: false,
+                authenticated: false,
+                reasonCode: "qa-missing-credentials"
+              },
+              myAnimeList: {
+                searchAvailable: true,
+                listReadAvailable: true,
+                listWriteAvailable: true,
+                authenticated: true,
+                reasonCode: "qa-ready"
+              },
+              bangumi: {
+                searchAvailable: true,
+                listReadAvailable: true,
+                listWriteAvailable: true,
+                authenticated: true,
+                reasonCode: "qa-ready"
+              }
+            }
+          });
+        }
+
         if (url.pathname === "/api/providers/runtime") {
           return jsonResponse({
             dandanplay: {
@@ -406,9 +466,6 @@ function requireArg(values, name) {
   return value;
 }
 
-function pairingStorageKey(url) {
-  return `danmaku.web.pairing.${url.replace(/\/+$/, "")}`;
-}
 
 function json(value) {
   return JSON.stringify(value);
