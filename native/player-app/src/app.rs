@@ -14,6 +14,7 @@ use egui_glow::CallbackFn;
 
 use crate::{
     branding::Branding,
+    cache::{SessionCacheData, SessionCacheStore, current_epoch_ms},
     cli::Cli,
     clock::OverlayClock,
     danmaku::{
@@ -41,6 +42,9 @@ use crate::{
 const PROPERTY_REFRESH_INTERVAL: Duration = Duration::from_millis(180);
 const TRACK_REFRESH_INTERVAL: Duration = Duration::from_millis(1_000);
 const PROGRESS_UPLOAD_INTERVAL: Duration = Duration::from_secs(15);
+/// How often to poll `/api/server/status` while the server reports a
+/// background library scan.
+const SCAN_POLL_INTERVAL: Duration = Duration::from_millis(1_500);
 const PLAYBACK_RATES: [f64; 6] = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -132,6 +136,10 @@ pub struct PlayerApp {
     local_host: Option<LocalServerSupervisor>,
     window_effects_applied: bool,
     branding: Branding,
+    session_cache_store: SessionCacheStore,
+    /// `sync_version` of the session data last written to the disk cache.
+    last_cache_saved_sync_version: u64,
+    last_scan_poll: Instant,
 }
 
 impl PlayerApp {
@@ -234,25 +242,56 @@ impl PlayerApp {
         let mut posters = PosterCache::new(creation_context.egui_ctx.clone());
         let mut session = None;
         let mut discovery = None;
+        let session_cache_store = SessionCacheStore::for_current_user();
         let screen = if cli.media.is_some() {
             AppScreen::Playback
         } else if let Some(server_url) = cli.server_url.clone() {
             preferences.last_server_url = Some(server_url.clone());
             posters.set_base_url(Some(server_url.clone()));
-            session = Some(LibrarySession::connect(
-                server_url,
+            let mut connected = LibrarySession::connect(
+                server_url.clone(),
                 cli.pairing_token.clone(),
                 creation_context.egui_ctx.clone(),
-            ));
+            );
+            // Show last session's data for this server instantly while the
+            // fresh catalog fetch runs.
+            if let Some(cache) = session_cache_store
+                .load()
+                .filter(|cache| base_urls_match(&cache.base_url, &server_url))
+            {
+                connected.catalog = Some(cache.catalog);
+                connected.progresses = cache.progresses;
+                connected.catalog_from_cache = true;
+            }
+            session = Some(connected);
             AppScreen::Library
         } else {
-            if !cli.qa_onboarding {
-                match DiscoveryListener::start(DEFAULT_DISCOVERY_PORT) {
-                    Ok(listener) => discovery = Some(listener),
-                    Err(error) => eprintln!("discovery unavailable: {error}"),
+            // When the managed local server is already spinning up for saved
+            // library folders, skip the connect screen entirely: render the
+            // library from the disk cache now and attach once it is ready.
+            let auto_starting_local = !cli.qa_onboarding
+                && local_host
+                    .as_ref()
+                    .is_some_and(|host| matches!(host.status(), LocalHostStatus::Starting));
+            let cached = auto_starting_local
+                .then(|| session_cache_store.load())
+                .flatten();
+            if let Some(cache) = cached {
+                session = Some(LibrarySession::from_cache(
+                    cache.catalog,
+                    cache.progresses,
+                    creation_context.egui_ctx.clone(),
+                ));
+                AppScreen::Library
+            } else {
+                if !cli.qa_onboarding {
+                    match DiscoveryListener::start(DEFAULT_DISCOVERY_PORT) {
+                        Ok(listener) => discovery = Some(listener),
+                        Err(error) => eprintln!("discovery unavailable: {error}"),
+                    }
                 }
+                AppScreen::Connect
             }
-            AppScreen::Connect
         };
 
         let now = Instant::now();
@@ -307,6 +346,9 @@ impl PlayerApp {
             local_host,
             window_effects_applied: false,
             branding,
+            session_cache_store,
+            last_cache_saved_sync_version: 0,
+            last_scan_poll: now,
         })
     }
 
@@ -748,11 +790,20 @@ impl PlayerApp {
     fn connect_to_server(&mut self, ctx: &egui::Context, request: ConnectRequest) {
         self.preferences.last_server_url = Some(request.base_url.clone());
         self.posters.set_base_url(Some(request.base_url.clone()));
-        self.session = Some(LibrarySession::connect(
-            request.base_url,
-            request.pairing_token,
-            ctx.clone(),
-        ));
+        // A cache-seeded session keeps its catalog on screen; attaching just
+        // points it at the live server and refreshes in the background.
+        match self.session.as_mut() {
+            Some(session) if !session.connected => {
+                session.attach(request.base_url, request.pairing_token);
+            }
+            _ => {
+                self.session = Some(LibrarySession::connect(
+                    request.base_url,
+                    request.pairing_token,
+                    ctx.clone(),
+                ));
+            }
+        }
         self.connect_screen.error = None;
         self.screen = AppScreen::Library;
     }
@@ -802,7 +853,11 @@ impl PlayerApp {
     }
 
     fn request_library_play(&mut self, media_id: String) {
-        if let Some(session) = &self.session {
+        // Streaming needs the live server; ignore clicks while the session is
+        // only showing the cached library (the sync banner explains why).
+        if let Some(session) = &self.session
+            && session.connected
+        {
             session.lookup_resume(media_id.clone());
             self.pending_play_media_id = Some(media_id);
         }
@@ -1902,6 +1957,139 @@ impl PlayerApp {
         self.screen = AppScreen::Settings;
     }
 
+    /// The cache-seeded library is only a preview of an imminent local-host
+    /// connection; if the host can no longer get there (setup required,
+    /// stopped, failed), fall back to the connect screen with the reason.
+    fn abandon_unattached_session_if_host_gone(&mut self, _ctx: &egui::Context) {
+        let Some(session) = &self.session else {
+            return;
+        };
+        if session.connected {
+            return;
+        }
+        let status = self.local_host.as_ref().map(LocalServerSupervisor::status);
+        let error = match status {
+            Some(LocalHostStatus::Starting) | Some(LocalHostStatus::Running { .. }) => return,
+            Some(LocalHostStatus::Failed(error)) => Some(error.clone()),
+            _ => None,
+        };
+        self.session = None;
+        self.connect_screen.error = error;
+        self.screen = AppScreen::Connect;
+        if self.discovery.is_none() && !self.cli.qa_onboarding {
+            match DiscoveryListener::start(DEFAULT_DISCOVERY_PORT) {
+                Ok(listener) => self.discovery = Some(listener),
+                Err(error) => eprintln!("discovery unavailable: {error}"),
+            }
+        }
+    }
+
+    /// While the server reports a background library scan, keep polling its
+    /// status; the session refreshes the catalog once the scan completes.
+    fn poll_server_scan(&mut self, ctx: &egui::Context, now: Instant) {
+        let Some(session) = &self.session else {
+            return;
+        };
+        if !session.connected || !session.server_scanning {
+            return;
+        }
+        if now.saturating_duration_since(self.last_scan_poll) >= SCAN_POLL_INTERVAL {
+            self.last_scan_poll = now;
+            session.refresh_server_scan();
+        }
+        ctx.request_repaint_after(Duration::from_millis(400));
+    }
+
+    /// Writes fresh catalog/progress data to the disk cache (off the UI
+    /// thread) so the next launch can render the library instantly.
+    fn persist_session_cache_if_needed(&mut self) {
+        let Some(session) = &self.session else {
+            return;
+        };
+        if !session.connected
+            || session.catalog_from_cache
+            || session.sync_version == self.last_cache_saved_sync_version
+        {
+            return;
+        }
+        let Some(catalog) = &session.catalog else {
+            return;
+        };
+        self.last_cache_saved_sync_version = session.sync_version;
+        let store = self.session_cache_store.clone();
+        let data = SessionCacheData {
+            base_url: session.base_url.clone(),
+            saved_at_epoch_ms: current_epoch_ms(),
+            catalog: catalog.clone(),
+            progresses: session.progresses.clone(),
+        };
+        std::thread::spawn(move || {
+            if let Err(error) = store.save(&data) {
+                eprintln!("failed to save session cache: {error}");
+            }
+        });
+    }
+
+    /// Startup/sync stage for the library banner, or `None` when idle.
+    fn library_sync_banner_text(&self) -> Option<String> {
+        let session = self.session.as_ref()?;
+        let strings = Strings::new(self.preferences.language);
+        if !session.connected {
+            let starting = matches!(
+                self.local_host.as_ref().map(LocalServerSupervisor::status),
+                Some(LocalHostStatus::Starting)
+            );
+            return Some(if starting {
+                strings.starting_local_server().to_owned()
+            } else {
+                strings.connecting_to_server().to_owned()
+            });
+        }
+        if session.server_scanning {
+            let mut text = strings.indexing_library().to_owned();
+            if let Some(files) = session.server_scan_files_seen.filter(|files| *files > 0) {
+                text.push_str("  ·  ");
+                text.push_str(&strings.indexing_files_found(files));
+            }
+            return Some(text);
+        }
+        if session.loading_catalog && session.catalog_from_cache {
+            return Some(strings.refreshing_library().to_owned());
+        }
+        None
+    }
+
+    /// Slim progress strip under the title bar while the library is starting
+    /// up, refreshing, or being indexed server-side. The cached library stays
+    /// interactive underneath.
+    fn show_library_sync_banner(&mut self, ctx: &egui::Context) {
+        let Some(text) = self.library_sync_banner_text() else {
+            return;
+        };
+        egui::TopBottomPanel::top("library_sync_banner")
+            .exact_height(30.0)
+            .frame(Frame::NONE.fill(palette::SURFACE_RAISED))
+            .show(ctx, |ui| {
+                ui.horizontal_centered(|ui| {
+                    ui.add_space(18.0);
+                    ui.add(
+                        egui::Spinner::new()
+                            .size(14.0)
+                            .color(palette::ACCENT_BRIGHT),
+                    );
+                    ui.add_space(8.0);
+                    ui.label(
+                        RichText::new(text)
+                            .font(typography::caption())
+                            .color(palette::TEXT_SECONDARY),
+                    );
+                });
+            });
+        // Keep the spinner animating and startup states advancing even
+        // without input events.
+        ctx.request_repaint_after(Duration::from_millis(400));
+    }
+
     fn apply_changed_preferences(&mut self, before: &PlayerPreferences, ctx: &egui::Context) {
         self.preferences = self.preferences.clone().sanitized();
         if self.preferences.language != before.language {
@@ -2022,6 +2210,9 @@ impl eframe::App for PlayerApp {
         if let Some(connection) = local_connection {
             self.connect_to_local_server(ctx, connection);
         }
+        self.abandon_unattached_session_if_host_gone(ctx);
+        self.poll_server_scan(ctx, now);
+        self.persist_session_cache_if_needed();
 
         match self.screen {
             AppScreen::Connect => {
@@ -2065,6 +2256,7 @@ impl eframe::App for PlayerApp {
                 ctx.request_repaint_after(Duration::from_millis(500));
             }
             AppScreen::Library => {
+                self.show_library_sync_banner(ctx);
                 if self.qa_play_first_pending
                     && let Some(first_id) = self
                         .session
@@ -2095,7 +2287,9 @@ impl eframe::App for PlayerApp {
                         self.request_library_play(media_id);
                     }
                     Some(LibraryAction::PreloadDanmaku { media_ids }) => {
-                        if let Some(session) = &self.session {
+                        if let Some(session) = &self.session
+                            && session.connected
+                        {
                             for media_id in media_ids {
                                 if self.pending_preloads.insert(media_id.clone()) {
                                     session.fetch_danmaku(media_id, false);
@@ -2520,6 +2714,11 @@ fn is_danmaku_path(path: &Path) -> bool {
                 "xml" | "json" | "danmaku" | "ass"
             )
         })
+}
+
+/// Base-URL equality tolerant of a trailing slash, for cache seeding.
+fn base_urls_match(left: &str, right: &str) -> bool {
+    left.trim_end_matches('/') == right.trim_end_matches('/')
 }
 
 pub fn media_display_title(media: &str) -> String {

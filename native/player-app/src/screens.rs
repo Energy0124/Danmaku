@@ -323,6 +323,16 @@ fn local_status_card(ui: &mut egui::Ui, status: &LocalHostStatus, strings: Strin
     ui.painter()
         .circle_filled(dot, 6.0, palette::SURFACE_RAISED);
     ui.painter().circle_filled(dot, 4.0, color);
+    if matches!(status, LocalHostStatus::Starting) {
+        ui.put(
+            Rect::from_center_size(pos2(rect.right() - 28.0, rect.center().y), vec2(20.0, 20.0)),
+            egui::Spinner::new()
+                .size(18.0)
+                .color(palette::ACCENT_BRIGHT),
+        );
+        ui.ctx()
+            .request_repaint_after(std::time::Duration::from_millis(100));
+    }
 
     let text_left = tile.right() + 14.0;
     ui.painter().text(
@@ -868,7 +878,9 @@ impl LibraryScreen {
                 ui.add_space(PAGE_GUTTER);
                 let local = session.base_url.starts_with("http://127.")
                     || session.base_url.starts_with("http://localhost");
-                let label = if local {
+                let label = if !session.connected {
+                    strings.connecting_to_server().to_owned()
+                } else if local {
                     format!("{}  •  {}", strings.local_library(), strings.online())
                 } else {
                     strings.library_online().to_owned()
