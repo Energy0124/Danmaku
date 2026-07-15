@@ -83,6 +83,10 @@ impl SettingsStore {
         Ok(settings_from_value(&value))
     }
 
+    pub fn save(&self, settings: &HeadlessServerSettings) -> Result<()> {
+        self.write_snapshot(settings)
+    }
+
     fn write_snapshot(&self, settings: &HeadlessServerSettings) -> Result<()> {
         if let Some(parent) = self.file.parent() {
             fs::create_dir_all(parent).map_err(|error| {
@@ -612,11 +616,11 @@ fn non_blank(value: String) -> Option<String> {
     (!trimmed.is_empty()).then(|| trimmed.to_owned())
 }
 
-fn is_http_base_url(value: &str) -> bool {
+pub(crate) fn is_http_base_url(value: &str) -> bool {
     has_host_after_scheme(value, "http://") || has_host_after_scheme(value, "https://")
 }
 
-fn is_https_base_url(value: &str) -> bool {
+pub(crate) fn is_https_base_url(value: &str) -> bool {
     has_host_after_scheme(value, "https://")
 }
 

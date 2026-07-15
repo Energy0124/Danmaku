@@ -241,12 +241,14 @@ catalog snapshots, stable pairing tokens, and playback progress under the
 locked data directory. It can read roots and non-secret provider setting
 summaries from `server-settings.json`, exposes those summaries through server
 status, exposes provider runtime readiness, read-only provider mapping
-search, and dandanplay match/comment resolve for catalog media through
-authenticated endpoints, and the web UI can trigger dandanplay preview lookups
-for selected catalog media. The server boots from cached catalog when no roots are
-configured while using the same LAN discovery announcements as the desktop
-sidecar. External list-sync network actions and broader provider admin UX are
-still planned work.
+search, and dandanplay match/comment resolve for catalog media. The Rust host
+also exposes a bearer-authenticated, secret-redacted provider settings API; its
+web administration form edits dandanplay, MyAnimeList, and Bangumi settings,
+stores write-only credentials with Windows DPAPI, and refreshes provider
+clients without restarting the server. The server boots from cached catalog
+when no roots are configured while using the same LAN discovery announcements
+as the desktop sidecar. Broader tracking automation and library-quality admin
+workflows remain planned.
 
 Desktop can launch directly into the remote-library browser against a running
 headless/sidecar host. Supplying a remote URL skips the local sidecar:

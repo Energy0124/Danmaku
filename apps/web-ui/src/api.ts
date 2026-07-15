@@ -12,8 +12,8 @@ export interface LanLibraryServerStatus {
 }
 
 export interface LanProviderSettingsStatus {
-  dandanplay: LanDandanplayProviderStatus;
-  externalAnime: LanExternalAnimeProviderStatus;
+  dandanplay?: LanDandanplayProviderStatus;
+  externalAnime?: LanExternalAnimeProviderStatus;
 }
 
 export interface LanDandanplayProviderStatus {
@@ -31,6 +31,34 @@ export interface LanExternalAnimeProviderStatus {
   bangumiBaseUrl?: string | null;
   bangumiUserAgent?: string | null;
   hasBangumiAccessToken: boolean;
+}
+
+
+export interface ProviderSettingsDocument {
+  settings: LanProviderSettingsStatus;
+  runtime: LanProviderRuntimeStatus;
+}
+
+export interface ProviderSettingsUpdate {
+  dandanplay: {
+    baseUrl: string;
+    appId?: string;
+    appSecret?: string;
+    clearAppSecret?: boolean;
+    authenticationMode: "SIGNED" | "CREDENTIAL";
+    cacheMaxAgeDays: number;
+  };
+  externalAnime: {
+    myAnimeListClientId?: string;
+    myAnimeListClientSecret?: string;
+    clearMyAnimeListClientSecret?: boolean;
+    myAnimeListAccessToken?: string;
+    clearMyAnimeListAccessToken?: boolean;
+    bangumiBaseUrl: string;
+    bangumiUserAgent: string;
+    bangumiAccessToken?: string;
+    clearBangumiAccessToken?: boolean;
+  };
 }
 
 export interface LanProviderRuntimeStatus {
@@ -233,6 +261,44 @@ export async function fetchServerStatus(baseUrl: string): Promise<LanLibraryServ
   return readJson<LanLibraryServerStatus>(`${normalizeBaseUrl(baseUrl)}/api/server/status`);
 }
 
+
+export async function fetchProviderSettings(
+  baseUrl: string,
+  token: string
+): Promise<ProviderSettingsDocument> {
+  return readJsonWithToken<ProviderSettingsDocument>(
+    normalizeBaseUrl(baseUrl) + "/api/providers/settings",
+    token
+  );
+}
+
+export async function saveProviderSettings(
+  baseUrl: string,
+  token: string,
+  update: ProviderSettingsUpdate
+): Promise<ProviderSettingsDocument> {
+  const response = await fetch(
+    normalizeBaseUrl(baseUrl) + "/api/providers/settings",
+    {
+      method: "PUT",
+      headers: {
+        Accept: "application/json",
+        Authorization: "Bearer " + token,
+        "Content-Type": "application/json; charset=utf-8"
+      },
+      body: JSON.stringify(update)
+    }
+  );
+  if (!response.ok) {
+    const message = (await response.text()).trim();
+    throw new DanmakuApiError(
+      message || "Provider settings save failed with HTTP " + response.status,
+      response.status
+    );
+  }
+  return response.json() as Promise<ProviderSettingsDocument>;
+}
+
 export async function fetchProviderRuntime(
   baseUrl: string,
   token: string
@@ -358,6 +424,20 @@ export function subtitleUrl(baseUrl: string, token: string, subtitle: LibrarySub
 
 export function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl.trim().replace(/\/+$/, "");
+}
+
+
+async function readJsonWithToken<T>(url: string, token: string): Promise<T> {
+  const response = await fetch(url, {
+    headers: {
+      Accept: "application/json",
+      Authorization: "Bearer " + token
+    }
+  });
+  if (!response.ok) {
+    throw new DanmakuApiError("Request failed with HTTP " + response.status, response.status);
+  }
+  return response.json() as Promise<T>;
 }
 
 async function readJson<T>(url: string): Promise<T> {

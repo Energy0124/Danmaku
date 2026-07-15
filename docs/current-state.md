@@ -341,6 +341,11 @@ trusted-LAN clients.
   sidecar HTTP API is the remaining Phase 2 dependency-removal slice; it is not
   part of the removed embedded-host runtime.
 
+- Rust headless provider administration now uses a bearer-authenticated,
+  secret-redacted settings route; the web form writes dandanplay, MAL, and
+  Bangumi credentials to Windows DPAPI storage and reloads provider clients
+  immediately after a successful save.
+
 ## Partial Or Needs More QA
 
 - Windows runtime probing and automated smoke playback passed on 2026-06-22

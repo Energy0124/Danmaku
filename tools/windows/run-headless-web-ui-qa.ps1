@@ -30,6 +30,23 @@ $gradle = Join-Path $repoRoot "gradlew.bat"
 $rustServerExe = $null
 $hostImplementation = if ($RustServer) { "Rust library-server" } else { "JVM apps:library-server-windows" }
 
+# Keep this fixture gate deterministic and prevent ignored local.properties or
+# user-level provider credentials from leaking into the isolated host.
+@(
+    "DANMAKU_DANDANPLAY_BASE_URL",
+    "DANMAKU_DANDANPLAY_PROXY_BASE_URL",
+    "DANMAKU_DANDANPLAY_APP_ID",
+    "DANMAKU_DANDANPLAY_APP_SECRET",
+    "DANMAKU_DANDANPLAY_AUTHENTICATION_MODE",
+    "DANMAKU_DANDANPLAY_CACHE_MAX_AGE_DAYS",
+    "DANMAKU_MYANIMELIST_CLIENT_ID",
+    "DANMAKU_MYANIMELIST_CLIENT_SECRET",
+    "DANMAKU_MYANIMELIST_ACCESS_TOKEN",
+    "DANMAKU_BANGUMI_BASE_URL",
+    "DANMAKU_BANGUMI_USER_AGENT",
+    "DANMAKU_BANGUMI_ACCESS_TOKEN"
+) | ForEach-Object { Set-Item -Path "Env:$_" -Value "" }
+
 function Invoke-RequiredCommand {
     param(
         [scriptblock]$Command,

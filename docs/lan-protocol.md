@@ -430,6 +430,33 @@ Status codes:
 These are installed by `apps/library-server-windows` on top of the core
 public hook dispatch. They do not require pairing-token auth.
 
+### `GET|PUT /api/providers/settings`
+
+Rust headless-server only. Auth is required even though the legacy catalog and
+media routes do not yet enforce pairing: send the server pairing token as
+`Authorization: Bearer <token>`. Token comparison is constant-time.
+
+`GET` returns a secret-redacted settings document plus current runtime
+capabilities. `PUT` accepts the same non-secret settings plus write-only
+`appSecret`, `myAnimeListClientSecret`, `myAnimeListAccessToken`, and
+`bangumiAccessToken` fields. Omitting a secret keeps its current protected
+value. The matching clear boolean removes it; a request cannot replace and
+clear the same value together.
+
+On Windows, secrets are stored under the locked server data directory in a
+DPAPI-protected `provider-secrets.json` snapshot. Raw secrets are never
+returned by the API or written to `server-settings.json`. A successful save
+swaps the in-memory provider service, dandanplay resolver, and runtime status,
+so no server restart is required.
+
+Status codes:
+
+- `200`: settings read or saved; response is always secret-redacted.
+- `400`: malformed or invalid settings, or protected storage failed.
+- `401`: missing or incorrect bearer token.
+- `404`: route is unavailable on a non-headless/embedded host.
+- `405`: method is not `GET` or `PUT`.
+
 ### `GET /api/providers/runtime`
 
 Response: `200 application/json; charset=utf-8`.

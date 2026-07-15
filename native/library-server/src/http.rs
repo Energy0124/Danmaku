@@ -7,18 +7,20 @@ use axum::Router;
 use axum::body::Body;
 use axum::extract::State;
 use axum::http::header::{
-    ACCEPT, ACCEPT_RANGES, CACHE_CONTROL, CONTENT_LENGTH, CONTENT_RANGE, CONTENT_TYPE, HeaderValue,
-    LOCATION,
+    ACCEPT, ACCEPT_RANGES, AUTHORIZATION, CACHE_CONTROL, CONTENT_LENGTH, CONTENT_RANGE,
+    CONTENT_TYPE, HeaderValue, LOCATION,
 };
 use axum::http::{HeaderMap, Method, Request, Response, StatusCode};
 use axum::routing::any;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncReadExt, AsyncSeekExt};
 use tokio_util::io::ReaderStream;
 
 use crate::catalog::{PublishedLibrary, normalize_lexically};
 use crate::catalog_metadata::CatalogMetadataStore;
-use crate::dandanplay::{DandanplayResolveResult, DandanplayResolver, LanDanmakuTrack};
+use crate::dandanplay::{
+    DandanplayResolveResult, DandanplayResolver, LanDanmakuTrack, apply_dandanplay_local_defaults,
+};
 use crate::domain::PlaybackProgress;
 use crate::external_provider::{
     ExternalAnimeListEntry, ExternalAnimeMatchQuery, ExternalAnimeTrackingUpdate,
@@ -26,8 +28,12 @@ use crate::external_provider::{
 };
 use crate::poster_cache::PosterCacheStore;
 use crate::progress::PlaybackProgressStore;
+use crate::provider_secrets::{ProviderSecretStore, ProviderSecrets};
 use crate::scanner::ScanProgress;
-use crate::settings::HeadlessServerSettings;
+use crate::settings::{
+    HeadlessDandanplayAuthenticationMode, HeadlessServerSettings, SettingsStore,
+    apply_external_anime_local_defaults, is_http_base_url, is_https_base_url,
+};
 
 const WEBHOOK_TOKEN_HEADER: &str = "X-Danmaku-Webhook-Token";
 const HOST_MODE_EMBEDDED_DESKTOP: &str = "embedded-desktop";
@@ -44,6 +50,7 @@ pub struct HttpServerConfig {
     pub dandanplay_resolver: Option<Arc<DandanplayResolver>>,
     pub catalog_metadata: Option<Arc<CatalogMetadataStore>>,
     pub poster_cache: Option<Arc<PosterCacheStore>>,
+    pub provider_admin: Option<Arc<ProviderAdminState>>,
 }
 
 impl HttpServerConfig {
@@ -53,6 +60,7 @@ impl HttpServerConfig {
         dandanplay_resolver: Option<Arc<DandanplayResolver>>,
         catalog_metadata: Option<Arc<CatalogMetadataStore>>,
         poster_cache: Option<Arc<PosterCacheStore>>,
+        provider_admin: Arc<ProviderAdminState>,
     ) -> Self {
         Self {
             web_assets_root,
@@ -66,6 +74,7 @@ impl HttpServerConfig {
             dandanplay_resolver,
             catalog_metadata,
             poster_cache,
+            provider_admin: Some(provider_admin),
         }
     }
 
@@ -84,8 +93,370 @@ impl HttpServerConfig {
             dandanplay_resolver: None,
             catalog_metadata: None,
             poster_cache: None,
+            provider_admin: None,
         }
     }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ProviderSettingsUpdate {
+    dandanplay: DandanplaySettingsUpdate,
+    external_anime: ExternalAnimeSettingsUpdate,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DandanplaySettingsUpdate {
+    base_url: String,
+    #[serde(default)]
+    app_id: Option<String>,
+    #[serde(default)]
+    app_secret: Option<String>,
+    #[serde(default)]
+    clear_app_secret: bool,
+    authentication_mode: String,
+    cache_max_age_days: u32,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ExternalAnimeSettingsUpdate {
+    #[serde(default)]
+    my_anime_list_client_id: Option<String>,
+    #[serde(default)]
+    my_anime_list_client_secret: Option<String>,
+    #[serde(default)]
+    clear_my_anime_list_client_secret: bool,
+    #[serde(default)]
+    my_anime_list_access_token: Option<String>,
+    #[serde(default)]
+    clear_my_anime_list_access_token: bool,
+    bangumi_base_url: String,
+    bangumi_user_agent: String,
+    #[serde(default)]
+    bangumi_access_token: Option<String>,
+    #[serde(default)]
+    clear_bangumi_access_token: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ProviderSettingsAdminResponse {
+    settings: LanProviderSettingsStatus,
+    runtime: crate::external_provider::LanProviderRuntimeStatus,
+}
+
+#[derive(Debug)]
+struct ProviderRuntimeResources {
+    settings: LanProviderSettingsStatus,
+    runtime: crate::external_provider::LanProviderRuntimeStatus,
+    external_provider_service: Arc<ExternalProviderService>,
+    dandanplay_resolver: Option<Arc<DandanplayResolver>>,
+}
+
+impl ProviderRuntimeResources {
+    fn from_settings(
+        settings: &HeadlessServerSettings,
+        dandanplay_resolver: Option<Arc<DandanplayResolver>>,
+    ) -> Self {
+        Self {
+            settings: LanProviderSettingsStatus::from(settings),
+            runtime: provider_runtime_status(settings),
+            external_provider_service: Arc::new(ExternalProviderService::from_settings(settings)),
+            dandanplay_resolver,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct ProviderAdminState {
+    expected_token: Vec<u8>,
+    data_directory: PathBuf,
+    settings_store: SettingsStore,
+    secret_store: ProviderSecretStore,
+    persisted_settings: Mutex<HeadlessServerSettings>,
+    runtime: RwLock<ProviderRuntimeResources>,
+}
+
+impl ProviderAdminState {
+    pub fn new(
+        data_directory: PathBuf,
+        persisted_settings: HeadlessServerSettings,
+        effective_settings: HeadlessServerSettings,
+        dandanplay_resolver: Option<Arc<DandanplayResolver>>,
+    ) -> Self {
+        let secret_store =
+            ProviderSecretStore::platform(data_directory.join("provider-secrets.json"));
+        Self::with_secret_store(
+            data_directory,
+            persisted_settings,
+            effective_settings,
+            dandanplay_resolver,
+            secret_store,
+        )
+    }
+
+    fn with_secret_store(
+        data_directory: PathBuf,
+        persisted_settings: HeadlessServerSettings,
+        effective_settings: HeadlessServerSettings,
+        dandanplay_resolver: Option<Arc<DandanplayResolver>>,
+        secret_store: ProviderSecretStore,
+    ) -> Self {
+        Self {
+            expected_token: persisted_settings.pairing_token.as_bytes().to_vec(),
+            settings_store: SettingsStore::new(data_directory.join("server-settings.json")),
+            secret_store,
+            data_directory,
+            persisted_settings: Mutex::new(persisted_settings),
+            runtime: RwLock::new(ProviderRuntimeResources::from_settings(
+                &effective_settings,
+                dandanplay_resolver,
+            )),
+        }
+    }
+
+    #[cfg(test)]
+    fn new_for_tests(
+        data_directory: PathBuf,
+        persisted_settings: HeadlessServerSettings,
+        effective_settings: HeadlessServerSettings,
+        secret_store: ProviderSecretStore,
+    ) -> Self {
+        Self::with_secret_store(
+            data_directory,
+            persisted_settings,
+            effective_settings,
+            None,
+            secret_store,
+        )
+    }
+
+    fn is_authorized(&self, headers: &HeaderMap) -> bool {
+        let supplied = headers
+            .get(AUTHORIZATION)
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.strip_prefix("Bearer "))
+            .map(str::as_bytes);
+        constant_time_eq(&self.expected_token, supplied)
+    }
+
+    fn snapshot(&self) -> ProviderSettingsAdminResponse {
+        let runtime = self
+            .runtime
+            .read()
+            .expect("provider runtime lock should not be poisoned");
+        ProviderSettingsAdminResponse {
+            settings: runtime.settings.clone(),
+            runtime: runtime.runtime.clone(),
+        }
+    }
+
+    fn provider_settings(&self) -> LanProviderSettingsStatus {
+        self.runtime
+            .read()
+            .expect("provider runtime lock should not be poisoned")
+            .settings
+            .clone()
+    }
+
+    fn runtime_status(&self) -> crate::external_provider::LanProviderRuntimeStatus {
+        self.runtime
+            .read()
+            .expect("provider runtime lock should not be poisoned")
+            .runtime
+            .clone()
+    }
+
+    fn external_provider_service(&self) -> Arc<ExternalProviderService> {
+        Arc::clone(
+            &self
+                .runtime
+                .read()
+                .expect("provider runtime lock should not be poisoned")
+                .external_provider_service,
+        )
+    }
+
+    fn dandanplay_resolver(&self) -> Option<Arc<DandanplayResolver>> {
+        self.runtime
+            .read()
+            .expect("provider runtime lock should not be poisoned")
+            .dandanplay_resolver
+            .clone()
+    }
+
+    fn update(
+        &self,
+        update: ProviderSettingsUpdate,
+    ) -> crate::Result<ProviderSettingsAdminResponse> {
+        let mut persisted = self
+            .persisted_settings
+            .lock()
+            .map_err(|_| crate::LibraryServerError::new("provider settings lock is unavailable"))?;
+        let mut next = persisted.clone();
+        apply_provider_settings_update(&mut next, update)?;
+
+        let previous_secrets = ProviderSecrets::from_settings(&persisted);
+        let next_secrets = ProviderSecrets::from_settings(&next);
+        self.secret_store.save(&next_secrets)?;
+        if let Err(error) = self.settings_store.save(&next) {
+            let _ = self.secret_store.save(&previous_secrets);
+            return Err(error);
+        }
+
+        let effective =
+            apply_external_anime_local_defaults(apply_dandanplay_local_defaults(next.clone()));
+        let resolver =
+            DandanplayResolver::from_settings(&effective, &self.data_directory).map(Arc::new);
+        let resources = ProviderRuntimeResources::from_settings(&effective, resolver);
+        let response = ProviderSettingsAdminResponse {
+            settings: resources.settings.clone(),
+            runtime: resources.runtime.clone(),
+        };
+        *self.runtime.write().map_err(|_| {
+            crate::LibraryServerError::new("provider runtime lock is unavailable")
+        })? = resources;
+        *persisted = next;
+        Ok(response)
+    }
+}
+
+fn apply_provider_settings_update(
+    settings: &mut HeadlessServerSettings,
+    update: ProviderSettingsUpdate,
+) -> crate::Result<()> {
+    if !is_http_base_url(&update.dandanplay.base_url) || update.dandanplay.base_url.len() > 2_048 {
+        return Err(crate::LibraryServerError::new(
+            "dandanplay baseUrl must be a valid HTTP(S) URL",
+        ));
+    }
+    if update.dandanplay.cache_max_age_days == 0 {
+        return Err(crate::LibraryServerError::new(
+            "dandanplay cacheMaxAgeDays must be at least 1",
+        ));
+    }
+    let authentication_mode = match update
+        .dandanplay
+        .authentication_mode
+        .trim()
+        .to_ascii_uppercase()
+        .as_str()
+    {
+        "SIGNED" => HeadlessDandanplayAuthenticationMode::Signed,
+        "CREDENTIAL" => HeadlessDandanplayAuthenticationMode::Credential,
+        _ => {
+            return Err(crate::LibraryServerError::new(
+                "dandanplay authenticationMode must be SIGNED or CREDENTIAL",
+            ));
+        }
+    };
+    settings.dandanplay.base_url = update.dandanplay.base_url.trim().to_owned();
+    settings.dandanplay.app_id =
+        normalized_optional(update.dandanplay.app_id, 512, "dandanplay appId")?;
+    settings.dandanplay.authentication_mode = authentication_mode;
+    settings.dandanplay.cache_max_age_days = update.dandanplay.cache_max_age_days;
+    apply_secret_update(
+        &mut settings.dandanplay.app_secret,
+        update.dandanplay.app_secret,
+        update.dandanplay.clear_app_secret,
+        "dandanplay appSecret",
+    )?;
+    settings.dandanplay.has_app_secret = settings.dandanplay.app_secret.is_some();
+
+    if !is_https_base_url(&update.external_anime.bangumi_base_url)
+        || update.external_anime.bangumi_base_url.len() > 2_048
+    {
+        return Err(crate::LibraryServerError::new(
+            "Bangumi baseUrl must be a valid HTTPS URL",
+        ));
+    }
+    let bangumi_user_agent = update.external_anime.bangumi_user_agent.trim();
+    if bangumi_user_agent.is_empty() || bangumi_user_agent.len() > 512 {
+        return Err(crate::LibraryServerError::new(
+            "Bangumi userAgent must be between 1 and 512 bytes",
+        ));
+    }
+    settings.external_anime.my_anime_list_client_id = normalized_optional(
+        update.external_anime.my_anime_list_client_id,
+        512,
+        "MyAnimeList clientId",
+    )?;
+    settings.external_anime.bangumi_base_url =
+        update.external_anime.bangumi_base_url.trim().to_owned();
+    settings.external_anime.bangumi_user_agent = bangumi_user_agent.to_owned();
+    apply_secret_update(
+        &mut settings.external_anime.my_anime_list_client_secret,
+        update.external_anime.my_anime_list_client_secret,
+        update.external_anime.clear_my_anime_list_client_secret,
+        "MyAnimeList clientSecret",
+    )?;
+    apply_secret_update(
+        &mut settings.external_anime.my_anime_list_access_token,
+        update.external_anime.my_anime_list_access_token,
+        update.external_anime.clear_my_anime_list_access_token,
+        "MyAnimeList accessToken",
+    )?;
+    apply_secret_update(
+        &mut settings.external_anime.bangumi_access_token,
+        update.external_anime.bangumi_access_token,
+        update.external_anime.clear_bangumi_access_token,
+        "Bangumi accessToken",
+    )?;
+    settings.external_anime.has_my_anime_list_client_secret = settings
+        .external_anime
+        .my_anime_list_client_secret
+        .is_some();
+    settings.external_anime.has_my_anime_list_access_token =
+        settings.external_anime.my_anime_list_access_token.is_some();
+    settings.external_anime.has_bangumi_access_token =
+        settings.external_anime.bangumi_access_token.is_some();
+    Ok(())
+}
+
+fn normalized_optional(
+    value: Option<String>,
+    max_bytes: usize,
+    label: &str,
+) -> crate::Result<Option<String>> {
+    let value = value.map(|value| value.trim().to_owned());
+    let Some(value) = value.filter(|value| !value.is_empty()) else {
+        return Ok(None);
+    };
+    if value.len() > max_bytes {
+        return Err(crate::LibraryServerError::new(format!(
+            "{label} must be no more than {max_bytes} bytes"
+        )));
+    }
+    Ok(Some(value))
+}
+
+fn apply_secret_update(
+    current: &mut Option<String>,
+    replacement: Option<String>,
+    clear: bool,
+    label: &str,
+) -> crate::Result<()> {
+    if clear && replacement.is_some() {
+        return Err(crate::LibraryServerError::new(format!(
+            "{label} cannot be replaced and cleared in the same request"
+        )));
+    }
+    if clear {
+        *current = None;
+        return Ok(());
+    }
+    let Some(replacement) = replacement else {
+        return Ok(());
+    };
+    if replacement.trim().is_empty() || replacement.len() > 4_096 {
+        return Err(crate::LibraryServerError::new(format!(
+            "{label} must be between 1 and 4096 bytes"
+        )));
+    }
+    *current = Some(replacement);
+    Ok(())
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -108,6 +479,7 @@ pub struct HttpServerState {
     dandanplay_resolver: Option<Arc<DandanplayResolver>>,
     catalog_metadata: Option<Arc<CatalogMetadataStore>>,
     poster_cache: Option<Arc<PosterCacheStore>>,
+    provider_admin: Option<Arc<ProviderAdminState>>,
     /// Media IDs with a poster search/download currently in flight, so
     /// concurrent `/api/library` reads (which retry missing posters — see
     /// `handle_catalog`) don't pile up redundant external requests for the
@@ -149,9 +521,33 @@ impl HttpServerState {
             dandanplay_resolver: config.dandanplay_resolver,
             catalog_metadata: config.catalog_metadata,
             poster_cache: config.poster_cache,
+            provider_admin: config.provider_admin,
             poster_resolution_in_flight: Arc::new(Mutex::new(BTreeSet::new())),
             scanning: Arc::new(AtomicBool::new(false)),
             scan_progress: Arc::new(ScanProgress::default()),
+        }
+    }
+
+    fn provider_runtime_status(
+        &self,
+    ) -> Option<crate::external_provider::LanProviderRuntimeStatus> {
+        self.provider_admin
+            .as_ref()
+            .map(|admin| admin.runtime_status())
+            .or_else(|| self.provider_runtime_status.clone())
+    }
+
+    fn external_provider_service(&self) -> Option<Arc<ExternalProviderService>> {
+        self.provider_admin
+            .as_ref()
+            .map(|admin| admin.external_provider_service())
+            .or_else(|| self.external_provider_service.clone())
+    }
+
+    fn dandanplay_resolver(&self) -> Option<Arc<DandanplayResolver>> {
+        match &self.provider_admin {
+            Some(admin) => admin.dandanplay_resolver(),
+            None => self.dandanplay_resolver.clone(),
         }
     }
 
@@ -208,6 +604,9 @@ async fn dispatch(State(state): State<HttpServerState>, request: Request<Body>) 
     if path.starts_with("/api/danmaku/") {
         return handle_danmaku(&state, &method, &path, query.as_deref()).await;
     }
+    if path.starts_with("/api/providers/settings") {
+        return handle_provider_settings(&state, method, &path, headers, body).await;
+    }
     if path.starts_with("/api/providers/runtime") {
         return handle_provider_runtime(&state, &method, &path);
     }
@@ -261,6 +660,9 @@ fn handle_server_status(state: &HttpServerState, method: &Method) -> Response<Bo
         return empty_status(StatusCode::METHOD_NOT_ALLOWED);
     }
     let mut status = state.status.clone();
+    if let Some(admin) = &state.provider_admin {
+        status.provider_settings = Some(admin.provider_settings());
+    }
     if state.scanning.load(Ordering::Relaxed) {
         status.scanning = true;
         status.scan_files_seen = Some(state.scan_progress.media_files_seen());
@@ -372,7 +774,7 @@ fn ensure_poster_resolved(
         }
     }
     let in_flight_set = Arc::clone(&state.poster_resolution_in_flight);
-    let provider_service = state.external_provider_service.clone();
+    let provider_service = state.external_provider_service();
     tokio::spawn(async move {
         resolve_and_cache_poster(
             &catalog_metadata,
@@ -529,7 +931,7 @@ async fn handle_danmaku(
         return empty_status(StatusCode::NOT_FOUND);
     }
 
-    let Some(resolver) = &state.dandanplay_resolver else {
+    let Some(resolver) = state.dandanplay_resolver() else {
         return json_response(StatusCode::OK, &LanDanmakuTrack::unavailable(media_id));
     };
     let force_refresh = parse_query_parameters(query)
@@ -548,6 +950,46 @@ async fn handle_danmaku(
     json_response(StatusCode::OK, &track)
 }
 
+async fn handle_provider_settings(
+    state: &HttpServerState,
+    method: Method,
+    path: &str,
+    headers: HeaderMap,
+    body: Body,
+) -> Response<Body> {
+    if path != "/api/providers/settings" {
+        return empty_status(StatusCode::NOT_FOUND);
+    }
+    let Some(admin) = &state.provider_admin else {
+        return empty_status(StatusCode::NOT_FOUND);
+    };
+    if !admin.is_authorized(&headers) {
+        return empty_status(StatusCode::UNAUTHORIZED);
+    }
+    match method {
+        Method::GET => json_response(StatusCode::OK, &admin.snapshot()),
+        Method::PUT => {
+            let Ok(bytes) = axum::body::to_bytes(body, 65_536).await else {
+                return text_response(
+                    StatusCode::BAD_REQUEST,
+                    "Provider settings request body is too large.",
+                );
+            };
+            let Ok(update) = serde_json::from_slice::<ProviderSettingsUpdate>(&bytes) else {
+                return text_response(
+                    StatusCode::BAD_REQUEST,
+                    "Request body must be a provider settings JSON object.",
+                );
+            };
+            match admin.update(update) {
+                Ok(response) => json_response(StatusCode::OK, &response),
+                Err(error) => text_response(StatusCode::BAD_REQUEST, &error.to_string()),
+            }
+        }
+        _ => empty_status(StatusCode::METHOD_NOT_ALLOWED),
+    }
+}
+
 fn handle_provider_runtime(state: &HttpServerState, method: &Method, path: &str) -> Response<Body> {
     if method != Method::GET {
         return empty_status(StatusCode::METHOD_NOT_ALLOWED);
@@ -555,10 +997,10 @@ fn handle_provider_runtime(state: &HttpServerState, method: &Method, path: &str)
     if path != "/api/providers/runtime" {
         return empty_status(StatusCode::NOT_FOUND);
     }
-    let Some(runtime_status) = &state.provider_runtime_status else {
+    let Some(runtime_status) = state.provider_runtime_status() else {
         return empty_status(StatusCode::NOT_FOUND);
     };
-    json_response(StatusCode::OK, runtime_status)
+    json_response(StatusCode::OK, &runtime_status)
 }
 
 async fn handle_provider_search(
@@ -573,7 +1015,7 @@ async fn handle_provider_search(
     if path != "/api/providers/search" {
         return empty_status(StatusCode::NOT_FOUND);
     }
-    let Some(service) = &state.external_provider_service else {
+    let Some(service) = state.external_provider_service() else {
         return json_response(StatusCode::OK, &Vec::<serde_json::Value>::new());
     };
     let query_parameters = parse_query_parameters(query);
@@ -663,15 +1105,15 @@ async fn handle_provider_list_entry(
     if path != "/api/providers/list/entry" {
         return empty_status(StatusCode::NOT_FOUND);
     }
-    let Some(service) = &state.external_provider_service else {
+    let Some(service) = state.external_provider_service() else {
         return text_response(
             StatusCode::CONFLICT,
             "Provider list sync credentials are not configured.",
         );
     };
     match method {
-        Method::GET => handle_provider_list_read(service, query).await,
-        Method::POST => handle_provider_list_write(service, body).await,
+        Method::GET => handle_provider_list_read(&service, query).await,
+        Method::POST => handle_provider_list_write(&service, body).await,
         _ => text_response(StatusCode::METHOD_NOT_ALLOWED, "Method not allowed."),
     }
 }
@@ -829,7 +1271,7 @@ async fn handle_dandanplay_resolve(
     if !path.is_file() {
         return text_response(StatusCode::NOT_FOUND, "Media file was not found.");
     }
-    let Some(resolver) = &state.dandanplay_resolver else {
+    let Some(resolver) = state.dandanplay_resolver() else {
         return text_response(
             StatusCode::BAD_GATEWAY,
             "dandanplay request failed: Danmaku resolver is not available.",
@@ -882,7 +1324,7 @@ async fn handle_dandanplay_search(
             "Query parameter 'keyword' is required.",
         );
     };
-    let Some(resolver) = &state.dandanplay_resolver else {
+    let Some(resolver) = state.dandanplay_resolver() else {
         return text_response(
             StatusCode::BAD_GATEWAY,
             "dandanplay request failed: Danmaku resolver is not available.",
@@ -923,7 +1365,7 @@ async fn handle_dandanplay_bangumi(
             "Query parameter 'animeId' must be positive.",
         );
     };
-    let Some(resolver) = &state.dandanplay_resolver else {
+    let Some(resolver) = state.dandanplay_resolver() else {
         return text_response(
             StatusCode::BAD_GATEWAY,
             "dandanplay request failed: Danmaku resolver is not available.",
@@ -2092,6 +2534,7 @@ mod tests {
                 dandanplay_resolver: None,
                 catalog_metadata: Some(catalog_metadata.clone()),
                 poster_cache: Some(poster_cache),
+                provider_admin: None,
             },
         );
 
@@ -2191,6 +2634,133 @@ mod tests {
                 .iter()
                 .any(|request| request.path == "/v0/subjects/400602")
         );
+    }
+
+    #[tokio::test]
+    async fn provider_settings_require_auth_redact_secrets_and_reload_runtime() {
+        #[derive(Debug)]
+        struct ReversingSecretProtector;
+
+        impl crate::provider_secrets::SecretProtector for ReversingSecretProtector {
+            fn protect(&self, plaintext: &[u8]) -> crate::Result<Vec<u8>> {
+                Ok(plaintext.iter().rev().map(|byte| byte ^ 0x5a).collect())
+            }
+
+            fn unprotect(&self, ciphertext: &[u8]) -> crate::Result<Vec<u8>> {
+                Ok(ciphertext.iter().rev().map(|byte| byte ^ 0x5a).collect())
+            }
+        }
+
+        let fixture = FixtureEnvironment::new();
+        let settings = HeadlessServerSettings {
+            pairing_token: "123456".to_owned(),
+            library_roots: Vec::new(),
+            dandanplay: crate::settings::HeadlessDandanplayProviderSettings::default(),
+            external_anime: crate::settings::HeadlessExternalAnimeProviderSettings::default(),
+        };
+        let secret_store = ProviderSecretStore::with_protector(
+            fixture.temp.join("provider-secrets.json"),
+            Arc::new(ReversingSecretProtector),
+        );
+        let admin = Arc::new(ProviderAdminState::new_for_tests(
+            fixture.temp.clone(),
+            settings.clone(),
+            settings.clone(),
+            secret_store,
+        ));
+        let state = HttpServerState::new(
+            fixture.library.clone(),
+            Arc::new(PlaybackProgressStore::new(
+                fixture.temp.join("progress-provider-settings.json"),
+            )),
+            HttpServerConfig::headless(None, &settings, None, None, None, admin),
+        );
+        let app = app(state);
+
+        let unauthorized = app
+            .clone()
+            .oneshot(get("/api/providers/settings"))
+            .await
+            .expect("unauthorized response");
+        assert_eq!(StatusCode::UNAUTHORIZED, unauthorized.status());
+
+        let update = json!({
+            "dandanplay": {
+                "baseUrl": "https://api.dandanplay.net",
+                "appId": "dandanplay-app",
+                "appSecret": "dandanplay-secret",
+                "authenticationMode": "CREDENTIAL",
+                "cacheMaxAgeDays": 14
+            },
+            "externalAnime": {
+                "myAnimeListClientId": "mal-client",
+                "myAnimeListClientSecret": "mal-secret",
+                "myAnimeListAccessToken": "mal-token",
+                "bangumiBaseUrl": "https://api.bgm.tv/",
+                "bangumiUserAgent": "DanmakuTest/1.0",
+                "bangumiAccessToken": "bangumi-token"
+            }
+        });
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("PUT")
+                    .uri("/api/providers/settings")
+                    .header(AUTHORIZATION, "Bearer 123456")
+                    .header("content-type", "application/json")
+                    .body(Body::from(update.to_string()))
+                    .expect("settings request"),
+            )
+            .await
+            .expect("settings response");
+        assert_eq!(StatusCode::OK, response.status());
+        let response_body = body_text(response).await;
+        for secret in [
+            "dandanplay-secret",
+            "mal-secret",
+            "mal-token",
+            "bangumi-token",
+        ] {
+            assert!(!response_body.contains(secret));
+        }
+        let response: Value = serde_json::from_str(&response_body).expect("settings json");
+        assert_eq!(true, response["settings"]["dandanplay"]["hasAppSecret"]);
+        assert_eq!(true, response["runtime"]["dandanplay"]["authenticated"]);
+        assert_eq!(
+            true,
+            response["runtime"]["myAnimeList"]["listWriteAvailable"]
+        );
+        assert_eq!(true, response["runtime"]["bangumi"]["listWriteAvailable"]);
+
+        let runtime = request_json(&app, "/api/providers/runtime").await;
+        assert_eq!(true, runtime["dandanplay"]["commentFetchAvailable"]);
+        assert_eq!(true, runtime["myAnimeList"]["listReadAvailable"]);
+        assert_eq!(true, runtime["bangumi"]["listReadAvailable"]);
+
+        let status = request_json(&app, "/api/server/status").await;
+        assert_eq!(
+            "dandanplay-app",
+            status["providerSettings"]["dandanplay"]["appId"]
+        );
+        assert_eq!(
+            "DanmakuTest/1.0",
+            status["providerSettings"]["externalAnime"]["bangumiUserAgent"]
+        );
+
+        let settings_file =
+            fs::read_to_string(fixture.temp.join("server-settings.json")).expect("settings file");
+        let secrets_file =
+            fs::read_to_string(fixture.temp.join("provider-secrets.json")).expect("secret file");
+        for secret in [
+            "dandanplay-secret",
+            "mal-secret",
+            "mal-token",
+            "bangumi-token",
+        ] {
+            assert!(!settings_file.contains(secret));
+            assert!(!secrets_file.contains(secret));
+        }
     }
 
     #[tokio::test]
@@ -2717,6 +3287,7 @@ mod tests {
                 dandanplay_resolver: resolver,
                 catalog_metadata,
                 poster_cache,
+                provider_admin: None,
             },
         );
         app(state)
@@ -2741,6 +3312,7 @@ mod tests {
                 dandanplay_resolver: None,
                 catalog_metadata: None,
                 poster_cache: None,
+                provider_admin: None,
             },
         );
         app(state)

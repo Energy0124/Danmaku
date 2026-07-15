@@ -10,11 +10,12 @@ use crate::catalog_metadata::CatalogMetadataStore;
 use crate::cli::ServerOptions;
 use crate::dandanplay::{DandanplayResolver, apply_dandanplay_local_defaults};
 use crate::discovery::DiscoveryAnnouncer;
-use crate::http::{self, HttpServerConfig, HttpServerState};
+use crate::http::{self, HttpServerConfig, HttpServerState, ProviderAdminState};
 use crate::lock::DataDirectoryLock;
 use crate::logging::{CatalogScanSummary, StartupSummary};
 use crate::poster_cache::PosterCacheStore;
 use crate::progress::PlaybackProgressStore;
+use crate::provider_secrets::ProviderSecretStore;
 use crate::scanner::scan_roots_with_progress;
 use crate::settings::{
     HeadlessServerSettings, SettingsStore, apply_external_anime_local_defaults,
@@ -26,6 +27,7 @@ use crate::{LibraryServerError, Result};
 pub struct LoadedServer {
     options: ServerOptions,
     settings: HeadlessServerSettings,
+    persisted_settings: HeadlessServerSettings,
     effective_library_roots: Vec<PathBuf>,
     stored_library: Option<HeadlessStoredLibrary>,
     _lock: DataDirectoryLock,
@@ -41,10 +43,18 @@ impl LoadedServer {
         let lock = DataDirectoryLock::acquire(&options.data_directory)?;
         let settings_store =
             SettingsStore::new(options.data_directory.join("server-settings.json"));
-        let settings = settings_store
+        let mut persisted_settings = settings_store
             .load_or_create(options.pairing_token.as_deref(), generate_pairing_token)?;
-        let settings =
-            apply_external_anime_local_defaults(apply_dandanplay_local_defaults(settings));
+        let secret_store =
+            ProviderSecretStore::platform(options.data_directory.join("provider-secrets.json"));
+        secret_store.load()?.merge_into(&mut persisted_settings);
+        #[cfg(windows)]
+        secret_store.save(&crate::provider_secrets::ProviderSecrets::from_settings(
+            &persisted_settings,
+        ))?;
+        let settings = apply_external_anime_local_defaults(apply_dandanplay_local_defaults(
+            persisted_settings.clone(),
+        ));
         let effective_library_roots = if options.library_roots.is_empty() {
             settings.library_roots.clone()
         } else {
@@ -57,6 +67,7 @@ impl LoadedServer {
         Ok(Self {
             options,
             settings,
+            persisted_settings,
             effective_library_roots,
             stored_library,
             _lock: lock,
@@ -111,6 +122,12 @@ impl LoadedServer {
         let dandanplay_resolver =
             DandanplayResolver::from_settings(&self.settings, &self.options.data_directory)
                 .map(Arc::new);
+        let provider_admin = Arc::new(ProviderAdminState::new(
+            self.options.data_directory.clone(),
+            self.persisted_settings.clone(),
+            self.settings.clone(),
+            dandanplay_resolver.clone(),
+        ));
         let catalog_metadata = Some(Arc::new(CatalogMetadataStore::new(
             self.options.data_directory.join("catalog-metadata.json"),
         )));
@@ -126,6 +143,7 @@ impl LoadedServer {
                 dandanplay_resolver,
                 catalog_metadata,
                 poster_cache,
+                provider_admin,
             ),
         )
     }
