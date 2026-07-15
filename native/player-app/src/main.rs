@@ -11,11 +11,13 @@ use danmaku_player::{
 use eframe::egui;
 
 /// Decodes the bundled mascot icon for the window/taskbar. Downscaled to 256
-/// so the in-memory RGBA stays small; the OS scales it per surface.
+/// so the in-memory RGBA stays small; the OS scales it per surface. This runs
+/// before the window opens, so it uses the fast triangle filter — Lanczos3
+/// here costs visible launch time for no perceptible gain at icon sizes.
 fn load_app_icon() -> Option<egui::IconData> {
     let image = image::load_from_memory(include_bytes!("../assets/app-icon.png"))
         .ok()?
-        .resize_exact(256, 256, image::imageops::FilterType::Lanczos3)
+        .thumbnail_exact(256, 256)
         .into_rgba8();
     let (width, height) = image.dimensions();
     Some(egui::IconData {

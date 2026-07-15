@@ -16,7 +16,7 @@ use crate::logging::{CatalogScanSummary, StartupSummary};
 use crate::poster_cache::PosterCacheStore;
 use crate::progress::PlaybackProgressStore;
 use crate::provider_secrets::ProviderSecretStore;
-use crate::scanner::scan_roots;
+use crate::scanner::scan_roots_with_progress;
 use crate::settings::{
     HeadlessServerSettings, SettingsStore, apply_external_anime_local_defaults,
     generate_pairing_token,
@@ -30,11 +30,15 @@ pub struct LoadedServer {
     persisted_settings: HeadlessServerSettings,
     effective_library_roots: Vec<PathBuf>,
     stored_library: Option<HeadlessStoredLibrary>,
-    scan_summary: Option<CatalogScanSummary>,
     _lock: DataDirectoryLock,
 }
 
 impl LoadedServer {
+    /// Loads settings and the cached catalog snapshot only. The library roots
+    /// are *not* scanned here — the server binds and answers requests from the
+    /// cached snapshot immediately, and `BoundServer::serve_until_shutdown`
+    /// runs the (potentially slow) scan in the background, publishing the
+    /// fresh catalog when it completes.
     pub fn load(options: ServerOptions) -> Result<Self> {
         let lock = DataDirectoryLock::acquire(&options.data_directory)?;
         let settings_store =
@@ -59,20 +63,6 @@ impl LoadedServer {
 
         let catalog_store = CatalogStore::new(options.data_directory.join("catalog.json"));
         let stored_library = catalog_store.load()?;
-        let scan = if effective_library_roots.is_empty() {
-            None
-        } else {
-            Some(scan_roots(
-                &effective_library_roots,
-                stored_library.as_ref(),
-            )?)
-        };
-        let scan_summary = scan.as_ref().map(CatalogScanSummary::from);
-        let stored_library = if let Some(scan) = scan {
-            Some(catalog_store.save_scan(scan)?)
-        } else {
-            stored_library
-        };
 
         Ok(Self {
             options,
@@ -80,7 +70,6 @@ impl LoadedServer {
             persisted_settings,
             effective_library_roots,
             stored_library,
-            scan_summary,
             _lock: lock,
         })
     }
@@ -91,7 +80,7 @@ impl LoadedServer {
             &self.settings,
             &self.effective_library_roots,
             self.stored_library.as_ref(),
-            self.scan_summary.clone(),
+            None,
         )
     }
 
@@ -110,16 +99,18 @@ impl LoadedServer {
                 LibraryServerError::with_context(error, "failed to read HTTP socket address")
             })?
             .port();
-        let app = self.router();
+        let state = self.http_state();
+        let app = http::app(state.clone());
         Ok(BoundServer {
             loaded: self,
             listener,
             local_port,
             app,
+            state,
         })
     }
 
-    fn router(&self) -> Router {
+    fn http_state(&self) -> HttpServerState {
         let published_library = self
             .stored_library
             .as_ref()
@@ -143,7 +134,7 @@ impl LoadedServer {
         let poster_cache = Some(Arc::new(PosterCacheStore::new(
             self.options.data_directory.join("poster-cache"),
         )));
-        let state = HttpServerState::new(
+        HttpServerState::new(
             published_library,
             progress_store,
             HttpServerConfig::headless(
@@ -154,8 +145,7 @@ impl LoadedServer {
                 poster_cache,
                 provider_admin,
             ),
-        );
-        http::app(state)
+        )
     }
 }
 
@@ -164,6 +154,7 @@ pub struct BoundServer {
     listener: TcpListener,
     local_port: u16,
     app: Router,
+    state: HttpServerState,
 }
 
 impl BoundServer {
@@ -177,11 +168,155 @@ impl BoundServer {
     {
         let _discovery = DiscoveryAnnouncer::start(self.local_port).await?;
         let loaded = self.loaded;
+        Self::spawn_background_scan(&loaded, self.state);
         axum::serve(self.listener, self.app)
             .with_graceful_shutdown(shutdown)
             .await
             .map_err(|error| LibraryServerError::with_context(error, "HTTP server failed"))?;
         drop(loaded);
         Ok(())
+    }
+
+    /// Rescans the library roots off the request path, then persists and
+    /// publishes the fresh catalog. The server keeps answering from the cached
+    /// snapshot in the meantime; `/api/server/status` reports `scanning` with
+    /// a live file count so clients can show indexing progress.
+    fn spawn_background_scan(loaded: &LoadedServer, state: HttpServerState) {
+        let roots = loaded.effective_library_roots.clone();
+        if roots.is_empty() {
+            return;
+        }
+        let previous = loaded.stored_library.clone();
+        let catalog_store = CatalogStore::new(loaded.options.data_directory.join("catalog.json"));
+        // Flag before serving starts so a client's very first status poll
+        // already reports the scan.
+        state.set_scanning(true);
+        tokio::task::spawn_blocking(move || {
+            scan_and_publish(&roots, previous, &catalog_store, &state);
+        });
+    }
+}
+
+/// Body of the background scan: walk the roots (reusing unchanged items from
+/// `previous`), persist the snapshot, and hot-swap the served library. Always
+/// clears the `scanning` status flag on the way out.
+fn scan_and_publish(
+    roots: &[PathBuf],
+    previous: Option<HeadlessStoredLibrary>,
+    catalog_store: &CatalogStore,
+    state: &HttpServerState,
+) {
+    let progress = state.scan_progress();
+    match scan_roots_with_progress(roots, previous.as_ref(), Some(&progress)) {
+        Ok(scan) => {
+            let summary = CatalogScanSummary::from(&scan);
+            match catalog_store.save_scan(scan) {
+                Ok(stored) => {
+                    state.publish_library(stored.published_library);
+                    println!("{}", summary.to_log_line());
+                }
+                Err(error) => {
+                    eprintln!("failed to persist catalog scan: {error}");
+                }
+            }
+        }
+        Err(error) => {
+            eprintln!("catalog scan failed: {error}");
+        }
+    }
+    state.set_scanning(false);
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    use axum::body::{Body, to_bytes};
+    use axum::http::{Request, StatusCode};
+    use serde_json::Value;
+    use tower::ServiceExt;
+
+    use super::*;
+
+    static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+    fn temp_dir(prefix: &str) -> PathBuf {
+        let id = TEMP_COUNTER.fetch_add(1, Ordering::Relaxed);
+        let path = std::env::temp_dir().join(format!("{prefix}-{}-{id}", std::process::id()));
+        let _ = fs::remove_dir_all(&path);
+        fs::create_dir_all(&path).expect("temp dir should create");
+        path
+    }
+
+    async fn get_json(app: &Router, path: &str) -> Value {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(path)
+                    .body(Body::empty())
+                    .expect("request builds"),
+            )
+            .await
+            .expect("request succeeds");
+        assert_eq!(StatusCode::OK, response.status());
+        let bytes = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("body reads");
+        serde_json::from_slice(&bytes).expect("body is JSON")
+    }
+
+    #[tokio::test]
+    async fn binds_before_scanning_and_publishes_the_scan_result() {
+        let temp = temp_dir("danmaku-runtime-deferred-scan");
+        let data_directory = temp.join("data");
+        let root = temp.join("Anime");
+        let show = root.join("Example Show");
+        fs::create_dir_all(&show).expect("fixture dirs");
+        fs::write(show.join("Episode 01.mp4"), [1, 2, 3, 4]).expect("media");
+
+        let loaded = LoadedServer::load(ServerOptions {
+            data_directory: data_directory.clone(),
+            library_roots: vec![root],
+            port: 0,
+            pairing_token: Some("123456".to_owned()),
+            web_assets_root: None,
+            import_desktop_catalog: None,
+        })
+        .expect("server loads");
+        let bound = loaded.bind().await.expect("server binds");
+        assert!(bound.local_port() > 0);
+
+        // The server is ready before any scan ran: the catalog is empty.
+        let catalog = get_json(&bound.app, "/api/library").await;
+        assert_eq!(0, catalog["items"].as_array().expect("items").len());
+
+        // Run the deferred scan synchronously (production spawns it on a
+        // blocking task once serving starts) and confirm it is published.
+        bound.state.set_scanning(true);
+        let status = get_json(&bound.app, "/api/server/status").await;
+        assert_eq!(Value::Bool(true), status["scanning"]);
+        scan_and_publish(
+            &bound.loaded.effective_library_roots,
+            bound.loaded.stored_library.clone(),
+            &CatalogStore::new(data_directory.join("catalog.json")),
+            &bound.state,
+        );
+
+        let status = get_json(&bound.app, "/api/server/status").await;
+        assert_eq!(Value::Null, status["scanning"]);
+        let catalog = get_json(&bound.app, "/api/library").await;
+        assert_eq!(1, catalog["items"].as_array().expect("items").len());
+        assert_eq!("Example Show", catalog["items"][0]["seriesTitle"]);
+        assert!(
+            CatalogStore::new(data_directory.join("catalog.json"))
+                .load()
+                .expect("catalog loads")
+                .is_some()
+        );
+
+        drop(bound);
+        fs::remove_dir_all(temp).expect("temp should delete");
     }
 }
