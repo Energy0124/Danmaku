@@ -31,6 +31,22 @@ $sourceWeb = Join-Path $PSScriptRoot "web"
 $sourceRunner = Join-Path $PSScriptRoot "run-rust-library-background-host.ps1"
 $sourceManager = $PSCommandPath
 
+function Get-JsonPropertyValue {
+    param(
+        [AllowNull()]$Object,
+        [Parameter(Mandatory = $true)][string]$Name
+    )
+
+    if ($null -eq $Object) {
+        return $null
+    }
+    $property = $Object.PSObject.Properties[$Name]
+    if ($null -eq $property) {
+        return $null
+    }
+    return $property.Value
+}
+
 function Get-NormalizedRoots {
     param([string[]]$ExplicitRoots)
 
@@ -39,8 +55,9 @@ function Get-NormalizedRoots {
         $preferencesPath = Join-Path $env:LOCALAPPDATA "Danmaku\player-preferences.json"
         if (Test-Path -LiteralPath $preferencesPath -PathType Leaf) {
             $preferences = Get-Content -LiteralPath $preferencesPath -Raw | ConvertFrom-Json
-            if ($null -ne $preferences.local_library_roots) {
-                $roots = @($preferences.local_library_roots)
+            $preferenceRoots = Get-JsonPropertyValue -Object $preferences -Name "local_library_roots"
+            if ($null -ne $preferenceRoots) {
+                $roots = @($preferenceRoots)
             }
         }
     }
@@ -48,8 +65,9 @@ function Get-NormalizedRoots {
         $settingsPath = Join-Path $dataDirectory "server-settings.json"
         if (Test-Path -LiteralPath $settingsPath -PathType Leaf) {
             $settings = Get-Content -LiteralPath $settingsPath -Raw | ConvertFrom-Json
-            if ($null -ne $settings.libraryRoots) {
-                $roots = @($settings.libraryRoots)
+            $settingsRoots = Get-JsonPropertyValue -Object $settings -Name "libraryRoots"
+            if ($null -ne $settingsRoots) {
+                $roots = @($settingsRoots)
             }
         }
     }
@@ -135,6 +153,7 @@ function Show-Status {
     if (Test-Path -LiteralPath $configPath -PathType Leaf) {
         $config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
     }
+    $configRoots = Get-JsonPropertyValue -Object $config -Name "libraryRoots"
     [pscustomobject]@{
         installed = $null -ne $task
         state = if ($null -eq $task) { "NotInstalled" } else { [string]$task.State }
@@ -142,7 +161,7 @@ function Show-Status {
         baseUrl = $baseUrl
         installDirectory = $installDirectory
         dataDirectory = $dataDirectory
-        libraryRoots = if ($null -eq $config) { @() } else { @($config.libraryRoots) }
+        libraryRoots = if ($null -eq $configRoots) { @() } else { @($configRoots) }
     }
 }
 
@@ -195,63 +214,77 @@ if ($Action -eq "Install") {
         if ($null -ne (Get-Task)) {
             Unregister-ScheduledTask -TaskPath $taskPath -TaskName $taskName -Confirm:$false
         }
+        if (Test-Path -LiteralPath $configPath) {
+            Remove-Item -LiteralPath $configPath -Force
+        }
 
-        New-Item -ItemType Directory -Path $installDirectory -Force | Out-Null
-        Copy-Item -LiteralPath $sourceServer -Destination $installedServer -Force
-        Copy-Item -LiteralPath $sourceRunner -Destination $installedRunner -Force
-        Copy-Item -LiteralPath $sourceManager -Destination $installedManager -Force
-        $installedWeb = Join-Path $installDirectory "web"
-        if (Test-Path -LiteralPath $installedWeb) {
-            Remove-Item -LiteralPath $installedWeb -Recurse -Force
-        }
-        Copy-Item -LiteralPath $sourceWeb -Destination $installedWeb -Recurse -Force
-        Write-AtomicJson -Path $configPath -Value (New-BackgroundConfig -Roots $roots)
+        try {
+            New-Item -ItemType Directory -Path $installDirectory -Force | Out-Null
+            Copy-Item -LiteralPath $sourceServer -Destination $installedServer -Force
+            Copy-Item -LiteralPath $sourceRunner -Destination $installedRunner -Force
+            Copy-Item -LiteralPath $sourceManager -Destination $installedManager -Force
+            $installedWeb = Join-Path $installDirectory "web"
+            if (Test-Path -LiteralPath $installedWeb) {
+                Remove-Item -LiteralPath $installedWeb -Recurse -Force
+            }
+            Copy-Item -LiteralPath $sourceWeb -Destination $installedWeb -Recurse -Force
 
-        $windowsPowerShell = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
-        $runnerArguments = (
-            '-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass ' +
-            '-WindowStyle Hidden -File "' + $installedRunner + '" ' +
-            '-ConfigPath "' + $configPath + '"'
-        )
-        $taskActionParams = @{
-            Execute = $windowsPowerShell
-            Argument = $runnerArguments
-            WorkingDirectory = $installDirectory
-        }
-        $taskAction = New-ScheduledTaskAction @taskActionParams
-        $currentSid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value
-        $taskTrigger = New-ScheduledTaskTrigger -AtLogOn -User $currentSid
-        $taskTrigger.Delay = "PT15S"
-        $taskPrincipalParams = @{
-            UserId = $currentSid
-            LogonType = "Interactive"
-            RunLevel = "Limited"
-        }
-        $taskPrincipal = New-ScheduledTaskPrincipal @taskPrincipalParams
-        $taskSettingsParams = @{
-            AllowStartIfOnBatteries = $true
-            DontStopIfGoingOnBatteries = $true
-            StartWhenAvailable = $true
-            ExecutionTimeLimit = [TimeSpan]::Zero
-            MultipleInstances = "IgnoreNew"
-            RestartCount = 3
-            RestartInterval = [TimeSpan]::FromMinutes(1)
-        }
-        $taskSettings = New-ScheduledTaskSettingsSet @taskSettingsParams
-        $registerParams = @{
-            TaskPath = $taskPath
-            TaskName = $taskName
-            Description = "Keeps the Danmaku Rust library server available after the player closes."
-            Action = $taskAction
-            Trigger = $taskTrigger
-            Principal = $taskPrincipal
-            Settings = $taskSettings
-            Force = $true
-        }
-        Register-ScheduledTask @registerParams | Out-Null
+            $windowsPowerShell = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
+            $runnerArguments = (
+                '-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass ' +
+                '-WindowStyle Hidden -File "' + $installedRunner + '" ' +
+                '-ConfigPath "' + $configPath + '"'
+            )
+            $taskActionParams = @{
+                Execute = $windowsPowerShell
+                Argument = $runnerArguments
+                WorkingDirectory = $installDirectory
+            }
+            $taskAction = New-ScheduledTaskAction @taskActionParams
+            $currentSid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+            $taskTrigger = New-ScheduledTaskTrigger -AtLogOn -User $currentSid
+            $taskTrigger.Delay = "PT15S"
+            $taskPrincipalParams = @{
+                UserId = $currentSid
+                LogonType = "Interactive"
+                RunLevel = "Limited"
+            }
+            $taskPrincipal = New-ScheduledTaskPrincipal @taskPrincipalParams
+            $taskSettingsParams = @{
+                AllowStartIfOnBatteries = $true
+                DontStopIfGoingOnBatteries = $true
+                StartWhenAvailable = $true
+                ExecutionTimeLimit = [TimeSpan]::Zero
+                MultipleInstances = "IgnoreNew"
+                RestartCount = 3
+                RestartInterval = [TimeSpan]::FromMinutes(1)
+            }
+            $taskSettings = New-ScheduledTaskSettingsSet @taskSettingsParams
+            $registerParams = @{
+                TaskPath = $taskPath
+                TaskName = $taskName
+                Description = "Keeps the Danmaku Rust library server available after the player closes."
+                Action = $taskAction
+                Trigger = $taskTrigger
+                Principal = $taskPrincipal
+                Settings = $taskSettings
+                Force = $true
+            }
+            Register-ScheduledTask @registerParams | Out-Null
+            Write-AtomicJson -Path $configPath -Value (New-BackgroundConfig -Roots $roots)
 
-        if (-not $NoStart) {
-            Start-ScheduledTask -TaskPath $taskPath -TaskName $taskName
+            if (-not $NoStart) {
+                Start-ScheduledTask -TaskPath $taskPath -TaskName $taskName
+            }
+        } catch {
+            if (Test-Path -LiteralPath $configPath) {
+                Remove-Item -LiteralPath $configPath -Force -ErrorAction SilentlyContinue
+            }
+            if ($null -ne (Get-Task)) {
+                Stop-ScheduledTask -TaskPath $taskPath -TaskName $taskName -ErrorAction SilentlyContinue
+                Unregister-ScheduledTask -TaskPath $taskPath -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
+            }
+            throw
         }
     }
     Show-Status

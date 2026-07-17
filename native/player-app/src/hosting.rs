@@ -629,6 +629,46 @@ fn stop_child(child: Option<&mut Child>) {
 mod tests {
     use super::*;
 
+    struct TestDirectory {
+        path: PathBuf,
+    }
+
+    impl TestDirectory {
+        fn new(label: &str) -> Self {
+            let path = std::env::temp_dir().join(format!("danmaku-{label}-{}", std::process::id()));
+            let _ = fs::remove_dir_all(&path);
+            fs::create_dir_all(&path).expect("test directory");
+            Self { path }
+        }
+
+        fn path(&self) -> &Path {
+            &self.path
+        }
+    }
+
+    impl Drop for TestDirectory {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.path);
+        }
+    }
+
+    fn valid_background_config(library_root: &Path) -> serde_json::Value {
+        serde_json::json!({
+            "schemaVersion": BACKGROUND_HOST_SCHEMA_VERSION,
+            "taskName": BACKGROUND_HOST_TASK_NAME,
+            "baseUrl": DEFAULT_BASE_URL,
+            "libraryRoots": [library_root],
+        })
+    }
+
+    fn write_background_config(directory: &TestDirectory, body: &serde_json::Value) {
+        fs::write(
+            directory.path().join(BACKGROUND_HOST_CONFIG_NAME),
+            serde_json::to_vec(body).expect("config serialization"),
+        )
+        .expect("config write");
+    }
+
     #[test]
     fn normalizes_only_existing_library_roots() {
         let root = std::env::temp_dir();
@@ -641,16 +681,16 @@ mod tests {
 
     #[test]
     fn reads_pairing_token_without_exposing_other_settings() {
-        let directory =
-            std::env::temp_dir().join(format!("danmaku-host-settings-{}", std::process::id()));
-        fs::create_dir_all(&directory).expect("settings dir");
+        let directory = TestDirectory::new("host-settings");
         fs::write(
-            directory.join("server-settings.json"),
+            directory.path().join("server-settings.json"),
             r#"{"pairingToken":"123456","libraryRoots":["W:/Anime"]}"#,
         )
         .expect("settings write");
-        assert_eq!(read_pairing_token(&directory), Some("123456".to_owned()));
-        let _ = fs::remove_dir_all(directory);
+        assert_eq!(
+            read_pairing_token(directory.path()),
+            Some("123456".to_owned())
+        );
     }
 
     #[test]
@@ -661,49 +701,55 @@ mod tests {
 
     #[test]
     fn reads_valid_background_host_configuration() {
-        let directory = std::env::temp_dir().join(format!(
-            "danmaku-background-host-config-{}",
-            std::process::id()
-        ));
-        fs::create_dir_all(&directory).expect("config dir");
-        let library_root = directory.join("library");
+        let directory = TestDirectory::new("background-host-valid");
+        let library_root = directory.path().join("library");
         assert!(library_root.is_absolute());
-        let body = serde_json::json!({
-            "schemaVersion": 1,
-            "taskName": BACKGROUND_HOST_TASK_NAME,
-            "baseUrl": DEFAULT_BASE_URL,
-            "libraryRoots": [&library_root],
-        });
-        fs::write(
-            directory.join(BACKGROUND_HOST_CONFIG_NAME),
-            serde_json::to_vec(&body).expect("config serialization"),
-        )
-        .expect("config write");
+        write_background_config(&directory, &valid_background_config(&library_root));
 
-        let config = read_background_host_config(&directory)
+        let config = read_background_host_config(directory.path())
             .expect("config parses")
             .expect("config exists");
-        assert_eq!(config.schema_version, 1);
+        assert_eq!(config.schema_version, BACKGROUND_HOST_SCHEMA_VERSION);
         assert_eq!(config.library_roots, vec![library_root]);
-        let _ = fs::remove_dir_all(directory);
     }
 
     #[test]
     fn rejects_incomplete_background_host_configuration() {
-        let directory = std::env::temp_dir().join(format!(
-            "danmaku-background-host-invalid-{}",
-            std::process::id()
-        ));
-        fs::create_dir_all(&directory).expect("config dir");
-        fs::write(
-            directory.join(BACKGROUND_HOST_CONFIG_NAME),
-            r#"{"schemaVersion":1,"taskName":"\\Danmaku\\Library Server","baseUrl":"http://127.0.0.1:8686","libraryRoots":[]}"#,
-        )
-        .expect("config write");
+        let directory = TestDirectory::new("background-host-empty-roots");
+        let body = serde_json::json!({
+            "schemaVersion": BACKGROUND_HOST_SCHEMA_VERSION,
+            "taskName": BACKGROUND_HOST_TASK_NAME,
+            "baseUrl": DEFAULT_BASE_URL,
+            "libraryRoots": [],
+        });
+        write_background_config(&directory, &body);
 
-        let error = read_background_host_config(&directory).expect_err("config should fail");
+        let error = read_background_host_config(directory.path()).expect_err("config should fail");
         assert!(error.contains("no library roots"));
-        let _ = fs::remove_dir_all(directory);
+    }
+
+    #[test]
+    fn rejects_background_host_schema_version_mismatch() {
+        let directory = TestDirectory::new("background-host-schema");
+        let library_root = directory.path().join("library");
+        let mut body = valid_background_config(&library_root);
+        body["schemaVersion"] = serde_json::json!(BACKGROUND_HOST_SCHEMA_VERSION + 1);
+        write_background_config(&directory, &body);
+
+        let error = read_background_host_config(directory.path()).expect_err("config should fail");
+        assert!(error.contains("unsupported background-host schema version"));
+    }
+
+    #[test]
+    fn rejects_wrong_background_host_task_name() {
+        let directory = TestDirectory::new("background-host-task");
+        let library_root = directory.path().join("library");
+        let mut body = valid_background_config(&library_root);
+        body["taskName"] = serde_json::json!("\\Danmaku\\Unexpected Task");
+        write_background_config(&directory, &body);
+
+        let error = read_background_host_config(directory.path()).expect_err("config should fail");
+        assert!(error.contains("background-host task name must be"));
     }
 
     #[test]

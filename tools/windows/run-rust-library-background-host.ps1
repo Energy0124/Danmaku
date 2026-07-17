@@ -24,6 +24,22 @@ function Write-RunnerLog {
     Add-Content -LiteralPath $runnerLog -Value "$timestamp $Message" -Encoding utf8
 }
 
+function Get-JsonPropertyValue {
+    param(
+        [AllowNull()]$Object,
+        [Parameter(Mandatory = $true)][string]$Name
+    )
+
+    if ($null -eq $Object) {
+        return $null
+    }
+    $property = $Object.PSObject.Properties[$Name]
+    if ($null -eq $property) {
+        return $null
+    }
+    return $property.Value
+}
+
 try {
     if (-not (Test-Path -LiteralPath $configFullPath -PathType Leaf)) {
         throw "Background-host configuration does not exist: $configFullPath"
@@ -36,16 +52,32 @@ try {
     }
 
     $config = Get-Content -LiteralPath $configFullPath -Raw | ConvertFrom-Json
-    if ($config.schemaVersion -ne 1) {
-        throw "Unsupported background-host schemaVersion '$($config.schemaVersion)'."
+    $configuredSchemaVersion = Get-JsonPropertyValue -Object $config -Name "schemaVersion"
+    if ($null -eq $configuredSchemaVersion) {
+        throw "Background-host configuration has no schemaVersion."
     }
-    if ([string]$config.taskName -ne "\Danmaku\Library Server") {
-        throw "Unsupported background-host taskName '$($config.taskName)'."
+    if ($configuredSchemaVersion -ne 1) {
+        throw "Unsupported background-host schemaVersion '$configuredSchemaVersion'."
     }
-    if ([string]$config.baseUrl -ne "http://127.0.0.1:8686") {
-        throw "Unsupported background-host baseUrl '$($config.baseUrl)'."
+    $configuredTaskName = Get-JsonPropertyValue -Object $config -Name "taskName"
+    if ($null -eq $configuredTaskName) {
+        throw "Background-host configuration has no taskName."
     }
-    $rawRoots = @($config.libraryRoots)
+    if ([string]$configuredTaskName -ne "\Danmaku\Library Server") {
+        throw "Unsupported background-host taskName '$configuredTaskName'."
+    }
+    $configuredBaseUrl = Get-JsonPropertyValue -Object $config -Name "baseUrl"
+    if ($null -eq $configuredBaseUrl) {
+        throw "Background-host configuration has no baseUrl."
+    }
+    if ([string]$configuredBaseUrl -ne "http://127.0.0.1:8686") {
+        throw "Unsupported background-host baseUrl '$configuredBaseUrl'."
+    }
+    $configuredRoots = Get-JsonPropertyValue -Object $config -Name "libraryRoots"
+    if ($null -eq $configuredRoots) {
+        throw "Background-host configuration has no library roots."
+    }
+    $rawRoots = @($configuredRoots)
     if (@($rawRoots | Where-Object { -not [System.IO.Path]::IsPathRooted([string]$_) }).Count -gt 0) {
         throw "Background-host library roots must be absolute."
     }
@@ -77,8 +109,17 @@ try {
         $serverArguments += @("--root", $root)
     }
 
-    & $serverPath @serverArguments 1>> $stdoutLog 2>> $stderrLog
-    $exitCode = $LASTEXITCODE
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        # Windows PowerShell 5.1 surfaces native stderr as NativeCommandError.
+        # Keep stderr redirected, but do not let benign server diagnostics
+        # terminate the long-running task before its real exit code is logged.
+        $ErrorActionPreference = "Continue"
+        & $serverPath @serverArguments 1>> $stdoutLog 2>> $stderrLog
+        $exitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
     Write-RunnerLog "library-server.exe exited with code $exitCode"
     exit $exitCode
 } catch {
