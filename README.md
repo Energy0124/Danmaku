@@ -206,12 +206,30 @@ Rust-native runtime-free Windows package:
 ```
 
 The versioned zip is written under `build/release/rust-player/` and contains
-`danmaku-player.exe`, `library-server.exe`, the server web UI, and libmpv.
-Closing the player stops the server process it started. A separately installed
-Windows service is planned as an optional always-on mode; it is not required
-for normal desktop use. The legacy Compose-compatible portable build remains
-available during migration through
-`.\run-windows.ps1 -Portable`.
+`danmaku-player.exe`, `library-server.exe`, the server web UI, libmpv, and
+the optional per-user background-host scripts. Closing the player stops only a
+server process it started itself.
+
+To keep the library server available after the player closes, install the
+packaged current-user logon task (no administrator access is required):
+
+```powershell
+$package = ".\build\release\rust-player\danmaku-player-0.1.0-windows-x64"
+& "$package\manage-rust-library-background-host.ps1" -Action Install `
+  -LibraryRoot "W:\Anime"
+& "$package\manage-rust-library-background-host.ps1" -Action Status
+```
+
+Repeat `-LibraryRoot` for multiple folders. `SetRoots`, `Start`, `Stop`,
+and `Uninstall` manage the task; `-PlanOnly` previews Install/SetRoots without
+changing Task Scheduler. The player detects
+`%LOCALAPPDATA%\Danmaku\server\background-host.json`, attaches to the
+background server, and leaves its lifecycle under script control. The manual
+registration/ownership checklist is in
+[Windows background-host QA](docs/qa/windows-background-host-qa.md).
+
+The legacy Compose-compatible portable build remains available during
+migration through `.\run-windows.ps1 -Portable`.
 
 Experimental macOS desktop shell:
 

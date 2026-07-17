@@ -11,7 +11,7 @@ use crate::{
     branding::Branding,
     danmaku::BangumiDetail,
     discovery::DiscoveredServer,
-    hosting::LocalHostStatus,
+    hosting::{LocalHostOwnership, LocalHostStatus},
     icons::{Icon, paint_icon},
     library::{
         DEFAULT_NEXT_UP_LIMIT, FolderListing, LibraryCatalog, MINIMUM_REMAINING_MS,
@@ -4000,12 +4000,15 @@ fn settings_body(
                 LocalHostStatus::Unavailable => strings.local_server_unavailable().to_owned(),
                 LocalHostStatus::NeedsSetup => strings.local_host_note().to_owned(),
                 LocalHostStatus::Starting => strings.starting_local_server().to_owned(),
-                LocalHostStatus::Running { base_url, managed } => format!(
+                LocalHostStatus::Running {
+                    base_url,
+                    ownership,
+                } => format!(
                     "{}: {base_url}",
-                    if *managed {
-                        strings.managed_by_player()
-                    } else {
-                        strings.attached_server()
+                    match ownership {
+                        LocalHostOwnership::PlayerOwned => strings.managed_by_player(),
+                        LocalHostOwnership::BackgroundHost => strings.managed_by_background_host(),
+                        LocalHostOwnership::External => strings.attached_server(),
                     }
                 ),
                 LocalHostStatus::Stopped => strings.local_server_stopped().to_owned(),
@@ -4018,7 +4021,11 @@ fn settings_body(
                 _ => palette::TEXT_MUTED,
             };
             card_status_dot(ui, &status_text, status_color);
-            if !return_to_playback && status.is_available() {
+            if status.is_background_running() {
+                ui.add_space(8.0);
+                card_status_line(ui, strings.background_host_note());
+            }
+            if !return_to_playback && status.is_available() && status.allows_player_management() {
                 ui.add_space(8.0);
                 // Each configured library folder with an inline remove control.
                 if local_roots.is_empty() {
@@ -4056,12 +4063,12 @@ fn settings_body(
                             *action = Some(SettingsAction::AddLibraryFolder(folder));
                         }
                     }
-                    if status.is_managed_running()
+                    if status.is_player_owned_running()
                         && settings_pill_button(ui, strings.restart_server(), false).clicked()
                     {
                         *action = Some(SettingsAction::RestartLocalServer);
                     }
-                    if status.is_managed_running()
+                    if status.is_player_owned_running()
                         && settings_pill_button(ui, strings.stop_server(), false).clicked()
                     {
                         *action = Some(SettingsAction::StopLocalServer);
@@ -4073,6 +4080,7 @@ fn settings_body(
         // Danmaku provider (dandanplay) credentials for the local sidecar.
         ui.add_space(14.0);
         settings_card(ui, strings.danmaku_provider(), |ui| {
+            let can_manage = status.allows_player_management();
             let configured = dandanplay.is_complete();
             card_status_dot(
                 ui,
@@ -4087,39 +4095,44 @@ fn settings_body(
                     palette::TEXT_MUTED
                 },
             );
-            ui.add_space(6.0);
-            settings_row(ui, strings.dandanplay_app_id(), |ui| {
-                ui.add(
-                    TextEdit::singleline(&mut dandanplay.app_id)
-                        .desired_width(320.0)
-                        .hint_text("app id"),
-                );
+            ui.add_enabled_ui(can_manage, |ui| {
+                ui.add_space(6.0);
+                settings_row(ui, strings.dandanplay_app_id(), |ui| {
+                    ui.add(
+                        TextEdit::singleline(&mut dandanplay.app_id)
+                            .desired_width(320.0)
+                            .hint_text("app id"),
+                    );
+                });
+                settings_row(ui, strings.dandanplay_app_secret(), |ui| {
+                    ui.add(
+                        TextEdit::singleline(&mut dandanplay.app_secret)
+                            .password(true)
+                            .desired_width(320.0)
+                            .hint_text("app secret"),
+                    );
+                });
+                card_status_line(ui, strings.dandanplay_restart_hint());
+                ui.add_space(4.0);
+                ui.horizontal(|ui| {
+                    let can_save = !dandanplay.app_id.trim().is_empty()
+                        && !dandanplay.app_secret.trim().is_empty();
+                    if settings_pill_button(ui, strings.save_and_apply(), can_save).clicked()
+                        && can_save
+                    {
+                        *action = Some(SettingsAction::SaveDandanplayCredentials);
+                    }
+                    if (!dandanplay.app_id.trim().is_empty()
+                        || !dandanplay.app_secret.trim().is_empty())
+                        && settings_pill_button(ui, strings.clear_credentials(), false).clicked()
+                    {
+                        *action = Some(SettingsAction::ClearDandanplayCredentials);
+                    }
+                });
             });
-            settings_row(ui, strings.dandanplay_app_secret(), |ui| {
-                ui.add(
-                    TextEdit::singleline(&mut dandanplay.app_secret)
-                        .password(true)
-                        .desired_width(320.0)
-                        .hint_text("app secret"),
-                );
-            });
-            card_status_line(ui, strings.dandanplay_restart_hint());
-            ui.add_space(4.0);
-            ui.horizontal(|ui| {
-                let can_save = !dandanplay.app_id.trim().is_empty()
-                    && !dandanplay.app_secret.trim().is_empty();
-                if settings_pill_button(ui, strings.save_and_apply(), can_save).clicked()
-                    && can_save
-                {
-                    *action = Some(SettingsAction::SaveDandanplayCredentials);
-                }
-                if (!dandanplay.app_id.trim().is_empty()
-                    || !dandanplay.app_secret.trim().is_empty())
-                    && settings_pill_button(ui, strings.clear_credentials(), false).clicked()
-                {
-                    *action = Some(SettingsAction::ClearDandanplayCredentials);
-                }
-            });
+            if !can_manage {
+                card_status_line(ui, strings.server_managed_settings_note());
+            }
         });
     }
 

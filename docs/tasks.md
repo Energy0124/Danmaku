@@ -22,8 +22,10 @@ Status legend:
   library/home, cinematic playback, and grouped Settings designs. Supervised
   default/maximized coverage and repeatable 960x600 default, hover, and
   keyboard-focus captures pass through
-  `tools/windows/run-rust-player-ui-qa.ps1`. Optional Windows service
-  installation and the remaining retirement cleanup are next. Plans:
+  `tools/windows/run-rust-player-ui-qa.ps1`. The optional always-on host is
+  now packaged as a current-user Task Scheduler logon task with script-first
+  lifecycle/root management, a PlanOnly verification path, and native-player
+  attach-without-ownership behavior. Remaining retirement cleanup is next. Plans:
   `docs/design/rust-migration-plan.md` and
   `docs/design/rust-player-ui-redesign-plan.md`.
 - `[~]` Split the desktop library host into compatibility-preserving host,

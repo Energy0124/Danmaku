@@ -162,6 +162,23 @@ direct playback:
 
 Use --help for direct playback, danmaku, and QA options.
 
+## Keep The Library Server Running
+
+To keep the server available after the player closes, install the packaged
+per-user background host. It uses Windows Task Scheduler at user logon and
+does not require administrator access:
+
+    .\manage-rust-library-background-host.ps1 -Action Install -LibraryRoot "D:\Anime"
+
+Repeat -LibraryRoot for multiple folders. Use -Action Status, Start, Stop,
+SetRoots, or Uninstall to manage it. SetRoots accepts the same repeated
+-LibraryRoot argument. Uninstall removes the task and installed program files
+but preserves the server database and settings under %LOCALAPPDATA%\Danmaku.
+
+The player automatically attaches to this host and will not stop it when the
+player exits. Use -PlanOnly with Install or SetRoots to validate and preview
+the operation without changing Task Scheduler.
+
 ## Contents
 
 - danmaku-player.exe: egui/libmpv player and LAN library client.
@@ -169,6 +186,8 @@ Use --help for direct playback, danmaku, and QA options.
 - web/: packaged server administration UI.
 - libmpv-2.dll: pinned, separately licensed LGPL libmpv dependency.
 - run-danmaku-player.ps1: launcher that selects the packaged libmpv.
+- manage-rust-library-background-host.ps1: install and manage the per-user task.
+- run-rust-library-background-host.ps1: hidden Task Scheduler entry-point.
 - dependencies/libmpv/: pinned manifest and source provenance.
 - RUST_CRATE_LICENSES.md: generated player Rust dependency inventory.
 - RUST_SERVER_CRATE_LICENSES.md: generated server Rust dependency inventory.
@@ -177,8 +196,10 @@ Use --help for direct playback, danmaku, and QA options.
 ## Trust And Credentials
 
 The player is intended for trusted LAN servers. Pairing tokens are session-only
-and are not written to the preferences file. Server administration is handled
-by the server's /web/ UI.
+and are not written to the preferences file. The background-host configuration
+contains only its schema, task name, loopback URL, and library roots; secrets
+remain in the existing protected server settings. Server administration is
+handled by the server's /web/ UI.
 '@
     [System.IO.File]::WriteAllText(
         $DestinationPath,
@@ -276,6 +297,8 @@ Copy-Item -LiteralPath $serverExecutable -Destination $stagePath -Force
 Copy-Item -LiteralPath $webUiDistFullPath -Destination (Join-Path $stagePath "web") -Recurse -Force
 Copy-Item -LiteralPath $libmpvFullPath -Destination $stagePath -Force
 Copy-Item -LiteralPath (Join-Path $repoRoot "tools\windows\run-rust-player.ps1") -Destination (Join-Path $stagePath "run-danmaku-player.ps1") -Force
+Copy-Item -LiteralPath (Join-Path $repoRoot "tools\windows\manage-rust-library-background-host.ps1") -Destination $stagePath -Force
+Copy-Item -LiteralPath (Join-Path $repoRoot "tools\windows\run-rust-library-background-host.ps1") -Destination $stagePath -Force
 Copy-Item -LiteralPath $manifestPath -Destination $dependencyStagePath -Force
 Copy-Item -LiteralPath $sourcePath -Destination $dependencyStagePath -Force
 Copy-Item -LiteralPath (Join-Path $repoRoot "LICENSE") -Destination $stagePath -Force

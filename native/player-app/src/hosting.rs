@@ -22,12 +22,22 @@ const READY_TIMEOUT: Duration = Duration::from_secs(180);
 const READY_POLL_INTERVAL: Duration = Duration::from_millis(250);
 const MAX_RESTARTS: u8 = 3;
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum LocalHostOwnership {
+    PlayerOwned,
+    BackgroundHost,
+    External,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum LocalHostStatus {
     Unavailable,
     NeedsSetup,
     Starting,
-    Running { base_url: String, managed: bool },
+    Running {
+        base_url: String,
+        ownership: LocalHostOwnership,
+    },
     Stopped,
     Failed(String),
 }
@@ -37,8 +47,34 @@ impl LocalHostStatus {
         !matches!(self, Self::Unavailable)
     }
 
-    pub fn is_managed_running(&self) -> bool {
-        matches!(self, Self::Running { managed: true, .. })
+    pub fn is_player_owned_running(&self) -> bool {
+        matches!(
+            self,
+            Self::Running {
+                ownership: LocalHostOwnership::PlayerOwned,
+                ..
+            }
+        )
+    }
+
+    pub fn is_background_running(&self) -> bool {
+        matches!(
+            self,
+            Self::Running {
+                ownership: LocalHostOwnership::BackgroundHost,
+                ..
+            }
+        )
+    }
+
+    pub fn allows_player_management(&self) -> bool {
+        !matches!(
+            self,
+            Self::Running {
+                ownership: LocalHostOwnership::BackgroundHost | LocalHostOwnership::External,
+                ..
+            }
+        )
     }
 }
 
@@ -48,10 +84,36 @@ pub struct LocalConnection {
     pub pairing_token: Option<String>,
 }
 
+const BACKGROUND_HOST_CONFIG_NAME: &str = "background-host.json";
+const BACKGROUND_HOST_SCHEMA_VERSION: u32 = 1;
+const BACKGROUND_HOST_TASK_NAME: &str = "\\Danmaku\\Library Server";
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct BackgroundHostConfig {
+    schema_version: u32,
+    task_name: String,
+    base_url: String,
+    library_roots: Vec<PathBuf>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ServerStatusProbe {
+    #[serde(default)]
+    host_mode: String,
+}
+
 #[derive(Clone, Debug)]
 struct LocalServerPackage {
     executable: PathBuf,
     web_assets: Option<PathBuf>,
+}
+
+#[derive(Clone, Debug)]
+enum LocalHostTarget {
+    Packaged(LocalServerPackage),
+    Background(BackgroundHostConfig),
 }
 
 impl LocalServerPackage {
@@ -102,14 +164,16 @@ impl LocalServerSupervisor {
     ) -> Self {
         let (sender, receiver) = mpsc::channel();
         let package = LocalServerPackage::discover();
-        let state = if package.is_some() {
+        let data_directory = default_data_directory();
+        let background_configured = data_directory.join(BACKGROUND_HOST_CONFIG_NAME).is_file();
+        let state = if package.is_some() || background_configured {
             LocalHostStatus::NeedsSetup
         } else {
             LocalHostStatus::Unavailable
         };
         let mut supervisor = Self {
             package,
-            data_directory: default_data_directory(),
+            data_directory,
             state,
             generation: 0,
             receiver,
@@ -120,7 +184,12 @@ impl LocalServerSupervisor {
             restart_count: 0,
             repaint,
         };
-        if supervisor.package.is_some() {
+        if supervisor.package.is_some()
+            || supervisor
+                .data_directory
+                .join(BACKGROUND_HOST_CONFIG_NAME)
+                .is_file()
+        {
             let roots = supervisor.roots.clone();
             supervisor.begin(roots.clone(), true, !roots.is_empty());
         }
@@ -132,6 +201,7 @@ impl LocalServerSupervisor {
     }
 
     pub fn start(&mut self, root: PathBuf) -> Result<(), String> {
+        self.ensure_player_management_allowed()?;
         if !root.is_dir() {
             return Err(format!("library folder does not exist: {}", root.display()));
         }
@@ -141,6 +211,7 @@ impl LocalServerSupervisor {
     }
 
     pub fn restart(&mut self, roots: Vec<PathBuf>) -> Result<(), String> {
+        self.ensure_player_management_allowed()?;
         if roots.is_empty() {
             return Err("choose at least one library folder".to_owned());
         }
@@ -168,6 +239,17 @@ impl LocalServerSupervisor {
         self.dandanplay = dandanplay.filter(DandanplayCredentials::is_complete);
     }
 
+    fn ensure_player_management_allowed(&self) -> Result<(), String> {
+        match read_background_host_config(&self.data_directory) {
+            Ok(Some(_)) => Err(
+                "the local server is managed by the Danmaku background-host task; use manage-rust-library-background-host.ps1"
+                    .to_owned(),
+            ),
+            Ok(None) => Ok(()),
+            Err(error) => Err(error),
+        }
+    }
+
     pub fn poll(&mut self) -> Option<LocalConnection> {
         let mut connection = None;
         while let Ok(event) = self.receiver.try_recv() {
@@ -179,11 +261,12 @@ impl LocalServerSupervisor {
                     generation,
                     connection: ready,
                     child,
+                    ownership,
                 } if generation == self.generation => {
                     self.child = child;
                     self.state = LocalHostStatus::Running {
                         base_url: ready.base_url.clone(),
-                        managed: self.child.is_some(),
+                        ownership,
                     };
                     connection = Some(ready);
                 }
@@ -197,6 +280,7 @@ impl LocalServerSupervisor {
                     mut child,
                     generation: _,
                     connection: _,
+                    ownership: _,
                 } => {
                     stop_child(child.as_mut());
                 }
@@ -222,9 +306,20 @@ impl LocalServerSupervisor {
     }
 
     fn begin(&mut self, roots: Vec<PathBuf>, allow_attach: bool, start_if_missing: bool) {
-        let Some(package) = self.package.clone() else {
-            self.state = LocalHostStatus::Unavailable;
-            return;
+        let background = match read_background_host_config(&self.data_directory) {
+            Ok(background) => background,
+            Err(error) => {
+                self.state = LocalHostStatus::Failed(error);
+                return;
+            }
+        };
+        let target = match (background, self.package.clone()) {
+            (Some(background), _) => LocalHostTarget::Background(background),
+            (None, Some(package)) => LocalHostTarget::Packaged(package),
+            (None, None) => {
+                self.state = LocalHostStatus::Unavailable;
+                return;
+            }
         };
         self.generation = self.generation.wrapping_add(1);
         let generation = self.generation;
@@ -237,7 +332,7 @@ impl LocalServerSupervisor {
         thread::spawn(move || {
             let event = launch_or_attach(
                 generation,
-                package,
+                target,
                 data_directory,
                 roots,
                 dandanplay,
@@ -273,6 +368,7 @@ enum SupervisorEvent {
         generation: u64,
         connection: LocalConnection,
         child: Option<Child>,
+        ownership: LocalHostOwnership,
     },
     Failed {
         generation: u64,
@@ -282,13 +378,19 @@ enum SupervisorEvent {
 
 fn launch_or_attach(
     generation: u64,
-    package: LocalServerPackage,
+    target: LocalHostTarget,
     data_directory: PathBuf,
     roots: Vec<PathBuf>,
     dandanplay: Option<DandanplayCredentials>,
     allow_attach: bool,
     start_if_missing: bool,
 ) -> SupervisorEvent {
+    let package = match target {
+        LocalHostTarget::Background(background) => {
+            return wait_for_background_host(generation, &background, &data_directory);
+        }
+        LocalHostTarget::Packaged(package) => package,
+    };
     if allow_attach && server_is_ready(DEFAULT_BASE_URL) {
         return SupervisorEvent::Ready {
             generation,
@@ -297,17 +399,18 @@ fn launch_or_attach(
                 pairing_token: read_pairing_token(&data_directory),
             },
             child: None,
+            ownership: LocalHostOwnership::External,
         };
     }
     if !start_if_missing {
         return SupervisorEvent::NeedsSetup { generation };
     }
-
     match launch_server(package, data_directory, roots, dandanplay) {
         Ok((connection, child)) => SupervisorEvent::Ready {
             generation,
             connection,
             child: Some(child),
+            ownership: LocalHostOwnership::PlayerOwned,
         },
         Err(message) => SupervisorEvent::Failed {
             generation,
@@ -395,7 +498,75 @@ fn choose_available_port() -> Result<u16, String> {
 }
 
 fn server_is_ready(base_url: &str) -> bool {
-    http_get(base_url, "/api/server/status").is_ok()
+    http_get(base_url, "/api/server/status")
+        .ok()
+        .and_then(|body| serde_json::from_str::<ServerStatusProbe>(&body).ok())
+        .is_some_and(|status| status.host_mode == "headless-server")
+}
+
+fn read_background_host_config(
+    data_directory: &Path,
+) -> Result<Option<BackgroundHostConfig>, String> {
+    let path = data_directory.join(BACKGROUND_HOST_CONFIG_NAME);
+    if !path.is_file() {
+        return Ok(None);
+    }
+    let body = fs::read_to_string(&path)
+        .map_err(|error| format!("failed to read background-host configuration: {error}"))?;
+    let config = serde_json::from_str::<BackgroundHostConfig>(&body)
+        .map_err(|error| format!("background-host configuration is invalid: {error}"))?;
+    if config.schema_version != BACKGROUND_HOST_SCHEMA_VERSION {
+        return Err(format!(
+            "unsupported background-host schema version {}",
+            config.schema_version
+        ));
+    }
+    if config.task_name != BACKGROUND_HOST_TASK_NAME {
+        return Err(format!(
+            "background-host task name must be {BACKGROUND_HOST_TASK_NAME}"
+        ));
+    }
+    if config.base_url != DEFAULT_BASE_URL {
+        return Err(format!(
+            "background-host base URL must be {DEFAULT_BASE_URL}"
+        ));
+    }
+    if config.library_roots.is_empty() {
+        return Err("background-host configuration has no library roots".to_owned());
+    }
+    if config.library_roots.iter().any(|root| !root.is_absolute()) {
+        return Err("background-host library roots must be absolute".to_owned());
+    }
+    Ok(Some(config))
+}
+
+fn wait_for_background_host(
+    generation: u64,
+    background: &BackgroundHostConfig,
+    data_directory: &Path,
+) -> SupervisorEvent {
+    let deadline = Instant::now() + READY_TIMEOUT;
+    while Instant::now() < deadline {
+        if server_is_ready(&background.base_url) {
+            return SupervisorEvent::Ready {
+                generation,
+                connection: LocalConnection {
+                    base_url: background.base_url.clone(),
+                    pairing_token: read_pairing_token(data_directory),
+                },
+                child: None,
+                ownership: LocalHostOwnership::BackgroundHost,
+            };
+        }
+        thread::sleep(READY_POLL_INTERVAL);
+    }
+    SupervisorEvent::Failed {
+        generation,
+        message: format!(
+            "the Danmaku background host ({}) did not become ready; run manage-rust-library-background-host.ps1 with -Action Status",
+            background.task_name
+        ),
+    }
 }
 
 fn open_log(data_directory: &Path) -> Result<File, String> {
@@ -458,6 +629,46 @@ fn stop_child(child: Option<&mut Child>) {
 mod tests {
     use super::*;
 
+    struct TestDirectory {
+        path: PathBuf,
+    }
+
+    impl TestDirectory {
+        fn new(label: &str) -> Self {
+            let path = std::env::temp_dir().join(format!("danmaku-{label}-{}", std::process::id()));
+            let _ = fs::remove_dir_all(&path);
+            fs::create_dir_all(&path).expect("test directory");
+            Self { path }
+        }
+
+        fn path(&self) -> &Path {
+            &self.path
+        }
+    }
+
+    impl Drop for TestDirectory {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.path);
+        }
+    }
+
+    fn valid_background_config(library_root: &Path) -> serde_json::Value {
+        serde_json::json!({
+            "schemaVersion": BACKGROUND_HOST_SCHEMA_VERSION,
+            "taskName": BACKGROUND_HOST_TASK_NAME,
+            "baseUrl": DEFAULT_BASE_URL,
+            "libraryRoots": [library_root],
+        })
+    }
+
+    fn write_background_config(directory: &TestDirectory, body: &serde_json::Value) {
+        fs::write(
+            directory.path().join(BACKGROUND_HOST_CONFIG_NAME),
+            serde_json::to_vec(body).expect("config serialization"),
+        )
+        .expect("config write");
+    }
+
     #[test]
     fn normalizes_only_existing_library_roots() {
         let root = std::env::temp_dir();
@@ -470,21 +681,91 @@ mod tests {
 
     #[test]
     fn reads_pairing_token_without_exposing_other_settings() {
-        let directory =
-            std::env::temp_dir().join(format!("danmaku-host-settings-{}", std::process::id()));
-        fs::create_dir_all(&directory).expect("settings dir");
+        let directory = TestDirectory::new("host-settings");
         fs::write(
-            directory.join("server-settings.json"),
+            directory.path().join("server-settings.json"),
             r#"{"pairingToken":"123456","libraryRoots":["W:/Anime"]}"#,
         )
         .expect("settings write");
-        assert_eq!(read_pairing_token(&directory), Some("123456".to_owned()));
-        let _ = fs::remove_dir_all(directory);
+        assert_eq!(
+            read_pairing_token(directory.path()),
+            Some("123456".to_owned())
+        );
     }
 
     #[test]
     fn port_selector_returns_a_bindable_port() {
         let port = choose_available_port().expect("port");
         assert!(port > 0);
+    }
+
+    #[test]
+    fn reads_valid_background_host_configuration() {
+        let directory = TestDirectory::new("background-host-valid");
+        let library_root = directory.path().join("library");
+        assert!(library_root.is_absolute());
+        write_background_config(&directory, &valid_background_config(&library_root));
+
+        let config = read_background_host_config(directory.path())
+            .expect("config parses")
+            .expect("config exists");
+        assert_eq!(config.schema_version, BACKGROUND_HOST_SCHEMA_VERSION);
+        assert_eq!(config.library_roots, vec![library_root]);
+    }
+
+    #[test]
+    fn rejects_incomplete_background_host_configuration() {
+        let directory = TestDirectory::new("background-host-empty-roots");
+        let body = serde_json::json!({
+            "schemaVersion": BACKGROUND_HOST_SCHEMA_VERSION,
+            "taskName": BACKGROUND_HOST_TASK_NAME,
+            "baseUrl": DEFAULT_BASE_URL,
+            "libraryRoots": [],
+        });
+        write_background_config(&directory, &body);
+
+        let error = read_background_host_config(directory.path()).expect_err("config should fail");
+        assert!(error.contains("no library roots"));
+    }
+
+    #[test]
+    fn rejects_background_host_schema_version_mismatch() {
+        let directory = TestDirectory::new("background-host-schema");
+        let library_root = directory.path().join("library");
+        let mut body = valid_background_config(&library_root);
+        body["schemaVersion"] = serde_json::json!(BACKGROUND_HOST_SCHEMA_VERSION + 1);
+        write_background_config(&directory, &body);
+
+        let error = read_background_host_config(directory.path()).expect_err("config should fail");
+        assert!(error.contains("unsupported background-host schema version"));
+    }
+
+    #[test]
+    fn rejects_wrong_background_host_task_name() {
+        let directory = TestDirectory::new("background-host-task");
+        let library_root = directory.path().join("library");
+        let mut body = valid_background_config(&library_root);
+        body["taskName"] = serde_json::json!("\\Danmaku\\Unexpected Task");
+        write_background_config(&directory, &body);
+
+        let error = read_background_host_config(directory.path()).expect_err("config should fail");
+        assert!(error.contains("background-host task name must be"));
+    }
+
+    #[test]
+    fn only_player_owned_hosts_allow_process_controls() {
+        let player_owned = LocalHostStatus::Running {
+            base_url: DEFAULT_BASE_URL.to_owned(),
+            ownership: LocalHostOwnership::PlayerOwned,
+        };
+        let background = LocalHostStatus::Running {
+            base_url: DEFAULT_BASE_URL.to_owned(),
+            ownership: LocalHostOwnership::BackgroundHost,
+        };
+        assert!(player_owned.is_player_owned_running());
+        assert!(player_owned.allows_player_management());
+        assert!(!background.is_player_owned_running());
+        assert!(background.is_background_running());
+        assert!(!background.allows_player_management());
     }
 }

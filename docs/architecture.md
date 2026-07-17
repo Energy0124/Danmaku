@@ -66,13 +66,20 @@ compatibility, and provides discovery, library browsing, progress sync, and
 English/Traditional Chinese UI. User-scoped preferences own playback/danmaku
 defaults, local library roots,
 and the last server URL; pairing tokens remain session-only. In local mode a
-small player supervisor discovers the sibling `library-server.exe`, attaches
-to a healthy server already on the default loopback port or starts a child
-with the packaged `web/` assets, waits asynchronously for readiness, and
-connects. Only a player-owned child is restarted or stopped, including on
-player exit. Server administration remains in `/web/`. The Rust-native
-portable zip carries the player, server, web assets, pinned libmpv, and
-license/provenance inventory. The pinned-runtime probe and four-file release
+small player supervisor discovers the sibling `library-server.exe`. A schema-1
+`%LOCALAPPDATA%\Danmaku\server\background-host.json` marker takes
+precedence: the player waits for and attaches to that compatible headless
+server without spawning, restarting, or stopping it. Without the marker the
+supervisor attaches to a healthy server already on the default loopback port
+or starts a child with the packaged `web/` assets, waits asynchronously for
+readiness, and connects. Only a player-owned child is restarted or stopped,
+including on player exit. The optional always-on host is a limited,
+interactive current-user Task Scheduler job at logon so it shares the user's
+DPAPI and mapped-drive context; its runner waits for configured roots before
+starting the same server binary and data directory. Server administration
+remains in `/web/`. The Rust-native portable zip carries the player, server,
+web assets, background-host scripts, pinned libmpv, and license/provenance
+inventory. The pinned-runtime probe and four-file release
 media matrix pass, completing Phase 3. The client must not duplicate
 library hosting, provider settings, sync, or metadata storage.
 
@@ -144,8 +151,9 @@ native:rust-core
    writes local progress directly.
 7. The native player browses the server catalog, streams media, synchronizes
    progress, and requests normalized dandanplay comments by catalog media ID.
-   In packaged local mode it supervises the sibling Rust server; remote LAN
-   connection uses the same HTTP client flow without starting a child.
+   In packaged local mode it supervises the sibling Rust server, or attaches
+   read-only to the configured per-user background host; remote LAN connection
+   uses the same HTTP client flow without starting a child.
 8. External tracking derives provider-neutral updates from local progress and
    mapped series, then writes through provider-specific clients only when the
    user triggers sync.

@@ -59,7 +59,9 @@ implemented.
 
 Status: Windows packaging exists; macOS is experimental.
 
-- Keep the runtime-free Windows portable artifact reproducible.
+- Keep the runtime-free Windows portable artifact reproducible, including the
+  optional per-user Task Scheduler background host and its non-mutating package
+  verification.
 - Re-audit the pinned libmpv dependency before changing producer artifacts or
   hashes.
 - Promote macOS only after embedded video and packaging are release-ready.
