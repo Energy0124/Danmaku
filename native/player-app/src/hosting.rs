@@ -666,14 +666,17 @@ mod tests {
             std::process::id()
         ));
         fs::create_dir_all(&directory).expect("config dir");
+        let library_root = directory.join("library");
+        assert!(library_root.is_absolute());
+        let body = serde_json::json!({
+            "schemaVersion": 1,
+            "taskName": BACKGROUND_HOST_TASK_NAME,
+            "baseUrl": DEFAULT_BASE_URL,
+            "libraryRoots": [&library_root],
+        });
         fs::write(
             directory.join(BACKGROUND_HOST_CONFIG_NAME),
-            r#"{
-                "schemaVersion": 1,
-                "taskName": "\\Danmaku\\Library Server",
-                "baseUrl": "http://127.0.0.1:8686",
-                "libraryRoots": ["W:/Anime"]
-            }"#,
+            serde_json::to_vec(&body).expect("config serialization"),
         )
         .expect("config write");
 
@@ -681,7 +684,7 @@ mod tests {
             .expect("config parses")
             .expect("config exists");
         assert_eq!(config.schema_version, 1);
-        assert_eq!(config.library_roots, vec![PathBuf::from("W:/Anime")]);
+        assert_eq!(config.library_roots, vec![library_root]);
         let _ = fs::remove_dir_all(directory);
     }
 
