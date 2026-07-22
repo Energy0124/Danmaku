@@ -358,6 +358,15 @@ trusted-LAN clients.
   Bangumi credentials to Windows DPAPI storage and reloads provider clients
   immediately after a successful save.
 
+- Rust headless tracking administration now persists non-secret series mappings,
+  provider readback, sync failures, and retry metadata in schema-1
+  `external-tracking.json`. Bearer-authenticated routes derive a sync preview
+  from the Rust catalog and progress stores, block provider-ahead conflicts, and
+  re-read each external entry before an explicit write. The web UI exposes the
+  mapping/readback workflow and requires the preview acknowledgement checkbox
+  before enabling sync. Mock-provider Rust tests cover persistence, conflicts,
+  readback, and writes; live MAL/Bangumi account QA remains user-attended.
+
 ## Partial Or Needs More QA
 
 - Windows runtime probing and automated smoke playback passed on 2026-06-22

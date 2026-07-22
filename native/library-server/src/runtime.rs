@@ -99,7 +99,7 @@ impl LoadedServer {
                 LibraryServerError::with_context(error, "failed to read HTTP socket address")
             })?
             .port();
-        let state = self.http_state();
+        let state = self.http_state()?;
         let app = http::app(state.clone());
         Ok(BoundServer {
             loaded: self,
@@ -110,7 +110,7 @@ impl LoadedServer {
         })
     }
 
-    fn http_state(&self) -> HttpServerState {
+    fn http_state(&self) -> Result<HttpServerState> {
         let published_library = self
             .stored_library
             .as_ref()
@@ -127,14 +127,14 @@ impl LoadedServer {
             self.persisted_settings.clone(),
             self.settings.clone(),
             dandanplay_resolver.clone(),
-        ));
+        )?);
         let catalog_metadata = Some(Arc::new(CatalogMetadataStore::new(
             self.options.data_directory.join("catalog-metadata.json"),
         )));
         let poster_cache = Some(Arc::new(PosterCacheStore::new(
             self.options.data_directory.join("poster-cache"),
         )));
-        HttpServerState::new(
+        Ok(HttpServerState::new(
             published_library,
             progress_store,
             HttpServerConfig::headless(
@@ -145,7 +145,7 @@ impl LoadedServer {
                 poster_cache,
                 provider_admin,
             ),
-        )
+        ))
     }
 }
 

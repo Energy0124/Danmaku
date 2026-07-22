@@ -16,6 +16,7 @@ pub mod provider_secrets;
 pub mod runtime;
 pub mod scanner;
 pub mod settings;
+pub mod tracking;
 
 use std::error::Error;
 use std::fmt::{self, Display};

@@ -113,6 +113,94 @@ export interface ExternalAnimeTrackingUpdate {
   ratingEnabled?: boolean;
 }
 
+export type ExternalAnimeMappingSource = "AUTO" | "MANUAL";
+
+export interface ExternalAnimeMapping {
+  localSeriesId: string;
+  animeId: ExternalAnimeId;
+  source: ExternalAnimeMappingSource;
+  confidence: number;
+  mappedAtEpochMs: number;
+}
+
+export interface ExternalAnimeSyncFailure {
+  animeId: ExternalAnimeId;
+  message: string;
+  failedAtEpochMs: number;
+  attemptCount: number;
+  retryAfterEpochMs: number;
+}
+
+export interface ExternalTrackingSeries {
+  id: string;
+  title: string;
+  episodeCount: number;
+  mappings: ExternalAnimeMapping[];
+}
+
+export interface ExternalTrackingPlanSummary {
+  updateCount: number;
+  skippedCount: number;
+  conflictCount: number;
+  failureCount: number;
+  myAnimeListUpdateCount: number;
+  bangumiUpdateCount: number;
+}
+
+export interface ExternalTrackingPlanUpdate {
+  localSeriesId: string;
+  seriesTitle: string;
+  episodeCount: number;
+  mapping: ExternalAnimeMapping;
+  update: ExternalAnimeTrackingUpdate;
+}
+
+export interface ExternalTrackingPlanSkip {
+  localSeriesId: string;
+  seriesTitle?: string;
+  provider: ExternalAnimeProvider;
+  reason: "MISSING_LOCAL_SERIES" | "UNMAPPED_LOCAL_SERIES" | "ALREADY_IN_SYNC";
+}
+
+export interface ExternalTrackingPlanConflict {
+  localSeriesId: string;
+  seriesTitle: string;
+  episodeCount: number;
+  mapping: ExternalAnimeMapping;
+  localUpdate: ExternalAnimeTrackingUpdate;
+  externalEntry: ExternalAnimeListEntry;
+  reason: "EXTERNAL_PROGRESS_AHEAD";
+}
+
+export interface ExternalTrackingPlan {
+  summary: ExternalTrackingPlanSummary;
+  updates: ExternalTrackingPlanUpdate[];
+  skipped: ExternalTrackingPlanSkip[];
+  conflicts: ExternalTrackingPlanConflict[];
+  failures: ExternalAnimeSyncFailure[];
+}
+
+export interface ExternalTrackingDocument {
+  generatedAtEpochMs: number;
+  series: ExternalTrackingSeries[];
+  mappings: ExternalAnimeMapping[];
+  listEntries: ExternalAnimeListEntry[];
+  plan: ExternalTrackingPlan;
+}
+
+export interface ExternalTrackingOperationError {
+  animeId: ExternalAnimeId;
+  message: string;
+}
+
+export interface ExternalTrackingOperationResponse {
+  document: ExternalTrackingDocument;
+  successCount: number;
+  conflictCount: number;
+  missingCount: number;
+  errors: ExternalTrackingOperationError[];
+}
+
 export interface ExternalAnimeTitleSet {
   primary: string;
   chinese?: string | null;
@@ -366,6 +454,68 @@ export async function saveExternalListEntry(
   return response.json() as Promise<ExternalAnimeListEntry>;
 }
 
+export async function fetchExternalTracking(
+  baseUrl: string,
+  token: string
+): Promise<ExternalTrackingDocument> {
+  return readJsonWithToken<ExternalTrackingDocument>(
+    normalizeBaseUrl(baseUrl) + "/api/providers/tracking",
+    token
+  );
+}
+
+export async function saveExternalTrackingMapping(
+  baseUrl: string,
+  token: string,
+  localSeriesId: string,
+  animeId: ExternalAnimeId
+): Promise<ExternalTrackingDocument> {
+  return writeJsonWithToken<ExternalTrackingDocument>(
+    normalizeBaseUrl(baseUrl) + "/api/providers/tracking/mapping",
+    token,
+    "PUT",
+    { localSeriesId, animeId }
+  );
+}
+
+export async function deleteExternalTrackingMapping(
+  baseUrl: string,
+  token: string,
+  localSeriesId: string,
+  animeId: ExternalAnimeId
+): Promise<ExternalTrackingDocument> {
+  return writeJsonWithToken<ExternalTrackingDocument>(
+    normalizeBaseUrl(baseUrl) + "/api/providers/tracking/mapping",
+    token,
+    "DELETE",
+    { localSeriesId, animeId }
+  );
+}
+
+export async function refreshExternalTrackingReadback(
+  baseUrl: string,
+  token: string
+): Promise<ExternalTrackingOperationResponse> {
+  return writeJsonWithToken<ExternalTrackingOperationResponse>(
+    normalizeBaseUrl(baseUrl) + "/api/providers/tracking/readback",
+    token,
+    "POST"
+  );
+}
+
+export async function executeExternalTrackingSync(
+  baseUrl: string,
+  token: string,
+  expectedUpdates: ExternalAnimeTrackingUpdate[]
+): Promise<ExternalTrackingOperationResponse> {
+  return writeJsonWithToken<ExternalTrackingOperationResponse>(
+    normalizeBaseUrl(baseUrl) + "/api/providers/tracking/sync",
+    token,
+    "POST",
+    { expectedUpdates }
+  );
+}
+
 export async function fetchDandanplayResolve(
   baseUrl: string,
   token: string,
@@ -426,6 +576,31 @@ export function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl.trim().replace(/\/+$/, "");
 }
 
+
+async function writeJsonWithToken<T>(
+  url: string,
+  token: string,
+  method: "POST" | "PUT" | "DELETE",
+  body?: unknown
+): Promise<T> {
+  const response = await fetch(url, {
+    method,
+    headers: {
+      Accept: "application/json",
+      Authorization: "Bearer " + token,
+      ...(body === undefined ? {} : { "Content-Type": "application/json; charset=utf-8" })
+    },
+    body: body === undefined ? undefined : JSON.stringify(body)
+  });
+  if (!response.ok) {
+    const message = (await response.text()).trim();
+    throw new DanmakuApiError(
+      message || "Request failed with HTTP " + response.status,
+      response.status
+    );
+  }
+  return response.json() as Promise<T>;
+}
 
 async function readJsonWithToken<T>(url: string, token: string): Promise<T> {
   const response = await fetch(url, {

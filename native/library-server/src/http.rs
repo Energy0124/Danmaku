@@ -16,7 +16,8 @@ use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncReadExt, AsyncSeekExt};
 use tokio_util::io::ReaderStream;
 
-use crate::catalog::{PublishedLibrary, normalize_lexically};
+use crate::Result;
+use crate::catalog::{ExternalAnimeId, PublishedLibrary, normalize_lexically};
 use crate::catalog_metadata::CatalogMetadataStore;
 use crate::dandanplay::{
     DandanplayResolveResult, DandanplayResolver, LanDanmakuTrack, apply_dandanplay_local_defaults,
@@ -33,6 +34,10 @@ use crate::scanner::ScanProgress;
 use crate::settings::{
     HeadlessDandanplayAuthenticationMode, HeadlessServerSettings, SettingsStore,
     apply_external_anime_local_defaults, is_http_base_url, is_https_base_url,
+};
+use crate::tracking::{
+    ExternalAnimeMapping, ExternalAnimeMappingSource, ExternalTrackingStore, current_epoch_ms,
+    execute_tracking_sync, refresh_tracking_readback, tracking_document,
 };
 
 const WEBHOOK_TOKEN_HEADER: &str = "X-Danmaku-Webhook-Token";
@@ -103,6 +108,17 @@ impl HttpServerConfig {
 struct ProviderSettingsUpdate {
     dandanplay: DandanplaySettingsUpdate,
     external_anime: ExternalAnimeSettingsUpdate,
+}
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ExternalTrackingMappingRequest {
+    local_series_id: String,
+    anime_id: ExternalAnimeId,
+}
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ExternalTrackingSyncRequest {
+    expected_updates: Vec<ExternalAnimeTrackingUpdate>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -177,6 +193,7 @@ pub struct ProviderAdminState {
     secret_store: ProviderSecretStore,
     persisted_settings: Mutex<HeadlessServerSettings>,
     runtime: RwLock<ProviderRuntimeResources>,
+    tracking_store: ExternalTrackingStore,
 }
 
 impl ProviderAdminState {
@@ -185,7 +202,7 @@ impl ProviderAdminState {
         persisted_settings: HeadlessServerSettings,
         effective_settings: HeadlessServerSettings,
         dandanplay_resolver: Option<Arc<DandanplayResolver>>,
-    ) -> Self {
+    ) -> Result<Self> {
         let secret_store =
             ProviderSecretStore::platform(data_directory.join("provider-secrets.json"));
         Self::with_secret_store(
@@ -203,18 +220,21 @@ impl ProviderAdminState {
         effective_settings: HeadlessServerSettings,
         dandanplay_resolver: Option<Arc<DandanplayResolver>>,
         secret_store: ProviderSecretStore,
-    ) -> Self {
-        Self {
+    ) -> Result<Self> {
+        Ok(Self {
             expected_token: persisted_settings.pairing_token.as_bytes().to_vec(),
             settings_store: SettingsStore::new(data_directory.join("server-settings.json")),
             secret_store,
+            tracking_store: ExternalTrackingStore::open(
+                data_directory.join("external-tracking.json"),
+            )?,
             data_directory,
             persisted_settings: Mutex::new(persisted_settings),
             runtime: RwLock::new(ProviderRuntimeResources::from_settings(
                 &effective_settings,
                 dandanplay_resolver,
             )),
-        }
+        })
     }
 
     #[cfg(test)]
@@ -231,6 +251,7 @@ impl ProviderAdminState {
             None,
             secret_store,
         )
+        .expect("test tracking store should open")
     }
 
     fn is_authorized(&self, headers: &HeaderMap) -> bool {
@@ -240,6 +261,10 @@ impl ProviderAdminState {
             .and_then(|value| value.strip_prefix("Bearer "))
             .map(str::as_bytes);
         constant_time_eq(&self.expected_token, supplied)
+    }
+
+    fn tracking_store(&self) -> &ExternalTrackingStore {
+        &self.tracking_store
     }
 
     fn snapshot(&self) -> ProviderSettingsAdminResponse {
@@ -609,6 +634,9 @@ async fn dispatch(State(state): State<HttpServerState>, request: Request<Body>) 
     }
     if path.starts_with("/api/providers/runtime") {
         return handle_provider_runtime(&state, &method, &path);
+    }
+    if path.starts_with("/api/providers/tracking") {
+        return handle_provider_tracking(&state, method, &path, headers, body).await;
     }
     if path.starts_with("/api/providers/search") {
         return handle_provider_search(&state, &method, &path, query.as_deref()).await;
@@ -1095,6 +1123,145 @@ async fn handle_provider_search(
     json_response(StatusCode::OK, &matches)
 }
 
+async fn handle_provider_tracking(
+    state: &HttpServerState,
+    method: Method,
+    path: &str,
+    headers: HeaderMap,
+    body: Body,
+) -> Response<Body> {
+    let Some(admin) = &state.provider_admin else {
+        return empty_status(StatusCode::NOT_FOUND);
+    };
+    if !admin.is_authorized(&headers) {
+        return empty_status(StatusCode::UNAUTHORIZED);
+    }
+
+    let library = state.library();
+    let progress = state.progress_store.load_all_progress();
+    let document = || {
+        tracking_document(
+            &library.catalog,
+            &progress,
+            &admin.tracking_store().snapshot(),
+        )
+    };
+    match (method, path) {
+        (Method::GET, "/api/providers/tracking") => json_response(StatusCode::OK, &document()),
+        (Method::PUT, "/api/providers/tracking/mapping") => {
+            let Ok(bytes) = axum::body::to_bytes(body, 65_536).await else {
+                return text_response(
+                    StatusCode::BAD_REQUEST,
+                    "Tracking mapping body is too large.",
+                );
+            };
+            let Ok(request) = serde_json::from_slice::<ExternalTrackingMappingRequest>(&bytes)
+            else {
+                return text_response(
+                    StatusCode::BAD_REQUEST,
+                    "Request body must contain localSeriesId and animeId.",
+                );
+            };
+            if !document()
+                .series
+                .iter()
+                .any(|series| series.id == request.local_series_id)
+            {
+                return text_response(
+                    StatusCode::BAD_REQUEST,
+                    "The selected local series is not in the current library.",
+                );
+            }
+            let mapping = ExternalAnimeMapping {
+                local_series_id: request.local_series_id,
+                anime_id: request.anime_id,
+                source: ExternalAnimeMappingSource::Manual,
+                confidence: 1.0,
+                mapped_at_epoch_ms: current_epoch_ms(),
+            };
+            match admin.tracking_store().save_mapping(mapping) {
+                Ok(()) => json_response(StatusCode::OK, &document()),
+                Err(error) => text_response(StatusCode::BAD_REQUEST, &error.to_string()),
+            }
+        }
+        (Method::DELETE, "/api/providers/tracking/mapping") => {
+            let Ok(bytes) = axum::body::to_bytes(body, 65_536).await else {
+                return text_response(
+                    StatusCode::BAD_REQUEST,
+                    "Tracking mapping body is too large.",
+                );
+            };
+            let Ok(request) = serde_json::from_slice::<ExternalTrackingMappingRequest>(&bytes)
+            else {
+                return text_response(
+                    StatusCode::BAD_REQUEST,
+                    "Request body must contain localSeriesId and animeId.",
+                );
+            };
+            match admin
+                .tracking_store()
+                .delete_mapping(&request.local_series_id, &request.anime_id)
+            {
+                Ok(true) => json_response(StatusCode::OK, &document()),
+                Ok(false) => {
+                    text_response(StatusCode::NOT_FOUND, "Tracking mapping was not found.")
+                }
+                Err(error) => text_response(StatusCode::BAD_REQUEST, &error.to_string()),
+            }
+        }
+        (Method::POST, "/api/providers/tracking/readback") => {
+            let service = state
+                .external_provider_service()
+                .expect("provider admin always has an external provider service");
+            match refresh_tracking_readback(
+                &service,
+                admin.tracking_store(),
+                &library.catalog,
+                &progress,
+            )
+            .await
+            {
+                Ok(response) => json_response(StatusCode::OK, &response),
+                Err(error) => text_response(StatusCode::INTERNAL_SERVER_ERROR, &error.to_string()),
+            }
+        }
+        (Method::POST, "/api/providers/tracking/sync") => {
+            let Ok(bytes) = axum::body::to_bytes(body, 262_144).await else {
+                return text_response(StatusCode::BAD_REQUEST, "Tracking sync body is too large.");
+            };
+            let Ok(request) = serde_json::from_slice::<ExternalTrackingSyncRequest>(&bytes) else {
+                return text_response(
+                    StatusCode::BAD_REQUEST,
+                    "Request body must contain the previewed expectedUpdates.",
+                );
+            };
+            let service = state
+                .external_provider_service()
+                .expect("provider admin always has an external provider service");
+            match execute_tracking_sync(
+                &service,
+                admin.tracking_store(),
+                &library.catalog,
+                &progress,
+                &request.expected_updates,
+            )
+            .await
+            {
+                Ok(response) => json_response(StatusCode::OK, &response),
+                Err(error) => {
+                    let message = error.to_string();
+                    let status = if message.starts_with("tracking preview changed;") {
+                        StatusCode::CONFLICT
+                    } else {
+                        StatusCode::INTERNAL_SERVER_ERROR
+                    };
+                    text_response(status, &message)
+                }
+            }
+        }
+        _ => empty_status(StatusCode::NOT_FOUND),
+    }
+}
 async fn handle_provider_list_entry(
     state: &HttpServerState,
     method: Method,
@@ -2634,6 +2801,223 @@ mod tests {
                 .iter()
                 .any(|request| request.path == "/v0/subjects/400602")
         );
+    }
+    #[tokio::test]
+    async fn tracking_admin_requires_auth_persists_mapping_and_syncs_previewed_update() {
+        #[derive(Debug)]
+        struct RecordingTrackingClient {
+            writes: Arc<Mutex<Vec<ExternalAnimeTrackingUpdate>>>,
+        }
+
+        impl crate::external_provider::ExternalAnimeTrackingClient for RecordingTrackingClient {
+            fn provider(&self) -> crate::catalog::ExternalAnimeProvider {
+                crate::catalog::ExternalAnimeProvider::Bangumi
+            }
+
+            fn fetch_list_entry(
+                &self,
+                anime_id: ExternalAnimeId,
+            ) -> std::result::Result<
+                Option<ExternalAnimeListEntry>,
+                crate::external_provider::ExternalProviderError,
+            > {
+                Ok(Some(ExternalAnimeListEntry {
+                    anime_id,
+                    status: Some(crate::external_provider::ExternalAnimeListStatus::PlanToWatch),
+                    watched_episodes: Some(0),
+                    score: None,
+                    updated_at_epoch_ms: Some(10),
+                }))
+            }
+
+            fn update_list_entry(
+                &self,
+                update: ExternalAnimeTrackingUpdate,
+            ) -> std::result::Result<
+                ExternalAnimeListEntry,
+                crate::external_provider::ExternalProviderError,
+            > {
+                self.writes
+                    .lock()
+                    .expect("writes lock")
+                    .push(update.clone());
+                Ok(ExternalAnimeListEntry {
+                    anime_id: update.anime_id,
+                    status: update.status,
+                    watched_episodes: update.watched_episodes,
+                    score: update.score,
+                    updated_at_epoch_ms: Some(20),
+                })
+            }
+        }
+
+        let fixture = FixtureEnvironment::new();
+        let settings = HeadlessServerSettings {
+            pairing_token: "123456".to_owned(),
+            library_roots: Vec::new(),
+            dandanplay: crate::settings::HeadlessDandanplayProviderSettings::default(),
+            external_anime: crate::settings::HeadlessExternalAnimeProviderSettings::default(),
+        };
+        let admin = Arc::new(
+            ProviderAdminState::new(
+                fixture.temp.clone(),
+                settings.clone(),
+                settings.clone(),
+                None,
+            )
+            .expect("tracking admin creates"),
+        );
+        let writes = Arc::new(Mutex::new(Vec::new()));
+        admin
+            .runtime
+            .write()
+            .expect("runtime lock")
+            .external_provider_service = Arc::new(ExternalProviderService::new_for_tests(
+            Vec::new(),
+            vec![Arc::new(RecordingTrackingClient {
+                writes: Arc::clone(&writes),
+            })],
+        ));
+        let progress_store = Arc::new(PlaybackProgressStore::new(
+            fixture.temp.join("progress-tracking-admin.json"),
+        ));
+        progress_store
+            .save_progress(PlaybackProgress {
+                media_id: "episode-id".to_owned(),
+                position_ms: 100_000,
+                duration_ms: Some(100_000),
+                updated_at_epoch_ms: 100,
+            })
+            .expect("progress saves");
+        let app = app(HttpServerState::new(
+            fixture.library.clone(),
+            progress_store,
+            HttpServerConfig::headless(None, &settings, None, None, None, admin),
+        ));
+
+        let unauthorized = app
+            .clone()
+            .oneshot(get("/api/providers/tracking"))
+            .await
+            .expect("unauthorized response");
+        assert_eq!(StatusCode::UNAUTHORIZED, unauthorized.status());
+
+        let initial = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/api/providers/tracking")
+                    .header(AUTHORIZATION, "Bearer 123456")
+                    .body(Body::empty())
+                    .expect("tracking request"),
+            )
+            .await
+            .expect("tracking response");
+        assert_eq!(StatusCode::OK, initial.status());
+        let initial: Value =
+            serde_json::from_str(&body_text(initial).await).expect("tracking document");
+        let series_id = initial["series"][0]["id"]
+            .as_str()
+            .expect("series ID")
+            .to_owned();
+
+        let mapping = json!({
+            "localSeriesId": series_id,
+            "animeId": { "provider": "BANGUMI", "value": 400602 }
+        });
+        let mapped = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("PUT")
+                    .uri("/api/providers/tracking/mapping")
+                    .header(AUTHORIZATION, "Bearer 123456")
+                    .header("content-type", "application/json")
+                    .body(Body::from(mapping.to_string()))
+                    .expect("mapping request"),
+            )
+            .await
+            .expect("mapping response");
+        assert_eq!(StatusCode::OK, mapped.status());
+        let mapped: Value =
+            serde_json::from_str(&body_text(mapped).await).expect("mapped document");
+        assert_eq!(1, mapped["plan"]["summary"]["updateCount"]);
+        assert_eq!(1, mapped["plan"]["updates"][0]["update"]["watchedEpisodes"]);
+        assert_eq!(
+            "COMPLETED",
+            mapped["plan"]["updates"][0]["update"]["status"]
+        );
+
+        let readback = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/providers/tracking/readback")
+                    .header(AUTHORIZATION, "Bearer 123456")
+                    .body(Body::empty())
+                    .expect("readback request"),
+            )
+            .await
+            .expect("readback response");
+        assert_eq!(StatusCode::OK, readback.status());
+        let readback: Value =
+            serde_json::from_str(&body_text(readback).await).expect("readback document");
+        assert_eq!(1, readback["successCount"]);
+        assert_eq!(1, readback["document"]["plan"]["summary"]["updateCount"]);
+        let expected_updates = readback["document"]["plan"]["updates"]
+            .as_array()
+            .expect("preview updates")
+            .iter()
+            .map(|candidate| candidate["update"].clone())
+            .collect::<Vec<_>>();
+        let stale = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/providers/tracking/sync")
+                    .header(AUTHORIZATION, "Bearer 123456")
+                    .header("content-type", "application/json")
+                    .body(Body::from(json!({ "expectedUpdates": [] }).to_string()))
+                    .expect("stale sync request"),
+            )
+            .await
+            .expect("stale sync response");
+        assert_eq!(StatusCode::CONFLICT, stale.status());
+        assert!(writes.lock().expect("writes lock").is_empty());
+
+        let synced = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/providers/tracking/sync")
+                    .header(AUTHORIZATION, "Bearer 123456")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        json!({ "expectedUpdates": expected_updates }).to_string(),
+                    ))
+                    .expect("sync request"),
+            )
+            .await
+            .expect("sync response");
+        assert_eq!(StatusCode::OK, synced.status());
+        let synced: Value = serde_json::from_str(&body_text(synced).await).expect("sync document");
+        assert_eq!(1, synced["successCount"]);
+        assert_eq!(0, synced["errors"].as_array().expect("sync errors").len());
+        let writes = writes.lock().expect("writes lock");
+        assert_eq!(0, synced["document"]["plan"]["summary"]["updateCount"]);
+        assert_eq!(1, writes.len());
+        assert_eq!(Some(1), writes[0].watched_episodes);
+        assert_eq!(
+            Some(crate::external_provider::ExternalAnimeListStatus::Completed),
+            writes[0].status
+        );
+        let persisted = fs::read_to_string(fixture.temp.join("external-tracking.json"))
+            .expect("tracking state");
+        assert!(persisted.contains("400602"));
+        assert!(!persisted.contains("123456"));
     }
 
     #[tokio::test]

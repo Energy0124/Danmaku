@@ -342,8 +342,13 @@ Milestones, each shippable while the Compose app remains the default:
 - `[x]` Web UI covers provider settings dropped from the native player:
   bearer-authenticated redacted reads/writes, DPAPI-protected write-only
   credentials, and live provider runtime reload.
-- `[ ]` Web UI covers the remaining dropped admin workflows: tracking
-  sync orchestration and library quality review.
+- `[x]` Web UI covers tracking sync orchestration dropped from the native
+  player: Rust persists series mappings, provider readback, sync failures, and
+  retry metadata; bearer-authenticated routes generate conflict-aware previews;
+  and the browser requires an explicit preview acknowledgement before provider
+  writes. Mock-provider tests cover the workflow; live-account write QA remains
+  user-attended.
+- `[ ]` Web UI covers the remaining dropped library quality review workflow.
 - `[ ]` Remove `apps/desktop-windows`, `apps/library-server-windows`,
   `shared/library-server-core`, `shared/library-host-core`, and JVM-only
   provider code; keep Kotlin only for Android and the `shared/domain`

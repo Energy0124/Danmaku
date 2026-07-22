@@ -176,7 +176,18 @@ pub enum ExternalProviderError {
     NotFound(String),
     Upstream(String),
 }
-
+impl fmt::Display for ExternalProviderError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::NotConfigured(provider) => write!(
+                formatter,
+                "{} list sync credentials are not configured",
+                provider_display_name(*provider)
+            ),
+            Self::NotFound(message) | Self::Upstream(message) => formatter.write_str(message),
+        }
+    }
+}
 impl ExternalProviderError {
     pub fn route_status_and_body(&self) -> (u16, String) {
         match self {

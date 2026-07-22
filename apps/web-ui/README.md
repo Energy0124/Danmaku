@@ -1,6 +1,11 @@
 # Danmaku Web UI
 
-Trusted-LAN browser client for the Danmaku library server. It supports pairing, catalog playback, progress sync, provider readiness chips, and dandanplay match/comment preview for selected media when the host has provider access configured.
+Trusted-LAN browser client for the Danmaku library server. It supports pairing,
+catalog playback, progress sync, provider readiness, dandanplay match/comment
+preview, provider settings, and bearer-authenticated tracking administration.
+Tracking administration persists series mappings, reads external list state,
+shows conflict-aware write previews, and requires explicit preview acknowledgement
+before syncing to MyAnimeList or Bangumi.
 
 ## Local Development
 

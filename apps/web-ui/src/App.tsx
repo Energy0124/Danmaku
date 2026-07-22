@@ -30,6 +30,7 @@ import {
   saveDanmakuOverlayPreferences
 } from "./danmakuOverlayPreferences";
 import { ProviderSettingsPanel } from "./ProviderSettingsPanel";
+import { TrackingAdminPanel } from "./TrackingAdminPanel";
 
 const externalListStatuses: ExternalAnimeListStatus[] = [
   "WATCHING",
@@ -132,6 +133,13 @@ export function App() {
           baseUrl={normalizedBaseUrl}
           token={pairingToken}
           onRuntimeUpdated={setProviderRuntime}
+        />
+      ) : null}
+
+      {catalog ? (
+        <TrackingAdminPanel
+          baseUrl={normalizedBaseUrl}
+          token={pairingToken}
         />
       ) : null}
 
