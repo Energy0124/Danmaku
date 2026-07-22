@@ -32,6 +32,13 @@ export function TrackingAdminPanel({
     () => document?.series.find((series) => series.id === selectedSeriesId) ?? null,
     [document, selectedSeriesId]
   );
+  const mappingRows = useMemo(
+    () =>
+      document?.series.flatMap((series) =>
+        series.mappings.map((mapping) => ({ mapping, series }))
+      ) ?? [],
+    [document]
+  );
 
   useEffect(() => {
     setDocument(null);
@@ -184,6 +191,7 @@ export function TrackingAdminPanel({
                     {document.series.map((series) => (
                       <option key={series.id} value={series.id}>
                         {series.title} ({series.episodeCount} episodes)
+                        {groupLabel(series.localSeriesIds.length)}
                       </option>
                     ))}
                   </select>
@@ -206,22 +214,36 @@ export function TrackingAdminPanel({
               </fieldset>
 
               <div className="tracking-mapping-list">
-                {document.mappings.length === 0 ? (
+                {mappingRows.length === 0 ? (
                   <p>No persisted series mappings yet.</p>
-                ) : document.mappings.map((mapping) => {
-                  const series = document.series.find((candidate) => candidate.id === mapping.localSeriesId);
-                  return (
-                    <div key={mapping.localSeriesId + "-" + mapping.animeId.provider}>
+                ) : (
+                  mappingRows.map(({ mapping, series }) => (
+                    <div
+                      key={
+                        series.id +
+                        "-" +
+                        mapping.animeId.provider +
+                        "-" +
+                        String(mapping.animeId.value)
+                      }
+                    >
                       <span>
-                        <strong>{series?.title ?? mapping.localSeriesId}</strong>
-                        <small>{formatAnimeId(mapping.animeId)} · {mapping.source.toLocaleLowerCase()}</small>
+                        <strong>{series.title}</strong>
+                        <small>
+                          {formatAnimeId(mapping.animeId)} · {mapping.source.toLocaleLowerCase()}
+                          {groupLabel(series.localSeriesIds.length)}
+                        </small>
                       </span>
-                      <button disabled={isBusy} onClick={() => void removeMapping(mapping.localSeriesId, mapping.animeId)} type="button">
+                      <button
+                        disabled={isBusy}
+                        onClick={() => void removeMapping(series.id, mapping.animeId)}
+                        type="button"
+                      >
                         Remove
                       </button>
                     </div>
-                  );
-                })}
+                  ))
+                )}
               </div>
 
               <section className="tracking-preview">
@@ -234,13 +256,51 @@ export function TrackingAdminPanel({
                       <li key={update.localSeriesId + "-" + update.mapping.animeId.provider}>
                         <strong>{update.seriesTitle}</strong>
                         <span>
-                          {providerLabel(update.mapping.animeId.provider)} · {statusLabel(update.update.status)} · {update.update.watchedEpisodes ?? 0}/{update.episodeCount} watched
+                          {providerLabel(update.mapping.animeId.provider)} ·{" "}
+                          {statusLabel(update.update.status)} · {update.update.watchedEpisodes ?? 0}/
+                          {update.episodeCount} watched
+                          {groupLabel(update.localSeriesIds.length)}
                         </span>
                       </li>
                     ))}
                   </ol>
                 )}
               </section>
+
+              {document.plan.mappingConflicts.length > 0 ? (
+                <section className="tracking-conflicts">
+                  <h3>Mapping conflicts blocked from sync</h3>
+                  <p>Remove the incorrect provider ID to resolve each logical series group.</p>
+                  <ol>
+                    {document.plan.mappingConflicts.map((conflict) => (
+                      <li key={conflict.localSeriesId + "-" + conflict.provider}>
+                        <strong>{conflict.seriesTitle}</strong>
+                        <span>
+                          {providerLabel(conflict.provider)} has multiple IDs:{" "}
+                          {conflict.animeIds
+                            .map((candidate) => "#" + String(candidate.value))
+                            .join(", ")}
+                          {groupLabel(conflict.localSeriesIds.length)}
+                        </span>
+                        <div className="tracking-conflict-actions">
+                          {conflict.animeIds.map((candidate) => (
+                            <button
+                              disabled={isBusy}
+                              key={candidate.provider + "-" + String(candidate.value)}
+                              onClick={() =>
+                                void removeMapping(conflict.localSeriesId, candidate)
+                              }
+                              type="button"
+                            >
+                              Remove {formatAnimeId(candidate)}
+                            </button>
+                          ))}
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                </section>
+              ) : null}
 
               {document.plan.conflicts.length > 0 ? (
                 <section className="tracking-conflicts">
@@ -250,7 +310,10 @@ export function TrackingAdminPanel({
                       <li key={conflict.localSeriesId + "-" + conflict.mapping.animeId.provider}>
                         <strong>{conflict.seriesTitle}</strong>
                         <span>
-                          {providerLabel(conflict.mapping.animeId.provider)} has {conflict.externalEntry.watchedEpisodes ?? 0}; local has {conflict.localUpdate.watchedEpisodes ?? 0}.
+                          {providerLabel(conflict.mapping.animeId.provider)} has{" "}
+                          {conflict.externalEntry.watchedEpisodes ?? 0}; local has{" "}
+                          {conflict.localUpdate.watchedEpisodes ?? 0}
+                          {groupLabel(conflict.localSeriesIds.length)}.
                         </span>
                       </li>
                     ))}
@@ -330,6 +393,10 @@ function describeError(error: unknown, fallback: string): string {
 
 function formatAnimeId(animeId: ExternalAnimeId): string {
   return providerLabel(animeId.provider) + " #" + String(animeId.value);
+}
+
+function groupLabel(localSeriesCount: number): string {
+  return localSeriesCount > 1 ? " · " + String(localSeriesCount) + " local series" : "";
 }
 
 function providerLabel(provider: ExternalAnimeProvider): string {

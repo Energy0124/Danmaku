@@ -44,13 +44,21 @@ impl ExternalTrackingStore {
     }
 
     pub fn save_mapping(&self, mapping: ExternalAnimeMapping) -> Result<()> {
-        validate_mapping(&mapping)?;
+        self.save_mappings(vec![mapping])
+    }
+
+    pub fn save_mappings(&self, mappings: Vec<ExternalAnimeMapping>) -> Result<()> {
+        for mapping in &mappings {
+            validate_mapping(mapping)?;
+        }
         self.update(|state| {
-            state.mappings.retain(|candidate| {
-                candidate.local_series_id != mapping.local_series_id
-                    || candidate.anime_id.provider != mapping.anime_id.provider
-            });
-            state.mappings.push(mapping);
+            for mapping in mappings {
+                state.mappings.retain(|candidate| {
+                    candidate.local_series_id != mapping.local_series_id
+                        || candidate.anime_id.provider != mapping.anime_id.provider
+                });
+                state.mappings.push(mapping);
+            }
             sort_state(state);
         })
     }
@@ -60,11 +68,21 @@ impl ExternalTrackingStore {
         local_series_id: &str,
         anime_id: &ExternalAnimeId,
     ) -> Result<bool> {
+        self.delete_mappings(&[local_series_id.to_owned()], anime_id)
+    }
+
+    pub fn delete_mappings(
+        &self,
+        local_series_ids: &[String],
+        anime_id: &ExternalAnimeId,
+    ) -> Result<bool> {
+        let local_series_ids = local_series_ids.iter().collect::<BTreeSet<_>>();
         let mut removed = false;
         self.update(|state| {
             let original_len = state.mappings.len();
             state.mappings.retain(|mapping| {
-                mapping.local_series_id != local_series_id || &mapping.anime_id != anime_id
+                !local_series_ids.contains(&mapping.local_series_id)
+                    || &mapping.anime_id != anime_id
             });
             removed = state.mappings.len() != original_len;
         })?;
@@ -175,6 +193,8 @@ pub struct ExternalTrackingDocument {
 pub struct ExternalTrackingSeries {
     pub id: String,
     pub title: String,
+    pub local_series_ids: Vec<String>,
+    pub local_series_titles: Vec<String>,
     pub episode_count: usize,
     pub mappings: Vec<ExternalAnimeMapping>,
 }
@@ -186,6 +206,7 @@ pub struct ExternalTrackingPlan {
     pub updates: Vec<ExternalTrackingPlanUpdate>,
     pub skipped: Vec<ExternalTrackingPlanSkip>,
     pub conflicts: Vec<ExternalTrackingPlanConflict>,
+    pub mapping_conflicts: Vec<ExternalTrackingMappingConflict>,
     pub failures: Vec<ExternalAnimeSyncFailure>,
 }
 
@@ -204,6 +225,7 @@ pub struct ExternalTrackingPlanSummary {
 #[serde(rename_all = "camelCase")]
 pub struct ExternalTrackingPlanUpdate {
     pub local_series_id: String,
+    pub local_series_ids: Vec<String>,
     pub series_title: String,
     pub episode_count: usize,
     pub mapping: ExternalAnimeMapping,
@@ -214,6 +236,7 @@ pub struct ExternalTrackingPlanUpdate {
 #[serde(rename_all = "camelCase")]
 pub struct ExternalTrackingPlanSkip {
     pub local_series_id: String,
+    pub local_series_ids: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub series_title: Option<String>,
     pub provider: ExternalAnimeProvider,
@@ -232,6 +255,7 @@ pub enum ExternalTrackingPlanSkipReason {
 #[serde(rename_all = "camelCase")]
 pub struct ExternalTrackingPlanConflict {
     pub local_series_id: String,
+    pub local_series_ids: Vec<String>,
     pub series_title: String,
     pub episode_count: usize,
     pub mapping: ExternalAnimeMapping,
@@ -244,6 +268,23 @@ pub struct ExternalTrackingPlanConflict {
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ExternalTrackingPlanConflictReason {
     ExternalProgressAhead,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExternalTrackingMappingConflict {
+    pub local_series_id: String,
+    pub local_series_ids: Vec<String>,
+    pub series_title: String,
+    pub provider: ExternalAnimeProvider,
+    pub anime_ids: Vec<ExternalAnimeId>,
+    pub reason: ExternalTrackingMappingConflictReason,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ExternalTrackingMappingConflictReason {
+    ConflictingProviderIds,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -263,32 +304,159 @@ pub struct ExternalTrackingOperationError {
     pub message: String,
 }
 
+#[derive(Debug)]
+struct TrackingSeriesGroup {
+    id: String,
+    title: String,
+    local_series_ids: Vec<String>,
+    local_series_titles: Vec<String>,
+    episode_count: usize,
+    item_ids: Vec<String>,
+    mappings: Vec<ExternalAnimeMapping>,
+}
+
+fn tracking_series_groups(
+    grouped: &[crate::domain::GroupedSeriesOutput],
+    mappings: &[ExternalAnimeMapping],
+) -> Vec<TrackingSeriesGroup> {
+    let index_by_id = grouped
+        .iter()
+        .enumerate()
+        .map(|(index, series)| (series.id.as_str(), index))
+        .collect::<BTreeMap<_, _>>();
+    let mut parents = (0..grouped.len()).collect::<Vec<_>>();
+    let mut first_by_anime_id = BTreeMap::<ExternalAnimeId, usize>::new();
+    for mapping in mappings {
+        let Some(index) = index_by_id.get(mapping.local_series_id.as_str()).copied() else {
+            continue;
+        };
+        if let Some(first) = first_by_anime_id.get(&mapping.anime_id).copied() {
+            union_series_groups(&mut parents, first, index);
+        } else {
+            first_by_anime_id.insert(mapping.anime_id.clone(), index);
+        }
+    }
+
+    let mut member_indexes_by_root = BTreeMap::<usize, Vec<usize>>::new();
+    for index in 0..grouped.len() {
+        let root = series_group_root(&mut parents, index);
+        member_indexes_by_root.entry(root).or_default().push(index);
+    }
+
+    let mut groups = member_indexes_by_root
+        .into_values()
+        .map(|mut member_indexes| {
+            member_indexes.sort_by(|left, right| grouped[*left].id.cmp(&grouped[*right].id));
+            let local_series_ids = member_indexes
+                .iter()
+                .map(|index| grouped[*index].id.clone())
+                .collect::<Vec<_>>();
+            let local_series_titles = member_indexes
+                .iter()
+                .map(|index| grouped[*index].title.clone())
+                .collect::<Vec<_>>();
+            let member_ids = local_series_ids.iter().collect::<BTreeSet<_>>();
+            let mappings = mappings
+                .iter()
+                .filter(|mapping| member_ids.contains(&mapping.local_series_id))
+                .cloned()
+                .collect::<Vec<_>>();
+            let item_ids = member_indexes
+                .iter()
+                .flat_map(|index| &grouped[*index].seasons)
+                .flat_map(|season| &season.item_ids)
+                .cloned()
+                .collect::<Vec<_>>();
+            TrackingSeriesGroup {
+                id: local_series_ids
+                    .first()
+                    .expect("tracking group has a local series")
+                    .clone(),
+                title: local_series_titles
+                    .first()
+                    .expect("tracking group has a title")
+                    .clone(),
+                local_series_ids,
+                local_series_titles,
+                episode_count: item_ids.len(),
+                item_ids,
+                mappings,
+            }
+        })
+        .collect::<Vec<_>>();
+    groups.sort_by(|left, right| {
+        right
+            .episode_count
+            .cmp(&left.episode_count)
+            .then_with(|| left.title.to_lowercase().cmp(&right.title.to_lowercase()))
+            .then_with(|| left.id.cmp(&right.id))
+    });
+    groups
+}
+
+fn series_group_root(parents: &mut [usize], index: usize) -> usize {
+    let mut root = index;
+    while parents[root] != root {
+        root = parents[root];
+    }
+    let mut current = index;
+    while parents[current] != current {
+        let next = parents[current];
+        parents[current] = root;
+        current = next;
+    }
+    root
+}
+
+fn union_series_groups(parents: &mut [usize], left: usize, right: usize) {
+    let left_root = series_group_root(parents, left);
+    let right_root = series_group_root(parents, right);
+    if left_root == right_root {
+        return;
+    }
+    let (root, child) = if left_root < right_root {
+        (left_root, right_root)
+    } else {
+        (right_root, left_root)
+    };
+    parents[child] = root;
+}
+
+fn representative_mappings(mappings: &[ExternalAnimeMapping]) -> Vec<ExternalAnimeMapping> {
+    let mut by_anime_id = BTreeMap::<ExternalAnimeId, ExternalAnimeMapping>::new();
+    for mapping in mappings {
+        by_anime_id
+            .entry(mapping.anime_id.clone())
+            .and_modify(|current| {
+                let mapping_is_better = (mapping.source == ExternalAnimeMappingSource::Manual
+                    && current.source == ExternalAnimeMappingSource::Auto)
+                    || (mapping.source == current.source
+                        && mapping.mapped_at_epoch_ms > current.mapped_at_epoch_ms);
+                if mapping_is_better {
+                    *current = mapping.clone();
+                }
+            })
+            .or_insert_with(|| mapping.clone());
+    }
+    by_anime_id.into_values().collect()
+}
+
 pub fn tracking_document(
     catalog: &LibraryCatalog,
     progresses: &[PlaybackProgress],
     state: &ExternalTrackingState,
 ) -> ExternalTrackingDocument {
     let grouped = grouped_series(catalog);
-    let mappings_by_series = state.mappings.iter().cloned().fold(
-        BTreeMap::<String, Vec<ExternalAnimeMapping>>::new(),
-        |mut mappings, mapping| {
-            mappings
-                .entry(mapping.local_series_id.clone())
-                .or_default()
-                .push(mapping);
-            mappings
-        },
-    );
-    let series = grouped
+    let tracking_groups = tracking_series_groups(&grouped, &state.mappings);
+    let series = tracking_groups
         .iter()
-        .map(|series| ExternalTrackingSeries {
-            id: series.id.clone(),
-            title: series.title.clone(),
-            episode_count: series.episode_count,
-            mappings: mappings_by_series
-                .get(&series.id)
-                .cloned()
-                .unwrap_or_default(),
+        .map(|group| ExternalTrackingSeries {
+            id: group.id.clone(),
+            title: group.title.clone(),
+            local_series_ids: group.local_series_ids.clone(),
+            local_series_titles: group.local_series_titles.clone(),
+            episode_count: group.episode_count,
+            mappings: representative_mappings(&group.mappings),
         })
         .collect::<Vec<_>>();
     let status_by_media_id = watch_status_by_media_id(
@@ -305,27 +473,30 @@ pub fn tracking_document(
         .iter()
         .map(|entry| (entry.anime_id.clone(), entry))
         .collect::<BTreeMap<_, _>>();
-    let series_by_id = grouped
+    let live_series_ids = grouped
         .iter()
-        .map(|series| (series.id.as_str(), series))
-        .collect::<BTreeMap<_, _>>();
+        .map(|series| series.id.as_str())
+        .collect::<BTreeSet<_>>();
 
+    let mut skipped = state
+        .mappings
+        .iter()
+        .filter(|mapping| !live_series_ids.contains(mapping.local_series_id.as_str()))
+        .map(|mapping| ExternalTrackingPlanSkip {
+            local_series_id: mapping.local_series_id.clone(),
+            local_series_ids: vec![mapping.local_series_id.clone()],
+            series_title: None,
+            provider: mapping.anime_id.provider,
+            reason: ExternalTrackingPlanSkipReason::MissingLocalSeries,
+        })
+        .collect::<Vec<_>>();
     let mut update_candidates = Vec::new();
-    let mut skipped = Vec::new();
-    for mapping in &state.mappings {
-        let Some(series) = series_by_id.get(mapping.local_series_id.as_str()) else {
-            skipped.push(ExternalTrackingPlanSkip {
-                local_series_id: mapping.local_series_id.clone(),
-                series_title: None,
-                provider: mapping.anime_id.provider,
-                reason: ExternalTrackingPlanSkipReason::MissingLocalSeries,
-            });
-            continue;
-        };
-        let states = series
-            .seasons
+    let mut mapping_conflicts = Vec::new();
+
+    for group in &tracking_groups {
+        let states = group
+            .item_ids
             .iter()
-            .flat_map(|season| &season.item_ids)
             .filter_map(|media_id| status_by_media_id.get(media_id).copied())
             .collect::<Vec<_>>();
         let watched_episodes = states
@@ -342,34 +513,63 @@ pub fn tracking_document(
         } else {
             ExternalAnimeListStatus::PlanToWatch
         };
-        update_candidates.push(ExternalTrackingPlanUpdate {
-            local_series_id: series.id.clone(),
-            series_title: series.title.clone(),
-            episode_count: series.episode_count,
-            mapping: mapping.clone(),
-            update: ExternalAnimeTrackingUpdate {
-                anime_id: mapping.anime_id.clone(),
-                status: Some(status),
-                watched_episodes: Some(watched_episodes),
-                score: None,
-                tracking_enabled: true,
-                rating_enabled: true,
-            },
-        });
-    }
 
-    for series in &grouped {
         for provider in trackable_providers() {
-            if !state.mappings.iter().any(|mapping| {
-                mapping.local_series_id == series.id && mapping.anime_id.provider == provider
-            }) {
+            let provider_mappings = group
+                .mappings
+                .iter()
+                .filter(|mapping| mapping.anime_id.provider == provider)
+                .collect::<Vec<_>>();
+            let anime_ids = provider_mappings
+                .iter()
+                .map(|mapping| mapping.anime_id.clone())
+                .collect::<BTreeSet<_>>();
+            if anime_ids.is_empty() {
                 skipped.push(ExternalTrackingPlanSkip {
-                    local_series_id: series.id.clone(),
-                    series_title: Some(series.title.clone()),
+                    local_series_id: group.id.clone(),
+                    local_series_ids: group.local_series_ids.clone(),
+                    series_title: Some(group.title.clone()),
                     provider,
                     reason: ExternalTrackingPlanSkipReason::UnmappedLocalSeries,
                 });
+                continue;
             }
+            if anime_ids.len() > 1 {
+                mapping_conflicts.push(ExternalTrackingMappingConflict {
+                    local_series_id: group.id.clone(),
+                    local_series_ids: group.local_series_ids.clone(),
+                    series_title: group.title.clone(),
+                    provider,
+                    anime_ids: anime_ids.into_iter().collect(),
+                    reason: ExternalTrackingMappingConflictReason::ConflictingProviderIds,
+                });
+                continue;
+            }
+            let anime_id = anime_ids
+                .into_iter()
+                .next()
+                .expect("non-empty provider mapping set");
+            let mapping = representative_mappings(
+                &provider_mappings.into_iter().cloned().collect::<Vec<_>>(),
+            )
+            .into_iter()
+            .find(|mapping| mapping.anime_id == anime_id)
+            .expect("provider mapping has a representative");
+            update_candidates.push(ExternalTrackingPlanUpdate {
+                local_series_id: group.id.clone(),
+                local_series_ids: group.local_series_ids.clone(),
+                series_title: group.title.clone(),
+                episode_count: group.episode_count,
+                mapping,
+                update: ExternalAnimeTrackingUpdate {
+                    anime_id,
+                    status: Some(status),
+                    watched_episodes: Some(watched_episodes),
+                    score: None,
+                    tracking_enabled: true,
+                    rating_enabled: true,
+                },
+            });
         }
     }
 
@@ -385,6 +585,7 @@ pub fn tracking_document(
         }) {
             skipped.push(ExternalTrackingPlanSkip {
                 local_series_id: candidate.local_series_id,
+                local_series_ids: candidate.local_series_ids,
                 series_title: Some(candidate.series_title),
                 provider: candidate.mapping.anime_id.provider,
                 reason: ExternalTrackingPlanSkipReason::AlreadyInSync,
@@ -395,6 +596,7 @@ pub fn tracking_document(
         {
             conflicts.push(ExternalTrackingPlanConflict {
                 local_series_id: candidate.local_series_id,
+                local_series_ids: candidate.local_series_ids,
                 series_title: candidate.series_title,
                 episode_count: candidate.episode_count,
                 mapping: candidate.mapping,
@@ -413,6 +615,12 @@ pub fn tracking_document(
             .cmp(&right.series_title.to_lowercase())
             .then_with(|| left.mapping.anime_id.cmp(&right.mapping.anime_id))
     });
+    mapping_conflicts.sort_by(|left, right| {
+        left.series_title
+            .to_lowercase()
+            .cmp(&right.series_title.to_lowercase())
+            .then_with(|| left.provider.cmp(&right.provider))
+    });
     skipped.sort_by(|left, right| {
         left.local_series_id
             .cmp(&right.local_series_id)
@@ -421,7 +629,7 @@ pub fn tracking_document(
     let summary = ExternalTrackingPlanSummary {
         update_count: updates.len(),
         skipped_count: skipped.len(),
-        conflict_count: conflicts.len(),
+        conflict_count: conflicts.len() + mapping_conflicts.len(),
         failure_count: state.failures.len(),
         my_anime_list_update_count: updates
             .iter()
@@ -443,11 +651,11 @@ pub fn tracking_document(
             updates,
             skipped,
             conflicts,
+            mapping_conflicts,
             failures: state.failures.clone(),
         },
     }
 }
-
 pub async fn refresh_tracking_readback(
     service: &ExternalProviderService,
     store: &ExternalTrackingStore,
@@ -520,7 +728,7 @@ pub async fn execute_tracking_sync(
     let mut failures = Vec::new();
     let mut errors = Vec::new();
     let mut success_count = 0;
-    let mut conflict_count = plan.conflicts.len();
+    let mut conflict_count = plan.conflicts.len() + plan.mapping_conflicts.len();
 
     for candidate in plan.updates {
         let anime_id = candidate.mapping.anime_id.clone();
@@ -776,6 +984,10 @@ mod tests {
         store
             .save_mapping(replacement.clone())
             .expect("replacement mapping saves");
+        let shared_identity = mapping("series-b", ExternalAnimeProvider::MyAnimeList, 84);
+        store
+            .save_mapping(shared_identity.clone())
+            .expect("shared external identity saves for another local series");
         let failure = ExternalAnimeSyncFailure {
             anime_id: replacement.anime_id.clone(),
             message: "temporary upstream failure".to_owned(),
@@ -789,7 +1001,7 @@ mod tests {
 
         let reopened = ExternalTrackingStore::open(&file).expect("store reopens");
         let snapshot = reopened.snapshot();
-        assert_eq!(vec![replacement], snapshot.mappings);
+        assert_eq!(vec![replacement, shared_identity], snapshot.mappings);
         assert_eq!(vec![failure], snapshot.failures);
 
         fs::write(&file, r#"{"schemaVersion":2,"mappings":[]}"#)
@@ -798,6 +1010,30 @@ mod tests {
         assert!(error.to_string().contains("schemaVersion 2"));
     }
 
+    #[test]
+    fn store_saves_and_deletes_mappings_for_a_logical_group() {
+        let temp = TempDirectory::new("danmaku-tracking-group-store");
+        let file = temp.path.join("tracking.json");
+        let store = ExternalTrackingStore::open(&file).expect("store opens");
+        let anime_id = ExternalAnimeId {
+            provider: ExternalAnimeProvider::MyAnimeList,
+            value: 42,
+        };
+        store
+            .save_mappings(vec![
+                mapping("series-a", anime_id.provider, anime_id.value),
+                mapping("series-b", anime_id.provider, anime_id.value),
+            ])
+            .expect("group mappings save");
+
+        assert_eq!(2, store.snapshot().mappings.len());
+        assert!(
+            store
+                .delete_mappings(&["series-a".to_owned(), "series-b".to_owned()], &anime_id,)
+                .expect("group mappings delete")
+        );
+        assert!(store.snapshot().mappings.is_empty());
+    }
     #[test]
     fn plan_derives_updates_conflicts_and_unmapped_skips() {
         let catalog = fixture_catalog();
@@ -846,6 +1082,115 @@ mod tests {
     }
 
     #[test]
+    fn plan_merges_local_series_sharing_provider_identity() {
+        let catalog = LibraryCatalog {
+            root_name: "Fixture".to_owned(),
+            indexed_at_epoch_ms: 1,
+            items: vec![
+                fixture_item_for_series("episode-a", "Show A", "Episode 01"),
+                fixture_item_for_series("episode-b", "Show B", "Episode 02"),
+            ],
+        };
+        let grouped = grouped_series(&catalog);
+        let series_a = grouped
+            .iter()
+            .find(|series| series.title == "Show A")
+            .expect("Show A is grouped")
+            .id
+            .clone();
+        let series_b = grouped
+            .iter()
+            .find(|series| series.title == "Show B")
+            .expect("Show B is grouped")
+            .id
+            .clone();
+        let state = ExternalTrackingState {
+            mappings: vec![
+                mapping(&series_a, ExternalAnimeProvider::MyAnimeList, 42),
+                mapping(&series_b, ExternalAnimeProvider::MyAnimeList, 42),
+                mapping(&series_a, ExternalAnimeProvider::Bangumi, 84),
+            ],
+            ..ExternalTrackingState::default()
+        };
+        let progresses = vec![PlaybackProgress {
+            media_id: "episode-a".to_owned(),
+            position_ms: 100_000,
+            duration_ms: Some(100_000),
+            updated_at_epoch_ms: 10,
+        }];
+
+        let document = tracking_document(&catalog, &progresses, &state);
+
+        assert_eq!(1, document.series.len());
+        assert_eq!(2, document.series[0].local_series_ids.len());
+        assert_eq!(2, document.series[0].mappings.len());
+        assert_eq!(2, document.plan.updates.len());
+        assert!(document.plan.updates.iter().all(|update| {
+            update.local_series_ids.len() == 2
+                && update.update.watched_episodes == Some(1)
+                && update.update.status == Some(ExternalAnimeListStatus::Watching)
+        }));
+        assert!(document.plan.mapping_conflicts.is_empty());
+        assert_eq!(0, document.plan.summary.conflict_count);
+    }
+
+    #[test]
+    fn plan_surfaces_conflicting_provider_ids_for_merged_series() {
+        let catalog = LibraryCatalog {
+            root_name: "Fixture".to_owned(),
+            indexed_at_epoch_ms: 1,
+            items: vec![
+                fixture_item_for_series("episode-a", "Show A", "Episode 01"),
+                fixture_item_for_series("episode-b", "Show B", "Episode 02"),
+            ],
+        };
+        let grouped = grouped_series(&catalog);
+        let series_a = grouped
+            .iter()
+            .find(|series| series.title == "Show A")
+            .expect("Show A is grouped")
+            .id
+            .clone();
+        let series_b = grouped
+            .iter()
+            .find(|series| series.title == "Show B")
+            .expect("Show B is grouped")
+            .id
+            .clone();
+        let state = ExternalTrackingState {
+            mappings: vec![
+                mapping(&series_a, ExternalAnimeProvider::MyAnimeList, 42),
+                mapping(&series_b, ExternalAnimeProvider::MyAnimeList, 42),
+                mapping(&series_a, ExternalAnimeProvider::Bangumi, 84),
+                mapping(&series_b, ExternalAnimeProvider::Bangumi, 85),
+            ],
+            ..ExternalTrackingState::default()
+        };
+
+        let document = tracking_document(&catalog, &[], &state);
+
+        assert_eq!(1, document.series.len());
+        assert_eq!(1, document.plan.updates.len());
+        assert_eq!(
+            ExternalAnimeProvider::MyAnimeList,
+            document.plan.updates[0].mapping.anime_id.provider
+        );
+        assert_eq!(1, document.plan.mapping_conflicts.len());
+        let conflict = &document.plan.mapping_conflicts[0];
+        assert_eq!(ExternalAnimeProvider::Bangumi, conflict.provider);
+        assert_eq!(
+            vec![84, 85],
+            conflict
+                .anime_ids
+                .iter()
+                .map(|anime_id| anime_id.value)
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(2, conflict.local_series_ids.len());
+        assert_eq!(1, document.plan.summary.conflict_count);
+    }
+
+    #[test]
     fn retry_backoff_doubles_and_caps_at_thirty_minutes() {
         assert_eq!(31_000, external_anime_sync_retry_after_epoch_ms(1_000, 1));
         assert_eq!(61_000, external_anime_sync_retry_after_epoch_ms(1_000, 2));
@@ -881,11 +1226,19 @@ mod tests {
     }
 
     fn fixture_item(id: &str, episode_title: &str) -> LibraryMediaItem {
+        fixture_item_for_series(id, "Example Show", episode_title)
+    }
+
+    fn fixture_item_for_series(
+        id: &str,
+        series_title: &str,
+        episode_title: &str,
+    ) -> LibraryMediaItem {
         LibraryMediaItem {
             id: id.to_owned(),
-            series_title: "Example Show".to_owned(),
+            series_title: series_title.to_owned(),
             episode_title: episode_title.to_owned(),
-            relative_path: format!("Example Show/{episode_title}.mkv"),
+            relative_path: format!("{series_title}/{episode_title}.mkv"),
             size_bytes: 1,
             media_type: "video/x-matroska".to_owned(),
             stream_path: format!("/media/{id}"),

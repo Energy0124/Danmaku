@@ -1162,24 +1162,30 @@ async fn handle_provider_tracking(
                     "Request body must contain localSeriesId and animeId.",
                 );
             };
-            if !document()
+            let current_document = document();
+            let Some(series) = current_document
                 .series
                 .iter()
-                .any(|series| series.id == request.local_series_id)
-            {
+                .find(|series| series.local_series_ids.contains(&request.local_series_id))
+            else {
                 return text_response(
                     StatusCode::BAD_REQUEST,
                     "The selected local series is not in the current library.",
                 );
-            }
-            let mapping = ExternalAnimeMapping {
-                local_series_id: request.local_series_id,
-                anime_id: request.anime_id,
-                source: ExternalAnimeMappingSource::Manual,
-                confidence: 1.0,
-                mapped_at_epoch_ms: current_epoch_ms(),
             };
-            match admin.tracking_store().save_mapping(mapping) {
+            let mapped_at_epoch_ms = current_epoch_ms();
+            let mappings = series
+                .local_series_ids
+                .iter()
+                .map(|local_series_id| ExternalAnimeMapping {
+                    local_series_id: local_series_id.clone(),
+                    anime_id: request.anime_id.clone(),
+                    source: ExternalAnimeMappingSource::Manual,
+                    confidence: 1.0,
+                    mapped_at_epoch_ms,
+                })
+                .collect();
+            match admin.tracking_store().save_mappings(mappings) {
                 Ok(()) => json_response(StatusCode::OK, &document()),
                 Err(error) => text_response(StatusCode::BAD_REQUEST, &error.to_string()),
             }
@@ -1198,9 +1204,15 @@ async fn handle_provider_tracking(
                     "Request body must contain localSeriesId and animeId.",
                 );
             };
+            let local_series_ids = document()
+                .series
+                .iter()
+                .find(|series| series.local_series_ids.contains(&request.local_series_id))
+                .map(|series| series.local_series_ids.clone())
+                .unwrap_or_else(|| vec![request.local_series_id.clone()]);
             match admin
                 .tracking_store()
-                .delete_mapping(&request.local_series_id, &request.anime_id)
+                .delete_mappings(&local_series_ids, &request.anime_id)
             {
                 Ok(true) => json_response(StatusCode::OK, &document()),
                 Ok(false) => {
@@ -2920,6 +2932,13 @@ mod tests {
             .as_str()
             .expect("series ID")
             .to_owned();
+        assert_eq!(
+            1,
+            initial["series"][0]["localSeriesIds"]
+                .as_array()
+                .expect("logical series members")
+                .len()
+        );
 
         let mapping = json!({
             "localSeriesId": series_id,

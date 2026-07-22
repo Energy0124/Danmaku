@@ -361,9 +361,13 @@ trusted-LAN clients.
 - Rust headless tracking administration now persists non-secret series mappings,
   provider readback, sync failures, and retry metadata in schema-1
   `external-tracking.json`. Bearer-authenticated routes derive a sync preview
-  from the Rust catalog and progress stores, block provider-ahead conflicts, and
-  re-read each external entry before an explicit write. The web UI exposes the
-  mapping/readback workflow and requires the preview acknowledgement checkbox
+  from the Rust catalog and progress stores, coalesce local series linked by an
+  exact provider anime ID, and emit one update per provider for each logical
+  group. Groups can carry one MAL and one Bangumi identity; contradictory IDs
+  for the same provider are blocked as mapping conflicts. Sync also blocks
+  provider-ahead conflicts and re-reads each external entry before an explicit
+  write. The web UI exposes the mapping/readback workflow and requires the
+  preview acknowledgement checkbox
   before enabling sync. Mock-provider Rust tests cover persistence, conflicts,
   readback, and writes; live MAL/Bangumi account QA remains user-attended.
 

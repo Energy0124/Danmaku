@@ -134,6 +134,8 @@ export interface ExternalAnimeSyncFailure {
 export interface ExternalTrackingSeries {
   id: string;
   title: string;
+  localSeriesIds: string[];
+  localSeriesTitles: string[];
   episodeCount: number;
   mappings: ExternalAnimeMapping[];
 }
@@ -149,6 +151,7 @@ export interface ExternalTrackingPlanSummary {
 
 export interface ExternalTrackingPlanUpdate {
   localSeriesId: string;
+  localSeriesIds: string[];
   seriesTitle: string;
   episodeCount: number;
   mapping: ExternalAnimeMapping;
@@ -157,6 +160,7 @@ export interface ExternalTrackingPlanUpdate {
 
 export interface ExternalTrackingPlanSkip {
   localSeriesId: string;
+  localSeriesIds: string[];
   seriesTitle?: string;
   provider: ExternalAnimeProvider;
   reason: "MISSING_LOCAL_SERIES" | "UNMAPPED_LOCAL_SERIES" | "ALREADY_IN_SYNC";
@@ -164,6 +168,7 @@ export interface ExternalTrackingPlanSkip {
 
 export interface ExternalTrackingPlanConflict {
   localSeriesId: string;
+  localSeriesIds: string[];
   seriesTitle: string;
   episodeCount: number;
   mapping: ExternalAnimeMapping;
@@ -172,11 +177,21 @@ export interface ExternalTrackingPlanConflict {
   reason: "EXTERNAL_PROGRESS_AHEAD";
 }
 
+export interface ExternalTrackingMappingConflict {
+  localSeriesId: string;
+  localSeriesIds: string[];
+  seriesTitle: string;
+  provider: ExternalAnimeProvider;
+  animeIds: ExternalAnimeId[];
+  reason: "CONFLICTING_PROVIDER_IDS";
+}
+
 export interface ExternalTrackingPlan {
   summary: ExternalTrackingPlanSummary;
   updates: ExternalTrackingPlanUpdate[];
   skipped: ExternalTrackingPlanSkip[];
   conflicts: ExternalTrackingPlanConflict[];
+  mappingConflicts: ExternalTrackingMappingConflict[];
   failures: ExternalAnimeSyncFailure[];
 }
 

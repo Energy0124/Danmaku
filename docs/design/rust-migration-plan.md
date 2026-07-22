@@ -344,8 +344,11 @@ Milestones, each shippable while the Compose app remains the default:
   credentials, and live provider runtime reload.
 - `[x]` Web UI covers tracking sync orchestration dropped from the native
   player: Rust persists series mappings, provider readback, sync failures, and
-  retry metadata; bearer-authenticated routes generate conflict-aware previews;
-  and the browser requires an explicit preview acknowledgement before provider
+  retry metadata; exact shared provider identities coalesce local series into
+  logical groups that support one identity and one write per provider;
+  contradictory same-provider IDs surface as blocking mapping conflicts;
+  bearer-authenticated routes generate conflict-aware previews; and the browser
+  requires an explicit preview acknowledgement before provider
   writes. Mock-provider tests cover the workflow; live-account write QA remains
   user-attended.
 - `[ ]` Web UI covers the remaining dropped library quality review workflow.

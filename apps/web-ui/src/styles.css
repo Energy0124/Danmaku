@@ -846,6 +846,7 @@ video {
 .tracking-admin-message,
 .tracking-mapping-list small,
 .tracking-preview span,
+.tracking-conflicts p,
 .tracking-conflicts span,
 .tracking-failures span {
   color: #596873;
@@ -978,6 +979,7 @@ video {
 
 .tracking-preview h3,
 .tracking-conflicts h3,
+.tracking-conflicts p,
 .tracking-failures h3,
 .tracking-preview p {
   margin: 0;
@@ -1007,6 +1009,18 @@ video {
 .tracking-conflicts li {
   border-color: #dfbf99;
   background: #fff9f3;
+}
+
+.tracking-conflict-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.tracking-conflict-actions button {
+  padding: 6px 8px;
+  font-size: 11px;
 }
 
 .tracking-failures li {

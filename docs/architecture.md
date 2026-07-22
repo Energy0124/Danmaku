@@ -57,7 +57,11 @@ The Rust `native/library-server` binary is both the standalone headless server
 and the desktop-owned sidecar. It owns LAN HTTP/discovery, scanning, catalog
 snapshots, progress, and provider routes behind a data-directory lock. Tracking
 administration is server-owned: `external-tracking.json` stores non-secret
-series mappings, provider readback, and failure/retry state, while provider
+series mappings, provider readback, and failure/retry state. Exact shared
+(provider, anime ID) mappings connect local series into a logical tracking
+group. A group may have one identity per tracking provider and produces at most
+one write per provider; contradictory IDs for the same provider block that
+provider's write and surface as an administrative mapping conflict. Provider
 credentials remain in the platform secret store. The experimental JVM headless
 application remains available during migration.
 

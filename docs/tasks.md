@@ -74,9 +74,12 @@ Status legend:
   bearer-authenticated, secret-redacted provider settings administration with
   Windows DPAPI storage and immediate runtime reload. The Rust host now also
   owns mapped-series tracking administration: it persists mappings, provider
-  readback, failures, and retry metadata; derives conflict-aware sync previews
-  from the Rust catalog/progress stores; and exposes review-gated web controls
-  for explicit writes. Remaining split work: migrate the desktop's JVM provider
+  readback, failures, and retry metadata; coalesces local series sharing an
+  exact provider identity into multi-provider logical groups; derives one
+  conflict-aware update per provider and group from the Rust catalog/progress
+  stores; blocks contradictory same-provider IDs for manual resolution; and
+  exposes review-gated web controls for explicit writes. Remaining split work:
+  migrate the desktop's JVM provider
   clients and residual server-core contracts behind sidecar HTTP, add library
   quality administration, run live-account read/write QA, broaden browser
   interaction QA, and polish the web UI.
