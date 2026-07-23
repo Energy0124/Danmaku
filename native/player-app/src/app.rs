@@ -87,6 +87,69 @@ struct MatchPickerState {
     expanded_anime_id: Option<u64>,
 }
 
+#[derive(Default)]
+struct AttentionRepairBatch {
+    pending: VecDeque<AttentionRepairRequest>,
+    active_media_id: Option<String>,
+    seen_media_ids: std::collections::HashSet<String>,
+    total: usize,
+    done: usize,
+    failed: usize,
+}
+
+impl AttentionRepairBatch {
+    fn enqueue(&mut self, requests: Vec<AttentionRepairRequest>) -> usize {
+        if requests.is_empty() {
+            return 0;
+        }
+        if !self.is_active() {
+            *self = Self::default();
+        }
+        let mut added = 0;
+        for request in requests {
+            if self.seen_media_ids.insert(request.media_id.clone()) {
+                self.pending.push_back(request);
+                added += 1;
+            }
+        }
+        self.total = self.total.saturating_add(added);
+        added
+    }
+
+    fn begin_next(&mut self) -> Option<AttentionRepairRequest> {
+        if self.active_media_id.is_some() {
+            return None;
+        }
+        let request = self.pending.pop_front()?;
+        self.active_media_id = Some(request.media_id.clone());
+        Some(request)
+    }
+
+    fn complete(&mut self, media_id: &str, failed: bool) -> bool {
+        if self.active_media_id.as_deref() != Some(media_id) {
+            return false;
+        }
+        self.active_media_id = None;
+        self.done = self.done.saturating_add(1);
+        if failed {
+            self.failed = self.failed.saturating_add(1);
+        }
+        true
+    }
+
+    fn is_active(&self) -> bool {
+        self.active_media_id.is_some() || !self.pending.is_empty()
+    }
+
+    fn is_complete(&self) -> bool {
+        self.total > 0 && !self.is_active() && self.done == self.total
+    }
+
+    fn clear(&mut self) {
+        *self = Self::default();
+    }
+}
+
 pub struct PlayerApp {
     cli: Cli,
     display_title: String,
@@ -123,11 +186,7 @@ pub struct PlayerApp {
     /// background without playback (triggered from the library, not the
     /// player). See `LibraryAction::PreloadDanmaku`.
     pending_preloads: std::collections::HashSet<String>,
-    attention_repairs: VecDeque<AttentionRepairRequest>,
-    attention_repair_running: bool,
-    attention_repair_total: usize,
-    attention_repair_done: usize,
-    attention_repair_failed: usize,
+    attention_repairs: AttentionRepairBatch,
     auto_next: bool,
     eof_handled: bool,
     last_progress_upload: Instant,
@@ -338,11 +397,7 @@ impl PlayerApp {
             active_media_id: None,
             pending_play_media_id: None,
             pending_preloads: std::collections::HashSet::new(),
-            attention_repairs: VecDeque::new(),
-            attention_repair_running: false,
-            attention_repair_total: 0,
-            attention_repair_done: 0,
-            attention_repair_failed: 0,
+            attention_repairs: AttentionRepairBatch::default(),
             auto_next,
             eof_handled: false,
             last_progress_upload: now,
@@ -659,38 +714,42 @@ impl PlayerApp {
     // -----------------------------------------------------------------
 
     fn start_attention_repairs(&mut self, requests: Vec<AttentionRepairRequest>) {
-        if requests.is_empty() {
-            return;
+        if self.attention_repairs.enqueue(requests) > 0 {
+            self.dispatch_next_attention_repair();
         }
-        self.attention_repairs.clear();
-        self.attention_repairs.extend(requests);
-        self.attention_repair_total = self.attention_repairs.len();
-        self.attention_repair_done = 0;
-        self.attention_repair_failed = 0;
-        self.attention_repair_running = false;
-        self.dispatch_next_attention_repair();
     }
 
     fn dispatch_next_attention_repair(&mut self) {
-        if self.attention_repair_running {
+        if self.attention_repairs.active_media_id.is_some() {
             return;
         }
-        let Some(request) = self.attention_repairs.pop_front() else {
-            if self.attention_repair_total > 0
-                && let Some(session) = self.session.as_mut()
-            {
-                session.refresh_catalog();
-                session.refresh_attention();
+        if self.attention_repairs.pending.is_empty() {
+            if self.attention_repairs.is_complete() {
+                if let Some(session) = self.session.as_mut() {
+                    session.refresh_catalog();
+                    session.refresh_attention();
+                }
+                self.attention_repairs.clear();
             }
             return;
-        };
-        let Some(session) = self.session.as_ref().filter(|session| session.connected) else {
+        }
+        if self
+            .session
+            .as_ref()
+            .is_none_or(|session| !session.connected)
+        {
             self.attention_repairs.clear();
             return;
-        };
+        }
+        let request = self
+            .attention_repairs
+            .begin_next()
+            .expect("pending attention repair should dispatch");
         self.pending_preloads.insert(request.media_id.clone());
-        self.attention_repair_running = true;
-        session.repair_attention(request);
+        self.session
+            .as_ref()
+            .expect("connected attention repair session")
+            .repair_attention(request);
     }
 
     fn handle_session_events(&mut self, ctx: &egui::Context) {
@@ -734,12 +793,13 @@ impl PlayerApp {
                     }
                 }
                 SessionEvent::AttentionRepair { media_id, result } => {
+                    let failed = result.is_err();
+                    if !self.attention_repairs.complete(&media_id, failed) {
+                        eprintln!("ignored stale danmaku repair result for {media_id}");
+                        continue;
+                    }
                     self.pending_preloads.remove(&media_id);
-                    self.attention_repair_running = false;
-                    self.attention_repair_done = self.attention_repair_done.saturating_add(1);
                     if let Err(error) = result {
-                        self.attention_repair_failed =
-                            self.attention_repair_failed.saturating_add(1);
                         eprintln!("danmaku repair failed for {media_id}: {error}");
                     }
                     self.dispatch_next_attention_repair();
@@ -2092,11 +2152,11 @@ impl PlayerApp {
     fn library_sync_banner_text(&self) -> Option<String> {
         let session = self.session.as_ref()?;
         let strings = Strings::new(self.preferences.language);
-        if self.attention_repair_running || !self.attention_repairs.is_empty() {
+        if self.attention_repairs.is_active() {
             return Some(strings.repairing_danmaku(
-                self.attention_repair_done,
-                self.attention_repair_total,
-                self.attention_repair_failed,
+                self.attention_repairs.done,
+                self.attention_repairs.total,
+                self.attention_repairs.failed,
             ));
         }
         if !session.connected {
@@ -2831,9 +2891,10 @@ mod tests {
     use std::path::Path;
 
     use super::{
-        catalog_grouping_is_stale, danmaku_color, format_time, is_danmaku_path, media_display_title,
+        AttentionRepairBatch, catalog_grouping_is_stale, danmaku_color, format_time,
+        is_danmaku_path, media_display_title,
     };
-    use crate::library::LibraryCatalog;
+    use crate::library::{AttentionMappingStatus, AttentionRepairRequest, LibraryCatalog};
 
     #[test]
     fn formats_times_with_and_without_hours() {
@@ -2926,5 +2987,49 @@ mod tests {
             "a",
             "Example Anime"
         ));
+    }
+
+    fn repair_request(media_id: &str) -> AttentionRepairRequest {
+        AttentionRepairRequest {
+            media_id: media_id.to_owned(),
+            mapping_status: AttentionMappingStatus::Unmapped,
+            anime_id: None,
+            episode_id: None,
+        }
+    }
+
+    #[test]
+    fn active_attention_batch_appends_cross_series_repairs_without_resetting() {
+        let mut batch = AttentionRepairBatch::default();
+        assert_eq!(
+            batch.enqueue(vec![repair_request("a"), repair_request("b")]),
+            2
+        );
+        assert_eq!(batch.begin_next().unwrap().media_id, "a");
+
+        assert_eq!(
+            batch.enqueue(vec![
+                repair_request("c"),
+                repair_request("a"),
+                repair_request("b"),
+            ]),
+            1
+        );
+        assert_eq!(batch.active_media_id.as_deref(), Some("a"));
+        assert_eq!(batch.total, 3);
+        assert_eq!(
+            batch
+                .pending
+                .iter()
+                .map(|request| request.media_id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["b", "c"]
+        );
+
+        assert!(!batch.complete("stale", false));
+        assert_eq!(batch.done, 0);
+        assert!(batch.complete("a", false));
+        assert_eq!(batch.done, 1);
+        assert_eq!(batch.begin_next().unwrap().media_id, "b");
     }
 }

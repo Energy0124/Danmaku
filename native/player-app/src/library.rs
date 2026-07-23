@@ -6,6 +6,7 @@
 //! results in this crate's tests.
 
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 use crate::net::{http_get, http_put_json, percent_encode_path_segment};
 
@@ -1309,6 +1310,7 @@ mod tests {
         )
         .expect("attention document should parse");
 
+        assert_eq!(document.item_index.len(), 2);
         assert!(!document.provider.available);
         assert_eq!(document.summary.needing_attention, 1);
         assert!(!document.item("ready").unwrap().needs_attention());
@@ -1318,18 +1320,64 @@ mod tests {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, PartialEq)]
 pub struct LibraryAttentionDocument {
     pub generated_at_epoch_ms: u64,
     pub provider: AttentionProviderStatus,
     pub summary: AttentionSummary,
     pub items: Vec<LibraryAttentionItem>,
+    item_index: HashMap<String, usize>,
 }
 
 impl LibraryAttentionDocument {
+    pub fn new(
+        generated_at_epoch_ms: u64,
+        provider: AttentionProviderStatus,
+        summary: AttentionSummary,
+        items: Vec<LibraryAttentionItem>,
+    ) -> Self {
+        let item_index = items
+            .iter()
+            .enumerate()
+            .map(|(index, item)| (item.media_id.clone(), index))
+            .collect();
+        Self {
+            generated_at_epoch_ms,
+            provider,
+            summary,
+            items,
+            item_index,
+        }
+    }
+
     pub fn item(&self, media_id: &str) -> Option<&LibraryAttentionItem> {
-        self.items.iter().find(|item| item.media_id == media_id)
+        self.item_index
+            .get(media_id)
+            .and_then(|index| self.items.get(*index))
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LibraryAttentionDocumentWire {
+    generated_at_epoch_ms: u64,
+    provider: AttentionProviderStatus,
+    summary: AttentionSummary,
+    items: Vec<LibraryAttentionItem>,
+}
+
+impl<'de> Deserialize<'de> for LibraryAttentionDocument {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = LibraryAttentionDocumentWire::deserialize(deserializer)?;
+        Ok(Self::new(
+            wire.generated_at_epoch_ms,
+            wire.provider,
+            wire.summary,
+            wire.items,
+        ))
     }
 }
 

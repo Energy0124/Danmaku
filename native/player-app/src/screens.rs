@@ -4809,14 +4809,14 @@ mod tests {
                 item("unmapped", "Alpha\\03.mkv", 22, None),
             ],
         );
-        let attention = LibraryAttentionDocument {
-            generated_at_epoch_ms: 1,
-            provider: AttentionProviderStatus {
+        let attention = LibraryAttentionDocument::new(
+            1,
+            AttentionProviderStatus {
                 available: true,
                 reason_code: None,
             },
-            summary: AttentionSummary::default(),
-            items: vec![
+            AttentionSummary::default(),
+            vec![
                 LibraryAttentionItem {
                     media_id: "mapped-safe".to_owned(),
                     mapping_status: AttentionMappingStatus::Mapped,
@@ -4848,7 +4848,7 @@ mod tests {
                     last_failure: None,
                 },
             ],
-        };
+        );
 
         assert_eq!(series_attention_count(&entry, Some(&attention)), 3);
         let refresh = series_attention_repairs(&entry, Some(&attention), false);

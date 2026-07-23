@@ -314,6 +314,9 @@ pub struct DanmakuLoad {
     pub track: DanmakuTrack,
     pub status: String,
     pub ass_path: Option<PathBuf>,
+    /// Raw status returned by `/api/danmaku/{mediaId}` for server loads.
+    /// Preserved so repair callers can distinguish READY from FAILED/UNAVAILABLE.
+    pub server_status: Option<String>,
     /// Recognized anime title (no episode suffix) from a server danmaku
     /// match, when the server resolved one. Compared against the catalog's
     /// recognized `animeMetadata.displayTitle` to detect that the library
@@ -328,6 +331,7 @@ impl DanmakuLoad {
             track: DanmakuTrack::default(),
             status: "No danmaku source attached".to_owned(),
             ass_path: None,
+            server_status: None,
             match_title: None,
         }
     }
@@ -338,7 +342,16 @@ impl DanmakuLoad {
             track: DanmakuTrack::default(),
             status: message.into(),
             ass_path: None,
+            server_status: None,
             match_title: None,
+        }
+    }
+
+    pub fn require_server_ready(self) -> Result<Self, String> {
+        if self.server_status.as_deref() == Some("READY") {
+            Ok(self)
+        } else {
+            Err(self.status)
         }
     }
 }
@@ -358,6 +371,7 @@ pub fn load_local_danmaku(path: &Path) -> Result<DanmakuLoad, String> {
             status: format!("ASS overlay attached: {}", path.display()),
             ass_path: Some(path),
             match_title: None,
+            server_status: None,
         });
     }
 
@@ -383,6 +397,7 @@ pub fn load_local_danmaku(path: &Path) -> Result<DanmakuLoad, String> {
         track: DanmakuTrack::new(comments),
         status: format!("Local danmaku: {count} comments"),
         ass_path: None,
+        server_status: None,
         match_title: None,
     })
 }
@@ -426,6 +441,7 @@ pub fn fetch_server_danmaku(
                 .unwrap_or_else(|| format!("Server danmaku status: {status}")),
             ass_path: None,
             match_title,
+            server_status: Some(status.to_owned()),
         });
     }
     let comments = root
@@ -443,6 +459,7 @@ pub fn fetch_server_danmaku(
         track: DanmakuTrack::new(comments),
         status: format!("Server danmaku ({source}): {count} comments"),
         ass_path: None,
+        server_status: Some(status.to_owned()),
         match_title,
     })
 }
@@ -1303,6 +1320,42 @@ mod tests {
         assert_eq!(load.track.len(), 1);
         assert!(load.status.contains("CACHE"));
         assert_eq!(load.match_title.as_deref(), Some("Example Anime"));
+    }
+
+    #[test]
+    fn repair_observes_failed_status_in_a_successful_http_response() {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("listener");
+        let address = listener.local_addr().expect("address");
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("accept");
+            let mut request = Vec::new();
+            while !request.windows(4).any(|window| window == b"\r\n\r\n") {
+                let mut chunk = [0_u8; 512];
+                let count = stream.read(&mut chunk).expect("request");
+                if count == 0 {
+                    break;
+                }
+                request.extend_from_slice(&chunk[..count]);
+            }
+            let body = r#"{"mediaId":"episode-id","status":"FAILED","message":"provider unavailable","comments":[]}"#;
+            write!(
+                stream,
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body.len(),
+                body
+            )
+            .expect("response");
+        });
+
+        let load = fetch_server_danmaku(&format!("http://{address}"), "episode-id", false)
+            .expect("HTTP response should parse");
+        server.join().expect("server thread");
+
+        assert_eq!(load.server_status.as_deref(), Some("FAILED"));
+        assert_eq!(
+            load.require_server_ready().unwrap_err(),
+            "provider unavailable"
+        );
     }
 
     #[test]

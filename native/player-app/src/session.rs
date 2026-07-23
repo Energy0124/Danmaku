@@ -11,8 +11,8 @@ use eframe::egui;
 use crate::{
     danmaku::{
         BangumiDetail, DandanplayMatchCandidate, DandanplaySearchAnime, DandanplaySelection,
-        DanmakuLoad, DanmakuLoadKind, fetch_bangumi_detail, fetch_dandanplay_candidates,
-        fetch_server_danmaku, search_dandanplay, select_dandanplay_match,
+        DanmakuLoad, fetch_bangumi_detail, fetch_dandanplay_candidates, fetch_server_danmaku,
+        search_dandanplay, select_dandanplay_match,
     },
     library::{
         AttentionMappingStatus, AttentionRepairRequest, LibraryAttentionDocument, LibraryCatalog,
@@ -287,13 +287,9 @@ impl LibrarySession {
                 } else if request.mapping_status == AttentionMappingStatus::Mapped {
                     Err("cannot safely refresh this mapping; choose Change match first".to_owned())
                 } else {
-                    fetch_server_danmaku(&base, &request.media_id, false).and_then(|load| {
-                        if matches!(load.kind, DanmakuLoadKind::Failed) {
-                            Err(load.status)
-                        } else {
-                            Ok(())
-                        }
-                    })
+                    fetch_server_danmaku(&base, &request.media_id, false)
+                        .and_then(DanmakuLoad::require_server_ready)
+                        .map(|_| ())
                 };
                 SessionEvent::AttentionRepair { media_id, result }
             },
