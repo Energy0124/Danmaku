@@ -1,6 +1,7 @@
 //! Player window: chrome, video surface, and fade-over-video controls.
 
 use std::{
+    collections::VecDeque,
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
     time::{Duration, Instant},
@@ -24,7 +25,7 @@ use crate::{
     discovery::{DEFAULT_DISCOVERY_PORT, DiscoveryListener},
     hosting::{LocalConnection, LocalHostStatus, LocalServerSupervisor},
     icons::{Icon, paint_icon},
-    library::{LibraryCatalog, PlaybackProgress},
+    library::{AttentionRepairRequest, LibraryCatalog, PlaybackProgress},
     localization::Strings,
     posters::PosterCache,
     preferences::{CredentialStore, DandanplayCredentials, PlayerPreferences, PreferenceStore},
@@ -122,6 +123,11 @@ pub struct PlayerApp {
     /// background without playback (triggered from the library, not the
     /// player). See `LibraryAction::PreloadDanmaku`.
     pending_preloads: std::collections::HashSet<String>,
+    attention_repairs: VecDeque<AttentionRepairRequest>,
+    attention_repair_running: bool,
+    attention_repair_total: usize,
+    attention_repair_done: usize,
+    attention_repair_failed: usize,
     auto_next: bool,
     eof_handled: bool,
     last_progress_upload: Instant,
@@ -332,6 +338,11 @@ impl PlayerApp {
             active_media_id: None,
             pending_play_media_id: None,
             pending_preloads: std::collections::HashSet::new(),
+            attention_repairs: VecDeque::new(),
+            attention_repair_running: false,
+            attention_repair_total: 0,
+            attention_repair_done: 0,
+            attention_repair_failed: 0,
             auto_next,
             eof_handled: false,
             last_progress_upload: now,
@@ -647,6 +658,41 @@ impl PlayerApp {
     // Library mode
     // -----------------------------------------------------------------
 
+    fn start_attention_repairs(&mut self, requests: Vec<AttentionRepairRequest>) {
+        if requests.is_empty() {
+            return;
+        }
+        self.attention_repairs.clear();
+        self.attention_repairs.extend(requests);
+        self.attention_repair_total = self.attention_repairs.len();
+        self.attention_repair_done = 0;
+        self.attention_repair_failed = 0;
+        self.attention_repair_running = false;
+        self.dispatch_next_attention_repair();
+    }
+
+    fn dispatch_next_attention_repair(&mut self) {
+        if self.attention_repair_running {
+            return;
+        }
+        let Some(request) = self.attention_repairs.pop_front() else {
+            if self.attention_repair_total > 0
+                && let Some(session) = self.session.as_mut()
+            {
+                session.refresh_catalog();
+                session.refresh_attention();
+            }
+            return;
+        };
+        let Some(session) = self.session.as_ref().filter(|session| session.connected) else {
+            self.attention_repairs.clear();
+            return;
+        };
+        self.pending_preloads.insert(request.media_id.clone());
+        self.attention_repair_running = true;
+        session.repair_attention(request);
+    }
+
     fn handle_session_events(&mut self, ctx: &egui::Context) {
         let Some(mut session) = self.session.take() else {
             return;
@@ -686,6 +732,18 @@ impl PlayerApp {
                     if is_active {
                         self.danmaku = load.unwrap_or_else(DanmakuLoad::failed);
                     }
+                }
+                SessionEvent::AttentionRepair { media_id, result } => {
+                    self.pending_preloads.remove(&media_id);
+                    self.attention_repair_running = false;
+                    self.attention_repair_done = self.attention_repair_done.saturating_add(1);
+                    if let Err(error) = result {
+                        self.attention_repair_failed =
+                            self.attention_repair_failed.saturating_add(1);
+                        eprintln!("danmaku repair failed for {media_id}: {error}");
+                    }
+                    self.dispatch_next_attention_repair();
+                    ctx.request_repaint();
                 }
                 SessionEvent::DandanplayCandidates { media_id, result } => {
                     // Discard a response for an item the picker isn't showing
@@ -2034,6 +2092,13 @@ impl PlayerApp {
     fn library_sync_banner_text(&self) -> Option<String> {
         let session = self.session.as_ref()?;
         let strings = Strings::new(self.preferences.language);
+        if self.attention_repair_running || !self.attention_repairs.is_empty() {
+            return Some(strings.repairing_danmaku(
+                self.attention_repair_done,
+                self.attention_repair_total,
+                self.attention_repair_failed,
+            ));
+        }
         if !session.connected {
             let starting = matches!(
                 self.local_host.as_ref().map(LocalServerSupervisor::status),
@@ -2297,6 +2362,9 @@ impl eframe::App for PlayerApp {
                             }
                         }
                     }
+                    Some(LibraryAction::RepairAttention { requests }) => {
+                        self.start_attention_repairs(requests);
+                    }
                     Some(LibraryAction::ChangeMatch { media_id }) => {
                         self.open_match_picker(media_id);
                     }
@@ -2312,6 +2380,7 @@ impl eframe::App for PlayerApp {
                     Some(LibraryAction::Refresh) => {
                         if let Some(session) = &mut self.session {
                             session.refresh_catalog();
+                            session.refresh_attention();
                             session.refresh_progress();
                         }
                     }

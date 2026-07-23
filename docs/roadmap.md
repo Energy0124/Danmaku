@@ -31,7 +31,9 @@ Status: dandanplay overlay/cache path implemented; more controls remain.
 
 - Improve danmaku filtering, offset controls, styling controls, and playback
   clock behavior.
-- Keep cached dandanplay match/comment behavior explainable in UI.
+- Keep cached dandanplay match/comment behavior explainable and repairable in
+  UI; the Rust client now exposes focused attention status and safe queued
+  repair, while broader quality-scanner administration is not a release gate.
 - Continue improving matched anime metadata, poster freshness, and file-vs-anime
   title clarity.
 

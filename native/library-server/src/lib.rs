@@ -1,3 +1,4 @@
+pub mod attention;
 pub mod catalog;
 pub mod catalog_metadata;
 pub mod cli;

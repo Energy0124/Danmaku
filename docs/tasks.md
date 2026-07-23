@@ -25,7 +25,11 @@ Status legend:
   `tools/windows/run-rust-player-ui-qa.ps1`. The optional always-on host is
   now packaged as a current-user Task Scheduler logon task with script-first
   lifecycle/root management, a PlanOnly verification path, and native-player
-  attach-without-ownership behavior. Remaining retirement cleanup is next. Plans:
+  attach-without-ownership behavior. The native library now consumes focused
+  server-owned attention status for unmapped anime, uncached/stale danmaku,
+  conflicting IDs, and persisted refresh failures, with badges, filtering, and
+  safe one-at-a-time repair actions. Remaining retirement cleanup is next.
+  Plans:
   `docs/design/rust-migration-plan.md` and
   `docs/design/rust-player-ui-redesign-plan.md`.
 - `[~]` Split the desktop library host into compatibility-preserving host,
@@ -79,10 +83,10 @@ Status legend:
   conflict-aware update per provider and group from the Rust catalog/progress
   stores; blocks contradictory same-provider IDs for manual resolution; and
   exposes review-gated web controls for explicit writes. Remaining split work:
-  migrate the desktop's JVM provider
-  clients and residual server-core contracts behind sidecar HTTP, add library
-  quality administration, run live-account read/write QA, broaden browser
-  interaction QA, and polish the web UI.
+  migrate the desktop's JVM provider clients and residual server-core contracts
+  behind sidecar HTTP, run live-account read/write QA, broaden browser
+  interaction QA, and polish the web UI. The legacy broad library-quality
+  scanner is no longer a Rust-retirement requirement.
 - `[~]` Resolve P1 review findings from the 2026-06-15 full project review:
   convert expected LAN/provider/media failures away from hard
   `error(...)`/`check(...)` paths, split oversized Android entrypoints, and

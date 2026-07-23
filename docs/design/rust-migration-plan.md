@@ -351,7 +351,14 @@ Milestones, each shippable while the Compose app remains the default:
   requires an explicit preview acknowledgement before provider
   writes. Mock-provider tests cover the workflow; live-account write QA remains
   user-attended.
-- `[ ]` Web UI covers the remaining dropped library quality review workflow.
+- `[x]` Replace the dropped broad library-quality review gate with focused
+  consumer repair in the Rust client. The server exposes additive per-item
+  mapping/cache/conflict/failure attention status without media hashing or
+  provider calls; failures persist without raw provider details. The player
+  shows series/episode indicators and an attention filter, then serializes
+  match/refresh repairs with progress. Mapped refreshes pin the persisted
+  dandanplay episode identity; legacy mappings without one require manual
+  rematching. The legacy quality scanner is not a Rust-retirement requirement.
 - `[ ]` Remove `apps/desktop-windows`, `apps/library-server-windows`,
   `shared/library-server-core`, `shared/library-host-core`, and JVM-only
   provider code; keep Kotlin only for Android and the `shared/domain`
