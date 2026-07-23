@@ -6,6 +6,7 @@
 //! results in this crate's tests.
 
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 use crate::net::{http_get, http_put_json, percent_encode_path_segment};
 
@@ -828,6 +829,11 @@ pub fn fetch_catalog(base_url: &str) -> Result<LibraryCatalog, String> {
     serde_json::from_str(&body).map_err(|error| format!("invalid catalog JSON: {error}"))
 }
 
+pub fn fetch_attention(base_url: &str) -> Result<LibraryAttentionDocument, String> {
+    let body = http_get(base_url, "/api/library/attention")?;
+    serde_json::from_str(&body).map_err(|error| format!("invalid library attention JSON: {error}"))
+}
+
 pub fn fetch_progress_list(base_url: &str) -> Result<Vec<PlaybackProgress>, String> {
     let body = http_get(base_url, "/api/progress")?;
     serde_json::from_str(&body).map_err(|error| format!("invalid progress JSON: {error}"))
@@ -1268,4 +1274,189 @@ mod tests {
             r#"{"mediaId":"abc","positionMs":12345,"durationMs":98765,"updatedAtEpochMs":1700000100000}"#,
         );
     }
+
+    #[test]
+    fn parses_attention_status_and_indexes_items() {
+        let document: LibraryAttentionDocument = serde_json::from_str(
+            r#"{
+                "generatedAtEpochMs": 1700000000000,
+                "provider": {
+                    "available": false,
+                    "reasonCode": "DANDANPLAY_UNAVAILABLE"
+                },
+                "summary": {
+                    "total": 2,
+                    "needingAttention": 1,
+                    "unmapped": 1,
+                    "missingCache": 1
+                },
+                "items": [
+                    {
+                        "mediaId": "ready",
+                        "mappingStatus": "MAPPED",
+                        "cacheStatus": "FRESH",
+                        "animeId": 42,
+                        "episodeId": 420001,
+                        "issueCodes": []
+                    },
+                    {
+                        "mediaId": "needs-match",
+                        "mappingStatus": "UNMAPPED",
+                        "cacheStatus": "MISSING",
+                        "issueCodes": ["UNMAPPED_ANIME", "MISSING_DANMAKU_CACHE"]
+                    }
+                ]
+            }"#,
+        )
+        .expect("attention document should parse");
+
+        assert_eq!(document.item_index.len(), 2);
+        assert!(!document.provider.available);
+        assert_eq!(document.summary.needing_attention, 1);
+        assert!(!document.item("ready").unwrap().needs_attention());
+        assert!(document.item("needs-match").unwrap().needs_attention());
+        assert_eq!(document.item("ready").unwrap().episode_id, Some(420001));
+        assert!(document.item("missing").is_none());
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct LibraryAttentionDocument {
+    pub generated_at_epoch_ms: u64,
+    pub provider: AttentionProviderStatus,
+    pub summary: AttentionSummary,
+    pub items: Vec<LibraryAttentionItem>,
+    item_index: HashMap<String, usize>,
+}
+
+impl LibraryAttentionDocument {
+    pub fn new(
+        generated_at_epoch_ms: u64,
+        provider: AttentionProviderStatus,
+        summary: AttentionSummary,
+        items: Vec<LibraryAttentionItem>,
+    ) -> Self {
+        let item_index = items
+            .iter()
+            .enumerate()
+            .map(|(index, item)| (item.media_id.clone(), index))
+            .collect();
+        Self {
+            generated_at_epoch_ms,
+            provider,
+            summary,
+            items,
+            item_index,
+        }
+    }
+
+    pub fn item(&self, media_id: &str) -> Option<&LibraryAttentionItem> {
+        self.item_index
+            .get(media_id)
+            .and_then(|index| self.items.get(*index))
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LibraryAttentionDocumentWire {
+    generated_at_epoch_ms: u64,
+    provider: AttentionProviderStatus,
+    summary: AttentionSummary,
+    items: Vec<LibraryAttentionItem>,
+}
+
+impl<'de> Deserialize<'de> for LibraryAttentionDocument {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = LibraryAttentionDocumentWire::deserialize(deserializer)?;
+        Ok(Self::new(
+            wire.generated_at_epoch_ms,
+            wire.provider,
+            wire.summary,
+            wire.items,
+        ))
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct AttentionProviderStatus {
+    pub available: bool,
+    pub reason_code: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", default)]
+pub struct AttentionSummary {
+    pub total: usize,
+    pub needing_attention: usize,
+    pub unmapped: usize,
+    pub missing_cache: usize,
+    pub stale_cache: usize,
+    pub failed: usize,
+    pub conflicting: usize,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct LibraryAttentionItem {
+    pub media_id: String,
+    pub mapping_status: AttentionMappingStatus,
+    pub cache_status: AttentionCacheStatus,
+    pub anime_id: Option<u64>,
+    pub episode_id: Option<u64>,
+    #[serde(default)]
+    pub issue_codes: Vec<AttentionIssueCode>,
+    pub last_failure: Option<AttentionFailure>,
+}
+
+impl LibraryAttentionItem {
+    pub fn needs_attention(&self) -> bool {
+        !self.issue_codes.is_empty()
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum AttentionMappingStatus {
+    Mapped,
+    Unmapped,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum AttentionCacheStatus {
+    Fresh,
+    Stale,
+    Missing,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum AttentionIssueCode {
+    UnmappedAnime,
+    MissingDanmakuCache,
+    StaleDanmakuCache,
+    ConflictingAnimeIds,
+    RefreshFailed,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct AttentionFailure {
+    pub reason_code: String,
+    pub message: String,
+    pub failed_at_epoch_ms: u64,
+    pub attempt_count: u32,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AttentionRepairRequest {
+    pub media_id: String,
+    pub mapping_status: AttentionMappingStatus,
+    pub anime_id: Option<u64>,
+    pub episode_id: Option<u64>,
 }

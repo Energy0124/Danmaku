@@ -65,6 +65,12 @@ provider's write and surface as an administrative mapping conflict. Provider
 credentials remain in the platform secret store. The experimental JVM headless
 application remains available during migration.
 
+The server also computes `/api/library/attention` from catalog metadata and the
+local dandanplay cache without hashing media or contacting a provider. Only
+fixed, non-secret refresh-failure diagnostics are durable in
+`library-attention.json`; the response joins those diagnostics with mapping,
+cache-freshness, provider-availability, and conflicting-ID state.
+
 ### Rust Native Client
 
 The `native/player-app` migration client is an egui/glow Windows player that
@@ -91,6 +97,11 @@ web assets, background-host scripts, pinned libmpv, and license/provenance
 inventory. The pinned-runtime probe and four-file release
 media matrix pass, completing Phase 3. The client must not duplicate
 library hosting, provider settings, sync, or metadata storage.
+
+The library client consumes that attention document to render series badges,
+episode status, and a focused filter. Repair work is serialized client-side;
+unmapped items use normal recognition, while mapped cache refreshes pin the
+persisted dandanplay episode ID and never silently replace an association.
 
 ## Module Boundaries
 

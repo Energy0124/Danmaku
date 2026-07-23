@@ -14,11 +14,12 @@ use crate::{
     hosting::{LocalHostOwnership, LocalHostStatus},
     icons::{Icon, paint_icon},
     library::{
-        DEFAULT_NEXT_UP_LIMIT, FolderListing, LibraryCatalog, MINIMUM_REMAINING_MS,
-        MINIMUM_RESUME_POSITION_MS, MediaItem, NextUpItem, NextUpReason, PlaybackProgress,
-        ProgressItem, Series, continue_watching_items, file_name, folder_grouped_series,
-        grouped_series, item_in_folder_shortcut, library_folder_shortcuts, library_root_labels,
-        matched_anime_series, next_up_items, scoped_folder_listing,
+        AttentionCacheStatus, AttentionIssueCode, AttentionMappingStatus, AttentionRepairRequest,
+        DEFAULT_NEXT_UP_LIMIT, FolderListing, LibraryAttentionDocument, LibraryCatalog,
+        MINIMUM_REMAINING_MS, MINIMUM_RESUME_POSITION_MS, MediaItem, NextUpItem, NextUpReason,
+        PlaybackProgress, ProgressItem, Series, continue_watching_items, file_name,
+        folder_grouped_series, grouped_series, item_in_folder_shortcut, library_folder_shortcuts,
+        library_root_labels, matched_anime_series, next_up_items, scoped_folder_listing,
     },
     localization::{Language, Strings},
     posters::{PosterCache, PosterState},
@@ -535,6 +536,9 @@ pub enum LibraryAction {
     PreloadDanmaku {
         media_ids: Vec<String>,
     },
+    RepairAttention {
+        requests: Vec<AttentionRepairRequest>,
+    },
     /// Opens the manual danmaku match picker for one episode.
     ChangeMatch {
         media_id: String,
@@ -633,6 +637,7 @@ pub struct LibraryScreen {
     view: LibraryView,
     all_series_tab: LibrarySeriesTab,
     match_filter: LibraryMatchFilter,
+    attention_only: bool,
     progress_filter: LibraryProgressFilter,
     series_sort: LibrarySeriesSort,
     grid_density: LibraryGridDensity,
@@ -670,6 +675,7 @@ impl Default for LibraryScreen {
             view: LibraryView::Home,
             all_series_tab: LibrarySeriesTab::default(),
             match_filter: LibraryMatchFilter::default(),
+            attention_only: false,
             progress_filter: LibraryProgressFilter::default(),
             series_sort: LibrarySeriesSort::default(),
             grid_density: LibraryGridDensity::default(),
@@ -837,6 +843,7 @@ impl LibraryScreen {
                             posters,
                             pending_preloads,
                             bangumi,
+                            session.attention.as_ref(),
                             strings,
                         ),
                     }
@@ -1085,7 +1092,7 @@ impl LibraryScreen {
                     .as_ref()
                     .map(library_folder_shortcuts)
                     .unwrap_or_default();
-                self.show_series_filter_toolbar(ui, &folders, strings);
+                self.show_series_filter_toolbar(ui, &folders, session.attention.is_some(), strings);
                 ui.add_space(16.0);
 
                 if self.all_series_tab == LibrarySeriesTab::Folder {
@@ -1115,6 +1122,11 @@ impl LibraryScreen {
                     self.series_sort,
                     &session.progresses,
                 );
+                if self.attention_only {
+                    filtered.retain(|series| {
+                        series_attention_count(series, session.attention.as_ref()) > 0
+                    });
+                }
                 if self.all_series_tab == LibrarySeriesTab::RecentlyPlayed {
                     // Only series actually played, most recently played
                     // first — recency is the whole point of this view.
@@ -1158,18 +1170,28 @@ impl LibraryScreen {
                     Some(groups) => {
                         for (heading, series) in groups {
                             section_subheading(ui, &format!("{heading}  ·  {}", series.len()));
-                            if let Some(series_id) =
-                                series_grid(ui, &series, posters, strings, self.grid_density)
-                            {
+                            if let Some(series_id) = series_grid(
+                                ui,
+                                &series,
+                                posters,
+                                strings,
+                                self.grid_density,
+                                session.attention.as_ref(),
+                            ) {
                                 self.view = LibraryView::Series(series_id);
                             }
                             ui.add_space(14.0);
                         }
                     }
                     None => {
-                        if let Some(series_id) =
-                            series_grid(ui, &filtered, posters, strings, self.grid_density)
-                        {
+                        if let Some(series_id) = series_grid(
+                            ui,
+                            &filtered,
+                            posters,
+                            strings,
+                            self.grid_density,
+                            session.attention.as_ref(),
+                        ) {
                             self.view = LibraryView::Series(series_id);
                         }
                     }
@@ -1186,6 +1208,7 @@ impl LibraryScreen {
         &mut self,
         ui: &mut egui::Ui,
         folders: &[(String, usize)],
+        attention_available: bool,
         strings: Strings,
     ) {
         let folder_before = self.selected_folder.clone();
@@ -1231,6 +1254,13 @@ impl LibraryScreen {
                                 self.match_filter != LibraryMatchFilter::All,
                             ) {
                                 self.match_filter = MATCH_CHOICES[picked];
+                            }
+                            if attention_available {
+                                filter_toggle_chip(
+                                    ui,
+                                    strings.needs_attention(),
+                                    &mut self.attention_only,
+                                );
                             }
 
                             const PROGRESS_CHOICES: [LibraryProgressFilter; 4] = [
@@ -1399,6 +1429,7 @@ impl LibraryScreen {
                         }
 
                         let filters_active = self.match_filter != LibraryMatchFilter::All
+                            || self.attention_only
                             || self.progress_filter != LibraryProgressFilter::All
                             || self.selected_folder.is_some()
                             || self.selected_year.is_some()
@@ -1409,6 +1440,7 @@ impl LibraryScreen {
                         if filters_active
                             && toolbar_chip_button(ui, strings.clear_filters()).clicked()
                         {
+                            self.attention_only = false;
                             self.match_filter = LibraryMatchFilter::All;
                             self.progress_filter = LibraryProgressFilter::All;
                             self.selected_folder = None;
@@ -1567,6 +1599,7 @@ impl LibraryScreen {
                         posters,
                         strings,
                         LibraryGridDensity::Comfortable,
+                        session.attention.as_ref(),
                     ) {
                         self.query.clear();
                         self.view = LibraryView::Series(series_id);
@@ -1578,7 +1611,16 @@ impl LibraryScreen {
                     muted_line(ui, strings.no_episodes());
                 }
                 for item in matching_episodes {
-                    let row = episode_row(ui, item, None, strings);
+                    let row = episode_row(
+                        ui,
+                        item,
+                        None,
+                        session
+                            .attention
+                            .as_ref()
+                            .and_then(|status| status.item(&item.id)),
+                        strings,
+                    );
                     if row.play_clicked {
                         action = Some(LibraryAction::Play {
                             media_id: item.id.clone(),
@@ -1604,6 +1646,7 @@ impl LibraryScreen {
         posters: &mut PosterCache,
         pending_preloads: &std::collections::HashSet<String>,
         bangumi: &std::collections::HashMap<u64, BangumiDetailState>,
+        attention: Option<&LibraryAttentionDocument>,
         strings: Strings,
     ) -> Option<LibraryAction> {
         let Some(series) = self.find_series(series_id).cloned() else {
@@ -1616,6 +1659,9 @@ impl LibraryScreen {
             .filter(|item| item.anime_metadata.is_none())
             .map(|item| item.id.clone())
             .collect();
+        let missing_repairs = series_attention_repairs(&series, attention, true);
+        let refresh_repairs = series_attention_repairs(&series, attention, false);
+        let attention_count = series_attention_count(&series, attention);
         let matching_in_progress = series
             .items()
             .any(|item| pending_preloads.contains(&item.id));
@@ -1681,7 +1727,9 @@ impl LibraryScreen {
                     if icon_chip_button(ui, Icon::Back, strings.back()).clicked() {
                         self.view = LibraryView::Home;
                     }
-                    if !unmatched_ids.is_empty() {
+                    if !missing_repairs.is_empty()
+                        || (attention.is_none() && !unmatched_ids.is_empty())
+                    {
                         ui.add_space(8.0);
                         let tooltip = if matching_in_progress {
                             strings.matching_episodes()
@@ -1697,12 +1745,46 @@ impl LibraryScreen {
                                     .color(palette::TEXT_MUTED),
                             );
                         } else if response.clicked() {
-                            action = Some(LibraryAction::PreloadDanmaku {
-                                media_ids: unmatched_ids.clone(),
+                            action = Some(if missing_repairs.is_empty() {
+                                LibraryAction::PreloadDanmaku {
+                                    media_ids: unmatched_ids.clone(),
+                                }
+                            } else {
+                                LibraryAction::RepairAttention {
+                                    requests: missing_repairs.clone(),
+                                }
+                            });
+                        }
+                    }
+                    if !refresh_repairs.is_empty() && !matching_in_progress {
+                        ui.add_space(8.0);
+                        if icon_chip_button(ui, Icon::Refresh, strings.refresh_danmaku()).clicked()
+                        {
+                            action = Some(LibraryAction::RepairAttention {
+                                requests: refresh_repairs.clone(),
                             });
                         }
                     }
                 });
+                if let Some(attention) = attention {
+                    ui.add_space(8.0);
+                    ui.horizontal(|ui| {
+                        ui.add_space(PAGE_GUTTER);
+                        let text = if !attention.provider.available {
+                            strings.danmaku_provider_unavailable().to_owned()
+                        } else if attention_count > 0 {
+                            strings.series_needs_attention(attention_count)
+                        } else {
+                            strings.danmaku_ready().to_owned()
+                        };
+                        let color = if attention_count > 0 {
+                            palette::ACCENT_OUTLINE
+                        } else {
+                            palette::TEXT_MUTED
+                        };
+                        ui.label(RichText::new(text).font(typography::caption()).color(color));
+                    });
+                }
                 ui.add_space(12.0);
                 ui.horizontal(|ui| {
                     ui.add_space(PAGE_GUTTER);
@@ -1837,7 +1919,13 @@ impl LibraryScreen {
                     }
                     for item in &season.items {
                         let progress = latest.get(item.id.as_str()).copied();
-                        let row = episode_row(ui, item, progress, strings);
+                        let row = episode_row(
+                            ui,
+                            item,
+                            progress,
+                            attention.and_then(|status| status.item(&item.id)),
+                            strings,
+                        );
                         if row.play_clicked {
                             action = Some(LibraryAction::Play {
                                 media_id: item.id.clone(),
@@ -2920,6 +3008,78 @@ fn filtered_library_series(
     filtered
 }
 
+fn series_attention_count(series: &Series, attention: Option<&LibraryAttentionDocument>) -> usize {
+    let Some(attention) = attention else { return 0 };
+    series
+        .items()
+        .filter_map(|item| attention.item(&item.id))
+        .filter(|item| item.needs_attention())
+        .count()
+}
+
+fn series_attention_badge(
+    series: &Series,
+    attention: Option<&LibraryAttentionDocument>,
+    strings: Strings,
+) -> Option<String> {
+    let attention = attention?;
+    let affected = series_attention_count(series, Some(attention));
+    if affected == 0 {
+        return None;
+    }
+    let blocking = series
+        .items()
+        .filter_map(|item| attention.item(&item.id))
+        .any(|item| {
+            item.issue_codes.iter().any(|issue| {
+                matches!(
+                    issue,
+                    AttentionIssueCode::UnmappedAnime
+                        | AttentionIssueCode::ConflictingAnimeIds
+                        | AttentionIssueCode::RefreshFailed
+                )
+            })
+        });
+    Some(if blocking {
+        strings.issues_count(affected)
+    } else {
+        strings.cache_needed_count(affected)
+    })
+}
+
+fn series_attention_repairs(
+    series: &Series,
+    attention: Option<&LibraryAttentionDocument>,
+    unmapped_only: bool,
+) -> Vec<AttentionRepairRequest> {
+    let Some(attention) = attention.filter(|attention| attention.provider.available) else {
+        return Vec::new();
+    };
+    series
+        .items()
+        .filter_map(|item| attention.item(&item.id))
+        .filter(|item| item.needs_attention())
+        .filter(|item| {
+            if unmapped_only {
+                item.mapping_status == AttentionMappingStatus::Unmapped
+            } else {
+                item.mapping_status == AttentionMappingStatus::Mapped
+                    && item.episode_id.is_some()
+                    && (item.cache_status != AttentionCacheStatus::Fresh
+                        || item
+                            .issue_codes
+                            .contains(&AttentionIssueCode::RefreshFailed))
+            }
+        })
+        .map(|item| AttentionRepairRequest {
+            media_id: item.media_id.clone(),
+            mapping_status: item.mapping_status,
+            anime_id: item.anime_id,
+            episode_id: item.episode_id,
+        })
+        .collect()
+}
+
 fn series_latest_indexed_at(series: &Series) -> i64 {
     series
         .items()
@@ -3078,6 +3238,7 @@ fn series_grid(
     posters: &mut PosterCache,
     strings: Strings,
     density: LibraryGridDensity,
+    attention: Option<&LibraryAttentionDocument>,
 ) -> Option<String> {
     let mut clicked = None;
     let card_size = density.card_size();
@@ -3102,6 +3263,7 @@ fn series_grid(
                     };
                     let representative = series.items().next().cloned();
                     if let Some(item) = representative {
+                        let badge = series_attention_badge(series, attention, strings);
                         let response = poster_card_with_title_sized(
                             ui,
                             &item,
@@ -3109,6 +3271,7 @@ fn series_grid(
                             &format!("{} {}", series.episode_count(), strings.episodes()),
                             posters,
                             card_size,
+                            badge.as_deref(),
                         );
                         if response.clicked() {
                             clicked = Some(series.id.clone());
@@ -3170,6 +3333,7 @@ fn poster_card_with_title_sized(
     subtitle: &str,
     posters: &mut PosterCache,
     size: egui::Vec2,
+    badge: Option<&str>,
 ) -> egui::Response {
     poster_card_impl(
         ui,
@@ -3179,7 +3343,7 @@ fn poster_card_with_title_sized(
         posters,
         size,
         None,
-        None,
+        badge,
     )
 }
 
@@ -3486,6 +3650,7 @@ fn episode_row(
     ui: &mut egui::Ui,
     item: &MediaItem,
     progress: Option<&PlaybackProgress>,
+    attention: Option<&crate::library::LibraryAttentionItem>,
     strings: Strings,
 ) -> EpisodeRowAction {
     let width = ui.available_width() - 2.0 * metrics::GUTTER;
@@ -3542,6 +3707,27 @@ fn episode_row(
         palette::TEXT_PRIMARY,
     );
     let mut status_parts: Vec<String> = Vec::new();
+    if let Some(attention) = attention {
+        if attention.mapping_status == AttentionMappingStatus::Unmapped {
+            status_parts.push(strings.needs_match().to_owned());
+        } else {
+            match attention.cache_status {
+                AttentionCacheStatus::Fresh => {}
+                AttentionCacheStatus::Missing => {
+                    status_parts.push(strings.danmaku_uncached().to_owned())
+                }
+                AttentionCacheStatus::Stale => {
+                    status_parts.push(strings.danmaku_stale().to_owned())
+                }
+            }
+        }
+        if attention
+            .issue_codes
+            .contains(&AttentionIssueCode::RefreshFailed)
+        {
+            status_parts.push(strings.refresh_failed().to_owned());
+        }
+    }
     if item.size_bytes > 0 {
         status_parts.push(format_size(item.size_bytes));
     }
@@ -4395,9 +4581,14 @@ fn card_status_dot(ui: &mut egui::Ui, text: &str, color: Color32) {
 mod tests {
     use super::{
         LibraryMatchFilter, LibraryProgressFilter, LibrarySeriesSort, filtered_library_series,
-        format_size, initials, series_progress_state, year_month_from_epoch_ms,
+        format_size, initials, series_attention_count, series_attention_repairs,
+        series_progress_state, year_month_from_epoch_ms,
     };
-    use crate::library::{AnimeMetadata, MediaItem, PlaybackProgress, Season, Series};
+    use crate::library::{
+        AnimeMetadata, AttentionCacheStatus, AttentionIssueCode, AttentionMappingStatus,
+        AttentionProviderStatus, AttentionSummary, LibraryAttentionDocument, LibraryAttentionItem,
+        MediaItem, PlaybackProgress, Season, Series,
+    };
 
     #[test]
     fn derives_initials_from_titles() {
@@ -4606,5 +4797,66 @@ mod tests {
             series_progress_state(&entry, &[first_completed]),
             LibraryProgressFilter::InProgress
         );
+    }
+
+    #[test]
+    fn attention_repairs_preserve_mapped_episode_identity() {
+        let entry = series(
+            "Alpha",
+            vec![
+                item("mapped-safe", "Alpha\\01.mkv", 20, None),
+                item("mapped-legacy", "Alpha\\02.mkv", 21, None),
+                item("unmapped", "Alpha\\03.mkv", 22, None),
+            ],
+        );
+        let attention = LibraryAttentionDocument::new(
+            1,
+            AttentionProviderStatus {
+                available: true,
+                reason_code: None,
+            },
+            AttentionSummary::default(),
+            vec![
+                LibraryAttentionItem {
+                    media_id: "mapped-safe".to_owned(),
+                    mapping_status: AttentionMappingStatus::Mapped,
+                    cache_status: AttentionCacheStatus::Stale,
+                    anime_id: Some(42),
+                    episode_id: Some(420001),
+                    issue_codes: vec![AttentionIssueCode::StaleDanmakuCache],
+                    last_failure: None,
+                },
+                LibraryAttentionItem {
+                    media_id: "mapped-legacy".to_owned(),
+                    mapping_status: AttentionMappingStatus::Mapped,
+                    cache_status: AttentionCacheStatus::Missing,
+                    anime_id: Some(42),
+                    episode_id: None,
+                    issue_codes: vec![AttentionIssueCode::MissingDanmakuCache],
+                    last_failure: None,
+                },
+                LibraryAttentionItem {
+                    media_id: "unmapped".to_owned(),
+                    mapping_status: AttentionMappingStatus::Unmapped,
+                    cache_status: AttentionCacheStatus::Missing,
+                    anime_id: None,
+                    episode_id: None,
+                    issue_codes: vec![
+                        AttentionIssueCode::UnmappedAnime,
+                        AttentionIssueCode::MissingDanmakuCache,
+                    ],
+                    last_failure: None,
+                },
+            ],
+        );
+
+        assert_eq!(series_attention_count(&entry, Some(&attention)), 3);
+        let refresh = series_attention_repairs(&entry, Some(&attention), false);
+        assert_eq!(refresh.len(), 1);
+        assert_eq!(refresh[0].media_id, "mapped-safe");
+        assert_eq!(refresh[0].episode_id, Some(420001));
+        let matches = series_attention_repairs(&entry, Some(&attention), true);
+        assert_eq!(matches.len(), 1);
+        assert_eq!(matches[0].media_id, "unmapped");
     }
 }

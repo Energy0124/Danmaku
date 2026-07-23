@@ -31,7 +31,34 @@ pub struct DandanplayResolver {
     now_epoch_ms: fn() -> u64,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DandanplayCacheInspection {
+    pub episode_id: Option<u64>,
+    pub anime_id: Option<u64>,
+    pub fetched_at_epoch_ms: u64,
+    pub fresh: bool,
+}
+
 impl DandanplayResolver {
+    pub fn inspect_cache(
+        &self,
+        media_id: &str,
+        expected_size_bytes: u64,
+    ) -> Result<Option<DandanplayCacheInspection>> {
+        let Some(cache) = self.cache_store.load(media_id)? else {
+            return Ok(None);
+        };
+        let fresh = cache.episode_id.is_some()
+            && cache.file_size_bytes == expected_size_bytes
+            && !cache.is_expired((self.now_epoch_ms)(), self.cache_max_age_days);
+        Ok(Some(DandanplayCacheInspection {
+            episode_id: cache.episode_id,
+            anime_id: cache.anime_id,
+            fetched_at_epoch_ms: cache.fetched_at_epoch_ms,
+            fresh,
+        }))
+    }
+
     pub fn from_settings(settings: &HeadlessServerSettings, data_directory: &Path) -> Option<Self> {
         if !settings.dandanplay.is_fetch_enabled() {
             return None;

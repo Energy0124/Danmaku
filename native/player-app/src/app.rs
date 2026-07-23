@@ -1,6 +1,7 @@
 //! Player window: chrome, video surface, and fade-over-video controls.
 
 use std::{
+    collections::VecDeque,
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
     time::{Duration, Instant},
@@ -24,7 +25,7 @@ use crate::{
     discovery::{DEFAULT_DISCOVERY_PORT, DiscoveryListener},
     hosting::{LocalConnection, LocalHostStatus, LocalServerSupervisor},
     icons::{Icon, paint_icon},
-    library::{LibraryCatalog, PlaybackProgress},
+    library::{AttentionRepairRequest, LibraryCatalog, PlaybackProgress},
     localization::Strings,
     posters::PosterCache,
     preferences::{CredentialStore, DandanplayCredentials, PlayerPreferences, PreferenceStore},
@@ -86,6 +87,79 @@ struct MatchPickerState {
     expanded_anime_id: Option<u64>,
 }
 
+#[derive(Default)]
+struct AttentionRepairBatch {
+    pending: VecDeque<AttentionRepairRequest>,
+    active_media_id: Option<String>,
+    seen_media_ids: std::collections::HashSet<String>,
+    total: usize,
+    done: usize,
+    failed: usize,
+}
+
+impl AttentionRepairBatch {
+    fn enqueue(&mut self, requests: Vec<AttentionRepairRequest>) -> usize {
+        if requests.is_empty() {
+            return 0;
+        }
+        if !self.is_active() {
+            *self = Self::default();
+        }
+        let mut added = 0;
+        for request in requests {
+            if self.seen_media_ids.insert(request.media_id.clone()) {
+                self.pending.push_back(request);
+                added += 1;
+            }
+        }
+        self.total = self.total.saturating_add(added);
+        added
+    }
+
+    fn begin_next(&mut self) -> Option<AttentionRepairRequest> {
+        if self.active_media_id.is_some() {
+            return None;
+        }
+        let request = self.pending.pop_front()?;
+        self.active_media_id = Some(request.media_id.clone());
+        Some(request)
+    }
+
+    fn complete(&mut self, media_id: &str, failed: bool) -> bool {
+        if self.active_media_id.as_deref() != Some(media_id) {
+            return false;
+        }
+        self.active_media_id = None;
+        self.done = self.done.saturating_add(1);
+        if failed {
+            self.failed = self.failed.saturating_add(1);
+        }
+        true
+    }
+
+    fn is_active(&self) -> bool {
+        self.active_media_id.is_some() || !self.pending.is_empty()
+    }
+
+    fn is_complete(&self) -> bool {
+        self.total > 0 && !self.is_active() && self.done == self.total
+    }
+
+    fn clear(&mut self) {
+        *self = Self::default();
+    }
+}
+
+fn discard_library_session(
+    session: &mut Option<LibrarySession>,
+    pending_preloads: &mut std::collections::HashSet<String>,
+    attention_repairs: &mut AttentionRepairBatch,
+) {
+    *session = None;
+    pending_preloads.clear();
+    attention_repairs.clear();
+}
+
 pub struct PlayerApp {
     cli: Cli,
     display_title: String,
@@ -122,6 +196,7 @@ pub struct PlayerApp {
     /// background without playback (triggered from the library, not the
     /// player). See `LibraryAction::PreloadDanmaku`.
     pending_preloads: std::collections::HashSet<String>,
+    attention_repairs: AttentionRepairBatch,
     auto_next: bool,
     eof_handled: bool,
     last_progress_upload: Instant,
@@ -332,6 +407,7 @@ impl PlayerApp {
             active_media_id: None,
             pending_play_media_id: None,
             pending_preloads: std::collections::HashSet::new(),
+            attention_repairs: AttentionRepairBatch::default(),
             auto_next,
             eof_handled: false,
             last_progress_upload: now,
@@ -647,6 +723,45 @@ impl PlayerApp {
     // Library mode
     // -----------------------------------------------------------------
 
+    fn start_attention_repairs(&mut self, requests: Vec<AttentionRepairRequest>) {
+        if self.attention_repairs.enqueue(requests) > 0 {
+            self.dispatch_next_attention_repair();
+        }
+    }
+
+    fn dispatch_next_attention_repair(&mut self) {
+        if self.attention_repairs.active_media_id.is_some() {
+            return;
+        }
+        if self.attention_repairs.pending.is_empty() {
+            if self.attention_repairs.is_complete() {
+                if let Some(session) = self.session.as_mut() {
+                    session.refresh_catalog();
+                    session.refresh_attention();
+                }
+                self.attention_repairs.clear();
+            }
+            return;
+        }
+        if self
+            .session
+            .as_ref()
+            .is_none_or(|session| !session.connected)
+        {
+            self.attention_repairs.clear();
+            return;
+        }
+        let request = self
+            .attention_repairs
+            .begin_next()
+            .expect("pending attention repair should dispatch");
+        self.pending_preloads.insert(request.media_id.clone());
+        self.session
+            .as_ref()
+            .expect("connected attention repair session")
+            .repair_attention(request);
+    }
+
     fn handle_session_events(&mut self, ctx: &egui::Context) {
         let Some(mut session) = self.session.take() else {
             return;
@@ -686,6 +801,19 @@ impl PlayerApp {
                     if is_active {
                         self.danmaku = load.unwrap_or_else(DanmakuLoad::failed);
                     }
+                }
+                SessionEvent::AttentionRepair { media_id, result } => {
+                    let failed = result.is_err();
+                    if !self.attention_repairs.complete(&media_id, failed) {
+                        eprintln!("ignored stale danmaku repair result for {media_id}");
+                        continue;
+                    }
+                    self.pending_preloads.remove(&media_id);
+                    if let Err(error) = result {
+                        eprintln!("danmaku repair failed for {media_id}: {error}");
+                    }
+                    self.dispatch_next_attention_repair();
+                    ctx.request_repaint();
                 }
                 SessionEvent::DandanplayCandidates { media_id, result } => {
                     // Discard a response for an item the picker isn't showing
@@ -792,17 +920,26 @@ impl PlayerApp {
         self.posters.set_base_url(Some(request.base_url.clone()));
         // A cache-seeded session keeps its catalog on screen; attaching just
         // points it at the live server and refreshes in the background.
-        match self.session.as_mut() {
-            Some(session) if !session.connected => {
-                session.attach(request.base_url, request.pairing_token);
-            }
-            _ => {
-                self.session = Some(LibrarySession::connect(
-                    request.base_url,
-                    request.pairing_token,
-                    ctx.clone(),
-                ));
-            }
+        if self
+            .session
+            .as_ref()
+            .is_some_and(|session| !session.connected)
+        {
+            self.session
+                .as_mut()
+                .expect("cache-seeded session")
+                .attach(request.base_url, request.pairing_token);
+        } else {
+            discard_library_session(
+                &mut self.session,
+                &mut self.pending_preloads,
+                &mut self.attention_repairs,
+            );
+            self.session = Some(LibrarySession::connect(
+                request.base_url,
+                request.pairing_token,
+                ctx.clone(),
+            ));
         }
         self.connect_screen.error = None;
         self.screen = AppScreen::Library;
@@ -822,8 +959,11 @@ impl PlayerApp {
         self.upload_active_progress(true);
         self.run_mpv_command(&["stop"]);
         self.active_media_id = None;
-        self.session = None;
-        self.pending_preloads.clear();
+        discard_library_session(
+            &mut self.session,
+            &mut self.pending_preloads,
+            &mut self.attention_repairs,
+        );
         self.bangumi_details.clear();
         self.posters.set_base_url(None);
         self.screen = AppScreen::Connect;
@@ -969,8 +1109,11 @@ impl PlayerApp {
         self.upload_active_progress(true);
         self.run_mpv_command(&["stop"]);
         self.active_media_id = None;
-        self.session = None;
-        self.pending_preloads.clear();
+        discard_library_session(
+            &mut self.session,
+            &mut self.pending_preloads,
+            &mut self.attention_repairs,
+        );
         self.bangumi_details.clear();
         self.posters.set_base_url(None);
         self.screen = AppScreen::Connect;
@@ -1973,7 +2116,11 @@ impl PlayerApp {
             Some(LocalHostStatus::Failed(error)) => Some(error.clone()),
             _ => None,
         };
-        self.session = None;
+        discard_library_session(
+            &mut self.session,
+            &mut self.pending_preloads,
+            &mut self.attention_repairs,
+        );
         self.connect_screen.error = error;
         self.screen = AppScreen::Connect;
         if self.discovery.is_none() && !self.cli.qa_onboarding {
@@ -2034,6 +2181,13 @@ impl PlayerApp {
     fn library_sync_banner_text(&self) -> Option<String> {
         let session = self.session.as_ref()?;
         let strings = Strings::new(self.preferences.language);
+        if self.attention_repairs.is_active() {
+            return Some(strings.repairing_danmaku(
+                self.attention_repairs.done,
+                self.attention_repairs.total,
+                self.attention_repairs.failed,
+            ));
+        }
         if !session.connected {
             let starting = matches!(
                 self.local_host.as_ref().map(LocalServerSupervisor::status),
@@ -2297,6 +2451,9 @@ impl eframe::App for PlayerApp {
                             }
                         }
                     }
+                    Some(LibraryAction::RepairAttention { requests }) => {
+                        self.start_attention_repairs(requests);
+                    }
                     Some(LibraryAction::ChangeMatch { media_id }) => {
                         self.open_match_picker(media_id);
                     }
@@ -2312,6 +2469,7 @@ impl eframe::App for PlayerApp {
                     Some(LibraryAction::Refresh) => {
                         if let Some(session) = &mut self.session {
                             session.refresh_catalog();
+                            session.refresh_attention();
                             session.refresh_progress();
                         }
                     }
@@ -2762,9 +2920,11 @@ mod tests {
     use std::path::Path;
 
     use super::{
-        catalog_grouping_is_stale, danmaku_color, format_time, is_danmaku_path, media_display_title,
+        AttentionRepairBatch, catalog_grouping_is_stale, danmaku_color, discard_library_session,
+        format_time, is_danmaku_path, media_display_title,
     };
-    use crate::library::LibraryCatalog;
+    use crate::library::{AttentionMappingStatus, AttentionRepairRequest, LibraryCatalog};
+    use crate::session::LibrarySession;
 
     #[test]
     fn formats_times_with_and_without_hours() {
@@ -2857,5 +3017,78 @@ mod tests {
             "a",
             "Example Anime"
         ));
+    }
+
+    fn repair_request(media_id: &str) -> AttentionRepairRequest {
+        AttentionRepairRequest {
+            media_id: media_id.to_owned(),
+            mapping_status: AttentionMappingStatus::Unmapped,
+            anime_id: None,
+            episode_id: None,
+        }
+    }
+
+    #[test]
+    fn active_attention_batch_appends_cross_series_repairs_without_resetting() {
+        let mut batch = AttentionRepairBatch::default();
+        assert_eq!(
+            batch.enqueue(vec![repair_request("a"), repair_request("b")]),
+            2
+        );
+        assert_eq!(batch.begin_next().unwrap().media_id, "a");
+
+        assert_eq!(
+            batch.enqueue(vec![
+                repair_request("c"),
+                repair_request("a"),
+                repair_request("b"),
+            ]),
+            1
+        );
+        assert_eq!(batch.active_media_id.as_deref(), Some("a"));
+        assert_eq!(batch.total, 3);
+        assert_eq!(
+            batch
+                .pending
+                .iter()
+                .map(|request| request.media_id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["b", "c"]
+        );
+
+        assert!(!batch.complete("stale", false));
+        assert_eq!(batch.done, 0);
+        assert!(batch.complete("a", false));
+        assert_eq!(batch.done, 1);
+        assert_eq!(batch.begin_next().unwrap().media_id, "b");
+    }
+
+    #[test]
+    fn discarding_session_cancels_active_repairs_before_reconnect() {
+        let mut session = Some(LibrarySession::from_cache(
+            catalog_with_item("old", None),
+            Vec::new(),
+            eframe::egui::Context::default(),
+        ));
+        let mut pending_preloads = std::collections::HashSet::from(["old".to_owned()]);
+        let mut batch = AttentionRepairBatch::default();
+        assert_eq!(batch.enqueue(vec![repair_request("old")]), 1);
+        assert_eq!(batch.begin_next().unwrap().media_id, "old");
+
+        discard_library_session(&mut session, &mut pending_preloads, &mut batch);
+
+        assert!(session.is_none());
+        assert!(pending_preloads.is_empty());
+        assert!(!batch.is_active());
+        assert_eq!(batch.total, 0);
+
+        session = Some(LibrarySession::from_cache(
+            catalog_with_item("new", None),
+            Vec::new(),
+            eframe::egui::Context::default(),
+        ));
+        assert!(session.is_some());
+        assert_eq!(batch.enqueue(vec![repair_request("new")]), 1);
+        assert_eq!(batch.begin_next().unwrap().media_id, "new");
     }
 }

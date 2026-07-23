@@ -30,6 +30,8 @@ pub struct CatalogMetadataEntry {
     pub anime_title: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub episode_title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dandanplay_episode_id: Option<u64>,
     pub recorded_at_epoch_ms: u64,
     /// Local path of a cached poster image for the recognized anime, set
     /// separately (best-effort, after an external provider lookup) once the
@@ -45,6 +47,7 @@ impl CatalogMetadataEntry {
         self.dandanplay_anime_id == other.dandanplay_anime_id
             && self.anime_title == other.anime_title
             && self.episode_title == other.episode_title
+            && self.dandanplay_episode_id == other.dandanplay_episode_id
     }
 
     fn to_anime_metadata(&self) -> LibraryAnimeMetadata {
@@ -95,6 +98,23 @@ impl CatalogMetadataStore {
         anime_title: String,
         episode_title: Option<String>,
     ) -> Result<bool> {
+        self.record_with_episode(
+            media_id,
+            dandanplay_anime_id,
+            anime_title,
+            episode_title,
+            None,
+        )
+    }
+
+    pub fn record_with_episode(
+        &self,
+        media_id: &str,
+        dandanplay_anime_id: u64,
+        anime_title: String,
+        episode_title: Option<String>,
+        dandanplay_episode_id: Option<u64>,
+    ) -> Result<bool> {
         let entry = CatalogMetadataEntry {
             media_id: media_id.to_owned(),
             dandanplay_anime_id,
@@ -102,6 +122,7 @@ impl CatalogMetadataStore {
             episode_title: episode_title
                 .map(|title| title.trim().to_owned())
                 .filter(|title| !title.is_empty()),
+            dandanplay_episode_id,
             recorded_at_epoch_ms: current_epoch_ms(),
             poster_file: None,
         };

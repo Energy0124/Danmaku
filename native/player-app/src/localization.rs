@@ -484,6 +484,59 @@ impl Strings {
     pub fn matching_episodes(self) -> &'static str {
         self.text("Matching episodes…", "正在比對集數…")
     }
+    pub fn needs_attention(self) -> &'static str {
+        self.text("Needs attention", "需要處理")
+    }
+    pub fn refresh_danmaku(self) -> &'static str {
+        self.text("Refresh danmaku", "重新整理彈幕")
+    }
+    pub fn danmaku_provider_unavailable(self) -> &'static str {
+        self.text(
+            "Danmaku provider unavailable — check Settings",
+            "彈幕服務無法使用 — 請檢查設定",
+        )
+    }
+    pub fn danmaku_ready(self) -> &'static str {
+        self.text("Danmaku data is ready", "彈幕資料已就緒")
+    }
+    pub fn series_needs_attention(self, count: usize) -> String {
+        match self.language {
+            Language::English => format!("{count} episodes need attention"),
+            Language::TraditionalChinese => format!("{count} 集需要處理"),
+        }
+    }
+    pub fn issues_count(self, count: usize) -> String {
+        match self.language {
+            Language::English => format!("{count} issues"),
+            Language::TraditionalChinese => format!("{count} 個問題"),
+        }
+    }
+    pub fn cache_needed_count(self, count: usize) -> String {
+        match self.language {
+            Language::English => format!("{count} uncached"),
+            Language::TraditionalChinese => format!("{count} 集未快取"),
+        }
+    }
+    pub fn needs_match(self) -> &'static str {
+        self.text("Needs match", "需要比對")
+    }
+    pub fn danmaku_uncached(self) -> &'static str {
+        self.text("Danmaku not cached", "彈幕尚未快取")
+    }
+    pub fn danmaku_stale(self) -> &'static str {
+        self.text("Danmaku stale", "彈幕快取已過期")
+    }
+    pub fn refresh_failed(self) -> &'static str {
+        self.text("Last refresh failed", "上次重新整理失敗")
+    }
+    pub fn repairing_danmaku(self, done: usize, total: usize, failed: usize) -> String {
+        match self.language {
+            Language::English => format!("Repairing danmaku {done}/{total} · {failed} failed"),
+            Language::TraditionalChinese => {
+                format!("正在修復彈幕 {done}/{total} · {failed} 個失敗")
+            }
+        }
+    }
     pub fn change_match(self) -> &'static str {
         self.text("Change danmaku match", "變更彈幕比對結果")
     }

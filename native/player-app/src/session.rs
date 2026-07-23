@@ -15,13 +15,15 @@ use crate::{
         search_dandanplay, select_dandanplay_match,
     },
     library::{
-        LibraryCatalog, PlaybackProgress, fetch_catalog, fetch_progress, fetch_progress_list,
+        AttentionMappingStatus, AttentionRepairRequest, LibraryAttentionDocument, LibraryCatalog,
+        PlaybackProgress, fetch_attention, fetch_catalog, fetch_progress, fetch_progress_list,
         fetch_server_status, upload_progress,
     },
 };
 
 pub enum SessionEvent {
     Catalog(Result<LibraryCatalog, String>),
+    Attention(Result<LibraryAttentionDocument, String>),
     ProgressList(Result<Vec<PlaybackProgress>, String>),
     /// Background-scan state parsed from `/api/server/status`; `files_seen`
     /// is only present while a scan is running.
@@ -36,6 +38,10 @@ pub enum SessionEvent {
     Danmaku {
         media_id: String,
         load: Result<DanmakuLoad, String>,
+    },
+    AttentionRepair {
+        media_id: String,
+        result: Result<(), String>,
     },
     DandanplayCandidates {
         media_id: String,
@@ -60,6 +66,9 @@ pub struct LibrarySession {
     pub base_url: String,
     pub pairing_token: Option<String>,
     pub catalog: Option<LibraryCatalog>,
+    pub attention: Option<LibraryAttentionDocument>,
+    pub attention_error: Option<String>,
+    pub loading_attention: bool,
     pub progresses: Vec<PlaybackProgress>,
     pub catalog_error: Option<String>,
     pub loading_catalog: bool,
@@ -97,6 +106,9 @@ impl LibrarySession {
             base_url,
             pairing_token,
             catalog: None,
+            attention: None,
+            attention_error: None,
+            loading_attention: false,
             progresses: Vec::new(),
             catalog_error: None,
             loading_catalog: false,
@@ -110,6 +122,7 @@ impl LibrarySession {
             egui_context,
         };
         session.refresh_catalog();
+        session.refresh_attention();
         session.refresh_progress();
         session.refresh_server_scan();
         session
@@ -127,6 +140,9 @@ impl LibrarySession {
             base_url: String::new(),
             pairing_token: None,
             catalog: Some(catalog),
+            attention: None,
+            attention_error: None,
+            loading_attention: false,
             progresses,
             catalog_error: None,
             loading_catalog: true,
@@ -148,6 +164,7 @@ impl LibrarySession {
         self.pairing_token = pairing_token;
         self.connected = true;
         self.refresh_catalog();
+        self.refresh_attention();
         self.refresh_progress();
         self.refresh_server_scan();
     }
@@ -161,6 +178,19 @@ impl LibrarySession {
         let base_url = self.base_url.clone();
         self.spawn(
             move |base| SessionEvent::Catalog(fetch_catalog(&base)),
+            base_url,
+        );
+    }
+
+    pub fn refresh_attention(&mut self) {
+        if !self.connected {
+            return;
+        }
+        self.loading_attention = true;
+        self.attention_error = None;
+        let base_url = self.base_url.clone();
+        self.spawn(
+            move |base| SessionEvent::Attention(fetch_attention(&base)),
             base_url,
         );
     }
@@ -228,6 +258,40 @@ impl LibrarySession {
             move |base| {
                 let load = fetch_server_danmaku(&base, &media_id, force_refresh);
                 SessionEvent::Danmaku { media_id, load }
+            },
+            base_url,
+        );
+    }
+
+    pub fn repair_attention(&self, request: AttentionRepairRequest) {
+        if !self.connected {
+            return;
+        }
+        let base_url = self.base_url.clone();
+        self.spawn(
+            move |base| {
+                let media_id = request.media_id.clone();
+                let result = if let (AttentionMappingStatus::Mapped, Some(episode_id)) =
+                    (request.mapping_status, request.episode_id)
+                {
+                    select_dandanplay_match(
+                        &base,
+                        &request.media_id,
+                        &DandanplaySelection {
+                            episode_id,
+                            anime_id: request.anime_id,
+                            anime_title: None,
+                            episode_title: None,
+                        },
+                    )
+                } else if request.mapping_status == AttentionMappingStatus::Mapped {
+                    Err("cannot safely refresh this mapping; choose Change match first".to_owned())
+                } else {
+                    fetch_server_danmaku(&base, &request.media_id, false)
+                        .and_then(DanmakuLoad::require_server_repair_success)
+                        .map(|_| ())
+                };
+                SessionEvent::AttentionRepair { media_id, result }
             },
             base_url,
         );
@@ -340,6 +404,16 @@ impl LibrarySession {
                         Err(error) => self.catalog_error = Some(error),
                     }
                 }
+                SessionEvent::Attention(result) => {
+                    self.loading_attention = false;
+                    match result {
+                        Ok(attention) => {
+                            self.attention = Some(attention);
+                            self.attention_error = None;
+                        }
+                        Err(error) => self.attention_error = Some(error),
+                    }
+                }
                 SessionEvent::ProgressList(result) => {
                     if let Ok(progresses) = result {
                         self.progresses = progresses;
@@ -404,9 +478,12 @@ mod tests {
             base_url: base_url.to_owned(),
             pairing_token: Some("123456".to_owned()),
             catalog: None,
+            attention: None,
             progresses: Vec::new(),
             catalog_error: None,
+            attention_error: None,
             loading_catalog: false,
+            loading_attention: false,
             connected: true,
             catalog_from_cache: false,
             server_scanning: false,

@@ -227,6 +227,16 @@ trusted-LAN clients.
   official client's media library: folder rows navigate with an up-one-level
   row, file rows show file name and size plus the matched anime and episode
   titles in columns, and each file row keeps the change-match button.
+  The additive `/api/library/attention` status route now reports provider
+  availability plus per-item mapped/unmapped, fresh/stale/missing cache,
+  conflicting anime-ID, and last-refresh-failure state without hashing media or
+  contacting a provider. Refresh failures persist as non-secret fixed diagnostics
+  in `library-attention.json`. The native library renders series badges, a
+  "Needs attention" filter, and episode-level status text, and offers queued
+  match/refresh actions with visible progress. Existing mapped episodes are
+  refreshed only through their persisted dandanplay episode ID; legacy mappings
+  without that ID require the existing manual "Change match" action, so an
+  automatic repair cannot silently replace their anime association.
 - The July 13 Rust library polish adds a full-width media navigation sidebar
   plus Recent, Season, Matched Anime, and Folder views. The library toolbar now
   applies real inline text, match state, watch progress, top-level folder,

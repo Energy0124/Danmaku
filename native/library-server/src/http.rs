@@ -17,6 +17,7 @@ use tokio::io::{AsyncReadExt, AsyncSeekExt};
 use tokio_util::io::ReaderStream;
 
 use crate::Result;
+use crate::attention::{AttentionFailureStore, build_attention_document};
 use crate::catalog::{ExternalAnimeId, PublishedLibrary, normalize_lexically};
 use crate::catalog_metadata::CatalogMetadataStore;
 use crate::dandanplay::{
@@ -193,6 +194,7 @@ pub struct ProviderAdminState {
     secret_store: ProviderSecretStore,
     persisted_settings: Mutex<HeadlessServerSettings>,
     runtime: RwLock<ProviderRuntimeResources>,
+    attention_failures: AttentionFailureStore,
     tracking_store: ExternalTrackingStore,
 }
 
@@ -225,6 +227,9 @@ impl ProviderAdminState {
             expected_token: persisted_settings.pairing_token.as_bytes().to_vec(),
             settings_store: SettingsStore::new(data_directory.join("server-settings.json")),
             secret_store,
+            attention_failures: AttentionFailureStore::open(
+                data_directory.join("library-attention.json"),
+            )?,
             tracking_store: ExternalTrackingStore::open(
                 data_directory.join("external-tracking.json"),
             )?,
@@ -265,6 +270,10 @@ impl ProviderAdminState {
 
     fn tracking_store(&self) -> &ExternalTrackingStore {
         &self.tracking_store
+    }
+
+    fn attention_failures(&self) -> &AttentionFailureStore {
+        &self.attention_failures
     }
 
     fn snapshot(&self) -> ProviderSettingsAdminResponse {
@@ -617,6 +626,9 @@ async fn dispatch(State(state): State<HttpServerState>, request: Request<Body>) 
     if path.starts_with("/api/server/status") {
         return handle_server_status(&state, &method);
     }
+    if path == "/api/library/attention" {
+        return handle_library_attention(&state, &method);
+    }
     if path.starts_with("/api/library") {
         return handle_catalog(&state, &method);
     }
@@ -729,6 +741,43 @@ fn handle_catalog(state: &HttpServerState, method: &Method) -> Response<Body> {
     json_response(StatusCode::OK, &enriched)
 }
 
+fn handle_library_attention(state: &HttpServerState, method: &Method) -> Response<Body> {
+    if method != Method::GET {
+        return empty_status(StatusCode::METHOD_NOT_ALLOWED);
+    }
+    let library = state.library();
+    let catalog = state.catalog_metadata.as_ref().map_or_else(
+        || library.catalog.clone(),
+        |store| store.enrich_catalog(&library.catalog),
+    );
+    let resolver = state.dandanplay_resolver();
+    let failures = state
+        .provider_admin
+        .as_ref()
+        .map(|admin| admin.attention_failures());
+    json_response(
+        StatusCode::OK,
+        &build_attention_document(
+            &catalog,
+            resolver.as_deref(),
+            state.catalog_metadata.as_deref(),
+            failures,
+        ),
+    )
+}
+
+fn clear_attention_failure(state: &HttpServerState, media_id: &str) {
+    if let Some(admin) = &state.provider_admin {
+        let _ = admin.attention_failures().clear(media_id);
+    }
+}
+
+fn record_attention_failure(state: &HttpServerState, media_id: &str) {
+    if let Some(admin) = &state.provider_admin {
+        let _ = admin.attention_failures().record_refresh_failure(media_id);
+    }
+}
+
 /// Records the recognized dandanplay identity from a resolve result so the
 /// catalog can categorize the item on the next `/api/library` read. Best-effort:
 /// a persistence failure must not fail the danmaku response.
@@ -748,11 +797,12 @@ fn record_recognized_identity(
     else {
         return;
     };
-    if let Err(error) = store.record(
+    if let Err(error) = store.record_with_episode(
         media_id,
         anime_id,
         anime_title.clone(),
         candidate.episode_title.clone(),
+        Some(candidate.episode_id),
     ) {
         eprintln!("failed to record catalog metadata for {media_id}: {error}");
         return;
@@ -970,10 +1020,14 @@ async fn handle_danmaku(
         .await
     {
         Ok(result) => {
+            clear_attention_failure(state, &media_id);
             record_recognized_identity(state, &media_id, &result);
             LanDanmakuTrack::from_resolve_result(media_id, result)
         }
-        Err(error) => LanDanmakuTrack::failed(media_id, error),
+        Err(error) => {
+            record_attention_failure(state, &media_id);
+            LanDanmakuTrack::failed(media_id, error)
+        }
     };
     json_response(StatusCode::OK, &track)
 }
@@ -1467,13 +1521,17 @@ async fn handle_dandanplay_resolve(
         .await
     {
         Ok(result) => {
+            clear_attention_failure(state, &media_id);
             record_recognized_identity(state, &media_id, &result);
             json_response(StatusCode::OK, &result.to_provider_response(&media_id))
         }
-        Err(error) => text_response(
-            StatusCode::BAD_GATEWAY,
-            &format!("dandanplay request failed: {error}"),
-        ),
+        Err(error) => {
+            record_attention_failure(state, &media_id);
+            text_response(
+                StatusCode::BAD_GATEWAY,
+                &format!("dandanplay request failed: {error}"),
+            )
+        }
     }
 }
 
@@ -2260,6 +2318,26 @@ mod tests {
             passed += 1;
         }
         assert_eq!(19, passed);
+    }
+
+    #[tokio::test]
+    async fn library_attention_route_is_not_swallowed_by_catalog_prefix() {
+        let fixture = FixtureEnvironment::new();
+        let progress_store = Arc::new(PlaybackProgressStore::new(
+            fixture.temp.join("attention-progress.json"),
+        ));
+        let state = HttpServerState::new(
+            fixture.library.clone(),
+            progress_store,
+            HttpServerConfig::fixture_embedded(fixture.web_root.clone()),
+        );
+        let document = request_json(&app(state), "/api/library/attention").await;
+
+        assert_eq!(false, document["provider"]["available"]);
+        assert_eq!("DANDANPLAY_UNAVAILABLE", document["provider"]["reasonCode"]);
+        assert_eq!(1, document["summary"]["total"]);
+        assert_eq!("episode-id", document["items"][0]["mediaId"]);
+        assert_eq!("MISSING", document["items"][0]["cacheStatus"]);
     }
 
     #[tokio::test]
