@@ -10,9 +10,7 @@ import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySubtitleTrack
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.library.LanLibraryClientException
-import app.danmaku.server.LanDanmakuResolver
-import app.danmaku.server.LocalLibraryServer
-import app.danmaku.server.PublishedLibrary
+import app.danmaku.library.testing.LanProtocolFixtureServer
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.net.InetAddress
@@ -22,9 +20,6 @@ import java.net.SocketTimeoutException
 import java.net.URI
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
-import kotlin.io.path.createTempFile
-import kotlin.io.path.deleteIfExists
-import kotlin.io.path.writeBytes
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -35,8 +30,6 @@ class JvmLanLibraryClientTest {
     @Test
     fun browsesStreamsAndSynchronizesProgressAgainstLocalServer() {
         val mediaBytes = byteArrayOf(0, 1, 2, 3, 4, 5)
-        val mediaFile = createTempFile("danmaku-jvm-client", ".mp4")
-        mediaFile.writeBytes(mediaBytes)
         val item = LibraryMediaItem(
             id = "episode-id",
             seriesTitle = "Example Show",
@@ -73,69 +66,50 @@ class JvmLanLibraryClientTest {
             comments = listOf(LanDanmakuComment("comment-1", 1_000, "Hello")),
             matchTitle = "Example Show",
         )
-        var danmakuForceRefreshRequests = 0
 
-        try {
-            LocalLibraryServer(
-                port = 0,
-                pairingToken = "token with spaces",
-                danmakuResolver = LanDanmakuResolver { mediaId, mediaPath, forceRefresh ->
-                    assertEquals(item.id, mediaId)
-                    assertEquals(mediaFile, mediaPath)
-                    if (forceRefresh) {
-                        danmakuForceRefreshRequests += 1
-                    }
-                    danmakuTrack
-                },
-            ).use { server ->
-                server.publish(
-                    PublishedLibrary(
-                        catalog = catalog,
-                        filesById = mapOf(item.id to mediaFile),
-                    ),
-                )
-                server.start()
-                val client = JvmLanLibraryClient()
+        LanProtocolFixtureServer(
+            catalog = catalog,
+            mediaByPath = mapOf(item.streamPath to mediaBytes),
+            danmakuByMediaId = mapOf(item.id to danmakuTrack),
+        ).use { server ->
+            val client = JvmLanLibraryClient()
 
-                assertEquals(LanLibraryServerStatus(), client.fetchServerStatus(server.baseUrl()))
-                assertEquals(catalog, client.fetchCatalog(server.baseUrl(), server.pairingToken))
-                assertContentEquals(
-                    mediaBytes,
-                    URI(client.streamUrl(server.baseUrl(), item, server.pairingToken))
-                        .toURL()
-                        .openStream()
-                        .use { it.readBytes() },
-                )
-                assertEquals(
-                    "${server.baseUrl()}/subtitles/subtitle-id",
-                    client.subtitleUrl(server.baseUrl(), item.subtitles.single(), server.pairingToken),
-                )
-                assertEquals(emptyList(), client.fetchAllProgress(server.baseUrl(), server.pairingToken))
-                assertNull(client.fetchProgress(server.baseUrl(), item.id, server.pairingToken))
+            assertEquals(LanLibraryServerStatus(), client.fetchServerStatus(server.baseUrl))
+            assertEquals(catalog, client.fetchCatalog(server.baseUrl, server.pairingToken))
+            assertContentEquals(
+                mediaBytes,
+                URI(client.streamUrl(server.baseUrl, item, server.pairingToken))
+                    .toURL()
+                    .openStream()
+                    .use { it.readBytes() },
+            )
+            assertEquals(
+                "${server.baseUrl}/subtitles/subtitle-id",
+                client.subtitleUrl(server.baseUrl, item.subtitles.single(), server.pairingToken),
+            )
+            assertEquals(emptyList(), client.fetchAllProgress(server.baseUrl, server.pairingToken))
+            assertNull(client.fetchProgress(server.baseUrl, item.id, server.pairingToken))
 
-                client.saveProgress(server.baseUrl(), server.pairingToken, progress)
+            client.saveProgress(server.baseUrl, server.pairingToken, progress)
 
-                assertEquals(
-                    progress,
-                    client.fetchProgress(server.baseUrl(), item.id, server.pairingToken),
-                )
-                assertEquals(
-                    listOf(progress),
-                    client.fetchAllProgress(server.baseUrl(), server.pairingToken),
-                )
-                assertEquals(
-                    danmakuTrack,
-                    client.fetchDanmaku(
-                        server.baseUrl(),
-                        item.id,
-                        server.pairingToken,
-                        forceRefresh = true,
-                    ),
-                )
-                assertEquals(1, danmakuForceRefreshRequests)
-            }
-        } finally {
-            mediaFile.deleteIfExists()
+            assertEquals(
+                progress,
+                client.fetchProgress(server.baseUrl, item.id, server.pairingToken),
+            )
+            assertEquals(
+                listOf(progress),
+                client.fetchAllProgress(server.baseUrl, server.pairingToken),
+            )
+            assertEquals(
+                danmakuTrack,
+                client.fetchDanmaku(
+                    server.baseUrl,
+                    item.id,
+                    server.pairingToken,
+                    forceRefresh = true,
+                ),
+            )
+            assertEquals(1, server.danmakuForceRefreshRequests)
         }
     }
 
@@ -167,12 +141,11 @@ class JvmLanLibraryClientTest {
 
     @Test
     fun reportsHttpFailuresAsLanLibraryClientExceptions() {
-        LocalLibraryServer(port = 0, pairingToken = "expected-token").use { server ->
-            server.start()
+        LanProtocolFixtureServer().use { server ->
             val client = JvmLanLibraryClient()
 
             val failure = assertFailsWith<LanLibraryClientException> {
-                client.fetchDanmaku(server.baseUrl(), "missing", "", forceRefresh = false)
+                client.fetchDanmaku(server.baseUrl, "missing", "", forceRefresh = false)
             }
 
             assertEquals("Library server returned HTTP 404", failure.message)

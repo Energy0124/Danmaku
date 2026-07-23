@@ -29,6 +29,10 @@ Status legend:
   server-owned attention status for unmapped anime, uncached/stale danmaku,
   conflicting IDs, and persisted refresh failures, with badges, filtering, and
   safe one-at-a-time repair actions. Remaining retirement cleanup is next.
+  The shared JVM and Android LAN client integration suites now use
+  module-owned protocol fixtures instead of compiling and launching
+  `shared:library-server-core`, removing the legacy host from client-test
+  runtime dependencies.
   Plans:
   `docs/design/rust-migration-plan.md` and
   `docs/design/rust-player-ui-redesign-plan.md`.
