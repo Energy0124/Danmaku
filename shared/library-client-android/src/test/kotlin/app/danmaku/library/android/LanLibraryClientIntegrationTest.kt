@@ -11,7 +11,12 @@ import app.danmaku.domain.LibrarySubtitleTrack
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.library.LanLibraryClientException
 import app.danmaku.library.testing.LanProtocolFixtureServer
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import java.net.HttpURLConnection
 import java.net.URI
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -89,6 +94,23 @@ class LanLibraryClientIntegrationTest {
             )
             assertNull(client.fetchProgress(server.baseUrl, item.id, server.pairingToken))
 
+            assertEquals(
+                400,
+                putProgress(server.baseUrl, item.id, progress.copy(mediaId = "body-id")),
+            )
+            assertEquals(
+                404,
+                putProgress(
+                    server.baseUrl,
+                    "missing-id",
+                    progress.copy(mediaId = "missing-id"),
+                ),
+            )
+            assertEquals(
+                emptyList<PlaybackProgress>(),
+                client.fetchAllProgress(server.baseUrl, server.pairingToken),
+            )
+
             client.saveProgress(server.baseUrl, server.pairingToken, progress)
 
             assertEquals(
@@ -123,6 +145,28 @@ class LanLibraryClientIntegrationTest {
 
             assertTrue(failure is LanLibraryClientException)
             assertEquals("Library server returned HTTP 404", failure?.message)
+        }
+    }
+
+    private fun putProgress(
+        baseUrl: String,
+        pathMediaId: String,
+        progress: PlaybackProgress,
+    ): Int {
+        val body = Json.encodeToString(progress).toByteArray(StandardCharsets.UTF_8)
+        val encodedMediaId = URLEncoder.encode(pathMediaId, StandardCharsets.UTF_8)
+        val connection = URI("$baseUrl/api/progress/$encodedMediaId")
+            .toURL()
+            .openConnection() as HttpURLConnection
+        return try {
+            connection.requestMethod = "PUT"
+            connection.doOutput = true
+            connection.setRequestProperty("Content-Type", "application/json")
+            connection.setFixedLengthStreamingMode(body.size)
+            connection.outputStream.use { it.write(body) }
+            connection.responseCode
+        } finally {
+            connection.disconnect()
         }
     }
 }

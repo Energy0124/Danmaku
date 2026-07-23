@@ -13,11 +13,14 @@ import app.danmaku.library.LanLibraryClientException
 import app.danmaku.library.testing.LanProtocolFixtureServer
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import java.net.HttpURLConnection
 import java.net.InetAddress
 import java.net.ServerSocket
 import java.net.Socket
 import java.net.SocketTimeoutException
 import java.net.URI
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.Test
@@ -90,6 +93,20 @@ class JvmLanLibraryClientTest {
             assertEquals(emptyList(), client.fetchAllProgress(server.baseUrl, server.pairingToken))
             assertNull(client.fetchProgress(server.baseUrl, item.id, server.pairingToken))
 
+            assertEquals(
+                400,
+                putProgress(server.baseUrl, item.id, progress.copy(mediaId = "body-id")),
+            )
+            assertEquals(
+                404,
+                putProgress(
+                    server.baseUrl,
+                    "missing-id",
+                    progress.copy(mediaId = "missing-id"),
+                ),
+            )
+            assertEquals(emptyList(), client.fetchAllProgress(server.baseUrl, server.pairingToken))
+
             client.saveProgress(server.baseUrl, server.pairingToken, progress)
 
             assertEquals(
@@ -160,6 +177,28 @@ class JvmLanLibraryClientTest {
             assertFailsWith<SocketTimeoutException> {
                 client.fetchCatalog(server.baseUrl, "123456")
             }
+        }
+    }
+
+    private fun putProgress(
+        baseUrl: String,
+        pathMediaId: String,
+        progress: PlaybackProgress,
+    ): Int {
+        val body = Json.encodeToString(progress).toByteArray(StandardCharsets.UTF_8)
+        val encodedMediaId = URLEncoder.encode(pathMediaId, StandardCharsets.UTF_8)
+        val connection = URI("$baseUrl/api/progress/$encodedMediaId")
+            .toURL()
+            .openConnection() as HttpURLConnection
+        return try {
+            connection.requestMethod = "PUT"
+            connection.doOutput = true
+            connection.setRequestProperty("Content-Type", "application/json")
+            connection.setFixedLengthStreamingMode(body.size)
+            connection.outputStream.use { it.write(body) }
+            connection.responseCode
+        } finally {
+            connection.disconnect()
         }
     }
 

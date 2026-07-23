@@ -118,8 +118,11 @@ class LanProtocolFixtureServer(
     private fun progressResponse(
         request: Request,
         mediaId: String,
-    ): Response =
-        when (request.method) {
+    ): Response {
+        if (catalog.items.none { it.id == mediaId }) {
+            return Response.notFound()
+        }
+        return when (request.method) {
             "GET" -> progressByMediaId[mediaId]
                 ?.let(::jsonResponse)
                 ?: Response.notFound()
@@ -128,12 +131,16 @@ class LanProtocolFixtureServer(
                 val progress = json.decodeFromString<PlaybackProgress>(
                     request.body.toString(StandardCharsets.UTF_8),
                 )
-                progressByMediaId[progress.mediaId] = progress
+                if (progress.mediaId != mediaId) {
+                    return Response.badRequest()
+                }
+                progressByMediaId[mediaId] = progress
                 Response.noContent()
             }
 
             else -> Response.methodNotAllowed()
         }
+    }
 
     private inline fun <reified T> jsonResponse(value: T): Response =
         Response.ok(
@@ -160,6 +167,8 @@ class LanProtocolFixtureServer(
             ): Response = Response(200, "OK", body, contentType)
 
             fun noContent(): Response = Response(204, "No Content")
+
+            fun badRequest(): Response = Response(400, "Bad Request")
 
             fun notFound(): Response = Response(404, "Not Found")
 
