@@ -317,6 +317,7 @@ pub struct DanmakuLoad {
     /// Raw status returned by `/api/danmaku/{mediaId}` for server loads.
     /// Preserved so repair callers can distinguish READY from FAILED/UNAVAILABLE.
     pub server_status: Option<String>,
+    pub matched_episode_id: Option<u64>,
     /// Recognized anime title (no episode suffix) from a server danmaku
     /// match, when the server resolved one. Compared against the catalog's
     /// recognized `animeMetadata.displayTitle` to detect that the library
@@ -332,6 +333,7 @@ impl DanmakuLoad {
             status: "No danmaku source attached".to_owned(),
             ass_path: None,
             server_status: None,
+            matched_episode_id: None,
             match_title: None,
         }
     }
@@ -343,16 +345,16 @@ impl DanmakuLoad {
             status: message.into(),
             ass_path: None,
             server_status: None,
+            matched_episode_id: None,
             match_title: None,
         }
     }
 
-    pub fn require_server_ready(self) -> Result<Self, String> {
-        if self.server_status.as_deref() == Some("READY") {
-            Ok(self)
-        } else {
-            Err(self.status)
-        }
+    pub fn require_server_repair_success(self) -> Result<Self, String> {
+        let repaired = self.server_status.as_deref() == Some("READY")
+            || (self.server_status.as_deref() == Some("NO_MATCH")
+                && self.matched_episode_id.is_some());
+        if repaired { Ok(self) } else { Err(self.status) }
     }
 }
 
@@ -372,6 +374,7 @@ pub fn load_local_danmaku(path: &Path) -> Result<DanmakuLoad, String> {
             ass_path: Some(path),
             match_title: None,
             server_status: None,
+            matched_episode_id: None,
         });
     }
 
@@ -398,6 +401,7 @@ pub fn load_local_danmaku(path: &Path) -> Result<DanmakuLoad, String> {
         status: format!("Local danmaku: {count} comments"),
         ass_path: None,
         server_status: None,
+        matched_episode_id: None,
         match_title: None,
     })
 }
@@ -422,6 +426,7 @@ pub fn fetch_server_danmaku(
         .and_then(Value::as_str)
         .unwrap_or("FAILED");
     let message = root.get("message").and_then(Value::as_str);
+    let matched_episode_id = root.get("episodeId").and_then(Value::as_u64);
     // `animeTitle` (anime only) matches the catalog's recognized
     // displayTitle exactly; `matchTitle` ("Anime - Episode") is only a
     // fallback for older servers and can cause a spurious (harmless)
@@ -442,6 +447,7 @@ pub fn fetch_server_danmaku(
             ass_path: None,
             match_title,
             server_status: Some(status.to_owned()),
+            matched_episode_id,
         });
     }
     let comments = root
@@ -460,6 +466,7 @@ pub fn fetch_server_danmaku(
         status: format!("Server danmaku ({source}): {count} comments"),
         ass_path: None,
         server_status: Some(status.to_owned()),
+        matched_episode_id,
         match_title,
     })
 }
@@ -1098,6 +1105,36 @@ mod tests {
         }
     }
 
+    fn fetch_mock_server_danmaku(body: &str) -> DanmakuLoad {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("listener");
+        let address = listener.local_addr().expect("address");
+        let body = body.to_owned();
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("accept");
+            let mut request = Vec::new();
+            while !request.windows(4).any(|window| window == b"\r\n\r\n") {
+                let mut chunk = [0_u8; 512];
+                let count = stream.read(&mut chunk).expect("request");
+                if count == 0 {
+                    break;
+                }
+                request.extend_from_slice(&chunk[..count]);
+            }
+            write!(
+                stream,
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body.len(),
+                body
+            )
+            .expect("response");
+        });
+
+        let load = fetch_server_danmaku(&format!("http://{address}"), "episode-id", false)
+            .expect("HTTP response should parse");
+        server.join().expect("server thread");
+        load
+    }
+
     #[test]
     fn parses_bangumi_detail_profile() {
         let detail = parse_bangumi_detail(&serde_json::json!({
@@ -1353,8 +1390,33 @@ mod tests {
 
         assert_eq!(load.server_status.as_deref(), Some("FAILED"));
         assert_eq!(
-            load.require_server_ready().unwrap_err(),
+            load.require_server_repair_success().unwrap_err(),
             "provider unavailable"
+        );
+    }
+
+    #[test]
+    fn repair_accepts_a_selected_match_with_zero_comments() {
+        let load = fetch_mock_server_danmaku(
+            r#"{"mediaId":"episode-id","status":"NO_MATCH","episodeId":420001,"message":"Dandanplay match has no comments."}"#,
+        );
+
+        assert_eq!(load.server_status.as_deref(), Some("NO_MATCH"));
+        assert_eq!(load.matched_episode_id, Some(420001));
+        assert!(load.require_server_repair_success().is_ok());
+    }
+
+    #[test]
+    fn repair_rejects_no_match_without_a_selected_candidate() {
+        let load = fetch_mock_server_danmaku(
+            r#"{"mediaId":"episode-id","status":"NO_MATCH","message":"No Dandanplay match found."}"#,
+        );
+
+        assert_eq!(load.server_status.as_deref(), Some("NO_MATCH"));
+        assert_eq!(load.matched_episode_id, None);
+        assert_eq!(
+            load.require_server_repair_success().unwrap_err(),
+            "No Dandanplay match found."
         );
     }
 

@@ -288,7 +288,7 @@ impl LibrarySession {
                     Err("cannot safely refresh this mapping; choose Change match first".to_owned())
                 } else {
                     fetch_server_danmaku(&base, &request.media_id, false)
-                        .and_then(DanmakuLoad::require_server_ready)
+                        .and_then(DanmakuLoad::require_server_repair_success)
                         .map(|_| ())
                 };
                 SessionEvent::AttentionRepair { media_id, result }

@@ -150,6 +150,16 @@ impl AttentionRepairBatch {
     }
 }
 
+fn discard_library_session(
+    session: &mut Option<LibrarySession>,
+    pending_preloads: &mut std::collections::HashSet<String>,
+    attention_repairs: &mut AttentionRepairBatch,
+) {
+    *session = None;
+    pending_preloads.clear();
+    attention_repairs.clear();
+}
+
 pub struct PlayerApp {
     cli: Cli,
     display_title: String,
@@ -910,17 +920,26 @@ impl PlayerApp {
         self.posters.set_base_url(Some(request.base_url.clone()));
         // A cache-seeded session keeps its catalog on screen; attaching just
         // points it at the live server and refreshes in the background.
-        match self.session.as_mut() {
-            Some(session) if !session.connected => {
-                session.attach(request.base_url, request.pairing_token);
-            }
-            _ => {
-                self.session = Some(LibrarySession::connect(
-                    request.base_url,
-                    request.pairing_token,
-                    ctx.clone(),
-                ));
-            }
+        if self
+            .session
+            .as_ref()
+            .is_some_and(|session| !session.connected)
+        {
+            self.session
+                .as_mut()
+                .expect("cache-seeded session")
+                .attach(request.base_url, request.pairing_token);
+        } else {
+            discard_library_session(
+                &mut self.session,
+                &mut self.pending_preloads,
+                &mut self.attention_repairs,
+            );
+            self.session = Some(LibrarySession::connect(
+                request.base_url,
+                request.pairing_token,
+                ctx.clone(),
+            ));
         }
         self.connect_screen.error = None;
         self.screen = AppScreen::Library;
@@ -940,8 +959,11 @@ impl PlayerApp {
         self.upload_active_progress(true);
         self.run_mpv_command(&["stop"]);
         self.active_media_id = None;
-        self.session = None;
-        self.pending_preloads.clear();
+        discard_library_session(
+            &mut self.session,
+            &mut self.pending_preloads,
+            &mut self.attention_repairs,
+        );
         self.bangumi_details.clear();
         self.posters.set_base_url(None);
         self.screen = AppScreen::Connect;
@@ -1087,8 +1109,11 @@ impl PlayerApp {
         self.upload_active_progress(true);
         self.run_mpv_command(&["stop"]);
         self.active_media_id = None;
-        self.session = None;
-        self.pending_preloads.clear();
+        discard_library_session(
+            &mut self.session,
+            &mut self.pending_preloads,
+            &mut self.attention_repairs,
+        );
         self.bangumi_details.clear();
         self.posters.set_base_url(None);
         self.screen = AppScreen::Connect;
@@ -2091,7 +2116,11 @@ impl PlayerApp {
             Some(LocalHostStatus::Failed(error)) => Some(error.clone()),
             _ => None,
         };
-        self.session = None;
+        discard_library_session(
+            &mut self.session,
+            &mut self.pending_preloads,
+            &mut self.attention_repairs,
+        );
         self.connect_screen.error = error;
         self.screen = AppScreen::Connect;
         if self.discovery.is_none() && !self.cli.qa_onboarding {
@@ -2891,10 +2920,11 @@ mod tests {
     use std::path::Path;
 
     use super::{
-        AttentionRepairBatch, catalog_grouping_is_stale, danmaku_color, format_time,
-        is_danmaku_path, media_display_title,
+        AttentionRepairBatch, catalog_grouping_is_stale, danmaku_color, discard_library_session,
+        format_time, is_danmaku_path, media_display_title,
     };
     use crate::library::{AttentionMappingStatus, AttentionRepairRequest, LibraryCatalog};
+    use crate::session::LibrarySession;
 
     #[test]
     fn formats_times_with_and_without_hours() {
@@ -3031,5 +3061,34 @@ mod tests {
         assert!(batch.complete("a", false));
         assert_eq!(batch.done, 1);
         assert_eq!(batch.begin_next().unwrap().media_id, "b");
+    }
+
+    #[test]
+    fn discarding_session_cancels_active_repairs_before_reconnect() {
+        let mut session = Some(LibrarySession::from_cache(
+            catalog_with_item("old", None),
+            Vec::new(),
+            eframe::egui::Context::default(),
+        ));
+        let mut pending_preloads = std::collections::HashSet::from(["old".to_owned()]);
+        let mut batch = AttentionRepairBatch::default();
+        assert_eq!(batch.enqueue(vec![repair_request("old")]), 1);
+        assert_eq!(batch.begin_next().unwrap().media_id, "old");
+
+        discard_library_session(&mut session, &mut pending_preloads, &mut batch);
+
+        assert!(session.is_none());
+        assert!(pending_preloads.is_empty());
+        assert!(!batch.is_active());
+        assert_eq!(batch.total, 0);
+
+        session = Some(LibrarySession::from_cache(
+            catalog_with_item("new", None),
+            Vec::new(),
+            eframe::egui::Context::default(),
+        ));
+        assert!(session.is_some());
+        assert_eq!(batch.enqueue(vec![repair_request("new")]), 1);
+        assert_eq!(batch.begin_next().unwrap().media_id, "new");
     }
 }
