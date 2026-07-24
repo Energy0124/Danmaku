@@ -10,27 +10,24 @@ import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySubtitleTrack
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.library.LanLibraryClientException
-import app.danmaku.server.LanDanmakuResolver
-import app.danmaku.server.LocalLibraryServer
-import app.danmaku.server.PublishedLibrary
+import app.danmaku.library.testing.LanProtocolFixtureServer
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import java.net.HttpURLConnection
 import java.net.URI
-import kotlin.io.path.createTempFile
-import kotlin.io.path.deleteIfExists
-import kotlin.io.path.writeBytes
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LanLibraryClientIntegrationTest {
     @Test
     fun browsesStreamsAndSynchronizesProgressAgainstLocalServer() {
         val mediaBytes = byteArrayOf(0, 1, 2, 3, 4, 5)
-        val mediaFile = createTempFile("danmaku-android-client", ".mp4")
-        val subtitleFile = createTempFile("danmaku-android-client", ".srt")
-        mediaFile.writeBytes(mediaBytes)
-        subtitleFile.writeBytes("Hello".toByteArray())
+        val subtitleBytes = "Hello".toByteArray()
         val subtitle = LibrarySubtitleTrack(
             id = "subtitle-id",
             label = "English",
@@ -66,89 +63,110 @@ class LanLibraryClientIntegrationTest {
             comments = listOf(LanDanmakuComment("comment-1", 1_000, "Hello")),
             matchTitle = "Example Show",
         )
-        var danmakuForceRefreshRequests = 0
 
-        try {
-            LocalLibraryServer(
-                port = 0,
-                pairingToken = "token with spaces",
-                danmakuResolver = LanDanmakuResolver { mediaId, mediaPath, forceRefresh ->
-                    assertEquals(item.id, mediaId)
-                    assertEquals(mediaFile, mediaPath)
-                    if (forceRefresh) {
-                        danmakuForceRefreshRequests += 1
-                    }
-                    danmakuTrack
-                },
-            ).use { server ->
-                server.publish(
-                    PublishedLibrary(
-                        catalog = catalog,
-                        filesById = mapOf(item.id to mediaFile),
-                        subtitleFilesById = mapOf(subtitle.id to subtitleFile),
-                    ),
-                )
-                server.start()
-                val client = LanLibraryClient()
+        LanProtocolFixtureServer(
+            catalog = catalog,
+            mediaByPath = mapOf(item.streamPath to mediaBytes),
+            subtitlesByPath = mapOf(subtitle.streamPath to subtitleBytes),
+            danmakuByMediaId = mapOf(item.id to danmakuTrack),
+        ).use { server ->
+            val client = LanLibraryClient()
 
-                assertEquals(LanLibraryServerStatus(), client.fetchServerStatus(server.baseUrl()))
-                assertEquals(catalog, client.fetchCatalog(server.baseUrl(), server.pairingToken))
-                assertArrayEquals(
-                    mediaBytes,
-                    URI(client.streamUrl(server.baseUrl(), item, server.pairingToken))
-                        .toURL()
-                        .openStream()
-                        .use { it.readBytes() },
-                )
-                assertArrayEquals(
-                    "Hello".toByteArray(),
-                    URI(client.subtitleUrl(server.baseUrl(), subtitle, server.pairingToken))
-                        .toURL()
-                        .openStream()
-                        .use { it.readBytes() },
-                )
-                assertEquals(emptyList<PlaybackProgress>(), client.fetchAllProgress(server.baseUrl(), server.pairingToken))
-                assertNull(client.fetchProgress(server.baseUrl(), item.id, server.pairingToken))
+            assertEquals(LanLibraryServerStatus(), client.fetchServerStatus(server.baseUrl))
+            assertEquals(catalog, client.fetchCatalog(server.baseUrl, server.pairingToken))
+            assertArrayEquals(
+                mediaBytes,
+                URI(client.streamUrl(server.baseUrl, item, server.pairingToken))
+                    .toURL()
+                    .openStream()
+                    .use { it.readBytes() },
+            )
+            assertArrayEquals(
+                subtitleBytes,
+                URI(client.subtitleUrl(server.baseUrl, subtitle, server.pairingToken))
+                    .toURL()
+                    .openStream()
+                    .use { it.readBytes() },
+            )
+            assertEquals(
+                emptyList<PlaybackProgress>(),
+                client.fetchAllProgress(server.baseUrl, server.pairingToken),
+            )
+            assertNull(client.fetchProgress(server.baseUrl, item.id, server.pairingToken))
 
-                client.saveProgress(server.baseUrl(), server.pairingToken, progress)
+            assertEquals(
+                400,
+                putProgress(server.baseUrl, item.id, progress.copy(mediaId = "body-id")),
+            )
+            assertEquals(
+                404,
+                putProgress(
+                    server.baseUrl,
+                    "missing-id",
+                    progress.copy(mediaId = "missing-id"),
+                ),
+            )
+            assertEquals(
+                emptyList<PlaybackProgress>(),
+                client.fetchAllProgress(server.baseUrl, server.pairingToken),
+            )
 
-                assertEquals(
-                    progress,
-                    client.fetchProgress(server.baseUrl(), item.id, server.pairingToken),
-                )
-                assertEquals(
-                    listOf(progress),
-                    client.fetchAllProgress(server.baseUrl(), server.pairingToken),
-                )
-                assertEquals(
-                    danmakuTrack,
-                    client.fetchDanmaku(
-                        server.baseUrl(),
-                        item.id,
-                        server.pairingToken,
-                        forceRefresh = true,
-                    ),
-                )
-                assertEquals(1, danmakuForceRefreshRequests)
-            }
-        } finally {
-            mediaFile.deleteIfExists()
-            subtitleFile.deleteIfExists()
+            client.saveProgress(server.baseUrl, server.pairingToken, progress)
+
+            assertEquals(
+                progress,
+                client.fetchProgress(server.baseUrl, item.id, server.pairingToken),
+            )
+            assertEquals(
+                listOf(progress),
+                client.fetchAllProgress(server.baseUrl, server.pairingToken),
+            )
+            assertEquals(
+                danmakuTrack,
+                client.fetchDanmaku(
+                    server.baseUrl,
+                    item.id,
+                    server.pairingToken,
+                    forceRefresh = true,
+                ),
+            )
+            assertEquals(1, server.danmakuForceRefreshRequests)
         }
     }
 
     @Test
     fun reportsHttpFailuresAsLanLibraryClientExceptions() {
-        LocalLibraryServer(port = 0, pairingToken = "expected-token").use { server ->
-            server.start()
+        LanProtocolFixtureServer().use { server ->
             val client = LanLibraryClient()
 
             val failure = runCatching {
-                client.fetchDanmaku(server.baseUrl(), "missing", "", forceRefresh = false)
+                client.fetchDanmaku(server.baseUrl, "missing", "", forceRefresh = false)
             }.exceptionOrNull()
 
             assertTrue(failure is LanLibraryClientException)
             assertEquals("Library server returned HTTP 404", failure?.message)
+        }
+    }
+
+    private fun putProgress(
+        baseUrl: String,
+        pathMediaId: String,
+        progress: PlaybackProgress,
+    ): Int {
+        val body = Json.encodeToString(progress).toByteArray(StandardCharsets.UTF_8)
+        val encodedMediaId = URLEncoder.encode(pathMediaId, StandardCharsets.UTF_8)
+        val connection = URI("$baseUrl/api/progress/$encodedMediaId")
+            .toURL()
+            .openConnection() as HttpURLConnection
+        return try {
+            connection.requestMethod = "PUT"
+            connection.doOutput = true
+            connection.setRequestProperty("Content-Type", "application/json")
+            connection.setFixedLengthStreamingMode(body.size)
+            connection.outputStream.use { it.write(body) }
+            connection.responseCode
+        } finally {
+            connection.disconnect()
         }
     }
 }

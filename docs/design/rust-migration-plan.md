@@ -359,6 +359,11 @@ Milestones, each shippable while the Compose app remains the default:
   match/refresh repairs with progress. Mapped refreshes pin the persisted
   dandanplay episode identity; legacy mappings without one require manual
   rematching. The legacy quality scanner is not a Rust-retirement requirement.
+- `[x]` Decouple the shared JVM and Android LAN client integration tests from
+  the legacy JVM server. Both suites now run against module-owned lightweight
+  HTTP protocol fixtures covering status, catalog, media/subtitle bytes,
+  progress read/write, danmaku refresh, and HTTP failure handling without a
+  `shared:library-server-core` test dependency.
 - `[ ]` Remove `apps/desktop-windows`, `apps/library-server-windows`,
   `shared/library-server-core`, `shared/library-host-core`, and JVM-only
   provider code; keep Kotlin only for Android and the `shared/domain`
