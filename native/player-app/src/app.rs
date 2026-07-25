@@ -8,8 +8,8 @@ use std::{
 };
 
 use eframe::egui::{
-    self, Align2, Color32, FontId, Frame, Rect, RichText, Sense, StrokeKind, ViewportCommand, pos2,
-    vec2,
+    self, Align2, Color32, FontId, Frame, Rect, RichText, Sense, StrokeKind, ViewportCommand,
+    WindowLevel, pos2, vec2,
 };
 use egui_glow::CallbackFn;
 
@@ -47,6 +47,14 @@ const PROGRESS_UPLOAD_INTERVAL: Duration = Duration::from_secs(15);
 /// background library scan.
 const SCAN_POLL_INTERVAL: Duration = Duration::from_millis(1_500);
 const PLAYBACK_RATES: [f64; 6] = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+
+fn fullscreen_window_level(is_windows: bool, fullscreen: bool, focused: bool) -> WindowLevel {
+    if is_windows && fullscreen && focused {
+        WindowLevel::AlwaysOnTop
+    } else {
+        WindowLevel::Normal
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum AppScreen {
@@ -182,6 +190,7 @@ pub struct PlayerApp {
     last_normal_inner_rect: Option<Rect>,
     last_normal_outer_rect: Option<Rect>,
     fullscreen: bool,
+    fullscreen_window_level: WindowLevel,
     smoke_started: Instant,
     // Library mode.
     screen: AppScreen,
@@ -397,6 +406,7 @@ impl PlayerApp {
             last_normal_inner_rect: None,
             last_normal_outer_rect: None,
             fullscreen: false,
+            fullscreen_window_level: WindowLevel::Normal,
             smoke_started: now,
             screen,
             connect_screen,
@@ -587,6 +597,15 @@ impl PlayerApp {
             self.last_normal_outer_rect = outer;
             ctx.send_viewport_cmd(ViewportCommand::Fullscreen(true));
             self.fullscreen = true;
+        }
+    }
+
+    fn sync_fullscreen_window_level(&mut self, ctx: &egui::Context) {
+        let focused = ctx.input(|input| input.viewport().focused.unwrap_or(input.focused));
+        let level = fullscreen_window_level(cfg!(windows), self.fullscreen, focused);
+        if level != self.fullscreen_window_level {
+            ctx.send_viewport_cmd(ViewportCommand::WindowLevel(level));
+            self.fullscreen_window_level = level;
         }
     }
 
@@ -2599,6 +2618,7 @@ impl eframe::App for PlayerApp {
                 }
             }
         }
+        self.sync_fullscreen_window_level(ctx);
         self.show_match_picker_overlay(ctx);
         self.save_preferences_if_changed();
         self.finish_qa_screenshot_if_needed(ctx);
@@ -2921,7 +2941,7 @@ mod tests {
 
     use super::{
         AttentionRepairBatch, catalog_grouping_is_stale, danmaku_color, discard_library_session,
-        format_time, is_danmaku_path, media_display_title,
+        format_time, fullscreen_window_level, is_danmaku_path, media_display_title,
     };
     use crate::library::{AttentionMappingStatus, AttentionRepairRequest, LibraryCatalog};
     use crate::session::LibrarySession;
@@ -2932,6 +2952,28 @@ mod tests {
         assert_eq!(format_time(65.4), "1:05");
         assert_eq!(format_time(3_735.0), "1:02:15");
         assert_eq!(format_time(f64::NAN), "--:--");
+    }
+
+    #[test]
+    fn windows_fullscreen_only_stays_above_the_taskbar_while_focused() {
+        use eframe::egui::WindowLevel;
+
+        assert_eq!(
+            fullscreen_window_level(true, true, true),
+            WindowLevel::AlwaysOnTop
+        );
+        assert_eq!(
+            fullscreen_window_level(true, true, false),
+            WindowLevel::Normal
+        );
+        assert_eq!(
+            fullscreen_window_level(true, false, true),
+            WindowLevel::Normal
+        );
+        assert_eq!(
+            fullscreen_window_level(false, true, true),
+            WindowLevel::Normal
+        );
     }
 
     #[test]
