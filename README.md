@@ -201,8 +201,23 @@ Use `--help` for the full playback and danmaku option list.
 Rust-native runtime-free Windows package:
 
 ```powershell
-.\tools\windows\prepare-rust-player-release.ps1
-.\build\release\rust-player\danmaku-player-0.1.0-windows-x64\run-danmaku-player.ps1
+.\build-rust-player.bat
+.\run-rust-player.bat
+```
+
+`build-rust-player.bat` is the single-command build. It installs the web UI
+dependencies when `apps\web-ui\node_modules` is missing, builds the web UI, and
+then runs `tools\windows\prepare-rust-player-release.ps1` to produce and verify
+the package. Calling that PowerShell script on its own fails unless the web UI
+has already been built into `apps\web-ui\dist`.
+
+`run-rust-player.bat` launches the most recently built package, so the version
+in the folder name does not have to be repeated. Player options are forwarded
+through it, and `-PackagePath` selects a specific package:
+
+```powershell
+.\run-rust-player.bat --media "W:\Anime\Show\Episode 01.mkv"
+.\run-rust-player.bat -PackagePath .\build\release\rust-player\danmaku-player-0.1.0-windows-x64
 ```
 
 The versioned zip is written under `build/release/rust-player/` and contains

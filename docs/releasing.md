@@ -83,6 +83,28 @@ cargo build --release -p player-windows-mpv --lib
 Prepare and verify the Rust-native player release:
 
 ```powershell
+.\build-rust-player.bat
+```
+
+`build-rust-player.bat` builds the web UI first (running `npm install` when
+`apps\web-ui\node_modules` is missing) and then runs
+`prepare-rust-player-release.ps1`, which already invokes
+`verify-rust-player-release.ps1` before writing the zip.
+
+Launch the packaged player for a manual check with:
+
+```powershell
+.\run-rust-player.bat
+```
+
+It resolves the most recently built `danmaku-player-*-windows-x64` package under
+`build\release\rust-player`, forwards any player options, and accepts
+`-PackagePath` to pin a specific package.
+
+Run the release preparation and verification steps individually only when the
+web UI has already been built into `apps\web-ui\dist`:
+
+```powershell
 .\tools\windows\prepare-rust-player-release.ps1
 .\tools\windows\verify-rust-player-release.ps1 `
   -WindowsDistributionPath .\build\release\rust-player\danmaku-player-0.1.0-windows-x64 `
