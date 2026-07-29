@@ -37,6 +37,13 @@ Android TV is a separate app module with TV-specific layout, focus behavior,
 D-pad flows, and remote-friendly information density. It shares domain,
 library-client, and Media3 playback code with mobile where practical.
 
+The approved TV presentation rewrite keeps this native Android boundary. Its
+target state separates lifecycle-owned session, browse, and playback state;
+derives catalog presentation outside composition; starts Media3 independently
+from danmaku resolution; and uses a prepared danmaku timeline rather than doing
+whole-list work during drawing. The implementation and cutover details are in
+`docs/design/android-tv-client-rewrite-plan.md`.
+
 ### macOS Desktop
 
 macOS reuses the Compose desktop shell and native mpv command bridge as an

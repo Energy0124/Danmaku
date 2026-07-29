@@ -11,6 +11,18 @@ Status legend:
 
 ## Active Priorities
 
+- `[ ]` P1: Rewrite the Android TV presentation layer as the approved
+  single-cutover consumer experience. Retain the native Kotlin/Compose for TV,
+  Media3, LAN client, and shared domain foundations. Split session, browse, and
+  playback state; add cached-first catalog startup; move catalog derivation off
+  the composition path; replace raw poster decoding with bounded Coil loading;
+  start video independently from danmaku; index the danmaku timeline outside
+  drawing; and replace the current shell with the compact rail, Home hero,
+  virtualized Library, Search, Favorites, Series Detail, PC/onboarding, and
+  redesigned Player routes. Qualify on a budget 2 GB ARM64 TV target at 1080p
+  with 4K layout coverage, full D-pad traversal, English/`zh-TW` screenshots,
+  Macrobenchmark/Baseline Profile coverage, and a physical-device LAN playback
+  pass. Plan: `docs/design/android-tv-client-rewrite-plan.md`.
 - `[~]` Migrate the library server core and Windows player client to Rust.
   Server parity and sidecar ownership are complete. Native player M1-M4 now
   cover playback, danmaku, the design system, discovery/library/progress, and

@@ -2,6 +2,10 @@
 
 Source design: [Android Mobile and TV Library UI Review](android-mobile-tv-library-ui-review.md)
 
+The phases below record the first mobile/TV library polish pass. New Android TV
+work follows the approved
+[Android TV Client Rewrite Plan](android-tv-client-rewrite-plan.md).
+
 Status legend:
 
 - `[x]` Done

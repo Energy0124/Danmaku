@@ -302,6 +302,16 @@ trusted-LAN clients.
   visual screenshot QA caught a PC-screen pill layout collapse that is now
   fixed. The repeatable Windows wrapper is
   `tools/windows/run-android-tv-emulator-qa.ps1`.
+- A 2026-07-29 product/performance review found that this functional shell is
+  not yet release-usable on the budget TV target. Playback can wait up to 15
+  seconds for danmaku, poster loading lacks a bounded shared cache, catalog
+  grouping runs in composition, player polling invalidates broad state, and
+  danmaku drawing scans the event collection per frame. Navigation also remains
+  text-heavy, selection can be discarded between Home and Library, and focus
+  coverage does not span the complete route graph. The approved response is a
+  single-cutover presentation rewrite that retains Kotlin, Compose for TV,
+  Media3, and the existing LAN/domain modules. See
+  `docs/design/android-tv-client-rewrite-plan.md`.
 
 ### Native And Tooling
 
