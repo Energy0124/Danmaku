@@ -1,7 +1,6 @@
 package app.danmaku.tv
 
 import app.danmaku.domain.LibraryCatalog
-import app.danmaku.domain.LibraryCatalogSort
 import app.danmaku.domain.LibraryFavoriteFilter
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibraryNextUpItem
@@ -19,6 +18,21 @@ internal enum class TvCatalogSource {
     None,
     Cache,
     Network,
+}
+
+internal enum class TvLibrarySort {
+    TITLE,
+    PATH,
+    NEWEST_ADDED,
+    LAST_WATCHED,
+    RELEASE_YEAR,
+    EPISODE_COUNT,
+    ;
+
+    fun next(): TvLibrarySort {
+        val values = entries
+        return values[(ordinal + 1) % values.size]
+    }
 }
 
 internal data class TvSessionUiState(
@@ -42,7 +56,8 @@ internal data class TvSessionUiState(
 
 internal data class TvBrowseQuery(
     val searchText: String = "",
-    val sort: LibraryCatalogSort = LibraryCatalogSort.TITLE,
+    val sort: TvLibrarySort = TvLibrarySort.TITLE,
+    val releaseYear: Int? = null,
     val subtitleFilter: LibrarySubtitleFilter = LibrarySubtitleFilter.ANY,
     val favoriteFilter: LibraryFavoriteFilter = LibraryFavoriteFilter.ANY,
 )
@@ -53,6 +68,7 @@ internal data class TvBrowseUiState(
     val filteredItems: List<LibraryMediaItem> = emptyList(),
     val series: List<LibrarySeries> = emptyList(),
     val librarySeries: List<LibrarySeries> = emptyList(),
+    val availableReleaseYears: List<Int> = emptyList(),
     val seriesById: Map<String, LibrarySeries> = emptyMap(),
     val seriesIdByMediaId: Map<String, String> = emptyMap(),
     val favoriteSeries: List<LibrarySeries> = emptyList(),

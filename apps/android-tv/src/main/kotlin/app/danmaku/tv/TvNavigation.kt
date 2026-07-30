@@ -12,6 +12,7 @@ internal sealed interface TvRoute {
     data object Search : TvRoute
     data object Favorites : TvRoute
     data object Pc : TvRoute
+    data class FolderBrowser(val path: List<String> = emptyList()) : TvRoute
     data class SeriesDetail(val seriesKey: String) : TvRoute
     data class Player(val mediaId: String) : TvRoute
 }
@@ -133,6 +134,7 @@ internal fun TvRoute.defaultFocusKey(): String =
         TvRoute.Search -> "search-field"
         TvRoute.Favorites -> "favorites-first-series"
         TvRoute.Pc -> "pc-discover"
+        is TvRoute.FolderBrowser -> "folder-first-entry"
         is TvRoute.SeriesDetail -> "series-primary-action"
         is TvRoute.Player -> "player-play-pause"
     }

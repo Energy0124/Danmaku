@@ -44,6 +44,21 @@ class TvNavigationTest {
 
         assertEquals(listOf(TvRoute.Home, TvRoute.Library), navigator.state.value.backStack)
     }
+
+    @Test
+    fun folderBrowserUsesLibraryHistoryAndBackMovesUpFolders() {
+        val navigator = TvNavigator(TvRoute.Library)
+
+        navigator.navigate(TvRoute.FolderBrowser())
+        navigator.navigate(TvRoute.FolderBrowser(listOf("Anime")))
+        navigator.navigate(TvRoute.FolderBrowser(listOf("Anime", "Series")))
+
+        assertTrue(navigator.back())
+        assertEquals(TvRoute.FolderBrowser(listOf("Anime")), navigator.state.value.route)
+        assertTrue(navigator.back())
+        assertEquals(TvRoute.FolderBrowser(), navigator.state.value.route)
+    }
+
     @Test
     fun playerDirectionKeysOnlySeekWhenControlsAreHidden() {
         assertFalse(shouldHandlePlayerSeekKey(controlsVisible = true, overlay = null))

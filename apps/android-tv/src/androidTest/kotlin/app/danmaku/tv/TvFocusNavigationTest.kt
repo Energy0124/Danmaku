@@ -22,7 +22,6 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.pressKey
 import org.junit.Rule
 import org.junit.Test
-import app.danmaku.domain.LibraryCatalogSort
 import androidx.tv.material3.Button
 import androidx.tv.material3.Text
 
@@ -77,6 +76,7 @@ class TvFocusNavigationTest {
                         browse = browse,
                         onOpenSeries = {},
                         onShowFilters = {},
+                        onOpenFolders = {},
                     )
                     else -> TvPcScreen(
                         navigation = navigator.state.value,
@@ -241,7 +241,9 @@ class TvFocusNavigationTest {
             DanmakuTvTheme {
                 TvLibraryFiltersOverlay(
                     query = query,
+                    availableReleaseYears = listOf(2025, 2024),
                     onSetSort = { query = query.copy(sort = it) },
+                    onSetReleaseYear = { query = query.copy(releaseYear = it) },
                     onToggleSubtitles = {},
                     onReset = { query = TvBrowseQuery() },
                     onClose = {},
@@ -251,19 +253,55 @@ class TvFocusNavigationTest {
 
         composeRule.onNodeWithTag("library-filter-sort").assertIsFocused()
         composeRule.onNodeWithTag("library-filter-sort")
+            .performKeyInput { pressKey(Key.DirectionCenter) }
+        composeRule.runOnIdle {
+            check(query.sort == TvLibrarySort.PATH)
+        }
+
+        composeRule.onNodeWithTag("library-filter-sort")
+            .performKeyInput { pressKey(Key.DirectionDown) }
+        composeRule.onNodeWithTag("library-filter-season").assertIsFocused()
             .performKeyInput { pressKey(Key.DirectionDown) }
         composeRule.onNodeWithTag("library-filter-subtitles").assertIsFocused()
-
         composeRule.onNodeWithTag("library-filter-subtitles")
+            .performKeyInput { pressKey(Key.DirectionUp) }
+        composeRule.onNodeWithTag("library-filter-season").assertIsFocused()
             .performKeyInput { pressKey(Key.DirectionUp) }
         composeRule.onNodeWithTag("library-filter-sort")
             .assertIsFocused()
-            .performKeyInput { pressKey(Key.DirectionCenter) }
-        composeRule.runOnIdle {
-            check(query.sort == LibraryCatalogSort.PATH)
-        }
     }
 
+
+    @Test
+    fun folderBrowserStartsOnFirstLibraryRoot() {
+        val fixture = createTvQaFixture()
+        val session = fixture.session()
+        val browse = TvBrowsePresenter().present(session, TvBrowseQuery())
+        val route = TvRoute.FolderBrowser()
+        val navigator = TvNavigator(route)
+        var openedFolder by mutableStateOf<String?>(null)
+
+        composeRule.setContent {
+            DanmakuTvTheme {
+                TvFolderBrowserScreen(
+                    route = route,
+                    navigation = navigator.state.value,
+                    navigator = navigator,
+                    browse = browse,
+                    onOpenFolder = { openedFolder = it },
+                    onOpenFile = {},
+                    onNavigateUp = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("folder-entry:M:\\Anime")
+            .assertIsFocused()
+            .performKeyInput { pressKey(Key.DirectionCenter) }
+        composeRule.runOnIdle {
+            check(openedFolder == "M:\\Anime")
+        }
+    }
     private fun TvQaFixture.session(): TvSessionUiState =
         TvSessionUiState(
             serverUrl = "http://10.0.2.2:18688",

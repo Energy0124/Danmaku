@@ -1,5 +1,8 @@
 package app.danmaku.tv
 
+import app.danmaku.domain.ExternalAnimeId
+import app.danmaku.domain.ExternalAnimeProvider
+import app.danmaku.domain.LibraryAnimeMetadata
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.PlaybackProgress
@@ -24,11 +27,25 @@ internal fun createTvQaFixture(
                         seriesTitle = "Living Room Series ${seriesIndex + 1}",
                         episodeTitle = "Episode ${episodeIndex + 1}",
                         relativePath = "Series $seriesIndex/Episode $episodeIndex.mkv",
+                        rootLabel = if (seriesIndex % 2 == 0) {
+                            "M:\\Anime"
+                        } else {
+                            "D:\\Downloads"
+                        },
                         sizeBytes = 512L * 1024L * 1024L,
                         mediaType = "video/x-matroska",
                         streamPath = "/media/$id",
                         indexedAtEpochMs = 1_800_000_000_000L -
                             (seriesIndex * episodesPerSeries + episodeIndex) * 60_000L,
+                        animeMetadata = LibraryAnimeMetadata(
+                            animeId = ExternalAnimeId(
+                                ExternalAnimeProvider.DANDANPLAY,
+                                (seriesIndex + 1).toLong(),
+                            ),
+                            displayTitle = "Living Room Series ${seriesIndex + 1}",
+                            primaryTitle = "Living Room Series ${seriesIndex + 1}",
+                            startYear = 2025 - (seriesIndex % 4),
+                        ),
                     ),
                 )
             }

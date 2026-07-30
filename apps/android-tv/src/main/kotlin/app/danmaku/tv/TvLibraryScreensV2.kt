@@ -9,7 +9,10 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
@@ -23,10 +26,11 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Button
+import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
-import app.danmaku.domain.LibraryCatalogSort
 import app.danmaku.domain.LibrarySeries
 
 @Composable
@@ -38,6 +42,7 @@ internal fun TvLibraryGridScreen(
     browse: TvBrowseUiState,
     onOpenSeries: (String) -> Unit,
     onShowFilters: () -> Unit,
+    onOpenFolders: () -> Unit,
 ) {
     val series = browse.librarySeries
     Column(
@@ -54,21 +59,40 @@ internal fun TvLibraryGridScreen(
                 stringResource(R.string.library_series_count, series.size)
             },
             action = {
-                Button(
-                    onClick = onShowFilters,
-                    modifier = Modifier
-                        .tvRouteFocus(
-                            navigation,
-                            navigator,
-                            route,
-                            "library-filters",
-                            isDefault = series.isEmpty(),
-                        )
-                        .tvFocusHalo(RoundedCornerShape(18.dp))
-                        .testTag("library-filters"),
-                    colors = tvButtonColors(),
-                ) {
-                    Text(stringResource(R.string.action_filters))
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Button(
+                        onClick = onOpenFolders,
+                        enabled = session.catalog != null,
+                        modifier = Modifier
+                            .tvRouteFocus(
+                                navigation,
+                                navigator,
+                                route,
+                                "library-folders",
+                                isDefault = series.isEmpty() && session.catalog != null,
+                            )
+                            .tvFocusHalo(RoundedCornerShape(18.dp))
+                            .testTag("library-folders"),
+                        colors = tvButtonColors(),
+                    ) {
+                        Text(stringResource(R.string.action_folders))
+                    }
+                    Button(
+                        onClick = onShowFilters,
+                        modifier = Modifier
+                            .tvRouteFocus(
+                                navigation,
+                                navigator,
+                                route,
+                                "library-filters",
+                                isDefault = series.isEmpty() && session.catalog == null,
+                            )
+                            .tvFocusHalo(RoundedCornerShape(18.dp))
+                            .testTag("library-filters"),
+                        colors = tvButtonColors(),
+                    ) {
+                        Text(stringResource(R.string.action_filters))
+                    }
                 }
             },
         )
@@ -92,6 +116,132 @@ internal fun TvLibraryGridScreen(
                 browse = browse,
                 onOpenSeries = onOpenSeries,
             )
+        }
+    }
+}
+
+@Composable
+internal fun TvFolderBrowserScreen(
+    route: TvRoute.FolderBrowser,
+    navigation: TvNavigationState,
+    navigator: TvNavigator,
+    browse: TvBrowseUiState,
+    onOpenFolder: (String) -> Unit,
+    onOpenFile: (String) -> Unit,
+    onNavigateUp: () -> Unit,
+) {
+    val catalog = browse.catalog
+    val listing = remember(catalog, route.path) {
+        catalog?.folderListing(route.path) ?: TvFolderListing()
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .testTag("screen-folder-browser"),
+        verticalArrangement = Arrangement.spacedBy(18.dp),
+    ) {
+        TvScreenHeader(
+            title = catalog?.folderHeading(route.path)
+                ?: stringResource(R.string.library_folders_title),
+            subtitle = stringResource(
+                R.string.library_folder_summary,
+                listing.folders.size,
+                listing.files.size,
+            ),
+            action = if (route.path.isNotEmpty()) {
+                {
+                    Button(
+                        onClick = onNavigateUp,
+                        modifier = Modifier
+                            .tvRouteFocus(
+                                navigation,
+                                navigator,
+                                route,
+                                "folder-up",
+                                isDefault = listing.folders.isEmpty() && listing.files.isEmpty(),
+                            )
+                            .tvFocusHalo(RoundedCornerShape(18.dp))
+                            .testTag("folder-up"),
+                        colors = tvButtonColors(),
+                    ) {
+                        Text(stringResource(R.string.action_up))
+                    }
+                }
+            } else {
+                null
+            },
+        )
+        if (catalog == null) {
+            TvEmptyState(
+                title = stringResource(R.string.library_no_pc_title),
+                body = stringResource(R.string.library_no_pc_body),
+                modifier = Modifier
+                    .tvRouteFocus(
+                        navigation,
+                        navigator,
+                        route,
+                        "folder-empty",
+                        isDefault = true,
+                    )
+                    .focusable()
+                    .testTag("folder-empty"),
+            )
+        } else if (listing.folders.isEmpty() && listing.files.isEmpty()) {
+            TvEmptyState(
+                title = stringResource(R.string.library_folder_empty_title),
+                body = stringResource(R.string.library_folder_empty_body),
+                modifier = Modifier
+                    .tvRouteFocus(
+                        navigation,
+                        navigator,
+                        route,
+                        "folder-empty",
+                        isDefault = route.path.isEmpty(),
+                    )
+                    .focusable()
+                    .testTag("folder-empty"),
+            )
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .testTag("folder-list"),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                items(
+                    items = listing.folders,
+                    key = { "folder:${it.name}" },
+                ) { folder ->
+                    val isFirst = folder == listing.folders.firstOrNull()
+                    TvFolderRow(
+                        title = folder.name,
+                        subtitle = stringResource(R.string.library_folder_item_count, folder.itemCount),
+                        route = route,
+                        navigation = navigation,
+                        navigator = navigator,
+                        focusKey = "folder:${folder.name}",
+                        isDefault = isFirst,
+                        testTag = "folder-entry:${folder.name}",
+                        onClick = { onOpenFolder(folder.name) },
+                    )
+                }
+                items(
+                    items = listing.files,
+                    key = { "file:${it.id}" },
+                ) { item ->
+                    TvFolderRow(
+                        title = item.fileName(),
+                        subtitle = "${item.displaySeriesTitle()} · ${item.episodeTitle}",
+                        route = route,
+                        navigation = navigation,
+                        navigator = navigator,
+                        focusKey = "file:${item.id}",
+                        isDefault = listing.folders.isEmpty() && item == listing.files.firstOrNull(),
+                        testTag = "folder-file:${item.id}",
+                        onClick = { onOpenFile(item.id) },
+                    )
+                }
+            }
         }
     }
 }
@@ -236,9 +386,54 @@ private fun TvSeriesGrid(
 }
 
 @Composable
+private fun TvFolderRow(
+    title: String,
+    subtitle: String,
+    route: TvRoute.FolderBrowser,
+    navigation: TvNavigationState,
+    navigator: TvNavigator,
+    focusKey: String,
+    isDefault: Boolean,
+    testTag: String,
+    onClick: () -> Unit,
+) {
+    Button(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .tvRouteFocus(
+                navigation,
+                navigator,
+                route,
+                focusKey,
+                isDefault = isDefault,
+            )
+            .tvFocusHalo(RoundedCornerShape(18.dp))
+            .testTag(testTag),
+        colors = tvButtonColors(),
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                subtitle,
+                color = TvSecondaryContent,
+                style = MaterialTheme.typography.bodySmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+@Composable
 internal fun TvLibraryFiltersOverlay(
     query: TvBrowseQuery,
-    onSetSort: (LibraryCatalogSort) -> Unit,
+    availableReleaseYears: List<Int>,
+    onSetSort: (TvLibrarySort) -> Unit,
+    onSetReleaseYear: (Int?) -> Unit,
     onToggleSubtitles: () -> Unit,
     onReset: () -> Unit,
     onClose: () -> Unit,
@@ -260,27 +455,31 @@ internal fun TvLibraryFiltersOverlay(
     ) {
         Text(stringResource(R.string.library_filters_title))
         Button(
-            onClick = {
-                onSetSort(
-                    if (query.sort == LibraryCatalogSort.TITLE) {
-                        LibraryCatalogSort.PATH
-                    } else {
-                        LibraryCatalogSort.TITLE
-                    },
-                )
-            },
-            colors = tvButtonColors(query.sort != LibraryCatalogSort.TITLE),
+            onClick = { onSetSort(query.sort.next()) },
+            colors = tvButtonColors(query.sort != TvLibrarySort.TITLE),
             modifier = Modifier
                 .fillMaxWidth()
                 .focusRequester(firstFocusRequester)
                 .testTag("library-filter-sort"),
         ) {
+            Text(stringResource(query.sort.labelResource()))
+        }
+        Button(
+            onClick = {
+                val options = listOf<Int?>(null) + availableReleaseYears
+                val currentIndex = options.indexOf(query.releaseYear).coerceAtLeast(0)
+                onSetReleaseYear(options[(currentIndex + 1) % options.size])
+            },
+            enabled = availableReleaseYears.isNotEmpty(),
+            colors = tvButtonColors(query.releaseYear != null),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("library-filter-season"),
+        ) {
             Text(
-                if (query.sort == LibraryCatalogSort.TITLE) {
-                    stringResource(R.string.library_sort_title)
-                } else {
-                    stringResource(R.string.library_sort_path)
-                },
+                query.releaseYear?.let {
+                    stringResource(R.string.library_season_year, it)
+                } ?: stringResource(R.string.library_season_all),
             )
         }
         Button(
@@ -314,3 +513,13 @@ internal fun TvLibraryFiltersOverlay(
         }
     }
 }
+
+private fun TvLibrarySort.labelResource(): Int =
+    when (this) {
+        TvLibrarySort.TITLE -> R.string.library_sort_title
+        TvLibrarySort.PATH -> R.string.library_sort_path
+        TvLibrarySort.NEWEST_ADDED -> R.string.library_sort_newest
+        TvLibrarySort.LAST_WATCHED -> R.string.library_sort_last_watched
+        TvLibrarySort.RELEASE_YEAR -> R.string.library_sort_release_year
+        TvLibrarySort.EPISODE_COUNT -> R.string.library_sort_episode_count
+    }

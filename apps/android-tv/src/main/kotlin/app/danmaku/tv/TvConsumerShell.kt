@@ -97,6 +97,7 @@ internal fun TvConsumerShell(
                     browse = browse,
                     onOpenSeries = { onNavigate(TvRoute.SeriesDetail(it)) },
                     onShowFilters = { onShowOverlay(TvOverlay.LibraryFilters) },
+                    onOpenFolders = { onNavigate(TvRoute.FolderBrowser()) },
                 )
             TvRoute.Search ->
                 TvSearchScreen(
@@ -128,6 +129,25 @@ internal fun TvConsumerShell(
                     onSelectConnection = sessionViewModel::selectConnection,
                     onForgetConnection = sessionViewModel::forgetConnection,
                 )
+            is TvRoute.FolderBrowser ->
+                TvFolderBrowserScreen(
+                    route = route,
+                    navigation = navigation,
+                    navigator = navigator,
+                    browse = browse,
+                    onOpenFolder = { folder ->
+                        onNavigate(TvRoute.FolderBrowser(route.path + folder))
+                    },
+                    onOpenFile = { mediaId ->
+                        browse.seriesIdByMediaId[mediaId]?.let { seriesId ->
+                            onNavigate(TvRoute.SeriesDetail(seriesId))
+                        } ?: browse.catalog
+                            ?.items
+                            ?.firstOrNull { it.id == mediaId }
+                            ?.let(playbackViewModel::play)
+                    },
+                    onNavigateUp = { navigator.back() },
+                )
             is TvRoute.SeriesDetail ->
                 TvSeriesDetailScreen(
                     route = route,
@@ -155,7 +175,9 @@ internal fun TvConsumerShell(
                 ) {
                     TvLibraryFiltersOverlay(
                         query = browse.query,
+                        availableReleaseYears = browse.availableReleaseYears,
                         onSetSort = browseViewModel::setSort,
+                        onSetReleaseYear = browseViewModel::setReleaseYear,
                         onToggleSubtitles = browseViewModel::toggleSubtitles,
                         onReset = browseViewModel::resetFilters,
                         onClose = { onCloseOverlay() },
@@ -252,4 +274,5 @@ private data class TvNavItem(
 
 private fun TvRoute.matchesTopLevel(other: TvRoute): Boolean =
     this == other ||
-        (this is TvRoute.SeriesDetail && other == TvRoute.Library)
+        ((this is TvRoute.SeriesDetail || this is TvRoute.FolderBrowser) &&
+            other == TvRoute.Library)

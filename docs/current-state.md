@@ -293,6 +293,12 @@ trusted-LAN clients.
 - Persistent left rail, focused PC connection screen, search/favorites
   destination state, Next Up/progress rails, poster/fallback artwork, details,
   explicit Play/Resume actions, favorite toggles, and D-pad-focused tests.
+- Library browsing includes TV-native title, path, newest-added, last-watched,
+  release-year, and episode-count ordering, plus a release-season/year filter.
+  A dedicated D-pad folder/files route mirrors the Rust client's hierarchy:
+  multi-root Rust catalogs begin with their `rootLabel` folders, older
+  single-root catalogs fall back to relative paths, and selecting an episode
+  file opens its anime detail route.
 - Media3 playback and LAN progress sync through the shared Android playback
   module.
 - Android TV emulator QA is now set up with `Danmaku_TV_API_36`

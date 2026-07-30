@@ -1,5 +1,8 @@
 package app.danmaku.tv
 
+import app.danmaku.domain.ExternalAnimeId
+import app.danmaku.domain.ExternalAnimeProvider
+import app.danmaku.domain.LibraryAnimeMetadata
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryFavoriteFilter
 import app.danmaku.domain.LibraryMediaItem
@@ -89,18 +92,93 @@ class TvBrowsePresenterTest {
         assertTrue(result.favoriteSeries.single().title.contains("Blue"))
     }
 
+    @Test
+    fun librarySupportsReleaseYearAndWatchDateOrdering() {
+        val older = mediaItem("older", "Older", 1, 100, year = 2022, animeId = 1)
+        val current = mediaItem("current", "Current", 1, 200, year = 2025, animeId = 2)
+        val unwatched = mediaItem("unwatched", "Unwatched", 1, 300, year = 2024, animeId = 3)
+        val session = TvSessionUiState(
+            catalog = LibraryCatalog("Library", 1, listOf(older, current, unwatched)),
+            playbackProgresses = listOf(
+                PlaybackProgress("older", 10, 100, 900),
+                PlaybackProgress("current", 10, 100, 1_000),
+            ),
+        )
+
+        val watchedOrder = presenter.present(
+            session,
+            TvBrowseQuery(sort = TvLibrarySort.LAST_WATCHED),
+        )
+        assertEquals(
+            listOf("Current", "Older", "Unwatched"),
+            watchedOrder.librarySeries.map { it.title },
+        )
+        assertEquals(listOf(2025, 2024, 2022), watchedOrder.availableReleaseYears)
+
+        val season = presenter.present(
+            session,
+            TvBrowseQuery(
+                sort = TvLibrarySort.RELEASE_YEAR,
+                releaseYear = 2024,
+            ),
+        )
+        assertEquals(listOf("Unwatched"), season.librarySeries.map { it.title })
+    }
+
+    @Test
+    fun folderBrowserSupportsMultipleRootsAndNestedFiles() {
+        val catalog = LibraryCatalog(
+            rootName = "Merged",
+            indexedAtEpochMs = 1,
+            items = listOf(
+                mediaItem(
+                    "a",
+                    "Alpha",
+                    1,
+                    1,
+                    rootLabel = "M:\\Anime",
+                    relativePath = "Alpha/Season 1/Episode 1.mkv",
+                ),
+                mediaItem(
+                    "b",
+                    "Beta",
+                    1,
+                    1,
+                    rootLabel = "D:\\Downloads",
+                    relativePath = "Beta/Episode 1.mkv",
+                ),
+            ),
+        )
+
+        val roots = catalog.folderListing(emptyList())
+        assertEquals(listOf("M:\\Anime", "D:\\Downloads"), roots.folders.map { it.name })
+        assertTrue(roots.files.isEmpty())
+
+        val alpha = catalog.folderListing(listOf("M:\\Anime", "Alpha"))
+        assertEquals(listOf("Season 1"), alpha.folders.map { it.name })
+        assertEquals(1, alpha.folders.single().itemCount)
+
+        val season = catalog.folderListing(listOf("M:\\Anime", "Alpha", "Season 1"))
+        assertEquals(listOf("a"), season.files.map { it.id })
+    }
+
     private fun mediaItem(
         id: String,
         series: String,
         episode: Int,
         indexedAt: Long,
         hasSubtitle: Boolean = false,
+        rootLabel: String? = null,
+        relativePath: String = "$series/Episode $episode.mkv",
+        year: Int? = null,
+        animeId: Long? = null,
     ): LibraryMediaItem =
         LibraryMediaItem(
             id = id,
             seriesTitle = series,
             episodeTitle = "Episode $episode",
-            relativePath = "$series/Episode $episode.mkv",
+            relativePath = relativePath,
+            rootLabel = rootLabel,
             sizeBytes = 1,
             mediaType = "video/x-matroska",
             streamPath = "/media/$id",
@@ -117,6 +195,14 @@ class TvBrowsePresenterTest {
                 )
             } else {
                 emptyList()
+            },
+            animeMetadata = animeId?.let {
+                LibraryAnimeMetadata(
+                    animeId = ExternalAnimeId(ExternalAnimeProvider.DANDANPLAY, it),
+                    displayTitle = series,
+                    primaryTitle = series,
+                    startYear = year,
+                )
             },
         )
 }

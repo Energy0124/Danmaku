@@ -126,6 +126,11 @@ looks and behaves like a functional engineering surface.
 - Move episode browsing to a dedicated Series Detail route.
 - Keep sort and filter controls in one compact toolbar/overlay rather than a
   second navigation rail.
+- Offer title, path, newest-added, last-watched, release-year, and episode-count
+  ordering, with a release-season/year filter derived from anime metadata.
+- Add a dedicated, typed folder-browser route for Rust parity. Browse configured
+  `rootLabel` roots when a catalog has several, then nested relative folders and
+  files; opening a file resolves to its series detail route.
 - Show file-level information only as secondary metadata when it differs from
   the matched title.
 

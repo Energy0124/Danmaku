@@ -2,7 +2,6 @@ package app.danmaku.tv
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import app.danmaku.domain.LibraryCatalogSort
 import app.danmaku.domain.LibraryFavoriteFilter
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySubtitleFilter
@@ -46,8 +45,12 @@ internal class TvBrowseViewModel(
         searchText.value = value
     }
 
-    fun setSort(value: LibraryCatalogSort) {
+    fun setSort(value: TvLibrarySort) {
         filters.value = filters.value.copy(sort = value)
+    }
+
+    fun setReleaseYear(value: Int?) {
+        filters.value = filters.value.copy(releaseYear = value)
     }
 
     fun toggleSubtitles() {
