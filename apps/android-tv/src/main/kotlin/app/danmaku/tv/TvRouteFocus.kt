@@ -20,9 +20,12 @@ internal fun Modifier.tvRouteFocus(
     route: TvRoute,
     focusKey: String,
     isDefault: Boolean = false,
+    focusRequesterOverride: FocusRequester? = null,
+    leftFocusRequester: FocusRequester? = null,
 ): Modifier {
     val railRequester = LocalTvNavigationRailFocusRequester.current
-    val requester = remember(route, focusKey) { FocusRequester() }
+    val rememberedRequester = remember(route, focusKey) { FocusRequester() }
+    val requester = focusRequesterOverride ?: rememberedRequester
     val savedFocus = navigationState.focusKeys[route]
     val shouldRequest = navigationState.route == route &&
         (savedFocus == focusKey || (savedFocus == null && isDefault))
@@ -32,7 +35,7 @@ internal fun Modifier.tvRouteFocus(
     return this
         .focusRequester(requester)
         .focusProperties {
-            railRequester?.let { left = it }
+            (leftFocusRequester ?: railRequester)?.let { left = it }
         }
         .onFocusChanged {
             if (it.isFocused) navigator.saveFocus(route, focusKey)

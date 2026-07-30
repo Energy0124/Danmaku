@@ -652,6 +652,7 @@ private fun TvPreparedDanmakuOverlay(
 ) {
     if (timeline.eventCount == 0) return
     val positionMs = rememberTvPlayerClock(snapshot)
+    val scrollingEntranceCutoffMs = remember(timeline) { positionMs() }
     val density = LocalDensity.current
     val baseTextSizePx = with(density) { (26.sp * preferences.fontScale).toPx() }
     BoxWithConstraints(modifier = modifier) {
@@ -704,7 +705,10 @@ private fun TvPreparedDanmakuOverlay(
             val currentPosition = positionMs()
             val scrolling = schedule.visibleAt(currentPosition)
             drawIntoCanvas { canvas ->
-                scrolling.take(laneCount).forEach { placement ->
+                scrolling
+                    .filter { shouldRenderScrollingDanmaku(it.startsAtMs, scrollingEntranceCutoffMs) }
+                    .take(laneCount)
+                    .forEach { placement ->
                     drawDanmakuText(
                         event = placement.event,
                         x = placement.leftEdgeAt(currentPosition),
@@ -742,6 +746,11 @@ private fun TvPreparedDanmakuOverlay(
         }
     }
 }
+
+internal fun shouldRenderScrollingDanmaku(
+    startsAtMs: Long,
+    timelineAttachedAtMs: Long,
+): Boolean = startsAtMs >= timelineAttachedAtMs
 
 private fun drawDanmakuText(
     event: DanmakuEvent,

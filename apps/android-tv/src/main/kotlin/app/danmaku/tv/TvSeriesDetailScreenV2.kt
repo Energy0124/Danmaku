@@ -17,10 +17,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -58,6 +60,7 @@ internal fun TvSeriesDetailScreen(
     }
     val selected = episodes.firstOrNull { it.id == selectedId } ?: episodes.first()
     val isFavorite = selected.id in session.favoriteMediaIds
+    val playFocusRequester = remember(route) { FocusRequester() }
 
     BoxWithConstraints(
         modifier = Modifier
@@ -126,6 +129,7 @@ internal fun TvSeriesDetailScreen(
                         route,
                         "series-primary-action",
                         isDefault = true,
+                        focusRequesterOverride = playFocusRequester,
                     )
                     .tvFocusHalo(RoundedCornerShape(18.dp))
                     .testTag("series-play"),
@@ -187,6 +191,7 @@ internal fun TvSeriesDetailScreen(
                                 navigator,
                                 route,
                                 "episode:${item.id}",
+                                leftFocusRequester = playFocusRequester,
                             )
                             .tvFocusHalo(RoundedCornerShape(16.dp))
                             .testTag("episode-row:${item.id}"),

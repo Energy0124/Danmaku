@@ -12,11 +12,13 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performKeyInput
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.pressKey
 import org.junit.Rule
 import org.junit.Test
@@ -179,6 +181,15 @@ class TvFocusNavigationTest {
         series.seasons.flatMap { it.items }.forEach { item ->
             composeRule.onNodeWithTag("episode-row:${item.id}").assertHasClickAction()
         }
+        val firstEpisode = series.seasons.flatMap { it.items }.first()
+        composeRule.onNodeWithTag("episode-row:${firstEpisode.id}")
+            .performSemanticsAction(SemanticsActions.RequestFocus) { requestFocus ->
+                requestFocus()
+            }
+            .assertIsFocused()
+            .performKeyInput { pressKey(Key.DirectionLeft) }
+
+        composeRule.onNodeWithTag("series-play").assertIsFocused()
     }
 
     @Test
