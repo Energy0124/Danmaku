@@ -59,6 +59,35 @@ class TvPlaybackViewModelTest {
         advanceUntilIdle()
 
         assertEquals(TvDanmakuPhase.Failed, viewModel.state.value.danmaku.phase)
+    @Test
+    fun missingDanmakuForcesRefreshAndAttachesWhenReady() = runTest(dispatcher) {
+        val item = item("missing")
+        val session = FakeSession(item)
+        val gateway = FakeGateway()
+        val controller = RecordingController()
+        val viewModel = viewModel(session, gateway, controller)
+
+        viewModel.play(item)
+        runCurrent()
+        gateway.danmaku(item.id).complete(
+            TvDanmakuState(mediaId = item.id, phase = TvDanmakuPhase.NoMatch),
+        )
+        runCurrent()
+
+        assertEquals(
+            listOf(item.id to false, item.id to true),
+            gateway.danmakuRequests,
+        )
+        assertEquals(TvDanmakuPhase.Loading, viewModel.state.value.danmaku.phase)
+
+        gateway.danmaku(item.id, forceRefresh = true).complete(
+            TvDanmakuState(mediaId = item.id, phase = TvDanmakuPhase.Ready),
+        )
+        advanceUntilIdle()
+
+        assertEquals(TvDanmakuPhase.Ready, viewModel.state.value.danmaku.phase)
+    }
+
         assertEquals(1, controller.loaded.size)
     }
 
@@ -175,13 +204,16 @@ class TvPlaybackViewModelTest {
         private val preparations = mutableMapOf<String, CompletableDeferred<LanPlaybackPreparation>>()
         private val danmaku = mutableMapOf<String, CompletableDeferred<TvDanmakuState>>()
         var savedTarget: LanPlaybackTarget? = null
+        val danmakuRequests = mutableListOf<Pair<String, Boolean>>()
         var savedSnapshot: PlaybackSnapshot? = null
 
         fun preparation(id: String) =
             preparations.getOrPut(id) { CompletableDeferred() }
 
-        fun danmaku(id: String) =
-            danmaku.getOrPut(id) { CompletableDeferred() }
+        fun danmaku(
+            id: String,
+            forceRefresh: Boolean = false,
+        ) = danmaku.getOrPut("$id:$forceRefresh") { CompletableDeferred() }
 
         override suspend fun prepare(
             target: LanPlaybackTarget,
@@ -190,8 +222,13 @@ class TvPlaybackViewModelTest {
         ): LanPlaybackPreparation =
             if (deferPreparation) preparation(item.id).await() else item.preparation()
 
-        override suspend fun loadDanmaku(target: LanPlaybackTarget): TvDanmakuState =
-            danmaku(target.mediaId).await()
+        override suspend fun loadDanmaku(
+            target: LanPlaybackTarget,
+            forceRefresh: Boolean,
+        ): TvDanmakuState {
+            danmakuRequests += target.mediaId to forceRefresh
+            return danmaku(target.mediaId, forceRefresh).await()
+        }
 
         override suspend fun saveProgressAndRefresh(
             target: LanPlaybackTarget,

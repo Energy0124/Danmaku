@@ -103,6 +103,17 @@ internal class TvPlaybackViewModel(
             if (generation == playbackGeneration && mutableState.value.target == target) {
                 mutableState.update { it.copy(danmaku = resolved) }
             }
+            if (
+                resolved.phase == TvDanmakuPhase.NoMatch &&
+                generation == playbackGeneration &&
+                mutableState.value.target == target
+            ) {
+                mutableState.update { it.copy(danmaku = TvDanmakuState.loading(item.id)) }
+                val refreshed = gateway.loadDanmaku(target, forceRefresh = true)
+                if (generation == playbackGeneration && mutableState.value.target == target) {
+                    mutableState.update { it.copy(danmaku = refreshed) }
+                }
+            }
         }
 
         preparationJob = viewModelScope.launch {

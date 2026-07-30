@@ -4,6 +4,7 @@ import android.graphics.Paint
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -25,6 +26,9 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
@@ -38,6 +42,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -68,9 +74,15 @@ internal fun TvPlayerRoute(
     navigator: TvNavigator,
 ) {
     val state by playbackViewModel.state.collectAsStateWithLifecycle()
-    val route = navigation.route as? TvRoute.Player ?: return
+    if (navigation.route !is TvRoute.Player) return
+    var controlsActivityEpoch by remember { mutableLongStateOf(0L) }
 
-    LaunchedEffect(state.controlsVisible, state.startupPhase, navigation.overlay) {
+    LaunchedEffect(
+        state.controlsVisible,
+        state.startupPhase,
+        navigation.overlay,
+        controlsActivityEpoch,
+    ) {
         if (
             state.controlsVisible &&
             state.startupPhase == TvPlaybackStartupPhase.Playing &&
@@ -88,12 +100,16 @@ internal fun TvPlayerRoute(
             .focusable()
             .onPreviewKeyEvent { event ->
                 if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                if (state.controlsVisible) controlsActivityEpoch += 1
                 when (event.key) {
                     Key.MediaPlayPause -> {
                         playbackViewModel.togglePlayPause()
                         true
                     }
                     Key.DirectionLeft -> {
+                        if (!shouldHandlePlayerSeekKey(state.controlsVisible, navigation.overlay)) {
+                            return@onPreviewKeyEvent false
+                        }
                         playbackViewModel.dispatch(
                             PlaybackCommand.SeekTo(
                                 state.snapshot.position.seekTargetBy(-10_000),
@@ -102,6 +118,9 @@ internal fun TvPlayerRoute(
                         true
                     }
                     Key.DirectionRight -> {
+                        if (!shouldHandlePlayerSeekKey(state.controlsVisible, navigation.overlay)) {
+                            return@onPreviewKeyEvent false
+                        }
                         playbackViewModel.dispatch(
                             PlaybackCommand.SeekTo(
                                 state.snapshot.position.seekTargetBy(10_000),
@@ -144,9 +163,6 @@ internal fun TvPlayerRoute(
                     .fillMaxWidth(),
             )
             TvPlayerControls(
-                route = route,
-                navigation = navigation,
-                navigator = navigator,
                 state = state,
                 onDispatch = playbackViewModel::dispatch,
                 onTogglePlayPause = playbackViewModel::togglePlayPause,
@@ -160,32 +176,51 @@ internal fun TvPlayerRoute(
         when (navigation.overlay) {
             TvOverlay.AudioTracks,
             TvOverlay.SubtitleTracks,
-            -> TvTrackOverlay(
-                state = state,
-                kind = if (navigation.overlay == TvOverlay.AudioTracks) {
-                    PlaybackTrackKind.AUDIO
-                } else {
-                    PlaybackTrackKind.SUBTITLE
-                },
-                onDispatch = playbackViewModel::dispatch,
-                onClose = navigator::closeOverlay,
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .padding(28.dp),
-            )
+            -> Dialog(
+                onDismissRequest = { navigator.closeOverlay() },
+                properties = DialogProperties(usePlatformDefaultWidth = false),
+            ) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    TvTrackOverlay(
+                        state = state,
+                        kind = if (navigation.overlay == TvOverlay.AudioTracks) {
+                            PlaybackTrackKind.AUDIO
+                        } else {
+                            PlaybackTrackKind.SUBTITLE
+                        },
+                        onDispatch = playbackViewModel::dispatch,
+                        onClose = navigator::closeOverlay,
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .padding(28.dp),
+                    )
+                }
+            }
             TvOverlay.DanmakuSettings ->
-                TvDanmakuSettingsOverlay(
-                    preferences = state.danmakuPreferences,
-                    onUpdate = playbackViewModel::updateDanmakuPreferences,
-                    onClose = navigator::closeOverlay,
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .padding(28.dp),
-                )
+                Dialog(
+                    onDismissRequest = { navigator.closeOverlay() },
+                    properties = DialogProperties(usePlatformDefaultWidth = false),
+                ) {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        TvDanmakuSettingsOverlay(
+                            preferences = state.danmakuPreferences,
+                            onUpdate = playbackViewModel::updateDanmakuPreferences,
+                            onClose = navigator::closeOverlay,
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .padding(28.dp),
+                        )
+                    }
+                }
             else -> Unit
         }
     }
 }
+
+internal fun shouldHandlePlayerSeekKey(
+    controlsVisible: Boolean,
+    overlay: TvOverlay?,
+): Boolean = !controlsVisible && overlay == null
 
 @Composable
 private fun TvPlayerTitleBand(
@@ -224,9 +259,6 @@ private fun TvPlayerTitleBand(
 
 @Composable
 private fun TvPlayerControls(
-    route: TvRoute.Player,
-    navigation: TvNavigationState,
-    navigator: TvNavigator,
     state: TvPlaybackUiState,
     onDispatch: (PlaybackCommand) -> Unit,
     onTogglePlayPause: () -> Unit,
@@ -234,6 +266,16 @@ private fun TvPlayerControls(
     onStop: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val rewindRequester = remember { FocusRequester() }
+    val playPauseRequester = remember { FocusRequester() }
+    val forwardRequester = remember { FocusRequester() }
+    val audioRequester = remember { FocusRequester() }
+    val subtitlesRequester = remember { FocusRequester() }
+    val danmakuRequester = remember { FocusRequester() }
+    val stopRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        playPauseRequester.requestFocus()
+    }
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -257,7 +299,13 @@ private fun TvPlayerControls(
                 color = TvSecondaryContent,
                 modifier = Modifier.width(190.dp),
             )
-            TvPlayerControlButton("-10s") {
+            TvPlayerControlButton(
+                label = "-10s",
+                modifier = Modifier
+                    .focusRequester(rewindRequester)
+                    .focusProperties { right = playPauseRequester }
+                    .testTag("player-rewind"),
+            ) {
                 onDispatch(
                     PlaybackCommand.SeekTo(state.snapshot.position.seekTargetBy(-10_000)),
                 )
@@ -269,32 +317,73 @@ private fun TvPlayerControls(
                     stringResource(R.string.action_play)
                 },
                 modifier = Modifier
-                    .tvRouteFocus(
-                        navigation,
-                        navigator,
-                        route,
-                        "player-play-pause",
-                        isDefault = true,
-                    )
+                    .focusRequester(playPauseRequester)
+                    .focusProperties {
+                        left = rewindRequester
+                        right = forwardRequester
+                    }
                     .testTag("player-play-pause"),
                 selected = true,
                 onClick = onTogglePlayPause,
             )
-            TvPlayerControlButton("+10s") {
+            TvPlayerControlButton(
+                label = "+10s",
+                modifier = Modifier
+                    .focusRequester(forwardRequester)
+                    .focusProperties {
+                        left = playPauseRequester
+                        right = audioRequester
+                    }
+                    .testTag("player-forward"),
+            ) {
                 onDispatch(
                     PlaybackCommand.SeekTo(state.snapshot.position.seekTargetBy(10_000)),
                 )
             }
-            TvPlayerControlButton(stringResource(R.string.audio_tracks_title)) {
+            TvPlayerControlButton(
+                label = stringResource(R.string.audio_tracks_title),
+                modifier = Modifier
+                    .focusRequester(audioRequester)
+                    .focusProperties {
+                        left = forwardRequester
+                        right = subtitlesRequester
+                    }
+                    .testTag("player-audio"),
+            ) {
                 onShowOverlay(TvOverlay.AudioTracks)
             }
-            TvPlayerControlButton(stringResource(R.string.subtitle_tracks_title)) {
+            TvPlayerControlButton(
+                label = stringResource(R.string.subtitle_tracks_title),
+                modifier = Modifier
+                    .focusRequester(subtitlesRequester)
+                    .focusProperties {
+                        left = audioRequester
+                        right = danmakuRequester
+                    }
+                    .testTag("player-subtitles"),
+            ) {
                 onShowOverlay(TvOverlay.SubtitleTracks)
             }
-            TvPlayerControlButton(stringResource(R.string.danmaku_title)) {
+            TvPlayerControlButton(
+                label = stringResource(R.string.danmaku_title),
+                modifier = Modifier
+                    .focusRequester(danmakuRequester)
+                    .focusProperties {
+                        left = subtitlesRequester
+                        right = stopRequester
+                    }
+                    .testTag("player-danmaku"),
+            ) {
                 onShowOverlay(TvOverlay.DanmakuSettings)
             }
-            TvPlayerControlButton(stringResource(R.string.action_stop), onClick = onStop)
+            TvPlayerControlButton(
+                label = stringResource(R.string.action_stop),
+                modifier = Modifier
+                    .focusRequester(stopRequester)
+                    .focusProperties { left = danmakuRequester }
+                    .testTag("player-stop"),
+                onClick = onStop,
+            )
         }
         state.nextItem?.let { next ->
             Text(
@@ -374,12 +463,18 @@ private fun TvTrackOverlay(
     onClose: () -> Boolean,
     modifier: Modifier = Modifier,
 ) {
+    val tracks = state.snapshot.tracks.filter { it.kind == kind }
+    val firstFocusRequester = remember(kind) { FocusRequester() }
+    LaunchedEffect(kind, tracks.size) {
+        firstFocusRequester.requestFocus()
+    }
     Column(
         modifier = modifier
             .width(390.dp)
             .clip(RoundedCornerShape(24.dp))
             .background(TvSurfaceRaised)
-            .padding(22.dp),
+            .padding(22.dp)
+            .focusGroup(),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Text(
@@ -394,11 +489,14 @@ private fun TvTrackOverlay(
             Button(
                 onClick = { onDispatch(PlaybackCommand.SelectSubtitleTrack(null)) },
                 colors = tvButtonColors(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .focusRequester(firstFocusRequester),
             ) {
                 Text(stringResource(R.string.subtitle_off))
             }
         }
-        state.snapshot.tracks.filter { it.kind == kind }.forEach { track ->
+        tracks.forEachIndexed { index, track ->
             Button(
                 onClick = {
                     onDispatch(
@@ -410,12 +508,28 @@ private fun TvTrackOverlay(
                     )
                 },
                 colors = tvButtonColors(track.selected),
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .then(
+                        if (kind == PlaybackTrackKind.AUDIO && index == 0) {
+                            Modifier.focusRequester(firstFocusRequester)
+                        } else {
+                            Modifier
+                        },
+                    ),
             ) {
                 Text(track.label, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
-        Button(onClick = { onClose() }, colors = tvButtonColors(selected = true)) {
+        Button(
+            onClick = { onClose() },
+            colors = tvButtonColors(selected = true),
+            modifier = if (kind == PlaybackTrackKind.AUDIO && tracks.isEmpty()) {
+                Modifier.focusRequester(firstFocusRequester)
+            } else {
+                Modifier
+            },
+        ) {
             Text(stringResource(R.string.action_close))
         }
     }
@@ -428,19 +542,26 @@ private fun TvDanmakuSettingsOverlay(
     onClose: () -> Boolean,
     modifier: Modifier = Modifier,
 ) {
+    val firstFocusRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        firstFocusRequester.requestFocus()
+    }
     Column(
         modifier = modifier
             .width(390.dp)
             .clip(RoundedCornerShape(24.dp))
             .background(TvSurfaceRaised)
-            .padding(22.dp),
+            .padding(22.dp)
+            .focusGroup(),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Text(stringResource(R.string.danmaku_settings_title), style = MaterialTheme.typography.titleLarge)
         Button(
             onClick = { onUpdate { it.copy(enabled = !it.enabled) } },
             colors = tvButtonColors(preferences.enabled),
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .focusRequester(firstFocusRequester),
         ) {
             Text(
                 if (preferences.enabled) {

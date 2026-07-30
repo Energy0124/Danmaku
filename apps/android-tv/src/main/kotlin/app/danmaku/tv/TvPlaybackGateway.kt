@@ -26,7 +26,10 @@ internal interface TvPlaybackGateway {
         onResumeLookupFailure: (Throwable) -> Unit,
     ): LanPlaybackPreparation
 
-    suspend fun loadDanmaku(target: LanPlaybackTarget): TvDanmakuState
+    suspend fun loadDanmaku(
+        target: LanPlaybackTarget,
+        forceRefresh: Boolean = false,
+    ): TvDanmakuState
 
     suspend fun saveProgressAndRefresh(
         target: LanPlaybackTarget,
@@ -55,10 +58,15 @@ internal class LanTvPlaybackGateway(
             )
         }
 
-    override suspend fun loadDanmaku(target: LanPlaybackTarget): TvDanmakuState =
+    override suspend fun loadDanmaku(
+        target: LanPlaybackTarget,
+        forceRefresh: Boolean,
+    ): TvDanmakuState =
         withContext(ioDispatcher) {
             runCatching {
-                TvDanmakuState.fromTrack(danmakuLoader.fetchDanmaku(target))
+                TvDanmakuState.fromTrack(
+                    danmakuLoader.fetchDanmaku(target, forceRefresh = forceRefresh),
+                )
             }.getOrElse {
                 TvDanmakuState.failed(target.mediaId, it)
             }

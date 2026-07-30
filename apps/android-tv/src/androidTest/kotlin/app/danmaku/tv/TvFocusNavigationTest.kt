@@ -20,6 +20,7 @@ import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
 import org.junit.Rule
 import org.junit.Test
+import app.danmaku.domain.LibraryCatalogSort
 import androidx.tv.material3.Button
 import androidx.tv.material3.Text
 
@@ -220,6 +221,36 @@ class TvFocusNavigationTest {
         composeRule.onNodeWithTag("test-content").assertIsFocused()
         composeRule.onNodeWithTag("test-content").performKeyInput { pressKey(Key.DirectionLeft) }
         composeRule.onNodeWithTag("test-rail").assertIsFocused()
+    }
+
+    @Test
+    fun libraryFilterCapturesFocusAndNavigatesVertically() {
+        var query by mutableStateOf(TvBrowseQuery())
+        composeRule.setContent {
+            DanmakuTvTheme {
+                TvLibraryFiltersOverlay(
+                    query = query,
+                    onSetSort = { query = query.copy(sort = it) },
+                    onToggleSubtitles = {},
+                    onReset = { query = TvBrowseQuery() },
+                    onClose = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("library-filter-sort").assertIsFocused()
+        composeRule.onNodeWithTag("library-filter-sort")
+            .performKeyInput { pressKey(Key.DirectionDown) }
+        composeRule.onNodeWithTag("library-filter-subtitles").assertIsFocused()
+
+        composeRule.onNodeWithTag("library-filter-subtitles")
+            .performKeyInput { pressKey(Key.DirectionUp) }
+        composeRule.onNodeWithTag("library-filter-sort")
+            .assertIsFocused()
+            .performKeyInput { pressKey(Key.DirectionCenter) }
+        composeRule.runOnIdle {
+            check(query.sort == LibraryCatalogSort.PATH)
+        }
     }
 
     private fun TvQaFixture.session(): TvSessionUiState =

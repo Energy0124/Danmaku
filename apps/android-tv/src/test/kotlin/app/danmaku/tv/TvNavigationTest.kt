@@ -44,4 +44,13 @@ class TvNavigationTest {
 
         assertEquals(listOf(TvRoute.Home, TvRoute.Library), navigator.state.value.backStack)
     }
+    @Test
+    fun playerDirectionKeysOnlySeekWhenControlsAreHidden() {
+        assertFalse(shouldHandlePlayerSeekKey(controlsVisible = true, overlay = null))
+        assertTrue(shouldHandlePlayerSeekKey(controlsVisible = false, overlay = null))
+        assertFalse(
+            shouldHandlePlayerSeekKey(controlsVisible = false, overlay = TvOverlay.AudioTracks),
+        )
+    }
+
 }

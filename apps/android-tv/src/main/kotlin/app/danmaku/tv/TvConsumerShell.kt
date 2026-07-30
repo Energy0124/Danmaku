@@ -34,6 +34,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Button
 import androidx.tv.material3.Icon
@@ -141,22 +143,29 @@ internal fun TvConsumerShell(
             -> Unit
         }
         if (navigation.overlay == TvOverlay.LibraryFilters) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.CenterEnd,
+            Dialog(
+                onDismissRequest = { onCloseOverlay() },
+                properties = DialogProperties(usePlatformDefaultWidth = false),
             ) {
-                TvLibraryFiltersOverlay(
-                    query = browse.query,
-                    onSetSort = browseViewModel::setSort,
-                    onToggleSubtitles = browseViewModel::toggleSubtitles,
-                    onReset = browseViewModel::resetFilters,
-                    onClose = { onCloseOverlay() },
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 28.dp, vertical = 24.dp),
+                    contentAlignment = Alignment.CenterEnd,
+                ) {
+                    TvLibraryFiltersOverlay(
+                        query = browse.query,
+                        onSetSort = browseViewModel::setSort,
+                        onToggleSubtitles = browseViewModel::toggleSubtitles,
+                        onReset = browseViewModel::resetFilters,
+                        onClose = { onCloseOverlay() },
+                    )
+                }
             }
         }
-            }
         }
     }
+}
 }
 
 @Composable

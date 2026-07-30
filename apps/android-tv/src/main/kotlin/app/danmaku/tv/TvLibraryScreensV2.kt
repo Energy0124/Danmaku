@@ -2,6 +2,7 @@ package app.danmaku.tv
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -14,8 +15,12 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -238,6 +243,10 @@ internal fun TvLibraryFiltersOverlay(
     onReset: () -> Unit,
     onClose: () -> Unit,
 ) {
+    val firstFocusRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        firstFocusRequester.requestFocus()
+    }
     Column(
         modifier = Modifier
             .width(360.dp)
@@ -245,6 +254,7 @@ internal fun TvLibraryFiltersOverlay(
             .clip(RoundedCornerShape(24.dp))
             .background(TvSurfaceRaised)
             .padding(24.dp)
+            .focusGroup()
             .testTag("library-filter-overlay"),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
@@ -260,6 +270,10 @@ internal fun TvLibraryFiltersOverlay(
                 )
             },
             colors = tvButtonColors(query.sort != LibraryCatalogSort.TITLE),
+            modifier = Modifier
+                .fillMaxWidth()
+                .focusRequester(firstFocusRequester)
+                .testTag("library-filter-sort"),
         ) {
             Text(
                 if (query.sort == LibraryCatalogSort.TITLE) {
@@ -274,13 +288,28 @@ internal fun TvLibraryFiltersOverlay(
             colors = tvButtonColors(
                 query.subtitleFilter == app.danmaku.domain.LibrarySubtitleFilter.WITH_SUBTITLES,
             ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("library-filter-subtitles"),
         ) {
             Text(stringResource(R.string.library_subtitles_only))
         }
-        Button(onClick = onReset, colors = tvButtonColors()) {
+        Button(
+            onClick = onReset,
+            colors = tvButtonColors(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("library-filter-reset"),
+        ) {
             Text(stringResource(R.string.action_reset_filters))
         }
-        Button(onClick = onClose, colors = tvButtonColors(selected = true)) {
+        Button(
+            onClick = onClose,
+            colors = tvButtonColors(selected = true),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("library-filter-close"),
+        ) {
             Text(stringResource(R.string.action_close))
         }
     }
