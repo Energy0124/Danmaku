@@ -11,18 +11,17 @@ Status legend:
 
 ## Active Priorities
 
-- `[ ]` P1: Rewrite the Android TV presentation layer as the approved
-  single-cutover consumer experience. Retain the native Kotlin/Compose for TV,
-  Media3, LAN client, and shared domain foundations. Split session, browse, and
-  playback state; add cached-first catalog startup; move catalog derivation off
-  the composition path; replace raw poster decoding with bounded Coil loading;
-  start video independently from danmaku; index the danmaku timeline outside
-  drawing; and replace the current shell with the compact rail, Home hero,
-  virtualized Library, Search, Favorites, Series Detail, PC/onboarding, and
-  redesigned Player routes. Qualify on a budget 2 GB ARM64 TV target at 1080p
-  with 4K layout coverage, full D-pad traversal, English/`zh-TW` screenshots,
-  Macrobenchmark/Baseline Profile coverage, and a physical-device LAN playback
-  pass. Plan: `docs/design/android-tv-client-rewrite-plan.md`.
+- `[x]` P1: Rewrite the Android TV presentation layer as a single-cutover
+  native consumer experience. The replacement now has split lifecycle-owned
+  state, cached-first catalogs, off-composition derivation, bounded Coil poster
+  loading, non-blocking danmaku, an indexed timeline, typed navigation, and
+  redesigned onboarding/PC, Home, Library, Search, Favorites, Series Detail,
+  and Player routes. Unit, Compose, stress, cache, poster, screenshot,
+  Macrobenchmark, and Baseline Profile coverage landed with the cutover.
+  English/`zh-TW` 1080p/4K emulator qualification is automated. The physical
+  budget-device LAN pass remains deferred and is tracked as release QA, not
+  implementation scope. Plan and record:
+  `docs/design/android-tv-client-rewrite-plan.md`.
 - `[~]` Migrate the library server core and Windows player client to Rust.
   Server parity and sidecar ownership are complete. Native player M1-M4 now
   cover playback, danmaku, the design system, discovery/library/progress, and
@@ -143,11 +142,11 @@ Status legend:
   wrapper is `tools/windows/run-android-mobile-emulator-qa.ps1`.
 - `[~]` Complete Android TV safe-area, 1080p/4K, and D-pad focus QA. The
   `Danmaku_TV_API_36` 1080p emulator and `Danmaku_TV_4K_API_36` 4K emulator
-  are set up and both passed `:apps:android-tv:connectedDebugAndroidTest` on
-  2026-06-18 after fixing TV library selection, TV test input semantics, and
-  PC-screen pill sizing. The repeatable Windows wrapper is
-  `tools/windows/run-android-tv-emulator-qa.ps1`. Remaining: preferably one
-  real Android TV device pass.
+  passed the rewritten client's connected suite and full English/`zh-TW`
+  route screenshot matrix on 2026-07-29. The repeatable wrapper rejects
+  non-emulator serials and is
+  `tools/windows/run-android-tv-emulator-qa.ps1`. Remaining: one budget-class
+  physical TV focus, safe-area, performance, and real-LAN playback pass.
 - `[~]` Live QA for MyAnimeList/Bangumi mapping, OAuth, sync, conflict handling,
   relaunch behavior, and external list state. A 2026-06-19 read-only live
   suggestion pass against the current desktop catalog found and fixed a bulk
@@ -236,52 +235,12 @@ Status legend:
   `LibraryNextUpComponents.kt`; reusable library rails/cards now live in
   `LibraryRailComponents.kt`, `LibraryPage.kt` owns the mobile Library route,
   and `ConnectPage.kt` owns the Connect route plus connection form/rows. The
-  remaining entrypoint refactor work should move to Android TV.
-- `[~]` P1: Continue Android TV route/component decomposition now that
-  `MainActivity.kt` is a tiny app entrypoint. Keep splitting focused TV shell,
-  PC connection, home, library/search/favorites, playback controls, and shared
-  focus/visual primitives before adding more TV features. First low-risk split
-  moved poster loading, URL encoding, playback-time formatting, progress/watch
-  labels, next-up labels, and metadata labels into `TvUiHelpers.kt`. Player
-  surface, seek controls, and audio/subtitle track controls now live in
-  `TvPlayerPanel.kt`. App destination metadata, top-level rail/header, and
-  shared rail pill/navigation items now live in `TvShellUi.kt`. Home route
-  composition now lives in `TvHomePanel.kt`, while Home-only recently-added,
-  series, and status panels now live in separate focused files. PC connection
-  route UI now lives in `TvPcConnectionPanel.kt`, while TV text input and
-  saved-PC cards live in focused files. Library navigation and empty-state
-  panels now live in `TvLibraryPanels.kt`. Library route composition now lives in
-  `TvLibraryScreen.kt`, mutable filter/selection controls now live in
-  `TvLibraryControlsState.kt`, and derived catalog/filter/progress view state
-  now lives in `TvLibraryViewState.kt`; header/search/filter controls now live
-  in `TvLibraryFilterComponents.kt`, and series picker rendering now lives in
-  `TvSeriesPickerRail.kt`. Library poster rendering now lives in
-  `TvLibraryPosterComponents.kt`; episode list
-  rows now live in `TvEpisodeRowComponents.kt`; episode/series detail panels
-  now live in `TvLibraryEpisodeComponents.kt`; progress and next-up rail
-  containers now live in `TvLibraryRails.kt`, while their focusable cards live
-  in `TvLibraryRailCards.kt`. Shared TV remote playback
-  preparation, resume lookup, seek, and play dispatch now live in
-  `TvPlaybackActions.kt`. Remembered TV player/library state now lives in
-  `TvPlayerState.kt`, and PC discovery, library refresh, saved-connection,
-  favorite, and playback item actions now live in `TvPlayerActionHandler.kt`.
-  Shared TV colors, poster endpoint construction, and focus halo styling now
-  live in `TvUiPrimitives.kt`. `TvPlaybackController` now gives TV action code
-  a testable playback boundary while the Media3 adapter remains at the app
-  edge. `TvPlayerActionHandler` now has androidTest source coverage for catalog
-  refresh, catalog errors, saved connections, selection/forget actions,
-  favorites, PC discovery success/no-server/failure paths, and playback
-  preparation/dispatch with and without resume lookup. Top-level TV screen
-  lifecycle/effect wiring now lives in `TvPlayerScreen.kt`, and route rendering
-  now lives in `TvPlayerContent.kt`; playback chrome and destination body
-  rendering are separated into focused content helpers, leaving
-  `MainActivity.kt` as a 17-line app entrypoint. TV Library content-section
-  rendering is now split into `TvLibraryContentSections.kt`, leaving
-  `TvLibraryScreen.kt` focused on state, focus requesters, and top-level layout.
-  The former Home rail catch-all has also been split into focused
-  recently-added, series, and operational-status files.
-  PC connection text input and saved-connection card rendering are split out of
-  the PC route panel.
+  remaining entrypoint refactor work is mobile-specific.
+- `[x]` P1: Replace the legacy Android TV presentation with the typed-navigation,
+  split-StateFlow, cached-first native consumer experience. The old TV route,
+  state, poster, polling, and UI action files are removed; the replacement
+  routes, player, focus primitives, tests, and benchmark module are the only
+  shipped path.
 - `[x]` P1: Add connected Android test runs to the release checklist and record
   the required device/emulator matrix for mobile playback, LAN sync, TV focus,
   and Media3 streaming. The current emulator matrix is Android mobile phone
@@ -381,36 +340,10 @@ Full review date: 2026-06-15.
   use localized English/`zh-TW` copy, and local playback preparation plus paired
   library catalog/remote playback failures now use localized visible error copy.
   Broader diagnostic-log localization and screenshot QA remain.
-- `[~]` P1: Android mobile and Android TV entrypoint decomposition is largely
-  complete, but larger extracted route/component files still slow safe feature
-  work and review. Android mobile helper, formatting, shell-chrome, top-level
-  route mapping, remembered state, service/store action handling, and
-  Home/Watch/Library/Connect route composition are now split out of
-  `MainActivity.kt`. Android TV decomposition has started with shared UI
-  helpers in `TvUiHelpers.kt`, player controls in
-  `TvPlayerPanel.kt`, shell chrome in `TvShellUi.kt`, Home route composition
-  in `TvHomePanel.kt`, and focused Home recently-added, series, and status
-  panel files, plus PC connection UI in `TvPcConnectionPanel.kt` with text input
-  and saved-PC card rendering split out, and library navigation/empty states in
-  `TvLibraryPanels.kt`; Library route composition now lives in
-  `TvLibraryScreen.kt`, mutable filter/selection controls in
-  `TvLibraryControlsState.kt`, derived catalog view state in
-  `TvLibraryViewState.kt`, filter controls in `TvLibraryFilterComponents.kt`,
-  series picker rendering in `TvSeriesPickerRail.kt`, poster rendering in
-  `TvLibraryPosterComponents.kt`, episode list rows in
-  `TvEpisodeRowComponents.kt`, episode/series detail in
-  `TvLibraryEpisodeComponents.kt`, progress rail containers in
-  `TvLibraryRails.kt`, and rail cards in `TvLibraryRailCards.kt`;
-  duplicated remote playback
-  preparation and resume handling now live in `TvPlaybackActions.kt`; remembered
-  TV state and PC/library/favorite/playback actions now live in
-  `TvPlayerState.kt` and `TvPlayerActionHandler.kt`; shared TV colors, poster
-  endpoint construction, and focus halo styling now live in `TvUiPrimitives.kt`.
-  TV Library content-section rendering now lives in
-  `TvLibraryContentSections.kt`, keeping `TvLibraryScreen.kt` focused on state,
-  focus, and top-level layout. Android TV 1080p emulator QA now covers the full
-  connected test suite at both 1080p and 4K, and visual screenshot QA fixed
-  row-level status pills that could starve adjacent title/body text.
+- `[~]` P1: Android mobile entrypoint decomposition is largely complete, but
+  larger extracted route/component files still slow safe feature work and
+  review. Android TV completed its single-cutover rewrite and no longer shares
+  this refactor backlog.
 - `[ ]` P1: Release confidence still depends on manual QA for Windows
   fullscreen/resize/4K/hardware decoding, one real Android phone/tablet smoke
   pass with LAN playback, Android TV real-device focus traversal, desktop
@@ -427,12 +360,10 @@ Full review date: 2026-06-15.
 - `[ ]` P2: Desktop code is much healthier than the original monolith, but
   `DesktopShell.kt`, desktop catalog-store operations, Library details,
   Settings, Playback, and string-resource adapter files remain review-heavy.
-- `[ ]` P2: Mobile/TV unit-test tasks are sparse or `NO-SOURCE` in places;
-  keep adding JVM/unit-level coverage for presentation/state logic as it is
-  extracted from Compose entrypoints. Android TV action-handler instrumentation
-  coverage now protects catalog refresh, saved connection, favorite state, and
-  PC discovery behavior after the TV state/action split; playback preparation
-  and dispatch are now covered behind `TvPlaybackController`.
+- `[~]` P2: Android mobile unit-test tasks remain sparse in places. Android TV
+  now has JVM coverage for navigation, browse derivation, playback, persistence,
+  and prepared danmaku plus instrumentation for focus, cache, and poster reuse.
+  Continue raising mobile presentation-state coverage as it is extracted.
 
 ## Anime Lover Feature Backlog
 

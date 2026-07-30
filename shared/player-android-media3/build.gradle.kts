@@ -10,6 +10,12 @@ android {
         minSdk = 23
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
+
+    buildTypes {
+        create("benchmark") {
+            initWith(getByName("release"))
+        }
+    }
 }
 
 dependencies {

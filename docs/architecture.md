@@ -37,12 +37,13 @@ Android TV is a separate app module with TV-specific layout, focus behavior,
 D-pad flows, and remote-friendly information density. It shares domain,
 library-client, and Media3 playback code with mobile where practical.
 
-The approved TV presentation rewrite keeps this native Android boundary. Its
-target state separates lifecycle-owned session, browse, and playback state;
-derives catalog presentation outside composition; starts Media3 independently
-from danmaku resolution; and uses a prepared danmaku timeline rather than doing
-whole-list work during drawing. The implementation and cutover details are in
-`docs/design/android-tv-client-rewrite-plan.md`.
+The implemented TV presentation rewrite keeps this native Android boundary.
+It separates lifecycle-owned session, browse, navigation, and playback state;
+derives cached catalog presentation outside composition; starts Media3
+independently from danmaku resolution; and uses an indexed prepared danmaku
+timeline rather than doing whole-list work during drawing. The dedicated
+`apps/android-tv-benchmark` module owns Macrobenchmark journeys. Implementation
+and cutover details are in `docs/design/android-tv-client-rewrite-plan.md`.
 
 ### macOS Desktop
 

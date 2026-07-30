@@ -54,10 +54,11 @@ internal data class LibraryPosterEndpoint(
 @Composable
 internal fun Modifier.tvFocusHalo(
     shape: RoundedCornerShape = RoundedCornerShape(20.dp),
+    focusedScale: Float = 1.035f,
 ): Modifier {
     var isFocused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
-        targetValue = if (isFocused) 1.035f else 1f,
+        targetValue = if (isFocused) focusedScale else 1f,
         label = "tv-focus-halo-scale",
     )
     return this

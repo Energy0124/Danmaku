@@ -7,9 +7,8 @@ import app.danmaku.domain.LanDanmakuTrack
 
 internal enum class TvPlaybackStartupPhase {
     Idle,
-    WaitingForDanmaku,
+    PreparingMedia,
     Playing,
-    Stopping,
 }
 
 internal enum class TvDanmakuPhase {
@@ -19,7 +18,6 @@ internal enum class TvDanmakuPhase {
     NoMatch,
     Unavailable,
     Failed,
-    TimedOut,
 }
 
 internal data class TvDanmakuState(
@@ -27,6 +25,7 @@ internal data class TvDanmakuState(
     val phase: TvDanmakuPhase = TvDanmakuPhase.Idle,
     val source: LanDanmakuSource? = null,
     val events: List<DanmakuEvent> = emptyList(),
+    val timeline: PreparedDanmakuTimeline = PreparedDanmakuTimeline.Empty,
     val matchTitle: String? = null,
     val message: String? = null,
 ) {
@@ -38,13 +37,6 @@ internal data class TvDanmakuState(
                 mediaId = mediaId,
                 phase = TvDanmakuPhase.Loading,
                 message = "Loading danmaku",
-            )
-
-        fun timedOut(mediaId: String): TvDanmakuState =
-            TvDanmakuState(
-                mediaId = mediaId,
-                phase = TvDanmakuPhase.TimedOut,
-                message = "Danmaku is still loading",
             )
 
         fun failed(
@@ -68,6 +60,7 @@ internal data class TvDanmakuState(
                 },
                 source = track.source,
                 events = track.domainEvents,
+                timeline = PreparedDanmakuTimeline.prepare(track.domainEvents),
                 matchTitle = track.matchTitle,
                 message = track.message,
             )

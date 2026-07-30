@@ -23,13 +23,13 @@ Status: implemented vertical slice, continuing UI and QA polish.
   streaming, poster serving, progress API, and discovery stable.
 - Keep Android mobile and TV browsing/streaming/progress upload working against
   the Windows host.
-- Rewrite the Android TV presentation layer in place for a media-first,
-  cached-first, remote-native consumer experience. Keep Compose for TV, Media3,
-  and the current LAN/domain boundaries; remove danmaku-gated playback and
-  composition/render-loop bottlenecks. The approved single-cutover plan is
+- Maintain the rewritten Android TV media-first, cached-first, remote-native
+  consumer experience on Compose for TV, Media3, and the current LAN/domain
+  boundaries. Keep its focus, cache, danmaku, screenshot, and Macrobenchmark
+  gates green; implementation is recorded in
   `docs/design/android-tv-client-rewrite-plan.md`.
-- Finish mobile/tablet viewport QA and qualify the replacement TV client at
-  1080p/4K plus one budget-class physical device.
+- Finish mobile/tablet viewport QA and complete the deferred replacement-TV
+  qualification on one budget-class physical device with real LAN playback.
 
 ## Phase 3 - Danmaku Overlay And Metadata Quality
 

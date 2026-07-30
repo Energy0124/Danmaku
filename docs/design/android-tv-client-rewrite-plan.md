@@ -1,7 +1,7 @@
 # Android TV Client Rewrite Plan
 
 Date: 2026-07-29
-Status: Approved for implementation
+Status: Implemented; emulator-qualified, physical-device QA deferred
 Target: `apps/android-tv`
 
 ## Decision
@@ -423,6 +423,39 @@ git diff --check
 Connected tests, emulator screenshots, and physical-device checks remain
 explicit supervised QA steps.
 
+
+## Implementation Record
+
+The single-cutover rewrite landed on 2026-07-29. The shipped TV path now uses:
+
+- typed routes with saved focus and explicit left-edge navigation;
+- separate session, browse, navigation, and playback state owners;
+- versioned, per-server cached-first catalogs and presentation derivation
+  outside composition;
+- bounded, size-aware Coil poster loading;
+- the redesigned onboarding/PC, Home, Library, Search, Favorites, Series
+  Detail, and Player routes in English and `zh-TW`;
+- listener-driven Media3 playback that starts before asynchronous danmaku
+  resolution; and
+- `PreparedDanmakuTimeline` indexing with bounded per-frame work.
+
+The replaced TV shell, raw poster path, monolithic route state, and obsolete
+tests were removed. Unit and instrumentation coverage now includes the
+6,000-item catalog, 10,000-event/500-simultaneous danmaku fixture, cache
+version/isolation/recovery, poster reuse, late danmaku rejection, deterministic
+initial focus, left-edge rail entry, search input, and one-target episode rows.
+The `apps/android-tv-benchmark` module supplies startup, route, Player, and
+100-action Macrobenchmark journeys, and the app ships a Baseline Profile.
+The emulator-only benchmark suite passed all three tests on 2026-07-29.
+Across five samples, cold-start initial display was 944 ms median; the
+100-action route/player traversal measured 20.4/34.9/37.4 ms frame CPU
+duration at P50/P90/P95 and 92,784 KiB median peak anonymous RSS. These are
+regression baselines, not substitutes for the deferred budget-device gate.
+
+The 1080p/4K emulator wrapper rejects non-emulator serials, runs connected
+tests, and captures English/`zh-TW` route references only while the app is
+foregrounded. A real budget-class TV and real-LAN playback pass remains
+explicitly deferred; it is not a completion blocker for this implementation.
 ## Rollout and Compatibility
 
 - Product rollout: single cutover.

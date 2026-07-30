@@ -55,6 +55,14 @@ foreach ($tool in @($adb, $emulator, $gradle)) {
     }
 }
 
+function Assert-EmulatorSerial {
+    param([string]$Serial)
+
+    if ($Serial -notmatch "^emulator-\d+$") {
+        throw "Refusing to target non-emulator Android serial: $Serial"
+    }
+}
+
 function Get-RunningAvdSerial {
     param([string]$AvdName)
 
@@ -133,6 +141,7 @@ function Invoke-GradleForSerial {
         [string[]]$DisplayArgs = $null
     )
 
+    Assert-EmulatorSerial -Serial $Serial
     Push-Location $repoRoot
     $previousSerial = $env:ANDROID_SERIAL
     try {
@@ -341,23 +350,203 @@ function Write-RustServerReport {
     Write-Host "Rust server report: $rustReportPath"
 }
 
+function Set-TvAppLocale {
+    param(
+        [string]$Serial,
+        [string]$Locale
+    )
+
+    Assert-EmulatorSerial -Serial $Serial
+    & $adb -s $Serial shell cmd locale set-app-locales app.danmaku.tv --user 0 --locales $Locale
+    if ($LASTEXITCODE -ne 0) {
+        throw "Unable to set app locale $Locale on $Serial"
+    }
+
+}
+function Wait-TvAppRendered {
+    param([string]$Serial)
+
+    Assert-EmulatorSerial -Serial $Serial
+    $remoteDump = "/sdcard/danmaku-tv-ui.xml"
+    for ($attempt = 1; $attempt -le 8; $attempt++) {
+        & $adb -s $Serial shell uiautomator dump $remoteDump 2>$null | Out-Null
+        if ($LASTEXITCODE -eq 0) {
+            $uiDump = (& $adb -s $Serial exec-out cat $remoteDump 2>$null | Out-String)
+            if (
+                $uiDump -match 'package="app\.danmaku\.tv"' -and
+                $uiDump -match '(text|content-desc)="[^"]+"'
+            ) {
+                return
+            }
+        }
+        Start-Sleep -Milliseconds 500
+    }
+
+    throw "Android TV app did not render an accessible UI on $Serial"
+}
+
+function Start-TvApp {
+    param(
+        [string]$Serial,
+        [switch]$Fixture
+    )
+
+    Assert-EmulatorSerial -Serial $Serial
+    $arguments = @(
+        "-s", $Serial,
+        "shell", "am", "start", "-W",
+        "-n", "app.danmaku.tv/.MainActivity",
+        "-a", "android.intent.action.MAIN",
+        "-c", "android.intent.category.LEANBACK_LAUNCHER"
+    )
+    if ($Fixture) {
+        $arguments += @("--ez", "app.danmaku.tv.QA_FIXTURE", "true")
+    }
+
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        & $adb -s $Serial shell am force-stop app.danmaku.tv
+        $startOutput = (& $adb @arguments | Out-String)
+        $startExitCode = $LASTEXITCODE
+        Write-Host ($startOutput.Trim())
+        if ($startExitCode -ne 0 -or $startOutput -notmatch 'Status:\s+ok') {
+            Start-Sleep -Seconds 2
+            continue
+        }
+
+        Start-Sleep -Seconds $SettleSeconds
+        try {
+            Wait-TvAppRendered -Serial $Serial
+            $foreground = (& $adb -s $Serial shell dumpsys activity activities |
+                Select-String -Pattern "topResumedActivity|mResumedActivity" | Out-String)
+            if ($foreground -match "app\.danmaku\.tv") {
+                return
+            }
+        } catch {
+            if ($attempt -eq 3) {
+                throw
+            }
+        }
+        Start-Sleep -Seconds 2
+    }
+
+    throw "Unable to start a stable Android TV app session on $Serial"
+}
+
+function Send-TvKeys {
+    param(
+        [string]$Serial,
+        [string[]]$Keys
+    )
+
+    Assert-EmulatorSerial -Serial $Serial
+    foreach ($key in $Keys) {
+        & $adb -s $Serial shell input keyevent $key
+        if ($LASTEXITCODE -ne 0) {
+            throw "Unable to send $key to $Serial"
+        }
+    }
+    Start-Sleep -Seconds 1
+}
+
+
+function Test-PngHasVisibleContent {
+    param([string]$Path)
+
+    Add-Type -AssemblyName System.Drawing
+    $bitmap = [System.Drawing.Bitmap]::FromFile($Path)
+    try {
+        $visibleSamples = 0
+        $xStep = [Math]::Max(1, [int]($bitmap.Width / 32))
+        $yStep = [Math]::Max(1, [int]($bitmap.Height / 18))
+        for ($x = 0; $x -lt $bitmap.Width; $x += $xStep) {
+            for ($y = 0; $y -lt $bitmap.Height; $y += $yStep) {
+                $pixel = $bitmap.GetPixel($x, $y)
+                if (($pixel.R + $pixel.G + $pixel.B) -gt 30) {
+                    $visibleSamples++
+                    if ($visibleSamples -ge 5) {
+                        return $true
+                    }
+                }
+            }
+        }
+        return $false
+    } finally {
+        $bitmap.Dispose()
+    }
+}
 function Capture-TvScreenshot {
     param(
         [string]$Serial,
         [string]$Name
     )
 
+    Assert-EmulatorSerial -Serial $Serial
+    $focusedWindow = (& $adb -s $Serial shell dumpsys activity activities |
+        Select-String -Pattern "topResumedActivity|mResumedActivity" | Out-String)
+    if ($focusedWindow -notmatch "app\.danmaku\.tv") {
+        throw "Refusing to capture $Name because the TV app is not foregrounded on $Serial"
+    }
     $screenshotPath = Join-Path $OutputDir "$Name.png"
-    & $adb -s $Serial shell monkey `
-        -p app.danmaku.tv `
-        -c android.intent.category.LEANBACK_LAUNCHER `
-        1 | Write-Host
-    Start-Sleep -Seconds $SettleSeconds
-    & $adb -s $Serial exec-out screencap -p > $screenshotPath
+    $hasVisibleContent = $false
+    for ($attempt = 1; $attempt -le 6; $attempt++) {
+        & $adb -s $Serial exec-out screencap -p > $screenshotPath
+        if ($LASTEXITCODE -eq 0 -and (Test-PngHasVisibleContent -Path $screenshotPath)) {
+            $hasVisibleContent = $true
+            break
+        }
+        Start-Sleep -Seconds 2
+    }
+    if (-not $hasVisibleContent) {
+        throw "Screenshot capture stayed blank on $Serial for $Name"
+    }
     if (-not (Test-Path -LiteralPath $screenshotPath -PathType Leaf)) {
         throw "Screenshot was not written: $screenshotPath"
     }
     Write-Host "Captured $screenshotPath"
+}
+
+function Capture-TvReferenceSet {
+    param(
+        [string]$Serial,
+        [string]$Prefix
+    )
+
+    Assert-EmulatorSerial -Serial $Serial
+    foreach ($locale in @("en", "zh-TW")) {
+        & $adb -s $Serial shell pm clear app.danmaku.tv | Write-Host
+        Set-TvAppLocale -Serial $Serial -Locale $locale
+
+        Start-TvApp -Serial $Serial
+        Capture-TvScreenshot -Serial $Serial -Name "$Prefix-$locale-onboarding"
+
+        Start-TvApp -Serial $Serial -Fixture
+        Capture-TvScreenshot -Serial $Serial -Name "$Prefix-$locale-home"
+
+        Start-TvApp -Serial $Serial -Fixture
+        Send-TvKeys -Serial $Serial -Keys @("KEYCODE_DPAD_LEFT", "KEYCODE_DPAD_DOWN", "KEYCODE_DPAD_CENTER")
+        Capture-TvScreenshot -Serial $Serial -Name "$Prefix-$locale-library"
+        Send-TvKeys -Serial $Serial -Keys @("KEYCODE_DPAD_CENTER")
+        Capture-TvScreenshot -Serial $Serial -Name "$Prefix-$locale-series-detail"
+        Send-TvKeys -Serial $Serial -Keys @("KEYCODE_DPAD_CENTER")
+        Capture-TvScreenshot -Serial $Serial -Name "$Prefix-$locale-player"
+
+        Start-TvApp -Serial $Serial -Fixture
+        Send-TvKeys -Serial $Serial -Keys @("KEYCODE_DPAD_LEFT", "KEYCODE_DPAD_DOWN", "KEYCODE_DPAD_DOWN", "KEYCODE_DPAD_CENTER")
+        Capture-TvScreenshot -Serial $Serial -Name "$Prefix-$locale-search"
+
+        Start-TvApp -Serial $Serial -Fixture
+        Send-TvKeys -Serial $Serial -Keys @(
+            "KEYCODE_DPAD_LEFT", "KEYCODE_DPAD_DOWN", "KEYCODE_DPAD_DOWN", "KEYCODE_DPAD_DOWN", "KEYCODE_DPAD_CENTER"
+        )
+        Capture-TvScreenshot -Serial $Serial -Name "$Prefix-$locale-favorites"
+
+        Start-TvApp -Serial $Serial -Fixture
+        Send-TvKeys -Serial $Serial -Keys @(
+            "KEYCODE_DPAD_LEFT", "KEYCODE_DPAD_DOWN", "KEYCODE_DPAD_DOWN", "KEYCODE_DPAD_DOWN", "KEYCODE_DPAD_DOWN", "KEYCODE_DPAD_CENTER"
+        )
+        Capture-TvScreenshot -Serial $Serial -Name "$Prefix-$locale-pc"
+    }
+    Set-TvAppLocale -Serial $Serial -Locale "en"
 }
 
 function Invoke-TvQaForAvd {
@@ -368,6 +557,7 @@ function Invoke-TvQaForAvd {
 
     $startedDevice = Start-OrReuseAvd -AvdName $AvdName
     $serial = $startedDevice.Serial
+    Assert-EmulatorSerial -Serial $serial
     try {
         $size = (& $adb -s $serial shell wm size).Trim()
         $density = (& $adb -s $serial shell wm density).Trim()
@@ -390,7 +580,7 @@ function Invoke-TvQaForAvd {
                 "--no-daemon",
                 ":apps:android-tv:installDebug"
             )
-            Capture-TvScreenshot -Serial $serial -Name $ScreenshotName
+            Capture-TvReferenceSet -Serial $serial -Prefix $ScreenshotName
         }
     } finally {
         if ($startedDevice.Started -and -not $KeepEmulators) {
