@@ -462,6 +462,15 @@ The 1080p/4K emulator wrapper rejects non-emulator serials, runs connected
 tests, and captures English/`zh-TW` route references only while the app is
 foregrounded. A real budget-class TV and real-LAN playback pass remains
 explicitly deferred; it is not a completion blocker for this implementation.
+
+A 2026-07-31 review follow-up made the dependency container application-scoped
+so activity recreation cannot split retained view models from a new navigator.
+Catalog refresh now uses a monotonic request generation: connection edits,
+selection, fixture installation, or removal immediately clear loading and make
+older success/failure callbacks inert. Home presentation also records whether
+its hero came from Continue Watching or Next Up so labels and actions match the
+actual playback state. Instrumentation and presenter regressions cover these
+cases.
 ## Rollout and Compatibility
 
 - Product rollout: single cutover.

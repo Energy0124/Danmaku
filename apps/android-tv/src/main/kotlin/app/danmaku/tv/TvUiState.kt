@@ -78,6 +78,7 @@ internal data class TvBrowseUiState(
     val recentlyAdded: List<LibraryMediaItem> = emptyList(),
     val watchStatusById: Map<String, LibraryWatchStatus> = emptyMap(),
     val seriesWatchSummaryById: Map<String, LibrarySeriesWatchSummary> = emptyMap(),
+    val heroIsResume: Boolean = false,
     val heroItem: LibraryMediaItem? = null,
 ) {
     val isEmpty: Boolean

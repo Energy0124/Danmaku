@@ -67,6 +67,7 @@ internal fun TvHomeScreen(
             item {
                 TvHomeHero(
                     item = hero,
+                    isResume = browse.heroIsResume,
                     endpoint = session.posterEndpoint,
                     navigation = navigation,
                     navigator = navigator,
@@ -151,6 +152,7 @@ internal fun TvHomeScreen(
 @Composable
 private fun TvHomeHero(
     item: LibraryMediaItem,
+    isResume: Boolean,
     endpoint: LibraryPosterEndpoint?,
     navigation: TvNavigationState,
     navigator: TvNavigator,
@@ -200,7 +202,9 @@ private fun TvHomeHero(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Text(
-                    text = stringResource(R.string.home_hero_resume),
+                    text = stringResource(
+                        if (isResume) R.string.home_hero_resume else R.string.next_up_title,
+                    ),
                     color = TvAccent,
                     style = MaterialTheme.typography.titleMedium,
                 )
@@ -219,7 +223,9 @@ private fun TvHomeHero(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = stringResource(R.string.action_resume),
+                    text = stringResource(
+                        if (isResume) R.string.action_resume else R.string.action_play,
+                    ),
                     color = TvContent,
                     fontWeight = FontWeight.SemiBold,
                 )

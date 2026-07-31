@@ -58,7 +58,8 @@ internal class TvBrowsePresenter {
             session.playbackProgresses,
             limit = HOME_RAIL_LIMIT,
         )
-        val hero = allContinue.firstOrNull()?.mediaItem ?: allNextUp.firstOrNull()?.mediaItem
+        val resumeHero = allContinue.firstOrNull()?.mediaItem
+        val hero = resumeHero ?: allNextUp.firstOrNull()?.mediaItem
         val continueWatching = allContinue.filterNot { it.mediaItem.id == hero?.id }
         val continueIds = continueWatching.mapTo(mutableSetOf()) { it.mediaItem.id }
         val nextUp = allNextUp.filterNot {
@@ -97,6 +98,7 @@ internal class TvBrowsePresenter {
             watchStatusById = catalog.watchStatusByMediaId(session.playbackProgresses),
             seriesWatchSummaryById = catalog.seriesWatchSummaryById(session.playbackProgresses),
             heroItem = hero,
+            heroIsResume = resumeHero != null,
         )
     }
 

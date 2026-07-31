@@ -20,6 +20,7 @@ internal fun TvApp(container: TvApplicationContainer) {
     val sessionViewModel: TvSessionViewModel = viewModel(factory = factory)
     val browseViewModel: TvBrowseViewModel = viewModel(factory = factory)
     val playbackViewModel: TvPlaybackViewModel = viewModel(factory = factory)
+    val navigator = navigationViewModel.navigator
     val navigation by navigationViewModel.state.collectAsStateWithLifecycle()
     val session by sessionViewModel.state.collectAsStateWithLifecycle()
     val browse by browseViewModel.state.collectAsStateWithLifecycle()
@@ -62,7 +63,7 @@ internal fun TvApp(container: TvApplicationContainer) {
                 TvRoute.Onboarding ->
                     TvOnboardingScreen(
                         navigation = navigation,
-                        navigator = container.navigator,
+                        navigator = navigator,
                         isDiscovering = session.isRefreshing,
                         errorMessage = session.errorMessage,
                         onDiscover = sessionViewModel::discoverPc,
@@ -72,13 +73,13 @@ internal fun TvApp(container: TvApplicationContainer) {
                     TvPlayerRoute(
                         playbackViewModel = playbackViewModel,
                         navigation = navigation,
-                        navigator = container.navigator,
+                        navigator = navigator,
                     )
                 else ->
                     TvConsumerShell(
                         route = route,
                         navigation = navigation,
-                        navigator = container.navigator,
+                        navigator = navigator,
                         session = session,
                         browse = browse,
                         sessionViewModel = sessionViewModel,

@@ -41,7 +41,10 @@ The implemented TV presentation rewrite keeps this native Android boundary.
 It separates lifecycle-owned session, browse, navigation, and playback state;
 derives cached catalog presentation outside composition; starts Media3
 independently from danmaku resolution; and uses an indexed prepared danmaku
-timeline rather than doing whole-list work during drawing. The dedicated
+timeline rather than doing whole-list work during drawing. Its dependency
+container is application-scoped so retained view models, navigation, and
+repositories keep one identity across activity recreation. Catalog refreshes
+use latest-request-wins invalidation when connection input changes. The dedicated
 `apps/android-tv-benchmark` module owns Macrobenchmark journeys. Implementation
 and cutover details are in `docs/design/android-tv-client-rewrite-plan.md`.
 

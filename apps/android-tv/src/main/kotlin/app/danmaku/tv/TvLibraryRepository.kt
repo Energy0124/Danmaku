@@ -6,6 +6,7 @@ import app.danmaku.library.LanLibraryConnectionProfile
 import app.danmaku.library.LanLibraryConnectionSession
 import app.danmaku.library.android.AndroidLanLibraryConnectionStore
 import app.danmaku.library.android.AndroidLibraryFavoriteStore
+import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +24,7 @@ internal class TvLibraryRepository(
     defaultPairingToken: String,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ): TvPlaybackSession {
+    private val refreshGeneration = AtomicLong()
     private val initialConnections = connectionStore.loadProfiles()
     private val mutableState = MutableStateFlow(
         TvSessionUiState(
@@ -37,11 +39,17 @@ internal class TvLibraryRepository(
         private set
 
     fun updateServerUrl(serverUrl: String) {
-        mutableState.update { it.copy(serverUrl = serverUrl, errorMessage = null) }
+        invalidateRefresh()
+        mutableState.update {
+            it.copy(serverUrl = serverUrl, isRefreshing = false, errorMessage = null)
+        }
     }
 
     fun updatePairingToken(pairingToken: String) {
-        mutableState.update { it.copy(pairingToken = pairingToken, errorMessage = null) }
+        invalidateRefresh()
+        mutableState.update {
+            it.copy(pairingToken = pairingToken, isRefreshing = false, errorMessage = null)
+        }
     }
 
     suspend fun loadCachedCatalog(): Boolean {
@@ -68,6 +76,7 @@ internal class TvLibraryRepository(
             mutableState.update { it.copy(errorMessage = error.message) }
             return Result.failure(error)
         }
+        val generation = refreshGeneration.incrementAndGet()
         mutableState.update { it.copy(isRefreshing = true, errorMessage = null) }
         return runCatching {
             withContext(ioDispatcher) {
@@ -77,15 +86,13 @@ internal class TvLibraryRepository(
                 )
             }
         }.map { snapshot ->
-            if (
-                state.value.serverUrl == request.serverUrl &&
-                state.value.pairingToken == request.pairingToken
-            ) {
+            if (refreshGeneration.get() == generation) {
                 catalogCache.save(
                     serverUrl = request.serverUrl,
                     catalog = snapshot.catalog,
                     playbackProgresses = snapshot.playbackProgresses,
                 )
+                if (refreshGeneration.get() != generation) return@map
                 withContext(ioDispatcher) {
                     connectionStore.saveCurrentConnection(
                         baseUrl = request.serverUrl,
@@ -93,25 +100,29 @@ internal class TvLibraryRepository(
                         displayName = snapshot.catalog.rootName,
                     )
                 }
-                mutableState.update {
-                    it.copy(
-                        savedConnections = connectionStore.loadProfiles(),
-                        catalog = snapshot.catalog,
-                        playbackProgresses = snapshot.playbackProgresses,
-                        catalogSource = TvCatalogSource.Network,
-                        isRefreshing = false,
-                        isOffline = false,
-                        errorMessage = null,
-                    )
+                if (refreshGeneration.get() == generation) {
+                    mutableState.update {
+                        it.copy(
+                            savedConnections = connectionStore.loadProfiles(),
+                            catalog = snapshot.catalog,
+                            playbackProgresses = snapshot.playbackProgresses,
+                            catalogSource = TvCatalogSource.Network,
+                            isRefreshing = false,
+                            isOffline = false,
+                            errorMessage = null,
+                        )
+                    }
                 }
             }
         }.onFailure { error ->
-            mutableState.update {
-                it.copy(
-                    isRefreshing = false,
-                    isOffline = it.catalog != null,
-                    errorMessage = error.message,
-                )
+            if (refreshGeneration.get() == generation) {
+                mutableState.update {
+                    it.copy(
+                        isRefreshing = false,
+                        isOffline = it.catalog != null,
+                        errorMessage = error.message,
+                    )
+                }
             }
         }
     }
@@ -137,6 +148,7 @@ internal class TvLibraryRepository(
         }
 
     suspend fun selectConnection(connection: LanLibraryConnectionProfile) {
+        invalidateRefresh()
         mutableState.update {
             it.copy(
                 serverUrl = connection.baseUrl,
@@ -152,6 +164,7 @@ internal class TvLibraryRepository(
     }
 
     suspend fun forgetConnection(connection: LanLibraryConnectionProfile) {
+        invalidateRefresh()
         withContext(ioDispatcher) {
             connectionStore.forgetProfile(connection.id)
             catalogCache.clear(connection.baseUrl)
@@ -166,14 +179,16 @@ internal class TvLibraryRepository(
                     catalog = null,
                     playbackProgresses = emptyList(),
                     catalogSource = TvCatalogSource.None,
+                    isRefreshing = false,
                 )
             } else {
-                current.copy(savedConnections = saved)
+                current.copy(savedConnections = saved, isRefreshing = false)
             }
         }
     }
 
     fun installQaFixture(fixture: TvQaFixture) {
+        invalidateRefresh()
         isQaFixtureInstalled = true
         mutableState.value = TvSessionUiState(
             serverUrl = "http://10.0.2.2:18688",
@@ -207,5 +222,9 @@ internal class TvLibraryRepository(
         current.catalog?.let { catalog ->
             catalogCache.save(current.serverUrl, catalog, progresses)
         }
+    }
+
+    private fun invalidateRefresh() {
+        refreshGeneration.incrementAndGet()
     }
 }

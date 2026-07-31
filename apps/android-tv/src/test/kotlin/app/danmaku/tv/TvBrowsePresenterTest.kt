@@ -59,6 +59,7 @@ class TvBrowsePresenterTest {
         )
 
         assertEquals("item-3", result.heroItem?.id)
+        assertTrue(result.heroIsResume)
         val railIds = buildList {
             addAll(result.continueWatching.map { it.mediaItem.id })
             addAll(result.nextUp.map { it.mediaItem.id })
@@ -67,6 +68,23 @@ class TvBrowsePresenterTest {
         }
         assertEquals(railIds.distinct(), railIds)
         assertFalse("item-3" in railIds)
+    }
+
+    @Test
+    fun freshLibraryHeroIsLabeledAsNextUp() {
+        val result = presenter.present(
+            session = TvSessionUiState(
+                catalog = LibraryCatalog(
+                    "Library",
+                    1,
+                    listOf(mediaItem("fresh", "Fresh Series", 1, 1)),
+                ),
+            ),
+            query = TvBrowseQuery(),
+        )
+
+        assertEquals("fresh", result.heroItem?.id)
+        assertFalse(result.heroIsResume)
     }
 
     @Test

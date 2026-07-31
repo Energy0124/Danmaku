@@ -314,6 +314,12 @@ trusted-LAN clients.
 - Session, browse, navigation, and playback state are lifecycle-owned and
   separate. Catalog startup is cached-first, browse derivation runs outside
   composition, and posters use a bounded size-aware Coil loader.
+- The TV dependency container is application-scoped, keeping retained view
+  models and direct navigation actions on the same navigator after activity
+  recreation. Editing or selecting a PC invalidates any in-flight catalog
+  refresh, and stale success/failure callbacks cannot overwrite the new
+  connection state.
+- Home heroes distinguish resumable playback from fresh Next Up playback.
 - Video startup no longer waits for danmaku. Media3 listeners drive playback
   state, late preparation results are rejected, and indexed prepared timelines
   avoid whole-list per-frame scans.
