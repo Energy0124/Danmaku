@@ -317,16 +317,20 @@ trusted-LAN clients.
 - The TV dependency container is application-scoped, keeping retained view
   models and direct navigation actions on the same navigator after activity
   recreation. Editing or selecting a PC invalidates any in-flight catalog
-  refresh, and stale success/failure callbacks cannot overwrite the new
-  connection state.
+  refresh; stale responses report an explicit non-applied outcome, cannot
+  overwrite the new connection state, and cannot navigate away from PC setup.
+- Playback progress updates retain their originating PC target and are rejected
+  if the active connection changes before the asynchronous save completes.
 - Home heroes distinguish resumable playback from fresh Next Up playback.
 - Video startup no longer waits for danmaku. Media3 listeners drive playback
   state, late preparation results are rejected, and indexed prepared timelines
-  avoid whole-list per-frame scans.
+  avoid whole-list per-frame scans. Play requests made before the Media3
+  controller attaches remain visible and are queued until attachment succeeds.
 - Scrolling danmaku use a per-pass entrance gate: comments first observed near
   their timestamp are pinned to the off-screen right-edge start on their first
   draw, while comments first observed after a render/clock gap are skipped
-  instead of appearing partway across the screen.
+  instead of appearing partway across the screen. Seeking advances a playback
+  discontinuity generation and rebuilds this gate for the new timeline pass.
 - Unit, Compose, instrumentation, stress, poster-cache, screenshot, Baseline
   Profile, and Macrobenchmark coverage now protect the replacement. Fixtures
   cover 6,000 catalog items and 10,000 danmaku events with 500 simultaneous

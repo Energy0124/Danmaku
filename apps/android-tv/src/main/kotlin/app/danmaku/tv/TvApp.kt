@@ -24,6 +24,7 @@ internal fun TvApp(container: TvApplicationContainer) {
     val navigation by navigationViewModel.state.collectAsStateWithLifecycle()
     val session by sessionViewModel.state.collectAsStateWithLifecycle()
     val browse by browseViewModel.state.collectAsStateWithLifecycle()
+    val playback by playbackViewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val imageLoader = remember(context) { createTvImageLoader(context.applicationContext) }
     val playbackConnection = remember(context) {
@@ -82,6 +83,7 @@ internal fun TvApp(container: TvApplicationContainer) {
                         navigator = navigator,
                         session = session,
                         browse = browse,
+                        playback = playback,
                         sessionViewModel = sessionViewModel,
                         browseViewModel = browseViewModel,
                         playbackViewModel = playbackViewModel,

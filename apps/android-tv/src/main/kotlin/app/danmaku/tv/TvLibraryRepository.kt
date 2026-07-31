@@ -1,9 +1,11 @@
 package app.danmaku.tv
 
+import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.library.LanLibraryConnectionProfile
 import app.danmaku.library.LanLibraryConnectionSession
+import app.danmaku.library.LanPlaybackTarget
 import app.danmaku.library.android.AndroidLanLibraryConnectionStore
 import app.danmaku.library.android.AndroidLibraryFavoriteStore
 import java.util.concurrent.atomic.AtomicLong
@@ -14,6 +16,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
+
+internal enum class TvCatalogRefreshOutcome {
+    Applied,
+    Stale,
+}
 
 internal class TvLibraryRepository(
     private val connectionSession: LanLibraryConnectionSession,
@@ -69,7 +76,7 @@ internal class TvLibraryRepository(
         return true
     }
 
-    suspend fun refresh(): Result<Unit> {
+    suspend fun refresh(): Result<TvCatalogRefreshOutcome> {
         val request = state.value
         if (request.serverUrl.isBlank()) {
             val error = IllegalArgumentException("PC server URL is required")
@@ -86,34 +93,39 @@ internal class TvLibraryRepository(
                 )
             }
         }.map { snapshot ->
-            if (refreshGeneration.get() == generation) {
-                catalogCache.save(
-                    serverUrl = request.serverUrl,
+            if (refreshGeneration.get() != generation) {
+                return@map TvCatalogRefreshOutcome.Stale
+            }
+            catalogCache.save(
+                serverUrl = request.serverUrl,
+                catalog = snapshot.catalog,
+                playbackProgresses = snapshot.playbackProgresses,
+            )
+            if (refreshGeneration.get() != generation) {
+                return@map TvCatalogRefreshOutcome.Stale
+            }
+            withContext(ioDispatcher) {
+                connectionStore.saveCurrentConnection(
+                    baseUrl = request.serverUrl,
+                    pairingToken = request.pairingToken,
+                    displayName = snapshot.catalog.rootName,
+                )
+            }
+            if (refreshGeneration.get() != generation) {
+                return@map TvCatalogRefreshOutcome.Stale
+            }
+            mutableState.update {
+                it.copy(
+                    savedConnections = connectionStore.loadProfiles(),
                     catalog = snapshot.catalog,
                     playbackProgresses = snapshot.playbackProgresses,
+                    catalogSource = TvCatalogSource.Network,
+                    isRefreshing = false,
+                    isOffline = false,
+                    errorMessage = null,
                 )
-                if (refreshGeneration.get() != generation) return@map
-                withContext(ioDispatcher) {
-                    connectionStore.saveCurrentConnection(
-                        baseUrl = request.serverUrl,
-                        pairingToken = request.pairingToken,
-                        displayName = snapshot.catalog.rootName,
-                    )
-                }
-                if (refreshGeneration.get() == generation) {
-                    mutableState.update {
-                        it.copy(
-                            savedConnections = connectionStore.loadProfiles(),
-                            catalog = snapshot.catalog,
-                            playbackProgresses = snapshot.playbackProgresses,
-                            catalogSource = TvCatalogSource.Network,
-                            isRefreshing = false,
-                            isOffline = false,
-                            errorMessage = null,
-                        )
-                    }
-                }
             }
+            TvCatalogRefreshOutcome.Applied
         }.onFailure { error ->
             if (refreshGeneration.get() == generation) {
                 mutableState.update {
@@ -216,15 +228,35 @@ internal class TvLibraryRepository(
         }
     }
 
-    override suspend fun updateProgresses(progresses: List<PlaybackProgress>) {
-        val current = state.value
-        mutableState.update { it.copy(playbackProgresses = progresses) }
-        current.catalog?.let { catalog ->
-            catalogCache.save(current.serverUrl, catalog, progresses)
+    override suspend fun updateProgresses(
+        target: LanPlaybackTarget,
+        progresses: List<PlaybackProgress>,
+    ): Boolean {
+        var applied = false
+        var catalogToCache: LibraryCatalog? = null
+        var serverUrlToCache: String? = null
+        mutableState.update { current ->
+            applied = current.matches(target)
+            if (applied) {
+                catalogToCache = current.catalog
+                serverUrlToCache = current.serverUrl
+                current.copy(playbackProgresses = progresses)
+            } else {
+                current
+            }
         }
+        if (!applied) return false
+        catalogToCache?.let { catalog ->
+            catalogCache.save(requireNotNull(serverUrlToCache), catalog, progresses)
+        }
+        return true
     }
 
     private fun invalidateRefresh() {
         refreshGeneration.incrementAndGet()
     }
+
+    private fun TvSessionUiState.matches(target: LanPlaybackTarget): Boolean =
+        serverUrl.trim().trimEnd('/') == target.baseUrl.trim().trimEnd('/') &&
+            pairingToken == target.pairingToken
 }

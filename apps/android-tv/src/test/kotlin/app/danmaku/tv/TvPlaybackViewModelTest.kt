@@ -59,6 +59,9 @@ class TvPlaybackViewModelTest {
         advanceUntilIdle()
 
         assertEquals(TvDanmakuPhase.Failed, viewModel.state.value.danmaku.phase)
+        assertEquals(1, controller.loaded.size)
+    }
+
     @Test
     fun missingDanmakuForcesRefreshAndAttachesWhenReady() = runTest(dispatcher) {
         val item = item("missing")
@@ -88,7 +91,50 @@ class TvPlaybackViewModelTest {
         assertEquals(TvDanmakuPhase.Ready, viewModel.state.value.danmaku.phase)
     }
 
-        assertEquals(1, controller.loaded.size)
+    @Test
+    fun playQueuesUntilControllerAttaches() = runTest(dispatcher) {
+        val item = item("queued")
+        val session = FakeSession(item)
+        val gateway = FakeGateway()
+        val navigator = TvNavigator(TvRoute.Home)
+        val viewModel = TvPlaybackViewModel(
+            repository = session,
+            navigator = navigator,
+            gateway = gateway,
+            preferencesStore = InMemoryPreferences(),
+        )
+
+        viewModel.play(item)
+
+        assertEquals(TvPlaybackError.ControllerConnecting, viewModel.state.value.error)
+        assertEquals(TvRoute.Home, navigator.state.value.route)
+
+        val controller = RecordingController()
+        viewModel.attachController(controller)
+        runCurrent()
+
+        assertEquals(null, viewModel.state.value.error)
+        assertEquals(TvRoute.Player(item.id), navigator.state.value.route)
+        assertEquals(listOf(item.id), controller.loaded.map { it.item.id })
+    }
+
+    @Test
+    fun seekIncrementsDiscontinuityGeneration() = runTest(dispatcher) {
+        val item = item("seek")
+        val session = FakeSession(item)
+        val gateway = FakeGateway()
+        val controller = RecordingController()
+        val viewModel = viewModel(session, gateway, controller)
+        val initialGeneration = viewModel.state.value.discontinuityGeneration
+
+        viewModel.dispatch(PlaybackCommand.Play)
+        assertEquals(initialGeneration, viewModel.state.value.discontinuityGeneration)
+
+        viewModel.dispatch(PlaybackCommand.SeekTo(42_000))
+        assertEquals(
+            initialGeneration + 1,
+            viewModel.state.value.discontinuityGeneration,
+        )
     }
 
     @Test
@@ -146,6 +192,7 @@ class TvPlaybackViewModelTest {
         assertEquals(item.id, gateway.savedTarget?.mediaId)
         assertEquals(PlaybackStatus.PLAYING, gateway.savedSnapshot?.status)
         assertEquals(listOf(expectedProgress), session.savedProgresses)
+        assertEquals(gateway.savedTarget, session.savedTarget)
         assertEquals(0.7f, preferences.load().opacity)
     }
 
@@ -191,9 +238,15 @@ class TvPlaybackViewModelTest {
             ),
         )
         var savedProgresses: List<PlaybackProgress> = emptyList()
+        var savedTarget: LanPlaybackTarget? = null
 
-        override suspend fun updateProgresses(progresses: List<PlaybackProgress>) {
+        override suspend fun updateProgresses(
+            target: LanPlaybackTarget,
+            progresses: List<PlaybackProgress>,
+        ): Boolean {
+            savedTarget = target
             savedProgresses = progresses
+            return true
         }
     }
 

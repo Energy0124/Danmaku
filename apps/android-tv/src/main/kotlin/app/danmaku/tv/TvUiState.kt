@@ -109,6 +109,7 @@ internal enum class TvPlaybackError {
 internal data class TvPlaybackUiState(
     val controllerReady: Boolean = false,
     val snapshot: PlaybackSnapshot = PlaybackSnapshot(),
+    val discontinuityGeneration: Long = 0,
     val item: LibraryMediaItem? = null,
     val target: LanPlaybackTarget? = null,
     val startupPhase: TvPlaybackStartupPhase = TvPlaybackStartupPhase.Idle,

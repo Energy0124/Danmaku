@@ -37,6 +37,34 @@ class ScrollingDanmakuEntranceGateTest {
         assertNull(gate.drawPositionMs(placement, currentPositionMs = 10_000))
     }
 
+    @Test
+    fun resetAfterRewindAllowsCommentsFromTheNewPass() {
+        val placement = placement(id = "rewound", startsAtMs = 5_100)
+        val originalGate = ScrollingDanmakuEntranceGate(timelineAttachedAtMs = 10_000)
+        assertNull(originalGate.drawPositionMs(placement, currentPositionMs = 5_200))
+
+        val resetGate = ScrollingDanmakuEntranceGate(timelineAttachedAtMs = 5_000)
+
+        assertEquals(
+            5_100L,
+            resetGate.drawPositionMs(placement, currentPositionMs = 5_200),
+        )
+    }
+
+    @Test
+    fun resetAfterForwardSeekRejectsPreviouslyAdmittedComments() {
+        val placement = placement(id = "forward", startsAtMs = 5_100)
+        val originalGate = ScrollingDanmakuEntranceGate(timelineAttachedAtMs = 5_000)
+        assertEquals(
+            5_100L,
+            originalGate.drawPositionMs(placement, currentPositionMs = 5_200),
+        )
+
+        val resetGate = ScrollingDanmakuEntranceGate(timelineAttachedAtMs = 7_000)
+
+        assertNull(resetGate.drawPositionMs(placement, currentPositionMs = 7_000))
+    }
+
     private fun placement(
         id: String,
         startsAtMs: Long,

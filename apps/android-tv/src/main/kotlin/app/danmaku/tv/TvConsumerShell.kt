@@ -48,6 +48,7 @@ internal fun TvConsumerShell(
     navigator: TvNavigator,
     session: TvSessionUiState,
     browse: TvBrowseUiState,
+    playback: TvPlaybackUiState,
     sessionViewModel: TvSessionViewModel,
     browseViewModel: TvBrowseViewModel,
     playbackViewModel: TvPlaybackViewModel,
@@ -185,6 +186,18 @@ internal fun TvConsumerShell(
                 }
             }
         }
+            if (playback.error == TvPlaybackError.ControllerConnecting) {
+                Text(
+                    text = stringResource(R.string.playback_controller_connecting),
+                    color = TvContent,
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(TvSurfaceRaised)
+                        .padding(horizontal = 24.dp, vertical = 14.dp)
+                        .testTag("playback-connecting-notice"),
+                )
+            }
         }
     }
 }

@@ -29,6 +29,7 @@ internal class TvPlaybackViewModel(
     val state: StateFlow<TvPlaybackUiState> = mutableState.asStateFlow()
 
     private var controller: TvPlaybackController? = null
+    private var pendingPlayItem: LibraryMediaItem? = null
     private var playbackGeneration = 0L
     private var preparationJob: Job? = null
     private var danmakuJob: Job? = null
@@ -55,7 +56,13 @@ internal class TvPlaybackViewModel(
                 error = null,
             )
         }
-        updatePositionSampling()
+        val pendingItem = pendingPlayItem
+        pendingPlayItem = null
+        if (pendingItem == null) {
+            updatePositionSampling()
+        } else {
+            play(pendingItem)
+        }
     }
 
     fun detachController() {
@@ -76,9 +83,11 @@ internal class TvPlaybackViewModel(
     fun play(item: LibraryMediaItem) {
         val activeController = controller
         if (activeController == null) {
+            pendingPlayItem = item
             mutableState.update { it.copy(error = TvPlaybackError.ControllerConnecting) }
             return
         }
+        pendingPlayItem = null
         val session = repository.state.value
         val target = LanPlaybackTarget(session.serverUrl, session.pairingToken, item.id)
         playbackGeneration += 1
@@ -154,9 +163,16 @@ internal class TvPlaybackViewModel(
     }
 
     fun dispatch(command: PlaybackCommand) {
-        controller?.dispatch(command)
-        showControls()
-        updateSnapshot()
+        val activeController = controller ?: return
+        activeController.dispatch(command)
+        mutableState.update {
+            it.copy(
+                snapshot = activeController.snapshot(),
+                controlsVisible = true,
+                discontinuityGeneration = it.discontinuityGeneration +
+                    if (command is PlaybackCommand.SeekTo) 1L else 0L,
+            )
+        }
     }
 
     fun togglePlayPause() {
@@ -206,7 +222,7 @@ internal class TvPlaybackViewModel(
                     gateway.saveProgressAndRefresh(target, snapshot)
                 }.getOrNull()
                 if (updatedProgresses != null) {
-                    repository.updateProgresses(updatedProgresses)
+                    repository.updateProgresses(target, updatedProgresses)
                 }
             }
         }

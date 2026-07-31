@@ -151,6 +151,7 @@ internal fun TvPlayerRoute(
             TvPreparedDanmakuOverlay(
                 timeline = state.danmaku.timeline,
                 snapshot = state.snapshot,
+                discontinuityGeneration = state.discontinuityGeneration,
                 preferences = state.danmakuPreferences,
                 modifier = Modifier.fillMaxSize(),
             )
@@ -647,12 +648,15 @@ private fun TvPreferenceStepButton(
 private fun TvPreparedDanmakuOverlay(
     timeline: PreparedDanmakuTimeline,
     snapshot: PlaybackSnapshot,
+    discontinuityGeneration: Long,
     preferences: TvDanmakuPreferences,
     modifier: Modifier = Modifier,
 ) {
     if (timeline.eventCount == 0) return
     val positionMs = rememberTvPlayerClock(snapshot)
-    val scrollingEntranceCutoffMs = remember(timeline) { positionMs() }
+    val scrollingEntranceCutoffMs = remember(timeline, discontinuityGeneration) {
+        positionMs()
+    }
     val density = LocalDensity.current
     val baseTextSizePx = with(density) { (26.sp * preferences.fontScale).toPx() }
     BoxWithConstraints(modifier = modifier) {
@@ -701,7 +705,9 @@ private fun TvPreparedDanmakuOverlay(
                 ),
             )
         }
-        val entranceGate = remember(schedule, scrollingEntranceCutoffMs) {
+        val entranceGate = remember(
+            schedule, scrollingEntranceCutoffMs, discontinuityGeneration,
+        ) {
             ScrollingDanmakuEntranceGate(scrollingEntranceCutoffMs)
         }
         Canvas(Modifier.fillMaxSize()) {

@@ -55,8 +55,11 @@ internal class TvSessionViewModel(
     fun refreshLibrary(navigateOnSuccess: Boolean = true) {
         viewModelScope.launch {
             discoveryError.value = null
-            repository.refresh().onSuccess {
-                if (navigateOnSuccess) navigator.reset(TvRoute.Home)
+            repository.refresh().onSuccess { outcome ->
+                if (
+                    navigateOnSuccess &&
+                    outcome == TvCatalogRefreshOutcome.Applied
+                ) navigator.reset(TvRoute.Home)
             }
         }
     }
@@ -74,7 +77,11 @@ internal class TvSessionViewModel(
             }.onSuccess {
                 repository.updateServerUrl(it.baseUrl)
                 repository.refresh()
-                    .onSuccess { navigator.reset(TvRoute.Home) }
+                    .onSuccess { outcome ->
+                        if (outcome == TvCatalogRefreshOutcome.Applied) {
+                            navigator.reset(TvRoute.Home)
+                        }
+                    }
                     .onFailure { navigator.reset(TvRoute.Pc) }
             }.onFailure {
                 navigator.reset(TvRoute.Onboarding)
@@ -92,7 +99,8 @@ internal class TvSessionViewModel(
     fun selectConnection(connection: LanLibraryConnectionProfile) {
         viewModelScope.launch {
             repository.selectConnection(connection)
-            repository.refresh()
+            val outcome = repository.refresh().getOrNull()
+            if (outcome == TvCatalogRefreshOutcome.Stale) return@launch
             navigator.reset(
                 if (repository.state.value.catalog == null) TvRoute.Pc else TvRoute.Home,
             )

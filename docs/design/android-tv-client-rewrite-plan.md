@@ -494,6 +494,11 @@ cases.
   authoritative, and replace cache contents atomically.
 - **Late asynchronous results:** key catalog, image authorization, playback, and
   danmaku work by server/session/media identity and reject stale results.
+- **Connection races:** return an explicit applied/stale catalog outcome before
+  navigation, and bind asynchronous progress updates to their source PC profile.
+- **Playback attachment and seeks:** queue Play while Media3 attaches, expose the
+  connecting state on browse routes, and reset only the danmaku entrance gate on
+  playback discontinuities while preserving it during ordinary position samples.
 - **Visual drift from desktop:** use the Rust mockups for hierarchy and tone,
   while TV focus, spacing, and control density remain platform-specific.
 

@@ -16,7 +16,10 @@ import kotlinx.coroutines.withContext
 internal interface TvPlaybackSession {
     val state: StateFlow<TvSessionUiState>
 
-    suspend fun updateProgresses(progresses: List<PlaybackProgress>)
+    suspend fun updateProgresses(
+        target: LanPlaybackTarget,
+        progresses: List<PlaybackProgress>,
+    ): Boolean
 }
 
 internal interface TvPlaybackGateway {

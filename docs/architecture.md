@@ -44,7 +44,12 @@ independently from danmaku resolution; and uses an indexed prepared danmaku
 timeline rather than doing whole-list work during drawing. Its dependency
 container is application-scoped so retained view models, navigation, and
 repositories keep one identity across activity recreation. Catalog refreshes
-use latest-request-wins invalidation when connection input changes. The dedicated
+use latest-request-wins invalidation when connection input changes and report
+whether a response was applied, so stale successes cannot trigger navigation.
+Playback progress writes carry the originating connection target and are rejected
+after a profile switch. Play requests made while Media3 is attaching are queued,
+and playback seek discontinuities reset the scrolling-danmaku entrance gate.
+The dedicated
 `apps/android-tv-benchmark` module owns Macrobenchmark journeys. Implementation
 and cutover details are in `docs/design/android-tv-client-rewrite-plan.md`.
 
