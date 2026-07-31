@@ -10,6 +10,12 @@ android {
     defaultConfig {
         minSdk = 23
     }
+
+    buildTypes {
+        create("benchmark") {
+            initWith(getByName("release"))
+        }
+    }
 }
 
 dependencies {

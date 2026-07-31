@@ -50,6 +50,7 @@ data class LibraryMediaItem(
     val seriesTitle: String,
     val episodeTitle: String,
     val relativePath: String,
+    val rootLabel: String? = null,
     val sizeBytes: Long,
     val mediaType: String,
     val streamPath: String,
@@ -64,6 +65,7 @@ data class LibraryMediaItem(
         require(seriesTitle.isNotBlank()) { "seriesTitle must not be blank" }
         require(episodeTitle.isNotBlank()) { "episodeTitle must not be blank" }
         require(relativePath.isNotBlank()) { "relativePath must not be blank" }
+        require(rootLabel == null || rootLabel.isNotBlank()) { "rootLabel must not be blank" }
         require(sizeBytes >= 0) { "sizeBytes must not be negative" }
         require(mediaType.isNotBlank()) { "mediaType must not be blank" }
         require(streamPath.startsWith("/")) { "streamPath must be absolute" }

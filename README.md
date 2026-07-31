@@ -140,6 +140,15 @@ With a connected Android emulator or device:
 .\gradlew.bat --no-daemon :apps:android-tv:connectedDebugAndroidTest
 ```
 
+Android TV visual and focus QA is emulator-only and covers both 1080p and 4K:
+
+```powershell
+.\tools\windows\run-android-tv-emulator-qa.ps1
+```
+
+The wrapper rejects non-emulator Android serials and writes references under
+`build/qa/android-tv/`.
+
 Worker proxy checks:
 
 ```powershell

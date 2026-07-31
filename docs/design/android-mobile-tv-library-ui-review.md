@@ -2,6 +2,12 @@
 
 Date: 2026-06-09
 
+> The mobile findings and the record of the first TV shell pass remain useful
+> context. The current Android TV direction, performance findings, and approved
+> cutover plan are documented in
+> [Android TV Client Rewrite Plan](android-tv-client-rewrite-plan.md), which
+> supersedes this document for new TV implementation work.
+
 ## Scope
 
 This review covers the current LAN library UI in:
