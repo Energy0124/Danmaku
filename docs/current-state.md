@@ -317,6 +317,10 @@ trusted-LAN clients.
 - Video startup no longer waits for danmaku. Media3 listeners drive playback
   state, late preparation results are rejected, and indexed prepared timelines
   avoid whole-list per-frame scans.
+- Scrolling danmaku use a per-pass entrance gate: comments first observed near
+  their timestamp are pinned to the off-screen right-edge start on their first
+  draw, while comments first observed after a render/clock gap are skipped
+  instead of appearing partway across the screen.
 - Unit, Compose, instrumentation, stress, poster-cache, screenshot, Baseline
   Profile, and Macrobenchmark coverage now protect the replacement. Fixtures
   cover 6,000 catalog items and 10,000 danmaku events with 500 simultaneous

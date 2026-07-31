@@ -701,23 +701,30 @@ private fun TvPreparedDanmakuOverlay(
                 ),
             )
         }
+        val entranceGate = remember(schedule, scrollingEntranceCutoffMs) {
+            ScrollingDanmakuEntranceGate(scrollingEntranceCutoffMs)
+        }
         Canvas(Modifier.fillMaxSize()) {
             val currentPosition = positionMs()
             val scrolling = schedule.visibleAt(currentPosition)
             drawIntoCanvas { canvas ->
-                scrolling
-                    .filter { shouldRenderScrollingDanmaku(it.startsAtMs, scrollingEntranceCutoffMs) }
-                    .take(laneCount)
-                    .forEach { placement ->
+                var renderedScrolling = 0
+                for (placement in scrolling) {
+                    if (renderedScrolling >= laneCount) break
+                    val drawPosition = entranceGate.drawPositionMs(
+                        placement = placement,
+                        currentPositionMs = currentPosition,
+                    ) ?: continue
                     drawDanmakuText(
                         event = placement.event,
-                        x = placement.leftEdgeAt(currentPosition),
+                        x = placement.leftEdgeAt(drawPosition),
                         y = laneHeightPx * (placement.laneIndex + 1),
                         fillPaint = fillPaint,
                         strokePaint = strokePaint,
                         baseTextSizePx = baseTextSizePx,
                         canvas = canvas.nativeCanvas,
                     )
+                    renderedScrolling += 1
                 }
                 var topIndex = 0
                 var bottomIndex = 0
@@ -746,11 +753,6 @@ private fun TvPreparedDanmakuOverlay(
         }
     }
 }
-
-internal fun shouldRenderScrollingDanmaku(
-    startsAtMs: Long,
-    timelineAttachedAtMs: Long,
-): Boolean = startsAtMs >= timelineAttachedAtMs
 
 private fun drawDanmakuText(
     event: DanmakuEvent,

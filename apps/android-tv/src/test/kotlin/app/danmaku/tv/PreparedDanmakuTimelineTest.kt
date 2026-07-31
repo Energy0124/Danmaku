@@ -4,7 +4,6 @@ import app.danmaku.domain.DanmakuEvent
 import app.danmaku.domain.DanmakuMode
 import app.danmaku.domain.DanmakuStyle
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -54,13 +53,6 @@ class PreparedDanmakuTimelineTest {
         }
 
         assertEquals(listOf("middle"), visible)
-    }
-
-    @Test
-    fun lateTimelineSkipsScrollingDanmakuAlreadyInFlight() {
-        assertFalse(shouldRenderScrollingDanmaku(startsAtMs = 9_000, timelineAttachedAtMs = 10_000))
-        assertTrue(shouldRenderScrollingDanmaku(startsAtMs = 10_000, timelineAttachedAtMs = 10_000))
-        assertTrue(shouldRenderScrollingDanmaku(startsAtMs = 10_001, timelineAttachedAtMs = 10_000))
     }
 
     private fun fixed(

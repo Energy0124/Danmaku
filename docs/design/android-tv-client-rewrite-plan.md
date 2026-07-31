@@ -447,7 +447,8 @@ The single-cutover rewrite landed on 2026-07-29. The shipped TV path now uses:
 The replaced TV shell, raw poster path, monolithic route state, and obsolete
 tests were removed. Unit and instrumentation coverage now includes the
 6,000-item catalog, 10,000-event/500-simultaneous danmaku fixture, cache
-version/isolation/recovery, poster reuse, late danmaku rejection, deterministic
+version/isolation/recovery, poster reuse, per-pass scrolling entrance admission,
+late danmaku rejection, deterministic
 initial focus, left-edge rail entry, search input, and one-target episode rows.
 The `apps/android-tv-benchmark` module supplies startup, route, Player, and
 100-action Macrobenchmark journeys, and the app ships a Baseline Profile.
