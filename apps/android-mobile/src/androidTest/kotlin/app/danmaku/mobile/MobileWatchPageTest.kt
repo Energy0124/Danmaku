@@ -6,6 +6,7 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -215,6 +216,7 @@ class MobileWatchPageTest {
 
     @Test
     fun fullscreenPlayerUsesStandaloneVideoStage() {
+        var openedVideo = false
         var fullscreenToggleCount = 0
 
         composeRule.setContent {
@@ -231,7 +233,7 @@ class MobileWatchPageTest {
                     nowPlaying = seededItem(),
                     playbackError = null,
                     isFullscreen = true,
-                    onOpen = {},
+                    onOpen = { openedVideo = true },
                     onPlayPause = {},
                     onSeekTo = {},
                     onSetVolume = {},
@@ -248,10 +250,25 @@ class MobileWatchPageTest {
         composeRule.onNodeWithTag("watch-danmaku-overlay", useUnmergedTree = true).assertExists()
         composeRule.onAllNodesWithTag("now-playing-panel").assertCountEquals(0)
         composeRule.onAllNodesWithTag("watch-library-actions").assertCountEquals(0)
+        val bottomChromeBounds = composeRule.onNodeWithTag("watch-fullscreen-bottom-chrome")
+            .getUnclippedBoundsInRoot()
+        val bottomChromeHeight = bottomChromeBounds.bottom - bottomChromeBounds.top
+        assertTrue("Fullscreen bottom chrome is $bottomChromeHeight tall", bottomChromeHeight <= 96.dp)
+        composeRule.onNodeWithText("Episode 01").assertExists()
+        composeRule.onNodeWithText("1:00").assertExists()
+        composeRule.onNodeWithText("20:00").assertExists()
+        composeRule.onNodeWithTag("watch-seek-slider").assertExists()
+        composeRule.onAllNodesWithText("Example Show/Episode 01.mkv").assertCountEquals(0)
+        composeRule.onAllNodesWithTag("watch-volume-down").assertCountEquals(0)
+        composeRule.onAllNodesWithTag("watch-volume-up").assertCountEquals(0)
+        composeRule.onAllNodesWithText("40%").assertCountEquals(0)
+        composeRule.onNodeWithTag("watch-open-video-toolbar")
+            .performSemanticsAction(SemanticsActions.OnClick)
         composeRule.onNodeWithTag("watch-fullscreen-toggle")
             .performSemanticsAction(SemanticsActions.OnClick)
 
         composeRule.runOnIdle {
+            assertTrue(openedVideo)
             assertEquals(1, fullscreenToggleCount)
         }
     }

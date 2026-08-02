@@ -280,7 +280,6 @@ private fun PlayerStage(
                     onOpen = onOpen,
                     onPlayPause = onPlayPause,
                     onSeekTo = onSeekTo,
-                    onSetVolume = onSetVolume,
                     onToggleFullscreen = onToggleFullscreen,
                 )
             } else {
@@ -307,7 +306,6 @@ private fun PlayerChrome(
     onOpen: () -> Unit,
     onPlayPause: () -> Unit,
     onSeekTo: (Long) -> Unit,
-    onSetVolume: (Int) -> Unit,
     onToggleFullscreen: () -> Unit,
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
@@ -329,10 +327,8 @@ private fun PlayerChrome(
         PlayerBottomChrome(
             snapshot = snapshot,
             nowPlaying = nowPlaying,
-            isFullscreen = true,
             onOpen = onOpen,
             onSeekTo = onSeekTo,
-            onSetVolume = onSetVolume,
             onToggleFullscreen = onToggleFullscreen,
             modifier = Modifier.align(Alignment.BottomCenter),
         )
@@ -591,10 +587,8 @@ private fun PlayerCenterControls(
 private fun PlayerBottomChrome(
     snapshot: PlaybackSnapshot,
     nowPlaying: LibraryMediaItem?,
-    isFullscreen: Boolean,
     onOpen: () -> Unit,
     onSeekTo: (Long) -> Unit,
-    onSetVolume: (Int) -> Unit,
     onToggleFullscreen: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -607,31 +601,22 @@ private fun PlayerBottomChrome(
                     1f to Color.Black.copy(alpha = 0.86f),
                 ),
             )
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+            .testTag("watch-fullscreen-bottom-chrome"),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                nowPlaying?.episodeTitle ?: stringResource(R.string.now_playing_empty_title),
-                color = Color.White,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                nowPlaying?.relativePath ?: stringResource(R.string.now_playing_empty_body),
-                color = Color.White.copy(alpha = 0.68f),
-                style = MaterialTheme.typography.bodySmall,
-                maxLines = if (isFullscreen) 1 else 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        PlaybackSeekControls(snapshot = snapshot, onSeekTo = onSeekTo)
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        Text(
+            nowPlaying?.episodeTitle ?: stringResource(R.string.now_playing_empty_title),
+            color = Color.White,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        PlaybackSeekControls(
+            snapshot = snapshot,
+            onSeekTo = onSeekTo,
+            compact = true,
         ) {
             IconButton(
                 onClick = onOpen,
@@ -644,45 +629,12 @@ private fun PlayerBottomChrome(
                 )
             }
             IconButton(
-                onClick = { onSetVolume((snapshot.volumePercent - 10).coerceAtLeast(0)) },
-                enabled = snapshot.source != null && snapshot.volumePercent > 0,
-                modifier = Modifier.testTag("watch-volume-down"),
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.VolumeDown,
-                    contentDescription = null,
-                    tint = Color.White,
-                )
-            }
-            Text(
-                stringResource(R.string.volume_percent, snapshot.volumePercent),
-                color = Color.White.copy(alpha = 0.76f),
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.widthIn(min = 78.dp),
-            )
-            IconButton(
-                onClick = { onSetVolume((snapshot.volumePercent + 10).coerceAtMost(100)) },
-                enabled = snapshot.source != null && snapshot.volumePercent < 100,
-                modifier = Modifier.testTag("watch-volume-up"),
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.VolumeUp,
-                    contentDescription = null,
-                    tint = Color.White,
-                )
-            }
-            Spacer(modifier = Modifier.weight(1f))
-            IconButton(
                 onClick = onToggleFullscreen,
                 modifier = Modifier.testTag("watch-fullscreen-toggle"),
             ) {
                 Icon(
-                    imageVector = if (isFullscreen) Icons.Filled.FullscreenExit else Icons.Filled.Fullscreen,
-                    contentDescription = if (isFullscreen) {
-                        stringResource(R.string.action_exit_fullscreen)
-                    } else {
-                        stringResource(R.string.action_fullscreen)
-                    },
+                    imageVector = Icons.Filled.FullscreenExit,
+                    contentDescription = stringResource(R.string.action_exit_fullscreen),
                     tint = Color.White,
                 )
             }
@@ -816,6 +768,8 @@ private fun NowPlayingPanel(
 private fun PlaybackSeekControls(
     snapshot: PlaybackSnapshot,
     onSeekTo: (Long) -> Unit,
+    compact: Boolean = false,
+    trailingContent: @Composable () -> Unit = {},
 ) {
     val durationMs = snapshot.position.durationMs?.takeIf { it > 0 }
     val currentPositionMs = snapshot.position.coerceSeekTarget(snapshot.position.positionMs)
@@ -830,7 +784,7 @@ private fun PlaybackSeekControls(
         }
     }
 
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    val slider: @Composable (Modifier) -> Unit = { modifier ->
         Slider(
             value = durationMs
                 ?.let { sliderPositionMs.coerceIn(0f, it.toFloat()) }
@@ -847,23 +801,48 @@ private fun PlaybackSeekControls(
             },
             valueRange = 0f..(durationMs ?: 1L).toFloat(),
             enabled = snapshot.source != null && durationMs != null,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = modifier.testTag("watch-seek-slider"),
         )
+    }
+
+    if (compact) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
                 currentPositionMs.formatPlaybackTime(),
                 color = Color.White.copy(alpha = 0.78f),
                 style = MaterialTheme.typography.bodySmall,
             )
-            Spacer(modifier = Modifier.weight(1f))
+            slider(Modifier.weight(1f))
             Text(
                 durationMs?.formatPlaybackTime() ?: "--:--",
                 color = Color.White.copy(alpha = 0.78f),
                 style = MaterialTheme.typography.bodySmall,
             )
+            trailingContent()
+        }
+    } else {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            slider(Modifier.fillMaxWidth())
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    currentPositionMs.formatPlaybackTime(),
+                    color = Color.White.copy(alpha = 0.78f),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                Text(
+                    durationMs?.formatPlaybackTime() ?: "--:--",
+                    color = Color.White.copy(alpha = 0.78f),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
         }
     }
 }
