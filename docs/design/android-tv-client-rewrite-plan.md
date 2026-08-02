@@ -169,6 +169,10 @@ looks and behaves like a functional engineering surface.
   delay or stop video.
 - Use edge-to-edge video with a restrained top title band and bottom controls:
   progress, time, play/pause, seek, tracks, danmaku, settings, and next episode.
+- Make the playback timeline a focusable remote target; Up enters it from every
+  transport button, Left/Right seek in 10-second steps, and Down returns to Play.
+- Back hides visible playback controls first, then exits from the controls-hidden
+  state so an accidental Back press cannot immediately leave playback.
 - Restore focus to the control that opened a track/settings panel.
 - Keep playback controls visible after remote interaction and fade them after an
   idle interval.

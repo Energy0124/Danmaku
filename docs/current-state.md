@@ -326,6 +326,10 @@ trusted-LAN clients.
   state, late preparation results are rejected, and indexed prepared timelines
   avoid whole-list per-frame scans. Play requests made before the Media3
   controller attaches remain visible and are queued until attachment succeeds.
+- The Player timeline is a focusable D-pad target with explicit vertical focus
+  links and 10-second Left/Right scrubbing. Back dismisses visible playback
+  controls first and exits only from the controls-hidden state.
+  Emulator focus coverage protects the complete timeline interaction.
 - Scrolling danmaku use a per-pass entrance gate: comments first observed near
   their timestamp are pinned to the off-screen right-edge start on their first
   draw, while comments first observed after a render/clock gap are skipped

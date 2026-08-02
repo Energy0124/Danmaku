@@ -22,6 +22,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -135,6 +136,34 @@ class TvPlaybackViewModelTest {
             initialGeneration + 1,
             viewModel.state.value.discontinuityGeneration,
         )
+    }
+
+    @Test
+    fun backHidesControlsBeforeStoppingPlayback() = runTest(dispatcher) {
+        val item = item("back")
+        val session = FakeSession(item)
+        val gateway = FakeGateway()
+        val controller = RecordingController()
+        val navigator = TvNavigator(TvRoute.Home)
+        val viewModel = TvPlaybackViewModel(
+            repository = session,
+            navigator = navigator,
+            gateway = gateway,
+            preferencesStore = InMemoryPreferences(),
+        ).also { it.attachController(controller) }
+
+        viewModel.play(item)
+        runCurrent()
+
+        assertTrue(viewModel.state.value.controlsVisible)
+        assertTrue(viewModel.handleBack())
+        assertFalse(viewModel.state.value.controlsVisible)
+        assertEquals(TvRoute.Player(item.id), navigator.state.value.route)
+        assertEquals(0, controller.stopCount)
+
+        assertTrue(viewModel.handleBack())
+        assertEquals(TvRoute.Home, navigator.state.value.route)
+        assertEquals(1, controller.stopCount)
     }
 
     @Test
@@ -297,6 +326,7 @@ class TvPlaybackViewModelTest {
         override val androidPlayer: Player? = null
         val commands = mutableListOf<PlaybackCommand>()
         val loaded = mutableListOf<LanPlaybackPreparation>()
+        var stopCount = 0
         private var snapshot = PlaybackSnapshot()
 
         override fun load(preparation: LanPlaybackPreparation) {
@@ -317,6 +347,7 @@ class TvPlaybackViewModelTest {
         }
 
         override fun stop() {
+            stopCount += 1
             snapshot = PlaybackSnapshot()
         }
 

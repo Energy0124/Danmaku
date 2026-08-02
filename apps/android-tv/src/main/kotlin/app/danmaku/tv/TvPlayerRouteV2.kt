@@ -259,7 +259,7 @@ private fun TvPlayerTitleBand(
 }
 
 @Composable
-private fun TvPlayerControls(
+internal fun TvPlayerControls(
     state: TvPlaybackUiState,
     onDispatch: (PlaybackCommand) -> Unit,
     onTogglePlayPause: () -> Unit,
@@ -267,6 +267,7 @@ private fun TvPlayerControls(
     onStop: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val progressRequester = remember { FocusRequester() }
     val rewindRequester = remember { FocusRequester() }
     val playPauseRequester = remember { FocusRequester() }
     val forwardRequester = remember { FocusRequester() }
@@ -285,7 +286,18 @@ private fun TvPlayerControls(
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        TvPlaybackProgressBar(state.snapshot)
+        TvPlaybackProgressBar(
+            snapshot = state.snapshot,
+            onSeekBy = { deltaMs ->
+                onDispatch(
+                    PlaybackCommand.SeekTo(state.snapshot.position.seekTargetBy(deltaMs)),
+                )
+            },
+            modifier = Modifier
+                .focusRequester(progressRequester)
+                .focusProperties { down = playPauseRequester }
+                .testTag("player-progress"),
+        )
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -304,7 +316,10 @@ private fun TvPlayerControls(
                 label = "-10s",
                 modifier = Modifier
                     .focusRequester(rewindRequester)
-                    .focusProperties { right = playPauseRequester }
+                    .focusProperties {
+                        up = progressRequester
+                        right = playPauseRequester
+                    }
                     .testTag("player-rewind"),
             ) {
                 onDispatch(
@@ -320,6 +335,7 @@ private fun TvPlayerControls(
                 modifier = Modifier
                     .focusRequester(playPauseRequester)
                     .focusProperties {
+                        up = progressRequester
                         left = rewindRequester
                         right = forwardRequester
                     }
@@ -332,6 +348,7 @@ private fun TvPlayerControls(
                 modifier = Modifier
                     .focusRequester(forwardRequester)
                     .focusProperties {
+                        up = progressRequester
                         left = playPauseRequester
                         right = audioRequester
                     }
@@ -346,6 +363,7 @@ private fun TvPlayerControls(
                 modifier = Modifier
                     .focusRequester(audioRequester)
                     .focusProperties {
+                        up = progressRequester
                         left = forwardRequester
                         right = subtitlesRequester
                     }
@@ -358,6 +376,7 @@ private fun TvPlayerControls(
                 modifier = Modifier
                     .focusRequester(subtitlesRequester)
                     .focusProperties {
+                        up = progressRequester
                         left = audioRequester
                         right = danmakuRequester
                     }
@@ -370,6 +389,7 @@ private fun TvPlayerControls(
                 modifier = Modifier
                     .focusRequester(danmakuRequester)
                     .focusProperties {
+                        up = progressRequester
                         left = subtitlesRequester
                         right = stopRequester
                     }
@@ -381,7 +401,10 @@ private fun TvPlayerControls(
                 label = stringResource(R.string.action_stop),
                 modifier = Modifier
                     .focusRequester(stopRequester)
-                    .focusProperties { left = danmakuRequester }
+                    .focusProperties {
+                        up = progressRequester
+                        left = danmakuRequester
+                    }
                     .testTag("player-stop"),
                 onClick = onStop,
             )
@@ -433,7 +456,11 @@ private fun TvPlayerControlButton(
 }
 
 @Composable
-private fun TvPlaybackProgressBar(snapshot: PlaybackSnapshot) {
+private fun TvPlaybackProgressBar(
+    snapshot: PlaybackSnapshot,
+    onSeekBy: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val duration = snapshot.position.durationMs
     val progress = if (duration == null || duration <= 0) {
         0f
@@ -441,18 +468,41 @@ private fun TvPlaybackProgressBar(snapshot: PlaybackSnapshot) {
         snapshot.position.positionMs.toFloat() / duration.toFloat()
     }.coerceIn(0f, 1f)
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .height(6.dp)
-            .clip(RoundedCornerShape(3.dp))
-            .background(Color(0xFF344155)),
+            .height(24.dp)
+            .tvFocusHalo(RoundedCornerShape(12.dp), focusedScale = 1f)
+            .onPreviewKeyEvent { event ->
+                if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                when (event.key) {
+                    Key.DirectionLeft -> {
+                        onSeekBy(-10_000)
+                        true
+                    }
+                    Key.DirectionRight -> {
+                        onSeekBy(10_000)
+                        true
+                    }
+                    else -> false
+                }
+            }
+            .focusable(),
+        contentAlignment = Alignment.CenterStart,
     ) {
         Box(
             modifier = Modifier
-                .fillMaxWidth(progress)
-                .height(6.dp)
-                .background(TvAccent),
-        )
+                .fillMaxWidth()
+                .height(8.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(Color(0xFF344155)),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(progress)
+                    .height(8.dp)
+                    .background(TvAccent),
+            )
+        }
     }
 }
 

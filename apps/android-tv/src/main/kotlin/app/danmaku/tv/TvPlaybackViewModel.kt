@@ -230,8 +230,8 @@ internal class TvPlaybackViewModel(
 
     fun handleBack(): Boolean {
         if (!mutableState.value.isActive) return false
-        if (!mutableState.value.controlsVisible) {
-            showControls()
+        if (mutableState.value.controlsVisible) {
+            mutableState.update { it.copy(controlsVisible = false) }
         } else {
             stopAndReturn()
         }
