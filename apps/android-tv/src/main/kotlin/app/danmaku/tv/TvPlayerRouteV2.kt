@@ -129,7 +129,9 @@ internal fun TvPlayerRoute(
                         true
                     }
                     else -> {
-                        playbackViewModel.showControls()
+                        if (shouldRevealPlayerControlsForKey(event.key)) {
+                            playbackViewModel.showControls()
+                        }
                         false
                     }
                 }
@@ -220,8 +222,10 @@ internal fun TvPlayerRoute(
 
 internal fun shouldHandlePlayerSeekKey(
     controlsVisible: Boolean,
+
     overlay: TvOverlay?,
 ): Boolean = !controlsVisible && overlay == null
+internal fun shouldRevealPlayerControlsForKey(key: Key): Boolean = key != Key.Back
 
 @Composable
 private fun TvPlayerTitleBand(

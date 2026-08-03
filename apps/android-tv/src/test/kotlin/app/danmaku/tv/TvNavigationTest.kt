@@ -1,5 +1,6 @@
 package app.danmaku.tv
 
+import androidx.compose.ui.input.key.Key
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -66,6 +67,12 @@ class TvNavigationTest {
         assertFalse(
             shouldHandlePlayerSeekKey(controlsVisible = false, overlay = TvOverlay.AudioTracks),
         )
+    }
+
+    @Test
+    fun playerBackDoesNotRevealControlsBeforeBackHandlerRuns() {
+        assertFalse(shouldRevealPlayerControlsForKey(Key.Back))
+        assertTrue(shouldRevealPlayerControlsForKey(Key.DirectionUp))
     }
 
 }
