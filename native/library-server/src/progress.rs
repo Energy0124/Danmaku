@@ -186,6 +186,15 @@ mod tests {
                 < saved.find("\"mediaId\": \"c\"").expect("c")
         );
 
+        drop(store);
+        let reloaded = PlaybackProgressStore::new(&file);
+        assert_eq!(
+            Some(3),
+            reloaded
+                .load_progress("c")
+                .map(|progress| progress.position_ms)
+        );
+
         fs::remove_dir_all(temp).expect("temp dir should delete");
     }
 

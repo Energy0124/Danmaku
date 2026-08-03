@@ -88,6 +88,13 @@ internal class TvPlaybackViewModel(
             return
         }
         pendingPlayItem = null
+        val previousTarget = mutableState.value.target
+        if (previousTarget != null) {
+            val previousSnapshot = activeController.snapshot()
+            viewModelScope.launch {
+                runCatching { gateway.saveProgress(previousTarget, previousSnapshot) }
+            }
+        }
         val session = repository.state.value
         val target = LanPlaybackTarget(session.serverUrl, session.pairingToken, item.id)
         playbackGeneration += 1

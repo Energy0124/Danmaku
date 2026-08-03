@@ -158,6 +158,13 @@ internal class MobilePlayerActionHandler(
         }
 
         val target = LanPlaybackTarget(state.serverUrl, state.pairingToken, item.id)
+        val previousTarget = state.activePlaybackTarget
+        if (previousTarget != null && previousTarget != target) {
+            val previousSnapshot = activeController.snapshot()
+            scope.launch(Dispatchers.IO) {
+                runCatching { progressSync.saveProgress(previousTarget, previousSnapshot) }
+            }
+        }
         state.nowPlaying = item
         state.activePlaybackTarget = target
         state.selectedTab = MobileTab.Watch

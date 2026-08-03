@@ -267,6 +267,11 @@ same poster.
 Drive transport, duration, tracks, and playback status from Media3 listener
 callbacks. Sample only position while the Player route is visible. Keep progress
 upload cadence separate from UI state cadence.
+The shared Media3 service checkpoints positive positions every five seconds and
+on pause, completed seek, and playback completion; TV also checkpoints the old
+target before an episode switch and performs a final save-and-refresh on exit.
+Resume seeks before Play when server progress is at least 10 seconds and leaves
+at least 30 seconds remaining.
 
 Change playback preparation into two independent jobs:
 

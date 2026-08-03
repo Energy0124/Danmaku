@@ -1,6 +1,6 @@
 # Current State
 
-Last reviewed: 2026-07-29.
+Last reviewed: 2026-08-03.
 
 Danmaku is in active foundation work. The strongest vertical slice is Windows
 desktop as the local library host/player, with Android mobile and Android TV as
@@ -21,6 +21,19 @@ trusted-LAN clients.
   and normalized JSON parsing.
 - Provider-neutral external anime IDs, metadata, mappings, list status,
   progress updates, sync plans, conflict detection, and retry/backoff helpers.
+
+### Cross-Platform Playback Progress
+
+- The Rust library server is the authoritative progress store for every active
+  playback client: Rust native Windows, Android mobile/tablet, Android TV, and
+  the trusted-LAN web UI. The deprecated Kotlin desktop client is excluded.
+- Active clients checkpoint positive playback positions at least every ten
+  seconds and immediately on the platform's pause, completed-seek,
+  episode-switch, stop/exit, and playback-completion signals. Android's shared
+  Media3 service uses a five-second periodic cadence and serializes writes.
+- Resume is automatic only after 10 seconds of playback and while at least 30
+  seconds remain. A missing or failed lookup starts from the beginning without
+  blocking playback, and zero-position snapshots never erase valid progress.
 
 ### Windows Desktop
 

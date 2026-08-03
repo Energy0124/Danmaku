@@ -160,7 +160,7 @@ class LanPlaybackProgressSyncTest {
             mediaId = "episode-id",
         )
 
-        LanPlaybackProgressSync(client, currentTimeMillis = { 789 }).saveProgress(
+        val saved = LanPlaybackProgressSync(client, currentTimeMillis = { 789 }).saveProgress(
             target = target,
             snapshot = PlaybackSnapshot(
                 status = PlaybackStatus.PLAYING,
@@ -178,6 +178,28 @@ class LanPlaybackProgressSyncTest {
             ),
             client.savedProgress,
         )
+        assertEquals(client.savedProgress, saved)
+    }
+
+    @Test
+    fun zeroPositionDoesNotOverwriteServerProgress() {
+        val client = RecordingLanLibraryClient()
+        val target = LanPlaybackTarget(
+            baseUrl = "http://192.168.1.20:8686",
+            pairingToken = "123456",
+            mediaId = "episode-id",
+        )
+
+        val saved = LanPlaybackProgressSync(client, currentTimeMillis = { 789 }).saveProgress(
+            target = target,
+            snapshot = PlaybackSnapshot(
+                source = PlaybackSource.RemoteStream("http://example/media"),
+                position = PlaybackPosition(positionMs = 0, durationMs = 98_765),
+            ),
+        )
+
+        assertEquals(null, saved)
+        assertEquals(null, client.savedProgress)
     }
 
     private class RecordingLanLibraryClient(

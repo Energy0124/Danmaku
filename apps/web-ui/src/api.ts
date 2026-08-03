@@ -561,13 +561,19 @@ export async function fetchLibrarySnapshot(baseUrl: string, token: string): Prom
   return { status, catalog, progress };
 }
 
-export async function saveProgress(baseUrl: string, token: string, progress: PlaybackProgress): Promise<void> {
+export async function saveProgress(
+  baseUrl: string,
+  token: string,
+  progress: PlaybackProgress,
+  keepalive = false
+): Promise<void> {
   const response = await fetch(
     `${normalizeBaseUrl(baseUrl)}/api/progress/${encodeURIComponent(progress.mediaId)}`,
     {
       method: "PUT",
       headers: { "Content-Type": "application/json; charset=utf-8" },
-      body: JSON.stringify(progress)
+      body: JSON.stringify(progress),
+      keepalive
     }
   );
   if (response.status !== 204) {

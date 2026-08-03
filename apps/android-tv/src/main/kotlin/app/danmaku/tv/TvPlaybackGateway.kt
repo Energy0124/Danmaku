@@ -34,6 +34,11 @@ internal interface TvPlaybackGateway {
         forceRefresh: Boolean = false,
     ): TvDanmakuState
 
+    suspend fun saveProgress(
+        target: LanPlaybackTarget,
+        snapshot: PlaybackSnapshot,
+    ): PlaybackProgress?
+
     suspend fun saveProgressAndRefresh(
         target: LanPlaybackTarget,
         snapshot: PlaybackSnapshot,
@@ -73,6 +78,14 @@ internal class LanTvPlaybackGateway(
             }.getOrElse {
                 TvDanmakuState.failed(target.mediaId, it)
             }
+        }
+
+    override suspend fun saveProgress(
+        target: LanPlaybackTarget,
+        snapshot: PlaybackSnapshot,
+    ): PlaybackProgress? =
+        withContext(ioDispatcher) {
+            progressSync.saveProgress(target, snapshot)
         }
 
     override suspend fun saveProgressAndRefresh(

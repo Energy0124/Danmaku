@@ -120,6 +120,42 @@ class TvPlaybackViewModelTest {
     }
 
     @Test
+    fun resumesFromServerProgressBeforePlaying() = runTest(dispatcher) {
+        val item = item("resume")
+        val gateway = FakeGateway(resumePositionMs = 42_000)
+        val controller = RecordingController()
+        val viewModel = viewModel(FakeSession(item), gateway, controller)
+
+        viewModel.play(item)
+        runCurrent()
+
+        assertEquals(
+            listOf(PlaybackCommand.SeekTo(42_000), PlaybackCommand.Play),
+            controller.commands,
+        )
+    }
+
+    @Test
+    fun switchingEpisodesCheckpointsThePreviousServerTarget() = runTest(dispatcher) {
+        val first = item("first")
+        val second = item("second")
+        val gateway = FakeGateway()
+        val controller = RecordingController()
+        val viewModel = viewModel(
+            FakeSession(first, second),
+            gateway,
+            controller,
+        )
+
+        viewModel.play(first)
+        runCurrent()
+        viewModel.play(second)
+        runCurrent()
+
+        assertEquals(listOf(first.id), gateway.checkpointedTargets.map { it.mediaId })
+    }
+
+    @Test
     fun seekIncrementsDiscontinuityGeneration() = runTest(dispatcher) {
         val item = item("seek")
         val session = FakeSession(item)
@@ -248,13 +284,15 @@ class TvPlaybackViewModelTest {
             streamPath = "/media/$id",
         )
 
-    private fun LibraryMediaItem.preparation(): LanPlaybackPreparation {
+    private fun LibraryMediaItem.preparation(
+        resumePositionMs: Long? = null,
+    ): LanPlaybackPreparation {
         val target = LanPlaybackTarget("http://pc", "token", id)
         return LanPlaybackPreparation(
             item = this,
             target = target,
             source = PlaybackSource.RemoteStream("http://pc/media/$id"),
-            resumePositionMs = null,
+            resumePositionMs = resumePositionMs,
         )
     }
 
@@ -282,10 +320,12 @@ class TvPlaybackViewModelTest {
     private inner class FakeGateway(
         private val deferPreparation: Boolean = false,
         private val savedProgresses: List<PlaybackProgress> = emptyList(),
+        private val resumePositionMs: Long? = null,
     ) : TvPlaybackGateway {
         private val preparations = mutableMapOf<String, CompletableDeferred<LanPlaybackPreparation>>()
         private val danmaku = mutableMapOf<String, CompletableDeferred<TvDanmakuState>>()
         var savedTarget: LanPlaybackTarget? = null
+        val checkpointedTargets = mutableListOf<LanPlaybackTarget>()
         val danmakuRequests = mutableListOf<Pair<String, Boolean>>()
         var savedSnapshot: PlaybackSnapshot? = null
 
@@ -302,7 +342,7 @@ class TvPlaybackViewModelTest {
             item: LibraryMediaItem,
             onResumeLookupFailure: (Throwable) -> Unit,
         ): LanPlaybackPreparation =
-            if (deferPreparation) preparation(item.id).await() else item.preparation()
+            if (deferPreparation) preparation(item.id).await() else item.preparation(resumePositionMs)
 
         override suspend fun loadDanmaku(
             target: LanPlaybackTarget,
@@ -310,6 +350,14 @@ class TvPlaybackViewModelTest {
         ): TvDanmakuState {
             danmakuRequests += target.mediaId to forceRefresh
             return danmaku(target.mediaId, forceRefresh).await()
+        }
+
+        override suspend fun saveProgress(
+            target: LanPlaybackTarget,
+            snapshot: PlaybackSnapshot,
+        ): PlaybackProgress? {
+            checkpointedTargets += target
+            return null
         }
 
         override suspend fun saveProgressAndRefresh(
