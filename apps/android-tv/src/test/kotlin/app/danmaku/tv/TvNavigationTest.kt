@@ -75,4 +75,33 @@ class TvNavigationTest {
         assertTrue(shouldRevealPlayerControlsForKey(Key.DirectionUp))
     }
 
+    @Test
+    fun playerChromeCanHideDuringStartupAndAfterFailure() {
+        assertFalse(
+            shouldShowPlayerChrome(
+                TvPlaybackUiState(
+                    startupPhase = TvPlaybackStartupPhase.PreparingMedia,
+                    controlsVisible = false,
+                ),
+            ),
+        )
+        assertFalse(
+            shouldShowPlayerChrome(
+                TvPlaybackUiState(
+                    startupPhase = TvPlaybackStartupPhase.Idle,
+                    controlsVisible = false,
+                    error = TvPlaybackError.PreparationFailed,
+                ),
+            ),
+        )
+        assertTrue(
+            shouldShowPlayerChrome(
+                TvPlaybackUiState(
+                    startupPhase = TvPlaybackStartupPhase.PreparingMedia,
+                    controlsVisible = true,
+                ),
+            ),
+        )
+    }
+
 }

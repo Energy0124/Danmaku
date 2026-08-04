@@ -158,7 +158,7 @@ internal fun TvPlayerRoute(
                 modifier = Modifier.fillMaxSize(),
             )
         }
-        if (state.controlsVisible || state.startupPhase != TvPlaybackStartupPhase.Playing) {
+        if (shouldShowPlayerChrome(state)) {
             TvPlayerTitleBand(
                 state = state,
                 modifier = Modifier
@@ -222,9 +222,11 @@ internal fun TvPlayerRoute(
 
 internal fun shouldHandlePlayerSeekKey(
     controlsVisible: Boolean,
-
     overlay: TvOverlay?,
 ): Boolean = !controlsVisible && overlay == null
+
+internal fun shouldShowPlayerChrome(state: TvPlaybackUiState): Boolean = state.controlsVisible
+
 internal fun shouldRevealPlayerControlsForKey(key: Key): Boolean = key != Key.Back
 
 @Composable
