@@ -20,6 +20,10 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.pressKey
+import app.danmaku.domain.PlaybackCommand
+import app.danmaku.domain.PlaybackPosition
+import app.danmaku.domain.PlaybackSnapshot
+import app.danmaku.domain.PlaybackStatus
 import org.junit.Rule
 import org.junit.Test
 import androidx.tv.material3.Button
@@ -152,6 +156,48 @@ class TvFocusNavigationTest {
         composeRule.runOnIdle {
             check(query == "living room")
         }
+    }
+
+    @Test
+    fun playerProgressBarReceivesFocusAndScrubsWithRemote() {
+        var dispatched: PlaybackCommand? = null
+        val state = TvPlaybackUiState(
+            snapshot = PlaybackSnapshot(
+                status = PlaybackStatus.PAUSED,
+                position = PlaybackPosition(positionMs = 60_000, durationMs = 120_000),
+            ),
+            startupPhase = TvPlaybackStartupPhase.Playing,
+            controlsVisible = true,
+        )
+
+        composeRule.setContent {
+            DanmakuTvTheme {
+                TvPlayerControls(
+                    state = state,
+                    onDispatch = { dispatched = it },
+                    onTogglePlayPause = {},
+                    onShowOverlay = {},
+                    onStop = {},
+                    modifier = Modifier,
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("player-play-pause").assertIsFocused()
+            .performKeyInput { pressKey(Key.DirectionUp) }
+        composeRule.onNodeWithTag("player-progress").assertIsFocused()
+            .performKeyInput { pressKey(Key.DirectionRight) }
+        composeRule.runOnIdle {
+            check(dispatched == PlaybackCommand.SeekTo(70_000))
+        }
+        composeRule.onNodeWithTag("player-progress")
+            .performKeyInput { pressKey(Key.DirectionLeft) }
+        composeRule.runOnIdle {
+            check(dispatched == PlaybackCommand.SeekTo(50_000))
+        }
+        composeRule.onNodeWithTag("player-progress").assertIsFocused()
+            .performKeyInput { pressKey(Key.DirectionDown) }
+        composeRule.onNodeWithTag("player-play-pause").assertIsFocused()
     }
 
     @Test

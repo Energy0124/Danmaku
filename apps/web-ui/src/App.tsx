@@ -29,6 +29,7 @@ import {
   loadDanmakuOverlayPreferences,
   saveDanmakuOverlayPreferences
 } from "./danmakuOverlayPreferences";
+import { createPlaybackProgress, resumePositionMs } from "./playbackProgress";
 import { ProviderSettingsPanel } from "./ProviderSettingsPanel";
 import { TrackingAdminPanel } from "./TrackingAdminPanel";
 
@@ -254,6 +255,7 @@ function PlayerPanel({
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const lastSavedAtRef = useRef(0);
+  const resumeAppliedForItemRef = useRef<string | null>(null);
   const poster = posterUrl(baseUrl, token, item);
   const defaultSearchQuery = useMemo(() => defaultProviderSearchQuery(item), [item]);
   const [dandanplay, setDandanplay] = useState<DandanplayResolveResult | null>(null);
@@ -295,11 +297,8 @@ function PlayerPanel({
 
   useEffect(() => {
     lastSavedAtRef.current = 0;
-    const video = videoRef.current;
-    if (video && savedProgress?.positionMs && savedProgress.positionMs > 0) {
-      video.currentTime = savedProgress.positionMs / 1000;
-    }
-  }, [item.id, savedProgress?.positionMs]);
+    resumeAppliedForItemRef.current = null;
+  }, [item.id]);
 
   useEffect(() => {
     setDandanplay(null);
@@ -347,6 +346,24 @@ function PlayerPanel({
   useEffect(() => {
     saveDanmakuOverlayPreferences(danmakuOverlayPreferences);
   }, [danmakuOverlayPreferences]);
+
+  useEffect(() => {
+    const handlePageHide = () => {
+      const video = videoRef.current;
+      if (video) void persist(video, true, true);
+    };
+    window.addEventListener("pagehide", handlePageHide);
+    return () => window.removeEventListener("pagehide", handlePageHide);
+  }, [baseUrl, item.id, token]);
+
+  function applySavedResume(video: HTMLVideoElement) {
+    if (resumeAppliedForItemRef.current === item.id) return;
+    resumeAppliedForItemRef.current = item.id;
+    const resumePosition = resumePositionMs(savedProgress);
+    if (resumePosition != null) {
+      video.currentTime = resumePosition / 1000;
+    }
+  }
 
   function handleVideoTimeUpdate(video: HTMLVideoElement) {
     updateDanmakuOverlay(video);
@@ -474,17 +491,19 @@ function PlayerPanel({
     setExternalScore(entry.score == null ? "" : String(entry.score));
   }
 
-  async function persist(video: HTMLVideoElement) {
+  async function persist(video: HTMLVideoElement, force = false, keepalive = false) {
     const now = Date.now();
-    if (now - lastSavedAtRef.current < 10_000 && !video.paused && !video.ended) return;
+    if (!force && now - lastSavedAtRef.current < 10_000) return;
+    const entry = createPlaybackProgress(
+      item.id,
+      video.currentTime,
+      video.duration,
+      item.durationMs ?? null,
+      now
+    );
+    if (!entry) return;
     lastSavedAtRef.current = now;
-    const entry: PlaybackProgress = {
-      mediaId: item.id,
-      positionMs: Math.round(video.currentTime * 1000),
-      durationMs: Number.isFinite(video.duration) ? Math.round(video.duration * 1000) : item.durationMs ?? null,
-      updatedAtEpochMs: now
-    };
-    await saveProgress(baseUrl, token, entry);
+    await saveProgress(baseUrl, token, entry, keepalive);
     onProgressSaved(entry);
   }
 
@@ -778,9 +797,13 @@ function PlayerPanel({
           playsInline
           poster={poster ?? undefined}
           src={mediaUrl(baseUrl, token, item)}
-          onPause={(event) => void persist(event.currentTarget)}
-          onEnded={(event) => void persist(event.currentTarget)}
-          onSeeked={(event) => updateDanmakuOverlay(event.currentTarget)}
+          onLoadedMetadata={(event) => applySavedResume(event.currentTarget)}
+          onPause={(event) => void persist(event.currentTarget, true)}
+          onEnded={(event) => void persist(event.currentTarget, true)}
+          onSeeked={(event) => {
+            updateDanmakuOverlay(event.currentTarget);
+            void persist(event.currentTarget, true);
+          }}
           onTimeUpdate={(event) => handleVideoTimeUpdate(event.currentTarget)}
         >
           {(item.subtitles ?? [])

@@ -1,5 +1,6 @@
 package app.danmaku.tv
 
+import androidx.compose.ui.input.key.Key
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -65,6 +66,41 @@ class TvNavigationTest {
         assertTrue(shouldHandlePlayerSeekKey(controlsVisible = false, overlay = null))
         assertFalse(
             shouldHandlePlayerSeekKey(controlsVisible = false, overlay = TvOverlay.AudioTracks),
+        )
+    }
+
+    @Test
+    fun playerBackDoesNotRevealControlsBeforeBackHandlerRuns() {
+        assertFalse(shouldRevealPlayerControlsForKey(Key.Back))
+        assertTrue(shouldRevealPlayerControlsForKey(Key.DirectionUp))
+    }
+
+    @Test
+    fun playerChromeCanHideDuringStartupAndAfterFailure() {
+        assertFalse(
+            shouldShowPlayerChrome(
+                TvPlaybackUiState(
+                    startupPhase = TvPlaybackStartupPhase.PreparingMedia,
+                    controlsVisible = false,
+                ),
+            ),
+        )
+        assertFalse(
+            shouldShowPlayerChrome(
+                TvPlaybackUiState(
+                    startupPhase = TvPlaybackStartupPhase.Idle,
+                    controlsVisible = false,
+                    error = TvPlaybackError.PreparationFailed,
+                ),
+            ),
+        )
+        assertTrue(
+            shouldShowPlayerChrome(
+                TvPlaybackUiState(
+                    startupPhase = TvPlaybackStartupPhase.PreparingMedia,
+                    controlsVisible = true,
+                ),
+            ),
         )
     }
 

@@ -169,6 +169,10 @@ looks and behaves like a functional engineering surface.
   delay or stop video.
 - Use edge-to-edge video with a restrained top title band and bottom controls:
   progress, time, play/pause, seek, tracks, danmaku, settings, and next episode.
+- Make the playback timeline a focusable remote target; Up enters it from every
+  transport button, Left/Right seek in 10-second steps, and Down returns to Play.
+- Back hides visible playback controls first, then exits from the controls-hidden
+  state so an accidental Back press cannot immediately leave playback.
 - Restore focus to the control that opened a track/settings panel.
 - Keep playback controls visible after remote interaction and fade them after an
   idle interval.
@@ -263,6 +267,11 @@ same poster.
 Drive transport, duration, tracks, and playback status from Media3 listener
 callbacks. Sample only position while the Player route is visible. Keep progress
 upload cadence separate from UI state cadence.
+The shared Media3 service checkpoints positive positions every five seconds and
+on pause, completed seek, and playback completion; TV also checkpoints the old
+target before an episode switch and performs a final save-and-refresh on exit.
+Resume seeks before Play when server progress is at least 10 seconds and leaves
+at least 30 seconds remaining.
 
 Change playback preparation into two independent jobs:
 

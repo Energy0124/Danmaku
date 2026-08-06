@@ -42,7 +42,7 @@ use crate::{
 
 const PROPERTY_REFRESH_INTERVAL: Duration = Duration::from_millis(180);
 const TRACK_REFRESH_INTERVAL: Duration = Duration::from_millis(1_000);
-const PROGRESS_UPLOAD_INTERVAL: Duration = Duration::from_secs(15);
+const PROGRESS_UPLOAD_INTERVAL: Duration = Duration::from_secs(10);
 /// How often to poll `/api/server/status` while the server reports a
 /// background library scan.
 const SCAN_POLL_INTERVAL: Duration = Duration::from_millis(1_500);

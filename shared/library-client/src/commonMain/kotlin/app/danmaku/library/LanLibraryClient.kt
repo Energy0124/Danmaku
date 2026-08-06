@@ -209,13 +209,13 @@ class LanPlaybackProgressSync(
     fun saveProgress(
         target: LanPlaybackTarget,
         snapshot: PlaybackSnapshot,
-    ) {
+    ): PlaybackProgress? =
         snapshot
             .toPlaybackProgress(target.mediaId, currentTimeMillis())
-            ?.let {
+            ?.takeIf { it.positionMs > 0 }
+            ?.also {
                 libraryClient.saveProgress(target.baseUrl, target.pairingToken, it)
             }
-    }
 }
 
 data class LanLibraryConnectionSnapshot(
