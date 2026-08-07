@@ -9,6 +9,7 @@ import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.PlaybackProgress
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -39,6 +40,33 @@ class TvBrowsePresenterTest {
         assertEquals(6_000, result.filteredItems.size)
         assertEquals(300, result.seriesById.size)
         assertEquals(6_000, result.seriesIdByMediaId.size)
+    }
+
+    @Test
+    fun catalogIndexesAreReusedAcrossFilterPresentationChanges() {
+        val catalog = LibraryCatalog(
+            rootName = "Stress library",
+            indexedAtEpochMs = 1,
+            items = (0 until 6_000).map { index ->
+                mediaItem(
+                    id = "item-$index",
+                    series = "Series ${index / 20}",
+                    episode = index % 20,
+                    indexedAt = index.toLong(),
+                )
+            },
+        )
+        val session = TvSessionUiState(catalog = catalog)
+
+        val initial = presenter.present(session, TvBrowseQuery())
+        val resorted = presenter.present(
+            session,
+            TvBrowseQuery(sort = TvLibrarySort.NEWEST_ADDED),
+        )
+
+        assertSame(initial.seriesById, resorted.seriesById)
+        assertSame(initial.seriesIdByMediaId, resorted.seriesIdByMediaId)
+        assertEquals(initial.availableReleaseYears, resorted.availableReleaseYears)
     }
 
     @Test

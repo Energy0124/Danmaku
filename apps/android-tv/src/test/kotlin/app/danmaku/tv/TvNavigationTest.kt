@@ -4,6 +4,7 @@ import androidx.compose.ui.input.key.Key
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -26,13 +27,24 @@ class TvNavigationTest {
         assertEquals(TvRoute.Library, navigator.state.value.route)
         assertEquals(
             "library-series:two",
-            navigator.state.value.focusKeys[TvRoute.Library],
+            navigator.savedFocus(TvRoute.Library),
         )
 
         assertTrue(navigator.back())
         assertEquals(TvRoute.Home, navigator.state.value.route)
-        assertEquals("home-series:one", navigator.state.value.focusKeys[TvRoute.Home])
+        assertEquals("home-series:one", navigator.savedFocus(TvRoute.Home))
         assertFalse(navigator.back())
+    }
+
+    @Test
+    fun savingFocusDoesNotEmitGlobalNavigationState() {
+        val navigator = TvNavigator(TvRoute.Library)
+        val navigationState = navigator.state.value
+
+        navigator.saveFocus(TvRoute.Library, "library-series:one")
+
+        assertSame(navigationState, navigator.state.value)
+        assertEquals("library-series:one", navigator.savedFocus(TvRoute.Library))
     }
 
     @Test

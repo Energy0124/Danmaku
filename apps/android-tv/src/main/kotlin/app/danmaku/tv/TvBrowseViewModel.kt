@@ -7,15 +7,18 @@ import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySubtitleFilter
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.withContext
 
-@OptIn(FlowPreview::class)
+@OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 internal class TvBrowseViewModel(
     private val repository: TvLibraryRepository,
     private val presenter: TvBrowsePresenter,
@@ -24,15 +27,31 @@ internal class TvBrowseViewModel(
     private val searchText = MutableStateFlow("")
     private val filters = MutableStateFlow(TvBrowseQuery())
 
+    // Connection and refresh flags do not affect catalog presentation. Referential checks
+    // keep those frequent repository copies from reprocessing a large, unchanged catalog.
+    private val presentationSessions = repository.state.distinctUntilChanged { previous, next ->
+        previous.catalog === next.catalog &&
+            previous.playbackProgresses === next.playbackProgresses &&
+            previous.favoriteMediaIds === next.favoriteMediaIds
+    }
+    private val debouncedSearchText = searchText.debounce { value ->
+        if (value.isEmpty()) 0L else SEARCH_DEBOUNCE_MS
+    }
+
     val state = combine(
-        repository.state,
-        searchText.debounce(SEARCH_DEBOUNCE_MS),
+        presentationSessions,
+        debouncedSearchText,
         filters,
     ) { session, debouncedSearch, filterState ->
+        TvBrowsePresentationRequest(
+            session = session,
+            query = filterState.copy(searchText = debouncedSearch),
+        )
+    }.mapLatest { request ->
         withContext(presentationDispatcher) {
             presenter.present(
-                session,
-                filterState.copy(searchText = debouncedSearch),
+                request.session,
+                request.query,
             )
         }
     }.stateIn(
@@ -89,3 +108,8 @@ internal class TvBrowseViewModel(
         const val SEARCH_DEBOUNCE_MS = 250L
     }
 }
+
+private data class TvBrowsePresentationRequest(
+    val session: TvSessionUiState,
+    val query: TvBrowseQuery,
+)

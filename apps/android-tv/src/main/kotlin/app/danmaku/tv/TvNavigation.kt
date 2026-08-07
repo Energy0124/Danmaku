@@ -27,7 +27,6 @@ internal enum class TvOverlay {
 internal data class TvNavigationState(
     val backStack: List<TvRoute> = listOf(TvRoute.Onboarding),
     val overlay: TvOverlay? = null,
-    val focusKeys: Map<TvRoute, String> = emptyMap(),
 ) {
     val route: TvRoute
         get() = backStack.last()
@@ -36,6 +35,9 @@ internal data class TvNavigationState(
 internal class TvNavigator(
     initialRoute: TvRoute = TvRoute.Onboarding,
 ) {
+    // Focus changes are hot-path UI events. Keep their restoration data lifecycle-owned
+    // without emitting a new global navigation snapshot for every D-pad movement.
+    private val focusKeys = mutableMapOf<TvRoute, String>()
     private val mutableState = MutableStateFlow(
         TvNavigationState(backStack = listOf(initialRoute)),
     )
@@ -98,10 +100,10 @@ internal class TvNavigator(
         focusKey: String,
     ) {
         require(focusKey.isNotBlank()) { "focusKey must not be blank" }
-        mutableState.update { current ->
-            current.copy(focusKeys = current.focusKeys + (route to focusKey))
-        }
+        focusKeys[route] = focusKey
     }
+
+    fun savedFocus(route: TvRoute): String? = focusKeys[route]
 
     fun back(): Boolean {
         if (closeOverlay()) return true
