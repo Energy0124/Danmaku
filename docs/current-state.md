@@ -314,6 +314,12 @@ trusted-LAN clients.
 - Session, browse, navigation, and playback state are lifecycle-owned and
   separate. Catalog startup is cached-first, browse derivation runs outside
   composition, and posters use a bounded size-aware Coil loader.
+- A 2026-08-07 performance pass made initial browse presentation immediate
+  rather than holding it behind the search debounce,
+  refresh-only session changes skip catalog reprocessing, and catalog grouping
+  indexes are reused across filter/sort changes. D-pad focus memory stays
+  lifecycle-owned without emitting global navigation state, so focus traversal
+  does not recompose the visible poster grid or rebuild its image requests.
 - The TV dependency container is application-scoped, keeping retained view
   models and direct navigation actions on the same navigator after activity
   recreation. Editing or selecting a PC invalidates any in-flight catalog

@@ -26,10 +26,10 @@ internal fun Modifier.tvRouteFocus(
     val railRequester = LocalTvNavigationRailFocusRequester.current
     val rememberedRequester = remember(route, focusKey) { FocusRequester() }
     val requester = focusRequesterOverride ?: rememberedRequester
-    val savedFocus = navigationState.focusKeys[route]
+    val savedFocus = navigator.savedFocus(route)
     val shouldRequest = navigationState.route == route &&
         (savedFocus == focusKey || (savedFocus == null && isDefault))
-    LaunchedEffect(shouldRequest) {
+    LaunchedEffect(route, focusKey, shouldRequest) {
         if (shouldRequest) requester.requestFocus()
     }
     return this

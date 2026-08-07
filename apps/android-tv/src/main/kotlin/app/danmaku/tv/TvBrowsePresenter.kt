@@ -6,52 +6,75 @@ import app.danmaku.domain.LibraryCatalogSort
 import app.danmaku.domain.LibraryFavoriteFilter
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySeries
+import app.danmaku.domain.LibrarySeriesWatchSummary
+import app.danmaku.domain.LibrarySubtitleFilter
+import app.danmaku.domain.LibraryWatchStatus
+import app.danmaku.domain.LibraryWatchState
 import app.danmaku.domain.continueWatchingItems
 import app.danmaku.domain.filteredItems
 import app.danmaku.domain.groupedSeries
 import app.danmaku.domain.nextUpItems
 import app.danmaku.domain.recentlyWatchedItems
-import app.danmaku.domain.seriesWatchSummaryById
 import app.danmaku.domain.watchStatusByMediaId
 
 internal class TvBrowsePresenter {
+    // Query and progress changes can reuse the catalog-only grouping and lookup indexes.
+    private var preparedCatalog: TvPreparedCatalog? = null
+
     fun present(
         session: TvSessionUiState,
         query: TvBrowseQuery,
     ): TvBrowseUiState {
         val catalog = session.catalog ?: return TvBrowseUiState(query = query)
-        val filteredItems = catalog.filteredItems(
+        val prepared = preparedCatalog(catalog)
+        val libraryItems = catalog.filteredItems(
             LibraryCatalogQuery(
-                searchText = query.searchText,
                 sort = query.sort.domainSort(),
                 subtitleFilter = query.subtitleFilter,
-                favoriteFilter = query.favoriteFilter,
+                favoriteFilter = LibraryFavoriteFilter.ANY,
                 favoriteMediaIds = session.favoriteMediaIds,
             ),
         ).filterByReleaseYear(query.releaseYear)
-        val filteredCatalog = catalog.withItems(filteredItems)
-        val libraryCatalog = catalog.withItems(
+        val filteredItems = if (
+            query.searchText.isBlank() &&
+            query.favoriteFilter == LibraryFavoriteFilter.ANY
+        ) {
+            libraryItems
+        } else {
             catalog.filteredItems(
                 LibraryCatalogQuery(
+                    searchText = query.searchText,
                     sort = query.sort.domainSort(),
                     subtitleFilter = query.subtitleFilter,
-                    favoriteFilter = LibraryFavoriteFilter.ANY,
+                    favoriteFilter = query.favoriteFilter,
                     favoriteMediaIds = session.favoriteMediaIds,
                 ),
-            ).filterByReleaseYear(query.releaseYear),
-        )
+            ).filterByReleaseYear(query.releaseYear)
+        }
         val favoriteCatalog = catalog.withItems(
             catalog.items.filter { it.id in session.favoriteMediaIds },
         )
-        val allSeries = catalog.groupedSeries()
         val progressByMediaId = session.playbackProgresses
             .groupBy { it.mediaId }
             .mapValues { (_, progresses) -> progresses.maxOf { it.updatedAtEpochMs } }
-        val seriesIdByMediaId = allSeries.flatMap { series ->
-            series.seasons.flatMap { season -> season.items.map { it.id to series.id } }
-        }.toMap()
         val sortSeries: (List<LibrarySeries>) -> List<LibrarySeries> = { series ->
             series.sortedForTv(query.sort, progressByMediaId)
+        }
+        val librarySeries = if (
+            query.releaseYear == null &&
+            query.subtitleFilter == LibrarySubtitleFilter.ANY
+        ) {
+            sortSeries(prepared.series)
+        } else {
+            sortSeries(catalog.withItems(libraryItems).groupedSeries())
+        }
+        val visibleSeries = if (
+            query.searchText.isBlank() &&
+            query.favoriteFilter == LibraryFavoriteFilter.ANY
+        ) {
+            librarySeries
+        } else {
+            sortSeries(catalog.withItems(filteredItems).groupedSeries())
         }
         val allNextUp = catalog.nextUpItems(session.playbackProgresses, limit = HOME_RAIL_LIMIT)
         val allContinue = catalog.continueWatchingItems(
@@ -70,42 +93,95 @@ internal class TvBrowsePresenter {
             continueWatching.forEach { add(it.mediaItem.id) }
             nextUp.forEach { add(it.mediaItem.id) }
         }
+        val watchStatusById = catalog.watchStatusByMediaId(session.playbackProgresses)
         return TvBrowseUiState(
             catalog = catalog,
             query = query,
             filteredItems = filteredItems,
-            series = sortSeries(filteredCatalog.groupedSeries()),
-            librarySeries = sortSeries(libraryCatalog.groupedSeries()),
-            availableReleaseYears = catalog.releaseYears(),
-            seriesById = allSeries.associateBy { it.id },
-            seriesIdByMediaId = seriesIdByMediaId,
+            series = visibleSeries,
+            librarySeries = librarySeries,
+            availableReleaseYears = prepared.releaseYears,
+            seriesById = prepared.seriesById,
+            seriesIdByMediaId = prepared.seriesIdByMediaId,
             favoriteSeries = sortSeries(favoriteCatalog.groupedSeries()),
             nextUp = nextUp,
             continueWatching = continueWatching,
             recentlyWatched = catalog
                 .recentlyWatchedItems(session.playbackProgresses, limit = HOME_RAIL_LIMIT)
                 .filterNot { it.mediaItem.id in usedMediaIds },
-            recentlyAdded = catalog.items
+            recentlyAdded = prepared.recentlyAdded
                 .asSequence()
                 .filterNot { it.id in usedMediaIds }
-                .sortedWith(
-                    compareByDescending<LibraryMediaItem> { it.indexedAtEpochMs }
-                        .thenBy { it.seriesTitle }
-                        .thenBy { it.episodeTitle },
-                )
                 .take(HOME_RAIL_LIMIT)
                 .toList(),
-            watchStatusById = catalog.watchStatusByMediaId(session.playbackProgresses),
-            seriesWatchSummaryById = catalog.seriesWatchSummaryById(session.playbackProgresses),
+            watchStatusById = watchStatusById,
+            seriesWatchSummaryById = prepared.series.watchSummaries(watchStatusById),
             heroItem = hero,
             heroIsResume = resumeHero != null,
         )
+    }
+
+    private fun preparedCatalog(catalog: LibraryCatalog): TvPreparedCatalog {
+        preparedCatalog?.takeIf { it.catalog === catalog }?.let { return it }
+        val series = catalog.groupedSeries()
+        return TvPreparedCatalog(
+            catalog = catalog,
+            series = series,
+            releaseYears = catalog.releaseYears(),
+            seriesById = series.associateBy(LibrarySeries::id),
+            seriesIdByMediaId = buildMap(catalog.items.size) {
+                series.forEach { itemSeries ->
+                    itemSeries.seasons.forEach { season ->
+                        season.items.forEach { item -> put(item.id, itemSeries.id) }
+                    }
+                }
+            },
+            recentlyAdded = catalog.items.sortedWith(
+                compareByDescending<LibraryMediaItem> { it.indexedAtEpochMs }
+                    .thenBy { it.seriesTitle }
+                    .thenBy { it.episodeTitle },
+            ),
+        ).also { preparedCatalog = it }
     }
 
     private companion object {
         const val HOME_RAIL_LIMIT = 12
     }
 }
+
+private data class TvPreparedCatalog(
+    val catalog: LibraryCatalog,
+    val series: List<LibrarySeries>,
+    val releaseYears: List<Int>,
+    val seriesById: Map<String, LibrarySeries>,
+    val seriesIdByMediaId: Map<String, String>,
+    val recentlyAdded: List<LibraryMediaItem>,
+)
+
+private fun List<LibrarySeries>.watchSummaries(
+    watchStatusById: Map<String, LibraryWatchStatus>,
+): Map<String, LibrarySeriesWatchSummary> =
+    associate { series ->
+        var watchedCount = 0
+        var inProgressCount = 0
+        var newCount = 0
+        series.seasons.forEach { season ->
+            season.items.forEach { item ->
+                when (watchStatusById.getValue(item.id).state) {
+                    LibraryWatchState.WATCHED -> watchedCount += 1
+                    LibraryWatchState.IN_PROGRESS -> inProgressCount += 1
+                    LibraryWatchState.NEW -> newCount += 1
+                }
+            }
+        }
+        series.id to LibrarySeriesWatchSummary(
+            seriesId = series.id,
+            totalCount = series.episodeCount,
+            watchedCount = watchedCount,
+            inProgressCount = inProgressCount,
+            newCount = newCount,
+        )
+    }
 
 private fun LibraryCatalog.withItems(items: List<LibraryMediaItem>): LibraryCatalog =
     LibraryCatalog(

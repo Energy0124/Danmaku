@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -88,13 +89,16 @@ internal fun TvPosterImage(
         )
         if (url != null) {
             val cacheKey = "${endpoint.baseUrl.trimEnd('/')}|${item.posterPath}|${item.metadataStatus}"
-            AsyncImage(
-                model = ImageRequest.Builder(context)
+            val request = remember(context, url, cacheKey, widthPx, heightPx) {
+                ImageRequest.Builder(context)
                     .data(url)
                     .memoryCacheKey(cacheKey)
                     .diskCacheKey(cacheKey)
                     .size(widthPx, heightPx)
-                    .build(),
+                    .build()
+            }
+            AsyncImage(
+                model = request,
                 imageLoader = LocalTvImageLoader.current,
                 contentDescription = stringResource(
                     R.string.poster_content_description,
