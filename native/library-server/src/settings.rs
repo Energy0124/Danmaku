@@ -70,8 +70,7 @@ impl SettingsStore {
             return Ok(None);
         }
 
-        // The JVM store wraps the full load in runCatching and returns null for
-        // malformed or unsupported snapshots, then rewrites a fresh schema-v1 file.
+        // Malformed or unsupported settings fall back to a fresh schema-v1 file.
         let text = match fs::read_to_string(&self.file) {
             Ok(text) => text,
             Err(_) => return Ok(None),
@@ -146,7 +145,7 @@ pub enum HeadlessDandanplayAuthenticationMode {
 }
 
 impl HeadlessDandanplayAuthenticationMode {
-    pub fn jvm_name(self) -> &'static str {
+    pub fn wire_name(self) -> &'static str {
         match self {
             Self::Signed => "SIGNED",
             Self::Credential => "CREDENTIAL",
@@ -259,7 +258,7 @@ impl From<&HeadlessDandanplayProviderSettings> for DandanplaySettingsSnapshot {
             base_url: settings.base_url.clone(),
             app_id: settings.app_id.clone(),
             has_app_secret: settings.has_app_secret,
-            authentication_mode: settings.authentication_mode.jvm_name().to_owned(),
+            authentication_mode: settings.authentication_mode.wire_name().to_owned(),
             cache_max_age_days: settings.cache_max_age_days,
         }
     }

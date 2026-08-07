@@ -213,7 +213,7 @@ mod tests {
     static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
     #[test]
-    fn acquire_creates_jvm_lock_artifact() {
+    fn acquire_creates_lock_artifact() {
         let temp = temp_dir("danmaku-lock-artifact");
         let lock = DataDirectoryLock::acquire(&temp).expect("lock should acquire");
 

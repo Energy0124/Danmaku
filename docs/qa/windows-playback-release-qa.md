@@ -1,4 +1,8 @@
-# Windows Playback Release QA
+# Windows Playback Release QA (Historical Compose Baseline)
+
+This report records the retired Compose application's 2026-06-22 baseline.
+Current Windows release QA targets the Rust-native package through
+`tools/windows/run-windows-playback-release-qa.ps1`.
 
 Use this checklist before treating Windows desktop playback as release-ready. The automated smoke script proves the libmpv bridge can play one file; this checklist covers the interactive behaviors that depend on hardware, displays, codecs, and real media.
 

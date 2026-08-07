@@ -121,11 +121,9 @@ impl DandanplayCredentials {
         !self.app_id.trim().is_empty() && !self.app_secret.trim().is_empty()
     }
 
-    /// Imports credentials from the same `local.properties` locations the Kotlin
-    /// desktop app reads (`danmaku.dandanplay.appId`/`appSecret`), so a user who
-    /// configured the old app keeps working without re-entering anything. The
-    /// headless sidecar intentionally ignores these files, so the player reads
-    /// them and injects the result explicitly.
+    /// Imports credentials from supported `local.properties` locations using
+    /// `danmaku.dandanplay.appId` and `danmaku.dandanplay.appSecret`. The player
+    /// reads them and injects the result into its managed server process.
     pub fn from_local_properties() -> Option<Self> {
         Self::from_local_properties_at(&local_properties_search_paths())
     }
@@ -167,7 +165,7 @@ impl DandanplayCredentials {
     }
 }
 
-/// The `local.properties` search order the Kotlin desktop app uses.
+/// The supported `local.properties` search order.
 fn local_properties_search_paths() -> Vec<PathBuf> {
     let mut paths = Vec::new();
     if let Ok(cwd) = std::env::current_dir() {

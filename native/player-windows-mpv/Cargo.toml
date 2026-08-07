@@ -2,8 +2,8 @@
 name = "player-windows-mpv"
 version = "0.1.0"
 edition = "2024"
-description = "Dependency-free Windows libmpv loading spike"
+description = "Dependency-free Windows libmpv loader"
 license = "MIT"
 
 [lib]
-crate-type = ["lib", "cdylib"]
+crate-type = ["lib"]

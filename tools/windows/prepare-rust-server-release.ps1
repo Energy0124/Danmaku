@@ -229,23 +229,7 @@ clients over the trusted LAN.
   `server-settings.json` when settings are created.
 - `--web-assets-dir <PATH>`: web UI asset directory. For this package, point
   it at the bundled `web/` directory. Falls back to `DANMAKU_WEB_UI_DIST`.
-- `--web-ui-dist <PATH>`: legacy alias for `--web-assets-dir`.
-- `--import-desktop-catalog <DB_COPY>`: import a read-only copy of the
-  existing desktop SQLite catalog into the Rust server data directory, then
-  exit. Use it with `--data-dir <dir>` and pass a copied database file, not
-  the live desktop database.
 - `--help`: print the current command-line help.
-
-## Desktop Catalog Import
-
-```powershell
-.\library-server.exe --data-dir <dir> --import-desktop-catalog <path-to-library.db-copy>
-```
-
-The importer preserves desktop media ids and merges progress newest-wins for
-the LAN-visible catalog and playback progress. Desktop-only admin data such
-as favorites, provider caches, download queues, and quality decisions is not
-published by the LAN protocol and is not imported.
 
 ## Network Defaults
 

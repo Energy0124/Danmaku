@@ -18,17 +18,17 @@ priorities change.
 
 ## Active Design Work
 
-- [Rust server and Windows player migration plan](design/rust-migration-plan.md)
-- [Home and app shell UI design](design/home-and-app-shell-ui-design.md)
-- [Home and app shell UI tasks](design/home-and-app-shell-ui-tasks.md)
-- [Home and app shell mockup](design/home-and-app-shell-mockup.png)
-- [Desktop UI page mockups and specs](design/desktop-ui-pages/README.md)
 - [Android mobile and TV library UI review](design/android-mobile-tv-library-ui-review.md)
 - [Android TV client rewrite plan](design/android-tv-client-rewrite-plan.md)
 - [Android mobile and TV library UI tasks](design/android-mobile-tv-library-ui-tasks.md)
 - [External anime mapping and tracking tasks](design/external-anime-tracking-tasks.md)
 - [Android mobile library mockup](design/android-mobile-library-mockup.svg)
 - [Android TV library mockup](design/android-tv-library-mockup.svg)
+
+## Completed Design Records
+
+- [Rust server and Windows player migration](design/rust-migration-plan.md)
+- [Server, client, and web UI split](design/server-client-web-ui-split-plan.md)
 
 ## Related Project Files
 

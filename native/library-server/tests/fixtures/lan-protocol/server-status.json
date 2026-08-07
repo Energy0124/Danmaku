@@ -1,0 +1,26 @@
+{
+    "schemaVersion": 1,
+    "name": "server-status",
+    "request": {
+        "method": "GET",
+        "path": "/api/server/status",
+        "headers": {}
+    },
+    "response": {
+        "status": 200,
+        "headers": {
+            "Cache-Control": "no-store",
+            "Content-Length": "71",
+            "Content-Type": "application/json; charset=utf-8"
+        },
+        "body": {
+            "byteLength": 71,
+            "text": "{\"webUiAvailable\":true,\"webUiPath\":\"/web\",\"hostMode\":\"headless-server\"}",
+            "json": {
+                "webUiAvailable": true,
+                "webUiPath": "/web",
+                "hostMode": "headless-server"
+            }
+        }
+    }
+}

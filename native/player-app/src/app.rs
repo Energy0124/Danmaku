@@ -243,8 +243,7 @@ impl PlayerApp {
         let saved_preferences = preferences.clone();
         let credential_store = CredentialStore::for_current_user();
         let mut dandanplay_credentials = credential_store.load();
-        // First run: adopt dandanplay credentials the Kotlin desktop app saved in
-        // local.properties so danmaku works without re-entering them.
+        // Seed the credential store from local.properties when it is present.
         if !dandanplay_credentials.is_complete()
             && let Some(imported) = DandanplayCredentials::from_local_properties()
         {

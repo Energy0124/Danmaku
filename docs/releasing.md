@@ -1,108 +1,32 @@
 # Releasing
 
-Danmaku does not have a stable public release process yet. Current artifacts are
-development outputs built by CI and local scripts.
+Danmaku currently publishes development artifacts through CI. Windows desktop
+is Rust-native; there is no Java/Compose or macOS desktop artifact.
 
-## Artifact Boundaries
+## Artifacts
 
-### Windows Desktop
+### Windows Native Player
 
-- Primary desktop release target.
-- Portable artifact is runtime-free and requires a user-installed Java 17+
-  runtime.
-- The portable artifact includes the app, launcher scripts, the Rust mpv bridge,
-  and the approved pinned LGPL `libmpv-2.dll` dependency.
-- Third-party license text, notices, source provenance, and dependency versions
-  must ship with the artifact.
+The `danmaku-windows-native-player` artifact contains a versioned zip with:
 
-### Rust Native Player
+- `danmaku-player.exe` and `library-server.exe`;
+- bundled `/web/` assets and launcher/background-host scripts;
+- the approved pinned `libmpv-2.dll` and `mpv-probe` verification;
+- project licenses, libmpv provenance, and generated Rust dependency
+  inventories.
 
-- Runtime-free Windows x64 unified player and local-host artifact.
-- Includes `danmaku-player.exe`, `library-server.exe`, built web assets under
-  `web/`, the approved pinned `libmpv-2.dll`, native launcher,
-  project/third-party license texts, libmpv source provenance, and separate
-  Cargo-metadata dependency license inventories for player and server.
-- Package verification checks both executables and the web entry point, checks
-  the approved DLL hash, rejects legacy Java/JNA layout files, exercises both
-  `--help` surfaces, and initializes libmpv through the native probe before
-  creating the versioned zip.
-- CI publishes the zip as `danmaku-rust-native-player` while the Compose
-  compatibility artifact remains available through Phase 4 retirement.
-
-### Rust Library Server
-
-- Standalone Windows headless server artifact for the Rust Phase 1 migration.
-- The artifact serves the existing trusted-LAN HTTP API and UDP discovery
-  protocol for Android mobile, Android TV, and web clients.
-- The package includes `library-server.exe`, bundled web UI assets under
-  `web/`, `LICENSE`, `THIRD_PARTY_NOTICES.md`, `RUST_CRATE_LICENSES.md`, and a
-  package README with CLI flags, importer usage, LAN trust warnings, and
-  port/discovery defaults.
-- The release script builds the Rust binary, builds the Vite web UI, stages the
-  package, runs a generated-fixture smoke check, writes a content manifest, and
-  produces a versioned zip under `build/release/rust-library-server/`.
-
-### Android Mobile And Android TV
-
-- Debug APKs are produced by CI today.
-- Release signing is supported through CI secret environment variables when
-  configured.
-- Android playback depends on Media3 and streams from a trusted desktop LAN
-  server.
-
-### macOS Desktop
-
-- Experimental development artifact only.
-- Uses the shared Compose desktop app and mpv command bridge.
-- Release-ready app packaging and embedded video composition are not complete.
-
-## Local Commands
-
-Windows development shell:
-
-```powershell
-.\run-windows.ps1
-```
-
-Windows portable build/run:
-
-```powershell
-.\run-windows.ps1 -Portable
-```
-
-Prepare Windows portable release without launching through the helper:
-
-```powershell
-cargo build --release -p player-windows-mpv --lib
-.\gradlew.bat --no-daemon :apps:desktop-windows:createDistributable
-.\tools\windows\prepare-windows-release.ps1
-.\tools\windows\verify-windows-mpv-runtime.ps1
-.\tools\windows\run-windows-playback-release-qa.ps1 -WindowsDistributionPath .\apps\desktop-windows\build\release\windows-portable -MediaPath <known-good-media>
-```
-
-Prepare and verify the Rust-native player release:
+Build and verify it locally:
 
 ```powershell
 .\build-rust-player.bat
-```
-
-`build-rust-player.bat` builds the web UI first (running `npm install` when
-`apps\web-ui\node_modules` is missing) and then runs
-`prepare-rust-player-release.ps1`, which already invokes
-`verify-rust-player-release.ps1` before writing the zip.
-
-Launch the packaged player for a manual check with:
-
-```powershell
 .\run-rust-player.bat
 ```
 
-It resolves the most recently built `danmaku-player-*-windows-x64` package under
-`build\release\rust-player`, forwards any player options, and accepts
-`-PackagePath` to pin a specific package.
+The build wrapper prepares the web UI, builds both Rust binaries and
+`mpv-probe`, verifies the package, and writes the zip under
+`build/release/rust-player/`.
 
-Run the release preparation and verification steps individually only when the
-web UI has already been built into `apps\web-ui\dist`:
+Run individual packaging checks only after `apps/web-ui/dist` exists:
 
 ```powershell
 .\tools\windows\prepare-rust-player-release.ps1
@@ -111,51 +35,41 @@ web UI has already been built into `apps\web-ui\dist`:
   -ProbeExecutable .\target\release\mpv-probe.exe
 ```
 
-The generic `verify-windows-mpv-runtime.ps1`,
-`smoke-windows-playback.ps1`, and `run-windows-playback-release-qa.ps1`
-auto-detect the Rust-native package layout. Launching the packaged player
-without direct-media arguments offers first-run local-folder setup and then
-starts/connects the sibling server automatically. Playback smoke and the media
-matrix launch the GUI and remain supervised checks.
+Supervised playback QA requires known-good local media and launches the GUI:
 
-Prepare the standalone Rust headless server release:
+```powershell
+.\tools\windows\run-windows-playback-release-qa.ps1 `
+  -DistributionPath .\build\release\rust-player\danmaku-player-0.1.0-windows-x64 `
+  -MediaPath <known-good-media>
+```
+
+### Standalone Rust Server
+
+The `danmaku-rust-library-server` artifact contains `library-server.exe`, web
+assets, licenses, a dependency inventory, and a generated package manifest.
 
 ```powershell
 .\tools\windows\prepare-rust-server-release.ps1
-```
-
-The packaged server runs as:
-
-```powershell
 .\library-server.exe --data-dir <dir> --root <folder> --web-assets-dir .\web
 ```
 
-Use `--import-desktop-catalog <db-copy>` with `--data-dir <dir>` to import a
-read-only copy of the existing desktop catalog into the Rust server data
-directory, then exit. Do not point the importer at the live desktop database.
+There is no legacy desktop database import. Configure roots and rescan into a
+new Rust data directory.
 
-Android debug artifacts:
+### Android
 
-```powershell
-.\gradlew.bat --no-daemon :apps:android-mobile:assembleDebug :apps:android-tv:assembleDebug
-```
-
-macOS development build:
-
-```bash
-./run-macos.sh
-```
+CI publishes Android mobile and TV debug APKs. Release signing uses the
+configured CI secrets when present. Android artifacts consume the trusted-LAN
+server and use Media3 for playback.
 
 ## Release Checklist
 
-- `[ ]` Run CI-equivalent Gradle, Rust, and Worker proxy checks.
-- `[ ]` Verify the pinned libmpv bundle hash and license/source provenance.
-- `[ ]` Build the standalone Rust library server zip and verify the packaged
-  smoke check passes.
-- `[ ]` Build and non-interactively verify the Rust native player zip.
-- `[ ]` Run supervised Windows playback release QA automation against the Rust
-  player with representative real media.
-- `[ ]` Validate Windows fullscreen, resize, aspect, and hardware decoding manually.
-- `[ ]` Validate Android mobile and TV streaming against a Windows host.
-- `[ ]` Confirm no local SDK paths, provider credentials, pairing tokens, or
-  generated build output are included.
+- `[ ]` Run CI-equivalent Rust, Gradle, web, and Worker checks.
+- `[ ]` Verify the pinned libmpv hashes, license texts, and source provenance.
+- `[ ]` Build and verify the standalone server and unified Windows zips.
+- `[ ]` Run supervised Windows playback against representative real media.
+- `[ ]` Validate fullscreen, resizing, hardware decoding, resume, and the
+  optional background host manually.
+- `[ ]` Validate Android mobile and TV streaming against the Rust host.
+- `[ ]` Confirm no credentials, pairing tokens, local SDK paths, or generated
+  build output are included.

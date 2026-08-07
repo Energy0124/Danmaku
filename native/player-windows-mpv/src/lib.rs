@@ -13,14 +13,6 @@ pub use locator::{
 
 mod windows;
 
-mod ffi;
-
-pub use ffi::{
-    DanmakuMpv, DanmakuMpvStatus, danmaku_mpv_command, danmaku_mpv_create,
-    danmaku_mpv_create_with_options, danmaku_mpv_destroy, danmaku_mpv_osd_overlay,
-    danmaku_mpv_status_ok,
-};
-
 pub use windows::{
     LibraryLoadError, MPV_RENDER_API_TYPE_OPENGL, MPV_RENDER_PARAM_API_TYPE,
     MPV_RENDER_PARAM_FLIP_Y, MPV_RENDER_PARAM_INVALID, MPV_RENDER_PARAM_OPENGL_FBO,

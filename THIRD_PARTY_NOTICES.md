@@ -43,17 +43,9 @@ libmpv, FFmpeg, or their bundled dependencies.
 
 ## Application Dependencies
 
-Danmaku also uses third-party libraries including Kotlin, Compose
-Multiplatform, AndroidX Media3, SQLDelight, SQLite JDBC, JNA, kotlinx
-serialization, and kotlinx coroutines. Their source archives and license texts
-are distributed by their respective upstream projects and package
-repositories. The current distributable dependency graphs are validated as
-Apache License 2.0 dependencies. Release artifacts include the full Apache
-License 2.0 text and a generated dependency inventory with exact versions.
+Danmaku also uses third-party libraries including Rust crates, Kotlin, AndroidX
+Compose, AndroidX Media3, kotlinx serialization, and kotlinx coroutines. Their
+source archives and license texts are distributed by their respective upstream
+projects and package repositories. Release artifacts include applicable
+license texts and generated dependency inventories with exact versions.
 Nothing in Danmaku's MIT License replaces those terms.
-
-## Windows Java Runtime
-
-The runtime-free Windows desktop release does not include Java. Users must
-install Java 17 or newer separately and accept that runtime's license. Danmaku
-does not relicense or redistribute the user's Java runtime.

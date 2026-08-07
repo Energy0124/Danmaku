@@ -1,54 +1,46 @@
-# Remote And Headless Packaging QA
+# Native Player And Headless Server Packaging QA
 
-Use this checklist to validate the server/client split against the default desktop-owned Rust sidecar workflow.
+Use this checklist to validate the Rust server/player split. GUI, real-media,
+real-library, emulator, and live-provider steps require explicit supervision.
 
 ## Automated Gates
 
 ```powershell
 .\tools\windows\run-headless-web-ui-qa.ps1
-.\tools\windows\run-headless-web-ui-qa.ps1 -RustServer
-.\tools\windows\run-embedded-web-ui-qa.ps1
+.\build-rust-player.bat
+.\tools\windows\prepare-rust-server-release.ps1
 ```
 
-The headless gate proves the standalone JVM host, or the Rust host when
-`-RustServer` is supplied, can serve `/web/`, catalog, media, subtitles,
-progress, provider readiness, provider search, external list controls, cached
-catalog startup, and persisted progress. The desktop-sidecar gate proves the
-Windows desktop launches the Rust host and serves the same web/client surface
-while using isolated app data.
+The headless gate builds the web UI, starts an isolated fixture-backed Rust
+server, verifies status/catalog/media/subtitle/progress/provider routes,
+restarts it to prove persisted catalog/progress behavior, and optionally runs
+the Chrome/Edge interaction probe.
 
-## Headless Server Checks
+## Server Checks
 
-- Launch with explicit `--data-dir`, `--root`, `--port`, `--pairing-token`,
-  and `--web-assets-dir`; use `-RustServer` to run the same checks against
-  the Rust binary.
-- Verify `server-settings.json`, stable pairing token, catalog snapshot, progress, and lock file live under the data directory.
-- Attempt a second host with the same data directory and verify locking prevents concurrent writes.
-- Restart without explicit roots and verify cached catalog/progress readback still works.
-- Confirm logs and reports do not contain provider secrets or pairing tokens beyond the intended QA token.
+- Launch with explicit `--data-dir`, `--root`, `--port`, `--pairing-token`, and
+  `--web-assets-dir`.
+- Verify settings, catalog, progress, tracking state, and the lock remain under
+  the data directory.
+- Verify a second process cannot write the same data directory.
+- Restart without CLI roots and confirm saved roots/catalog/progress load.
+- Confirm logs and reports redact credentials, pairing tokens, and signed URLs.
 
-## Desktop Sidecar Checks
+## Player Checks
 
-- Launch desktop with `--server-port`, `--server-pairing-token`, `--web-assets-dir`, and `--qa-library-root` against isolated `LOCALAPPDATA`.
-- Verify `/api/server/status` reports `headless-server` and `webUiAvailable=true`.
-- Verify `/web/` loads, catalog item count is non-zero, media HEAD works, and progress read/write works.
-- Run browser interaction QA against the sidecar URL and pairing token.
-- Relaunch without QA flags only after confirming the normal user profile is not touched by the isolated run.
+- Launch without arguments, select a root, and verify the packaged server is
+  started and connected without blocking the UI.
+- Verify the player stops only a server process it owns.
+- Install the optional background host and verify the player attaches without
+  exposing child-process controls.
+- Connect to another LAN server manually and through discovery.
+- Play local and remote catalog items and verify resume/progress round trips.
 
-## Remote Client Checks
+## Package Checks
 
-- Launch headless server first, then launch desktop with `--remote-server-url` and `--remote-pairing-token`.
-- Verify the desktop opens the Library tab and auto-loads the remote catalog when a token is supplied.
-- Start remote playback from the desktop remote browser and verify libmpv receives the LAN media URL.
-- Repeat the same connection from Android mobile and Android TV where devices/emulators are available.
-
-## Packaging Checks
-
-- Prepare the Windows portable release.
-- Verify the release contains the launcher, app directory, Rust library-server
-  sidecar, mpv bridge, approved libmpv DLL, dependency installer, license files,
-  and third-party notices.
-- Verify the release does not contain local SDK paths, generated QA reports,
-  provider credentials, or downloaded media.
-- Run the packaged app once with its bundled Rust sidecar and once as remote
-  client.
+- Verify the native zip contains the player, server, web assets, pinned libmpv,
+  launch/background scripts, licenses, provenance, and dependency inventories.
+- Verify no Java runtime, application JARs, JVM bridge DLL, credentials, SDK
+  paths, generated QA reports, or downloaded media are present.
+- Run the native `--help`, server `--help`, background-host PlanOnly, libmpv
+  probe, and supervised real-media smoke paths.

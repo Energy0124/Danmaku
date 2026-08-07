@@ -28,8 +28,7 @@ impl CatalogStore {
             return Ok(None);
         }
 
-        // The JVM store returns null for malformed or unsupported catalog
-        // snapshots. Keep that behavior so a bad cache does not block startup.
+        // A malformed or unsupported cache must not block a fresh scan.
         let text = match fs::read_to_string(&self.file) {
             Ok(text) => text,
             Err(_) => return Ok(None),
@@ -546,7 +545,7 @@ mod tests {
 
     fn golden_catalog_json() -> Value {
         let fixture = serde_json::from_str::<Value>(include_str!(
-            "../../../shared/library-server-core/src/jvmTest/resources/lan-protocol-fixtures/catalog.json"
+            "../tests/fixtures/lan-protocol/catalog.json"
         ))
         .expect("fixture should parse");
         fixture["response"]["body"]["json"].clone()

@@ -42,7 +42,6 @@ use crate::tracking::{
 };
 
 const WEBHOOK_TOKEN_HEADER: &str = "X-Danmaku-Webhook-Token";
-const HOST_MODE_EMBEDDED_DESKTOP: &str = "embedded-desktop";
 pub const HOST_MODE_HEADLESS_SERVER: &str = "headless-server";
 
 #[derive(Debug, Clone)]
@@ -85,10 +84,10 @@ impl HttpServerConfig {
     }
 
     #[cfg(test)]
-    fn fixture_embedded(web_assets_root: PathBuf) -> Self {
+    fn fixture(web_assets_root: PathBuf) -> Self {
         Self {
             web_assets_root: Some(web_assets_root),
-            host_mode: HOST_MODE_EMBEDDED_DESKTOP.to_owned(),
+            host_mode: HOST_MODE_HEADLESS_SERVER.to_owned(),
             provider_settings: None,
             provider_runtime_status: None,
             external_provider_service: None,
@@ -722,7 +721,7 @@ fn handle_catalog(state: &HttpServerState, method: &Method) -> Response<Body> {
     };
     let enriched = store.enrich_catalog(&library.catalog);
     // Best-effort retry for items that were recognized but never got a
-    // poster cached — the local server can be hard-killed (the desktop host
+    // poster cached — the local server can be hard-killed (the native player
     // stops its managed sidecar with a process kill, not a graceful signal)
     // mid-download, so a one-shot fetch on recognition alone can be lost with
     // no other retry. Retrying here piggybacks on every catalog read instead.
@@ -2119,7 +2118,6 @@ struct LanLibraryServerStatus {
     web_ui_available: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     web_ui_path: Option<String>,
-    #[serde(skip_serializing_if = "is_embedded_host_mode")]
     host_mode: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     provider_settings: Option<LanProviderSettingsStatus>,
@@ -2144,7 +2142,7 @@ impl Default for LanLibraryServerStatus {
             trusted_device_management: false,
             web_ui_available: false,
             web_ui_path: None,
-            host_mode: HOST_MODE_EMBEDDED_DESKTOP.to_owned(),
+            host_mode: HOST_MODE_HEADLESS_SERVER.to_owned(),
             provider_settings: None,
             scanning: false,
             scan_files_seen: None,
@@ -2172,7 +2170,7 @@ impl From<&HeadlessServerSettings> for LanProviderSettingsStatus {
                     settings
                         .dandanplay
                         .authentication_mode
-                        .jvm_name()
+                        .wire_name()
                         .to_owned(),
                 ),
                 cache_max_age_days: Some(settings.dandanplay.cache_max_age_days),
@@ -2253,10 +2251,6 @@ fn is_true(value: &bool) -> bool {
     *value
 }
 
-fn is_embedded_host_mode(value: &String) -> bool {
-    value == HOST_MODE_EMBEDDED_DESKTOP
-}
-
 #[cfg(test)]
 mod tests {
     use std::fs;
@@ -2293,7 +2287,7 @@ mod tests {
     static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
     #[tokio::test]
-    async fn core_lan_protocol_http_fixtures_match_kotlin() {
+    async fn lan_protocol_http_fixtures_match_contract() {
         let fixture = FixtureEnvironment::new();
         let progress_store = Arc::new(PlaybackProgressStore::new(
             fixture.temp.join("progress.json"),
@@ -2301,7 +2295,7 @@ mod tests {
         let state = HttpServerState::new(
             fixture.library.clone(),
             progress_store,
-            HttpServerConfig::fixture_embedded(fixture.web_root.clone()),
+            HttpServerConfig::fixture(fixture.web_root.clone()),
         );
         let app = app(state);
 
@@ -2329,7 +2323,7 @@ mod tests {
         let state = HttpServerState::new(
             fixture.library.clone(),
             progress_store,
-            HttpServerConfig::fixture_embedded(fixture.web_root.clone()),
+            HttpServerConfig::fixture(fixture.web_root.clone()),
         );
         let document = request_json(&app(state), "/api/library/attention").await;
 
@@ -2729,7 +2723,7 @@ mod tests {
 
         // Simulates a real failure mode found in production data: the local
         // server is hard-killed (not gracefully shut down) whenever the
-        // desktop host stops its managed sidecar, so a recognition's
+        // native player stops its managed sidecar, so a recognition's
         // fire-and-forget poster fetch can be lost with the identity already
         // recorded — here reproduced by recording the identity directly,
         // bypassing the danmaku route the initial fetch would have used.
@@ -3553,7 +3547,7 @@ mod tests {
             Arc::new(PlaybackProgressStore::new(
                 fixture.temp.join("mpv-range-progress.json"),
             )),
-            HttpServerConfig::fixture_embedded(fixture.web_root.clone()),
+            HttpServerConfig::fixture(fixture.web_root.clone()),
         );
         let app = app(state);
 
@@ -4365,14 +4359,9 @@ mod tests {
 
     fn read_fixture(file_name: &str) -> Value {
         let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("..")
-            .join("..")
-            .join("shared")
-            .join("library-server-core")
-            .join("src")
-            .join("jvmTest")
-            .join("resources")
-            .join("lan-protocol-fixtures")
+            .join("tests")
+            .join("fixtures")
+            .join("lan-protocol")
             .join(file_name);
         serde_json::from_str(&fs::read_to_string(&path).expect("fixture should read"))
             .unwrap_or_else(|error| panic!("fixture {} should parse: {error}", path.display()))
@@ -4397,7 +4386,7 @@ mod tests {
     }
 
     #[test]
-    fn fixture_status_keeps_embedded_defaults_omitted() {
+    fn fixture_status_reports_the_only_supported_host_mode() {
         let status = LanLibraryServerStatus {
             web_ui_available: true,
             web_ui_path: Some("/web".to_owned()),
@@ -4406,7 +4395,8 @@ mod tests {
         assert_eq!(
             json!({
                 "webUiAvailable": true,
-                "webUiPath": "/web"
+                "webUiPath": "/web",
+                "hostMode": "headless-server"
             }),
             serde_json::to_value(status).expect("status")
         );

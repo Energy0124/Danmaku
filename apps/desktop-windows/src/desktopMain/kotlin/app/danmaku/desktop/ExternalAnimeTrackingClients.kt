@@ -1,9 +1,0 @@
-package app.danmaku.desktop
-
-typealias BangumiTrackingClient = app.danmaku.provider.external.BangumiTrackingClient
-typealias BangumiTrackingConnection = app.danmaku.provider.external.BangumiTrackingConnection
-typealias ExternalAnimeHttpPatch = app.danmaku.provider.external.ExternalAnimeHttpPatch
-typealias ExternalAnimeProviderException = app.danmaku.provider.external.ExternalAnimeProviderException
-typealias ExternalAnimeTrackingClient = app.danmaku.provider.external.ExternalAnimeTrackingClient
-typealias MyAnimeListTrackingClient = app.danmaku.provider.external.MyAnimeListTrackingClient
-typealias MyAnimeListTrackingConnection = app.danmaku.provider.external.MyAnimeListTrackingConnection

@@ -81,7 +81,7 @@ export function App() {
       setProviderRuntime(runtime);
       setSelectedId((current) => current ?? snapshot.catalog.items[0]?.id ?? null);
       setMessage(
-        `${snapshot.status.appName} ${snapshot.status.hostMode ?? "embedded-desktop"}: ` +
+        `${snapshot.status.appName} ${snapshot.status.hostMode ?? "headless-server"}: ` +
           `${snapshot.catalog.items.length} media items`
       );
     } catch (error) {

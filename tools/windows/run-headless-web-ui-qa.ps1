@@ -1,14 +1,12 @@
 <#
 .SYNOPSIS
-Runs the repeatable headless web UI QA gate against the JVM headless server by
-default, or against the Rust library server when -RustServer is supplied.
+Runs the repeatable headless web UI QA gate against the Rust library server.
 #>
 [CmdletBinding()]
 param(
     [int]$Port = 18686,
     [string]$PairingToken = "123456",
     [string]$OutputDir,
-    [switch]$RustServer,
     [switch]$SkipBrowserInteractionQa
 )
 
@@ -26,9 +24,7 @@ $reportPath = Join-Path $OutputDir "headless-web-ui-qa.md"
 $webUiDir = Join-Path $repoRoot "apps\web-ui"
 $webDist = Join-Path $webUiDir "dist"
 $browserQaScript = Join-Path $webUiDir "scripts\check-browser-interactions.mjs"
-$gradle = Join-Path $repoRoot "gradlew.bat"
 $rustServerExe = $null
-$hostImplementation = if ($RustServer) { "Rust library-server" } else { "JVM apps:library-server-windows" }
 
 # Keep this fixture gate deterministic and prevent ignored local.properties or
 # user-level provider credentials from leaking into the isolated host.
@@ -209,30 +205,12 @@ function New-HeadlessServerCliArguments {
     $arguments
 }
 
-function New-GradleRunArguments {
-    param([string[]]$ServerArguments)
-
-    @(
-        "--no-daemon",
-        ":apps:library-server-windows:run",
-        "--args=`"$($ServerArguments -join " ")`""
-    )
-}
-
 function Start-HeadlessServer {
     param([string[]]$ServerArguments)
 
-    if ($RustServer) {
-        return Start-Process -FilePath $rustServerExe -ArgumentList $ServerArguments -WorkingDirectory $repoRoot -PassThru -WindowStyle Hidden
-    }
-
-    $gradleArguments = New-GradleRunArguments -ServerArguments $ServerArguments
-    Start-Process -FilePath $gradle -ArgumentList $gradleArguments -WorkingDirectory $repoRoot -PassThru -WindowStyle Hidden
+    Start-Process -FilePath $rustServerExe -ArgumentList $ServerArguments -WorkingDirectory $repoRoot -PassThru -WindowStyle Hidden
 }
 
-if (-not $RustServer -and -not (Test-Path -LiteralPath $gradle -PathType Leaf)) {
-    throw "Gradle wrapper does not exist: $gradle"
-}
 if (-not (Test-Path -LiteralPath (Join-Path $webUiDir "package.json") -PathType Leaf)) {
     throw "Web UI package does not exist: $webUiDir"
 }
@@ -263,17 +241,15 @@ try {
     Pop-Location
 }
 
-if ($RustServer) {
-    Push-Location $repoRoot
-    try {
-        Invoke-RequiredCommand -Command { cargo build --release -p library-server } -FailureMessage "Rust library server build failed."
-    } finally {
-        Pop-Location
-    }
-    $rustServerExe = Get-RustLibraryServerExecutable
-    if (-not (Test-Path -LiteralPath $rustServerExe -PathType Leaf)) {
-        throw "Rust library server executable does not exist after build: $rustServerExe"
-    }
+Push-Location $repoRoot
+try {
+    Invoke-RequiredCommand -Command { cargo build --release -p library-server } -FailureMessage "Rust library server build failed."
+} finally {
+    Pop-Location
+}
+$rustServerExe = Get-RustLibraryServerExecutable
+if (-not (Test-Path -LiteralPath $rustServerExe -PathType Leaf)) {
+    throw "Rust library server executable does not exist after build: $rustServerExe"
 }
 
 $firstStartArguments = New-HeadlessServerCliArguments -IncludeRoot -IncludePairingToken -QuotePathValues
@@ -384,7 +360,7 @@ try {
     $report = @(
         "# Headless Web UI QA",
         "",
-        "- Host implementation: $hostImplementation",
+        "- Host implementation: Rust library-server",
         "- Base URL: $baseUrl",
         "- Web UI: $baseUrl/web/",
         "- Catalog items: $($catalog.items.Count)",

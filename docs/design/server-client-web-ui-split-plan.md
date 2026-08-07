@@ -1,4 +1,8 @@
-# Server, Client, And Web UI Split Plan
+# Server, Client, And Web UI Split Plan (Completed Historical Record)
+
+This document records the migration sequence. Current architecture and backlog
+live in `docs/architecture.md` and `docs/tasks.md`; referenced JVM/Compose
+components have been retired.
 
 Last updated: 2026-06-22.
 
