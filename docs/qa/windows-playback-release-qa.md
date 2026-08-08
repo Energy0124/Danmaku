@@ -1,15 +1,15 @@
-# Windows Playback Release QA (Historical Compose Baseline)
+# Windows Playback Release QA
 
-This report records the retired Compose application's 2026-06-22 baseline.
 Current Windows release QA targets the Rust-native package through
-`tools/windows/run-windows-playback-release-qa.ps1`.
+`tools/windows/run-windows-playback-release-qa.ps1`. Historical Compose results
+later in this document are retained only as prior validation records.
 
 Use this checklist before treating Windows desktop playback as release-ready. The automated smoke script proves the libmpv bridge can play one file; this checklist covers the interactive behaviors that depend on hardware, displays, codecs, and real media.
 
 ## Prerequisites
 
-- Build either the Rust-native player package or the Compose compatibility
-  distributable. Both must contain the pinned libmpv dependency.
+- Build the Rust-native player package. It must contain the pinned libmpv
+  dependency.
 - Have at least one 1080p H.264 file, one 4K file, one HEVC or AV1 file if available, and one file with sidecar subtitles.
 - Use a machine with hardware decoding support and, when available, a second display.
 
@@ -20,19 +20,24 @@ representative media file available for the pass:
 
 ```powershell
 .\tools\windows\run-windows-playback-release-qa.ps1 `
-  -WindowsDistributionPath <windows-portable-path> `
+  -DistributionPath <rust-player-package-path> `
   -MediaPath <1080p-media>,<4k-media>,<hevc-or-av1-media>,<sidecar-subtitle-media>
 ```
 
-The runner auto-detects a root-level Rust package (`danmaku-player.exe` plus
-`libmpv-2.dll`) or the legacy Compose layout. It calls
-`verify-windows-mpv-runtime.ps1` and `smoke-windows-playback.ps1`, then writes
+Omit `-DistributionPath` to use the newest packaged Rust player under
+`build/release/rust-player/`. The runner calls
+`verify-rust-player-release.ps1` and `smoke-windows-playback.ps1`, then writes
 `build/qa/windows-playback/windows-playback-release-qa.md`. Use the lower-level
 commands directly only when debugging one failed step.
 
 ```powershell
-.\tools\windows\verify-windows-mpv-runtime.ps1 -WindowsDistributionPath <windows-portable-path>
-.\tools\windows\smoke-windows-playback.ps1 -WindowsDistributionPath <windows-portable-path> -MediaPath <known-good-media>
+.\tools\windows\verify-rust-player-release.ps1 `
+  -WindowsDistributionPath <rust-player-package-path>
+
+.\tools\windows\smoke-windows-playback.ps1 `
+  -DistributionPath <rust-player-package-path> `
+  -MediaPath <known-good-media> `
+  -Seconds 10
 ```
 
 ## Rust-Native M5 Pass
