@@ -1,77 +1,55 @@
 # Roadmap
 
-The roadmap is ordered by product dependency, not by platform parity. Windows,
-Android mobile/tablet, and Android TV stay first-class until the core local
-library and playback workflows are stable.
+Windows, Android mobile/tablet, and Android TV are the first-class targets.
+macOS and other platforms are deferred until those workflows are dependable.
 
-## Phase 1 - Windows Local Playback Foundation
+## 1. Native Windows Release Quality
 
-Status: mostly implemented, broader QA still needed.
+Status: implemented vertical slice; broader manual QA remains.
 
-- Keep libmpv playback stable through the Rust/JNA bridge.
-- Preserve the embedded Windows video host and compact playback controls.
-- Keep local library play/resume and progress persistence reliable.
-- Validate fullscreen, resize, aspect ratio, 4K media, hardware decoding, and
-  multi-display behavior.
+- Keep the unified Rust player/server package reproducible.
+- Validate fullscreen, resize, aspect ratio, hardware decoding, 4K playback,
+  multiple displays, resume, and background-host ownership.
+- Improve startup, catalog, playback, and failure diagnostics without adding a
+  second desktop runtime.
 
-## Phase 2 - Local Library And Trusted LAN Streaming
+## 2. Trusted-LAN Client Reliability
 
-Status: implemented vertical slice, continuing UI and QA polish.
+Status: implemented; continuing QA and polish.
 
-- Maintain multi-root indexing and incremental rescans.
-- Keep the desktop library server, pairing, byte-range streaming, subtitle
-  streaming, poster serving, progress API, and discovery stable.
-- Keep Android mobile and TV browsing/streaming/progress upload working against
-  the Windows host.
-- Maintain the rewritten Android TV media-first, cached-first, remote-native
-  consumer experience on Compose for TV, Media3, and the current LAN/domain
-  boundaries. Keep its focus, cache, danmaku, screenshot, and Macrobenchmark
-  gates green; implementation is recorded in
-  `docs/design/android-tv-client-rewrite-plan.md`.
-- Finish mobile/tablet viewport QA and complete the deferred replacement-TV
-  qualification on one budget-class physical device with real LAN playback.
+- Keep catalog, streaming, subtitles, posters, discovery, and progress stable.
+- Complete mobile/tablet viewport QA and replacement-class physical TV QA.
+- Keep Android TV focus, cache, danmaku, screenshot, and Macrobenchmark gates
+  green.
 
-## Phase 3 - Danmaku Overlay And Metadata Quality
+## 3. Danmaku And Metadata Quality
 
-Status: dandanplay overlay/cache path implemented; more controls remain.
+Status: core provider/cache path implemented.
 
-- Improve danmaku filtering, offset controls, styling controls, and playback
-  clock behavior.
-- Keep cached dandanplay match/comment behavior explainable and repairable in
-  UI; the Rust client now exposes focused attention status and safe queued
-  repair, while broader quality-scanner administration is not a release gate.
-- Continue improving matched anime metadata, poster freshness, and file-vs-anime
-  title clarity.
+- Add richer filtering, offset, density, style, and per-series preferences.
+- Keep unmatched/stale/conflicting provider state explainable and repairable.
+- Improve metadata, poster freshness, alternate titles, and episode ordering.
 
-## Phase 4 - External Anime Mapping And Tracking
+## 4. External Tracking
 
-Status: implementation complete enough for live manual QA.
+Status: implementation ready for approved live-account QA.
 
-- Complete live MyAnimeList and Bangumi account QA.
-- Confirm conflicts, retry/failure messaging, and relaunch behavior.
-- Decide whether external sync failures should persist across relaunches or
-  remain session-only.
+- Validate MyAnimeList and Bangumi read/write flows with real accounts.
+- Confirm conflict, retry, failure, and relaunch behavior.
+- Keep every write previewed and explicitly acknowledged.
 
-## Phase 5 - Authorized Download Manager
+## 5. Authorized Downloads
 
-Status: queue storage and shell surfaces exist; download engine is not
-implemented.
+Status: not implemented in the active applications.
 
-- Define authorized source contracts.
+- Define authorized source contracts before adding an engine.
 - Implement queue execution, pause/resume, retry, cache management, and
-  diagnostics.
-- Integrate ani-rss completed output and future provider plugins without
-  bypassing authorization or service terms.
+  diagnostics without DRM circumvention or unauthorized search behavior.
 
-## Phase 6 - Packaging And Platform Expansion
+## 6. Platform Expansion
 
-Status: Windows packaging exists; macOS is experimental.
+Status: deferred.
 
-- Keep the runtime-free Windows portable artifact reproducible, including the
-  optional per-user Task Scheduler background host and its non-mutating package
-  verification.
-- Re-audit the pinned libmpv dependency before changing producer artifacts or
-  hashes.
-- Promote macOS only after embedded video and packaging are release-ready.
-- Consider Linux/iOS/iPadOS/web only after first-class target workflows are
-  dependable.
+- Re-audit the pinned libmpv dependency before changing its producer or hash.
+- Consider macOS, Linux, iOS/iPadOS, and broader web delivery only after the
+  first-class release gates pass.

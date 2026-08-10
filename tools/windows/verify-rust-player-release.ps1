@@ -62,8 +62,7 @@ if ($actualDllHash -ne $manifest.dllSha256) {
 
 foreach ($forbiddenPath in @(
     (Join-Path $distributionPath "runtime"),
-    (Join-Path $distributionPath "app"),
-    (Join-Path $distributionPath "player_windows_mpv.dll")
+    (Join-Path $distributionPath "app")
 )) {
     if (Test-Path -LiteralPath $forbiddenPath) {
         throw "Rust-native release must not contain legacy runtime path: $forbiddenPath"

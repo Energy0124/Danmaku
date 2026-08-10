@@ -146,8 +146,7 @@ function Write-PackageReadme {
 # Danmaku Native Player __VERSION__
 
 This package contains the unified Rust-native Danmaku Windows player and local
-library server. It is runtime free: Java and the legacy JNA mpv bridge are not
-required.
+library server. It requires no Java runtime.
 
 ## Run
 

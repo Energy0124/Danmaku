@@ -135,7 +135,7 @@ impl ProviderSummary {
             "Provider settings: dandanplay(appIdConfigured={}; appSecretConfigured={}; authMode={}; cacheMaxAgeDays={}); externalAnime(malClientIdConfigured={}; malClientSecretConfigured={}; malAccessTokenConfigured={}; bangumiAccessTokenConfigured={})",
             self.dandanplay_app_id_configured,
             self.dandanplay_app_secret_configured,
-            self.dandanplay_authentication_mode.jvm_name(),
+            self.dandanplay_authentication_mode.wire_name(),
             self.dandanplay_cache_max_age_days,
             self.mal_client_id_configured,
             self.mal_client_secret_configured,
@@ -178,7 +178,6 @@ mod tests {
             port: 8686,
             pairing_token: Some("123456".to_owned()),
             web_assets_root: Some(PathBuf::from("apps/web-ui/dist")),
-            import_desktop_catalog: None,
         };
         let settings = HeadlessServerSettings {
             pairing_token: "123456".to_owned(),

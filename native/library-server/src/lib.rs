@@ -3,7 +3,6 @@ pub mod catalog;
 pub mod catalog_metadata;
 pub mod cli;
 pub mod dandanplay;
-pub mod desktop_import;
 pub mod discovery;
 pub mod domain;
 pub mod external_provider;
@@ -96,7 +95,6 @@ mod tests {
             port: 0,
             pairing_token: Some("123456".to_owned()),
             web_assets_root: None,
-            import_desktop_catalog: None,
         })
         .expect("startup should load");
 

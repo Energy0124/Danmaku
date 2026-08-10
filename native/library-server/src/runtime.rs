@@ -282,7 +282,6 @@ mod tests {
             port: 0,
             pairing_token: Some("123456".to_owned()),
             web_assets_root: None,
-            import_desktop_catalog: None,
         })
         .expect("server loads");
         let bound = loaded.bind().await.expect("server binds");

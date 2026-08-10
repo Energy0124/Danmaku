@@ -1,12 +1,8 @@
 # LAN Protocol
 
-This document freezes the trusted-LAN wire contract implemented today by
-`shared/library-server-core` and `apps/library-server-windows`. It records
-current behavior, including quirks, for the Rust server migration.
-
-The HTTP server is `com.sun.net.httpserver.HttpServer`. Routes are registered
-as prefix contexts, so some handlers accept paths beyond the literal route
-when they do not perform their own exact path check.
+This document defines the trusted-LAN wire contract implemented by
+`native/library-server` and consumed by the Android, Windows, and web clients.
+The Rust server and its fixtures are authoritative for server behavior.
 
 ## Version Policy
 
@@ -14,24 +10,21 @@ when they do not perform their own exact path check.
 - The current API version is `1`.
 - UDP discovery uses `LanLibraryServerAnnouncement.version`.
 - The current discovery version is `1`.
-- The Rust server may add fields that old clients can ignore.
+- The server may add fields that old clients can ignore.
 - Incompatible route, body, status, or media behavior requires a version
-  bump. The Rust migration must not need one.
+  bump.
 
 ## Shared Encoding
 
 - JSON is UTF-8.
-- Core server JSON responses use `Json.encodeToString` with default
-  `kotlinx.serialization` settings. Default-valued fields are omitted.
-- Headless provider hook JSON uses `Json { encodeDefaults = true }`.
-- Core `sendStatus` errors have no response body and no JSON error envelope.
+- Server JSON uses serde camel-case field names. Fields marked optional or
+  default are omitted according to the route's response contract.
+- Simple status errors have no JSON envelope unless a route documents one.
 - Public hook validation errors are `text/plain; charset=utf-8` bodies with
   `Cache-Control: no-store`.
-- Pairing-token route auth is not enforced today. `LocalLibraryServer`
-  stores and persists a pairing token, but `HttpExchange.isAuthorized()`
-  currently returns `true` for all core catalog, media, subtitle, poster,
-  danmaku, and progress routes. `LanLibraryServerStatus.pairingRequired`
-  is always `false`.
+- Pairing-token route auth is not enforced today. The server stores a pairing
+  token, but catalog, media, subtitle, poster, danmaku, and progress routes
+  remain available on the trusted LAN. `pairingRequired` is therefore false.
 - `AuthenticatedPostHook` token auth is separate from pairing. It uses
   `X-Danmaku-Webhook-Token`.
 
@@ -55,23 +48,18 @@ Body shape:
   "trustedDeviceManagement": false,
   "webUiAvailable": false,
   "webUiPath": null,
-  "hostMode": "embedded-desktop",
+  "hostMode": "headless-server",
   "providerSettings": null
 }
 ```
 
-Default fields are omitted on the wire. An embedded server with default
-status currently emits `{}`. A web-enabled server emits only the changed
-web fields. The headless server sets `hostMode` to `headless-server` and
-may include `providerSettings`.
+Default fields are omitted on the wire except `hostMode`, which is always
+`headless-server`. A configured server may include web and provider fields.
 
 Status codes:
 
 - `200`: status returned.
 - `405`: method is not `GET`; empty body.
-
-Quirk: the handler does not check the exact path, so the `/api/server/status`
-context can answer prefix-matched paths the JDK server routes to it.
 
 ### `GET /api/library`
 
@@ -373,7 +361,7 @@ subtitle extensions, and probed fallback.
 
 ## Hook Routes
 
-Hook routes are configured by the embedding host. The core server provides
+Hook routes are configured by the Rust host. The server provides
 the dispatch behavior; the Windows headless server installs provider hooks.
 
 ### `POST /api/hooks/...`
@@ -425,10 +413,9 @@ Status codes:
 - `500`: hook callback threw; `text/plain; charset=utf-8` body
   `Request failed.`
 
-## Headless Provider Hook Routes
+## Provider Administration Routes
 
-These are installed by `apps/library-server-windows` on top of the core
-public hook dispatch. They do not require pairing-token auth.
+These routes are implemented by `native/library-server`.
 
 ### `GET|PUT /api/providers/settings`
 
@@ -454,7 +441,7 @@ Status codes:
 - `200`: settings read or saved; response is always secret-redacted.
 - `400`: malformed or invalid settings, or protected storage failed.
 - `401`: missing or incorrect bearer token.
-- `404`: route is unavailable on a non-headless/embedded host.
+- `404`: route is unavailable when provider administration is not configured.
 - `405`: method is not `GET` or `PUT`.
 
 ### `GET /api/providers/runtime`

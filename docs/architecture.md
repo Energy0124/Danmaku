@@ -1,235 +1,96 @@
 # Architecture
 
-Danmaku uses Kotlin and Compose for app surfaces, shared Kotlin modules for
-domain contracts and LAN behavior, Media3 for Android playback, libmpv for
-desktop playback, SQLDelight/SQLite for durable desktop state, and Rust for the
-library server plus the in-progress native Windows player migration where
-native boundaries are useful.
+Danmaku uses a Rust-native Windows player and server, dedicated Kotlin Android
+clients, and a TypeScript web administration UI. Shared Kotlin modules contain
+only platform-neutral domain and LAN-client behavior; desktop hosting and
+provider integrations live in Rust.
 
 ## Platform Roles
 
-### Windows Desktop
+### Windows
 
-The Windows desktop app is the primary local application shell:
+`native/player-app` is the only desktop application. It renders its egui UI and
+danmaku over libmpv, browses local or remote libraries, and synchronizes
+progress through the LAN API. In local mode it supervises the packaged
+`library-server.exe`; it may instead attach to an already-running loopback or
+background host. Only a child started by the player is stopped by the player.
 
-- indexes local anime folders;
-- persists catalog, settings, progress, provider cache, mappings, and queue
-  state;
-- owns a Rust `library-server` child process that serves paired devices over
-  trusted LAN HTTP;
-- plays local and paired LAN media through libmpv;
-- resolves metadata/posters/danmaku from configured providers.
+`native/library-server` owns local roots, scanning, normalized catalog state,
+metadata/posters, progress, dandanplay resolution/cache, provider credentials,
+external tracking state, HTTP media delivery, UDP discovery, and `/web/`
+assets. Its data-directory lock prevents two writers from using the same
+state. The server is also distributable as a standalone headless package.
 
-Local desktop mode starts the Rust server sidecar by default and restarts it
-after root changes or rescans. Supplying an explicit remote-server URL selects
-remote-only mode and skips the local child process. The retired embedded JVM
-server is no longer a desktop runtime path.
+`native/player-windows-mpv` is an ordinary Rust library used by the player. It
+owns libmpv discovery/loading and the OpenGL render API bindings plus the
+`mpv-probe` diagnostic binary. It exposes no JVM/JNA-compatible dynamic-library
+ABI.
 
-### Android Mobile And Tablet
+### Android Mobile And TV
 
-The mobile app is a LAN client. It discovers or manually connects to a trusted
-desktop server, browses the published catalog, prepares Media3 playback, and
-uploads progress.
-
-### Android TV
-
-Android TV is a separate app module with TV-specific layout, focus behavior,
-D-pad flows, and remote-friendly information density. It shares domain,
-library-client, and Media3 playback code with mobile where practical.
-
-The implemented TV presentation rewrite keeps this native Android boundary.
-It separates lifecycle-owned session, browse, navigation, and playback state;
-derives cached catalog presentation outside composition; starts Media3
-independently from danmaku resolution; and uses an indexed prepared danmaku
-timeline rather than doing whole-list work during drawing. Its dependency
-container is application-scoped so retained view models, navigation, and
-repositories keep one identity across activity recreation. Catalog refreshes
-use latest-request-wins invalidation when connection input changes and report
-whether a response was applied, so stale successes cannot trigger navigation.
-Playback progress writes carry the originating connection target and are rejected
-after a profile switch. Play requests made while Media3 is attaching are queued,
-and playback seek discontinuities reset the scrolling-danmaku entrance gate.
-The dedicated
-`apps/android-tv-benchmark` module owns Macrobenchmark journeys. Implementation
-and cutover details are in `docs/design/android-tv-client-rewrite-plan.md`.
-
-### macOS Desktop
-
-macOS reuses the Compose desktop shell and native mpv command bridge as an
-experimental development path. It is not yet a first-class release target.
+Android applications are trusted-LAN clients. They share domain, connection,
+and Media3 code while retaining platform-specific UI. Android TV remains a
+dedicated module with TV layouts, D-pad focus, remote navigation, and
+Macrobenchmark coverage.
 
 ### Web UI
 
-The web UI is a trusted-LAN client served by the library server under `/web/`.
-It uses the same HTTP JSON catalog/progress API and normal HTTP media, subtitle,
-and poster URLs as Android/TV. It also owns browser-based server administration:
-provider settings plus series mapping, tracking readback, conflict-aware sync
-preview, and explicitly acknowledged provider writes. Browser support is
-additive; existing clients must not require the web UI to be present.
-
-### Headless Library Server
-
-The Rust `native/library-server` binary is both the standalone headless server
-and the desktop-owned sidecar. It owns LAN HTTP/discovery, scanning, catalog
-snapshots, progress, and provider routes behind a data-directory lock. Tracking
-administration is server-owned: `external-tracking.json` stores non-secret
-series mappings, provider readback, and failure/retry state. Exact shared
-(provider, anime ID) mappings connect local series into a logical tracking
-group. A group may have one identity per tracking provider and produces at most
-one write per provider; contradictory IDs for the same provider block that
-provider's write and surface as an administrative mapping conflict. Provider
-credentials remain in the platform secret store. The experimental JVM headless
-application remains available during migration.
-
-The server also computes `/api/library/attention` from catalog metadata and the
-local dandanplay cache without hashing media or contacting a provider. Only
-fixed, non-secret refresh-failure diagnostics are durable in
-`library-attention.json`; the response joins those diagnostics with mapping,
-cache-freshness, provider-availability, and conflicting-ID state.
-
-### Rust Native Client
-
-The `native/player-app` migration client is an egui/glow Windows player that
-composites libmpv's OpenGL render API output beneath native controls and
-danmaku. It accepts direct media paths or URLs, loads normalized comments
-through the Rust server, supports local XML/JSON drag-and-drop and ASS
-compatibility, and provides discovery, library browsing, progress sync, and
-English/Traditional Chinese UI. User-scoped preferences own playback/danmaku
-defaults, local library roots,
-and the last server URL; pairing tokens remain session-only. In local mode a
-small player supervisor discovers the sibling `library-server.exe`. A schema-1
-`%LOCALAPPDATA%\Danmaku\server\background-host.json` marker takes
-precedence: the player waits for and attaches to that compatible headless
-server without spawning, restarting, or stopping it. Without the marker the
-supervisor attaches to a healthy server already on the default loopback port
-or starts a child with the packaged `web/` assets, waits asynchronously for
-readiness, and connects. Only a player-owned child is restarted or stopped,
-including on player exit. The optional always-on host is a limited,
-interactive current-user Task Scheduler job at logon so it shares the user's
-DPAPI and mapped-drive context; its runner waits for configured roots before
-starting the same server binary and data directory. Server administration
-remains in `/web/`. The Rust-native portable zip carries the player, server,
-web assets, background-host scripts, pinned libmpv, and license/provenance
-inventory. The pinned-runtime probe and four-file release
-media matrix pass, completing Phase 3. The client must not duplicate
-library hosting, provider settings, sync, or metadata storage.
-
-The library client consumes that attention document to render series badges,
-episode status, and a focused filter. Repair work is serialized client-side;
-unmapped items use normal recognition, while mapped cache refreshes pin the
-persisted dandanplay episode ID and never silently replace an association.
+`apps/web-ui` is served by the Rust server under `/web/`. It provides catalog
+playback and authenticated administration for provider settings, mappings,
+tracking readback, conflict-aware previews, and explicit provider writes. It
+does not own server state.
 
 ## Module Boundaries
 
 ```text
 shared:domain
-  Pure domain models and behavior. No platform playback or provider HTTP code.
-
-shared:library-server-core
-  Legacy JVM LAN server/provider primitives retained for the experimental JVM
-  headless host and remaining desktop provider-contract migration.
-
-shared:library-host-core
-  JVM host lifecycle/config/status contracts; no longer used by desktop.
+  Normalized domain models and pure behavior.
 
 shared:library-client
-  Common LAN client models, connection sessions, playback preparation, and
-  progress-sync policy.
+  Platform-neutral LAN session, catalog, and progress policy.
 
 shared:library-client-android
-  Android HTTP, discovery, saved connection, and favorite-store adapters.
+  Android HTTP, discovery, connection, and persistence adapters.
 
 shared:player-android-media3
-  Media3 controller and playback service implementation behind shared playback
-  contracts.
+  Android Media3 playback service and adapter.
 
-apps:desktop-windows
-  Compose desktop UI, SQLDelight store, local indexing/provider clients, Rust
-  sidecar lifecycle ownership, mpv bridge integration, and release surface.
+apps:android-mobile / apps:android-tv
+  Dedicated Android presentation and navigation.
 
-apps:android-mobile
-  Compose mobile/tablet UI.
+native/library-server
+  Authoritative desktop catalog/provider/progress host.
 
-apps:android-tv
-  Compose TV UI and focus/navigation behavior.
+native/player-app
+  Windows UI, library client, playback, and server supervision.
 
-apps:web-ui
-  Planned Vite TypeScript browser client served by the trusted-LAN server.
+native/player-windows-mpv
+  Rust-only libmpv loader/render integration and probe.
 
-apps:library-server-windows
-  Experimental opt-in headless JVM host retained during the Rust migration.
-
-native:library-server
-  Rust headless LAN server and default desktop-owned sidecar.
-
-native:player-app
-  In-progress egui/glow Windows client with libmpv compositing, playback
-  controls, and native danmaku rendering.
-
-native:player-windows-mpv
-  libmpv loader/probe and C ABI used by the desktop app.
-
-native:rust-core
-  Focused Rust timeline/indexing work.
+apps/web-ui
+  Browser client and server administration.
 ```
 
 ## Data Flow
 
-1. Desktop indexes local folders into normalized `LibraryCatalog` data.
-2. Desktop enriches catalog items with cached provider metadata/poster state.
-3. The desktop-owned Rust sidecar scans the registered roots and publishes its
-   catalog over trusted LAN with a pairing token; desktop rescans restart the
-   sidecar so the child process sees current roots and files.
-4. Android, TV, web, desktop-remote, and native clients fetch catalog/progress
-   and prepare playback URLs over HTTP.
-5. Clients stream over HTTP byte ranges and upload progress.
-6. Compose desktop local playback uses the same catalog/progress concepts and
-   writes local progress directly.
-7. The native player browses the server catalog, streams media, synchronizes
-   progress, and requests normalized dandanplay comments by catalog media ID.
-   In packaged local mode it supervises the sibling Rust server, or attaches
-   read-only to the configured per-user background host; remote LAN connection
-   uses the same HTTP client flow without starting a child.
-8. External tracking derives provider-neutral updates from local progress and
-   mapped series, then writes through provider-specific clients only when the
-   user triggers sync.
+1. The Rust server scans configured authorized roots and persists normalized
+   catalog state.
+2. Windows, Android, TV, and web clients consume the same LAN catalog and
+   progress contracts.
+3. Media, subtitle, poster, danmaku, and progress requests use coarse-grained
+   server routes; native boundaries are never crossed per rendered comment.
+4. Provider response objects remain at Rust provider boundaries. Persisted
+   state uses normalized catalog, mapping, and tracking models.
+5. Pairing tokens and provider secrets must not appear in logs, reports,
+   preferences, or committed fixtures.
 
-## Provider Boundary
+## Compatibility
 
-Provider integrations are treated as plugins conceptually, even when currently
-implemented in the desktop app:
+The Kotlin Compose desktop application, JVM server/host modules, JNA bridge,
+and experimental macOS desktop target are retired. The Rust server does not
+read or migrate their SQLite database. Old files are left untouched on user
+machines; a native installation starts from Rust settings and a fresh scan.
 
-- dandanplay: metadata, match, comment, poster/cache support.
-- MyAnimeList: search, OAuth, mapping, metadata cache, progress write client.
-- Bangumi: search, mapping, metadata cache, progress write client.
-- ani-rss: read-only monitoring and authenticated completion webhook support.
-
-Provider response objects should stay at the client boundary. Durable storage
-uses normalized domain models and provider IDs.
-
-## Security Rules
-
-- The LAN server is for trusted local networks only.
-- Pairing tokens protect catalog/media/progress routes but are not an
-  internet-facing auth design.
-- The web UI shell may be served without a token, but data/media/progress
-  routes still require the pairing token.
-- Do not log credentials, pairing tokens, cookies, signed URLs, or raw provider
-  secrets.
-- Store credentials through DPAPI/encrypted app settings or ignored local
-  development files.
-- Support authorized media sources only.
-- Do not add DRM circumvention.
-
-## Native Boundary
-
-Rust APIs must stay coarse-grained. Do not cross the Kotlin/Rust boundary per
-frame or per danmaku comment. Use Rust for native loading/probing, high-throughput
-parsing/indexing, and platform helper APIs only when it earns the complexity.
-
-## Process Boundary
-
-Danmaku uses shared Kotlin modules inside one process and HTTP JSON plus normal
-byte-range media URLs across process/device boundaries. gRPC is not part of the
-main split because browsers, Media3, and mpv already handle HTTP media streams
-well, while gRPC would add friction for browser playback and LAN debugging.
+The trusted-LAN wire contract remains version 1 so existing Android clients
+continue to interoperate. Contract fixtures are owned by the Rust server test
+tree and mirrored by client-module fixtures where needed.

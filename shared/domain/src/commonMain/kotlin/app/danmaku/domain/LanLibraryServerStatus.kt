@@ -12,7 +12,7 @@ data class LanLibraryServerStatus(
     val trustedDeviceManagement: Boolean = false,
     val webUiAvailable: Boolean = false,
     val webUiPath: String? = null,
-    val hostMode: String = HOST_MODE_EMBEDDED_DESKTOP,
+    val hostMode: String = HOST_MODE_HEADLESS_SERVER,
     val providerSettings: LanProviderSettingsStatus? = null,
 ) {
     init {
@@ -24,7 +24,6 @@ data class LanLibraryServerStatus(
 
     companion object {
         const val CURRENT_API_VERSION = 1
-        const val HOST_MODE_EMBEDDED_DESKTOP = "embedded-desktop"
         const val HOST_MODE_HEADLESS_SERVER = "headless-server"
     }
 }

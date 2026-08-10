@@ -127,7 +127,7 @@ mod tests {
     static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
     #[test]
-    fn file_store_adopts_and_rewrites_jvm_progress_snapshot() {
+    fn file_store_loads_and_rewrites_progress_snapshot() {
         let temp = temp_dir("danmaku-progress-store");
         let file = temp.join("progress.json");
         fs::write(

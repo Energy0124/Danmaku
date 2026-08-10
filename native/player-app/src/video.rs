@@ -1,8 +1,7 @@
 //! libmpv render-API → egui/glow compositing host.
 //!
-//! Ported from the validated `spike-egui-player` renderer: mpv renders into a
-//! crate-owned FBO texture which is then drawn into the egui viewport, so the
-//! UI (controls, later the danmaku overlay) always composites above video.
+//! mpv renders into a crate-owned FBO texture which is then drawn into the
+//! egui viewport, so the UI and danmaku overlay always composite above video.
 
 use std::{
     env,
@@ -471,21 +470,6 @@ pub fn resolve_libmpv_path() -> Result<PathBuf, String> {
     searched.push(repo_runtime.clone());
     if repo_runtime.is_file() {
         return Ok(repo_runtime);
-    }
-
-    let portable = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("..")
-        .join("..")
-        .join("apps")
-        .join("desktop-windows")
-        .join("build")
-        .join("release")
-        .join("windows-portable")
-        .join("app")
-        .join(LIBMPV_DLL_NAME);
-    searched.push(portable.clone());
-    if portable.is_file() {
-        return Ok(portable);
     }
 
     Err(format!(

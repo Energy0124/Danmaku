@@ -2,163 +2,71 @@
 
 [![CI](https://github.com/Energy0124/Danmaku/actions/workflows/ci.yml/badge.svg)](https://github.com/Energy0124/Danmaku/actions/workflows/ci.yml)
 
-Danmaku is a cross-platform anime media app in active foundation work. The
-current product focus is a Windows desktop library/server/player, Android
-mobile and tablet clients, Android TV playback, synchronized watch progress,
-provider metadata, danmaku overlays, and a compatibility-preserving split
-toward a reusable library host plus a trusted-LAN web UI.
+Danmaku is a local-first anime library, player, and danmaku application. The
+first-class targets are the Rust-native Windows player, Android mobile/tablet,
+and Android TV. A Rust library server publishes authorized local media to the
+clients over a trusted LAN and serves the browser administration UI.
 
-This is not a finished media player yet. The repository currently contains a
-working vertical slice for local Windows libraries, trusted-LAN streaming to
-Android clients, libmpv desktop playback, Media3 Android playback, dandanplay
-danmaku matching/cache, and external anime list mapping/sync foundations.
-
-## Targets
-
-First-class targets:
-
-- Windows desktop
-- Android mobile and tablet
-- Android TV
-
-Experimental target:
-
-- macOS desktop development build using the shared Compose desktop shell and
-  mpv command bridge
-
-Later targets may include Linux, iOS, iPadOS, and web after the first-class
-targets are stable.
+The project is still in active foundation work. Local library scanning,
+Windows libmpv playback, Android Media3 playback, progress synchronization,
+dandanplay matching/comments, provider metadata, and explicit external-list
+sync are implemented; broader product polish and release QA remain.
 
 ## Repository Layout
 
 ```text
 apps/
-  desktop-windows/       Compose Multiplatform shell; owns the Rust server sidecar
-  android-mobile/        Android phone/tablet app
-  android-tv/            Dedicated Android TV app
-  web-ui/                Planned trusted-LAN TypeScript browser client
+  android-mobile/         Android phone/tablet client
+  android-tv/             Dedicated Android TV client
+  android-tv-benchmark/   Android TV Macrobenchmark journeys
+  web-ui/                 Trusted-LAN server administration UI
 
 shared/
-  domain/                Core models, catalog logic, playback contracts, danmaku logic
-  library-server-core/   Trusted-LAN HTTP server and discovery primitives
-  library-host-core/     Shared host lifecycle/config/status contracts
-  library-client/        Shared LAN client/session/progress policy
-  library-client-android Android HTTP/discovery/storage adapters
-  player-android-media3/ Shared Media3 playback adapter/service
+  domain/                 Platform-neutral models and behavior
+  library-client/         Shared LAN client/session/progress policy
+  library-client-android/ Android HTTP/discovery/storage adapters
+  player-android-media3/  Shared Media3 playback adapter/service
 
 native/
-  rust-core/             Focused Rust timeline/indexing experiments
-  library-server/        Headless and desktop-sidecar LAN library server
-  player-app/            Native egui/libmpv Windows player migration client
-  player-windows-mpv/    libmpv loader, probe, and desktop playback bridge
-
-tools/
-  windows/               Windows release, libmpv, and playback smoke scripts
-  dandanplay-worker-proxy Cloudflare Worker proxy for signed dandanplay requests
-
-docs/
-  Current state, architecture, roadmap, task backlog, and design work
+  library-server/         Rust library, provider, progress, and web server
+  player-app/             Rust egui/libmpv Windows player
+  player-windows-mpv/     Rust libmpv loader, renderer, and probe
+  rust-core/              Shared Rust timeline/indexing behavior
 ```
 
-## Documentation
-
-- [Documentation index](docs/README.md)
-- [Current state](docs/current-state.md)
-- [Architecture](docs/architecture.md)
-- [Roadmap](docs/roadmap.md)
-- [Tasks](docs/tasks.md)
-- [Releasing](docs/releasing.md)
-- [Windows libmpv bundle](docs/windows-libmpv-bundle.md)
-- [Contributing](CONTRIBUTING.md)
-- [Third-party notices](THIRD_PARTY_NOTICES.md)
-
-Active design/task tracks:
-
-- [Rust server and Windows player migration plan](docs/design/rust-migration-plan.md)
-- [Rust player consumer UI redesign](docs/design/rust-player-ui-redesign-plan.md)
-- [Home and app shell UI tasks](docs/design/home-and-app-shell-ui-tasks.md)
-- [Desktop UI page mockups and specs](docs/design/desktop-ui-pages/README.md)
-- [Android mobile and TV library UI tasks](docs/design/android-mobile-tv-library-ui-tasks.md)
-- [External anime mapping and tracking tasks](docs/design/external-anime-tracking-tasks.md)
-- [Server, client, and web UI split](docs/design/server-client-web-ui-split-plan.md)
+The former Kotlin Compose desktop app and JVM library-server modules have been
+retired. Existing Compose database files are not read or migrated; configure
+library roots again in the native player or server and let the Rust catalog
+rescan them.
 
 ## Requirements
 
-- JDK 17 or newer
-- Android SDK for Android and Android TV builds
-- Stable Rust toolchain for native crates
-- Windows for the release desktop target
-- Android emulator or device for connected instrumentation tests
-- Optional: Node 22 for the web UI and dandanplay Worker proxy
+- Windows x64 and a stable Rust toolchain for the desktop player/server
+- JDK 17 and an Android SDK for Android builds
+- Node 22 for the web UI and dandanplay Worker proxy
+- A connected emulator/device only for Android instrumentation tests
 
-`local.properties` is intentionally ignored. At minimum, point it at the
-Android SDK:
+`local.properties` is ignored and may hold the Android SDK path and local
+provider credentials. Never commit credentials, pairing tokens, cookies, or
+signed URLs.
 
 ```properties
 sdk.dir=C\:\\path\\to\\Android\\Sdk
-```
-
-Local provider credentials may also be supplied through ignored
-`local.properties` or environment variables. Do not commit real credentials.
-
-```properties
 danmaku.dandanplay.appId=your-app-id
 danmaku.dandanplay.appSecret=your-app-secret
-danmaku.dandanplay.proxyBaseUrl=https://your-worker.example.workers.dev
-danmaku.dandanplay.authenticationMode=signed
-danmaku.dandanplay.cacheMaxAgeDays=30
 danmaku.myanimelist.clientId=your-client-id
 danmaku.myanimelist.clientSecret=your-client-secret
 ```
 
-Supported environment fallbacks:
-
-- `DANMAKU_DANDANPLAY_APP_ID`
-- `DANMAKU_DANDANPLAY_APP_SECRET`
-- `DANMAKU_DANDANPLAY_PROXY_BASE_URL`
-- `DANMAKU_DANDANPLAY_AUTHENTICATION_MODE`
-- `DANMAKU_DANDANPLAY_CACHE_MAX_AGE_DAYS`
-- `DANMAKU_MYANIMELIST_CLIENT_ID`
-- `DANMAKU_MYANIMELIST_CLIENT_SECRET`
-- `DANMAKU_LOCAL_PROPERTIES`
-
 ## Build And Test
-
-Main verification commands:
 
 ```powershell
 cargo fmt --all --check
 cargo test --workspace
-.\gradlew.bat --no-daemon :shared:domain:jvmTest :shared:library-client:jvmTest :shared:library-server-core:jvmTest :apps:desktop-windows:desktopTest :shared:library-client-android:testDebugUnitTest :shared:player-android-media3:assembleDebugAndroidTest :apps:android-mobile:assembleDebug :apps:android-tv:assembleDebug
+.\gradlew.bat --no-daemon :shared:domain:jvmTest :shared:library-client:jvmTest :shared:library-client-android:testDebugUnitTest :shared:player-android-media3:assembleDebugAndroidTest :apps:android-mobile:assembleDebug :apps:android-tv:assembleDebug
 ```
 
-With a connected Android emulator or device:
-
-```powershell
-.\gradlew.bat --no-daemon :shared:player-android-media3:connectedDebugAndroidTest
-.\gradlew.bat --no-daemon :apps:android-mobile:connectedDebugAndroidTest
-.\gradlew.bat --no-daemon :apps:android-tv:connectedDebugAndroidTest
-```
-
-Android TV visual and focus QA is emulator-only and covers both 1080p and 4K:
-
-```powershell
-.\tools\windows\run-android-tv-emulator-qa.ps1
-```
-
-The wrapper rejects non-emulator Android serials and writes references under
-`build/qa/android-tv/`.
-
-Worker proxy checks:
-
-```powershell
-cd tools\dandanplay-worker-proxy
-npm ci
-npm run typecheck
-npm test
-```
-
-Web UI checks:
+Web UI:
 
 ```powershell
 cd apps\web-ui
@@ -166,166 +74,95 @@ npm install
 npm run build
 ```
 
-## Run Locally
-
-Windows desktop development shell:
+Worker proxy:
 
 ```powershell
-.\run-windows.ps1
+cd tools\dandanplay-worker-proxy
+npm install
+npm run typecheck
+npm test
 ```
 
-The launcher builds the Rust `library-server` sidecar and starts it by default.
+## Windows Player
 
-Native Windows player migration preview:
-
-```powershell
-cargo run -p danmaku-player -- --media "W:\Anime\Show\Episode 01.mkv" --danmaku "comments.xml"
-```
-
-The native player accepts local Bilibili XML, normalized JSON, and existing ASS
-overlays. XML/JSON comments use the native egui renderer; ASS files use mpv's
-subtitle renderer for compatibility. XML, JSON, `.danmaku`, or ASS files can
-also be dropped onto the running player. Display opacity, speed, density, and
-lane count are available from the Danmaku control menu. Starting without
-`--media` uses the packaged `library-server.exe`: on first run, choose a local
-library folder and the player starts, waits for, and connects to the server
-automatically. Existing LAN discovery and manual connection remain available.
-English and Traditional Chinese can be selected on the first screen; Settings
-can change the library folder, restart or stop a player-owned server, and
-persists volume, playback rate, auto-next, danmaku defaults, local roots, and
-the last server URL in
-`%LOCALAPPDATA%\\Danmaku\\player-preferences.json`. Pairing tokens are never
-written there. Server administration opens the connected server's `/web/` UI.
-
-To resolve dandanplay comments through a running Rust library server, provide
-the catalog media ID:
-
-```powershell
-cargo run -p danmaku-player -- --media "W:\Anime\Show\Episode 01.mkv" `
-  --server-url http://127.0.0.1:8686 --media-id episode-id
-```
-
-Use `--help` for the full playback and danmaku option list.
-
-Rust-native runtime-free Windows package:
+Build and verify the unified portable package, then launch the newest package:
 
 ```powershell
 .\build-rust-player.bat
 .\run-rust-player.bat
 ```
 
-`build-rust-player.bat` is the single-command build. It installs the web UI
-dependencies when `apps\web-ui\node_modules` is missing, builds the web UI, and
-then runs `tools\windows\prepare-rust-player-release.ps1` to produce and verify
-the package. Calling that PowerShell script on its own fails unless the web UI
-has already been built into `apps\web-ui\dist`.
+The package contains `danmaku-player.exe`, `library-server.exe`, the web UI,
+the pinned `libmpv-2.dll`, background-host scripts, licenses, and dependency
+inventories. On first launch, select one or more local library folders. The
+player starts and connects to the sibling server automatically. It can also
+discover or manually connect to another trusted-LAN server.
 
-`run-rust-player.bat` launches the most recently built package, so the version
-in the folder name does not have to be repeated. Player options are forwarded
-through it, and `-PackagePath` selects a specific package:
+Direct playback is available from a development build or package:
 
 ```powershell
+cargo run -p danmaku-player -- --media "W:\Anime\Show\Episode 01.mkv"
 .\run-rust-player.bat --media "W:\Anime\Show\Episode 01.mkv"
-.\run-rust-player.bat -PackagePath .\build\release\rust-player\danmaku-player-0.1.0-windows-x64
 ```
 
-The versioned zip is written under `build/release/rust-player/` and contains
-`danmaku-player.exe`, `library-server.exe`, the server web UI, libmpv, and
-the optional per-user background-host scripts. Closing the player stops only a
-server process it started itself.
+Use `--help` for playback, danmaku, server, and QA options. Pairing tokens are
+session-only and are not written to player preferences.
 
-To keep the library server available after the player closes, install the
-packaged current-user logon task (no administrator access is required):
+To keep the packaged server available after the player closes, use its
+current-user background-host manager:
 
 ```powershell
 $package = ".\build\release\rust-player\danmaku-player-0.1.0-windows-x64"
-& "$package\manage-rust-library-background-host.ps1" -Action Install `
-  -LibraryRoot "W:\Anime"
+& "$package\manage-rust-library-background-host.ps1" -Action Install -LibraryRoot "W:\Anime"
 & "$package\manage-rust-library-background-host.ps1" -Action Status
 ```
 
-Repeat `-LibraryRoot` for multiple folders. `SetRoots`, `Start`, `Stop`,
-and `Uninstall` manage the task; `-PlanOnly` previews Install/SetRoots without
-changing Task Scheduler. The player detects
-`%LOCALAPPDATA%\Danmaku\server\background-host.json`, attaches to the
-background server, and leaves its lifecycle under script control. The manual
-registration/ownership checklist is in
-[Windows background-host QA](docs/qa/windows-background-host-qa.md).
-
-The legacy Compose-compatible portable build remains available during
-migration through `.\run-windows.ps1 -Portable`.
-
-Experimental macOS desktop shell:
-
-```bash
-./run-macos.sh
-```
-
-Windows app workflow:
-
-1. Add one or more anime library folders.
-2. Let the desktop app index the library.
-3. Use local playback directly from the Library tab, or note the Rust sidecar's
-   LAN URL and pairing code.
-4. On Android or Android TV, use discovery or manual connection to pair with
-   the Windows library server.
-5. Browse, stream, and save playback progress from the client.
-
-Experimental headless Windows server:
+## Standalone Library Server
 
 ```powershell
-.\gradlew.bat --no-daemon :apps:library-server-windows:run --args="--data-dir build/headless-data --root W:/Anime --port 8686 --pairing-token 123456 --web-assets-dir apps/web-ui/dist"
+cd apps\web-ui
+npm run build
+cd ..\..
+cargo run -p library-server -- --data-dir build\server-data --root W:\Anime --web-assets-dir apps\web-ui\dist
 ```
 
-The headless server scans configured roots into a JSON catalog, streams
-media/subtitles through the same trusted-LAN routes as desktop, and persists
-catalog snapshots, stable pairing tokens, and playback progress under the
-locked data directory. It can read roots and non-secret provider setting
-summaries from `server-settings.json`, exposes those summaries through server
-status, exposes provider runtime readiness, read-only provider mapping
-search, and dandanplay match/comment resolve for catalog media. The Rust host
-also exposes a bearer-authenticated, secret-redacted provider settings API; its
-web administration form edits dandanplay, MyAnimeList, and Bangumi settings,
-stores write-only credentials with Windows DPAPI, and refreshes provider
-clients without restarting the server. The server boots from cached catalog
-when no roots are configured while using the same LAN discovery announcements
-as the desktop sidecar. Broader tracking automation and library-quality admin
-workflows remain planned.
+The server owns scanning, catalog snapshots, progress, provider settings,
+dandanplay resolution/cache, external tracking state, HTTP media/subtitle/
+poster routes, UDP discovery, and `/web/` administration. It does not import
+the retired Compose desktop database.
 
-Desktop can launch directly into the remote-library browser against a running
-headless/sidecar host. Supplying a remote URL skips the local sidecar:
-
-```powershell
-.\gradlew.bat --no-daemon :apps:desktop-windows:run --args="--remote-server-url http://127.0.0.1:8686 --remote-pairing-token 123456"
-```
-
-Repeatable headless web UI QA:
+Repeatable local QA:
 
 ```powershell
 .\tools\windows\run-headless-web-ui-qa.ps1
-.\tools\windows\run-headless-web-ui-qa.ps1 -RustServer
 ```
 
-Repeatable desktop-sidecar web UI QA:
+## Android Clients
 
-```powershell
-.\tools\windows\run-embedded-web-ui-qa.ps1
-```
+Android mobile/tablet and Android TV discover or manually connect to the Rust
+server, browse its catalog, stream through Media3, render danmaku, and
+synchronize playback progress. Android TV remains a dedicated module with
+TV-specific focus and remote-navigation behavior.
 
-## Security And Source Policy
+Connected checks require an emulator or physical device and are documented in
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
-- Support authorized media sources only.
-- Do not implement DRM circumvention.
-- Do not log pairing tokens, credentials, cookies, or signed media URLs.
-- Store provider credentials only in platform-appropriate secure storage or
-  ignored local development files.
-- Keep provider response objects at plugin/client boundaries; persist
-  normalized domain models.
-- Treat the LAN server as trusted-local-network only.
+## Documentation
 
-## License
+- [Current state](docs/current-state.md)
+- [Architecture](docs/architecture.md)
+- [Roadmap](docs/roadmap.md)
+- [Tasks and QA gates](docs/tasks.md)
+- [Releasing](docs/releasing.md)
+- [LAN protocol](docs/lan-protocol.md)
+- [Windows libmpv bundle](docs/windows-libmpv-bundle.md)
+- [Contributing](CONTRIBUTING.md)
 
-Danmaku source code is licensed under the [MIT License](LICENSE). Third-party
-components keep their own licenses; see [Third-party notices](THIRD_PARTY_NOTICES.md).
-The Windows release packages a pinned LGPL libmpv dependency with source and
-license provenance documented in [Windows libmpv bundle](docs/windows-libmpv-bundle.md).
+## Security And License
+
+Support authorized media sources only. Do not add DRM circumvention or expose
+provider secrets. Treat the server as trusted-LAN software rather than an
+Internet-facing service.
+
+Danmaku is licensed under the MIT License. Third-party components retain their
+licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

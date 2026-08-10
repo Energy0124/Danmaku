@@ -10,13 +10,12 @@ the project's [MIT License](LICENSE).
 ## Development Priorities
 
 - Keep Windows, Android, and Android TV as first-class targets.
-- Prefer Kotlin and Compose for application code.
+- Use Rust/egui for Windows application and server code; use Kotlin/Compose for
+  Android application code.
 - Use Media3 ExoPlayer for Android and Android TV playback.
 - Use libmpv for Windows playback.
-- Use Rust only for focused native systems work such as parsing, indexing,
-  desktop helper APIs, download/cache management, or native playback bridges.
-- Keep native APIs coarse-grained. Do not cross the Kotlin/Rust boundary per
-  video frame or per danmaku comment.
+- Keep native APIs coarse-grained and keep platform player types behind clear
+  application boundaries.
 
 ## Source And Security Rules
 
@@ -41,8 +40,6 @@ cargo fmt --all --check
 cargo test --workspace
 .\gradlew.bat --no-daemon :shared:domain:jvmTest
 .\gradlew.bat --no-daemon :shared:library-client:jvmTest
-.\gradlew.bat --no-daemon :shared:library-server-core:jvmTest
-.\gradlew.bat --no-daemon :apps:desktop-windows:desktopTest
 .\gradlew.bat --no-daemon :shared:library-client-android:testDebugUnitTest
 .\gradlew.bat --no-daemon :shared:player-android-media3:assembleDebugAndroidTest
 .\gradlew.bat --no-daemon :apps:android-mobile:assembleDebug :apps:android-tv:assembleDebug

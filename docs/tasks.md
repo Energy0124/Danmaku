@@ -1,462 +1,66 @@
 # Tasks
 
-This is the canonical high-level backlog. Detailed design logs remain under
-`docs/design/`.
+This is the canonical high-level backlog. Detailed implementation records live
+under `docs/design/`.
 
-Status legend:
-
-- `[x]` Done
-- `[~]` In progress
-- `[ ]` Not started
+Status: `[x]` done, `[~]` in progress, `[ ]` not started.
 
 ## Active Priorities
 
-- `[x]` P1: Rewrite the Android TV presentation layer as a single-cutover
-  native consumer experience. The replacement now has split lifecycle-owned
-  state, cached-first catalogs, off-composition derivation, bounded Coil poster
-  loading, non-blocking danmaku, an indexed timeline, typed navigation, and
-  redesigned onboarding/PC, Home, Library, Search, Favorites, Series Detail,
-  and Player routes. Unit, Compose, stress, cache, poster, screenshot,
-  Macrobenchmark, and Baseline Profile coverage landed with the cutover.
-  English/`zh-TW` 1080p/4K emulator qualification is automated. The physical
-  budget-device LAN pass remains deferred and is tracked as release QA, not
-  implementation scope. Plan and record:
-  `docs/design/android-tv-client-rewrite-plan.md`.
-- `[~]` Migrate the library server core and Windows player client to Rust.
-  Server parity and sidecar ownership are complete. Native player M1-M4 now
-  cover playback, danmaku, the design system, discovery/library/progress, and
-  settings/localization. M5 produces and verifies the Rust-native portable zip,
-  and its supervised four-file real-media playback matrix passes. Phase 4 now
-  has a unified default launcher: first-run local-folder setup starts and
-  connects the bundled Rust server, while remote LAN connection remains
-  available. The consumer UI pass now applies the approved onboarding,
-  library/home, cinematic playback, and grouped Settings designs. Supervised
-  default/maximized coverage and repeatable 960x600 default, hover, and
-  keyboard-focus captures pass through
-  `tools/windows/run-rust-player-ui-qa.ps1`. The optional always-on host is
-  now packaged as a current-user Task Scheduler logon task with script-first
-  lifecycle/root management, a PlanOnly verification path, and native-player
-  attach-without-ownership behavior. The native library now consumes focused
-  server-owned attention status for unmapped anime, uncached/stale danmaku,
-  conflicting IDs, and persisted refresh failures, with badges, filtering, and
-  safe one-at-a-time repair actions. Remaining retirement cleanup is next.
-  The shared JVM and Android LAN client integration suites now use
-  module-owned protocol fixtures instead of compiling and launching
-  `shared:library-server-core`, removing the legacy host from client-test
-  runtime dependencies.
-  Plans:
-  `docs/design/rust-migration-plan.md` and
-  `docs/design/rust-player-ui-redesign-plan.md`.
-- `[~]` Split the desktop library host into compatibility-preserving host,
-  client, and web surfaces. The accepted direction is boundary-first:
-  `shared:library-host-core` contracts, optional `/web/` static serving on the
-  existing LAN server, a Vite TypeScript web UI, an opt-in headless Windows
-  server, desktop remote-client mode, and a later Rust native client spike.
-  The headless server now starts the shared LAN server, locks its data
-  directory, scans configured `--root` folders into a basic catalog, discovers
-  matching sidecar subtitles, streams media/subtitles over the existing
-  routes, exposes non-secret provider summaries through server status, exposes
-  authenticated provider runtime readiness, read-only provider mapping search,
-  authenticated external list entry read/write for MAL/Bangumi IDs, and
-  dandanplay match/comment resolve for catalog media,
-  persists catalog snapshots, stable pairing tokens, provider setting summaries,
-  and LAN playback progress under the locked data directory, can load persisted root settings, can boot from the
-  cached catalog when roots are not configured, and announces itself through
-  the existing LAN discovery protocol.
-  Desktop now has
-  launch-driven remote-client mode using `--remote-server-url`,
-  `--remote-pairing-token`, `DANMAKU_REMOTE_SERVER_URL`, and
-  `DANMAKU_REMOTE_PAIRING_TOKEN` to open and optionally auto-load a remote host.
-  The repeatable `tools/windows/run-headless-web-ui-qa.ps1` helper now builds
-  the web UI, starts a fixture-backed headless host, verifies `/web/`, catalog,
-  media, subtitle metadata, and progress readback, then restarts without
-  explicit roots/token to verify cached catalog and persisted progress readback
-  and runs a Chrome/Edge browser interaction probe for web danmaku overlay
-  preference persistence, provider search, Use ID, and external-list form
-  read/save behavior before writing PASS reports. Compose desktop now launches
-  the Rust library server as its default local sidecar; the embedded JVM server
-  and discovery runtime are removed, explicit remote mode skips the child
-  process, and desktop rescans restart it with current roots.
-  `tools/windows/run-embedded-web-ui-qa.ps1` retains its compatibility name but
-  now builds and launches the Rust sidecar with isolated `LOCALAPPDATA`, a
-  fixture library, deterministic pairing token, local web assets, and the same
-  browser interaction probe.
-  Dandanplay API client/parsing code and MAL/Bangumi external list tracking
-  clients are now shared through `shared:library-server-core`, so desktop and
-  headless can use the same JVM provider implementations. The headless server
-  now has an authenticated dandanplay match/comment resolve route for catalog
-  media, and the web player shows provider readiness, dandanplay
-  match/comment preview with basic video overlay controls, persisted overlay preferences, extracted web
-  overlay timing helpers, provider mapping search, and manual MAL/Bangumi
-  external-list read/write controls that auto-fill IDs from catalog metadata
-  links for the selected episode. The Rust host and web UI now also provide
-  bearer-authenticated, secret-redacted provider settings administration with
-  Windows DPAPI storage and immediate runtime reload. The Rust host now also
-  owns mapped-series tracking administration: it persists mappings, provider
-  readback, failures, and retry metadata; coalesces local series sharing an
-  exact provider identity into multi-provider logical groups; derives one
-  conflict-aware update per provider and group from the Rust catalog/progress
-  stores; blocks contradictory same-provider IDs for manual resolution; and
-  exposes review-gated web controls for explicit writes. Remaining split work:
-  migrate the desktop's JVM provider clients and residual server-core contracts
-  behind sidecar HTTP, run live-account read/write QA, broaden browser
-  interaction QA, and polish the web UI. The legacy broad library-quality
-  scanner is no longer a Rust-retirement requirement.
-- `[~]` Resolve P1 review findings from the 2026-06-15 full project review:
-  convert expected LAN/provider/media failures away from hard
-  `error(...)`/`check(...)` paths, split oversized Android entrypoints, and
-  close release-blocking QA gaps for Windows desktop, Android mobile/tablet,
-  Android TV, localization, and live external sync.
-- `[~]` Align the desktop Home page and shared app shell with the new
-  header/navigation/status-column design direction.
-- `[~]` Extend the desktop page implementation toward the Library, Player,
-  Downloads, Tracking, Settings, and secondary-surface mockups.
-- `[~]` Ensure the desktop Player can hide both sidebars so video uses almost
-  the full window in focus mode.
-- `[~]` Add first-pass localization support for English and Traditional Chinese
-  (`zh-TW`) across desktop, Android mobile, and Android TV UI chrome; desktop
-  strings now use a DSL-backed holder so the growing string set does not hit
-  JVM method-signature limits, and all current desktop `DesktopStrings` fields
-  have Compose Multiplatform generated resource adapter coverage under
-  `commonMain/composeResources`.
-- `[~]` Finish desktop playback QA for fullscreen, resize, aspect, 4K media,
-  hardware decoding, and multi-display behavior. The automated runtime-free
-  Windows portable baseline passed on 2026-06-22 against four real media
-  samples covering 1080p H.264 MP4, 1080p HEVC/ASS MKV, 4K HEVC MKV, and a
-  large BD MKV with sidecar ASS available. A 2026-06-22 window-level manual
-  pass verified Home-to-playback startup, embedded video, danmaku overlay,
-  pause/resume, seek controls, and fullscreen enter/exit, then found and fixed
-  a fullscreen-exit restore bug where the window could grow off-screen and make
-  bottom playback controls unreachable. Follow-up Computer Use QA against the
-  rebuilt distributable verified fullscreen enter/exit restores to the original
-  `1588x954` bounds at `(81,72)` with zero delta. Remaining work is manual
-  resize/aspect/track/hardware-decode/multi-display sign-off. Deferred follow-up:
-  add an automated app-window regression that launches playback, enters and
-  exits fullscreen, and asserts restored bounds match the pre-fullscreen
-  geometry.
-- `[x]` Complete Android mobile/tablet library viewport QA at phone and tablet
-  sizes. The `Pixel_3a_API_34_extension_level_7_x86_64` phone emulator and
-  `Danmaku_Tablet_API_34` Pixel Tablet emulator passed
-  `:apps:android-mobile:connectedDebugAndroidTest` on 2026-06-18, with visual
-  screenshots captured under `build/qa/android-mobile/`. The repeatable Windows
-  wrapper is `tools/windows/run-android-mobile-emulator-qa.ps1`.
-- `[~]` Complete Android TV safe-area, 1080p/4K, and D-pad focus QA. The
-  `Danmaku_TV_API_36` 1080p emulator and `Danmaku_TV_4K_API_36` 4K emulator
-  passed the rewritten client's connected suite and full English/`zh-TW`
-  route screenshot matrix on 2026-07-29. The repeatable wrapper rejects
-  non-emulator serials and is
-  `tools/windows/run-android-tv-emulator-qa.ps1`. Remaining: one budget-class
-  physical TV focus, safe-area, performance, and real-LAN playback pass.
-- `[~]` Live QA for MyAnimeList/Bangumi mapping, OAuth, sync, conflict handling,
-  relaunch behavior, and external list state. A 2026-06-19 read-only live
-  suggestion pass against the current desktop catalog found and fixed a bulk
-  suggestion abort when one MyAnimeList title query returns `invalid q`; provider
-  failures are now isolated and reported while other provider suggestions
-  continue. A read-only live list-entry harness now exists at
-  `tools/windows/run-live-external-sync-readback-qa.ps1` and writes reports
-  under `build/qa/live-external-sync/`; the real-account read/write checklist
-  remains documented in `docs/qa/live-external-sync-qa.md`, with explicit
-  approval required before any provider write. Remaining: run the readback
-  harness against the QA accounts, then perform deliberate mapping
-  write/readback, restore, sync, and relaunch verification.
-- `[x]` Add conservative auto mapping suggestions for MyAnimeList and Bangumi.
-  The Tracking tab now has a "Suggest missing" scan that enriches
-  MAL/Bangumi/dandanplay titles and external links, ranks with
-  confidence/evidence bands, auto-saves only high-confidence `AUTO` mappings,
-  and keeps ambiguous matches in review diagnostics without overwriting manual
-  mappings. Live MAL/Bangumi QA remains tracked separately.
-- `[~]` Continue library UI polish where details, title clarity, poster states,
-  watch-list browsing, and focus behavior affect everyday use. The desktop
-  Library now has local watch-list persistence, inspector editing, summary
-  count chips, visible series-card status badges, a card-level quick status
-  menu, and a direct browse filter menu for local watch-list statuses including
-  untracked series. A focused 2026-06-17 desktop Library screenshot pass
-  confirmed the card-level quick actions fit without overlap at the default QA
-  window size, and the center summary chip strip now wraps instead of clipping
-  longer external-sync summaries.
-- `[~]` Continue decomposing desktop `Main.kt` into focused shell, tab,
-  settings, player, library, and shared UI modules while preserving behavior.
-- `[~]` Introduce a desktop shell state/action boundary so orchestration moves
-  out of feature rendering after the first file-ownership split; diagnostics
-  and server-event state plus navigation/search/language state now have
-  remembered state objects, and playback session/progress flags have a
-  remembered state object. Settings/preferences/provider status also now have
-  a remembered state object, and library/catalog/progress/indexing/sync flags
-  are in a remembered state object. Settings/provider/cache actions are also
-  extracted into a typed action object, and generic playback session/progress
-  actions are in a playback action object. Local playback preparation and
-  dandanplay overlay/cache actions are also split into a typed action object.
-  Library root, metadata, favorite, external mapping/search, and tracking sync
-  actions are now split into a typed library action object. Download queue
-  refresh/remove/open actions are also split into a typed action object.
-- `[~]` Reduce shell/lifecycle/window wiring in `DesktopShell.kt`; UI
-  files, state holders, settings actions, playback actions, local
-  playback/danmaku actions, library actions, and download actions are now
-  split, playback command callbacks are delegated, window/fullscreen lifecycle
-  and mpv OSC fullscreen sync now live in `DesktopShellWindowState.kt`, QA
-  screenshot launch handling lives in `DesktopShellQaEffects.kt`, and stale
-  monolith imports have been trimmed. `DesktopShell.kt` is now below the
-  1,000-line milestone; remaining work is about tab assembly coupling, not
-  only file length.
+- `[x]` Retire the Kotlin Compose desktop app, JVM library server/host modules,
+  JNA bridge, legacy database importer, compatibility artifact, and macOS
+  desktop job. Rust is the only desktop player/server implementation.
+- `[x]` Complete the Android TV single-cutover presentation rewrite with
+  lifecycle-owned state, cached/off-composition catalog derivation,
+  non-blocking danmaku, typed navigation, D-pad/focus coverage, screenshots,
+  Macrobenchmarks, and Baseline Profiles.
+- `[~]` Close remaining Windows native release QA: fullscreen restore, resize,
+  aspect, track selection, hardware decode, 4K duration, multiple displays,
+  resume, and background-host ownership.
+- `[~]` Complete live MyAnimeList/Bangumi readback and deliberate write QA.
+  `tools/windows/run-live-external-sync-readback-qa.ps1` is read-only; every
+  provider write still requires explicit preview acknowledgement and approval.
+- `[~]` Complete one budget-class physical Android TV pass for safe areas,
+  focus, responsiveness, and real-LAN playback.
+- `[~]` Continue Android mobile/TV and native Windows library polish where
+  title clarity, poster state, resume, search, and focus affect daily use.
 
-## Next Engineering Work
+## Product Backlog
 
-- `[~]` P1: Replace expected user-facing crashes with recoverable typed
-  failures and localized UI states. LAN discovery with no PC found and LAN
-  client non-OK HTTP responses now use typed exceptions. Desktop missing
-  indexed-media and dandanplay no-match action failures now use typed desktop
-  user-action exceptions. Dandanplay, MAL OAuth, external anime search/write,
-  ani-rss remote failures, external search with no configured provider, and
-  poster fetch failures now use typed exceptions or optional-artwork fallbacks.
-  A final `error(...)`/`check(...)` audit found only test sentinels and
-  startup/developer invariants remaining. Metadata match no-provider and
-  provider-search failures now surface localized English/`zh-TW` dialog copy;
-  local playback preparation and paired library catalog/remote playback failures
-  now surface localized visible error copy. Remaining work is broader localized
-  copy for action diagnostics and screenshot QA.
-- `[~]` P1: Split Android mobile `MainActivity.kt` into focused app shell,
-  connection/library, home, playback, and shared UI/state files before adding
-  more mobile features. First low-risk extraction moved poster loading, URL
-  encoding, display labels, size formatting, watch-status labels, and playback
-  time helpers into `MobileUiHelpers.kt`; shell chrome is now also split into
-  `MobileShellUi.kt` with tab routing metadata, bottom navigation, shared page
-  column/header, and the mini-player bar. Top-level tab routing now uses
-  `MobileAppScaffold.kt` with explicit `MobileAppUiState` and
-  `MobileAppActions` handoff objects. Remembered player/library state and
-  derived catalog filtering/poster endpoints now live in `MobilePlayerState.kt`.
-  Service/store side effects and scaffold callbacks now live in
-  `MobilePlayerActionHandler.kt`, with only the Android file-picker URI load
-  and playback-service lifecycle still in `MobilePlayerScreen`. Next pass
-  should continue splitting the large page composables into screen files.
-  `HomePage.kt` now owns the mobile Home route composition while shared rails
-  remain package-internal for Library reuse. `WatchPage.kt` now owns the
-  mobile Watch route and player-control helpers. Library detail and Next Up
-  UI are now split into `LibraryDetailComponents.kt` and
-  `LibraryNextUpComponents.kt`; reusable library rails/cards now live in
-  `LibraryRailComponents.kt`, `LibraryPage.kt` owns the mobile Library route,
-  and `ConnectPage.kt` owns the Connect route plus connection form/rows. The
-  remaining entrypoint refactor work is mobile-specific.
-- `[x]` P1: Replace the legacy Android TV presentation with the typed-navigation,
-  split-StateFlow, cached-first native consumer experience. The old TV route,
-  state, poster, polling, and UI action files are removed; the replacement
-  routes, player, focus primitives, tests, and benchmark module are the only
-  shipped path.
-- `[x]` P1: Add connected Android test runs to the release checklist and record
-  the required device/emulator matrix for mobile playback, LAN sync, TV focus,
-  and Media3 streaming. The current emulator matrix is Android mobile phone
-  (`Pixel_3a_API_34_extension_level_7_x86_64`), Android mobile tablet
-  (`Danmaku_Tablet_API_34`), Android TV 1080p (`Danmaku_TV_API_36`), and
-  Android TV 4K (`Danmaku_TV_4K_API_36`).
-- `[x]` Persist external anime sync failures in the desktop database.
-- `[x]` Add durable external list entry fetch/readback so sync plans can compare
-  current provider state before writing. Desktop now imports MAL/Bangumi
-  readback, persists provider list entries across relaunch, and rechecks
-  provider progress before writes.
-- `[ ]` Extend user-facing danmaku controls beyond the current desktop offset
-  path: add richer filters/blocklists/presets and bring quick controls to
-  mobile and TV where practical.
-- `[ ]` Define authorized download source contracts and queue execution
-  behavior.
-- `[~]` Add QA scripts or checklists for Windows fullscreen/4K/hardware decode.
-  The manual release checklist now lives in
-  `docs/qa/windows-playback-release-qa.md`; the automated baseline runner
-  `tools/windows/run-windows-playback-release-qa.ps1` records runtime-probe
-  and smoke-playback results across a supplied media matrix. The 2026-06-22
-  runtime-free Windows portable pass succeeded across four real media samples,
-  and a follow-up app-window pass verified fullscreen exit restores the original
-  window bounds after the high-DPI restore fix. Remaining work is manual
-  recorded resize, seek/pause/rate, track-switching, 4K duration,
-  hardware-decode, and multi-display results.
-- `[~]` Add localization QA checks for English and `zh-TW` screenshots on
-  dense desktop, mobile, and TV surfaces. Desktop now has deterministic launch
-  overrides plus app-level screenshot capture for Home, Library, Downloads,
-  Tracking, and Settings. A full English/`zh-TW` desktop baseline pass was run
-  on 2026-06-16, then `zh-TW` Home, Library, Tracking, and Settings were
-  recaptured after fixing dynamic provider/status/watch-summary localization.
-  The app-level capture now raises the Danmaku window and restores the previous
-  always-on-top state after capture, reducing foreground-window contamination.
-  Remaining: final accepted cross-language desktop review plus mobile/TV
-  screenshots.
-- `[x]` P2: Finish English and `zh-TW` screenshot QA for desktop generated
-  resources, then remove duplicated migrated fallback text from the Kotlin
-  initializer. Dynamic desktop status strings are localized, the final full
-  desktop screenshot pass rendered successfully, and the Kotlin fallback now
-  keeps only the non-Compose error/default strings still used directly.
-- `[ ]` P2: After cross-platform localization QA passes, audit residual
-  hardcoded mobile/TV/desktop literals and move user-visible copy into the
-  platform resource layers.
-- `[~]` P2: Continue reducing desktop orchestration hotspots by extracting
-  catalog-store persistence helpers, tab assembly/presentation handoff, Home
-  tab presentation, and remaining large library/settings/playback surfaces
-  where it improves testability. Window/fullscreen lifecycle has moved behind
-  `DesktopShellWindowState.kt`, and QA screenshot launch handling has moved
-  behind `DesktopShellQaEffects.kt`. Catalog-store schema DDL and SQLDelight
-  row mappers now live in `DesktopLibraryCatalogStoreSchema.kt`; deeper
-  store-operation splits remain available if the database layer keeps growing.
-  Desktop Home route orchestration now lives in `DesktopHomeTab.kt`, while
-  reusable Home cards/status components live in `DesktopHomeContent.kt`.
-- `[~]` Add release checklist automation for Android APKs and Windows portable
-  archives. CI now builds and uploads the verified unified Rust-native
-  player/server/web zip and the standalone Rust library-server zip alongside
-  existing Android and compatibility desktop artifacts; broader signed-release
-  orchestration remains.
-- `[x]` Move the remaining desktop player surface out of `Main.kt`; playback
-  tab, shortcut, overlay, panel, constants, and cycling helpers are now split
-  into focused desktop playback files.
-- `[x]` Move the desktop library workspace and shared library row/card
-  composables out of `Main.kt`; library UI is now split into tab, workspace,
-  lists, inspector, and helper files. External-sync preview rows are also split
-  into `DesktopLibraryExternalSyncPreview.kt`, and metadata match dialog/candidate
-  rendering is split into `DesktopLibraryMetadataMatchDialog.kt`.
-- `[x]` Move desktop settings, server dashboard, and cache-management surfaces
-  out of `Main.kt`; settings UI is now split into tab, danmaku, dialogs, and
-  provider-card files.
-
-## Design Workstreams
-
-- [Home and app shell UI tasks](design/home-and-app-shell-ui-tasks.md)
-- [Desktop pages UI tasks](design/desktop-ui-pages/desktop-pages-ui-tasks.md)
-- [Android mobile and TV library UI tasks](design/android-mobile-tv-library-ui-tasks.md)
-- [External anime mapping and tracking tasks](design/external-anime-tracking-tasks.md)
-- [Server, client, and web UI split](design/server-client-web-ui-split-plan.md)
-- [Live external sync QA](qa/live-external-sync-qa.md)
-- [Windows playback release QA](qa/windows-playback-release-qa.md)
-- [Remote/headless packaging QA](qa/remote-headless-packaging-qa.md)
-
-## Review Findings
-
-Full review date: 2026-06-15.
-
-- `[x]` P0: No local build, Rust test, Gradle JVM/Android/desktop test, or
-  Worker proxy typecheck/test blocker found in the review run.
-- `[~]` P1: Expected user-facing failures are being moved out of crash-style
-  control flow. LAN discovery/client errors, desktop missing indexed-media and
-  no-match action failures, dandanplay provider failures, MAL OAuth callback
-  and token failures, external anime search/write failures, and ani-rss remote
-  failures, external search with no configured provider, and poster fetch
-  failures now use typed exceptions or optional fallbacks. The remaining
-  `error(...)`/`check(...)` hits are test sentinels or startup/developer
-  invariants. Metadata match no-provider and provider-search failure dialogs now
-  use localized English/`zh-TW` copy, and local playback preparation plus paired
-  library catalog/remote playback failures now use localized visible error copy.
-  Broader diagnostic-log localization and screenshot QA remain.
-- `[~]` P1: Android mobile entrypoint decomposition is largely complete, but
-  larger extracted route/component files still slow safe feature work and
-  review. Android TV completed its single-cutover rewrite and no longer shares
-  this refactor backlog.
-- `[ ]` P1: Release confidence still depends on manual QA for Windows
-  fullscreen/resize/4K/hardware decoding, one real Android phone/tablet smoke
-  pass with LAN playback, Android TV real-device focus traversal, desktop
-  localization screenshots, and live MAL/Bangumi sync.
-- `[ ]` P1: Download queue storage exists, but authorized download source
-  contracts and queue execution behavior are not implemented.
-- `[x]` P1: External sync can write updates, performs MAL/Bangumi provider
-  readback before writes, and persists readback/failure state across relaunch.
-- `[x]` P2: Desktop localization resource migration is functionally wired, and
-  screenshot QA flushed and fixed dynamic status/watch-summary leaks. The
-  duplicated fallback Kotlin initializer has been reduced to the small
-  non-Compose fallback set after the final accepted cross-language screenshot
-  review proved the XML resources.
-- `[ ]` P2: Desktop code is much healthier than the original monolith, but
-  `DesktopShell.kt`, desktop catalog-store operations, Library details,
-  Settings, Playback, and string-resource adapter files remain review-heavy.
-- `[~]` P2: Android mobile unit-test tasks remain sparse in places. Android TV
-  now has JVM coverage for navigation, browse derivation, playback, persistence,
-  and prepared danmaku plus instrumentation for focus, cache, and poster reuse.
-  Continue raising mobile presentation-state coverage as it is extracted.
-
-## Anime Lover Feature Backlog
-
-- `[ ]` P1: Add first-class watch status workflows: Plan to Watch, Watching,
-  Completed, Dropped, On Hold, Rewatching, score/rating, private notes, and
-  status filters across desktop/mobile/TV. Shared local status/score/notes
-  domain state, desktop persistence, and desktop Library inspector editing are
-  in place; filtering, rewatching semantics, and mobile/TV surfaces remain.
-- `[~]` P1: Add external list import/readback so MAL/Bangumi can seed local
-  watch status, watched episode counts, scores, and conflicts before writes.
-  Desktop mapped-list readback, durable import history, and conflict-row local
-  watched-progress seeding are implemented; readback status/score are visible
-  in the Tracking inspector, while editable local score/status workflows remain
-  part of the broader watch-list feature.
-- `[ ]` P1: Add release-calendar and seasonal anime views for "new this week",
-  airing day, next episode, season/year, and recently updated local episodes.
-- `[~]` P1: Add library quality tools for duplicate files, missing episodes,
-  suspicious episode numbering, unmatched files, bad filenames, and local
-  series split/merge review. Shared-domain scanner coverage now detects
-  folder/file episode mismatches, duplicate episode numbers, missing episode
-  gaps, unmatched series, local-vs-metadata episode count mismatches, and
-  metadata-assisted split/merge candidates with realistic release filename
-  examples. Desktop now exposes Library > Quality with open/handled counts,
-  affected files, evidence, and persisted ignore/resolve/reopen actions. Live
-  `W:/Anime` QA covered 1,973 media items and now reports 130 review
-  candidates after suppressing metadata-empty unmatched floods, supplemental
-  clips, root-level mega-series grouping, and common release-name parser false
-  positives. Variant-aware
-  duplicate classification separates 45 fansub/subtitle-language/quality
-  alternates from 18 hard duplicate-number issues. Split/merge rows now include
-  localized guidance, an inspector jump to review the first affected file, and
-  a non-destructive Apply mappings action that persists metadata-derived item
-  and series mappings before marking the issue resolved; its plan-application
-  persistence path is covered by desktop tests. Live QA is now repeatable via
-  `tools/windows/run-library-quality-live-qa.ps1`: the full `W:/Anime` scan
-  still reports 1,973 items and 130 structural review candidates with no
-  apply-capable rows because it is a fresh metadata-empty scan, while the
-  copied mapped registered catalog applied one split-series plan with 20 item
-  mappings and 2 series mappings, reducing open mapped issues from 39 to 38.
-  Quality rows that lack an apply plan now expose a scoped metadata refresh
-  action, which fetches dandanplay matches/metadata for the affected files so
-  fresh metadata-empty scans can become apply-capable after refresh. The refresh
-  loop now has focused desktop regression coverage for cached IDs, resolver
-  matches, missing paths, no-match skips, and provider failures. Remaining:
-  optional preview-first filesystem organization/rename flows.
-- `[ ]` P1: Add per-series playback preferences for preferred subtitle track,
-  audio track, subtitle requirement, playback speed, danmaku visibility, and
-  resume/autonext behavior.
-- `[ ]` P2: Add OP/ED/recap skip marker support with manual markers first,
-  then persisted per-series/per-episode reuse.
-- `[ ]` P2: Add richer danmaku controls: blocklist keywords/users, density
-  presets, style presets, per-series offset, quiet mode, and quick toggle
-  parity on desktop/mobile/TV.
-- `[ ]` P2: Improve anime metadata display with alternate title preferences
-  (Japanese, romaji, English, Chinese), studios, genres/tags, source material,
-  year/season, episode count, and specials/OVA/movie ordering.
-- `[ ]` P2: Add custom collections and smart filters such as Favorites,
-  Watch Later, by studio, by season, by tag, unwatched, almost finished,
-  downloaded/imported, and has local subtitles.
-- `[ ]` P2: Add notification-style surfaces for newly indexed episodes,
-  metadata refresh failures, external sync conflicts, and PC/server
-  availability while keeping local-first privacy defaults.
+- `[ ]` Add per-series playback preferences for subtitle/audio tracks,
+  subtitle requirement, rate, danmaku visibility, resume, and auto-next.
+- `[ ]` Add manual OP/ED/recap markers followed by persisted reuse.
+- `[ ]` Add richer danmaku blocklists, offsets, density/style presets, and
+  quiet-mode controls across active clients.
+- `[ ]` Improve metadata with alternate titles, studios, genres/tags, source,
+  season/year, episode counts, and specials/OVA/movie ordering.
+- `[ ]` Add favorites, watch-later, custom collections, and useful smart
+  filters against normalized server-owned state.
+- `[ ]` Define authorized source contracts and build a download engine with
+  queue execution, pause/resume, retry, cache management, and diagnostics.
+- `[ ]` Add notification surfaces for newly indexed episodes, provider
+  failures, tracking conflicts, and server availability.
 
 ## Quality Gates
 
-- Shared domain changes should include common tests.
-- LAN server/client behavior should include JVM tests and Android adapter tests
-  where relevant.
-- Web UI changes should run `npm run build` in `apps/web-ui`; server-side route
-  changes should keep JVM LAN server compatibility tests green; headless/web
-  integration changes should run `tools/windows/run-headless-web-ui-qa.ps1`,
-  and desktop-sidecar web-surface changes should run
-  `tools/windows/run-embedded-web-ui-qa.ps1`.
-- Desktop storage/provider/native changes should include desktop tests.
-- TV UI changes should include D-pad/focus instrumentation coverage where
-  practical.
-- Android playback changes should run connected tests on a real device or
-  emulator before release. Mobile emulator coverage should use
-  `Pixel_3a_API_34_extension_level_7_x86_64` for phone layout and
-  `Danmaku_Tablet_API_34` for tablet layout, or run
-  `.\tools\windows\run-android-mobile-emulator-qa.ps1` to execute both and
-  capture screenshots.
-- Android TV emulator coverage should use `Danmaku_TV_API_36` for 1080p and
-  `Danmaku_TV_4K_API_36` for 4K, or run
-  `.\tools\windows\run-android-tv-emulator-qa.ps1` to execute both and capture
-  screenshots.
+- Shared domain and LAN-client changes require their focused JVM tests.
+- Rust player/server changes require `cargo fmt --all --check` and
+  `cargo test --workspace`; server route changes should also run
+  `tools/windows/run-headless-web-ui-qa.ps1` when practical.
+- Web UI changes require `npm run build` in `apps/web-ui`.
+- Android builds require the narrowest applicable unit/build tasks. Connected
+  tests require an available emulator/device and must not be assumed.
+- TV UI changes should include D-pad/focus instrumentation and benchmark
+  coverage where practical.
+- GUI playback, emulator control, real-library scanning, and live-provider QA
+  remain explicitly supervised.
 
 ## Standard Verification
 
 ```powershell
 cargo fmt --all --check
 cargo test --workspace
-.\gradlew.bat --no-daemon :shared:domain:jvmTest :shared:library-client:jvmTest :shared:library-server-core:jvmTest :apps:desktop-windows:desktopTest :shared:library-client-android:testDebugUnitTest :shared:player-android-media3:assembleDebugAndroidTest :apps:android-mobile:assembleDebug :apps:android-tv:assembleDebug
+.\gradlew.bat --no-daemon :shared:domain:jvmTest :shared:library-client:jvmTest :shared:library-client-android:testDebugUnitTest :shared:player-android-media3:assembleDebugAndroidTest :apps:android-mobile:assembleDebug :apps:android-tv:assembleDebug
 ```
 
 Connected Android checks:
@@ -465,15 +69,4 @@ Connected Android checks:
 .\gradlew.bat --no-daemon :shared:player-android-media3:connectedDebugAndroidTest
 .\gradlew.bat --no-daemon :apps:android-mobile:connectedDebugAndroidTest
 .\gradlew.bat --no-daemon :apps:android-tv:connectedDebugAndroidTest
-.\tools\windows\run-android-mobile-emulator-qa.ps1
-.\tools\windows\run-android-tv-emulator-qa.ps1
-```
-
-Desktop live QA helpers:
-
-```powershell
-.\tools\windows\run-library-quality-live-qa.ps1
-.\tools\windows\run-library-quality-live-qa.ps1 -LibraryRoot '' -OutputDir build\qa\library-quality-registered
-.\tools\windows\run-headless-web-ui-qa.ps1
-.\tools\windows\run-embedded-web-ui-qa.ps1
 ```

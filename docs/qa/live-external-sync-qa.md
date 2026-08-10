@@ -11,19 +11,17 @@ Use this checklist for real MyAnimeList and Bangumi readback/writeback validatio
 
 ## Prerequisites
 
-- Desktop app can start and open Tracking/Profile provider settings.
+- The Rust library server and `/web/` administration UI can start.
 - MyAnimeList OAuth or Bangumi token is configured for the test account.
 - A small local fixture or real catalog item is mapped to one MAL ID and one Bangumi ID.
 - The mapped anime should be safe to edit, preferably a test/low-risk entry with known episode count.
 
 ## Read-Only Harness
 
-Run the readback harness before any writeback pass. It uses the shared
-MAL/Bangumi tracking clients and only calls `fetchListEntry`; it does not send
-provider update requests or read the desktop encrypted credential store. Add
-`-RustServer` for the Phase 1 Rust server parity gate; the wrapper builds the
-Rust binary, starts it with an isolated temp data directory and no library
-roots, and routes readback through the server API.
+Run the Rust-only readback harness before any writeback pass. The wrapper
+builds the Rust server, starts it with an isolated temporary data directory and
+no library roots, and routes readback through the server API. It reads one
+MAL/Bangumi list entry and does not send provider update requests.
 
 ```powershell
 .\tools\windows\run-live-external-sync-readback-qa.ps1 `
@@ -35,18 +33,6 @@ roots, and routes readback through the server API.
   -Provider BANGUMI `
   -AnimeId 400602 `
   -BangumiAccessToken $env:DANMAKU_BANGUMI_ACCESS_TOKEN
-
-.\tools\windows\run-live-external-sync-readback-qa.ps1 `
-  -RustServer `
-  -Provider MY_ANIME_LIST `
-  -AnimeId 52991 `
-  -MyAnimeListAccessToken $env:DANMAKU_MYANIMELIST_ACCESS_TOKEN
-
-.\tools\windows\run-live-external-sync-readback-qa.ps1 `
-  -RustServer `
-  -Provider BANGUMI `
-  -AnimeId 400602 `
-  -BangumiAccessToken $env:DANMAKU_BANGUMI_ACCESS_TOKEN
 ```
 
 Reports are written under `build/qa/live-external-sync/` and must not be
@@ -55,12 +41,13 @@ check; the default expects the anime to already exist in the provider list.
 
 ## Readback Flow
 
-1. Start the desktop app with an isolated test library when possible.
+1. Start the Rust server with an isolated test library when possible and open
+   its `/web/` administration UI.
 2. Confirm provider runtime status shows authenticated list read access.
 3. Map one local series to the provider anime ID.
 4. Run external list readback/import.
 5. Verify the Tracking inspector shows provider status, watched episodes, score, and last-read timestamp.
-6. Close and relaunch the desktop app.
+6. Stop and relaunch the Rust server.
 7. Verify imported provider entries and any conflict state persist after relaunch.
 
 ## Write/Readback Flow

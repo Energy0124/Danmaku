@@ -3,9 +3,7 @@ param(
     [Parameter(Mandatory = $true)]
     [string[]]$MediaPath,
 
-    [string]$WindowsDistributionPath = (
-        Join-Path $PSScriptRoot "..\..\apps\desktop-windows\build\release\windows-portable"
-    ),
+    [string]$DistributionPath,
     [string]$OutputDir,
     [ValidateRange(1, 300)]
     [int]$SmokeSeconds = 10,
@@ -22,14 +20,27 @@ if ([string]::IsNullOrWhiteSpace($OutputDir)) {
 $OutputDir = [System.IO.Path]::GetFullPath($OutputDir)
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 
-$windowsFullPath = [System.IO.Path]::GetFullPath($WindowsDistributionPath)
-$verifyScript = Join-Path $PSScriptRoot "verify-windows-mpv-runtime.ps1"
+$verifyScript = Join-Path $PSScriptRoot "verify-rust-player-release.ps1"
 $smokeScript = Join-Path $PSScriptRoot "smoke-windows-playback.ps1"
 foreach ($requiredScript in @($verifyScript, $smokeScript)) {
     if (-not (Test-Path -LiteralPath $requiredScript -PathType Leaf)) {
         throw "Required QA script does not exist: $requiredScript"
     }
 }
+
+if ([string]::IsNullOrWhiteSpace($DistributionPath)) {
+    $releaseRoot = Join-Path $repoRoot "build\release\rust-player"
+    $package = Get-ChildItem -LiteralPath $releaseRoot -Directory -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -like "danmaku-player-*-windows-x64" } |
+        Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName "danmaku-player.exe") -PathType Leaf } |
+        Sort-Object LastWriteTime -Descending |
+        Select-Object -First 1
+    if ($null -eq $package) {
+        throw "No packaged Rust player exists under $releaseRoot. Build it first with build-rust-player.bat."
+    }
+    $DistributionPath = $package.FullName
+}
+$distributionFullPath = [System.IO.Path]::GetFullPath($DistributionPath)
 
 $mediaFullPaths = @()
 foreach ($path in $MediaPath) {
@@ -92,9 +103,9 @@ function Invoke-QaStep {
 if (-not $SkipRuntimeProbe) {
     Invoke-QaStep `
         -Step "Runtime probe" `
-        -Target $windowsFullPath `
+        -Target $distributionFullPath `
         -Command {
-            & $verifyScript -WindowsDistributionPath $windowsFullPath -MediaPath $mediaFullPaths[0]
+            & $verifyScript -WindowsDistributionPath $distributionFullPath
         }
 }
 
@@ -103,7 +114,7 @@ foreach ($mediaFullPath in $mediaFullPaths) {
         -Step "Smoke playback" `
         -Target $mediaFullPath `
         -Command {
-            & $smokeScript -WindowsDistributionPath $windowsFullPath -MediaPath $mediaFullPath -Seconds $SmokeSeconds
+            & $smokeScript -DistributionPath $distributionFullPath -MediaPath $mediaFullPath -Seconds $SmokeSeconds
         }
 }
 
@@ -115,7 +126,7 @@ $reportLines = [System.Collections.Generic.List[string]]::new()
 $null = $reportLines.Add("# Windows Playback Release QA")
 $null = $reportLines.Add("")
 $null = $reportLines.Add("- Generated at: $generatedAt")
-$null = $reportLines.Add("- Distribution path: $windowsFullPath")
+$null = $reportLines.Add("- Distribution path: $distributionFullPath")
 $null = $reportLines.Add("- Smoke seconds per media: $SmokeSeconds")
 $null = $reportLines.Add("- Media files: $($mediaFullPaths.Count)")
 $null = $reportLines.Add("- Automated result: $automatedResult")

@@ -1296,9 +1296,8 @@ fn load_local_properties(
 }
 
 // Auto-discover local.properties from the working directory and user profile,
-// matching both the Kotlin desktop app and the external-anime credential path in
-// settings.rs. This lets a user who configured dandanplay via local.properties
-// get working danmaku without duplicating credentials into server-settings.json.
+// matching the player and external-anime credential paths. This lets users keep
+// dandanplay credentials outside server-settings.json.
 fn default_local_properties_paths(environment: &HashMap<String, String>) -> Vec<PathBuf> {
     let mut paths = vec![
         env::current_dir()

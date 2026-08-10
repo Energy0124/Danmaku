@@ -20,7 +20,7 @@ pub struct Cli {
     pub media_id: Option<String>,
     pub auto_next: bool,
     /// QA hook: in library mode, plays the first catalog item as soon as
-    /// the catalog loads (mirrors the desktop app's autoplay QA hooks).
+    /// the catalog loads.
     pub qa_play_first: bool,
     /// QA hook: stay on deterministic first-run onboarding without attaching locally.
     pub qa_onboarding: bool,

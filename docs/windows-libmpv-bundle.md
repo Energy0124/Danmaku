@@ -22,8 +22,8 @@ portable artifacts.
 - `tools/windows/verify-libmpv-bundle.ps1`
 - `tools/windows/test-install-libmpv-dependency.ps1`
 - `tools/windows/test-verify-libmpv-bundle.ps1`
-- `tools/windows/prepare-windows-release.ps1`
-- `tools/windows/verify-windows-mpv-runtime.ps1`
+- `tools/windows/prepare-rust-player-release.ps1`
+- `tools/windows/verify-rust-player-release.ps1`
 
 ## Local Verification
 
@@ -32,7 +32,7 @@ portable artifacts.
 .\tools\windows\test-install-libmpv-dependency.ps1
 .\tools\windows\install-libmpv-dependency.ps1 -AcceptLicense
 cargo build --release -p player-windows-mpv --lib
-.\tools\windows\verify-windows-mpv-runtime.ps1
+.\build-rust-player.bat
 ```
 
 For a real playback smoke test:

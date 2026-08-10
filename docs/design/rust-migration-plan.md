@@ -1,6 +1,6 @@
 # Rust Server And Windows Player Migration Plan
 
-Last updated: 2026-07-08.
+Completed: 2026-08-07.
 
 ## Direction
 
@@ -9,7 +9,7 @@ implementations, retiring the JVM server modules and the Compose desktop app
 once their Rust replacements pass the existing QA gates. Android mobile and
 Android TV stay Kotlin/Media3 and must not notice the server changed.
 
-This is a strangler migration along the trusted-LAN protocol boundary:
+The migration followed the trusted-LAN protocol boundary:
 
 1. Freeze and document the LAN HTTP + UDP discovery protocol as the contract.
 2. Build a Rust headless library server that passes the existing headless QA
@@ -21,12 +21,12 @@ This is a strangler migration along the trusted-LAN protocol boundary:
 5. Retire the JVM server modules and the Compose desktop app; update docs,
    CI, and release tooling.
 
-Each phase ships something usable on its own. The Kotlin implementations
-stay runnable until the matching Rust replacement passes its parity gate.
+All five phases are complete. Kotlin remains only for Android applications and
+shared Android-facing modules.
 
 ## Accepted Decisions
 
-- **Server stack:** tokio + axum + rusqlite + serde. No gRPC; the
+- **Server stack:** tokio + axum + serde. No gRPC; the
   existing HTTP JSON + byte-range contract stays. Outbound provider HTTP
   currently uses WinHTTP (`windows-sys`) behind a transport trait instead
   of the originally planned reqwest — smaller dependency tree for the
@@ -147,10 +147,9 @@ slices; the golden fixtures are the acceptance tests throughout.
 
 Foundations:
 
-- `[x]` CLI parity with the JVM headless server: `--data-dir`, `--root`,
+- `[x]` CLI parity with the active server contract: `--data-dir`, `--root`,
   `--port`, `--pairing-token`, `--web-assets-dir`, and the matching
-  environment fallbacks. (Also accepts the JVM `--web-ui-dist` alias;
-  unlike the JVM parser, unknown arguments are rejected.)
+  environment fallbacks. Unknown arguments are rejected.
 - `[x]` Data-directory locking, `server-settings.json` readback,
   stable pairing-token persistence, catalog snapshot persistence.
   (JVM-adoptable: same `.danmaku-host.lock` byte-range lock, same
@@ -165,16 +164,9 @@ Catalog:
   series grouping ported from `shared/domain` + desktop indexing, folding
   in or extending `native/rust-core`. Must pass the domain conformance
   fixtures.
-- `[x]` SQLite persistence compatible with existing desktop catalog
-  databases, or a one-time importer verified against a copied real catalog.
-  (One-time importer chosen: `--import-desktop-catalog <db-copy>` reads
-  the desktop SQLDelight DB read-only, preserves desktop media ids, and
-  merges progress newest-wins. Verified 2026-07-09 against a copy of the
-  real desktop `library.db`: 5 roots, 5,852 items, 333 subtitles, 136
-  matched posters, 10 progress rows imported and served correctly from
-  the snapshot boot path. Desktop-only tables — favorites, local
-  watch-list, provider caches, download queue, quality decisions — are
-  deliberately not imported; the LAN protocol has no surface for them.)
+- `[x]` Native JSON persistence for catalog and progress. The temporary
+  desktop SQLite importer was removed at final cutover; users configure roots
+  again and create a fresh Rust catalog.
 - `[x]` Sidecar subtitle discovery matching current behavior.
 
 HTTP and discovery:
@@ -231,7 +223,7 @@ Parity gates:
 - `[x]` Desktop embedded-JVM-server/discovery code paths removed; local mode
   defaults to the bundled Rust sidecar, explicit remote mode skips it, and
   `shared/library-host-core` is unused by desktop.
-- `[ ]` `shared/library-server-core` and its JVM provider clients become
+- `[x]` `shared/library-server-core` and its JVM provider clients become
   unused by desktop; remaining provider/progress/diagnostic contracts move
   behind the sidecar HTTP boundary.
 - `[x]` `tools\windows\run-embedded-web-ui-qa.ps1` and the desktop test
@@ -364,14 +356,14 @@ Milestones, each shippable while the Compose app remains the default:
   HTTP protocol fixtures covering status, catalog, media/subtitle bytes,
   progress read/write, danmaku refresh, and HTTP failure handling without a
   `shared:library-server-core` test dependency.
-- `[ ]` Remove `apps/desktop-windows`, `apps/library-server-windows`,
+- `[x]` Remove `apps/desktop-windows`, `apps/library-server-windows`,
   `shared/library-server-core`, `shared/library-host-core`, and JVM-only
   provider code; keep Kotlin only for Android and the `shared/domain`
   pieces Android still needs.
-- `[ ]` Remove the JNA bridging surface from `native/player-windows-mpv`.
-- `[ ]` Update CI: drop desktop-JVM and macOS-desktop jobs, add Rust
+- `[x]` Remove the JNA bridging surface from `native/player-windows-mpv`.
+- `[x]` Update CI: drop desktop-JVM and macOS-desktop jobs, add Rust
   build/test/release matrix for server and player.
-- `[ ]` Update `AGENTS.md` (application-layer rule, verification table),
+- `[x]` Update `AGENTS.md` (application-layer rule, verification table),
   `docs/architecture.md`, `docs/current-state.md`, `docs/roadmap.md`,
   `README.md`, and the QA wrappers.
 
