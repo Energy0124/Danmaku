@@ -224,3 +224,15 @@ Default thresholds:
   `apps/web-ui/scripts/browserQa/`, leaving `check-browser-interactions.mjs`
   focused on Danmaku-specific overlay, provider search, and external-list UI
   flows. Verification: `tools/windows/run-headless-web-ui-qa.ps1`.
+
+- 2026-08-11: Restored the tracking feature as a native Rust Windows workflow:
+  release-configured MAL OAuth with fixed loopback callback and encrypted
+  refresh tokens, guided/validated Bangumi connection, account status and
+  disconnect, persistent series search/mapping, provider readback, previewed
+  writes, conservative provider-ahead local import, and an episode-completion
+  review prompt. The web UI now mirrors account/tracking administration and no
+  longer exposes the per-episode direct list editor. Automated fake/unit and
+  browser coverage now exercises account status, guided Bangumi connection,
+  provider-ahead import, mapping search, and the reviewed sync gate through
+  `tools/windows/run-headless-web-ui-qa.ps1`; live account QA remains
+  explicitly gated.

@@ -3,6 +3,7 @@ param(
     [string]$ReleaseRoot = (Join-Path $PSScriptRoot "..\..\build\release\rust-player"),
     [string]$LibmpvPath = (Join-Path $PSScriptRoot "..\..\runtime\windows\libmpv\libmpv-2.dll"),
     [string]$WebUiDistPath = (Join-Path $PSScriptRoot "..\..\apps\web-ui\dist"),
+    [string]$MyAnimeListClientId = $env:DANMAKU_MYANIMELIST_CLIENT_ID,
     [bool]$ProbeLibmpv = $true
 )
 
@@ -233,6 +234,11 @@ $zipPath = Join-Path $releaseRootFullPath "$packageName.zip"
 
 Push-Location $repoRoot
 try {
+    if (-not [string]::IsNullOrWhiteSpace($MyAnimeListClientId)) {
+        $env:DANMAKU_MYANIMELIST_CLIENT_ID = $MyAnimeListClientId.Trim()
+    } else {
+        Write-Warning "No MyAnimeList client ID was supplied; MAL sign-in will be unavailable in this build."
+    }
     & cargo build --release -p danmaku-player -p library-server
     if ($LASTEXITCODE -ne 0) {
         throw "danmaku-player/library-server release build failed."

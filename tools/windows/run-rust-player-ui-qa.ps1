@@ -63,7 +63,7 @@ function Invoke-UiCapture {
     }
 
     try {
-        if (-not $process.WaitForExit(15000)) {
+        if (-not $process.WaitForExit(30000)) {
             $process.Kill($true)
             throw "Rust player UI capture timed out for $Name."
         }

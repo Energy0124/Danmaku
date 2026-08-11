@@ -201,6 +201,7 @@ mod tests {
                 bangumi_user_agent: "Danmaku QA secret-agent".to_owned(),
                 bangumi_access_token: Some("raw-bangumi-token".to_owned()),
                 has_bangumi_access_token: true,
+                ..HeadlessExternalAnimeProviderSettings::default()
             },
         };
         let stored_library = HeadlessStoredLibrary {

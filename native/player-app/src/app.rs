@@ -36,6 +36,7 @@ use crate::{
     session::{LibrarySession, SessionEvent},
     smoke::SmokeReport,
     theme::{self, metrics, palette, typography},
+    tracking::{TrackingAction, TrackingScreenState, show_tracking},
     tracks::{TrackInventory, TrackKind, read_track_inventory, selection_command},
     video::{RenderCounters, SharedVideoRenderer, VideoRenderer},
 };
@@ -62,6 +63,7 @@ enum AppScreen {
     Library,
     Playback,
     Settings,
+    Tracking,
 }
 
 /// Manual danmaku match picker: shows the hash-match candidates for an item
@@ -217,6 +219,9 @@ pub struct PlayerApp {
     credential_store: CredentialStore,
     dandanplay_credentials: DandanplayCredentials,
     settings_return: AppScreen,
+    tracking_return: AppScreen,
+    tracking_screen: TrackingScreenState,
+    tracking_completion_prompt: bool,
     local_host: Option<LocalServerSupervisor>,
     window_effects_applied: bool,
     branding: Branding,
@@ -428,6 +433,9 @@ impl PlayerApp {
             credential_store,
             dandanplay_credentials,
             settings_return: AppScreen::Library,
+            tracking_return: AppScreen::Settings,
+            tracking_screen: TrackingScreenState::default(),
+            tracking_completion_prompt: false,
             local_host,
             window_effects_applied: false,
             branding,
@@ -916,6 +924,58 @@ impl PlayerApp {
                         },
                     );
                 }
+                SessionEvent::ProviderAccounts(result) => {
+                    self.tracking_screen.loading = false;
+                    match result {
+                        Ok(accounts) => {
+                            self.tracking_screen.accounts = Some(accounts);
+                            self.tracking_screen.bangumi_token.clear();
+                            self.tracking_screen.error = None;
+                        }
+                        Err(error) => self.tracking_screen.error = Some(error),
+                    }
+                }
+                SessionEvent::MyAnimeListOAuthReady(result) => match result {
+                    Ok(url) => {
+                        ctx.open_url(egui::OpenUrl::new_tab(url));
+                        self.tracking_screen.notice = Some(
+                            Strings::new(self.preferences.language)
+                                .mal_browser_notice()
+                                .to_owned(),
+                        );
+                    }
+                    Err(error) => {
+                        self.tracking_screen.loading = false;
+                        self.tracking_screen.error = Some(error);
+                    }
+                },
+                SessionEvent::Tracking(result) => {
+                    self.tracking_screen.loading = false;
+                    match result {
+                        Ok(document) => {
+                            self.tracking_screen.document = Some(document);
+                            self.tracking_screen.error = None;
+                        }
+                        Err(error) => self.tracking_screen.error = Some(error),
+                    }
+                }
+                SessionEvent::TrackingSearch {
+                    local_series_id,
+                    result,
+                } => {
+                    if let Some(editor) = &mut self.tracking_screen.mapping_editor
+                        && editor.local_series_id == local_series_id
+                    {
+                        editor.searching = false;
+                        match result {
+                            Ok(results) => {
+                                editor.results = results;
+                                self.tracking_screen.error = None;
+                            }
+                            Err(error) => self.tracking_screen.error = Some(error),
+                        }
+                    }
+                }
                 _ => {}
             }
         }
@@ -1189,9 +1249,67 @@ impl PlayerApp {
         }
         // Record the position as watched, then advance when enabled.
         self.upload_active_progress(true);
-        if self.auto_next {
+        let tracking_connected = self
+            .tracking_screen
+            .accounts
+            .as_ref()
+            .is_some_and(|accounts| {
+                accounts.my_anime_list.is_connected() || accounts.bangumi.is_connected()
+            });
+        if tracking_connected {
+            self.tracking_completion_prompt = true;
+        } else if self.auto_next {
             self.play_adjacent_episode(1);
         }
+    }
+
+    fn open_tracking(&mut self, return_to: AppScreen) {
+        self.tracking_return = return_to;
+        let has_pairing_token = self
+            .session
+            .as_ref()
+            .and_then(|session| session.pairing_token.as_deref())
+            .is_some_and(|token| !token.trim().is_empty());
+        self.tracking_screen.loading = has_pairing_token;
+        self.tracking_screen.error = (!has_pairing_token).then(|| {
+            Strings::new(self.preferences.language)
+                .tracking_pairing_token_required()
+                .to_owned()
+        });
+        self.screen = AppScreen::Tracking;
+        if has_pairing_token && let Some(session) = &self.session {
+            session.refresh_provider_accounts();
+            session.refresh_tracking();
+        }
+    }
+
+    fn show_tracking_completion_prompt(&mut self, ctx: &egui::Context) {
+        if !self.tracking_completion_prompt {
+            return;
+        }
+        let strings = Strings::new(self.preferences.language);
+        egui::Window::new(strings.tracking_completion_title())
+            .id(egui::Id::new("tracking_completion_prompt"))
+            .anchor(Align2::CENTER_CENTER, egui::Vec2::ZERO)
+            .collapsible(false)
+            .resizable(false)
+            .show(ctx, |ui| {
+                ui.set_width(390.0);
+                ui.label(strings.tracking_completion_body());
+                ui.add_space(10.0);
+                ui.horizontal(|ui| {
+                    if ui.button(strings.review_tracking_update()).clicked() {
+                        self.tracking_completion_prompt = false;
+                        self.open_tracking(AppScreen::Playback);
+                    }
+                    if ui.button(strings.not_now()).clicked() {
+                        self.tracking_completion_prompt = false;
+                        if self.auto_next {
+                            self.play_adjacent_episode(1);
+                        }
+                    }
+                });
+            });
     }
 
     fn show_window_title_bar(&mut self, ctx: &egui::Context) {
@@ -2514,6 +2632,7 @@ impl eframe::App for PlayerApp {
                     &mut self.dandanplay_credentials,
                 ) {
                     Some(SettingsAction::Back) => self.screen = self.settings_return,
+                    Some(SettingsAction::OpenTracking) => self.open_tracking(AppScreen::Settings),
                     Some(SettingsAction::ChangeServer) => {
                         self.connect_screen.manual_url =
                             self.preferences.last_server_url.clone().unwrap_or_default();
@@ -2599,6 +2718,95 @@ impl eframe::App for PlayerApp {
                     self.apply_changed_preferences(&before, ctx);
                 }
             }
+            AppScreen::Tracking => {
+                if let Some(action) =
+                    show_tracking(ctx, &mut self.tracking_screen, self.preferences.language)
+                {
+                    let session = self.session.as_ref();
+                    match action {
+                        TrackingAction::Back => self.screen = self.tracking_return,
+                        TrackingAction::Refresh => {
+                            self.tracking_screen.loading = true;
+                            if let Some(session) = session {
+                                session.refresh_provider_accounts();
+                                session.refresh_tracking();
+                            }
+                        }
+                        TrackingAction::StartMyAnimeList => {
+                            self.tracking_screen.loading = true;
+                            self.tracking_screen.error = None;
+                            if let Some(session) = session {
+                                session.start_my_anime_list_oauth();
+                            }
+                        }
+                        TrackingAction::ConnectBangumi(token) => {
+                            self.tracking_screen.loading = true;
+                            if let Some(session) = session {
+                                session.connect_bangumi(token);
+                            }
+                        }
+                        TrackingAction::Disconnect(provider) => {
+                            self.tracking_screen.loading = true;
+                            if let Some(session) = session {
+                                session.disconnect_provider(provider);
+                            }
+                        }
+                        TrackingAction::Readback => {
+                            self.tracking_screen.loading = true;
+                            if let Some(session) = session {
+                                session.refresh_tracking_readback();
+                            }
+                        }
+                        TrackingAction::Sync(updates) => {
+                            self.tracking_screen.loading = true;
+                            if let Some(session) = session {
+                                session.sync_tracking(updates);
+                            }
+                        }
+                        TrackingAction::Search {
+                            local_series_id,
+                            query,
+                            provider,
+                        } => {
+                            if let Some(session) = session {
+                                session.search_tracking(local_series_id, query, provider);
+                            }
+                        }
+                        TrackingAction::SaveMapping {
+                            local_series_id,
+                            anime_id,
+                        } => {
+                            self.tracking_screen.loading = true;
+                            if let Some(session) = session {
+                                session.save_tracking_mapping(local_series_id, anime_id);
+                            }
+                        }
+                        TrackingAction::DeleteMapping {
+                            local_series_id,
+                            anime_id,
+                        } => {
+                            self.tracking_screen.loading = true;
+                            if let Some(session) = session {
+                                session.delete_tracking_mapping(local_series_id, anime_id);
+                            }
+                        }
+                        TrackingAction::ImportConflict {
+                            local_series_id,
+                            anime_id,
+                            expected_external_watched_episodes,
+                        } => {
+                            self.tracking_screen.loading = true;
+                            if let Some(session) = session {
+                                session.import_tracking_conflict(
+                                    local_series_id,
+                                    anime_id,
+                                    expected_external_watched_episodes,
+                                );
+                            }
+                        }
+                    }
+                }
+            }
             AppScreen::Playback => {
                 self.handle_shortcuts(ctx, now);
                 self.record_activity(ctx);
@@ -2619,6 +2827,7 @@ impl eframe::App for PlayerApp {
         }
         self.sync_fullscreen_window_level(ctx);
         self.show_match_picker_overlay(ctx);
+        self.show_tracking_completion_prompt(ctx);
         self.save_preferences_if_changed();
         self.finish_qa_screenshot_if_needed(ctx);
     }

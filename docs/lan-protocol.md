@@ -641,65 +641,55 @@ Status codes:
 - `502`: dandanplay request failed or the resolver is unavailable; text
   body.
 
-### `GET /api/providers/list/entry`
+### Provider account routes
 
-Query parameters:
+All account routes require `Authorization: Bearer <pairing token>`.
 
-- `provider`: required. Accepted names match provider search.
-- `animeId`: required positive integer.
+- `GET /api/providers/accounts` returns normalized MAL and Bangumi connection
+  states (`CONNECTED`, `DISCONNECTED`, `NEEDS_RECONNECT`, or `UNAVAILABLE`),
+  redacted identity, last verification time, and the official Bangumi token
+  URL.
+- `POST /api/providers/accounts/myanimelist/oauth/start` creates a single-use,
+  ten-minute OAuth state and PKCE verifier. It returns `flowId`,
+  `authorizationUrl`, and the fixed callback
+  `http://127.0.0.1:18765/api/oauth/myanimelist/callback`.
+- `POST /api/providers/accounts/myanimelist/oauth/complete` accepts `flowId`,
+  `state`, and `code`; the server validates state, exchanges the code,
+  validates `/users/@me`, and stores encrypted access/refresh tokens.
+- `DELETE /api/providers/accounts/myanimelist` disconnects MAL.
+- `PUT /api/providers/accounts/bangumi` accepts `{ "accessToken": "..." }`,
+  validates `/v0/me`, and stores the token encrypted.
+- `DELETE /api/providers/accounts/bangumi` disconnects Bangumi.
 
-Success: `200 application/json; charset=utf-8`.
+Disconnecting never deletes local mappings or playback progress. MAL tokens
+are refreshed before readback/sync when they are within one minute of expiry.
 
-Body shape is `ExternalAnimeListEntry`:
+### Provider tracking routes
+
+All tracking routes require the pairing bearer token. `GET
+/api/providers/tracking` returns persisted mappings plus a no-write preview.
+`PUT|DELETE /api/providers/tracking/mapping` persists or removes a series
+mapping. `POST /api/providers/tracking/readback` reads mapped provider state.
+`POST /api/providers/tracking/sync` accepts the exact previewed
+`expectedUpdates`; it returns `409` if the preview changed.
+
+`POST /api/providers/tracking/conflicts/import` accepts:
 
 ```json
 {
+  "localSeriesId": "series-id",
   "animeId": { "provider": "BANGUMI", "value": 1 },
-  "status": "WATCHING",
-  "watchedEpisodes": 3,
-  "score": 8,
-  "updatedAtEpochMs": 1700000000000
+  "expectedExternalWatchedEpisodes": 3
 }
 ```
 
-Status codes:
+The route succeeds only while that exact provider-ahead conflict still exists.
+It marks the first N canonical local episodes watched, skips already-watched
+episodes, preserves known duration, and otherwise uses a 60-second synthetic
+duration. It never writes provider-ahead progress back to the provider.
 
-- `200`: entry returned.
-- `400`: missing/unsupported provider, invalid `animeId`, or dandanplay
-  provider; text body.
-- `404`: external list entry was not found; text body.
-- `409`: provider credentials are not configured; text body.
-- `502`: provider request failed; text body.
-- `500`: unhandled hook exception; text body `Request failed.`
-
-### `POST /api/providers/list/entry`
-
-Request body: `ExternalAnimeTrackingUpdate` JSON:
-
-```json
-{
-  "animeId": { "provider": "BANGUMI", "value": 1 },
-  "status": "WATCHING",
-  "watchedEpisodes": 3,
-  "score": 8,
-  "trackingEnabled": true,
-  "ratingEnabled": true
-}
-```
-
-Success: `200 application/json; charset=utf-8`, body is the resulting
-`ExternalAnimeListEntry`.
-
-Status codes:
-
-- `200`: update succeeded.
-- `400`: malformed body or dandanplay provider; text body.
-- `409`: provider credentials are not configured; text body.
-- `502`: provider request failed; text body.
-- `500`: unhandled hook exception; text body `Request failed.`
-
-Other methods on `/api/providers/list/entry` reach the hook and return
-`405 text/plain; charset=utf-8` with body `Method not allowed.`
+The former `/api/providers/list/entry` direct read/write route is removed;
+provider writes only occur through previewed tracking sync.
 
 ## UDP Discovery
 

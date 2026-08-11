@@ -3965,6 +3965,7 @@ fn format_size(size_bytes: i64) -> String {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum SettingsAction {
     Back,
+    OpenTracking,
     ChangeServer,
     RestartLocalServer,
     StopLocalServer,
@@ -4324,6 +4325,14 @@ fn settings_body(
 
     // Server administration.
     if let Some(server) = server.as_deref() {
+        ui.add_space(14.0);
+        settings_card(ui, strings.accounts_tracking(), |ui| {
+            card_status_line(ui, strings.accounts_tracking_note());
+            ui.add_space(4.0);
+            if settings_pill_button(ui, strings.open_accounts_tracking(), false).clicked() {
+                *action = Some(SettingsAction::OpenTracking);
+            }
+        });
         ui.add_space(14.0);
         settings_card(ui, strings.administration(), |ui| {
             card_status_line(ui, strings.administration_note());

@@ -20,6 +20,10 @@ metadata/posters, progress, dandanplay resolution/cache, provider credentials,
 external tracking state, HTTP media delivery, UDP discovery, and `/web/`
 assets. Its data-directory lock prevents two writers from using the same
 state. The server is also distributable as a standalone headless package.
+It owns MAL OAuth state/token exchange and encrypted refresh tokens; the native
+player owns only the fixed loopback browser callback and forwards the short-
+lived authorization code. Bangumi tokens are validated against `/v0/me`
+before encrypted storage.
 
 `native/player-windows-mpv` is an ordinary Rust library used by the player. It
 owns libmpv discovery/loading and the OpenGL render API bindings plus the
@@ -36,9 +40,11 @@ Macrobenchmark coverage.
 ### Web UI
 
 `apps/web-ui` is served by the Rust server under `/web/`. It provides catalog
-playback and authenticated administration for provider settings, mappings,
-tracking readback, conflict-aware previews, and explicit provider writes. It
-does not own server state.
+playback and authenticated advanced administration for provider status,
+settings, mappings, tracking readback, provider-ahead import, conflict-aware
+previews, and explicit provider writes. Consumer sign-in and completion
+prompts live in the native Windows player. The web UI does not own server
+state.
 
 ## Module Boundaries
 

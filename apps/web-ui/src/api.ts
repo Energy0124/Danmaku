@@ -39,6 +39,26 @@ export interface ProviderSettingsDocument {
   runtime: LanProviderRuntimeStatus;
 }
 
+export type ProviderAccountState =
+  | "CONNECTED"
+  | "DISCONNECTED"
+  | "NEEDS_RECONNECT"
+  | "UNAVAILABLE";
+
+export interface ProviderAccountStatus {
+  state: ProviderAccountState;
+  userId?: string | null;
+  displayName?: string | null;
+  lastVerifiedAtEpochMs?: number | null;
+  reasonCode?: string | null;
+}
+
+export interface ProviderAccountsDocument {
+  myAnimeList: ProviderAccountStatus;
+  bangumi: ProviderAccountStatus;
+  bangumiTokenUrl: string;
+}
+
 export interface ProviderSettingsUpdate {
   dandanplay: {
     baseUrl: string;
@@ -435,38 +455,39 @@ export async function fetchProviderSearch(
   );
 }
 
-export async function fetchExternalListEntry(
+export async function fetchProviderAccounts(
   baseUrl: string,
-  token: string,
-  animeId: ExternalAnimeId
-): Promise<ExternalAnimeListEntry> {
-  const params = new URLSearchParams({
-    provider: animeId.provider,
-    animeId: String(animeId.value)
-  });
-  return readJson<ExternalAnimeListEntry>(
-    `${normalizeBaseUrl(baseUrl)}/api/providers/list/entry?${params.toString()}`
+  token: string
+): Promise<ProviderAccountsDocument> {
+  return readJsonWithToken<ProviderAccountsDocument>(
+    normalizeBaseUrl(baseUrl) + "/api/providers/accounts",
+    token
   );
 }
 
-export async function saveExternalListEntry(
+export async function connectBangumiAccount(
   baseUrl: string,
   token: string,
-  update: ExternalAnimeTrackingUpdate
-): Promise<ExternalAnimeListEntry> {
-  const url = `${normalizeBaseUrl(baseUrl)}/api/providers/list/entry`;
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json; charset=utf-8"
-    },
-    body: JSON.stringify(update)
-  });
-  if (!response.ok) {
-    throw new DanmakuApiError(`Request failed with HTTP ${response.status}`, response.status);
-  }
-  return response.json() as Promise<ExternalAnimeListEntry>;
+  accessToken: string
+): Promise<ProviderAccountsDocument> {
+  return writeJsonWithToken<ProviderAccountsDocument>(
+    normalizeBaseUrl(baseUrl) + "/api/providers/accounts/bangumi",
+    token,
+    "PUT",
+    { accessToken }
+  );
+}
+
+export async function disconnectProviderAccount(
+  baseUrl: string,
+  token: string,
+  provider: "myanimelist" | "bangumi"
+): Promise<ProviderAccountsDocument> {
+  return writeJsonWithToken<ProviderAccountsDocument>(
+    normalizeBaseUrl(baseUrl) + "/api/providers/accounts/" + provider,
+    token,
+    "DELETE"
+  );
 }
 
 export async function fetchExternalTracking(
@@ -528,6 +549,21 @@ export async function executeExternalTrackingSync(
     token,
     "POST",
     { expectedUpdates }
+  );
+}
+
+export async function importExternalTrackingConflict(
+  baseUrl: string,
+  token: string,
+  localSeriesId: string,
+  animeId: ExternalAnimeId,
+  expectedExternalWatchedEpisodes: number
+): Promise<{ importedCount: number; document: ExternalTrackingDocument }> {
+  return writeJsonWithToken(
+    normalizeBaseUrl(baseUrl) + "/api/providers/tracking/conflicts/import",
+    token,
+    "POST",
+    { localSeriesId, animeId, expectedExternalWatchedEpisodes }
   );
 }
 

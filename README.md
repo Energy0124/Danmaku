@@ -131,6 +131,21 @@ dandanplay resolution/cache, external tracking state, HTTP media/subtitle/
 poster routes, UDP discovery, and `/web/` administration. It does not import
 the retired Compose desktop database.
 
+### MyAnimeList and Bangumi tracking
+
+In the Windows player, open **Settings → Accounts & tracking**. MyAnimeList
+uses browser sign-in and returns to the player automatically; Bangumi links to
+its official token page, then validates the pasted token before saving it.
+Search for each series instead of entering provider IDs by hand, review the
+readback/preview, and choose **Confirm and sync** before any provider write.
+When an episode finishes, the player offers **Review update** or **Not now**.
+If provider progress is ahead, the only resolution is to import that watched
+count locally—the app never overwrites newer provider progress.
+
+Release packaging accepts `-MyAnimeListClientId` (or
+`DANMAKU_MYANIMELIST_CLIENT_ID`) and embeds that public OAuth client ID in the
+server binary. Development builds without one show MAL sign-in as unavailable.
+
 Repeatable local QA:
 
 ```powershell

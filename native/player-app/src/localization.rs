@@ -296,12 +296,51 @@ impl Strings {
     }
     pub fn administration_note(self) -> &'static str {
         self.text(
-            "Library scanning, providers, and account sync are managed in the web UI.",
-            "媒體庫掃描、資料來源與帳號同步請在網頁管理介面中設定。",
+            "Advanced server diagnostics and library administration remain available in the web UI.",
+            "進階伺服器診斷與媒體庫管理仍可在網頁管理介面中使用。",
         )
     }
     pub fn open_web_admin(self) -> &'static str {
         self.text("Open web administration", "開啟網頁管理介面")
+    }
+    pub fn accounts_tracking(self) -> &'static str {
+        self.text("Accounts & tracking", "帳號與追蹤")
+    }
+    pub fn accounts_tracking_note(self) -> &'static str {
+        self.text(
+            "Connect MyAnimeList or Bangumi, match your series, and review list updates.",
+            "連接 MyAnimeList 或 Bangumi、配對作品並檢查清單更新。",
+        )
+    }
+    pub fn open_accounts_tracking(self) -> &'static str {
+        self.text("Manage accounts & tracking", "管理帳號與追蹤")
+    }
+    pub fn tracking_completion_title(self) -> &'static str {
+        self.text("Update your anime lists?", "要更新動畫清單嗎？")
+    }
+    pub fn tracking_completion_body(self) -> &'static str {
+        self.text(
+            "This episode is complete. Review the proposed MyAnimeList and Bangumi changes before sending them.",
+            "此集已播放完畢。送出前請先檢查 MyAnimeList 與 Bangumi 的建議變更。",
+        )
+    }
+    pub fn review_tracking_update(self) -> &'static str {
+        self.text("Review update", "檢查更新")
+    }
+    pub fn not_now(self) -> &'static str {
+        self.text("Not now", "暫時不要")
+    }
+    pub fn mal_browser_notice(self) -> &'static str {
+        self.text(
+            "Complete MyAnimeList sign-in in your browser, then return here.",
+            "請在瀏覽器完成 MyAnimeList 登入，然後返回此處。",
+        )
+    }
+    pub fn tracking_pairing_token_required(self) -> &'static str {
+        self.text(
+            "Reconnect with the server pairing token to manage accounts and tracking.",
+            "請使用伺服器配對權杖重新連線，以管理帳號與追蹤。",
+        )
     }
     pub fn saved(self) -> &'static str {
         self.text("Preferences save automatically.", "偏好設定會自動儲存。")

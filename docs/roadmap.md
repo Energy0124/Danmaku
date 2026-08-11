@@ -34,6 +34,8 @@ Status: core provider/cache path implemented.
 
 Status: implementation ready for approved live-account QA.
 
+- Keep the native Accounts & Tracking journey, completion prompt, persistent
+  mappings, and conservative provider-ahead import easy to understand.
 - Validate MyAnimeList and Bangumi read/write flows with real accounts.
 - Confirm conflict, retry, failure, and relaunch behavior.
 - Keep every write previewed and explicitly acknowledged.
