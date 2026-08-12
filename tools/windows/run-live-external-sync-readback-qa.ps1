@@ -160,32 +160,31 @@ function Remove-DirectoryWithRetry {
 }
 
 function Invoke-JsonRequest {
-    param([string]$Uri)
+    param(
+        [string]$Uri,
+        [string]$Method = "GET",
+        [object]$Body = $null,
+        [switch]$Authenticated
+    )
 
-    $response = Invoke-WebRequest `
-        -Uri $Uri `
-        -UseBasicParsing `
-        -Headers @{ Accept = "application/json" }
+    $headers = @{ Accept = "application/json" }
+    if ($Authenticated) {
+        $headers.Authorization = "Bearer $PairingToken"
+    }
+    $parameters = @{
+        Uri = $Uri
+        Method = $Method
+        UseBasicParsing = $true
+        Headers = $headers
+    }
+    if ($null -ne $Body) {
+        $parameters.Body = $Body | ConvertTo-Json -Depth 8
+        $parameters.ContentType = "application/json; charset=utf-8"
+    }
+    $response = Invoke-WebRequest @parameters
     @{
         StatusCode = [int]$response.StatusCode
         Content = $response.Content
-    }
-}
-
-function Invoke-WebRequestAllowingFailure {
-    param([string]$Uri)
-
-    # -SkipHttpErrorCheck (PowerShell 7+) returns non-2xx responses normally
-    # with a readable body; reading the body from a thrown
-    # HttpResponseException fails because its content is already disposed.
-    $response = Invoke-WebRequest `
-        -Uri $Uri `
-        -UseBasicParsing `
-        -SkipHttpErrorCheck `
-        -Headers @{ Accept = "application/json" }
-    return @{
-        StatusCode = [int]$response.StatusCode
-        Content = [string]$response.Content
     }
 }
 
@@ -206,6 +205,28 @@ function Wait-ForServer {
         }
     }
     throw "Timed out waiting for Rust library server at $BaseUrl"
+}
+
+function Wait-ForTrackingSeries {
+    param(
+        [string]$BaseUrl,
+        [int]$Attempts = 60
+    )
+
+    for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
+        try {
+            $document = (Invoke-JsonRequest `
+                -Uri "$BaseUrl/api/providers/tracking" `
+                -Authenticated).Content | ConvertFrom-Json
+            if (@($document.series).Count -gt 0) {
+                return $document
+            }
+        } catch {
+            # The server may still be publishing its first catalog snapshot.
+        }
+        Start-Sleep -Milliseconds 500
+    }
+    throw "Timed out waiting for a local series in the Rust tracking document."
 }
 
 function Get-RequiredJsonProperty {
@@ -378,7 +399,7 @@ function Write-RustReadbackReport {
         "",
         '## Safety',
         "",
-        'This harness only called the Rust server''s external list read route; it did not send provider update requests.',
+        'This harness created a temporary local-series mapping and called tracking readback; it did not send provider update requests.',
         'Provider access tokens were written only to the temporary Rust server settings file before launch, never to process command-line arguments or this report. The wrapper stops the server and deletes the temp data directory, including `server-settings.json`, in a finally cleanup path.'
     )
     Set-Content -LiteralPath $reportPath -Value ($lines -join "`n") -Encoding UTF8
@@ -402,10 +423,14 @@ function Write-RustServerSettings {
         $externalAnime.bangumiAccessToken = $BangumiAccessToken
         $externalAnime.hasBangumiAccessToken = $true
     }
+    $fixtureLibrary = Join-Path $DataDir "fixture-library"
+    $fixtureSeries = Join-Path $fixtureLibrary "QA Show"
+    New-Item -ItemType Directory -Force -Path $fixtureSeries | Out-Null
+    New-Item -ItemType File -Force -Path (Join-Path $fixtureSeries "Episode 01.mkv") | Out-Null
     $settings = [ordered]@{
         schemaVersion = 1
         pairingToken = $PairingToken
-        libraryRoots = @()
+        libraryRoots = @($fixtureLibrary)
         dandanplay = [ordered]@{
             baseUrl = "https://api.dandanplay.net"
             hasAppSecret = $false
@@ -492,10 +517,31 @@ function Invoke-RustLiveExternalSyncReadbackQa {
             throw "Rust provider runtime is not ready for $normalizedProvider list readback (reasonCode=$runtimeReasonCode, authenticated=$authenticated, listReadAvailable=$listReadAvailable). Check the provider access token."
         }
 
-        $providerQuery = if ($normalizedProvider -eq "MY_ANIME_LIST") { "mal" } else { "bangumi" }
-        $entryUri = "$baseUrl/api/providers/list/entry?provider=$providerQuery&animeId=$AnimeId&token=$tokenQuery"
-        $entryResponse = Invoke-WebRequestAllowingFailure -Uri $entryUri
-        if ($entryResponse.StatusCode -eq 404) {
+        $tracking = Wait-ForTrackingSeries -BaseUrl $baseUrl
+        $localSeriesId = Get-RequiredJsonProperty -Object @($tracking.series)[0] -Name "id"
+        [void](Invoke-JsonRequest `
+            -Uri "$baseUrl/api/providers/tracking/mapping" `
+            -Method "PUT" `
+            -Authenticated `
+            -Body ([ordered]@{
+                localSeriesId = $localSeriesId
+                animeId = [ordered]@{
+                    provider = $normalizedProvider
+                    value = $AnimeId
+                }
+            }))
+        $readback = (Invoke-JsonRequest `
+            -Uri "$baseUrl/api/providers/tracking/readback" `
+            -Method "POST" `
+            -Authenticated `
+            -Body @{}).Content | ConvertFrom-Json
+        if (@($readback.errors).Count -gt 0) {
+            $messages = @($readback.errors | ForEach-Object { $_.message }) -join "; "
+            throw "Rust tracking readback reported provider errors: $messages"
+        }
+        $missingCount = [int](Get-RequiredJsonProperty -Object $readback -Name "missingCount")
+        $successCount = [int](Get-RequiredJsonProperty -Object $readback -Name "successCount")
+        if ($missingCount -eq 1 -and $successCount -eq 0) {
             if (-not $AllowMissingEntry) {
                 throw "Expected ${normalizedProvider}:$AnimeId to exist in the provider list. Use -AllowMissingEntry for absent-entry smoke checks."
             }
@@ -507,12 +553,14 @@ function Invoke-RustLiveExternalSyncReadbackQa {
                 -FailureMessage $null `
                 -BaseUrl $baseUrl `
                 -RuntimeReasonCode $runtimeReasonCode
-        } else {
-            if ($entryResponse.StatusCode -ne 200) {
-                throw "Rust external list readback failed with HTTP $($entryResponse.StatusCode): $($entryResponse.Content)"
+        } elseif ($missingCount -eq 0 -and $successCount -eq 1) {
+            $entry = @($readback.document.listEntries) | Where-Object {
+                $_.animeId.provider -eq $normalizedProvider -and
+                    [long]$_.animeId.value -eq $AnimeId
+            } | Select-Object -First 1
+            if ($null -eq $entry) {
+                throw "Tracking readback succeeded but did not retain ${normalizedProvider}:$AnimeId in document.listEntries."
             }
-
-            $entry = $entryResponse.Content | ConvertFrom-Json
             Assert-RustReadbackEntryShape `
                 -Entry $entry `
                 -ExpectedProvider $normalizedProvider `
@@ -525,6 +573,8 @@ function Invoke-RustLiveExternalSyncReadbackQa {
                 -FailureMessage $null `
                 -BaseUrl $baseUrl `
                 -RuntimeReasonCode $runtimeReasonCode
+        } else {
+            throw "Unexpected tracking readback counts: successCount=$successCount, missingCount=$missingCount."
         }
     } catch {
         $qaFailure = $_

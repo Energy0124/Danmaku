@@ -28,9 +28,9 @@ use crate::domain::PlaybackProgress;
 use crate::external_provider::ExternalAnimeListEntry;
 use crate::external_provider::{
     ExternalAnimeMatchQuery, ExternalAnimeTrackingUpdate, ExternalProviderService,
-    MAL_OAUTH_CALLBACK_URL, exchange_my_anime_list_authorization_code, fetch_bangumi_identity,
-    fetch_my_anime_list_identity, my_anime_list_authorization_url, parse_provider_alias,
-    provider_runtime_status, refresh_my_anime_list_token,
+    MAL_OAUTH_CALLBACK_URL, MyAnimeListTokenError, exchange_my_anime_list_authorization_code,
+    fetch_bangumi_identity, fetch_my_anime_list_identity, my_anime_list_authorization_url,
+    parse_provider_alias, provider_runtime_status, refresh_my_anime_list_token,
 };
 use crate::poster_cache::PosterCacheStore;
 use crate::progress::PlaybackProgressStore;
@@ -460,6 +460,8 @@ impl ProviderAdminState {
                 external.my_anime_list_user_name.clone(),
                 external.my_anime_list_last_verified_at_epoch_ms,
             )
+        } else if external.my_anime_list_user_id.is_some() {
+            ProviderAccountStatus::needs_reconnect("AUTHORIZATION_EXPIRED")
         } else if external.my_anime_list_access_token.is_some() {
             ProviderAccountStatus::needs_reconnect("ACCOUNT_NOT_VERIFIED")
         } else {
@@ -642,7 +644,10 @@ impl ProviderAdminState {
         let (Some(client_id), Some(refresh_token)) = (client_id, refresh_token) else {
             return Ok(());
         };
-        let token = refresh_my_anime_list_token(&client_id, &refresh_token)?;
+        let token = match refresh_my_anime_list_token(&client_id, &refresh_token) {
+            Ok(token) => token,
+            Err(error) => return self.handle_my_anime_list_refresh_error(error),
+        };
         let mut persisted = self
             .persisted_settings
             .lock()
@@ -655,6 +660,31 @@ impl ProviderAdminState {
             Some(now.saturating_add(token.expires_in_seconds.saturating_mul(1_000)));
         self.commit_settings(&mut persisted, next)?;
         Ok(())
+    }
+
+    fn handle_my_anime_list_refresh_error(
+        &self,
+        error: MyAnimeListTokenError,
+    ) -> crate::Result<()> {
+        match error {
+            MyAnimeListTokenError::InvalidGrant => {
+                let mut persisted = self.persisted_settings.lock().map_err(|_| {
+                    crate::LibraryServerError::new("provider settings lock is unavailable")
+                })?;
+                let mut next = persisted.clone();
+                let external = &mut next.external_anime;
+                external.my_anime_list_access_token = None;
+                external.has_my_anime_list_access_token = false;
+                external.my_anime_list_refresh_token = None;
+                external.has_my_anime_list_refresh_token = false;
+                external.my_anime_list_token_expires_at_epoch_ms = None;
+                self.commit_settings(&mut persisted, next)?;
+                Err(crate::LibraryServerError::new(
+                    "MyAnimeList authorization expired; reconnect the account",
+                ))
+            }
+            MyAnimeListTokenError::Other(error) => Err(error),
+        }
     }
 }
 
@@ -1463,9 +1493,16 @@ async fn handle_provider_accounts(
                     "Request body must contain flowId, state, and code.",
                 );
             };
-            match admin.complete_my_anime_list_oauth(request) {
-                Ok(response) => json_response(StatusCode::OK, &response),
-                Err(error) => text_response(StatusCode::BAD_REQUEST, &error.to_string()),
+            let admin = Arc::clone(admin);
+            match tokio::task::spawn_blocking(move || admin.complete_my_anime_list_oauth(request))
+                .await
+            {
+                Ok(Ok(response)) => json_response(StatusCode::OK, &response),
+                Ok(Err(error)) => text_response(StatusCode::BAD_REQUEST, &error.to_string()),
+                Err(error) => text_response(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    &format!("OAuth account task failed: {error}"),
+                ),
             }
         }
         (Method::DELETE, "/api/providers/accounts/myanimelist") => {
@@ -1487,9 +1524,16 @@ async fn handle_provider_accounts(
                     "Request body must contain accessToken.",
                 );
             };
-            match admin.connect_bangumi(request.access_token) {
-                Ok(response) => json_response(StatusCode::OK, &response),
-                Err(error) => text_response(StatusCode::BAD_REQUEST, &error.to_string()),
+            let admin = Arc::clone(admin);
+            match tokio::task::spawn_blocking(move || admin.connect_bangumi(request.access_token))
+                .await
+            {
+                Ok(Ok(response)) => json_response(StatusCode::OK, &response),
+                Ok(Err(error)) => text_response(StatusCode::BAD_REQUEST, &error.to_string()),
+                Err(error) => text_response(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    &format!("Bangumi account task failed: {error}"),
+                ),
             }
         }
         (Method::DELETE, "/api/providers/accounts/bangumi") => {
@@ -1605,6 +1649,19 @@ async fn handle_provider_search(
         )
         .await;
     json_response(StatusCode::OK, &matches)
+}
+
+async fn refresh_my_anime_list_without_blocking(
+    admin: Arc<ProviderAdminState>,
+) -> crate::Result<()> {
+    tokio::task::spawn_blocking(move || admin.refresh_my_anime_list_if_needed())
+        .await
+        .map_err(|error| {
+            crate::LibraryServerError::with_context(
+                error,
+                "MyAnimeList refresh task could not complete",
+            )
+        })?
 }
 
 async fn handle_provider_tracking(
@@ -1750,7 +1807,7 @@ async fn handle_provider_tracking(
             )
         }
         (Method::POST, "/api/providers/tracking/readback") => {
-            if let Err(error) = admin.refresh_my_anime_list_if_needed() {
+            if let Err(error) = refresh_my_anime_list_without_blocking(Arc::clone(admin)).await {
                 return text_response(StatusCode::BAD_GATEWAY, &error.to_string());
             }
             let service = state
@@ -1778,7 +1835,7 @@ async fn handle_provider_tracking(
                     "Request body must contain the previewed expectedUpdates.",
                 );
             };
-            if let Err(error) = admin.refresh_my_anime_list_if_needed() {
+            if let Err(error) = refresh_my_anime_list_without_blocking(Arc::clone(admin)).await {
                 return text_response(StatusCode::BAD_GATEWAY, &error.to_string());
             }
             let service = state
@@ -2636,8 +2693,9 @@ mod tests {
         DandanplayResolver,
     };
     use crate::external_provider::{
-        BangumiSearchClient, ExternalAnimeInfo, ExternalAnimeSearchClient, ExternalAnimeTitleSet,
-        ExternalProviderService, MyAnimeListSearchClient,
+        BangumiSearchClient, BangumiTrackingClient, ExternalAnimeInfo, ExternalAnimeSearchClient,
+        ExternalAnimeTitleSet, ExternalProviderService, MyAnimeListSearchClient,
+        MyAnimeListTrackingClient,
     };
     use crate::settings::HeadlessDandanplayAuthenticationMode;
 
@@ -3559,6 +3617,84 @@ mod tests {
         }));
     }
 
+    #[test]
+    fn rejected_mal_refresh_requires_reconnect_but_transient_failure_stays_connected() {
+        #[derive(Debug)]
+        struct PassthroughSecretProtector;
+
+        impl crate::provider_secrets::SecretProtector for PassthroughSecretProtector {
+            fn protect(&self, plaintext: &[u8]) -> crate::Result<Vec<u8>> {
+                Ok(plaintext.to_vec())
+            }
+
+            fn unprotect(&self, ciphertext: &[u8]) -> crate::Result<Vec<u8>> {
+                Ok(ciphertext.to_vec())
+            }
+        }
+
+        let fixture = FixtureEnvironment::new();
+        let mut settings = HeadlessServerSettings {
+            pairing_token: "123456".to_owned(),
+            library_roots: Vec::new(),
+            dandanplay: crate::settings::HeadlessDandanplayProviderSettings::default(),
+            external_anime: crate::settings::HeadlessExternalAnimeProviderSettings::default(),
+        };
+        let external = &mut settings.external_anime;
+        external.my_anime_list_client_id = Some("mal-client".to_owned());
+        external.my_anime_list_access_token = Some("access".to_owned());
+        external.has_my_anime_list_access_token = true;
+        external.my_anime_list_refresh_token = Some("refresh".to_owned());
+        external.has_my_anime_list_refresh_token = true;
+        external.my_anime_list_token_expires_at_epoch_ms = Some(0);
+        external.my_anime_list_user_id = Some("42".to_owned());
+        external.my_anime_list_user_name = Some("qa-user".to_owned());
+        let admin = ProviderAdminState::new_for_tests(
+            fixture.temp.clone(),
+            settings.clone(),
+            settings,
+            ProviderSecretStore::with_protector(
+                fixture.temp.join("provider-refresh-secrets.json"),
+                Arc::new(PassthroughSecretProtector),
+            ),
+        );
+
+        let transient = admin.handle_my_anime_list_refresh_error(MyAnimeListTokenError::Other(
+            crate::LibraryServerError::new("temporary failure"),
+        ));
+        assert_eq!(
+            "temporary failure",
+            transient.expect_err("transient error").to_string()
+        );
+        assert_eq!("CONNECTED", admin.accounts().my_anime_list.state);
+
+        let rejected =
+            admin.handle_my_anime_list_refresh_error(MyAnimeListTokenError::InvalidGrant);
+        assert_eq!(
+            "MyAnimeList authorization expired; reconnect the account",
+            rejected.expect_err("reconnect error").to_string()
+        );
+        let account = admin.accounts().my_anime_list;
+        assert_eq!("NEEDS_RECONNECT", account.state);
+        assert_eq!(Some("AUTHORIZATION_EXPIRED"), account.reason_code);
+        let persisted = admin.persisted_settings.lock().expect("settings lock");
+        assert!(
+            persisted
+                .external_anime
+                .my_anime_list_access_token
+                .is_none()
+        );
+        assert!(
+            persisted
+                .external_anime
+                .my_anime_list_refresh_token
+                .is_none()
+        );
+        assert_eq!(
+            Some("42"),
+            persisted.external_anime.my_anime_list_user_id.as_deref()
+        );
+    }
+
     #[tokio::test]
     async fn provider_settings_require_auth_redact_secrets_and_reload_runtime() {
         #[derive(Debug)]
@@ -3718,6 +3854,48 @@ mod tests {
         let matches = response.as_array().expect("matches");
         assert_eq!(1, matches.len());
         assert_eq!("BANGUMI", matches[0]["anime"]["id"]["provider"]);
+    }
+
+    #[tokio::test]
+    async fn tracking_clients_treat_provider_not_found_as_a_missing_entry() {
+        let provider_server = MockExternalProviderServer::start(MockExternalProviderBehavior {
+            mal_list_read_status: 404,
+            bangumi_list_read_status: 404,
+            ..MockExternalProviderBehavior::default()
+        });
+        let service = ExternalProviderService::new_for_tests(
+            Vec::new(),
+            vec![
+                Arc::new(MyAnimeListTrackingClient::new(
+                    provider_server.base_url(),
+                    "mal-access-token".to_owned(),
+                )),
+                Arc::new(BangumiTrackingClient::new(
+                    provider_server.base_url(),
+                    "DanmakuTest/1.0".to_owned(),
+                    "bangumi-access-token".to_owned(),
+                )),
+            ],
+        );
+
+        for anime_id in [
+            ExternalAnimeId {
+                provider: crate::catalog::ExternalAnimeProvider::MyAnimeList,
+                value: 52_991,
+            },
+            ExternalAnimeId {
+                provider: crate::catalog::ExternalAnimeProvider::Bangumi,
+                value: 400_602,
+            },
+        ] {
+            assert_eq!(
+                None,
+                service
+                    .fetch_list_entry(anime_id)
+                    .await
+                    .expect("missing entry")
+            );
+        }
     }
 
     #[tokio::test]

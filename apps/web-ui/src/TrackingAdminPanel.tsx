@@ -19,9 +19,11 @@ const trackingProviders: ExternalAnimeProvider[] = ["MY_ANIME_LIST", "BANGUMI"];
 
 export function TrackingAdminPanel({
   baseUrl,
+  onAccountStatusMayHaveChanged,
   token
 }: {
   baseUrl: string;
+  onAccountStatusMayHaveChanged: () => void;
   token: string;
 }) {
   const [document, setDocument] = useState<ExternalTrackingDocument | null>(null);
@@ -193,6 +195,7 @@ export function TrackingAdminPanel({
       setMessage(operationMessage("Readback", response));
     } catch (error) {
       setMessage(describeError(error, "External list readback failed."));
+      onAccountStatusMayHaveChanged();
     } finally {
       setIsBusy(false);
     }
@@ -215,6 +218,7 @@ export function TrackingAdminPanel({
       setMessage(operationMessage("Sync", response));
     } catch (error) {
       setMessage(describeError(error, "External list sync failed."));
+      onAccountStatusMayHaveChanged();
     } finally {
       setIsBusy(false);
     }

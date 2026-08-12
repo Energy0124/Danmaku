@@ -11,9 +11,11 @@ import {
 
 export function ProviderAccountsPanel({
   baseUrl,
+  refreshVersion,
   token
 }: {
   baseUrl: string;
+  refreshVersion: number;
   token: string;
 }) {
   const [accounts, setAccounts] = useState<ProviderAccountsDocument | null>(null);
@@ -29,7 +31,7 @@ export function ProviderAccountsPanel({
     }
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [baseUrl, token]);
+  }, [baseUrl, refreshVersion, token]);
 
   async function load() {
     setIsBusy(true);

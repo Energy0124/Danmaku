@@ -20,7 +20,8 @@ Use this checklist for real MyAnimeList and Bangumi readback/writeback validatio
 
 Run the Rust-only readback harness before any writeback pass. The wrapper
 builds the Rust server, starts it with an isolated temporary data directory and
-no library roots, and routes readback through the server API. It reads one
+a one-episode fixture library, maps that temporary series to the requested
+provider ID, and routes readback through the tracking API. It reads one
 MAL/Bangumi list entry and does not send provider update requests.
 
 ```powershell

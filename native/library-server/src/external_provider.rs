@@ -26,6 +26,31 @@ pub struct MyAnimeListOAuthToken {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MyAnimeListTokenError {
+    InvalidGrant,
+    Other(LibraryServerError),
+}
+
+impl fmt::Display for MyAnimeListTokenError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidGrant => {
+                formatter.write_str("MyAnimeList authorization is no longer valid")
+            }
+            Self::Other(error) => error.fmt(formatter),
+        }
+    }
+}
+
+impl std::error::Error for MyAnimeListTokenError {}
+
+impl From<LibraryServerError> for MyAnimeListTokenError {
+    fn from(error: LibraryServerError) -> Self {
+        Self::Other(error)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExternalProviderIdentity {
     pub user_id: String,
     pub display_name: String,
@@ -57,12 +82,13 @@ pub fn exchange_my_anime_list_authorization_code(
         ("redirect_uri", MAL_OAUTH_CALLBACK_URL),
         ("code_verifier", code_verifier),
     ])
+    .map_err(|error| LibraryServerError::new(error.to_string()))
 }
 
 pub fn refresh_my_anime_list_token(
     client_id: &str,
     refresh_token: &str,
-) -> Result<MyAnimeListOAuthToken> {
+) -> std::result::Result<MyAnimeListOAuthToken, MyAnimeListTokenError> {
     request_my_anime_list_token(&[
         ("client_id", client_id),
         ("grant_type", "refresh_token"),
@@ -70,24 +96,60 @@ pub fn refresh_my_anime_list_token(
     ])
 }
 
-fn request_my_anime_list_token(fields: &[(&str, &str)]) -> Result<MyAnimeListOAuthToken> {
+fn request_my_anime_list_token(
+    fields: &[(&str, &str)],
+) -> std::result::Result<MyAnimeListOAuthToken, MyAnimeListTokenError> {
     let fields = fields
         .iter()
         .map(|(name, value)| ((*name).to_owned(), (*value).to_owned()))
         .collect::<Vec<_>>();
-    let value = request_json(
-        "POST",
-        MAL_OAUTH_BASE_URL,
-        "token",
-        BTreeMap::from([
+    let body = form_encode(&fields).into_bytes();
+    let url = resolve_url(MAL_OAUTH_BASE_URL, "token")?;
+    let response = send_http_request(HttpRequest {
+        method: "POST".to_owned(),
+        url,
+        headers: BTreeMap::from([
             ("Accept".to_owned(), "application/json".to_owned()),
             (
                 "Content-Type".to_owned(),
                 "application/x-www-form-urlencoded".to_owned(),
             ),
+            ("Content-Length".to_owned(), body.len().to_string()),
         ]),
-        Some(form_encode(&fields).into_bytes()),
-    )?;
+        body,
+    })?;
+    parse_my_anime_list_token_response(response.status, &response.body)
+}
+
+fn parse_my_anime_list_token_response(
+    status: u16,
+    body: &[u8],
+) -> std::result::Result<MyAnimeListOAuthToken, MyAnimeListTokenError> {
+    if body.len() > MAX_RESPONSE_BYTES {
+        return Err(LibraryServerError::new(format!(
+            "external anime response exceeded {MAX_RESPONSE_BYTES} bytes"
+        ))
+        .into());
+    }
+    let value = serde_json::from_slice::<Value>(body).map_err(|error| {
+        MyAnimeListTokenError::Other(LibraryServerError::with_context(
+            error,
+            "MyAnimeList token JSON was invalid",
+        ))
+    })?;
+    if !(200..=299).contains(&status) {
+        if value.get("error").and_then(Value::as_str) == Some("invalid_grant") {
+            return Err(MyAnimeListTokenError::InvalidGrant);
+        }
+        return Err(LibraryServerError::new(format!(
+            "MyAnimeList token request failed with HTTP {status}: {}",
+            String::from_utf8_lossy(body)
+                .chars()
+                .take(200)
+                .collect::<String>()
+        ))
+        .into());
+    }
     let access_token = value
         .get("access_token")
         .and_then(Value::as_str)
@@ -633,7 +695,7 @@ impl ExternalAnimeTrackingClient for MyAnimeListTrackingClient {
         &self,
         anime_id: ExternalAnimeId,
     ) -> std::result::Result<Option<ExternalAnimeListEntry>, ExternalProviderError> {
-        let response = tracking_request_json(
+        let response = match tracking_request_json(
             "GET",
             &self.base_url,
             &format!("anime/{}?fields=my_list_status", anime_id.value),
@@ -645,7 +707,11 @@ impl ExternalAnimeTrackingClient for MyAnimeListTrackingClient {
                 ),
             ]),
             None,
-        )?;
+        ) {
+            Ok(response) => response,
+            Err(ExternalProviderError::NotFound(_)) => return Ok(None),
+            Err(error) => return Err(error),
+        };
         Ok(response
             .get("my_list_status")
             .and_then(|value| to_mal_list_entry(anime_id, value)))
@@ -731,13 +797,17 @@ impl ExternalAnimeTrackingClient for BangumiTrackingClient {
         &self,
         anime_id: ExternalAnimeId,
     ) -> std::result::Result<Option<ExternalAnimeListEntry>, ExternalProviderError> {
-        let response = tracking_request_json(
+        let response = match tracking_request_json(
             "GET",
             &self.base_url,
             &format!("v0/users/-/collections/{}", anime_id.value),
             self.headers(None),
             None,
-        )?;
+        ) {
+            Ok(response) => response,
+            Err(ExternalProviderError::NotFound(_)) => return Ok(None),
+            Err(error) => return Err(error),
+        };
         Ok(to_bangumi_list_entry(anime_id, &response))
     }
 
@@ -1472,5 +1542,30 @@ mod tests {
         let runtime = provider_runtime_status(&settings);
         assert_eq!("oauth-token-saved", runtime.my_anime_list.reason_code);
         assert_eq!("access-token-saved", runtime.bangumi.reason_code);
+    }
+
+    #[test]
+    fn mal_token_response_distinguishes_rejected_grants_from_transient_failures() {
+        assert_eq!(
+            Err(MyAnimeListTokenError::InvalidGrant),
+            parse_my_anime_list_token_response(
+                400,
+                br#"{"error":"invalid_grant","message":"Token has been revoked"}"#,
+            )
+        );
+
+        let error =
+            parse_my_anime_list_token_response(503, br#"{"error":"temporarily_unavailable"}"#)
+                .expect_err("transient failure");
+        assert!(matches!(error, MyAnimeListTokenError::Other(_)));
+
+        let token = parse_my_anime_list_token_response(
+            200,
+            br#"{"access_token":"fresh","refresh_token":"next","expires_in":3600}"#,
+        )
+        .expect("token response");
+        assert_eq!("fresh", token.access_token);
+        assert_eq!(Some("next".to_owned()), token.refresh_token);
+        assert_eq!(3_600, token.expires_in_seconds);
     }
 }

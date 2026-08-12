@@ -33,6 +33,7 @@ export function App() {
   const [catalog, setCatalog] = useState<LibraryCatalog | null>(null);
   const [progress, setProgress] = useState<PlaybackProgress[]>([]);
   const [providerRuntime, setProviderRuntime] = useState<LanProviderRuntimeStatus | null>(null);
+  const [providerAccountRefreshVersion, setProviderAccountRefreshVersion] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -125,6 +126,7 @@ export function App() {
       {catalog ? (
         <ProviderAccountsPanel
           baseUrl={normalizedBaseUrl}
+          refreshVersion={providerAccountRefreshVersion}
           token={pairingToken}
         />
       ) : null}
@@ -132,6 +134,9 @@ export function App() {
       {catalog ? (
         <TrackingAdminPanel
           baseUrl={normalizedBaseUrl}
+          onAccountStatusMayHaveChanged={() =>
+            setProviderAccountRefreshVersion((version) => version + 1)
+          }
           token={pairingToken}
         />
       ) : null}

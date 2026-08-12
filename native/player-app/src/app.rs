@@ -956,7 +956,12 @@ impl PlayerApp {
                             self.tracking_screen.document = Some(document);
                             self.tracking_screen.error = None;
                         }
-                        Err(error) => self.tracking_screen.error = Some(error),
+                        Err(error) => {
+                            self.tracking_screen.error = Some(error);
+                            if let Some(session) = &self.session {
+                                session.refresh_provider_accounts();
+                            }
+                        }
                     }
                 }
                 SessionEvent::TrackingSearch {
