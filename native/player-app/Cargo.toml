@@ -3,7 +3,7 @@ name = "danmaku-player"
 version = "0.1.0"
 edition = "2024"
 publish = false
-description = "Danmaku native Windows player client (Rust migration phase 3)"
+description = "Danmaku native Windows and macOS player client"
 license = "MIT"
 
 [[bin]]

@@ -1,7 +1,8 @@
 # Releasing
 
-Danmaku currently publishes development artifacts through CI. Windows desktop
-is Rust-native; there is no Java/Compose or macOS desktop artifact.
+Danmaku currently publishes development artifacts through CI. Windows and the
+experimental macOS desktop build are Rust-native; there is no Java/Compose
+desktop artifact.
 
 ## Artifacts
 
@@ -56,6 +57,29 @@ assets, licenses, a dependency inventory, and a generated package manifest.
 There is no legacy desktop database import. Configure roots and rescan into a
 new Rust data directory.
 
+### macOS Native Player (Experimental)
+
+Install Homebrew libmpv, build the web UI/player/server, assemble
+`Danmaku.app`, run structural and `mpv-probe` checks, ad-hoc sign it, and create
+the archive:
+
+```bash
+brew install mpv
+./build-macos.sh
+```
+
+Outputs are written below `build/release/macos/`. The app contains
+`danmaku-player`, `library-server`, `/web/` assets, its icon, licenses, and
+notices. It does not bundle libmpv; both Apple Silicon and Intel builds discover
+Homebrew's stable `opt/mpv/lib` paths, or `DANMAKU_LIBMPV_PATH` may select a
+specific dylib.
+
+This is a development artifact, not a release-ready Mac distribution. It is
+ad-hoc signed and not notarized. Online provider HTTPS and protected provider
+credential persistence remain Windows-only. Do not publish a bundled macOS
+libmpv until its producer, configuration, licenses, source provenance, and hash
+have been reviewed.
+
 ### Android
 
 CI publishes Android mobile and TV debug APKs. Release signing uses the
@@ -67,6 +91,9 @@ server and use Media3 for playback.
 - `[ ]` Run CI-equivalent Rust, Gradle, web, and Worker checks.
 - `[ ]` Verify the pinned libmpv hashes, license texts, and source provenance.
 - `[ ]` Build and verify the standalone server and unified Windows zips.
+- `[ ]` Build and verify the macOS `.app` on Apple Silicon and Intel.
+- `[ ]` Before macOS promotion, complete libmpv provenance, release signing,
+  notarization, provider HTTPS/token storage, and supervised playback QA.
 - `[ ]` Run supervised Windows playback against representative real media.
 - `[ ]` Validate fullscreen, resizing, hardware decoding, resume, and the
   optional background host manually.

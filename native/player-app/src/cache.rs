@@ -11,7 +11,10 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::library::{LibraryCatalog, PlaybackProgress};
+use crate::{
+    library::{LibraryCatalog, PlaybackProgress},
+    platform::cache_directory,
+};
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -30,12 +33,8 @@ pub struct SessionCacheStore {
 
 impl SessionCacheStore {
     pub fn for_current_user() -> Self {
-        let root = std::env::var_os("LOCALAPPDATA")
-            .map(PathBuf::from)
-            .or_else(|| std::env::current_dir().ok())
-            .unwrap_or_else(|| PathBuf::from("."));
         Self {
-            path: root.join("Danmaku").join("player-session-cache.json"),
+            path: cache_directory().join("player-session-cache.json"),
         }
     }
 

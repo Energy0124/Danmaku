@@ -1,11 +1,12 @@
 # Current State
 
-Last reviewed: 2026-08-07.
+Last reviewed: 2026-08-12.
 
 Danmaku's active product is a Rust-native Windows library/player/server with
-Android mobile, Android TV, and browser clients on the same trusted-LAN API.
-The Kotlin Compose desktop app, JVM server/host modules, JNA bridge, legacy
-desktop database importer, and experimental macOS artifact are retired.
+Android mobile, Android TV, and browser clients on the same trusted-LAN API,
+plus an experimental native Rust macOS build. The Kotlin Compose desktop app,
+JVM server/host modules, JNA bridge, legacy desktop database importer, and old
+Compose macOS artifact are retired.
 
 ## Implemented
 
@@ -50,7 +51,20 @@ desktop database importer, and experimental macOS artifact are retired.
   pinned libmpv, provenance, licenses, and generated dependency inventories.
 - Windows CI for Rust, Android, web assets, packaging, and libmpv checks;
   separate Rust and Worker proxy jobs.
-- No Compose desktop, JVM host, Java runtime, JNA DLL, or macOS desktop build.
+- Native macOS CI compiles and tests the Rust workspace, verifies Homebrew
+  libmpv with `mpv-probe`, and publishes an ad-hoc-signed `.app` archive.
+- No Compose desktop, JVM host, Java runtime, or JNA DLL.
+
+### Experimental macOS Player
+
+- The Rust egui player renders libmpv through the macOS OpenGL framework and
+  uses real app-owned framebuffer IDs for video compositing.
+- Native window decorations, Homebrew libmpv discovery for Apple Silicon and
+  Intel, platform-standard Application Support/Caches storage, local server
+  supervision, and `.app` packaging are implemented.
+- The app bundle contains the Rust player/server and web UI but deliberately
+  does not redistribute an unreviewed libmpv build; target Macs need
+  `brew install mpv`.
 
 ## Partial Or Pending
 
@@ -63,12 +77,16 @@ desktop database importer, and experimental macOS artifact are retired.
 - Richer danmaku filters/offsets, per-series playback preferences, metadata
   depth, collections, and notification surfaces remain planned.
 - Authorized download execution is not implemented in an active application.
+- macOS online-provider HTTPS and protected provider-token persistence are not
+  implemented; the current slice supports local/LAN playback and local
+  XML/JSON/ASS danmaku. Packaging is not notarized or release-signed.
 
 ## Compatibility Notes
 
 - Existing Compose desktop database files are left untouched but are not read
   or imported. Users configure roots again and create a fresh Rust catalog.
-- macOS has no supported desktop build.
+- The old Compose macOS build remains unsupported and is not migrated. The new
+  Rust `.app` uses fresh Rust settings and catalog state.
 - LAN API/discovery version 1 remains compatible with active Android clients.
 
 ## Standard Verification
@@ -83,3 +101,6 @@ npm run build
 
 Connected Android, GUI playback, emulator, real-library, and live-provider QA
 remain supervised/approval-gated checks.
+
+On macOS, `./build-macos.sh` builds and verifies the native `.app` after
+Homebrew `mpv` is installed. Interactive launch and playback remain supervised.

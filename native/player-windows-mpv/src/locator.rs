@@ -42,7 +42,7 @@ impl fmt::Display for LibraryLocationError {
 impl std::error::Error for LibraryLocationError {}
 
 pub fn candidate_paths(executable_dir: &Path, configured_path: Option<&OsStr>) -> Vec<PathBuf> {
-    let mut candidates = Vec::with_capacity(2);
+    let mut candidates = Vec::new();
 
     if let Some(configured_path) = configured_path.filter(|path| !path.is_empty()) {
         let configured_path = PathBuf::from(configured_path);
@@ -57,14 +57,27 @@ pub fn candidate_paths(executable_dir: &Path, configured_path: Option<&OsStr>) -
         }
     }
 
-    for library_name in LIBMPV_LIBRARY_NAMES {
-        let executable_candidate = executable_dir.join(library_name);
-        if !candidates.contains(&executable_candidate) {
-            candidates.push(executable_candidate);
+    for directory in platform_library_directories(executable_dir) {
+        for library_name in LIBMPV_LIBRARY_NAMES {
+            let candidate = directory.join(library_name);
+            if !candidates.contains(&candidate) {
+                candidates.push(candidate);
+            }
         }
     }
 
     candidates
+}
+
+fn platform_library_directories(executable_dir: &Path) -> Vec<PathBuf> {
+    let mut directories = vec![executable_dir.to_path_buf()];
+    #[cfg(target_os = "macos")]
+    {
+        directories.push(executable_dir.join("..").join("Frameworks"));
+        directories.push(PathBuf::from("/opt/homebrew/opt/mpv/lib"));
+        directories.push(PathBuf::from("/usr/local/opt/mpv/lib"));
+    }
+    directories
 }
 
 pub fn find_library(
@@ -100,15 +113,12 @@ mod tests {
         );
 
         assert_eq!(
-            candidates,
-            std::iter::once(Path::new("C:/media/libmpv-custom.dll").to_path_buf())
-                .chain(
-                    LIBMPV_LIBRARY_NAMES
-                        .iter()
-                        .map(|name| Path::new("C:/app").join(name))
-                )
-                .collect::<Vec<_>>()
+            candidates.first(),
+            Some(&Path::new("C:/media/libmpv-custom.dll").to_path_buf())
         );
+        for library_name in LIBMPV_LIBRARY_NAMES {
+            assert!(candidates.contains(&Path::new("C:/app").join(library_name)));
+        }
     }
 
     #[test]
@@ -139,6 +149,27 @@ mod tests {
         assert_eq!(
             error.searched_paths,
             candidate_paths(executable_dir, Some(configured_path))
+        );
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn searches_app_frameworks_and_homebrew_on_macos() {
+        let candidates =
+            candidate_paths(Path::new("/Applications/Danmaku.app/Contents/MacOS"), None);
+
+        assert!(
+            candidates.contains(
+                &Path::new("/Applications/Danmaku.app/Contents/MacOS/../Frameworks/libmpv.2.dylib")
+                    .to_path_buf()
+            )
+        );
+        assert!(
+            candidates
+                .contains(&Path::new("/opt/homebrew/opt/mpv/lib/libmpv.2.dylib").to_path_buf())
+        );
+        assert!(
+            candidates.contains(&Path::new("/usr/local/opt/mpv/lib/libmpv.dylib").to_path_buf())
         );
     }
 }

@@ -404,7 +404,8 @@ Milestones, each shippable while the Compose app remains the default:
 ## Out Of Scope
 
 - UniFFI bindings for Android (revisit only if fixture-based parity hurts).
-- macOS/Linux Rust player targets (nothing should preclude them, but no
-  work is scheduled).
+- Linux Rust player targets. A separate post-migration change added the
+  experimental macOS Rust player/build without reviving the retired Compose
+  desktop runtime.
 - Any change to the Android apps beyond pointing QA at the Rust server.
 - DRM circumvention or unauthorized source behavior, as always.

@@ -1,4 +1,4 @@
-//! Danmaku native player client.
+//! Danmaku native Windows and macOS player client.
 //!
 //! Phase 3 M1/M2: an egui window compositing libmpv's OpenGL
 //! render API output, with play/pause/seek/rate/volume controls, audio and

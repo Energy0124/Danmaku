@@ -71,14 +71,14 @@ libraries, emulators, or take over the desktop session:
 
 ## Architecture Rules
 
-- Use Rust/egui for Windows application and server code; use Kotlin/Compose for
-  Android application code.
+- Use Rust/egui for Windows and macOS application/server code; use
+  Kotlin/Compose for Android application code.
 - Share domain models, repositories, playback state, source contracts, and
   danmaku scheduling logic where practical.
 - Keep Android TV as a dedicated app module with TV-specific layouts, focus
   behavior, and remote navigation.
 - Use Media3 ExoPlayer for Android and Android TV playback.
-- Use libmpv for Windows playback.
+- Use libmpv for Windows and macOS playback.
 - Keep native APIs coarse-grained. Do not cross a platform boundary per frame
   or per rendered comment.
 - Put platform media and download implementations behind contracts. UI and
@@ -113,8 +113,8 @@ shared/
 native/
   rust-core/              Rust timeline/indexing core
   library-server/         Authoritative desktop library/provider/progress host
-  player-app/             Rust-native Windows player
-  player-windows-mpv/     Rust libmpv loader, renderer, and probe
+  player-app/             Rust-native Windows/macOS player
+  player-windows-mpv/     Cross-platform Rust libmpv loader, renderer, and probe
 
 tools/
   windows/                Windows release, libmpv, QA, and smoke scripts

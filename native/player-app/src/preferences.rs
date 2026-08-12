@@ -7,7 +7,10 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{danmaku::DanmakuDisplaySettings, localization::Language};
+use crate::{
+    danmaku::DanmakuDisplaySettings, localization::Language,
+    platform::application_support_directory,
+};
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(default)]
@@ -199,12 +202,8 @@ pub struct CredentialStore {
 
 impl CredentialStore {
     pub fn for_current_user() -> Self {
-        let root = std::env::var_os("LOCALAPPDATA")
-            .map(PathBuf::from)
-            .or_else(|| std::env::current_dir().ok())
-            .unwrap_or_else(|| PathBuf::from("."));
         Self {
-            path: root.join("Danmaku").join("player-credentials.json"),
+            path: application_support_directory().join("player-credentials.json"),
         }
     }
 
@@ -243,12 +242,8 @@ pub struct PreferenceStore {
 
 impl PreferenceStore {
     pub fn for_current_user() -> Self {
-        let root = std::env::var_os("LOCALAPPDATA")
-            .map(PathBuf::from)
-            .or_else(|| std::env::current_dir().ok())
-            .unwrap_or_else(|| PathBuf::from("."));
         Self {
-            path: root.join("Danmaku").join("player-preferences.json"),
+            path: application_support_directory().join("player-preferences.json"),
         }
     }
 

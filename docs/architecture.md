@@ -1,9 +1,10 @@
 # Architecture
 
-Danmaku uses a Rust-native Windows player and server, dedicated Kotlin Android
-clients, and a TypeScript web administration UI. Shared Kotlin modules contain
-only platform-neutral domain and LAN-client behavior; desktop hosting and
-provider integrations live in Rust.
+Danmaku uses a Rust-native Windows player/server with an experimental native
+macOS build, dedicated Kotlin Android clients, and a TypeScript web
+administration UI. Shared Kotlin modules contain only platform-neutral domain
+and LAN-client behavior; desktop hosting and provider integrations live in
+Rust.
 
 ## Platform Roles
 
@@ -25,6 +26,20 @@ state. The server is also distributable as a standalone headless package.
 owns libmpv discovery/loading and the OpenGL render API bindings plus the
 `mpv-probe` diagnostic binary. It exposes no JVM/JNA-compatible dynamic-library
 ABI.
+
+### macOS
+
+macOS reuses `native/player-app`, `native/library-server`, and the Rust libmpv
+render boundary. It uses native window decorations, the macOS OpenGL framework
+for libmpv render-API symbol lookup, and platform-standard Application Support
+and Caches directories. A development `.app` bundle packages the player,
+server, web UI, icons, and notices; it discovers a separately installed
+Homebrew libmpv from Apple Silicon or Intel prefixes.
+
+The macOS slice supports local and trusted-LAN library playback and local
+danmaku files. It is not yet a first-class release: the app is ad-hoc signed,
+not notarized, does not redistribute libmpv, and the Rust server's provider
+HTTPS and protected provider-token persistence remain Windows-only.
 
 ### Android Mobile And TV
 
@@ -62,10 +77,10 @@ native/library-server
   Authoritative desktop catalog/provider/progress host.
 
 native/player-app
-  Windows UI, library client, playback, and server supervision.
+  Windows/macOS UI, library client, playback, and server supervision.
 
 native/player-windows-mpv
-  Rust-only libmpv loader/render integration and probe.
+  Cross-platform Rust-only libmpv loader/render integration and probe.
 
 apps/web-ui
   Browser client and server administration.
@@ -87,9 +102,10 @@ apps/web-ui
 ## Compatibility
 
 The Kotlin Compose desktop application, JVM server/host modules, JNA bridge,
-and experimental macOS desktop target are retired. The Rust server does not
-read or migrate their SQLite database. Old files are left untouched on user
-machines; a native installation starts from Rust settings and a fresh scan.
+and old Compose macOS target are retired. The Rust server does not read or
+migrate their SQLite database. Old files are left untouched on user machines;
+a native installation starts from Rust settings and a fresh scan. The current
+macOS build is the Rust player, not the retired Compose artifact.
 
 The trusted-LAN wire contract remains version 1 so existing Android clients
 continue to interoperate. Contract fixtures are owned by the Rust server test
