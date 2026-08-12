@@ -35,6 +35,9 @@ Compose macOS artifact are retired.
 
 - Discovery/manual connection, catalog browsing, series/episode presentation,
   Media3 streaming, subtitles, playback progress, resume, and danmaku.
+- Native MAL/Bangumi account status, provider readback, exact progress preview,
+  and explicitly confirmed sync; account/mapping/conflict administration stays
+  on Windows and the web UI.
 - Dedicated Android TV navigation and D-pad focus, cached-first presentation,
   latest-request-wins refresh handling, queued playback startup, and benchmark
   journeys.

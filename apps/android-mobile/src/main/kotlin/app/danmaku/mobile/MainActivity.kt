@@ -69,6 +69,7 @@ import app.danmaku.library.LanPlaybackProgressSync
 import app.danmaku.library.android.AndroidLibraryFavoriteStore
 import app.danmaku.library.android.AndroidLanLibraryConnectionStore
 import app.danmaku.library.android.LanLibraryClient
+import app.danmaku.library.android.LanExternalTrackingClient
 import app.danmaku.library.android.LanLibraryDiscoveryClient
 import app.danmaku.player.android.Media3PlaybackController
 import app.danmaku.player.android.Media3PlaybackServiceConnection
@@ -125,6 +126,7 @@ private fun MobilePlayerScreen() {
         Media3PlaybackServiceConnection(context.applicationContext)
     }
     val libraryClient = remember { LanLibraryClient() }
+    val trackingClient = remember { LanExternalTrackingClient() }
     val libraryConnectionSession = remember(libraryClient) { LanLibraryConnectionSession(libraryClient) }
     val progressSync = remember(libraryClient) {
         LanPlaybackProgressSync(libraryClient, System::currentTimeMillis)
@@ -177,6 +179,7 @@ private fun MobilePlayerScreen() {
             connectionStore = connectionStore,
             favoriteStore = favoriteStore,
             discoveryClient = discoveryClient,
+            trackingClient = trackingClient,
             openVideoPicker = { openDocument.launch(arrayOf("video/*")) },
         )
     }
@@ -206,7 +209,8 @@ private fun MobilePlayerScreen() {
     LaunchedEffect(appState.controller) {
         val activeController = appState.controller ?: return@LaunchedEffect
         while (true) {
-            appState.snapshot = activeController.snapshot()
+            val nextSnapshot = activeController.snapshot()
+            appState.snapshot = nextSnapshot
             delay(250)
         }
     }

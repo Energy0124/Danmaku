@@ -10,6 +10,7 @@ import app.danmaku.library.LanPlaybackProgressSync
 import app.danmaku.library.android.AndroidLanLibraryConnectionStore
 import app.danmaku.library.android.AndroidLibraryFavoriteStore
 import app.danmaku.library.android.LanLibraryClient
+import app.danmaku.library.android.LanExternalTrackingClient
 import app.danmaku.library.android.LanLibraryDiscoveryClient
 
 internal class TvApplicationContainer(
@@ -17,6 +18,7 @@ internal class TvApplicationContainer(
 ) {
     private val applicationContext = application.applicationContext
     private val libraryClient = LanLibraryClient()
+    private val trackingClient = LanExternalTrackingClient()
     private val connectionStore = AndroidLanLibraryConnectionStore(applicationContext)
     private val favoriteStore = AndroidLibraryFavoriteStore(applicationContext)
     private val connectionSession = LanLibraryConnectionSession(libraryClient)
@@ -29,6 +31,7 @@ internal class TvApplicationContainer(
         catalogCache = AndroidTvCatalogCache(applicationContext),
         defaultServerUrl = BuildConfig.DEFAULT_SERVER_URL,
         defaultPairingToken = BuildConfig.DEFAULT_PAIRING_TOKEN,
+        trackingClient = trackingClient,
     )
     val browsePresenter = TvBrowsePresenter()
     val libraryDiscovery = TvLibraryDiscovery {
