@@ -37,6 +37,7 @@ internal data class MobileAppUiState(
     val danmakuState: MobileDanmakuState,
     val playbackStartupPhase: MobilePlaybackStartupPhase,
     val isPlayerFullscreen: Boolean,
+    val tracking: MobileTrackingState = MobileTrackingState(),
 )
 
 internal data class MobileAppActions(
@@ -66,6 +67,9 @@ internal data class MobileAppActions(
     val onDiscover: () -> Unit,
     val onRefresh: () -> Unit,
     val onTogglePlayerFullscreen: () -> Unit,
+    val onLoadTracking: () -> Unit,
+    val onReadTracking: () -> Unit,
+    val onSyncTracking: () -> Unit,
 )
 
 @Composable
@@ -148,8 +152,10 @@ internal fun MobileAppScaffold(
                 snapshot = state.snapshot,
                 nowPlaying = state.nowPlaying,
                 serverUrl = state.serverUrl,
+                pairingToken = state.pairingToken,
                 savedConnections = state.savedConnections,
                 libraryError = state.libraryError,
+                tracking = state.tracking,
                 onServerUrlChange = actions.onServerUrlChange,
                 onSelectConnection = actions.onSelectConnection,
                 onEditConnection = actions.onEditConnection,
@@ -157,6 +163,10 @@ internal fun MobileAppScaffold(
                 onSaveConnection = actions.onSaveConnection,
                 onDiscover = actions.onDiscover,
                 onRefresh = actions.onRefresh,
+                onPairingTokenChange = actions.onPairingTokenChange,
+                onLoadTracking = actions.onLoadTracking,
+                onReadTracking = actions.onReadTracking,
+                onSyncTracking = actions.onSyncTracking,
                 onPlayPause = actions.onPlayPause,
                 onOpenPlayer = actions.onOpenPlayer,
             )

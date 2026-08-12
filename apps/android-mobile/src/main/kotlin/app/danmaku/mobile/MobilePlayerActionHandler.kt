@@ -14,6 +14,8 @@ import app.danmaku.library.android.AndroidLibraryFavoriteStore
 import app.danmaku.library.android.AndroidLanLibraryConnectionStore
 import app.danmaku.library.android.LanLibraryDiscoveryClient
 import app.danmaku.library.android.LanLibraryDiscoveryException
+import app.danmaku.library.android.LanExternalTrackingClient
+import app.danmaku.library.android.LanExternalTrackingException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
@@ -21,6 +23,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import java.util.concurrent.atomic.AtomicLong
 
 internal class MobilePlayerActionHandler(
     private val state: MobilePlayerState,
@@ -32,8 +35,10 @@ internal class MobilePlayerActionHandler(
     private val connectionStore: AndroidLanLibraryConnectionStore,
     private val favoriteStore: AndroidLibraryFavoriteStore,
     private val discoveryClient: LanLibraryDiscoveryClient,
+    private val trackingClient: LanExternalTrackingClient,
     private val openVideoPicker: () -> Unit,
 ) {
+    private val trackingGeneration = AtomicLong()
     fun connectToInitialLibrary() {
         if (state.catalog != null) return
         connectToLibrary(
@@ -79,6 +84,153 @@ internal class MobilePlayerActionHandler(
 
     fun refreshLibrary() {
         connectToLibrary(state.serverUrl, state.pairingToken)
+    }
+
+    fun loadTracking() {
+        val baseUrl = state.serverUrl.trim().trimEnd('/')
+        val token = state.pairingToken
+        if (baseUrl.isBlank() || token.isBlank()) {
+            state.tracking = MobileTrackingState(
+                error = MobileTrackingError.ACCESS_CODE_REQUIRED,
+            )
+            return
+        }
+        val generation = trackingGeneration.incrementAndGet()
+        state.tracking = state.tracking.copy(isBusy = true, error = null, errorDetail = null)
+        scope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    trackingClient.fetchAccounts(baseUrl, token) to
+                        trackingClient.fetchTracking(baseUrl, token)
+                }
+            }.onSuccess { (accounts, document) ->
+                if (!isCurrentTrackingRequest(baseUrl, token, generation)) return@onSuccess
+                state.tracking = MobileTrackingState(accounts = accounts, document = document)
+            }.onFailure { error ->
+                if (!isCurrentTrackingRequest(baseUrl, token, generation)) return@onFailure
+                state.tracking = state.tracking.copy(
+                    isBusy = false,
+                    error = trackingError(error),
+                    errorDetail = trackingErrorDetail(error),
+                )
+            }
+        }
+    }
+
+    fun readTracking() {
+        val baseUrl = state.serverUrl.trim().trimEnd('/')
+        val token = state.pairingToken
+        if (baseUrl.isBlank() || token.isBlank()) return
+        val generation = trackingGeneration.incrementAndGet()
+        state.tracking = state.tracking.copy(
+            isBusy = true,
+            hasFreshReadback = false,
+            error = null,
+            errorDetail = null,
+            lastOperation = null,
+            lastResponse = null,
+        )
+        scope.launch {
+            runCatching { withContext(Dispatchers.IO) { trackingClient.refreshReadback(baseUrl, token) } }
+                .onSuccess { response ->
+                    if (!isCurrentTrackingRequest(baseUrl, token, generation)) return@onSuccess
+                    state.tracking = state.tracking.copy(
+                        document = response.document,
+                        isBusy = false,
+                        hasFreshReadback = response.errors.isEmpty(),
+                        lastOperation = MobileTrackingOperation.READBACK,
+                        lastResponse = response,
+                    )
+                }
+                .onFailure { error ->
+                    if (!isCurrentTrackingRequest(baseUrl, token, generation)) return@onFailure
+                    state.tracking = state.tracking.copy(
+                        isBusy = false,
+                        error = trackingError(error),
+                        errorDetail = trackingErrorDetail(error),
+                    )
+                    refreshTrackingAccountsAfterFailure(baseUrl, token, generation)
+                }
+        }
+    }
+
+    fun syncTracking() {
+        val current = state.tracking
+        if (!current.hasFreshReadback) return
+        val expectedUpdates = current.document?.plan?.updates?.map { it.update }.orEmpty()
+        if (expectedUpdates.isEmpty()) return
+        val baseUrl = state.serverUrl.trim().trimEnd('/')
+        val token = state.pairingToken
+        val generation = trackingGeneration.incrementAndGet()
+        state.tracking = current.copy(isBusy = true, hasFreshReadback = false, error = null, errorDetail = null)
+        scope.launch {
+            runCatching { withContext(Dispatchers.IO) { trackingClient.sync(baseUrl, token, expectedUpdates) } }
+                .onSuccess { response ->
+                    if (!isCurrentTrackingRequest(baseUrl, token, generation)) return@onSuccess
+                    state.tracking = state.tracking.copy(
+                        document = response.document,
+                        isBusy = false,
+                        lastOperation = MobileTrackingOperation.SYNC,
+                        lastResponse = response,
+                    )
+                }
+                .onFailure { error ->
+                    if (!isCurrentTrackingRequest(baseUrl, token, generation)) return@onFailure
+                    state.tracking = state.tracking.copy(
+                        isBusy = false,
+                        error = if ((error as? LanExternalTrackingException)?.statusCode == 409) {
+                            MobileTrackingError.PREVIEW_CHANGED
+                        } else {
+                            trackingError(error)
+                        },
+                        errorDetail = trackingErrorDetail(error),
+                    )
+                    refreshTrackingAccountsAfterFailure(baseUrl, token, generation)
+                }
+        }
+    }
+
+    private suspend fun refreshTrackingAccountsAfterFailure(
+        baseUrl: String,
+        token: String,
+        generation: Long,
+    ) {
+        val accounts = runCatching {
+            withContext(Dispatchers.IO) { trackingClient.fetchAccounts(baseUrl, token) }
+        }.getOrNull() ?: return
+        if (isCurrentTrackingRequest(baseUrl, token, generation)) {
+            state.tracking = state.tracking.copy(accounts = accounts)
+        }
+    }
+
+    fun invalidateTrackingPreview() {
+        trackingGeneration.incrementAndGet()
+        state.tracking = state.tracking.copy(
+            isBusy = false,
+            hasFreshReadback = false,
+        )
+    }
+
+    private fun isCurrentTrackingRequest(baseUrl: String, token: String, generation: Long): Boolean =
+        trackingGeneration.get() == generation &&
+        state.serverUrl.trim().trimEnd('/') == baseUrl && state.pairingToken == token
+
+    private fun trackingError(error: Throwable): MobileTrackingError =
+        if ((error as? LanExternalTrackingException)?.statusCode == 401) {
+            MobileTrackingError.ACCESS_CODE_REJECTED
+        } else {
+            MobileTrackingError.REQUEST_FAILED
+        }
+
+    private fun trackingErrorDetail(error: Throwable): String? {
+        val providerError = error as? LanExternalTrackingException ?: return null
+        if (providerError.statusCode in setOf(401, 409)) return null
+        return providerError.message
+            ?.trim()
+            ?.lineSequence()
+            ?.firstOrNull()
+            ?.take(240)
+            ?.takeIf(String::isNotBlank)
     }
 
     private suspend fun connectToDiscoveredLibrary(originalFailure: Throwable) {
@@ -136,6 +288,7 @@ internal class MobilePlayerActionHandler(
         state.savedConnections = connectionStore.loadProfiles()
         state.libraryError = null
         state.selectedTab = MobileTab.Library
+        loadTracking()
     }
 
     fun setFavorite(item: LibraryMediaItem, isFavorite: Boolean) {
@@ -161,6 +314,7 @@ internal class MobilePlayerActionHandler(
         val previousTarget = state.activePlaybackTarget
         if (previousTarget != null && previousTarget != target) {
             val previousSnapshot = activeController.snapshot()
+            invalidateTrackingPreview()
             scope.launch(Dispatchers.IO) {
                 runCatching { progressSync.saveProgress(previousTarget, previousSnapshot) }
             }
@@ -273,6 +427,7 @@ internal class MobilePlayerActionHandler(
     fun editConnection(connection: LanLibraryConnectionProfile) {
         state.serverUrl = connection.baseUrl
         state.pairingToken = connection.pairingToken
+        state.tracking = MobileTrackingState()
     }
 
     fun forgetConnection(connection: LanLibraryConnectionProfile) {
@@ -312,6 +467,7 @@ internal class MobilePlayerActionHandler(
             onConnect = {
                 state.isPlayerFullscreen = false
                 state.selectedTab = MobileTab.Connect
+                loadTracking()
             },
             onOpenVideo = openVideoPicker,
             onSeekTo = { state.controller?.dispatch(PlaybackCommand.SeekTo(it)) },
@@ -323,8 +479,14 @@ internal class MobilePlayerActionHandler(
             onSubtitleFilterChange = { state.librarySubtitleFilter = it },
             onFavoriteFilterChange = { state.libraryFavoriteFilter = it },
             onSetFavorite = ::setFavorite,
-            onServerUrlChange = { state.serverUrl = it },
-            onPairingTokenChange = { state.pairingToken = it },
+            onServerUrlChange = {
+                state.serverUrl = it
+                state.tracking = MobileTrackingState()
+            },
+            onPairingTokenChange = {
+                state.pairingToken = it
+                state.tracking = MobileTrackingState()
+            },
             onSelectConnection = ::selectConnection,
             onEditConnection = ::editConnection,
             onForgetConnection = ::forgetConnection,
@@ -332,6 +494,9 @@ internal class MobilePlayerActionHandler(
             onDiscover = ::discoverPc,
             onRefresh = ::refreshLibrary,
             onTogglePlayerFullscreen = { state.isPlayerFullscreen = !state.isPlayerFullscreen },
+            onLoadTracking = ::loadTracking,
+            onReadTracking = ::readTracking,
+            onSyncTracking = ::syncTracking,
         )
 
     private companion object {
