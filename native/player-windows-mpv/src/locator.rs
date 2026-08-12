@@ -84,8 +84,12 @@ pub fn find_library(
     executable_dir: &Path,
     configured_path: Option<&OsStr>,
 ) -> Result<PathBuf, LibraryLocationError> {
-    let searched_paths = candidate_paths(executable_dir, configured_path);
+    find_library_in_candidates(candidate_paths(executable_dir, configured_path))
+}
 
+fn find_library_in_candidates(
+    searched_paths: Vec<PathBuf>,
+) -> Result<PathBuf, LibraryLocationError> {
     searched_paths
         .iter()
         .find(|path| path.is_file())
@@ -102,7 +106,9 @@ pub fn find_library_for_current_process() -> Result<PathBuf, LibraryLocationErro
 
 #[cfg(test)]
 mod tests {
-    use super::{LIBMPV_DLL_NAME, LIBMPV_LIBRARY_NAMES, candidate_paths, find_library};
+    use super::{
+        LIBMPV_DLL_NAME, LIBMPV_LIBRARY_NAMES, candidate_paths, find_library_in_candidates,
+    };
     use std::{ffi::OsStr, fs, path::Path};
 
     #[test]
@@ -140,16 +146,19 @@ mod tests {
 
     #[test]
     fn reports_every_searched_path_when_the_dll_is_missing() {
-        let executable_dir = Path::new("C:/app");
-        let configured_path = OsStr::new("C:/media/libmpv-custom.dll");
+        let missing_root = std::env::temp_dir().join(format!(
+            "danmaku-libmpv-locator-missing-{}",
+            std::process::id()
+        ));
+        let searched_paths = vec![
+            missing_root.join(LIBMPV_DLL_NAME),
+            missing_root.join("fallback").join(LIBMPV_DLL_NAME),
+        ];
 
         let error =
-            find_library(executable_dir, Some(configured_path)).expect_err("missing library");
+            find_library_in_candidates(searched_paths.clone()).expect_err("missing library");
 
-        assert_eq!(
-            error.searched_paths,
-            candidate_paths(executable_dir, Some(configured_path))
-        );
+        assert_eq!(error.searched_paths, searched_paths);
     }
 
     #[cfg(target_os = "macos")]
