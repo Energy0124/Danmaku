@@ -35,10 +35,13 @@ Compose macOS artifact are retired.
 
 - Discovery/manual connection, catalog browsing, series/episode presentation,
   Media3 streaming, subtitles, playback progress, resume, and danmaku.
+- Mobile and TV expose the server's original multi-root folder layout as a
+  dedicated top-level destination backed by shared folder-listing rules.
 - Native MAL/Bangumi account status, provider readback, exact progress preview,
   and explicitly confirmed sync; account/mapping/conflict administration stays
   on Windows and the web UI.
-- Dedicated Android TV navigation and D-pad focus, cached-first presentation,
+- Dedicated Android TV navigation and D-pad focus, including folder-level back
+  navigation, cached-first presentation,
   latest-request-wins refresh handling, queued playback startup, and benchmark
   journeys.
 - Shared domain, LAN-client, and Media3 modules without a JVM server runtime

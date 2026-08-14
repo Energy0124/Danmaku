@@ -3,6 +3,10 @@ package app.danmaku.mobile
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryCatalogSort
@@ -77,6 +81,7 @@ internal fun MobileAppScaffold(
     state: MobileAppUiState,
     actions: MobileAppActions,
 ) {
+    var folderPath by remember(state.catalog) { mutableStateOf(emptyList<String>()) }
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = AppBackground,
@@ -144,6 +149,15 @@ internal fun MobileAppScaffold(
                 onPlay = actions.onPlay,
                 onPlayPause = actions.onPlayPause,
                 onOpenPlayer = actions.onOpenPlayer,
+                onConnect = actions.onConnect,
+            )
+            MobileTab.Folders -> FolderPage(
+                contentPadding = innerPadding,
+                catalog = state.catalog,
+                path = folderPath,
+                onOpenFolder = { folderPath = folderPath + it },
+                onNavigateUp = { folderPath = folderPath.dropLast(1) },
+                onPlay = actions.onPlay,
                 onConnect = actions.onConnect,
             )
             MobileTab.Connect -> ConnectPage(

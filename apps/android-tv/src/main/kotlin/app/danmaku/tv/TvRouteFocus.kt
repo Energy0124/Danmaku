@@ -20,6 +20,7 @@ internal fun Modifier.tvRouteFocus(
     route: TvRoute,
     focusKey: String,
     isDefault: Boolean = false,
+    fallbackToDefault: Boolean = false,
     focusRequesterOverride: FocusRequester? = null,
     leftFocusRequester: FocusRequester? = null,
 ): Modifier {
@@ -28,7 +29,10 @@ internal fun Modifier.tvRouteFocus(
     val requester = focusRequesterOverride ?: rememberedRequester
     val savedFocus = navigator.savedFocus(route)
     val shouldRequest = navigationState.route == route &&
-        (savedFocus == focusKey || (savedFocus == null && isDefault))
+        (
+            savedFocus == focusKey ||
+                ((savedFocus == null || fallbackToDefault) && isDefault)
+        )
     LaunchedEffect(route, focusKey, shouldRequest) {
         if (shouldRequest) requester.requestFocus()
     }

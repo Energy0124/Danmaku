@@ -59,10 +59,10 @@ class TvNavigationTest {
     }
 
     @Test
-    fun folderBrowserUsesLibraryHistoryAndBackMovesUpFolders() {
-        val navigator = TvNavigator(TvRoute.Library)
+    fun folderBrowserIsTopLevelAndBackMovesUpFolders() {
+        val navigator = TvNavigator(TvRoute.Home)
 
-        navigator.navigate(TvRoute.FolderBrowser())
+        navigator.navigateTopLevel(TvRoute.FolderBrowser())
         navigator.navigate(TvRoute.FolderBrowser(listOf("Anime")))
         navigator.navigate(TvRoute.FolderBrowser(listOf("Anime", "Series")))
 
@@ -70,6 +70,8 @@ class TvNavigationTest {
         assertEquals(TvRoute.FolderBrowser(listOf("Anime")), navigator.state.value.route)
         assertTrue(navigator.back())
         assertEquals(TvRoute.FolderBrowser(), navigator.state.value.route)
+        assertTrue(TvRoute.FolderBrowser().isTopLevel())
+        assertFalse(TvRoute.FolderBrowser(listOf("Anime")).isTopLevel())
     }
 
     @Test

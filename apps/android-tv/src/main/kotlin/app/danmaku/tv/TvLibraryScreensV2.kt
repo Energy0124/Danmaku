@@ -31,7 +31,11 @@ import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Button
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import app.danmaku.domain.LibraryFolderListing
 import app.danmaku.domain.LibrarySeries
+import app.danmaku.domain.fileName
+import app.danmaku.domain.folderHeading
+import app.danmaku.domain.folderListing
 
 @Composable
 internal fun TvLibraryGridScreen(
@@ -42,7 +46,6 @@ internal fun TvLibraryGridScreen(
     browse: TvBrowseUiState,
     onOpenSeries: (String) -> Unit,
     onShowFilters: () -> Unit,
-    onOpenFolders: () -> Unit,
 ) {
     val series = browse.librarySeries
     Column(
@@ -59,40 +62,21 @@ internal fun TvLibraryGridScreen(
                 stringResource(R.string.library_series_count, series.size)
             },
             action = {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Button(
-                        onClick = onOpenFolders,
-                        enabled = session.catalog != null,
-                        modifier = Modifier
-                            .tvRouteFocus(
-                                navigation,
-                                navigator,
-                                route,
-                                "library-folders",
-                                isDefault = series.isEmpty() && session.catalog != null,
-                            )
-                            .tvFocusHalo(RoundedCornerShape(18.dp))
-                            .testTag("library-folders"),
-                        colors = tvButtonColors(),
-                    ) {
-                        Text(stringResource(R.string.action_folders))
-                    }
-                    Button(
-                        onClick = onShowFilters,
-                        modifier = Modifier
-                            .tvRouteFocus(
-                                navigation,
-                                navigator,
-                                route,
-                                "library-filters",
-                                isDefault = series.isEmpty() && session.catalog == null,
-                            )
-                            .tvFocusHalo(RoundedCornerShape(18.dp))
-                            .testTag("library-filters"),
-                        colors = tvButtonColors(),
-                    ) {
-                        Text(stringResource(R.string.action_filters))
-                    }
+                Button(
+                    onClick = onShowFilters,
+                    modifier = Modifier
+                        .tvRouteFocus(
+                            navigation,
+                            navigator,
+                            route,
+                            "library-filters",
+                            isDefault = series.isEmpty(),
+                        )
+                        .tvFocusHalo(RoundedCornerShape(18.dp))
+                        .testTag("library-filters"),
+                    colors = tvButtonColors(),
+                ) {
+                    Text(stringResource(R.string.action_filters))
                 }
             },
         )
@@ -132,8 +116,19 @@ internal fun TvFolderBrowserScreen(
 ) {
     val catalog = browse.catalog
     val listing = remember(catalog, route.path) {
-        catalog?.folderListing(route.path) ?: TvFolderListing()
+        catalog?.folderListing(route.path) ?: LibraryFolderListing()
     }
+    val validFocusKeys = remember(catalog, listing, route.path) {
+        buildSet {
+            if (route.path.isNotEmpty()) add("folder-up")
+            if (catalog == null || (listing.folders.isEmpty() && listing.files.isEmpty())) {
+                add("folder-empty")
+            }
+            listing.folders.forEach { add("folder:${it.name}") }
+            listing.files.forEach { add("file:${it.id}") }
+        }
+    }
+    val fallbackToDefault = navigator.savedFocus(route) !in validFocusKeys
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -159,6 +154,7 @@ internal fun TvFolderBrowserScreen(
                                 route,
                                 "folder-up",
                                 isDefault = listing.folders.isEmpty() && listing.files.isEmpty(),
+                                fallbackToDefault = fallbackToDefault,
                             )
                             .tvFocusHalo(RoundedCornerShape(18.dp))
                             .testTag("folder-up"),
@@ -181,7 +177,8 @@ internal fun TvFolderBrowserScreen(
                         navigator,
                         route,
                         "folder-empty",
-                        isDefault = true,
+                        isDefault = route.path.isEmpty(),
+                        fallbackToDefault = fallbackToDefault,
                     )
                     .focusable()
                     .testTag("folder-empty"),
@@ -197,6 +194,7 @@ internal fun TvFolderBrowserScreen(
                         route,
                         "folder-empty",
                         isDefault = route.path.isEmpty(),
+                        fallbackToDefault = fallbackToDefault,
                     )
                     .focusable()
                     .testTag("folder-empty"),
@@ -221,6 +219,7 @@ internal fun TvFolderBrowserScreen(
                         navigator = navigator,
                         focusKey = "folder:${folder.name}",
                         isDefault = isFirst,
+                        fallbackToDefault = fallbackToDefault,
                         testTag = "folder-entry:${folder.name}",
                         onClick = { onOpenFolder(folder.name) },
                     )
@@ -237,6 +236,7 @@ internal fun TvFolderBrowserScreen(
                         navigator = navigator,
                         focusKey = "file:${item.id}",
                         isDefault = listing.folders.isEmpty() && item == listing.files.firstOrNull(),
+                        fallbackToDefault = fallbackToDefault,
                         testTag = "folder-file:${item.id}",
                         onClick = { onOpenFile(item.id) },
                     )
@@ -394,6 +394,7 @@ private fun TvFolderRow(
     navigator: TvNavigator,
     focusKey: String,
     isDefault: Boolean,
+    fallbackToDefault: Boolean,
     testTag: String,
     onClick: () -> Unit,
 ) {
@@ -407,6 +408,7 @@ private fun TvFolderRow(
                 route,
                 focusKey,
                 isDefault = isDefault,
+                fallbackToDefault = fallbackToDefault,
             )
             .tvFocusHalo(RoundedCornerShape(18.dp))
             .testTag(testTag),

@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
@@ -53,6 +54,7 @@ internal enum class MobileTab(
     Home(R.string.nav_home, Icons.Filled.Home),
     Watch(R.string.nav_watch, Icons.Filled.PlayArrow),
     Library(R.string.nav_library, Icons.Filled.VideoLibrary),
+    Folders(R.string.nav_folders, Icons.Filled.Folder),
     Connect(R.string.nav_connect, Icons.Filled.Settings),
 }
 

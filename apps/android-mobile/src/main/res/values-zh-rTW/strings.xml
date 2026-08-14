@@ -4,6 +4,7 @@
     <string name="nav_home">首頁</string>
     <string name="nav_watch">觀看</string>
     <string name="nav_library">媒體庫</string>
+    <string name="nav_folders">資料夾</string>
     <string name="nav_connect">連線</string>
     <string name="home_continue_watching">繼續觀看</string>
     <string name="home_recently_added">最近加入</string>
@@ -44,6 +45,14 @@
     <string name="library_empty_connect_body">桌面 App 開啟時使用探索，然後重新整理目錄。</string>
     <string name="library_series_title">系列</string>
     <string name="library_series_count">%1$d 個常見標題</string>
+    <string name="folders_title">資料夾與檔案</string>
+    <string name="folders_connect_subtitle">連線 Windows 媒體庫以瀏覽資料夾</string>
+    <string name="folders_connect_body">連線 Windows 媒體庫後，即可依原始資料夾結構瀏覽。</string>
+    <string name="folders_summary">%1$d 個資料夾 · %2$d 個檔案</string>
+    <string name="folder_item_count">%1$d 個檔案</string>
+    <string name="folders_empty_title">此資料夾是空的</string>
+    <string name="folders_empty_body">返回上一層並選擇其他媒體庫資料夾。</string>
+    <string name="action_up">上一層</string>
     <string name="matched_anime">已匹配動畫：%1$s</string>
     <string name="matched_anime_short">匹配：%1$s</string>
     <string name="subtitle_count">%1$d 個字幕</string>
