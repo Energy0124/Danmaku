@@ -135,6 +135,10 @@
     <string name="danmaku_visibility_title">顯示彈幕</string>
     <string name="danmaku_enabled">開啟</string>
     <string name="danmaku_disabled">關閉</string>
+    <string name="danmaku_types_title">彈幕類型</string>
+    <string name="danmaku_type_scrolling">滾動彈幕</string>
+    <string name="danmaku_type_top">頂部彈幕</string>
+    <string name="danmaku_type_bottom">底部彈幕</string>
     <string name="danmaku_opacity_value">透明度 %1$d%%</string>
     <string name="danmaku_size_value">文字大小 %1$d%%</string>
     <string name="danmaku_speed_value">移動速度 %1$d%%</string>

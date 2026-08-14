@@ -5,6 +5,9 @@ import kotlin.math.roundToLong
 
 data class DanmakuDisplaySettings(
     val visible: Boolean = true,
+    val showScrolling: Boolean = true,
+    val showTop: Boolean = true,
+    val showBottom: Boolean = true,
     val opacityPercent: Int = 100,
     val fontScalePercent: Int = 100,
     val speedPercent: Int = 100,
@@ -36,9 +39,17 @@ data class DanmakuDisplaySettings(
             events.filter { event ->
                 val text = event.text
                 val normalizedText = text.lowercase()
-                normalizedKeywords.none { keyword -> keyword in normalizedText } &&
+                shows(event.style.mode) &&
+                    normalizedKeywords.none { keyword -> keyword in normalizedText } &&
                     regexes.none { regex -> regex.containsMatchIn(text) }
             }
+        }
+
+    private fun shows(mode: DanmakuMode): Boolean =
+        when (mode) {
+            DanmakuMode.SCROLLING -> showScrolling
+            DanmakuMode.TOP -> showTop
+            DanmakuMode.BOTTOM -> showBottom
         }
 
     fun scaledFontSize(baseFontSize: Int): Int =

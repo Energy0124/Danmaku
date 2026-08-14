@@ -135,6 +135,10 @@
     <string name="danmaku_visibility_title">Show danmaku</string>
     <string name="danmaku_enabled">On</string>
     <string name="danmaku_disabled">Off</string>
+    <string name="danmaku_types_title">Danmaku types</string>
+    <string name="danmaku_type_scrolling">Scrolling</string>
+    <string name="danmaku_type_top">Top</string>
+    <string name="danmaku_type_bottom">Bottom</string>
     <string name="danmaku_opacity_value">Opacity %1$d%%</string>
     <string name="danmaku_size_value">Text size %1$d%%</string>
     <string name="danmaku_speed_value">Travel speed %1$d%%</string>

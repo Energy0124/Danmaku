@@ -346,6 +346,7 @@ class MobileWatchPageTest {
         composeRule.onNodeWithTag("playback-rate:1.5").performClick()
         composeRule.onNodeWithTag("options-audio-track:audio-en").performClick()
         composeRule.onNodeWithTag("options-subtitle-off").performClick()
+        composeRule.onNodeWithTag("danmaku-type-bottom").performScrollTo().performClick()
         composeRule.onNodeWithTag("danmaku-opacity-slider")
             .performScrollTo()
             .performSemanticsAction(SemanticsActions.SetProgress) { it(70f) }
@@ -357,6 +358,7 @@ class MobileWatchPageTest {
             assertEquals("audio-en", selectedAudio)
             assertEquals("off", selectedSubtitle)
             assertEquals(false, settings.visible)
+            assertEquals(false, settings.showBottom)
             assertEquals(70, settings.opacityPercent)
             assertEquals(500L, settings.offsetMs)
         }

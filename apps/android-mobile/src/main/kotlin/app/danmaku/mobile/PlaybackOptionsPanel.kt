@@ -31,16 +31,19 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
 import app.danmaku.domain.DanmakuDisplaySettings
 import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.PlaybackTrack
@@ -64,11 +67,15 @@ internal fun PlaybackOptionsDialog(
             decorFitsSystemWindows = false,
         ),
     ) {
+        val dialogView = LocalView.current
+        SideEffect {
+            (dialogView.parent as? DialogWindowProvider)?.window?.setDimAmount(0f)
+        }
         val dismissInteractionSource = remember { MutableInteractionSource() }
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.48f))
+                .background(Color.Black.copy(alpha = 0.12f))
                 .clickable(
                     interactionSource = dismissInteractionSource,
                     indication = null,
@@ -89,7 +96,7 @@ internal fun PlaybackOptionsDialog(
                     )
                     .testTag("playback-options-panel"),
                 shape = RoundedCornerShape(topStart = 24.dp, bottomStart = 24.dp),
-                color = Color(0xF2191D21),
+                color = Color(0xB3191D21),
             ) {
                 Column(
                     modifier = Modifier
@@ -163,6 +170,10 @@ internal fun PlaybackOptionsDialog(
                                 modifier = Modifier.testTag("danmaku-visible-toggle"),
                             )
                         }
+                        DanmakuTypeControls(
+                            settings = danmakuSettings,
+                            onUpdate = onUpdateDanmakuSettings,
+                        )
                         DanmakuSlider(
                             label = stringResource(
                                 R.string.danmaku_opacity_value,
@@ -248,6 +259,42 @@ internal fun PlaybackOptionsDialog(
                     Spacer(modifier = Modifier.size(4.dp))
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun DanmakuTypeControls(
+    settings: DanmakuDisplaySettings,
+    onUpdate: (DanmakuDisplaySettings) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = stringResource(R.string.danmaku_types_title),
+            style = MaterialTheme.typography.labelLarge,
+        )
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            FilterChip(
+                selected = settings.showScrolling,
+                onClick = { onUpdate(settings.copy(showScrolling = !settings.showScrolling)) },
+                label = { Text(stringResource(R.string.danmaku_type_scrolling)) },
+                modifier = Modifier.testTag("danmaku-type-scrolling"),
+            )
+            FilterChip(
+                selected = settings.showTop,
+                onClick = { onUpdate(settings.copy(showTop = !settings.showTop)) },
+                label = { Text(stringResource(R.string.danmaku_type_top)) },
+                modifier = Modifier.testTag("danmaku-type-top"),
+            )
+            FilterChip(
+                selected = settings.showBottom,
+                onClick = { onUpdate(settings.copy(showBottom = !settings.showBottom)) },
+                label = { Text(stringResource(R.string.danmaku_type_bottom)) },
+                modifier = Modifier.testTag("danmaku-type-bottom"),
+            )
         }
     }
 }

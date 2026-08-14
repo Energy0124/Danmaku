@@ -32,6 +32,24 @@ class DanmakuDisplaySettingsTest {
     }
 
     @Test
+    fun filtersIndependentlyDisabledDanmakuModes() {
+        val events = listOf(
+            event("scrolling", "scrolling", DanmakuMode.SCROLLING),
+            event("top", "top", DanmakuMode.TOP),
+            event("bottom", "bottom", DanmakuMode.BOTTOM),
+        )
+
+        assertEquals(
+            listOf(events[0], events[1]),
+            DanmakuDisplaySettings(showBottom = false).filter(events),
+        )
+        assertEquals(
+            listOf(events[2]),
+            DanmakuDisplaySettings(showScrolling = false, showTop = false).filter(events),
+        )
+    }
+
+    @Test
     fun ignoresInvalidRegexFiltersWithoutDroppingSafeEvents() {
         val settings = DanmakuDisplaySettings(regexFilters = listOf("["))
 
@@ -76,6 +94,12 @@ class DanmakuDisplaySettingsTest {
     private fun event(
         id: String,
         text: String,
+        mode: DanmakuMode = DanmakuMode.SCROLLING,
     ): DanmakuEvent =
-        DanmakuEvent(id = id, timestampMs = 0, text = text)
+        DanmakuEvent(
+            id = id,
+            timestampMs = 0,
+            text = text,
+            style = DanmakuStyle(mode = mode),
+        )
 }

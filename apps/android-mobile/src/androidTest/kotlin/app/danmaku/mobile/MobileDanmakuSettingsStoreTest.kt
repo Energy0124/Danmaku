@@ -13,6 +13,9 @@ class MobileDanmakuSettingsStoreTest {
         val original = store.load()
         val expected = DanmakuDisplaySettings(
             visible = false,
+            showScrolling = true,
+            showTop = false,
+            showBottom = false,
             opacityPercent = 60,
             fontScalePercent = 130,
             speedPercent = 150,
