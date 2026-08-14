@@ -156,7 +156,10 @@ Repeatable local QA:
 
 Android mobile/tablet and Android TV discover or manually connect to the Rust
 server, browse its catalog, stream through Media3, render danmaku, and
-synchronize playback progress. Android TV remains a dedicated module with
+synchronize playback progress. Their Connect/PC screens can also read MAL and
+Bangumi state, review pending progress updates, and explicitly confirm the
+exact preview before syncing. Account connection, series mapping, and conflict
+import remain in the Windows app or web administration UI. Android TV remains a dedicated module with
 TV-specific focus and remote-navigation behavior.
 
 Connected checks require an emulator or physical device and are documented in

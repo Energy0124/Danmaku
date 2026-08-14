@@ -33,7 +33,11 @@ ABI.
 ### Android Mobile And TV
 
 Android applications are trusted-LAN clients. They share domain, connection,
-and Media3 code while retaining platform-specific UI. Android TV remains a
+Media3, and authenticated tracking transport code while retaining
+platform-specific UI. They may read provider state and submit an explicitly
+reviewed, server-validated tracking preview, but provider credentials, mappings,
+and conflict reconciliation remain server-owned Windows/web administration.
+Android TV remains a
 dedicated module with TV layouts, D-pad focus, remote navigation, and
 Macrobenchmark coverage.
 

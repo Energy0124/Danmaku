@@ -13,6 +13,23 @@ import app.danmaku.domain.PlaybackProgress
 import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.library.LanLibraryConnectionProfile
 import app.danmaku.library.LanPlaybackTarget
+import app.danmaku.library.android.ExternalTrackingDocument
+import app.danmaku.library.android.ExternalTrackingOperationResponse
+import app.danmaku.library.android.ProviderAccountsDocument
+
+internal enum class TvTrackingOperation { READBACK, SYNC }
+internal enum class TvTrackingError { ACCESS_CODE_REJECTED, PREVIEW_CHANGED, REQUEST_FAILED }
+
+internal data class TvTrackingState(
+    val accounts: ProviderAccountsDocument? = null,
+    val document: ExternalTrackingDocument? = null,
+    val isBusy: Boolean = false,
+    val hasFreshReadback: Boolean = false,
+    val error: TvTrackingError? = null,
+    val errorDetail: String? = null,
+    val lastOperation: TvTrackingOperation? = null,
+    val lastResponse: ExternalTrackingOperationResponse? = null,
+)
 
 internal enum class TvCatalogSource {
     None,
@@ -46,6 +63,7 @@ internal data class TvSessionUiState(
     val isRefreshing: Boolean = false,
     val isOffline: Boolean = false,
     val errorMessage: String? = null,
+    val tracking: TvTrackingState = TvTrackingState(),
 ) {
     val hasConnection: Boolean
         get() = serverUrl.isNotBlank()

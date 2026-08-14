@@ -161,4 +161,77 @@ class TvReviewRegressionInstrumentedTest {
         assertNull(cache.load(secondUrl))
         assertTrue(cache.load(firstUrl)?.playbackProgresses?.isEmpty() == true)
     }
+
+    @Test
+    fun trackingResultFromPreviousConnectionIsRejected() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(
+                MockResponse()
+                    .setHeader("Content-Type", "application/json")
+                    .setBody(ACCOUNTS_JSON)
+                    .setBodyDelay(1, TimeUnit.SECONDS),
+            )
+            server.enqueue(jsonResponse(TRACKING_JSON))
+            val repository = trackingRepository(server)
+
+            val load = async(Dispatchers.Default) { repository.loadTracking() }
+            assertNotNull(server.takeRequest(5, TimeUnit.SECONDS))
+            repository.updateServerUrl("http://replacement.invalid:8686")
+            load.await()
+
+            assertNull(repository.state.value.tracking.accounts)
+            assertNull(repository.state.value.tracking.document)
+            assertFalse(repository.state.value.tracking.isBusy)
+        }
+    }
+
+    @Test
+    fun progressChangeInvalidatesFreshTrackingReadback() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(jsonResponse(OPERATION_JSON))
+            val repository = trackingRepository(server)
+
+            repository.readTracking().getOrThrow()
+            assertTrue(repository.state.value.tracking.hasFreshReadback)
+            assertEquals(1, repository.state.value.tracking.document?.plan?.updates?.size)
+
+            assertTrue(
+                repository.updateProgresses(
+                    LanPlaybackTarget(server.url("/").toString(), "test-token", "episode-id"),
+                    emptyList(),
+                ),
+            )
+            assertFalse(repository.state.value.tracking.hasFreshReadback)
+
+            repository.syncTracking().getOrThrow()
+            assertNull(server.takeRequest(250, TimeUnit.MILLISECONDS))
+        }
+    }
+
+    private fun trackingRepository(server: MockWebServer): TvLibraryRepository =
+        TvLibraryRepository(
+            connectionSession = LanLibraryConnectionSession(LanLibraryClient()),
+            connectionStore = AndroidLanLibraryConnectionStore(context),
+            favoriteStore = AndroidLibraryFavoriteStore(context),
+            catalogCache = AndroidTvCatalogCache(context),
+            defaultServerUrl = server.url("/").toString(),
+            defaultPairingToken = "test-token",
+            ioDispatcher = Dispatchers.IO,
+        )
+
+    private fun jsonResponse(body: String): MockResponse = MockResponse()
+        .setHeader("Content-Type", "application/json")
+        .setBody(body)
+
+    private companion object {
+        const val ACCOUNTS_JSON = """
+            {"myAnimeList":{"state":"CONNECTED","userId":"1","displayName":"MAL user"},"bangumi":{"state":"DISCONNECTED"},"bangumiTokenUrl":"https://next.bgm.tv/demo/access-token"}
+        """
+        const val TRACKING_JSON = """
+            {"generatedAtEpochMs":1,"series":[],"mappings":[{"localSeriesId":"series","animeId":{"provider":"MY_ANIME_LIST","value":42},"source":"MANUAL","confidence":1.0,"mappedAtEpochMs":1}],"listEntries":[],"plan":{"summary":{"updateCount":1,"skippedCount":0,"conflictCount":0,"failureCount":0,"myAnimeListUpdateCount":1,"bangumiUpdateCount":0},"updates":[{"localSeriesId":"series","localSeriesIds":["series"],"seriesTitle":"Example","episodeCount":12,"mapping":{"localSeriesId":"series","animeId":{"provider":"MY_ANIME_LIST","value":42},"source":"MANUAL","confidence":1.0,"mappedAtEpochMs":1},"update":{"animeId":{"provider":"MY_ANIME_LIST","value":42},"status":"WATCHING","watchedEpisodes":3}}],"skipped":[],"conflicts":[],"mappingConflicts":[],"failures":[]}}
+        """
+        const val OPERATION_JSON = """
+            {"document":$TRACKING_JSON,"successCount":1,"conflictCount":0,"missingCount":0,"errors":[]}
+        """
+    }
 }

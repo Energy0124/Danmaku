@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Text
 
@@ -19,12 +20,14 @@ internal fun TvTextInput(
     onValueChange: (String) -> Unit,
     placeholder: String,
     modifier: Modifier = Modifier,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
 ) {
     BasicTextField(
         value = value,
         onValueChange = onValueChange,
         singleLine = true,
         textStyle = TextStyle(color = Color.White),
+        visualTransformation = visualTransformation,
         modifier = modifier
             .clip(RoundedCornerShape(16.dp))
             .background(TvCardColor)
