@@ -31,7 +31,11 @@ import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Button
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import app.danmaku.domain.LibraryFolderListing
 import app.danmaku.domain.LibrarySeries
+import app.danmaku.domain.fileName
+import app.danmaku.domain.folderHeading
+import app.danmaku.domain.folderListing
 
 @Composable
 internal fun TvLibraryGridScreen(
@@ -42,7 +46,6 @@ internal fun TvLibraryGridScreen(
     browse: TvBrowseUiState,
     onOpenSeries: (String) -> Unit,
     onShowFilters: () -> Unit,
-    onOpenFolders: () -> Unit,
 ) {
     val series = browse.librarySeries
     Column(
@@ -59,40 +62,21 @@ internal fun TvLibraryGridScreen(
                 stringResource(R.string.library_series_count, series.size)
             },
             action = {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Button(
-                        onClick = onOpenFolders,
-                        enabled = session.catalog != null,
-                        modifier = Modifier
-                            .tvRouteFocus(
-                                navigation,
-                                navigator,
-                                route,
-                                "library-folders",
-                                isDefault = series.isEmpty() && session.catalog != null,
-                            )
-                            .tvFocusHalo(RoundedCornerShape(18.dp))
-                            .testTag("library-folders"),
-                        colors = tvButtonColors(),
-                    ) {
-                        Text(stringResource(R.string.action_folders))
-                    }
-                    Button(
-                        onClick = onShowFilters,
-                        modifier = Modifier
-                            .tvRouteFocus(
-                                navigation,
-                                navigator,
-                                route,
-                                "library-filters",
-                                isDefault = series.isEmpty() && session.catalog == null,
-                            )
-                            .tvFocusHalo(RoundedCornerShape(18.dp))
-                            .testTag("library-filters"),
-                        colors = tvButtonColors(),
-                    ) {
-                        Text(stringResource(R.string.action_filters))
-                    }
+                Button(
+                    onClick = onShowFilters,
+                    modifier = Modifier
+                        .tvRouteFocus(
+                            navigation,
+                            navigator,
+                            route,
+                            "library-filters",
+                            isDefault = series.isEmpty(),
+                        )
+                        .tvFocusHalo(RoundedCornerShape(18.dp))
+                        .testTag("library-filters"),
+                    colors = tvButtonColors(),
+                ) {
+                    Text(stringResource(R.string.action_filters))
                 }
             },
         )
@@ -132,7 +116,7 @@ internal fun TvFolderBrowserScreen(
 ) {
     val catalog = browse.catalog
     val listing = remember(catalog, route.path) {
-        catalog?.folderListing(route.path) ?: TvFolderListing()
+        catalog?.folderListing(route.path) ?: LibraryFolderListing()
     }
     Column(
         modifier = Modifier

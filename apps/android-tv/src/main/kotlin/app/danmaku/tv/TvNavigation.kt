@@ -125,6 +125,7 @@ internal fun TvRoute.isTopLevel(): Boolean =
         this == TvRoute.Library ||
         this == TvRoute.Search ||
         this == TvRoute.Favorites ||
+        (this is TvRoute.FolderBrowser && path.isEmpty()) ||
         this == TvRoute.Pc ||
         this == TvRoute.Onboarding
 

@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -98,7 +99,6 @@ internal fun TvConsumerShell(
                     browse = browse,
                     onOpenSeries = { onNavigate(TvRoute.SeriesDetail(it)) },
                     onShowFilters = { onShowOverlay(TvOverlay.LibraryFilters) },
-                    onOpenFolders = { onNavigate(TvRoute.FolderBrowser()) },
                 )
             TvRoute.Search ->
                 TvSearchScreen(
@@ -221,6 +221,7 @@ private fun TvCompactNavigationRail(
     val destinations = listOf(
         TvNavItem(TvRoute.Home, R.string.nav_home, Icons.Default.Home),
         TvNavItem(TvRoute.Library, R.string.nav_library, Icons.AutoMirrored.Filled.List),
+        TvNavItem(TvRoute.FolderBrowser(), R.string.nav_folders, Icons.Default.Folder),
         TvNavItem(TvRoute.Search, R.string.nav_search, Icons.Default.Search),
         TvNavItem(TvRoute.Favorites, R.string.nav_favorites, Icons.Default.Favorite),
         TvNavItem(TvRoute.Pc, R.string.nav_pc, Icons.Default.Settings),
@@ -290,5 +291,5 @@ private data class TvNavItem(
 
 private fun TvRoute.matchesTopLevel(other: TvRoute): Boolean =
     this == other ||
-        ((this is TvRoute.SeriesDetail || this is TvRoute.FolderBrowser) &&
-            other == TvRoute.Library)
+        (this is TvRoute.SeriesDetail && other == TvRoute.Library) ||
+        (this is TvRoute.FolderBrowser && other is TvRoute.FolderBrowser && other.path.isEmpty())

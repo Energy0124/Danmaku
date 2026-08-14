@@ -80,7 +80,6 @@ class TvFocusNavigationTest {
                         browse = browse,
                         onOpenSeries = {},
                         onShowFilters = {},
-                        onOpenFolders = {},
                     )
                     else -> TvPcScreen(
                         navigation = navigator.state.value,

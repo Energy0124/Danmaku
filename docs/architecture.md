@@ -49,7 +49,9 @@ HTTPS and protected provider-token persistence remain Windows-only.
 
 Android applications are trusted-LAN clients. They share domain, connection,
 Media3, and authenticated tracking transport code while retaining
-platform-specific UI. They may read provider state and submit an explicitly
+platform-specific UI. Shared domain folder projections keep mobile and TV
+multi-root browsing consistent while each app owns its navigation and input
+behavior. They may read provider state and submit an explicitly
 reviewed, server-validated tracking preview, but provider credentials, mappings,
 and conflict reconciliation remain server-owned Windows/web administration.
 Android TV remains a

@@ -3,6 +3,7 @@
     <string name="app_name">Danmaku TV</string>
     <string name="nav_home">首頁</string>
     <string name="nav_library">媒體庫</string>
+    <string name="nav_folders">資料夾</string>
     <string name="nav_player">播放器</string>
     <string name="nav_status">狀態</string>
     <string name="nav_search">搜尋</string>
@@ -122,7 +123,6 @@
     <string name="onboarding_body">連線 PC 上的 Danmaku，即可瀏覽媒體庫、繼續觀看，並享受同步彈幕。</string>
     <string name="action_manual_connection">手動輸入連線</string>
     <string name="action_filters">篩選</string>
-    <string name="action_folders">資料夾</string>
     <string name="action_close">關閉</string>
     <string name="action_up">上一層</string>
     <string name="series_progress_short">已觀看 %1$d / %2$d</string>

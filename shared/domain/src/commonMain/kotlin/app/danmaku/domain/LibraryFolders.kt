@@ -1,26 +1,23 @@
-package app.danmaku.tv
+package app.danmaku.domain
 
-import app.danmaku.domain.LibraryCatalog
-import app.danmaku.domain.LibraryMediaItem
-
-internal data class TvFolderEntry(
+data class LibraryFolderEntry(
     val name: String,
     val itemCount: Int,
 )
 
-internal data class TvFolderListing(
-    val folders: List<TvFolderEntry> = emptyList(),
+data class LibraryFolderListing(
+    val folders: List<LibraryFolderEntry> = emptyList(),
     val files: List<LibraryMediaItem> = emptyList(),
 )
 
-internal fun LibraryCatalog.folderListing(path: List<String>): TvFolderListing {
+fun LibraryCatalog.folderListing(path: List<String>): LibraryFolderListing {
     val roots = rootLabels()
     if (roots.size < 2) {
         return folderListingOf(items, path)
     }
     if (path.isEmpty()) {
-        return TvFolderListing(
-            folders = roots.map { (name, count) -> TvFolderEntry(name, count) },
+        return LibraryFolderListing(
+            folders = roots.map { (name, count) -> LibraryFolderEntry(name, count) },
         )
     }
     val root = path.first()
@@ -30,7 +27,7 @@ internal fun LibraryCatalog.folderListing(path: List<String>): TvFolderListing {
     )
 }
 
-internal fun LibraryCatalog.folderHeading(path: List<String>): String {
+fun LibraryCatalog.folderHeading(path: List<String>): String {
     if (path.isEmpty()) return rootName
     return if (rootLabels().size >= 2) {
         path.joinToString("\\")
@@ -39,7 +36,7 @@ internal fun LibraryCatalog.folderHeading(path: List<String>): String {
     }
 }
 
-internal fun LibraryMediaItem.fileName(): String =
+fun LibraryMediaItem.fileName(): String =
     relativePath
         .split('/', '\\')
         .lastOrNull { it.isNotEmpty() }
@@ -62,7 +59,7 @@ private fun LibraryCatalog.rootLabels(): List<Pair<String, Int>> {
 private fun folderListingOf(
     items: List<LibraryMediaItem>,
     path: List<String>,
-): TvFolderListing {
+): LibraryFolderListing {
     val folderCounts = linkedMapOf<String, Int>()
     val files = mutableListOf<LibraryMediaItem>()
     items.forEach { item ->
@@ -86,9 +83,9 @@ private fun folderListingOf(
             folderCounts[key] = (folderCounts[key] ?: 0) + 1
         }
     }
-    return TvFolderListing(
+    return LibraryFolderListing(
         folders = folderCounts
-            .map { (name, count) -> TvFolderEntry(name, count) }
+            .map { (name, count) -> LibraryFolderEntry(name, count) }
             .sortedBy { it.name.lowercase() },
         files = files.sortedBy { it.fileName().lowercase() },
     )
