@@ -3,6 +3,7 @@ package app.danmaku.mobile
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import app.danmaku.domain.DanmakuDisplaySettings
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryCatalogQuery
 import app.danmaku.domain.LibraryCatalogSort
@@ -36,6 +37,7 @@ internal data class MobileTrackingState(
 internal class MobilePlayerState(
     initialSavedConnections: List<LanLibraryConnectionProfile>,
     initialFavoriteMediaIds: Set<String>,
+    initialDanmakuDisplaySettings: DanmakuDisplaySettings,
 ) {
     var controller by mutableStateOf<Media3PlaybackController?>(null)
     var snapshot by mutableStateOf(PlaybackSnapshot())
@@ -56,6 +58,7 @@ internal class MobilePlayerState(
     var nowPlaying by mutableStateOf<LibraryMediaItem?>(null)
     var activePlaybackTarget by mutableStateOf<LanPlaybackTarget?>(null)
     var danmakuState by mutableStateOf(MobileDanmakuState.Idle)
+    var danmakuDisplaySettings by mutableStateOf(initialDanmakuDisplaySettings)
     var playbackStartupPhase by mutableStateOf(MobilePlaybackStartupPhase.Idle)
     var selectedTab by mutableStateOf(MobileTab.Home)
     var isPlayerFullscreen by mutableStateOf(false)
@@ -104,6 +107,7 @@ internal class MobilePlayerState(
             favoriteMediaIds = favoriteMediaIds,
             favoriteFilter = libraryFavoriteFilter,
             danmakuState = danmakuState,
+            danmakuDisplaySettings = danmakuDisplaySettings,
             playbackStartupPhase = playbackStartupPhase,
             isPlayerFullscreen = isPlayerFullscreen,
             tracking = tracking,

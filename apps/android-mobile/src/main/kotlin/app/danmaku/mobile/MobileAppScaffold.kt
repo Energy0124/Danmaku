@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import app.danmaku.domain.DanmakuDisplaySettings
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryCatalogSort
 import app.danmaku.domain.LibraryFavoriteFilter
@@ -39,6 +40,7 @@ internal data class MobileAppUiState(
     val favoriteMediaIds: Set<String>,
     val favoriteFilter: LibraryFavoriteFilter,
     val danmakuState: MobileDanmakuState,
+    val danmakuDisplaySettings: DanmakuDisplaySettings,
     val playbackStartupPhase: MobilePlaybackStartupPhase,
     val isPlayerFullscreen: Boolean,
     val tracking: MobileTrackingState = MobileTrackingState(),
@@ -55,6 +57,8 @@ internal data class MobileAppActions(
     val onOpenVideo: () -> Unit,
     val onSeekTo: (Long) -> Unit,
     val onSetVolume: (Int) -> Unit,
+    val onSetPlaybackRate: (Float) -> Unit,
+    val onUpdateDanmakuDisplaySettings: (DanmakuDisplaySettings) -> Unit,
     val onSelectAudio: (String) -> Unit,
     val onSelectSubtitle: (String?) -> Unit,
     val onSearchTextChange: (String) -> Unit,
@@ -117,11 +121,14 @@ internal fun MobileAppScaffold(
                 playbackError = state.playbackError,
                 isFullscreen = state.isPlayerFullscreen,
                 danmakuState = state.danmakuState,
+                danmakuDisplaySettings = state.danmakuDisplaySettings,
                 playbackStartupPhase = state.playbackStartupPhase,
                 onOpen = actions.onOpenVideo,
                 onPlayPause = actions.onPlayPause,
                 onSeekTo = actions.onSeekTo,
                 onSetVolume = actions.onSetVolume,
+                onSetPlaybackRate = actions.onSetPlaybackRate,
+                onUpdateDanmakuDisplaySettings = actions.onUpdateDanmakuDisplaySettings,
                 onSelectAudio = actions.onSelectAudio,
                 onSelectSubtitle = actions.onSelectSubtitle,
                 onBrowseLibrary = actions.onOpenLibrary,

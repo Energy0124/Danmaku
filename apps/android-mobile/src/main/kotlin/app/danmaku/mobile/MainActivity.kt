@@ -139,12 +139,16 @@ private fun MobilePlayerScreen() {
     val favoriteStore = remember(context) {
         AndroidLibraryFavoriteStore(context.applicationContext)
     }
+    val danmakuSettingsStore = remember(context) {
+        MobileDanmakuSettingsStore(context.applicationContext)
+    }
     val discoveryClient = remember { LanLibraryDiscoveryClient() }
     val scope = rememberCoroutineScope()
-    val appState = remember(connectionStore, favoriteStore) {
+    val appState = remember(connectionStore, favoriteStore, danmakuSettingsStore) {
         MobilePlayerState(
             initialSavedConnections = connectionStore.loadProfiles(),
             initialFavoriteMediaIds = favoriteStore.loadFavoriteMediaIds(),
+            initialDanmakuDisplaySettings = danmakuSettingsStore.load(),
         )
     }
     val openDocument = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -167,6 +171,7 @@ private fun MobilePlayerScreen() {
         danmakuLoader,
         connectionStore,
         favoriteStore,
+        danmakuSettingsStore,
         discoveryClient,
     ) {
         MobilePlayerActionHandler(
@@ -178,6 +183,7 @@ private fun MobilePlayerScreen() {
             danmakuLoader = danmakuLoader,
             connectionStore = connectionStore,
             favoriteStore = favoriteStore,
+            danmakuSettingsStore = danmakuSettingsStore,
             discoveryClient = discoveryClient,
             trackingClient = trackingClient,
             openVideoPicker = { openDocument.launch(arrayOf("video/*")) },

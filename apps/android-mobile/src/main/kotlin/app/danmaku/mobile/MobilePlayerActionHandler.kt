@@ -34,6 +34,7 @@ internal class MobilePlayerActionHandler(
     private val danmakuLoader: LanDanmakuLoader,
     private val connectionStore: AndroidLanLibraryConnectionStore,
     private val favoriteStore: AndroidLibraryFavoriteStore,
+    private val danmakuSettingsStore: MobileDanmakuSettingsPersistence,
     private val discoveryClient: LanLibraryDiscoveryClient,
     private val trackingClient: LanExternalTrackingClient,
     private val openVideoPicker: () -> Unit,
@@ -472,6 +473,11 @@ internal class MobilePlayerActionHandler(
             onOpenVideo = openVideoPicker,
             onSeekTo = { state.controller?.dispatch(PlaybackCommand.SeekTo(it)) },
             onSetVolume = { state.controller?.dispatch(PlaybackCommand.SetVolume(it)) },
+            onSetPlaybackRate = { state.controller?.dispatch(PlaybackCommand.SetPlaybackRate(it)) },
+            onUpdateDanmakuDisplaySettings = {
+                state.danmakuDisplaySettings = it
+                danmakuSettingsStore.save(it)
+            },
             onSelectAudio = { state.controller?.dispatch(PlaybackCommand.SelectAudioTrack(it)) },
             onSelectSubtitle = { state.controller?.dispatch(PlaybackCommand.SelectSubtitleTrack(it)) },
             onSearchTextChange = { state.librarySearchText = it },

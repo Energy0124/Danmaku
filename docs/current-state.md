@@ -37,6 +37,9 @@ Compose macOS artifact are retired.
   Media3 streaming, subtitles, playback progress, resume, and danmaku.
 - Mobile and TV expose the server's original multi-root folder layout as a
   dedicated top-level destination backed by shared folder-listing rules.
+- Mobile playback has a responsive side-panel for playback speed, audio and
+  subtitle tracks, plus persistent danmaku visibility, opacity, size, travel
+  speed, density, screen area, and timing offset controls.
 - Native MAL/Bangumi account status, provider readback, exact progress preview,
   and explicitly confirmed sync; account/mapping/conflict administration stays
   on Windows and the web UI.

@@ -6,6 +6,7 @@ import android.graphics.Paint
 import android.util.AttributeSet
 import android.util.TypedValue
 import android.view.View
+import app.danmaku.domain.DanmakuDisplaySettings
 import app.danmaku.domain.DanmakuEvent
 import app.danmaku.domain.DanmakuMode
 import app.danmaku.domain.DanmakuSize
@@ -15,6 +16,7 @@ import app.danmaku.domain.PlaybackStatus
 import app.danmaku.domain.ScrollingDanmakuLaneScheduler
 import app.danmaku.domain.ScrollingDanmakuLayoutConfig
 import app.danmaku.domain.ScrollingDanmakuPlacement
+import kotlin.math.roundToInt
 
 internal class MobileDanmakuOverlayView @JvmOverloads constructor(
     context: Context,
@@ -39,9 +41,11 @@ internal class MobileDanmakuOverlayView @JvmOverloads constructor(
     private var placements: List<ScrollingDanmakuPlacement> = emptyList()
     private var snapshot: PlaybackSnapshot = PlaybackSnapshot()
     private var isFullscreen: Boolean = false
+    private var settings: DanmakuDisplaySettings = DanmakuDisplaySettings()
     private var baseTextSizePx: Float = 0f
     private var laneHeightPx: Float = 0f
     private var maxTravelDurationMs: Long = 0L
+    private var overlayAlpha: Int = 255
     private var clockAnchor = MobileOverlayClockAnchor.fromSnapshot(snapshot, System.nanoTime())
 
     init {
@@ -53,6 +57,7 @@ internal class MobileDanmakuOverlayView @JvmOverloads constructor(
         events: List<DanmakuEvent>,
         snapshot: PlaybackSnapshot,
         isFullscreen: Boolean,
+        settings: DanmakuDisplaySettings,
     ) {
         val now = System.nanoTime()
         val statusChanged = this.snapshot.status != snapshot.status
@@ -68,7 +73,9 @@ internal class MobileDanmakuOverlayView @JvmOverloads constructor(
             rateChanged ||
             snapshot.status != PlaybackStatus.PLAYING ||
             positionDriftMs > POSITION_REANCHOR_THRESHOLD_MS
-        val layoutChanged = this.events !== events || this.isFullscreen != isFullscreen
+        val layoutChanged = this.events !== events ||
+            this.isFullscreen != isFullscreen ||
+            this.settings != settings
 
         this.snapshot = snapshot
         if (shouldAnchor) {
@@ -77,6 +84,7 @@ internal class MobileDanmakuOverlayView @JvmOverloads constructor(
         if (layoutChanged) {
             this.events = events
             this.isFullscreen = isFullscreen
+            this.settings = settings
             rebuildSchedule()
         }
         if (snapshot.status == PlaybackStatus.PLAYING) {
@@ -121,20 +129,26 @@ internal class MobileDanmakuOverlayView @JvmOverloads constructor(
             return
         }
 
-        baseTextSizePx = if (isFullscreen) {
+        val unscaledTextSizePx = if (isFullscreen) {
             22f.spToPx()
         } else {
             13f.spToPx()
         }
+        baseTextSizePx = unscaledTextSizePx * settings.fontScalePercent / 100f
         laneHeightPx = baseTextSizePx * 1.55f
         strokePaint.strokeWidth = if (isFullscreen) 3.5f else 2.5f
-        val laneCoverage = if (isFullscreen) 0.44f else 0.36f
+        overlayAlpha = (settings.opacityPercent * 255 / 100f).roundToInt().coerceIn(0, 255)
+        fillPaint.alpha = overlayAlpha
+        strokePaint.alpha = overlayAlpha
         val maxLaneCount = if (isFullscreen) 8 else 3
-        val laneCount = ((height * laneCoverage) / laneHeightPx)
+        val baseLaneCount = (height / laneHeightPx)
             .toInt()
             .coerceAtLeast(1)
             .coerceAtMost(maxLaneCount)
-        val travelDurationMs = if (isFullscreen) 8_000L else 6_500L
+        val laneCount = settings.scaledLaneCount(baseLaneCount)
+        val travelDurationMs = settings.scaledTravelDurationMs(
+            if (isFullscreen) 8_000L else 6_500L,
+        )
 
         val measuredEvents = events
             .filter { it.style.mode == DanmakuMode.SCROLLING }
@@ -181,6 +195,7 @@ internal class MobileDanmakuOverlayView @JvmOverloads constructor(
             val textSize = baseTextSizePx * event.style.size.scaleFactor()
             fillPaint.textSize = textSize
             fillPaint.color = event.style.colorArgb.toInt()
+            fillPaint.alpha = overlayAlpha
             strokePaint.textSize = textSize
             val x = placement.leftEdgeAt(positionMs)
             val y = laneHeightPx * (placement.laneIndex + 1)
@@ -211,6 +226,7 @@ internal class MobileDanmakuOverlayView @JvmOverloads constructor(
             val textSize = baseTextSizePx * event.style.size.scaleFactor()
             fillPaint.textSize = textSize
             fillPaint.color = event.style.colorArgb.toInt()
+            fillPaint.alpha = overlayAlpha
             strokePaint.textSize = textSize
             val measuredWidth = fillPaint.measureText(event.text)
             val x = (width - measuredWidth) / 2f
