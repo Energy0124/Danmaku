@@ -100,6 +100,9 @@ impl DanmakuTrack {
 #[derive(Clone, Debug, PartialEq)]
 pub struct DanmakuDisplaySettings {
     pub enabled: bool,
+    pub show_scrolling: bool,
+    pub show_top: bool,
+    pub show_bottom: bool,
     pub opacity: f32,
     pub speed: f32,
     pub density: f32,
@@ -110,6 +113,9 @@ impl Default for DanmakuDisplaySettings {
     fn default() -> Self {
         Self {
             enabled: true,
+            show_scrolling: true,
+            show_top: true,
+            show_bottom: true,
             opacity: 0.92,
             speed: 1.0,
             density: 1.0,
@@ -122,10 +128,21 @@ impl DanmakuDisplaySettings {
     pub fn sanitized(&self) -> Self {
         Self {
             enabled: self.enabled,
+            show_scrolling: self.show_scrolling,
+            show_top: self.show_top,
+            show_bottom: self.show_bottom,
             opacity: finite_or(self.opacity, 0.92).clamp(0.0, 1.0),
             speed: finite_or(self.speed, 1.0).clamp(0.25, 4.0),
             density: finite_or(self.density, 1.0).clamp(0.0, 1.0),
             max_lanes: self.max_lanes.clamp(1, 64),
+        }
+    }
+
+    fn shows(&self, mode: DanmakuMode) -> bool {
+        match mode {
+            DanmakuMode::Scrolling => self.show_scrolling,
+            DanmakuMode::Top => self.show_top,
+            DanmakuMode::Bottom => self.show_bottom,
         }
     }
 }
@@ -212,6 +229,9 @@ impl DanmakuLayout {
             let Some(metadata) = track.metadata_for(event) else {
                 continue;
             };
+            if !settings.shows(metadata.style.mode) {
+                continue;
+            }
             if !passes_density(metadata.density_key, settings.density) {
                 continue;
             }
@@ -1256,6 +1276,39 @@ mod tests {
         assert!(reduced.len() < full.len());
         assert!(reduced.iter().all(|comment| comment.lane < 2));
         assert!(reduced.iter().all(|comment| comment.duration_ms == 6_000.0));
+    }
+
+    #[test]
+    fn settings_hide_each_danmaku_type_independently() {
+        let track = DanmakuTrack::new(vec![
+            comment("scroll", 0, "scroll"),
+            DanmakuComment {
+                style: DanmakuStyle {
+                    mode: DanmakuMode::Top,
+                    ..DanmakuStyle::default()
+                },
+                ..comment("top", 0, "top")
+            },
+            DanmakuComment {
+                style: DanmakuStyle {
+                    mode: DanmakuMode::Bottom,
+                    ..DanmakuStyle::default()
+                },
+                ..comment("bottom", 0, "bottom")
+            },
+        ]);
+        let settings = DanmakuDisplaySettings {
+            show_scrolling: false,
+            show_top: true,
+            show_bottom: false,
+            ..DanmakuDisplaySettings::default()
+        };
+
+        let visible =
+            DanmakuLayout::default().visible_comments(&track, 100.0, 800.0, 400.0, &settings);
+
+        assert_eq!(visible.len(), 1);
+        assert_eq!(visible[0].style.mode, DanmakuMode::Top);
     }
 
     #[test]

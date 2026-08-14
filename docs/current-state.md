@@ -1,6 +1,6 @@
 # Current State
 
-Last reviewed: 2026-08-12.
+Last reviewed: 2026-08-14.
 
 Danmaku's active product is a Rust-native Windows library/player/server with
 Android mobile, Android TV, and browser clients on the same trusted-LAN API,
@@ -16,7 +16,9 @@ Compose macOS artifact are retired.
   tracks, seeking, playback rate, native danmaku, local overlay attachment,
   discovery, library browsing, progress/resume, previous/next, and auto-next.
 - English and Traditional Chinese UI, durable playback/danmaku preferences,
-  remembered local roots and server URL, and session-only pairing tokens.
+  a translucent in-player danmaku panel with independent scrolling/top/bottom
+  visibility controls, remembered local roots and server URL, and session-only
+  pairing tokens.
 - Unified local mode that starts the sibling Rust server, waits asynchronously
   for readiness, connects, and stops only a child it owns.
 - Optional current-user Task Scheduler background host with install, root
@@ -40,7 +42,8 @@ Compose macOS artifact are retired.
 - Mobile playback has a responsive side-panel for playback speed, audio and
   subtitle tracks, plus persistent danmaku visibility, opacity, size, travel
   speed, density, screen area, timing offset, and per-type scrolling/top/bottom
-  visibility controls.
+  visibility controls. TV provides the same per-type controls in its translucent,
+  D-pad-native danmaku panel.
 - Native MAL/Bangumi account status, provider readback, exact progress preview,
   and explicitly confirmed sync; account/mapping/conflict administration stays
   on Windows and the web UI.

@@ -1,5 +1,6 @@
 package app.danmaku.tv
 
+import app.danmaku.domain.DanmakuMode
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryFavoriteFilter
 import app.danmaku.domain.LibraryMediaItem
@@ -105,6 +106,9 @@ internal data class TvBrowseUiState(
 
 internal data class TvDanmakuPreferences(
     val enabled: Boolean = true,
+    val showScrolling: Boolean = true,
+    val showTop: Boolean = true,
+    val showBottom: Boolean = true,
     val opacity: Float = 0.9f,
     val fontScale: Float = 1f,
     val speed: Float = 1f,
@@ -115,6 +119,12 @@ internal data class TvDanmakuPreferences(
         require(fontScale in 0.75f..1.5f)
         require(speed in 0.5f..2f)
         require(maxScreenArea in 0.2f..0.8f)
+    }
+
+    fun shows(mode: DanmakuMode): Boolean = when (mode) {
+        DanmakuMode.SCROLLING -> showScrolling
+        DanmakuMode.TOP -> showTop
+        DanmakuMode.BOTTOM -> showBottom
     }
 }
 

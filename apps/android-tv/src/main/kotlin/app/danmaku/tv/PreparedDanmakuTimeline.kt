@@ -21,6 +21,7 @@ internal class PreparedDanmakuTimeline private constructor(
         positionMs: Long,
         durationMs: Long = DEFAULT_FIXED_DURATION_MS,
         limit: Int = Int.MAX_VALUE,
+        predicate: (DanmakuEvent) -> Boolean = { true },
         action: (DanmakuEvent) -> Unit,
     ): Int {
         require(positionMs >= 0)
@@ -36,7 +37,8 @@ internal class PreparedDanmakuTimeline private constructor(
                 if (
                     emitted < limit &&
                     positionMs >= event.timestampMs &&
-                    positionMs - event.timestampMs < durationMs
+                    positionMs - event.timestampMs < durationMs &&
+                    predicate(event)
                 ) {
                     action(event)
                     emitted += 1

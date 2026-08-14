@@ -607,7 +607,7 @@ private fun TvDanmakuSettingsOverlay(
         modifier = modifier
             .width(390.dp)
             .clip(RoundedCornerShape(24.dp))
-            .background(TvSurfaceRaised)
+            .background(TvSurfaceRaised.copy(alpha = 0.78f))
             .padding(22.dp)
             .focusGroup(),
         verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -627,6 +627,36 @@ private fun TvDanmakuSettingsOverlay(
                     stringResource(R.string.danmaku_disabled)
                 },
             )
+        }
+        Text(
+            stringResource(R.string.danmaku_types_title),
+            style = MaterialTheme.typography.titleMedium,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Button(
+                onClick = { onUpdate { it.copy(showScrolling = !it.showScrolling) } },
+                colors = tvButtonColors(preferences.showScrolling),
+                modifier = Modifier.weight(1f),
+            ) {
+                Text(stringResource(R.string.danmaku_type_scrolling))
+            }
+            Button(
+                onClick = { onUpdate { it.copy(showTop = !it.showTop) } },
+                colors = tvButtonColors(preferences.showTop),
+                modifier = Modifier.weight(1f),
+            ) {
+                Text(stringResource(R.string.danmaku_type_top))
+            }
+            Button(
+                onClick = { onUpdate { it.copy(showBottom = !it.showBottom) } },
+                colors = tvButtonColors(preferences.showBottom),
+                modifier = Modifier.weight(1f),
+            ) {
+                Text(stringResource(R.string.danmaku_type_bottom))
+            }
         }
         TvPreferenceStepButton(
             label = stringResource(
@@ -746,8 +776,14 @@ private fun TvPreparedDanmakuOverlay(
             laneCount,
             baseTextSizePx,
             travelDuration,
+            preferences.showScrolling,
         ) {
-            val measured = timeline.scrollingEvents.map { event ->
+            val scrollingEvents = if (preferences.showScrolling) {
+                timeline.scrollingEvents
+            } else {
+                emptyList()
+            }
+            val measured = scrollingEvents.map { event ->
                 fillPaint.textSize = baseTextSizePx * event.style.size.tvScaleFactor()
                 MeasuredDanmakuEvent(event, fillPaint.measureText(event.text))
             }
@@ -793,6 +829,7 @@ private fun TvPreparedDanmakuOverlay(
                 timeline.forEachActiveFixed(
                     positionMs = currentPosition,
                     limit = laneCount,
+                    predicate = { preferences.shows(it.style.mode) },
                 ) { event ->
                     val y = if (event.style.mode == DanmakuMode.TOP) {
                         laneHeightPx * (++topIndex)
