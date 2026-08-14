@@ -20,6 +20,7 @@ pub struct ProviderSecrets {
     pub dandanplay_app_secret: Option<String>,
     pub my_anime_list_client_secret: Option<String>,
     pub my_anime_list_access_token: Option<String>,
+    pub my_anime_list_refresh_token: Option<String>,
     pub bangumi_access_token: Option<String>,
 }
 
@@ -32,6 +33,10 @@ impl ProviderSecrets {
                 .my_anime_list_client_secret
                 .clone(),
             my_anime_list_access_token: settings.external_anime.my_anime_list_access_token.clone(),
+            my_anime_list_refresh_token: settings
+                .external_anime
+                .my_anime_list_refresh_token
+                .clone(),
             bangumi_access_token: settings.external_anime.bangumi_access_token.clone(),
         }
     }
@@ -56,6 +61,14 @@ impl ProviderSecrets {
         settings.external_anime.has_my_anime_list_access_token =
             settings.external_anime.my_anime_list_access_token.is_some()
                 || settings.external_anime.has_my_anime_list_access_token;
+        if let Some(token) = &self.my_anime_list_refresh_token {
+            settings.external_anime.my_anime_list_refresh_token = Some(token.clone());
+        }
+        settings.external_anime.has_my_anime_list_refresh_token = settings
+            .external_anime
+            .my_anime_list_refresh_token
+            .is_some()
+            || settings.external_anime.has_my_anime_list_refresh_token;
         if let Some(token) = &self.bangumi_access_token {
             settings.external_anime.bangumi_access_token = Some(token.clone());
         }
@@ -68,6 +81,7 @@ impl ProviderSecrets {
         self.dandanplay_app_secret.is_none()
             && self.my_anime_list_client_secret.is_none()
             && self.my_anime_list_access_token.is_none()
+            && self.my_anime_list_refresh_token.is_none()
             && self.bangumi_access_token.is_none()
     }
 }
@@ -138,6 +152,7 @@ impl ProviderSecretStore {
             dandanplay_app_secret: self.decrypt(snapshot.dandanplay_app_secret)?,
             my_anime_list_client_secret: self.decrypt(snapshot.my_anime_list_client_secret)?,
             my_anime_list_access_token: self.decrypt(snapshot.my_anime_list_access_token)?,
+            my_anime_list_refresh_token: self.decrypt(snapshot.my_anime_list_refresh_token)?,
             bangumi_access_token: self.decrypt(snapshot.bangumi_access_token)?,
         })
     }
@@ -175,6 +190,8 @@ impl ProviderSecretStore {
                 .encrypt(secrets.my_anime_list_client_secret.as_deref())?,
             my_anime_list_access_token: self
                 .encrypt(secrets.my_anime_list_access_token.as_deref())?,
+            my_anime_list_refresh_token: self
+                .encrypt(secrets.my_anime_list_refresh_token.as_deref())?,
             bangumi_access_token: self.encrypt(secrets.bangumi_access_token.as_deref())?,
         };
         let body = serde_json::to_string_pretty(&snapshot)?;
@@ -231,6 +248,8 @@ struct ProviderSecretSnapshot {
     my_anime_list_client_secret: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     my_anime_list_access_token: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    my_anime_list_refresh_token: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     bangumi_access_token: Option<String>,
 }
@@ -415,6 +434,7 @@ mod tests {
             dandanplay_app_secret: Some("dandanplay-secret".to_owned()),
             my_anime_list_client_secret: Some("mal-secret".to_owned()),
             my_anime_list_access_token: Some("mal-token".to_owned()),
+            my_anime_list_refresh_token: Some("mal-refresh-token".to_owned()),
             bangumi_access_token: Some("bangumi-token".to_owned()),
         };
 
@@ -424,6 +444,7 @@ mod tests {
             "dandanplay-secret",
             "mal-secret",
             "mal-token",
+            "mal-refresh-token",
             "bangumi-token",
         ] {
             assert!(!raw.contains(secret));

@@ -54,6 +54,26 @@ pub(crate) fn http_put_json(
     }
 }
 
+/// Authenticated JSON request used by provider-account and tracking screens.
+pub(crate) fn http_authenticated_json(
+    base_url: &str,
+    pairing_token: &str,
+    method: &str,
+    path_and_query: &str,
+    json_body: Option<&str>,
+) -> Result<String, String> {
+    let body = json_body.map(|body| ("application/json; charset=utf-8", body.as_bytes()));
+    let authorization = format!("Bearer {pairing_token}");
+    let response = http_request_with_headers(
+        base_url,
+        method,
+        path_and_query,
+        body,
+        &[("Authorization", authorization.as_str())],
+    )?;
+    require_status(response, &[200, 201, 204])?.body_string()
+}
+
 fn require_status(response: HttpResponse, accepted: &[u16]) -> Result<HttpResponse, String> {
     if accepted.contains(&response.status) {
         Ok(response)
@@ -84,6 +104,16 @@ fn http_request(
     path_and_query: &str,
     body: Option<(&str, &[u8])>,
 ) -> Result<HttpResponse, String> {
+    http_request_with_headers(base_url, method, path_and_query, body, &[])
+}
+
+fn http_request_with_headers(
+    base_url: &str,
+    method: &str,
+    path_and_query: &str,
+    body: Option<(&str, &[u8])>,
+    headers: &[(&str, &str)],
+) -> Result<HttpResponse, String> {
     let base = HttpBase::parse(base_url)?;
     let request_path = format!("{}{}", base.path_prefix, path_and_query);
     let mut addresses = (base.host.as_str(), base.port)
@@ -104,6 +134,12 @@ fn http_request(
         "{method} {request_path} HTTP/1.1\r\nHost: {}\r\nAccept: */*\r\nConnection: close\r\n",
         base.host_header()
     );
+    for (name, value) in headers {
+        if name.contains(['\r', '\n']) || value.contains(['\r', '\n']) {
+            return Err("HTTP header contains an invalid newline".to_owned());
+        }
+        head.push_str(&format!("{name}: {value}\r\n"));
+    }
     if let Some((content_type, content)) = body {
         head.push_str(&format!(
             "Content-Type: {content_type}\r\nContent-Length: {}\r\n",

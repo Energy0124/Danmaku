@@ -3,11 +3,14 @@ import {
   DanmakuApiError,
   ExternalAnimeId,
   ExternalAnimeProvider,
+  ExternalAnimeMatchCandidate,
   ExternalTrackingDocument,
   ExternalTrackingOperationResponse,
   deleteExternalTrackingMapping,
   executeExternalTrackingSync,
+  fetchProviderSearch,
   fetchExternalTracking,
+  importExternalTrackingConflict,
   refreshExternalTrackingReadback,
   saveExternalTrackingMapping
 } from "./api";
@@ -16,9 +19,11 @@ const trackingProviders: ExternalAnimeProvider[] = ["MY_ANIME_LIST", "BANGUMI"];
 
 export function TrackingAdminPanel({
   baseUrl,
+  onAccountStatusMayHaveChanged,
   token
 }: {
   baseUrl: string;
+  onAccountStatusMayHaveChanged: () => void;
   token: string;
 }) {
   const [document, setDocument] = useState<ExternalTrackingDocument | null>(null);
@@ -27,6 +32,8 @@ export function TrackingAdminPanel({
   const [selectedSeriesId, setSelectedSeriesId] = useState("");
   const [provider, setProvider] = useState<ExternalAnimeProvider>("MY_ANIME_LIST");
   const [animeId, setAnimeId] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<ExternalAnimeMatchCandidate[]>([]);
   const [previewReviewed, setPreviewReviewed] = useState(false);
   const selectedSeries = useMemo(
     () => document?.series.find((series) => series.id === selectedSeriesId) ?? null,
@@ -98,6 +105,72 @@ export function TrackingAdminPanel({
     }
   }
 
+  async function searchMappings() {
+    const query = searchQuery.trim() || selectedSeries?.title || "";
+    if (!query) return;
+    setIsBusy(true);
+    setMessage("Searching " + providerLabel(provider) + "...");
+    try {
+      const results = await fetchProviderSearch(baseUrl, token, query, {
+        providers: [provider],
+        limit: 8,
+        episodeCount: selectedSeries?.episodeCount
+      });
+      setSearchResults(results);
+      setMessage(results.length ? "Choose the matching series below." : "No matches found.");
+    } catch (error) {
+      setMessage(describeError(error, "Provider search failed."));
+    } finally {
+      setIsBusy(false);
+    }
+  }
+
+  async function useSearchResult(candidate: ExternalAnimeMatchCandidate) {
+    if (!selectedSeries) return;
+    setIsBusy(true);
+    setMessage("Saving the selected series mapping...");
+    try {
+      updateDocument(
+        await saveExternalTrackingMapping(
+          baseUrl,
+          token,
+          selectedSeries.id,
+          candidate.anime.id
+        )
+      );
+      setSearchResults([]);
+      setMessage("Series mapping saved. Review the regenerated preview before syncing.");
+    } catch (error) {
+      setMessage(describeError(error, "Series mapping could not be saved."));
+    } finally {
+      setIsBusy(false);
+    }
+  }
+
+  async function importConflict(
+    localSeriesId: string,
+    animeId: ExternalAnimeId,
+    expectedEpisodes: number
+  ) {
+    setIsBusy(true);
+    setMessage("Importing provider progress into the local library...");
+    try {
+      const response = await importExternalTrackingConflict(
+        baseUrl,
+        token,
+        localSeriesId,
+        animeId,
+        expectedEpisodes
+      );
+      updateDocument(response.document);
+      setMessage(String(response.importedCount) + " local episode(s) marked watched.");
+    } catch (error) {
+      setMessage(describeError(error, "Provider progress could not be imported."));
+    } finally {
+      setIsBusy(false);
+    }
+  }
+
   async function removeMapping(localSeriesId: string, mappedAnimeId: ExternalAnimeId) {
     setIsBusy(true);
     setMessage("Removing the series mapping...");
@@ -122,6 +195,7 @@ export function TrackingAdminPanel({
       setMessage(operationMessage("Readback", response));
     } catch (error) {
       setMessage(describeError(error, "External list readback failed."));
+      onAccountStatusMayHaveChanged();
     } finally {
       setIsBusy(false);
     }
@@ -144,6 +218,7 @@ export function TrackingAdminPanel({
       setMessage(operationMessage("Sync", response));
     } catch (error) {
       setMessage(describeError(error, "External list sync failed."));
+      onAccountStatusMayHaveChanged();
     } finally {
       setIsBusy(false);
     }
@@ -205,6 +280,21 @@ export function TrackingAdminPanel({
                   </select>
                 </label>
                 <label>
+                  Search title
+                  <input
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder={selectedSeries?.title || "Anime title"}
+                  />
+                </label>
+                <button
+                  disabled={isBusy || !selectedSeriesId}
+                  onClick={() => void searchMappings()}
+                  type="button"
+                >
+                  Search provider
+                </button>
+                <label>
                   Anime ID
                   <input inputMode="numeric" value={animeId} onChange={(event) => setAnimeId(event.target.value)} placeholder="52991" />
                 </label>
@@ -212,6 +302,26 @@ export function TrackingAdminPanel({
                   Save mapping
                 </button>
               </fieldset>
+
+              {searchResults.length > 0 ? (
+                <ol className="provider-search-results" aria-label="Series mapping candidates">
+                  {searchResults.map((candidate) => (
+                    <li key={candidate.anime.id.provider + "-" + String(candidate.anime.id.value)}>
+                      <div>
+                        <strong>{candidate.anime.titles.english || candidate.anime.titles.primary}</strong>
+                        <small>
+                          {formatAnimeId(candidate.anime.id)}
+                          {candidate.anime.startYear ? " · " + String(candidate.anime.startYear) : ""}
+                          {candidate.anime.episodeCount ? " · " + String(candidate.anime.episodeCount) + " episodes" : ""}
+                        </small>
+                      </div>
+                      <button disabled={isBusy} onClick={() => void useSearchResult(candidate)} type="button">
+                        Use this match
+                      </button>
+                    </li>
+                  ))}
+                </ol>
+              ) : null}
 
               <div className="tracking-mapping-list">
                 {mappingRows.length === 0 ? (
@@ -315,6 +425,19 @@ export function TrackingAdminPanel({
                           {conflict.localUpdate.watchedEpisodes ?? 0}
                           {groupLabel(conflict.localSeriesIds.length)}.
                         </span>
+                        <button
+                          disabled={isBusy || conflict.externalEntry.watchedEpisodes == null}
+                          onClick={() =>
+                            void importConflict(
+                              conflict.localSeriesId,
+                              conflict.mapping.animeId,
+                              conflict.externalEntry.watchedEpisodes ?? 0
+                            )
+                          }
+                          type="button"
+                        >
+                          Import provider progress
+                        </button>
                       </li>
                     ))}
                   </ol>

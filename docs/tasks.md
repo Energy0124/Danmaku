@@ -20,6 +20,9 @@ Status: `[x]` done, `[~]` in progress, `[ ]` not started.
 - `[~]` Complete live MyAnimeList/Bangumi readback and deliberate write QA.
   `tools/windows/run-live-external-sync-readback-qa.ps1` is read-only; every
   provider write still requires explicit preview acknowledgement and approval.
+- `[x]` Add native Windows account connection, series mapping, readback,
+  conflict import, preview/confirm sync, and episode-completion prompts; keep
+  the web UI as an advanced mirror instead of the only usable surface.
 - `[~]` Complete one budget-class physical Android TV pass for safe areas,
   focus, responsiveness, and real-LAN playback.
 - `[~]` Continue Android mobile/TV and native Windows library polish where

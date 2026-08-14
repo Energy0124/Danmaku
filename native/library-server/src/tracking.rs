@@ -656,6 +656,83 @@ pub fn tracking_document(
         },
     }
 }
+
+/// Converts a reviewed provider-ahead conflict into local watched progress.
+/// Only the provider's first N canonical episodes are marked watched; local
+/// progress is never used to overwrite a provider-ahead account.
+pub fn provider_progress_import(
+    catalog: &LibraryCatalog,
+    progresses: &[PlaybackProgress],
+    state: &ExternalTrackingState,
+    local_series_id: &str,
+    anime_id: &ExternalAnimeId,
+    expected_external_watched_episodes: u32,
+) -> Result<Vec<PlaybackProgress>> {
+    let document = tracking_document(catalog, progresses, state);
+    let reviewed_conflict = document.plan.conflicts.iter().any(|conflict| {
+        conflict
+            .local_series_ids
+            .iter()
+            .any(|id| id == local_series_id)
+            && &conflict.mapping.anime_id == anime_id
+            && conflict.external_entry.watched_episodes == Some(expected_external_watched_episodes)
+    });
+    if !reviewed_conflict {
+        return Err(LibraryServerError::new(
+            "tracking conflict changed; refresh and review it before importing",
+        ));
+    }
+
+    let grouped = grouped_series(catalog);
+    let groups = tracking_series_groups(&grouped, &state.mappings);
+    let group = groups
+        .iter()
+        .find(|group| {
+            group
+                .local_series_ids
+                .iter()
+                .any(|id| id == local_series_id)
+                && group
+                    .mappings
+                    .iter()
+                    .any(|mapping| &mapping.anime_id == anime_id)
+        })
+        .ok_or_else(|| LibraryServerError::new("tracking series is no longer available"))?;
+    let watch_states = watch_status_by_media_id(
+        catalog,
+        progresses,
+        MINIMUM_STARTED_POSITION_MS,
+        WATCHED_REMAINING_MS,
+    )
+    .into_iter()
+    .map(|status| (status.media_id, status.state))
+    .collect::<BTreeMap<_, _>>();
+    let existing = progresses
+        .iter()
+        .map(|progress| (progress.media_id.as_str(), progress))
+        .collect::<BTreeMap<_, _>>();
+    let updated_at_epoch_ms = current_epoch_ms();
+    Ok(group
+        .item_ids
+        .iter()
+        .take(expected_external_watched_episodes as usize)
+        .filter(|media_id| !matches!(watch_states.get(*media_id), Some(WatchState::Watched)))
+        .map(|media_id| {
+            let duration_ms = existing
+                .get(media_id.as_str())
+                .and_then(|progress| progress.duration_ms)
+                .filter(|duration| *duration > 0)
+                .unwrap_or(60_000);
+            PlaybackProgress {
+                media_id: media_id.clone(),
+                position_ms: duration_ms,
+                duration_ms: Some(duration_ms),
+                updated_at_epoch_ms,
+            }
+        })
+        .collect())
+}
+
 pub async fn refresh_tracking_readback(
     service: &ExternalProviderService,
     store: &ExternalTrackingStore,
@@ -1078,6 +1155,48 @@ mod tests {
         assert_eq!(
             ExternalAnimeProvider::Bangumi,
             document.plan.skipped[0].provider
+        );
+    }
+
+    #[test]
+    fn provider_ahead_import_marks_only_missing_leading_episodes_watched() {
+        let catalog = fixture_catalog();
+        let series_id = grouped_series(&catalog)[0].id.clone();
+        let anime_id = ExternalAnimeId {
+            provider: ExternalAnimeProvider::MyAnimeList,
+            value: 42,
+        };
+        let progresses = vec![PlaybackProgress {
+            media_id: "episode-1".to_owned(),
+            position_ms: 100_000,
+            duration_ms: Some(100_000),
+            updated_at_epoch_ms: 10,
+        }];
+        let state = ExternalTrackingState {
+            mappings: vec![mapping(&series_id, anime_id.provider, anime_id.value)],
+            list_entries: vec![ExternalAnimeListEntry {
+                anime_id: anime_id.clone(),
+                status: Some(ExternalAnimeListStatus::Watching),
+                watched_episodes: Some(2),
+                score: None,
+                updated_at_epoch_ms: Some(30),
+            }],
+            ..ExternalTrackingState::default()
+        };
+
+        let imported =
+            provider_progress_import(&catalog, &progresses, &state, &series_id, &anime_id, 2)
+                .expect("reviewed conflict imports");
+
+        assert_eq!(1, imported.len());
+        assert_eq!("episode-2", imported[0].media_id);
+        assert_eq!(60_000, imported[0].position_ms);
+        assert_eq!(Some(60_000), imported[0].duration_ms);
+        assert!(
+            provider_progress_import(&catalog, &progresses, &state, &series_id, &anime_id, 1,)
+                .unwrap_err()
+                .to_string()
+                .contains("conflict changed")
         );
     }
 

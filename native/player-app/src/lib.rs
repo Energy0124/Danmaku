@@ -27,5 +27,6 @@ pub mod screens;
 pub mod session;
 pub mod smoke;
 pub mod theme;
+pub mod tracking;
 pub mod tracks;
 pub mod video;

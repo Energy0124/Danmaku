@@ -208,79 +208,10 @@ export function ProviderSettingsPanel({
 
           <fieldset disabled={disabled}>
             <legend>MyAnimeList</legend>
-            <div className="settings-grid">
-              <label>
-                Client ID
-                <input
-                  value={form.externalAnime.myAnimeListClientId ?? ""}
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      externalAnime: {
-                        ...current.externalAnime,
-                        myAnimeListClientId: optionalValue(event.target.value)
-                      }
-                    }))
-                  }
-                />
-              </label>
-              <SecretField
-                clear={form.externalAnime.clearMyAnimeListClientSecret ?? false}
-                configured={externalAnime?.hasMyAnimeListClientSecret ?? false}
-                label="Client secret"
-                value={form.externalAnime.myAnimeListClientSecret ?? ""}
-                onClear={(clear) =>
-                  setForm((current) => ({
-                    ...current,
-                    externalAnime: {
-                      ...current.externalAnime,
-                      myAnimeListClientSecret: clear
-                        ? undefined
-                        : current.externalAnime.myAnimeListClientSecret,
-                      clearMyAnimeListClientSecret: clear
-                    }
-                  }))
-                }
-                onValue={(value) =>
-                  setForm((current) => ({
-                    ...current,
-                    externalAnime: {
-                      ...current.externalAnime,
-                      myAnimeListClientSecret: optionalValue(value),
-                      clearMyAnimeListClientSecret: false
-                    }
-                  }))
-                }
-              />
-              <SecretField
-                clear={form.externalAnime.clearMyAnimeListAccessToken ?? false}
-                configured={externalAnime?.hasMyAnimeListAccessToken ?? false}
-                label="OAuth access token"
-                value={form.externalAnime.myAnimeListAccessToken ?? ""}
-                onClear={(clear) =>
-                  setForm((current) => ({
-                    ...current,
-                    externalAnime: {
-                      ...current.externalAnime,
-                      myAnimeListAccessToken: clear
-                        ? undefined
-                        : current.externalAnime.myAnimeListAccessToken,
-                      clearMyAnimeListAccessToken: clear
-                    }
-                  }))
-                }
-                onValue={(value) =>
-                  setForm((current) => ({
-                    ...current,
-                    externalAnime: {
-                      ...current.externalAnime,
-                      myAnimeListAccessToken: optionalValue(value),
-                      clearMyAnimeListAccessToken: false
-                    }
-                  }))
-                }
-              />
-            </div>
+            <p>
+              OAuth is managed in Accounts. The client ID is supplied by the release build: {" "}
+              <strong>{externalAnime?.myAnimeListClientId ? "configured" : "unavailable"}</strong>.
+            </p>
           </fieldset>
 
           <fieldset disabled={disabled}>
@@ -319,39 +250,12 @@ export function ProviderSettingsPanel({
                   }
                 />
               </label>
-              <SecretField
-                clear={form.externalAnime.clearBangumiAccessToken ?? false}
-                configured={externalAnime?.hasBangumiAccessToken ?? false}
-                label="Access token"
-                value={form.externalAnime.bangumiAccessToken ?? ""}
-                onClear={(clear) =>
-                  setForm((current) => ({
-                    ...current,
-                    externalAnime: {
-                      ...current.externalAnime,
-                      bangumiAccessToken: clear
-                        ? undefined
-                        : current.externalAnime.bangumiAccessToken,
-                      clearBangumiAccessToken: clear
-                    }
-                  }))
-                }
-                onValue={(value) =>
-                  setForm((current) => ({
-                    ...current,
-                    externalAnime: {
-                      ...current.externalAnime,
-                      bangumiAccessToken: optionalValue(value),
-                      clearBangumiAccessToken: false
-                    }
-                  }))
-                }
-              />
+              <p className="settings-wide">Access tokens are connected and validated in Accounts.</p>
             </div>
           </fieldset>
 
           <div className="provider-settings-actions">
-            <span>Blank secret fields keep the protected value already on the server.</span>
+            <span>Blank dandanplay secret fields keep the protected value already on the server.</span>
             <button disabled={disabled} type="submit">
               {isSaving ? "Saving..." : "Save and apply"}
             </button>

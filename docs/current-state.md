@@ -25,6 +25,9 @@ desktop database importer, and experimental macOS artifact are retired.
 - dandanplay matching/comment cache and repair status; provider metadata,
   settings, secret storage, external mappings, list readback, conflict-aware
   previews, and explicitly acknowledged MAL/Bangumi writes.
+- Native Windows Accounts & Tracking UI with MAL loopback OAuth/refresh,
+  guided Bangumi token validation, series search/mapping, deliberate sync,
+  provider-ahead local import, and an episode-completion review prompt.
 - `/web/` administration and a standalone server package.
 
 ### Android Mobile And TV
@@ -40,8 +43,10 @@ desktop database importer, and experimental macOS artifact are retired.
 ### Web UI
 
 - Catalog playback and progress behavior.
-- Provider readiness/settings, mapping search, explicit ID selection, tracking
-  readback, conflict-aware sync preview, and acknowledged writes.
+- Provider account status/guided Bangumi connection, advanced endpoint
+  settings, persistent mapping search, tracking readback, provider-ahead
+  import, conflict-aware sync preview, and acknowledged writes. The former
+  per-episode direct list editor is no longer exposed.
 - Repeatable fixture-backed Rust server and headless browser QA.
 
 ### Packaging And CI

@@ -24,9 +24,13 @@ use crate::dandanplay::{
     DandanplayResolveResult, DandanplayResolver, LanDanmakuTrack, apply_dandanplay_local_defaults,
 };
 use crate::domain::PlaybackProgress;
+#[cfg(test)]
+use crate::external_provider::ExternalAnimeListEntry;
 use crate::external_provider::{
-    ExternalAnimeListEntry, ExternalAnimeMatchQuery, ExternalAnimeTrackingUpdate,
-    ExternalProviderError, ExternalProviderService, parse_provider_alias, provider_runtime_status,
+    ExternalAnimeMatchQuery, ExternalAnimeTrackingUpdate, ExternalProviderService,
+    MAL_OAUTH_CALLBACK_URL, MyAnimeListTokenError, exchange_my_anime_list_authorization_code,
+    fetch_bangumi_identity, fetch_my_anime_list_identity, my_anime_list_authorization_url,
+    parse_provider_alias, provider_runtime_status, refresh_my_anime_list_token,
 };
 use crate::poster_cache::PosterCacheStore;
 use crate::progress::PlaybackProgressStore;
@@ -34,11 +38,12 @@ use crate::provider_secrets::{ProviderSecretStore, ProviderSecrets};
 use crate::scanner::ScanProgress;
 use crate::settings::{
     HeadlessDandanplayAuthenticationMode, HeadlessServerSettings, SettingsStore,
-    apply_external_anime_local_defaults, is_http_base_url, is_https_base_url,
+    apply_external_anime_local_defaults, embedded_my_anime_list_client_id, is_http_base_url,
+    is_https_base_url,
 };
 use crate::tracking::{
     ExternalAnimeMapping, ExternalAnimeMappingSource, ExternalTrackingStore, current_epoch_ms,
-    execute_tracking_sync, refresh_tracking_readback, tracking_document,
+    execute_tracking_sync, provider_progress_import, refresh_tracking_readback, tracking_document,
 };
 
 const WEBHOOK_TOKEN_HEADER: &str = "X-Danmaku-Webhook-Token";
@@ -123,6 +128,66 @@ struct ExternalTrackingSyncRequest {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct ExternalTrackingConflictImportRequest {
+    local_series_id: String,
+    anime_id: ExternalAnimeId,
+    expected_external_watched_episodes: u32,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct MyAnimeListOAuthCompleteRequest {
+    flow_id: String,
+    state: String,
+    code: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BangumiAccountRequest {
+    access_token: String,
+}
+
+#[derive(Debug, Clone)]
+struct PendingMyAnimeListOAuth {
+    state: String,
+    code_verifier: String,
+    expires_at_epoch_ms: u64,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct MyAnimeListOAuthStartResponse {
+    flow_id: String,
+    authorization_url: String,
+    callback_url: &'static str,
+    expires_at_epoch_ms: u64,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ProviderAccountsResponse {
+    my_anime_list: ProviderAccountStatus,
+    bangumi: ProviderAccountStatus,
+    bangumi_token_url: &'static str,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ProviderAccountStatus {
+    state: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    user_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    display_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    last_verified_at_epoch_ms: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    reason_code: Option<&'static str>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct DandanplaySettingsUpdate {
     base_url: String,
     #[serde(default)]
@@ -195,6 +260,7 @@ pub struct ProviderAdminState {
     runtime: RwLock<ProviderRuntimeResources>,
     attention_failures: AttentionFailureStore,
     tracking_store: ExternalTrackingStore,
+    pending_my_anime_list_oauth: Mutex<BTreeMap<String, PendingMyAnimeListOAuth>>,
 }
 
 impl ProviderAdminState {
@@ -232,6 +298,7 @@ impl ProviderAdminState {
             tracking_store: ExternalTrackingStore::open(
                 data_directory.join("external-tracking.json"),
             )?,
+            pending_my_anime_list_oauth: Mutex::new(BTreeMap::new()),
             data_directory,
             persisted_settings: Mutex::new(persisted_settings),
             runtime: RwLock::new(ProviderRuntimeResources::from_settings(
@@ -331,7 +398,15 @@ impl ProviderAdminState {
         let mut next = persisted.clone();
         apply_provider_settings_update(&mut next, update)?;
 
-        let previous_secrets = ProviderSecrets::from_settings(&persisted);
+        self.commit_settings(&mut persisted, next)
+    }
+
+    fn commit_settings(
+        &self,
+        persisted: &mut HeadlessServerSettings,
+        next: HeadlessServerSettings,
+    ) -> crate::Result<ProviderSettingsAdminResponse> {
+        let previous_secrets = ProviderSecrets::from_settings(persisted);
         let next_secrets = ProviderSecrets::from_settings(&next);
         self.secret_store.save(&next_secrets)?;
         if let Err(error) = self.settings_store.save(&next) {
@@ -354,6 +429,319 @@ impl ProviderAdminState {
         *persisted = next;
         Ok(response)
     }
+
+    fn account_client_id(&self) -> Option<String> {
+        self.runtime
+            .read()
+            .ok()
+            .and_then(|runtime| {
+                runtime
+                    .settings
+                    .external_anime
+                    .my_anime_list_client_id
+                    .clone()
+            })
+            .or_else(embedded_my_anime_list_client_id)
+    }
+
+    fn accounts(&self) -> ProviderAccountsResponse {
+        let settings = self
+            .persisted_settings
+            .lock()
+            .expect("provider settings lock should not be poisoned");
+        let external = &settings.external_anime;
+        let my_anime_list = if self.account_client_id().is_none() {
+            ProviderAccountStatus::unavailable("MAL_CLIENT_ID_UNAVAILABLE")
+        } else if external.my_anime_list_access_token.is_some()
+            && external.my_anime_list_user_id.is_some()
+        {
+            ProviderAccountStatus::connected(
+                external.my_anime_list_user_id.clone(),
+                external.my_anime_list_user_name.clone(),
+                external.my_anime_list_last_verified_at_epoch_ms,
+            )
+        } else if external.my_anime_list_user_id.is_some() {
+            ProviderAccountStatus::needs_reconnect("AUTHORIZATION_EXPIRED")
+        } else if external.my_anime_list_access_token.is_some() {
+            ProviderAccountStatus::needs_reconnect("ACCOUNT_NOT_VERIFIED")
+        } else {
+            ProviderAccountStatus::disconnected()
+        };
+        let bangumi =
+            if external.bangumi_access_token.is_some() && external.bangumi_user_id.is_some() {
+                ProviderAccountStatus::connected(
+                    external.bangumi_user_id.clone(),
+                    external.bangumi_user_name.clone(),
+                    external.bangumi_last_verified_at_epoch_ms,
+                )
+            } else if external.bangumi_access_token.is_some() {
+                ProviderAccountStatus::needs_reconnect("ACCOUNT_NOT_VERIFIED")
+            } else {
+                ProviderAccountStatus::disconnected()
+            };
+        ProviderAccountsResponse {
+            my_anime_list,
+            bangumi,
+            bangumi_token_url: "https://next.bgm.tv/demo/access-token",
+        }
+    }
+
+    fn start_my_anime_list_oauth(&self) -> crate::Result<MyAnimeListOAuthStartResponse> {
+        let client_id = self.account_client_id().ok_or_else(|| {
+            crate::LibraryServerError::new(
+                "MyAnimeList sign-in is unavailable because this build has no client ID",
+            )
+        })?;
+        let flow_id = random_hex(16)?;
+        let state = random_hex(24)?;
+        let code_verifier = random_hex(32)?;
+        let expires_at_epoch_ms = current_epoch_ms().saturating_add(10 * 60 * 1_000);
+        self.pending_my_anime_list_oauth
+            .lock()
+            .map_err(|_| crate::LibraryServerError::new("OAuth state lock is unavailable"))?
+            .insert(
+                flow_id.clone(),
+                PendingMyAnimeListOAuth {
+                    state: state.clone(),
+                    code_verifier: code_verifier.clone(),
+                    expires_at_epoch_ms,
+                },
+            );
+        Ok(MyAnimeListOAuthStartResponse {
+            flow_id,
+            authorization_url: my_anime_list_authorization_url(&client_id, &state, &code_verifier),
+            callback_url: MAL_OAUTH_CALLBACK_URL,
+            expires_at_epoch_ms,
+        })
+    }
+
+    fn complete_my_anime_list_oauth(
+        &self,
+        request: MyAnimeListOAuthCompleteRequest,
+    ) -> crate::Result<ProviderAccountsResponse> {
+        let pending = self
+            .pending_my_anime_list_oauth
+            .lock()
+            .map_err(|_| crate::LibraryServerError::new("OAuth state lock is unavailable"))?
+            .remove(request.flow_id.trim())
+            .ok_or_else(|| crate::LibraryServerError::new("OAuth flow is missing or expired"))?;
+        if pending.expires_at_epoch_ms < current_epoch_ms() || pending.state != request.state {
+            return Err(crate::LibraryServerError::new(
+                "OAuth state is invalid or expired",
+            ));
+        }
+        let client_id = self.account_client_id().ok_or_else(|| {
+            crate::LibraryServerError::new("MyAnimeList client ID is unavailable")
+        })?;
+        let token = exchange_my_anime_list_authorization_code(
+            &client_id,
+            request.code.trim(),
+            &pending.code_verifier,
+        )?;
+        let identity = fetch_my_anime_list_identity(&token.access_token)?;
+        let now = current_epoch_ms();
+        let mut persisted = self
+            .persisted_settings
+            .lock()
+            .map_err(|_| crate::LibraryServerError::new("provider settings lock is unavailable"))?;
+        let mut next = persisted.clone();
+        let external = &mut next.external_anime;
+        external.my_anime_list_access_token = Some(token.access_token);
+        external.has_my_anime_list_access_token = true;
+        external.my_anime_list_refresh_token = token.refresh_token;
+        external.has_my_anime_list_refresh_token = external.my_anime_list_refresh_token.is_some();
+        external.my_anime_list_token_expires_at_epoch_ms =
+            Some(now.saturating_add(token.expires_in_seconds.saturating_mul(1_000)));
+        external.my_anime_list_user_id = Some(identity.user_id);
+        external.my_anime_list_user_name = Some(identity.display_name);
+        external.my_anime_list_last_verified_at_epoch_ms = Some(now);
+        self.commit_settings(&mut persisted, next)?;
+        drop(persisted);
+        Ok(self.accounts())
+    }
+
+    fn connect_bangumi(&self, access_token: String) -> crate::Result<ProviderAccountsResponse> {
+        let access_token = access_token.trim();
+        if access_token.is_empty() || access_token.len() > 4_096 {
+            return Err(crate::LibraryServerError::new("Bangumi token is invalid"));
+        }
+        let (base_url, user_agent) = {
+            let persisted = self.persisted_settings.lock().map_err(|_| {
+                crate::LibraryServerError::new("provider settings lock is unavailable")
+            })?;
+            (
+                persisted.external_anime.bangumi_base_url.clone(),
+                persisted.external_anime.bangumi_user_agent.clone(),
+            )
+        };
+        let identity = fetch_bangumi_identity(&base_url, &user_agent, access_token)?;
+        let now = current_epoch_ms();
+        let mut persisted = self
+            .persisted_settings
+            .lock()
+            .map_err(|_| crate::LibraryServerError::new("provider settings lock is unavailable"))?;
+        let mut next = persisted.clone();
+        let external = &mut next.external_anime;
+        external.bangumi_access_token = Some(access_token.to_owned());
+        external.has_bangumi_access_token = true;
+        external.bangumi_user_id = Some(identity.user_id);
+        external.bangumi_user_name = Some(identity.display_name);
+        external.bangumi_last_verified_at_epoch_ms = Some(now);
+        self.commit_settings(&mut persisted, next)?;
+        drop(persisted);
+        Ok(self.accounts())
+    }
+
+    fn disconnect_account(&self, provider: &str) -> crate::Result<ProviderAccountsResponse> {
+        let mut persisted = self
+            .persisted_settings
+            .lock()
+            .map_err(|_| crate::LibraryServerError::new("provider settings lock is unavailable"))?;
+        let mut next = persisted.clone();
+        let external = &mut next.external_anime;
+        match provider {
+            "myanimelist" => {
+                external.my_anime_list_access_token = None;
+                external.has_my_anime_list_access_token = false;
+                external.my_anime_list_refresh_token = None;
+                external.has_my_anime_list_refresh_token = false;
+                external.my_anime_list_token_expires_at_epoch_ms = None;
+                external.my_anime_list_user_id = None;
+                external.my_anime_list_user_name = None;
+                external.my_anime_list_last_verified_at_epoch_ms = None;
+            }
+            "bangumi" => {
+                external.bangumi_access_token = None;
+                external.has_bangumi_access_token = false;
+                external.bangumi_user_id = None;
+                external.bangumi_user_name = None;
+                external.bangumi_last_verified_at_epoch_ms = None;
+            }
+            _ => return Err(crate::LibraryServerError::new("unknown provider account")),
+        }
+        self.commit_settings(&mut persisted, next)?;
+        drop(persisted);
+        Ok(self.accounts())
+    }
+
+    fn refresh_my_anime_list_if_needed(&self) -> crate::Result<()> {
+        let now = current_epoch_ms();
+        let (client_id, refresh_token, expires_at) = {
+            let persisted = self.persisted_settings.lock().map_err(|_| {
+                crate::LibraryServerError::new("provider settings lock is unavailable")
+            })?;
+            (
+                self.account_client_id(),
+                persisted.external_anime.my_anime_list_refresh_token.clone(),
+                persisted
+                    .external_anime
+                    .my_anime_list_token_expires_at_epoch_ms,
+            )
+        };
+        if !expires_at.is_some_and(|expires| expires <= now.saturating_add(60_000)) {
+            return Ok(());
+        }
+        let (Some(client_id), Some(refresh_token)) = (client_id, refresh_token) else {
+            return Ok(());
+        };
+        let token = match refresh_my_anime_list_token(&client_id, &refresh_token) {
+            Ok(token) => token,
+            Err(error) => return self.handle_my_anime_list_refresh_error(error),
+        };
+        let mut persisted = self
+            .persisted_settings
+            .lock()
+            .map_err(|_| crate::LibraryServerError::new("provider settings lock is unavailable"))?;
+        let mut next = persisted.clone();
+        next.external_anime.my_anime_list_access_token = Some(token.access_token);
+        next.external_anime.my_anime_list_refresh_token =
+            token.refresh_token.or(Some(refresh_token));
+        next.external_anime.my_anime_list_token_expires_at_epoch_ms =
+            Some(now.saturating_add(token.expires_in_seconds.saturating_mul(1_000)));
+        self.commit_settings(&mut persisted, next)?;
+        Ok(())
+    }
+
+    fn handle_my_anime_list_refresh_error(
+        &self,
+        error: MyAnimeListTokenError,
+    ) -> crate::Result<()> {
+        match error {
+            MyAnimeListTokenError::InvalidGrant => {
+                let mut persisted = self.persisted_settings.lock().map_err(|_| {
+                    crate::LibraryServerError::new("provider settings lock is unavailable")
+                })?;
+                let mut next = persisted.clone();
+                let external = &mut next.external_anime;
+                external.my_anime_list_access_token = None;
+                external.has_my_anime_list_access_token = false;
+                external.my_anime_list_refresh_token = None;
+                external.has_my_anime_list_refresh_token = false;
+                external.my_anime_list_token_expires_at_epoch_ms = None;
+                self.commit_settings(&mut persisted, next)?;
+                Err(crate::LibraryServerError::new(
+                    "MyAnimeList authorization expired; reconnect the account",
+                ))
+            }
+            MyAnimeListTokenError::Other(error) => Err(error),
+        }
+    }
+}
+
+impl ProviderAccountStatus {
+    fn disconnected() -> Self {
+        Self {
+            state: "DISCONNECTED",
+            user_id: None,
+            display_name: None,
+            last_verified_at_epoch_ms: None,
+            reason_code: None,
+        }
+    }
+
+    fn connected(
+        user_id: Option<String>,
+        display_name: Option<String>,
+        last_verified_at_epoch_ms: Option<u64>,
+    ) -> Self {
+        Self {
+            state: "CONNECTED",
+            user_id,
+            display_name,
+            last_verified_at_epoch_ms,
+            reason_code: None,
+        }
+    }
+
+    fn needs_reconnect(reason_code: &'static str) -> Self {
+        Self {
+            state: "NEEDS_RECONNECT",
+            reason_code: Some(reason_code),
+            ..Self::disconnected()
+        }
+    }
+
+    fn unavailable(reason_code: &'static str) -> Self {
+        Self {
+            state: "UNAVAILABLE",
+            reason_code: Some(reason_code),
+            ..Self::disconnected()
+        }
+    }
+}
+
+fn random_hex(byte_count: usize) -> crate::Result<String> {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut bytes = vec![0_u8; byte_count];
+    getrandom::fill(&mut bytes).map_err(|error| {
+        crate::LibraryServerError::with_context(error, "OAuth randomness failed")
+    })?;
+    let mut value = String::with_capacity(byte_count * 2);
+    for byte in bytes {
+        value.push(HEX[(byte >> 4) as usize] as char);
+        value.push(HEX[(byte & 0x0f) as usize] as char);
+    }
+    Ok(value)
 }
 
 fn apply_provider_settings_update(
@@ -643,6 +1031,9 @@ async fn dispatch(State(state): State<HttpServerState>, request: Request<Body>) 
     if path.starts_with("/api/providers/settings") {
         return handle_provider_settings(&state, method, &path, headers, body).await;
     }
+    if path.starts_with("/api/providers/accounts") {
+        return handle_provider_accounts(&state, method, &path, headers, body).await;
+    }
     if path.starts_with("/api/providers/runtime") {
         return handle_provider_runtime(&state, &method, &path);
     }
@@ -651,9 +1042,6 @@ async fn dispatch(State(state): State<HttpServerState>, request: Request<Body>) 
     }
     if path.starts_with("/api/providers/search") {
         return handle_provider_search(&state, &method, &path, query.as_deref()).await;
-    }
-    if path.starts_with("/api/providers/list/entry") {
-        return handle_provider_list_entry(&state, method, &path, query.as_deref(), body).await;
     }
     if path.starts_with("/api/providers/dandanplay/resolve") {
         return handle_dandanplay_resolve(&state, &method, &path, query.as_deref()).await;
@@ -1071,6 +1459,93 @@ async fn handle_provider_settings(
     }
 }
 
+async fn handle_provider_accounts(
+    state: &HttpServerState,
+    method: Method,
+    path: &str,
+    headers: HeaderMap,
+    body: Body,
+) -> Response<Body> {
+    let Some(admin) = &state.provider_admin else {
+        return empty_status(StatusCode::NOT_FOUND);
+    };
+    if !admin.is_authorized(&headers) {
+        return empty_status(StatusCode::UNAUTHORIZED);
+    }
+    match (method, path) {
+        (Method::GET, "/api/providers/accounts") => {
+            json_response(StatusCode::OK, &admin.accounts())
+        }
+        (Method::POST, "/api/providers/accounts/myanimelist/oauth/start") => {
+            match admin.start_my_anime_list_oauth() {
+                Ok(response) => json_response(StatusCode::OK, &response),
+                Err(error) => text_response(StatusCode::CONFLICT, &error.to_string()),
+            }
+        }
+        (Method::POST, "/api/providers/accounts/myanimelist/oauth/complete") => {
+            let Ok(bytes) = axum::body::to_bytes(body, 65_536).await else {
+                return text_response(StatusCode::BAD_REQUEST, "OAuth request body is too large.");
+            };
+            let Ok(request) = serde_json::from_slice::<MyAnimeListOAuthCompleteRequest>(&bytes)
+            else {
+                return text_response(
+                    StatusCode::BAD_REQUEST,
+                    "Request body must contain flowId, state, and code.",
+                );
+            };
+            let admin = Arc::clone(admin);
+            match tokio::task::spawn_blocking(move || admin.complete_my_anime_list_oauth(request))
+                .await
+            {
+                Ok(Ok(response)) => json_response(StatusCode::OK, &response),
+                Ok(Err(error)) => text_response(StatusCode::BAD_REQUEST, &error.to_string()),
+                Err(error) => text_response(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    &format!("OAuth account task failed: {error}"),
+                ),
+            }
+        }
+        (Method::DELETE, "/api/providers/accounts/myanimelist") => {
+            match admin.disconnect_account("myanimelist") {
+                Ok(response) => json_response(StatusCode::OK, &response),
+                Err(error) => text_response(StatusCode::BAD_REQUEST, &error.to_string()),
+            }
+        }
+        (Method::PUT, "/api/providers/accounts/bangumi") => {
+            let Ok(bytes) = axum::body::to_bytes(body, 65_536).await else {
+                return text_response(
+                    StatusCode::BAD_REQUEST,
+                    "Bangumi account request body is too large.",
+                );
+            };
+            let Ok(request) = serde_json::from_slice::<BangumiAccountRequest>(&bytes) else {
+                return text_response(
+                    StatusCode::BAD_REQUEST,
+                    "Request body must contain accessToken.",
+                );
+            };
+            let admin = Arc::clone(admin);
+            match tokio::task::spawn_blocking(move || admin.connect_bangumi(request.access_token))
+                .await
+            {
+                Ok(Ok(response)) => json_response(StatusCode::OK, &response),
+                Ok(Err(error)) => text_response(StatusCode::BAD_REQUEST, &error.to_string()),
+                Err(error) => text_response(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    &format!("Bangumi account task failed: {error}"),
+                ),
+            }
+        }
+        (Method::DELETE, "/api/providers/accounts/bangumi") => {
+            match admin.disconnect_account("bangumi") {
+                Ok(response) => json_response(StatusCode::OK, &response),
+                Err(error) => text_response(StatusCode::BAD_REQUEST, &error.to_string()),
+            }
+        }
+        _ => empty_status(StatusCode::NOT_FOUND),
+    }
+}
+
 fn handle_provider_runtime(state: &HttpServerState, method: &Method, path: &str) -> Response<Body> {
     if method != Method::GET {
         return empty_status(StatusCode::METHOD_NOT_ALLOWED);
@@ -1176,6 +1651,19 @@ async fn handle_provider_search(
     json_response(StatusCode::OK, &matches)
 }
 
+async fn refresh_my_anime_list_without_blocking(
+    admin: Arc<ProviderAdminState>,
+) -> crate::Result<()> {
+    tokio::task::spawn_blocking(move || admin.refresh_my_anime_list_if_needed())
+        .await
+        .map_err(|error| {
+            crate::LibraryServerError::with_context(
+                error,
+                "MyAnimeList refresh task could not complete",
+            )
+        })?
+}
+
 async fn handle_provider_tracking(
     state: &HttpServerState,
     method: Method,
@@ -1274,7 +1762,54 @@ async fn handle_provider_tracking(
                 Err(error) => text_response(StatusCode::BAD_REQUEST, &error.to_string()),
             }
         }
+        (Method::POST, "/api/providers/tracking/conflicts/import") => {
+            let Ok(bytes) = axum::body::to_bytes(body, 65_536).await else {
+                return text_response(
+                    StatusCode::BAD_REQUEST,
+                    "Tracking conflict import body is too large.",
+                );
+            };
+            let Ok(request) =
+                serde_json::from_slice::<ExternalTrackingConflictImportRequest>(&bytes)
+            else {
+                return text_response(
+                    StatusCode::BAD_REQUEST,
+                    "Request body must identify the reviewed tracking conflict.",
+                );
+            };
+            let imports = match provider_progress_import(
+                &library.catalog,
+                &progress,
+                &admin.tracking_store().snapshot(),
+                &request.local_series_id,
+                &request.anime_id,
+                request.expected_external_watched_episodes,
+            ) {
+                Ok(imports) => imports,
+                Err(error) => return text_response(StatusCode::CONFLICT, &error.to_string()),
+            };
+            for imported in &imports {
+                if let Err(error) = state.progress_store.save_progress(imported.clone()) {
+                    return text_response(StatusCode::INTERNAL_SERVER_ERROR, &error.to_string());
+                }
+            }
+            let updated_progress = state.progress_store.load_all_progress();
+            json_response(
+                StatusCode::OK,
+                &serde_json::json!({
+                    "importedCount": imports.len(),
+                    "document": tracking_document(
+                        &library.catalog,
+                        &updated_progress,
+                        &admin.tracking_store().snapshot(),
+                    ),
+                }),
+            )
+        }
         (Method::POST, "/api/providers/tracking/readback") => {
+            if let Err(error) = refresh_my_anime_list_without_blocking(Arc::clone(admin)).await {
+                return text_response(StatusCode::BAD_GATEWAY, &error.to_string());
+            }
             let service = state
                 .external_provider_service()
                 .expect("provider admin always has an external provider service");
@@ -1300,6 +1835,9 @@ async fn handle_provider_tracking(
                     "Request body must contain the previewed expectedUpdates.",
                 );
             };
+            if let Err(error) = refresh_my_anime_list_without_blocking(Arc::clone(admin)).await {
+                return text_response(StatusCode::BAD_GATEWAY, &error.to_string());
+            }
             let service = state
                 .external_provider_service()
                 .expect("provider admin always has an external provider service");
@@ -1327,78 +1865,6 @@ async fn handle_provider_tracking(
         _ => empty_status(StatusCode::NOT_FOUND),
     }
 }
-async fn handle_provider_list_entry(
-    state: &HttpServerState,
-    method: Method,
-    path: &str,
-    query: Option<&str>,
-    body: Body,
-) -> Response<Body> {
-    if path != "/api/providers/list/entry" {
-        return empty_status(StatusCode::NOT_FOUND);
-    }
-    let Some(service) = state.external_provider_service() else {
-        return text_response(
-            StatusCode::CONFLICT,
-            "Provider list sync credentials are not configured.",
-        );
-    };
-    match method {
-        Method::GET => handle_provider_list_read(&service, query).await,
-        Method::POST => handle_provider_list_write(&service, body).await,
-        _ => text_response(StatusCode::METHOD_NOT_ALLOWED, "Method not allowed."),
-    }
-}
-
-async fn handle_provider_list_read(
-    service: &Arc<ExternalProviderService>,
-    query: Option<&str>,
-) -> Response<Body> {
-    let query_parameters = parse_query_parameters(query);
-    let Some(anime_id) = external_anime_id_from_query(&query_parameters) else {
-        return invalid_external_anime_id_response(&query_parameters);
-    };
-    if anime_id.provider == crate::catalog::ExternalAnimeProvider::Dandanplay {
-        return text_response(
-            StatusCode::BAD_REQUEST,
-            "dandanplay does not support external list entries.",
-        );
-    }
-    match service.fetch_list_entry(anime_id).await {
-        Ok(Some(entry)) => provider_list_success_response(&entry),
-        Ok(None) => text_response(StatusCode::NOT_FOUND, "External list entry was not found."),
-        Err(error) => provider_list_error_response(error),
-    }
-}
-
-async fn handle_provider_list_write(
-    service: &Arc<ExternalProviderService>,
-    body: Body,
-) -> Response<Body> {
-    let Ok(bytes) = axum::body::to_bytes(body, 1_048_576).await else {
-        return text_response(
-            StatusCode::BAD_REQUEST,
-            "Request body must be an ExternalAnimeTrackingUpdate JSON object.",
-        );
-    };
-    let Ok(update) = serde_json::from_slice::<ExternalAnimeTrackingUpdate>(&bytes) else {
-        return text_response(
-            StatusCode::BAD_REQUEST,
-            "Request body must be an ExternalAnimeTrackingUpdate JSON object.",
-        );
-    };
-    if update.anime_id.provider == crate::catalog::ExternalAnimeProvider::Dandanplay {
-        return text_response(
-            StatusCode::BAD_REQUEST,
-            "dandanplay does not support external list entries.",
-        );
-    }
-    match service.update_list_entry(update).await {
-        Ok(entry) => provider_list_success_response(&entry),
-        Err(error) => provider_list_error_response(error),
-    }
-}
-
 async fn handle_dandanplay_resolve(
     state: &HttpServerState,
     method: &Method,
@@ -2001,57 +2467,6 @@ fn parse_provider_filter(
         parsed.insert(provider_value);
     }
     Ok(parsed)
-}
-
-fn external_anime_id_from_query(
-    query_parameters: &BTreeMap<String, String>,
-) -> Option<crate::catalog::ExternalAnimeId> {
-    let provider = query_parameters
-        .get("provider")
-        .map(|value| value.trim())
-        .filter(|value| !value.is_empty())
-        .and_then(parse_provider_alias)?;
-    let value = query_parameters
-        .get("animeId")
-        .map(|value| value.trim())
-        .and_then(|value| value.parse::<u64>().ok())
-        .filter(|value| *value > 0)?;
-    Some(crate::catalog::ExternalAnimeId { provider, value })
-}
-
-fn invalid_external_anime_id_response(
-    query_parameters: &BTreeMap<String, String>,
-) -> Response<Body> {
-    let provider = query_parameters.get("provider").map(|value| value.trim());
-    if provider.is_none_or(str::is_empty) {
-        return text_response(
-            StatusCode::BAD_REQUEST,
-            "Query parameter 'provider' is required.",
-        );
-    }
-    let provider = provider.expect("provider should exist");
-    if parse_provider_alias(provider).is_none() {
-        return text_response(
-            StatusCode::BAD_REQUEST,
-            &format!("Unsupported provider '{provider}'."),
-        );
-    }
-    text_response(
-        StatusCode::BAD_REQUEST,
-        "Query parameter 'animeId' must be positive.",
-    )
-}
-
-fn provider_list_success_response(entry: &ExternalAnimeListEntry) -> Response<Body> {
-    json_response(StatusCode::OK, entry)
-}
-
-fn provider_list_error_response(error: ExternalProviderError) -> Response<Body> {
-    let (status, body) = error.route_status_and_body();
-    text_response(
-        StatusCode::from_u16(status).unwrap_or(StatusCode::BAD_GATEWAY),
-        &body,
-    )
 }
 
 fn hex_value(byte: u8) -> Option<u8> {
@@ -3112,6 +3527,175 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn provider_accounts_require_auth_and_start_mal_oauth_without_network_access() {
+        #[derive(Debug)]
+        struct PassthroughSecretProtector;
+
+        impl crate::provider_secrets::SecretProtector for PassthroughSecretProtector {
+            fn protect(&self, plaintext: &[u8]) -> crate::Result<Vec<u8>> {
+                Ok(plaintext.to_vec())
+            }
+
+            fn unprotect(&self, ciphertext: &[u8]) -> crate::Result<Vec<u8>> {
+                Ok(ciphertext.to_vec())
+            }
+        }
+
+        let fixture = FixtureEnvironment::new();
+        let mut settings = HeadlessServerSettings {
+            pairing_token: "123456".to_owned(),
+            library_roots: Vec::new(),
+            dandanplay: crate::settings::HeadlessDandanplayProviderSettings::default(),
+            external_anime: crate::settings::HeadlessExternalAnimeProviderSettings::default(),
+        };
+        settings.external_anime.my_anime_list_client_id = Some("mal-client".to_owned());
+        let secret_store = ProviderSecretStore::with_protector(
+            fixture.temp.join("provider-account-secrets.json"),
+            Arc::new(PassthroughSecretProtector),
+        );
+        let admin = Arc::new(ProviderAdminState::new_for_tests(
+            fixture.temp.clone(),
+            settings.clone(),
+            settings.clone(),
+            secret_store,
+        ));
+        let state = HttpServerState::new(
+            fixture.library.clone(),
+            Arc::new(PlaybackProgressStore::new(
+                fixture.temp.join("progress-provider-accounts.json"),
+            )),
+            HttpServerConfig::headless(None, &settings, None, None, None, admin),
+        );
+        let app = app(state);
+
+        let unauthorized = app
+            .clone()
+            .oneshot(get("/api/providers/accounts"))
+            .await
+            .expect("unauthorized response");
+        assert_eq!(StatusCode::UNAUTHORIZED, unauthorized.status());
+
+        let accounts = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/api/providers/accounts")
+                    .header(AUTHORIZATION, "Bearer 123456")
+                    .body(Body::empty())
+                    .expect("accounts request"),
+            )
+            .await
+            .expect("accounts response");
+        assert_eq!(StatusCode::OK, accounts.status());
+        let accounts: Value =
+            serde_json::from_str(&body_text(accounts).await).expect("accounts document");
+        assert_eq!("DISCONNECTED", accounts["myAnimeList"]["state"]);
+        assert_eq!("DISCONNECTED", accounts["bangumi"]["state"]);
+
+        let oauth = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/providers/accounts/myanimelist/oauth/start")
+                    .header(AUTHORIZATION, "Bearer 123456")
+                    .body(Body::empty())
+                    .expect("OAuth start request"),
+            )
+            .await
+            .expect("OAuth start response");
+        assert_eq!(StatusCode::OK, oauth.status());
+        let oauth: Value =
+            serde_json::from_str(&body_text(oauth).await).expect("OAuth start document");
+        assert_eq!(MAL_OAUTH_CALLBACK_URL, oauth["callbackUrl"]);
+        assert!(
+            oauth["flowId"]
+                .as_str()
+                .is_some_and(|value| !value.is_empty())
+        );
+        assert!(oauth["authorizationUrl"].as_str().is_some_and(|value| {
+            value.starts_with("https://myanimelist.net/v1/oauth2/authorize?")
+        }));
+    }
+
+    #[test]
+    fn rejected_mal_refresh_requires_reconnect_but_transient_failure_stays_connected() {
+        #[derive(Debug)]
+        struct PassthroughSecretProtector;
+
+        impl crate::provider_secrets::SecretProtector for PassthroughSecretProtector {
+            fn protect(&self, plaintext: &[u8]) -> crate::Result<Vec<u8>> {
+                Ok(plaintext.to_vec())
+            }
+
+            fn unprotect(&self, ciphertext: &[u8]) -> crate::Result<Vec<u8>> {
+                Ok(ciphertext.to_vec())
+            }
+        }
+
+        let fixture = FixtureEnvironment::new();
+        let mut settings = HeadlessServerSettings {
+            pairing_token: "123456".to_owned(),
+            library_roots: Vec::new(),
+            dandanplay: crate::settings::HeadlessDandanplayProviderSettings::default(),
+            external_anime: crate::settings::HeadlessExternalAnimeProviderSettings::default(),
+        };
+        let external = &mut settings.external_anime;
+        external.my_anime_list_client_id = Some("mal-client".to_owned());
+        external.my_anime_list_access_token = Some("access".to_owned());
+        external.has_my_anime_list_access_token = true;
+        external.my_anime_list_refresh_token = Some("refresh".to_owned());
+        external.has_my_anime_list_refresh_token = true;
+        external.my_anime_list_token_expires_at_epoch_ms = Some(0);
+        external.my_anime_list_user_id = Some("42".to_owned());
+        external.my_anime_list_user_name = Some("qa-user".to_owned());
+        let admin = ProviderAdminState::new_for_tests(
+            fixture.temp.clone(),
+            settings.clone(),
+            settings,
+            ProviderSecretStore::with_protector(
+                fixture.temp.join("provider-refresh-secrets.json"),
+                Arc::new(PassthroughSecretProtector),
+            ),
+        );
+
+        let transient = admin.handle_my_anime_list_refresh_error(MyAnimeListTokenError::Other(
+            crate::LibraryServerError::new("temporary failure"),
+        ));
+        assert_eq!(
+            "temporary failure",
+            transient.expect_err("transient error").to_string()
+        );
+        assert_eq!("CONNECTED", admin.accounts().my_anime_list.state);
+
+        let rejected =
+            admin.handle_my_anime_list_refresh_error(MyAnimeListTokenError::InvalidGrant);
+        assert_eq!(
+            "MyAnimeList authorization expired; reconnect the account",
+            rejected.expect_err("reconnect error").to_string()
+        );
+        let account = admin.accounts().my_anime_list;
+        assert_eq!("NEEDS_RECONNECT", account.state);
+        assert_eq!(Some("AUTHORIZATION_EXPIRED"), account.reason_code);
+        let persisted = admin.persisted_settings.lock().expect("settings lock");
+        assert!(
+            persisted
+                .external_anime
+                .my_anime_list_access_token
+                .is_none()
+        );
+        assert!(
+            persisted
+                .external_anime
+                .my_anime_list_refresh_token
+                .is_none()
+        );
+        assert_eq!(
+            Some("42"),
+            persisted.external_anime.my_anime_list_user_id.as_deref()
+        );
+    }
+
+    #[tokio::test]
     async fn provider_settings_require_auth_redact_secrets_and_reload_runtime() {
         #[derive(Debug)]
         struct ReversingSecretProtector;
@@ -3273,165 +3857,45 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn provider_list_entry_routes_map_mock_provider_outcomes() {
-        let fixture = FixtureEnvironment::new();
-        let provider_server =
-            MockExternalProviderServer::start(MockExternalProviderBehavior::default());
-        let app = external_provider_test_app(
-            &fixture,
-            Arc::new(ExternalProviderService::new_for_tests(
-                Vec::new(),
-                vec![
-                    Arc::new(MyAnimeListTrackingClient::new(
-                        provider_server.base_url(),
-                        "mal-access-token".to_owned(),
-                    )),
-                    Arc::new(BangumiTrackingClient::new(
-                        provider_server.base_url(),
-                        "DanmakuTest/1.0".to_owned(),
-                        "bangumi-access-token".to_owned(),
-                    )),
-                ],
-            )),
-        );
-
-        let entry =
-            request_json(&app, "/api/providers/list/entry?provider=mal&animeId=52991").await;
-        assert_eq!("MY_ANIME_LIST", entry["animeId"]["provider"]);
-        assert_eq!("WATCHING", entry["status"]);
-        assert_eq!(4, entry["watchedEpisodes"]);
-        assert_eq!(8, entry["score"]);
-        assert_eq!(1_704_164_645_000_i64, entry["updatedAtEpochMs"]);
-
-        let update = json!({
-            "animeId": { "provider": "BANGUMI", "value": 400602 },
-            "status": "COMPLETED",
-            "watchedEpisodes": 28,
-            "score": 9,
-            "trackingEnabled": true,
-            "ratingEnabled": true
-        });
-        let written = request_json_with_body(
-            &app,
-            "POST",
-            "/api/providers/list/entry",
-            update.to_string(),
-        )
-        .await;
-        assert_eq!("BANGUMI", written["animeId"]["provider"]);
-        assert_eq!("COMPLETED", written["status"]);
-        assert_eq!(28, written["watchedEpisodes"]);
-        assert_eq!(9, written["score"]);
-        let requests = provider_server.requests();
-        let mal_read = requests
-            .iter()
-            .find(|request| request.path == "/anime/52991")
-            .expect("MAL list read");
-        assert_eq!(Some("fields=my_list_status"), mal_read.query.as_deref());
-        assert_eq!("Bearer mal-access-token", mal_read.headers["authorization"]);
-        let bangumi_write = requests
-            .iter()
-            .find(|request| request.path == "/v0/users/-/collections/400602")
-            .expect("Bangumi list write");
-        assert_eq!("PATCH", bangumi_write.method);
-        assert_eq!(
-            "Bearer bangumi-access-token",
-            bangumi_write.headers["authorization"]
-        );
-        assert_eq!("DanmakuTest/1.0", bangumi_write.headers["user-agent"]);
-        assert!(bangumi_write.body.contains("\"type\":2"));
-        assert!(bangumi_write.body.contains("\"ep_status\":28"));
-        assert!(bangumi_write.body.contains("\"rate\":9"));
-
-        let dandanplay = app
-            .clone()
-            .oneshot(get(
-                "/api/providers/list/entry?provider=dandanplay&animeId=333",
-            ))
-            .await
-            .expect("dandanplay response");
-        assert_eq!(StatusCode::BAD_REQUEST, dandanplay.status());
-        assert_text_body(
-            dandanplay,
-            "dandanplay does not support external list entries.",
-        )
-        .await;
-
-        let method = app
-            .clone()
-            .oneshot(
-                Request::builder()
-                    .method("PUT")
-                    .uri("/api/providers/list/entry")
-                    .body(Body::empty())
-                    .expect("request"),
-            )
-            .await
-            .expect("method response");
-        assert_eq!(StatusCode::METHOD_NOT_ALLOWED, method.status());
-        assert_text_body(method, "Method not allowed.").await;
-    }
-
-    #[tokio::test]
-    async fn provider_list_entry_reports_missing_not_found_and_upstream_failures() {
-        let fixture = FixtureEnvironment::new();
-        let missing_credentials = external_provider_test_app(
-            &fixture,
-            Arc::new(ExternalProviderService::new_for_tests(
-                Vec::new(),
-                Vec::new(),
-            )),
-        )
-        .oneshot(get("/api/providers/list/entry?provider=mal&animeId=52991"))
-        .await
-        .expect("missing credentials response");
-        assert_eq!(StatusCode::CONFLICT, missing_credentials.status());
-
-        let not_found_server = MockExternalProviderServer::start(MockExternalProviderBehavior {
+    async fn tracking_clients_treat_provider_not_found_as_a_missing_entry() {
+        let provider_server = MockExternalProviderServer::start(MockExternalProviderBehavior {
             mal_list_read_status: 404,
+            bangumi_list_read_status: 404,
             ..MockExternalProviderBehavior::default()
         });
-        let not_found_app = external_provider_test_app(
-            &fixture,
-            Arc::new(ExternalProviderService::new_for_tests(
-                Vec::new(),
-                vec![Arc::new(MyAnimeListTrackingClient::new(
-                    not_found_server.base_url(),
+        let service = ExternalProviderService::new_for_tests(
+            Vec::new(),
+            vec![
+                Arc::new(MyAnimeListTrackingClient::new(
+                    provider_server.base_url(),
                     "mal-access-token".to_owned(),
-                ))],
-            )),
+                )),
+                Arc::new(BangumiTrackingClient::new(
+                    provider_server.base_url(),
+                    "DanmakuTest/1.0".to_owned(),
+                    "bangumi-access-token".to_owned(),
+                )),
+            ],
         );
-        let not_found = not_found_app
-            .oneshot(get("/api/providers/list/entry?provider=mal&animeId=52991"))
-            .await
-            .expect("not found response");
-        assert_eq!(StatusCode::NOT_FOUND, not_found.status());
-        assert_text_body(not_found, "External list entry was not found.").await;
 
-        let failed_server = MockExternalProviderServer::start(MockExternalProviderBehavior {
-            mal_list_read_status: 500,
-            ..MockExternalProviderBehavior::default()
-        });
-        let failed_app = external_provider_test_app(
-            &fixture,
-            Arc::new(ExternalProviderService::new_for_tests(
-                Vec::new(),
-                vec![Arc::new(MyAnimeListTrackingClient::new(
-                    failed_server.base_url(),
-                    "mal-access-token".to_owned(),
-                ))],
-            )),
-        );
-        let failed = failed_app
-            .oneshot(get("/api/providers/list/entry?provider=mal&animeId=52991"))
-            .await
-            .expect("failed response");
-        assert_eq!(StatusCode::BAD_GATEWAY, failed.status());
-        assert!(
-            body_text(failed)
-                .await
-                .contains("external list request failed:")
-        );
+        for anime_id in [
+            ExternalAnimeId {
+                provider: crate::catalog::ExternalAnimeProvider::MyAnimeList,
+                value: 52_991,
+            },
+            ExternalAnimeId {
+                provider: crate::catalog::ExternalAnimeProvider::Bangumi,
+                value: 400_602,
+            },
+        ] {
+            assert_eq!(
+                None,
+                service
+                    .fetch_list_entry(anime_id)
+                    .await
+                    .expect("missing entry")
+            );
+        }
     }
 
     #[tokio::test]
@@ -3470,18 +3934,6 @@ mod tests {
                 "/api/providers/search?title=Frieren&providers=unknown",
                 "Unsupported provider 'unknown'.",
             ),
-            (
-                "/api/providers/list/entry?animeId=52991",
-                "Query parameter 'provider' is required.",
-            ),
-            (
-                "/api/providers/list/entry?provider=unknown&animeId=52991",
-                "Unsupported provider 'unknown'.",
-            ),
-            (
-                "/api/providers/list/entry?provider=mal&animeId=0",
-                "Query parameter 'animeId' must be positive.",
-            ),
         ];
 
         for (path, expected) in cases {
@@ -3501,12 +3953,13 @@ mod tests {
             )
             .await
             .expect("malformed response");
-        assert_eq!(StatusCode::BAD_REQUEST, malformed_post.status());
-        assert_text_body(
-            malformed_post,
-            "Request body must be an ExternalAnimeTrackingUpdate JSON object.",
-        )
-        .await;
+        assert_eq!(StatusCode::NOT_FOUND, malformed_post.status());
+
+        let removed_get = app
+            .oneshot(get("/api/providers/list/entry?provider=mal&animeId=52991"))
+            .await
+            .expect("removed route response");
+        assert_eq!(StatusCode::NOT_FOUND, removed_get.status());
     }
 
     #[test]
@@ -3914,26 +4367,6 @@ mod tests {
 
     async fn request_json(app: &Router, path: &str) -> Value {
         let response = app.clone().oneshot(get(path)).await.expect("response");
-        assert_eq!(StatusCode::OK, response.status(), "path {path}");
-        let body = to_bytes(response.into_body(), 1_048_576)
-            .await
-            .expect("body");
-        serde_json::from_slice::<Value>(&body).expect("json body")
-    }
-
-    async fn request_json_with_body(app: &Router, method: &str, path: &str, body: String) -> Value {
-        let response = app
-            .clone()
-            .oneshot(
-                Request::builder()
-                    .method(method)
-                    .uri(path)
-                    .header("content-type", "application/json")
-                    .body(Body::from(body))
-                    .expect("request"),
-            )
-            .await
-            .expect("response");
         assert_eq!(StatusCode::OK, response.status(), "path {path}");
         let body = to_bytes(response.into_body(), 1_048_576)
             .await

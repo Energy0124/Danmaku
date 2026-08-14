@@ -11,7 +11,7 @@ const browserPath = args.browser ?? findBrowserExecutable();
 const outputDir = path.resolve(args["output-dir"] ?? path.join("build", "qa", "headless-web-ui"));
 const reportPath = path.join(outputDir, "browser-interaction-qa.md");
 const overlayScreenshotPath = path.join(outputDir, "web-overlay-preferences.png");
-const providerScreenshotPath = path.join(outputDir, "web-provider-list-controls.png");
+const providerScreenshotPath = path.join(outputDir, "web-accounts-tracking.png");
 
 if (!browserPath || !existsSync(browserPath)) {
   throw new Error("Chrome or Edge was not found. Pass --browser with a Chromium executable path.");
@@ -45,7 +45,7 @@ try {
     await connectWebUi(cdp);
     await verifyOverlayPreferences(cdp);
     await verifyInvalidOverlayStorageFallback(cdp);
-    await verifyProviderAndExternalListControls(cdp);
+    await verifyAccountsAndTrackingControls(cdp);
 
     await capturePng(cdp, providerScreenshotPath);
     await writeReport();
@@ -112,74 +112,57 @@ async function verifyInvalidOverlayStorageFallback(cdp) {
   }));
 }
 
-async function verifyProviderAndExternalListControls(cdp) {
-  await waitForExpression(cdp, "Boolean(document.querySelector('.provider-search-form'))");
-  await waitForExpression(cdp, "Boolean(document.querySelector('.external-list-form'))");
-  await waitForExpression(cdp, `(() => {
+async function verifyAccountsAndTrackingControls(cdp) {
+  await waitForExpression(cdp, "document.body.textContent.includes('Connected as qa-mal')");
+  await waitForExpression(cdp, "document.body.textContent.includes('Bangumi') && document.body.textContent.includes('Not connected')");
+  await evaluate(cdp, `(() => {
     ${providerDomHelpers()}
-    const controls = getExternalListControls();
-    return controls.read.disabled && controls.save.disabled;
+    const controls = getAccountControls();
+    setValue(controls.token, 'qa-bangumi-token');
+    controls.connect.click();
+    return true;
   })()`);
+  await waitForExpression(cdp, "document.body.textContent.includes('Bangumi connected.') && document.body.textContent.includes('Connected as qa-bangumi')");
+
+  await evaluate(cdp, `(() => {
+    const details = document.querySelector('.tracking-admin-shell:not(.provider-accounts-shell) details');
+    if (!details) throw new Error('Tracking administration was not found.');
+    details.open = true;
+    details.dispatchEvent(new Event('toggle'));
+    return true;
+  })()`);
+  await waitForExpression(cdp, "Boolean(document.querySelector('.tracking-conflicts button'))");
+  await evaluate(cdp, "document.querySelector('.tracking-conflicts button').click();");
+  await waitForExpression(cdp, "document.body.textContent.includes('2 local episode(s) marked watched.')");
 
   await evaluate(cdp, `(() => {
     ${providerDomHelpers()}
-    setValue(getProviderSearchControls().title, 'Frieren');
+    const controls = getTrackingSearchControls();
+    setValue(controls.title, 'Frieren');
+    controls.search.click();
     return true;
   })()`);
-  await waitForExpression(cdp, `(() => {
-    ${providerDomHelpers()}
-    const controls = getProviderSearchControls();
-    return controls.title.value === 'Frieren' && !controls.search.disabled;
-  })()`);
-  await evaluate(cdp, `(() => {
-    ${providerDomHelpers()}
-    getProviderSearchControls().search.click();
-    return true;
-  })()`);
-  await waitForExpression(cdp, "document.body.textContent.includes(\"Frieren: Beyond Journey's End\")");
   await waitForExpression(cdp, "Boolean(document.querySelector('.provider-search-results button'))");
-
   await evaluate(cdp, "document.querySelector('.provider-search-results button').click();");
-  await waitForExpression(cdp, `(() => {
-    ${providerDomHelpers()}
-    const controls = getExternalListControls();
-    return controls.provider.value === 'MY_ANIME_LIST'
-      && controls.animeId.value === '52991'
-      && !controls.read.disabled
-      && !controls.save.disabled;
-  })()`);
+  await waitForExpression(cdp, "document.body.textContent.includes('Series mapping saved.') && document.body.textContent.includes('1 ready')");
 
   await evaluate(cdp, `(() => {
     ${providerDomHelpers()}
-    getExternalListControls().read.click();
+    const controls = getSyncControls();
+    if (!controls.sync.disabled) throw new Error('Sync must stay disabled before acknowledgement.');
+    controls.review.click();
     return true;
   })()`);
   await waitForExpression(cdp, `(() => {
     ${providerDomHelpers()}
-    const controls = getExternalListControls();
-    return controls.status.value === 'WATCHING'
-      && controls.episodes.value === '3'
-      && controls.score.value === '8'
-      && document.body.textContent.includes('Watching, 3 episodes, score 8');
+    return !getSyncControls().sync.disabled;
   })()`);
-
   await evaluate(cdp, `(() => {
     ${providerDomHelpers()}
-    const controls = getExternalListControls();
-    setValue(controls.status, 'COMPLETED');
-    setValue(controls.episodes, '12');
-    setValue(controls.score, '9');
-    controls.save.click();
+    getSyncControls().sync.click();
     return true;
   })()`);
-  await waitForExpression(cdp, `(() => {
-    ${providerDomHelpers()}
-    const controls = getExternalListControls();
-    return controls.status.value === 'COMPLETED'
-      && controls.episodes.value === '12'
-      && controls.score.value === '9'
-      && document.body.textContent.includes('Completed, 12 episodes, score 9');
-  })()`);
+  await waitForExpression(cdp, "document.body.textContent.includes('Sync complete: 1 succeeded')");
 }
 
 async function installQaFetchOverrides(cdp) {
@@ -192,6 +175,98 @@ async function installQaFetchOverrides(cdp) {
           ...(init.headers ?? {})
         }
       });
+      const accountDocument = (bangumiConnected = false) => ({
+        myAnimeList: {
+          state: "CONNECTED",
+          userId: "1001",
+          displayName: "qa-mal",
+          lastVerifiedAtEpochMs: 1234567890
+        },
+        bangumi: bangumiConnected
+          ? {
+              state: "CONNECTED",
+              userId: "2002",
+              displayName: "qa-bangumi",
+              lastVerifiedAtEpochMs: 1234567890
+            }
+          : { state: "DISCONNECTED" },
+        bangumiTokenUrl: "https://next.bgm.tv/demo/access-token"
+      });
+      const trackingDocument = ({ conflict = false, update = false } = {}) => {
+        const animeId = { provider: "MY_ANIME_LIST", value: 52991 };
+        const mapping = {
+          localSeriesId: "series-frieren",
+          animeId,
+          source: "MANUAL",
+          confidence: 1,
+          mappedAtEpochMs: 1234567890
+        };
+        const updateCandidate = {
+          localSeriesId: "series-frieren",
+          localSeriesIds: ["series-frieren"],
+          seriesTitle: "Frieren",
+          episodeCount: 28,
+          mapping,
+          update: {
+            animeId,
+            status: "WATCHING",
+            watchedEpisodes: 5,
+            trackingEnabled: true,
+            ratingEnabled: false
+          }
+        };
+        return {
+          generatedAtEpochMs: 1234567890,
+          series: [{
+            id: "series-frieren",
+            title: "Frieren",
+            localSeriesIds: ["series-frieren"],
+            localSeriesTitles: ["Frieren"],
+            episodeCount: 28,
+            mappings: [mapping]
+          }],
+          mappings: [mapping],
+          listEntries: conflict ? [{
+            animeId,
+            status: "WATCHING",
+            watchedEpisodes: 5,
+            score: 8,
+            updatedAtEpochMs: 1234567890
+          }] : [],
+          plan: {
+            summary: {
+              updateCount: update ? 1 : 0,
+              skippedCount: 0,
+              conflictCount: conflict ? 1 : 0,
+              failureCount: 0,
+              myAnimeListUpdateCount: update ? 1 : 0,
+              bangumiUpdateCount: 0
+            },
+            updates: update ? [updateCandidate] : [],
+            skipped: [],
+            conflicts: conflict ? [{
+              ...updateCandidate,
+              localUpdate: {
+                animeId,
+                status: "WATCHING",
+                watchedEpisodes: 3,
+                trackingEnabled: true,
+                ratingEnabled: false
+              },
+              externalEntry: {
+                animeId,
+                status: "WATCHING",
+                watchedEpisodes: 5,
+                score: 8,
+                updatedAtEpochMs: 1234567890
+              },
+              reason: "EXTERNAL_PROGRESS_AHEAD"
+            }] : [],
+            mappingConflicts: [],
+            failures: []
+          }
+        };
+      };
 
       window.fetch = async (input, init = {}) => {
         const rawUrl = typeof input === "string" ? input : input.url;
@@ -297,26 +372,33 @@ async function installQaFetchOverrides(cdp) {
           ]);
         }
 
-        if (url.pathname === "/api/providers/list/entry") {
-          if ((init.method ?? "GET").toUpperCase() === "POST") {
-            const update = JSON.parse(init.body ?? "{}");
-            return jsonResponse({
-              animeId: update.animeId,
-              status: update.status,
-              watchedEpisodes: update.watchedEpisodes ?? null,
-              score: update.score ?? null,
-              updatedAtEpochMs: 1234567890
-            });
-          }
+        if (url.pathname === "/api/providers/accounts") {
+          return jsonResponse(accountDocument(false));
+        }
+
+        if (url.pathname === "/api/providers/accounts/bangumi") {
+          return jsonResponse(accountDocument(true));
+        }
+
+        if (url.pathname === "/api/providers/tracking") {
+          return jsonResponse(trackingDocument({ conflict: true }));
+        }
+
+        if (url.pathname === "/api/providers/tracking/conflicts/import") {
+          return jsonResponse({ importedCount: 2, document: trackingDocument() });
+        }
+
+        if (url.pathname === "/api/providers/tracking/mapping") {
+          return jsonResponse(trackingDocument({ update: true }));
+        }
+
+        if (url.pathname === "/api/providers/tracking/sync") {
           return jsonResponse({
-            animeId: {
-              provider: url.searchParams.get("provider") ?? "MY_ANIME_LIST",
-              value: Number(url.searchParams.get("animeId") ?? "52991")
-            },
-            status: "WATCHING",
-            watchedEpisodes: 3,
-            score: 8,
-            updatedAtEpochMs: 1234567890
+            document: trackingDocument(),
+            successCount: 1,
+            conflictCount: 0,
+            missingCount: 0,
+            errors: []
           });
         }
 
@@ -393,28 +475,31 @@ function providerDomHelpers() {
       if (!control) throw new Error(text + ' control was not found.');
       return control;
     }
-    function getProviderSearchControls() {
-      const form = document.querySelector('.provider-search-form');
-      if (!form) throw new Error('Provider search form was not found.');
-      const provider = labelControl(form, 'Search provider', 'select');
-      const title = labelControl(form, 'Title', 'input');
-      const search = form.querySelector('button');
-      if (!search) throw new Error('Provider search button was not found.');
-      return { provider, search, title };
+    function buttonFor(container, text) {
+      const button = Array.from(container.querySelectorAll('button'))
+        .find((candidate) => candidate.textContent && candidate.textContent.trim() === text);
+      if (!button) throw new Error(text + ' button was not found.');
+      return button;
     }
-    function getExternalListControls() {
-      const form = document.querySelector('.external-list-form');
-      if (!form) throw new Error('External list form was not found.');
-      const provider = labelControl(form, 'Provider', 'select');
-      const animeId = labelControl(form, 'Anime ID', 'input');
-      const status = labelControl(form, 'Status', 'select');
-      const episodes = labelControl(form, 'Episodes', 'input');
-      const score = labelControl(form, 'Score', 'input');
-      const actions = Array.from(form.querySelectorAll('.external-list-actions button'));
-      const read = actions.find((button) => button.textContent.trim() === 'Read');
-      const save = actions.find((button) => button.textContent.trim() === 'Save');
-      if (!read || !save) throw new Error('External list action buttons were not found.');
-      return { animeId, episodes, provider, read, save, score, status };
+    function getAccountControls() {
+      const panel = document.querySelector('.provider-accounts-shell');
+      if (!panel) throw new Error('Account panel was not found.');
+      const token = panel.querySelector('input[aria-label="Bangumi access token"]');
+      if (!token) throw new Error('Bangumi token control was not found.');
+      return { token, connect: buttonFor(panel, 'Connect Bangumi') };
+    }
+    function getTrackingSearchControls() {
+      const form = document.querySelector('.tracking-mapping-form');
+      if (!form) throw new Error('Tracking mapping form was not found.');
+      const title = labelControl(form, 'Search title', 'input');
+      return { title, search: buttonFor(form, 'Search provider') };
+    }
+    function getSyncControls() {
+      const gate = document.querySelector('.tracking-sync-gate');
+      if (!gate) throw new Error('Tracking sync gate was not found.');
+      const review = gate.querySelector('input[type="checkbox"]');
+      if (!review) throw new Error('Tracking review checkbox was not found.');
+      return { review, sync: buttonFor(gate, 'Sync previewed updates') };
     }
     function setValue(element, value) {
       const prototype = element instanceof HTMLSelectElement ? HTMLSelectElement.prototype : HTMLInputElement.prototype;
@@ -438,10 +523,11 @@ async function writeReport() {
     `- Base URL: ${baseUrl}`,
     `- Browser: ${browserPath}`,
     "- Overlay flow: change danmaku overlay controls, reload, verify persisted controls",
-    "- Provider/list flow: provider search, Use ID, list readback, form save",
+    "- Accounts flow: account status, guided Bangumi token validation, connected identity",
+    "- Tracking flow: provider-ahead import, mapping search, reviewed sync gate",
     "- Invalid-storage fallback: PASS",
     `- Overlay screenshot: ${overlayScreenshotPath}`,
-    `- Provider/list screenshot: ${providerScreenshotPath}`,
+    `- Accounts/tracking screenshot: ${providerScreenshotPath}`,
     "",
     "Result: PASS"
   ].join("\n");

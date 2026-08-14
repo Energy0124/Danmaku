@@ -193,10 +193,19 @@ pub struct HeadlessExternalAnimeProviderSettings {
     pub has_my_anime_list_client_secret: bool,
     pub my_anime_list_access_token: Option<String>,
     pub has_my_anime_list_access_token: bool,
+    pub my_anime_list_refresh_token: Option<String>,
+    pub has_my_anime_list_refresh_token: bool,
+    pub my_anime_list_token_expires_at_epoch_ms: Option<u64>,
+    pub my_anime_list_user_id: Option<String>,
+    pub my_anime_list_user_name: Option<String>,
+    pub my_anime_list_last_verified_at_epoch_ms: Option<u64>,
     pub bangumi_base_url: String,
     pub bangumi_user_agent: String,
     pub bangumi_access_token: Option<String>,
     pub has_bangumi_access_token: bool,
+    pub bangumi_user_id: Option<String>,
+    pub bangumi_user_name: Option<String>,
+    pub bangumi_last_verified_at_epoch_ms: Option<u64>,
 }
 
 impl Default for HeadlessExternalAnimeProviderSettings {
@@ -207,10 +216,19 @@ impl Default for HeadlessExternalAnimeProviderSettings {
             has_my_anime_list_client_secret: false,
             my_anime_list_access_token: None,
             has_my_anime_list_access_token: false,
+            my_anime_list_refresh_token: None,
+            has_my_anime_list_refresh_token: false,
+            my_anime_list_token_expires_at_epoch_ms: None,
+            my_anime_list_user_id: None,
+            my_anime_list_user_name: None,
+            my_anime_list_last_verified_at_epoch_ms: None,
             bangumi_base_url: DEFAULT_BANGUMI_BASE_URL.to_owned(),
             bangumi_user_agent: DEFAULT_BANGUMI_USER_AGENT.to_owned(),
             bangumi_access_token: None,
             has_bangumi_access_token: false,
+            bangumi_user_id: None,
+            bangumi_user_name: None,
+            bangumi_last_verified_at_epoch_ms: None,
         }
     }
 }
@@ -271,9 +289,24 @@ struct ExternalAnimeSettingsSnapshot {
     my_anime_list_client_id: Option<String>,
     has_my_anime_list_client_secret: bool,
     has_my_anime_list_access_token: bool,
+    has_my_anime_list_refresh_token: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    my_anime_list_token_expires_at_epoch_ms: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    my_anime_list_user_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    my_anime_list_user_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    my_anime_list_last_verified_at_epoch_ms: Option<u64>,
     bangumi_base_url: String,
     bangumi_user_agent: String,
     has_bangumi_access_token: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    bangumi_user_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    bangumi_user_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    bangumi_last_verified_at_epoch_ms: Option<u64>,
 }
 
 impl From<&HeadlessExternalAnimeProviderSettings> for ExternalAnimeSettingsSnapshot {
@@ -282,9 +315,19 @@ impl From<&HeadlessExternalAnimeProviderSettings> for ExternalAnimeSettingsSnaps
             my_anime_list_client_id: settings.my_anime_list_client_id.clone(),
             has_my_anime_list_client_secret: settings.has_my_anime_list_client_secret,
             has_my_anime_list_access_token: settings.has_my_anime_list_access_token,
+            has_my_anime_list_refresh_token: settings.has_my_anime_list_refresh_token,
+            my_anime_list_token_expires_at_epoch_ms: settings
+                .my_anime_list_token_expires_at_epoch_ms,
+            my_anime_list_user_id: settings.my_anime_list_user_id.clone(),
+            my_anime_list_user_name: settings.my_anime_list_user_name.clone(),
+            my_anime_list_last_verified_at_epoch_ms: settings
+                .my_anime_list_last_verified_at_epoch_ms,
             bangumi_base_url: settings.bangumi_base_url.clone(),
             bangumi_user_agent: settings.bangumi_user_agent.clone(),
             has_bangumi_access_token: settings.has_bangumi_access_token,
+            bangumi_user_id: settings.bangumi_user_id.clone(),
+            bangumi_user_name: settings.bangumi_user_name.clone(),
+            bangumi_last_verified_at_epoch_ms: settings.bangumi_last_verified_at_epoch_ms,
         }
     }
 }
@@ -385,6 +428,7 @@ fn external_anime_settings_or_null(
     let my_anime_list_client_id = string_or_null(object, "myAnimeListClientId");
     let my_anime_list_client_secret = string_or_null(object, "myAnimeListClientSecret");
     let my_anime_list_access_token = string_or_null(object, "myAnimeListAccessToken");
+    let my_anime_list_refresh_token = string_or_null(object, "myAnimeListRefreshToken");
     let bangumi_base_url = string_or_null(object, "bangumiBaseUrl")
         .unwrap_or_else(|| DEFAULT_BANGUMI_BASE_URL.to_owned());
     if !is_https_base_url(&bangumi_base_url) {
@@ -401,6 +445,8 @@ fn external_anime_settings_or_null(
         || boolean_or_null(object, "hasMyAnimeListClientSecret") == Some(true);
     let has_my_anime_list_access_token = my_anime_list_access_token.is_some()
         || boolean_or_null(object, "hasMyAnimeListAccessToken") == Some(true);
+    let has_my_anime_list_refresh_token = my_anime_list_refresh_token.is_some()
+        || boolean_or_null(object, "hasMyAnimeListRefreshToken") == Some(true);
     let has_bangumi_access_token = bangumi_access_token.is_some()
         || boolean_or_null(object, "hasBangumiAccessToken") == Some(true);
 
@@ -410,20 +456,48 @@ fn external_anime_settings_or_null(
         has_my_anime_list_client_secret,
         my_anime_list_access_token,
         has_my_anime_list_access_token,
+        my_anime_list_refresh_token,
+        has_my_anime_list_refresh_token,
+        my_anime_list_token_expires_at_epoch_ms: int_or_null(
+            object,
+            "myAnimeListTokenExpiresAtEpochMs",
+        )
+        .and_then(|value| u64::try_from(value).ok()),
+        my_anime_list_user_id: string_or_null(object, "myAnimeListUserId"),
+        my_anime_list_user_name: string_or_null(object, "myAnimeListUserName"),
+        my_anime_list_last_verified_at_epoch_ms: int_or_null(
+            object,
+            "myAnimeListLastVerifiedAtEpochMs",
+        )
+        .and_then(|value| u64::try_from(value).ok()),
         bangumi_base_url,
         bangumi_user_agent,
         bangumi_access_token,
         has_bangumi_access_token,
+        bangumi_user_id: string_or_null(object, "bangumiUserId"),
+        bangumi_user_name: string_or_null(object, "bangumiUserName"),
+        bangumi_last_verified_at_epoch_ms: int_or_null(object, "bangumiLastVerifiedAtEpochMs")
+            .and_then(|value| u64::try_from(value).ok()),
     })
 }
 
 pub fn apply_external_anime_local_defaults(
     mut settings: HeadlessServerSettings,
 ) -> HeadlessServerSettings {
+    if settings.external_anime.my_anime_list_client_id.is_none() {
+        settings.external_anime.my_anime_list_client_id = embedded_my_anime_list_client_id();
+    }
     if let Some(defaults) = ExternalAnimeLocalCredentialDefaults::load_from_process() {
         settings.external_anime = merge_external_anime_settings(settings.external_anime, defaults);
     }
     settings
+}
+
+pub fn embedded_my_anime_list_client_id() -> Option<String> {
+    option_env!("DANMAKU_MYANIMELIST_CLIENT_ID")
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
 }
 
 fn merge_external_anime_settings(
@@ -452,6 +526,8 @@ fn merge_external_anime_settings(
         settings.my_anime_list_client_secret.is_some() || settings.has_my_anime_list_client_secret;
     settings.has_my_anime_list_access_token =
         settings.my_anime_list_access_token.is_some() || settings.has_my_anime_list_access_token;
+    settings.has_my_anime_list_refresh_token =
+        settings.my_anime_list_refresh_token.is_some() || settings.has_my_anime_list_refresh_token;
     settings.has_bangumi_access_token =
         settings.bangumi_access_token.is_some() || settings.has_bangumi_access_token;
     settings

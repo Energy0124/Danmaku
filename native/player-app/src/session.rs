@@ -19,6 +19,13 @@ use crate::{
         PlaybackProgress, fetch_attention, fetch_catalog, fetch_progress, fetch_progress_list,
         fetch_server_status, upload_progress,
     },
+    tracking::{
+        ExternalAnimeId, ExternalProvider, ProviderAccounts, SearchCandidate, TrackingDocument,
+        TrackingUpdateValue, bind_mal_callback, complete_my_anime_list_oauth, connect_bangumi,
+        delete_mapping, disconnect_account, fetch_accounts, fetch_tracking, import_conflict,
+        refresh_readback, save_mapping, search, start_my_anime_list_oauth, sync_updates,
+        wait_for_mal_callback,
+    },
 };
 
 pub enum SessionEvent {
@@ -59,6 +66,13 @@ pub enum SessionEvent {
     BangumiDetail {
         anime_id: u64,
         result: Result<BangumiDetail, String>,
+    },
+    ProviderAccounts(Result<ProviderAccounts, String>),
+    MyAnimeListOAuthReady(Result<String, String>),
+    Tracking(Result<TrackingDocument, String>),
+    TrackingSearch {
+        local_series_id: String,
+        result: Result<Vec<SearchCandidate>, String>,
     },
 }
 
@@ -125,6 +139,8 @@ impl LibrarySession {
         session.refresh_attention();
         session.refresh_progress();
         session.refresh_server_scan();
+        session.refresh_provider_accounts();
+        session.refresh_tracking();
         session
     }
 
@@ -167,6 +183,8 @@ impl LibrarySession {
         self.refresh_attention();
         self.refresh_progress();
         self.refresh_server_scan();
+        self.refresh_provider_accounts();
+        self.refresh_tracking();
     }
 
     pub fn refresh_catalog(&mut self) {
@@ -380,6 +398,186 @@ impl LibrarySession {
         });
     }
 
+    pub fn refresh_provider_accounts(&self) {
+        let Some((base_url, token)) = self.authenticated_server() else {
+            return;
+        };
+        self.spawn(
+            move |_| SessionEvent::ProviderAccounts(fetch_accounts(&base_url, &token)),
+            String::new(),
+        );
+    }
+
+    pub fn start_my_anime_list_oauth(&self) {
+        let Some((base_url, token)) = self.authenticated_server() else {
+            return;
+        };
+        let inbox = Arc::clone(&self.inbox);
+        let context = self.egui_context.clone();
+        std::thread::spawn(move || {
+            let listener = match bind_mal_callback() {
+                Ok(listener) => listener,
+                Err(error) => {
+                    push_event(
+                        &inbox,
+                        &context,
+                        SessionEvent::MyAnimeListOAuthReady(Err(error)),
+                    );
+                    return;
+                }
+            };
+            let started = match start_my_anime_list_oauth(&base_url, &token) {
+                Ok(started) => started,
+                Err(error) => {
+                    push_event(
+                        &inbox,
+                        &context,
+                        SessionEvent::MyAnimeListOAuthReady(Err(error)),
+                    );
+                    return;
+                }
+            };
+            push_event(
+                &inbox,
+                &context,
+                SessionEvent::MyAnimeListOAuthReady(Ok(started.authorization_url.clone())),
+            );
+            let result = wait_for_mal_callback(listener).and_then(|(state, code)| {
+                complete_my_anime_list_oauth(&base_url, &token, &started.flow_id, &state, &code)
+            });
+            push_event(&inbox, &context, SessionEvent::ProviderAccounts(result));
+        });
+    }
+
+    pub fn connect_bangumi(&self, access_token: String) {
+        let Some((base_url, token)) = self.authenticated_server() else {
+            return;
+        };
+        self.spawn(
+            move |_| {
+                SessionEvent::ProviderAccounts(connect_bangumi(&base_url, &token, &access_token))
+            },
+            String::new(),
+        );
+    }
+
+    pub fn disconnect_provider(&self, provider: ExternalProvider) {
+        let Some((base_url, token)) = self.authenticated_server() else {
+            return;
+        };
+        self.spawn(
+            move |_| {
+                SessionEvent::ProviderAccounts(disconnect_account(&base_url, &token, provider))
+            },
+            String::new(),
+        );
+    }
+
+    pub fn refresh_tracking(&self) {
+        let Some((base_url, token)) = self.authenticated_server() else {
+            return;
+        };
+        self.spawn(
+            move |_| SessionEvent::Tracking(fetch_tracking(&base_url, &token)),
+            String::new(),
+        );
+    }
+
+    pub fn refresh_tracking_readback(&self) {
+        let Some((base_url, token)) = self.authenticated_server() else {
+            return;
+        };
+        self.spawn(
+            move |_| SessionEvent::Tracking(refresh_readback(&base_url, &token)),
+            String::new(),
+        );
+    }
+
+    pub fn sync_tracking(&self, updates: Vec<TrackingUpdateValue>) {
+        let Some((base_url, token)) = self.authenticated_server() else {
+            return;
+        };
+        self.spawn(
+            move |_| SessionEvent::Tracking(sync_updates(&base_url, &token, &updates)),
+            String::new(),
+        );
+    }
+
+    pub fn search_tracking(
+        &self,
+        local_series_id: String,
+        query: String,
+        provider: Option<ExternalProvider>,
+    ) {
+        let base_url = self.base_url.clone();
+        self.spawn(
+            move |_| SessionEvent::TrackingSearch {
+                local_series_id,
+                result: search(&base_url, &query, provider),
+            },
+            String::new(),
+        );
+    }
+
+    pub fn save_tracking_mapping(&self, local_series_id: String, anime_id: ExternalAnimeId) {
+        let Some((base_url, token)) = self.authenticated_server() else {
+            return;
+        };
+        self.spawn(
+            move |_| {
+                SessionEvent::Tracking(save_mapping(&base_url, &token, &local_series_id, &anime_id))
+            },
+            String::new(),
+        );
+    }
+
+    pub fn delete_tracking_mapping(&self, local_series_id: String, anime_id: ExternalAnimeId) {
+        let Some((base_url, token)) = self.authenticated_server() else {
+            return;
+        };
+        self.spawn(
+            move |_| {
+                SessionEvent::Tracking(delete_mapping(
+                    &base_url,
+                    &token,
+                    &local_series_id,
+                    &anime_id,
+                ))
+            },
+            String::new(),
+        );
+    }
+
+    pub fn import_tracking_conflict(
+        &self,
+        local_series_id: String,
+        anime_id: ExternalAnimeId,
+        expected_external_watched_episodes: u32,
+    ) {
+        let Some((base_url, token)) = self.authenticated_server() else {
+            return;
+        };
+        self.spawn(
+            move |_| {
+                SessionEvent::Tracking(import_conflict(
+                    &base_url,
+                    &token,
+                    &local_series_id,
+                    &anime_id,
+                    expected_external_watched_episodes,
+                ))
+            },
+            String::new(),
+        );
+    }
+
+    fn authenticated_server(&self) -> Option<(String, String)> {
+        if !self.connected {
+            return None;
+        }
+        Some((self.base_url.clone(), self.pairing_token.clone()?))
+    }
+
     /// Drains background events into session state and returns the ones the
     /// app itself must react to (resume lookups, danmaku loads).
     pub fn drain_events(&mut self) -> Vec<SessionEvent> {
@@ -467,6 +665,14 @@ impl LibrarySession {
             egui_context.request_repaint();
         });
     }
+}
+
+fn push_event(inbox: &Arc<Mutex<Vec<SessionEvent>>>, context: &egui::Context, event: SessionEvent) {
+    inbox
+        .lock()
+        .expect("session inbox should not be poisoned")
+        .push(event);
+    context.request_repaint();
 }
 
 #[cfg(test)]

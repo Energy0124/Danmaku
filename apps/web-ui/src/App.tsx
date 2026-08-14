@@ -2,24 +2,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DanmakuApiError,
   DandanplayResolveResult,
-  ExternalAnimeId,
-  ExternalAnimeMatchCandidate,
-  ExternalAnimeListEntry,
-  ExternalAnimeListStatus,
-  ExternalAnimeProvider,
   LanProviderRuntimeStatus,
   LibraryCatalog,
   LibraryMediaItem,
   PlaybackProgress,
   fetchDandanplayResolve,
-  fetchExternalListEntry,
   fetchLibrarySnapshot,
   fetchProviderRuntime,
-  fetchProviderSearch,
   mediaUrl,
   normalizeBaseUrl,
   posterUrl,
-  saveExternalListEntry,
   saveProgress,
   subtitleUrl
 } from "./api";
@@ -31,15 +23,8 @@ import {
 } from "./danmakuOverlayPreferences";
 import { createPlaybackProgress, resumePositionMs } from "./playbackProgress";
 import { ProviderSettingsPanel } from "./ProviderSettingsPanel";
+import { ProviderAccountsPanel } from "./ProviderAccountsPanel";
 import { TrackingAdminPanel } from "./TrackingAdminPanel";
-
-const externalListStatuses: ExternalAnimeListStatus[] = [
-  "WATCHING",
-  "COMPLETED",
-  "ON_HOLD",
-  "DROPPED",
-  "PLAN_TO_WATCH"
-];
 
 export function App() {
   const defaultBaseUrl = window.location.origin;
@@ -48,6 +33,7 @@ export function App() {
   const [catalog, setCatalog] = useState<LibraryCatalog | null>(null);
   const [progress, setProgress] = useState<PlaybackProgress[]>([]);
   const [providerRuntime, setProviderRuntime] = useState<LanProviderRuntimeStatus | null>(null);
+  const [providerAccountRefreshVersion, setProviderAccountRefreshVersion] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -138,8 +124,19 @@ export function App() {
       ) : null}
 
       {catalog ? (
+        <ProviderAccountsPanel
+          baseUrl={normalizedBaseUrl}
+          refreshVersion={providerAccountRefreshVersion}
+          token={pairingToken}
+        />
+      ) : null}
+
+      {catalog ? (
         <TrackingAdminPanel
           baseUrl={normalizedBaseUrl}
+          onAccountStatusMayHaveChanged={() =>
+            setProviderAccountRefreshVersion((version) => version + 1)
+          }
           token={pairingToken}
         />
       ) : null}
@@ -257,40 +254,12 @@ function PlayerPanel({
   const lastSavedAtRef = useRef(0);
   const resumeAppliedForItemRef = useRef<string | null>(null);
   const poster = posterUrl(baseUrl, token, item);
-  const defaultSearchQuery = useMemo(() => defaultProviderSearchQuery(item), [item]);
   const [dandanplay, setDandanplay] = useState<DandanplayResolveResult | null>(null);
   const [dandanplayMessage, setDandanplayMessage] = useState("");
   const [isDandanplayLoading, setIsDandanplayLoading] = useState(false);
   const [danmakuOverlayPreferences, setDanmakuOverlayPreferences] =
     useState(loadDanmakuOverlayPreferences);
   const [visibleDanmakuComments, setVisibleDanmakuComments] = useState<VisibleDanmakuComment[]>([]);
-  const [externalListProvider, setExternalListProvider] =
-    useState<ExternalAnimeProvider>("MY_ANIME_LIST");
-  const [externalAnimeId, setExternalAnimeId] = useState("");
-  const [externalListStatus, setExternalListStatus] =
-    useState<ExternalAnimeListStatus>("WATCHING");
-  const [externalWatchedEpisodes, setExternalWatchedEpisodes] = useState("");
-  const [externalScore, setExternalScore] = useState("");
-  const [externalListEntry, setExternalListEntry] = useState<ExternalAnimeListEntry | null>(null);
-  const [externalListMessage, setExternalListMessage] = useState("");
-  const [isExternalListLoading, setIsExternalListLoading] = useState(false);
-  const [providerSearchQuery, setProviderSearchQuery] = useState(defaultSearchQuery);
-  const [providerSearchProvider, setProviderSearchProvider] =
-    useState<ExternalAnimeProvider>("MY_ANIME_LIST");
-  const [providerSearchResults, setProviderSearchResults] = useState<ExternalAnimeMatchCandidate[]>([]);
-  const [providerSearchMessage, setProviderSearchMessage] = useState("");
-  const [isProviderSearchLoading, setIsProviderSearchLoading] = useState(false);
-  const mappedExternalAnimeIds = useMemo(() => trackableExternalAnimeIds(item), [item]);
-  const externalListCapability = externalListProvider === "MY_ANIME_LIST"
-    ? providerRuntime?.myAnimeList
-    : providerRuntime?.bangumi;
-  const externalListCanRead = externalListCapability?.listReadAvailable ?? false;
-  const externalListCanWrite = externalListCapability?.listWriteAvailable ?? false;
-  const providerSearchCapability = providerSearchProvider === "MY_ANIME_LIST"
-    ? providerRuntime?.myAnimeList
-    : providerRuntime?.bangumi;
-  const providerSearchAvailable = providerSearchCapability?.searchAvailable ?? false;
-  const parsedExternalAnimeId = parsePositiveExternalAnimeId(externalAnimeId);
   const danmakuOverlayEnabled = danmakuOverlayPreferences.enabled;
   const danmakuDensity = danmakuOverlayPreferences.density;
   const danmakuOffsetSeconds = danmakuOverlayPreferences.offsetSeconds;
@@ -304,24 +273,7 @@ function PlayerPanel({
     setDandanplay(null);
     setDandanplayMessage("");
     setVisibleDanmakuComments([]);
-    setExternalListEntry(null);
-    setExternalListMessage("");
-    setProviderSearchQuery(defaultSearchQuery);
-    setProviderSearchResults([]);
-    setProviderSearchMessage("");
-    const mappedAnimeId = mappedExternalAnimeIds[0];
-    if (mappedAnimeId) {
-      setExternalListProvider(mappedAnimeId.provider);
-      setExternalAnimeId(String(mappedAnimeId.value));
-    } else {
-      setExternalAnimeId("");
-    }
-  }, [item.id, defaultSearchQuery, mappedExternalAnimeIds]);
-
-  useEffect(() => {
-    setExternalListEntry(null);
-    setExternalListMessage("");
-  }, [externalListProvider, externalAnimeId]);
+  }, [item.id]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -400,95 +352,6 @@ function PlayerPanel({
     } finally {
       setIsDandanplayLoading(false);
     }
-  }
-
-  async function searchProviderMappings() {
-    const title = providerSearchQuery.trim();
-    if (!title) {
-      setProviderSearchMessage("Enter a title to search.");
-      return;
-    }
-    setIsProviderSearchLoading(true);
-    setProviderSearchMessage("Searching provider catalog...");
-    try {
-      const candidates = await fetchProviderSearch(baseUrl, token, title, {
-        providers: [providerSearchProvider],
-        limit: 6,
-        episodeCount: item.animeMetadata?.episodeCount ?? undefined,
-        startYear: item.animeMetadata?.startYear ?? undefined
-      });
-      setProviderSearchResults(candidates);
-      setProviderSearchMessage(
-        candidates.length > 0 ? `${candidates.length} candidate${candidates.length === 1 ? "" : "s"} found.` : "No provider candidates found."
-      );
-    } catch (error) {
-      setProviderSearchResults([]);
-      setProviderSearchMessage(error instanceof DanmakuApiError ? error.message : "Provider search failed.");
-    } finally {
-      setIsProviderSearchLoading(false);
-    }
-  }
-
-  function selectProviderCandidate(candidate: ExternalAnimeMatchCandidate) {
-    setExternalListProvider(candidate.anime.id.provider);
-    setExternalAnimeId(String(candidate.anime.id.value));
-    setExternalListEntry(null);
-    setExternalListMessage(`${formatProviderCandidateTitle(candidate)} selected for list controls.`);
-  }
-
-  async function readExternalListEntry() {
-    if (parsedExternalAnimeId == null) {
-      setExternalListMessage("Enter a positive MAL or Bangumi anime ID.");
-      return;
-    }
-    setIsExternalListLoading(true);
-    setExternalListMessage("Reading external list entry...");
-    try {
-      const entry = await fetchExternalListEntry(baseUrl, token, {
-        provider: externalListProvider,
-        value: parsedExternalAnimeId
-      });
-      applyExternalListEntry(entry);
-      setExternalListMessage(formatExternalListEntry(entry));
-    } catch (error) {
-      setExternalListEntry(null);
-      setExternalListMessage(error instanceof DanmakuApiError ? error.message : "External list readback failed.");
-    } finally {
-      setIsExternalListLoading(false);
-    }
-  }
-
-  async function writeExternalListEntry() {
-    if (parsedExternalAnimeId == null) {
-      setExternalListMessage("Enter a positive MAL or Bangumi anime ID.");
-      return;
-    }
-    setIsExternalListLoading(true);
-    setExternalListMessage("Updating external list entry...");
-    try {
-      const entry = await saveExternalListEntry(baseUrl, token, {
-        animeId: {
-          provider: externalListProvider,
-          value: parsedExternalAnimeId
-        },
-        status: externalListStatus,
-        watchedEpisodes: parseOptionalInteger(externalWatchedEpisodes, 0, 10_000, "Episodes"),
-        score: parseOptionalInteger(externalScore, 0, 10, "Score")
-      });
-      applyExternalListEntry(entry);
-      setExternalListMessage(formatExternalListEntry(entry));
-    } catch (error) {
-      setExternalListMessage(error instanceof Error ? error.message : "External list update failed.");
-    } finally {
-      setIsExternalListLoading(false);
-    }
-  }
-
-  function applyExternalListEntry(entry: ExternalAnimeListEntry) {
-    setExternalListEntry(entry);
-    setExternalListStatus(entry.status ?? externalListStatus);
-    setExternalWatchedEpisodes(entry.watchedEpisodes == null ? "" : String(entry.watchedEpisodes));
-    setExternalScore(entry.score == null ? "" : String(entry.score));
   }
 
   async function persist(video: HTMLVideoElement, force = false, keepalive = false) {
@@ -624,7 +487,10 @@ function PlayerPanel({
         ) : null}
       </section>
 
-      <section className="provider-panel external-list-panel">
+      {/* Direct one-off list editing was removed from the consumer surface.
+          Persistent mapping, readback, conflict handling, and confirmed writes
+          now live in Tracking administration.
+      <section className="provider-panel external-list-panel" aria-hidden="true">
         <div className="provider-panel-header">
           <div>
             <h3>External list</h3>
@@ -633,7 +499,7 @@ function PlayerPanel({
                 (externalListCapability
                   ? externalListCanRead || externalListCanWrite
                     ? "List sync credentials are ready."
-                    : `List sync unavailable: ${externalListCapability.reasonCode}`
+                    : `List sync unavailable: ${externalListCapability!.reasonCode}`
                   : "Connect to see list sync readiness.")}
             </p>
           </div>
@@ -772,23 +638,24 @@ function PlayerPanel({
           <dl className="provider-summary external-list-summary">
             <div>
               <dt>Provider</dt>
-              <dd>{externalListEntry.animeId.provider}</dd>
+              <dd>{externalListEntry!.animeId.provider}</dd>
             </div>
             <div>
               <dt>Status</dt>
-              <dd>{externalListEntry.status ? formatListStatus(externalListEntry.status) : "None"}</dd>
+              <dd>{externalListEntry!.status ? formatListStatus(externalListEntry!.status!) : "None"}</dd>
             </div>
             <div>
               <dt>Episodes</dt>
-              <dd>{externalListEntry.watchedEpisodes ?? "None"}</dd>
+              <dd>{externalListEntry!.watchedEpisodes ?? "None"}</dd>
             </div>
             <div>
               <dt>Score</dt>
-              <dd>{externalListEntry.score ?? "None"}</dd>
+              <dd>{externalListEntry!.score ?? "None"}</dd>
             </div>
           </dl>
         ) : null}
       </section>
+      */}
 
       <div className="video-stage">
         <video
@@ -863,96 +730,6 @@ function describeDandanplayError(error: unknown): string {
 function formatDandanplayMatch(match?: DandanplayResolveResult["selectedMatch"]): string {
   if (!match) return "None";
   return match.displayTitle;
-}
-
-function defaultProviderSearchQuery(item: LibraryMediaItem): string {
-  return item.animeMetadata?.displayTitle || item.animeMetadata?.primaryTitle || item.seriesTitle;
-}
-
-function formatProviderCandidateTitle(candidate: ExternalAnimeMatchCandidate): string {
-  return (
-    candidate.anime.titles.english ||
-    candidate.anime.titles.japanese ||
-    candidate.anime.titles.chinese ||
-    candidate.anime.titles.primary
-  );
-}
-
-function formatProviderCandidateMeta(candidate: ExternalAnimeMatchCandidate): string {
-  const details = [formatConfidenceScore(candidate.confidence)];
-  if (candidate.matchedTitle) details.push(`matched ${candidate.matchedTitle}`);
-  if (candidate.anime.episodeCount != null) details.push(`${candidate.anime.episodeCount} eps`);
-  if (candidate.anime.startYear != null) details.push(String(candidate.anime.startYear));
-  return details.join(" | ");
-}
-
-function formatConfidenceScore(confidence: number): string {
-  return Number.isFinite(confidence) ? `score ${confidence.toFixed(2)}` : "score unknown";
-}
-
-function formatExternalListEntry(entry: ExternalAnimeListEntry): string {
-  const status = entry.status ? formatListStatus(entry.status) : "no status";
-  const episodes = entry.watchedEpisodes == null ? "unknown episodes" : `${entry.watchedEpisodes} episodes`;
-  const score = entry.score == null ? "no score" : `score ${entry.score}`;
-  return `${status}, ${episodes}, ${score}`;
-}
-
-function formatListStatus(status: ExternalAnimeListStatus): string {
-  return status
-    .toLocaleLowerCase()
-    .split("_")
-    .map((part) => part.charAt(0).toLocaleUpperCase() + part.slice(1))
-    .join(" ");
-}
-
-function parsePositiveExternalAnimeId(value: string): number | null {
-  const parsed = Number(value.trim());
-  if (!Number.isInteger(parsed) || parsed <= 0) return null;
-  return parsed;
-}
-
-function trackableExternalAnimeIds(item: LibraryMediaItem): ExternalAnimeId[] {
-  const ids = [
-    item.animeMetadata?.animeId,
-    ...(item.animeMetadata?.externalLinks ?? []).map((link) => link.animeId)
-  ];
-  const seen = new Set<string>();
-  return ids.filter((animeId): animeId is ExternalAnimeId => {
-    if (!animeId || !isExternalListProvider(animeId.provider)) return false;
-    const key = `${animeId.provider}:${animeId.value}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-
-function isExternalListProvider(provider: ExternalAnimeProvider): boolean {
-  return provider === "MY_ANIME_LIST" || provider === "BANGUMI";
-}
-
-function formatExternalAnimeId(animeId: ExternalAnimeId): string {
-  return `${providerLabel(animeId.provider)} ${animeId.value}`;
-}
-
-function providerLabel(provider: ExternalAnimeProvider): string {
-  switch (provider) {
-    case "MY_ANIME_LIST":
-      return "MAL";
-    case "BANGUMI":
-      return "Bangumi";
-    case "DANDANPLAY":
-      return "Dandanplay";
-  }
-}
-
-function parseOptionalInteger(value: string, min: number, max: number, label: string): number | undefined {
-  const trimmed = value.trim();
-  if (!trimmed) return undefined;
-  const parsed = Number(trimmed);
-  if (!Number.isInteger(parsed) || parsed < min || parsed > max) {
-    throw new Error(`${label} must be an integer between ${min} and ${max}.`);
-  }
-  return parsed;
 }
 
 function formatTimestamp(timestampMs: number): string {
