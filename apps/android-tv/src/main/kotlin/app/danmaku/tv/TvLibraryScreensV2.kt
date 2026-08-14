@@ -118,6 +118,17 @@ internal fun TvFolderBrowserScreen(
     val listing = remember(catalog, route.path) {
         catalog?.folderListing(route.path) ?: LibraryFolderListing()
     }
+    val validFocusKeys = remember(catalog, listing, route.path) {
+        buildSet {
+            if (route.path.isNotEmpty()) add("folder-up")
+            if (catalog == null || (listing.folders.isEmpty() && listing.files.isEmpty())) {
+                add("folder-empty")
+            }
+            listing.folders.forEach { add("folder:${it.name}") }
+            listing.files.forEach { add("file:${it.id}") }
+        }
+    }
+    val fallbackToDefault = navigator.savedFocus(route) !in validFocusKeys
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -143,6 +154,7 @@ internal fun TvFolderBrowserScreen(
                                 route,
                                 "folder-up",
                                 isDefault = listing.folders.isEmpty() && listing.files.isEmpty(),
+                                fallbackToDefault = fallbackToDefault,
                             )
                             .tvFocusHalo(RoundedCornerShape(18.dp))
                             .testTag("folder-up"),
@@ -165,7 +177,8 @@ internal fun TvFolderBrowserScreen(
                         navigator,
                         route,
                         "folder-empty",
-                        isDefault = true,
+                        isDefault = route.path.isEmpty(),
+                        fallbackToDefault = fallbackToDefault,
                     )
                     .focusable()
                     .testTag("folder-empty"),
@@ -181,6 +194,7 @@ internal fun TvFolderBrowserScreen(
                         route,
                         "folder-empty",
                         isDefault = route.path.isEmpty(),
+                        fallbackToDefault = fallbackToDefault,
                     )
                     .focusable()
                     .testTag("folder-empty"),
@@ -205,6 +219,7 @@ internal fun TvFolderBrowserScreen(
                         navigator = navigator,
                         focusKey = "folder:${folder.name}",
                         isDefault = isFirst,
+                        fallbackToDefault = fallbackToDefault,
                         testTag = "folder-entry:${folder.name}",
                         onClick = { onOpenFolder(folder.name) },
                     )
@@ -221,6 +236,7 @@ internal fun TvFolderBrowserScreen(
                         navigator = navigator,
                         focusKey = "file:${item.id}",
                         isDefault = listing.folders.isEmpty() && item == listing.files.firstOrNull(),
+                        fallbackToDefault = fallbackToDefault,
                         testTag = "folder-file:${item.id}",
                         onClick = { onOpenFile(item.id) },
                     )
@@ -378,6 +394,7 @@ private fun TvFolderRow(
     navigator: TvNavigator,
     focusKey: String,
     isDefault: Boolean,
+    fallbackToDefault: Boolean,
     testTag: String,
     onClick: () -> Unit,
 ) {
@@ -391,6 +408,7 @@ private fun TvFolderRow(
                 route,
                 focusKey,
                 isDefault = isDefault,
+                fallbackToDefault = fallbackToDefault,
             )
             .tvFocusHalo(RoundedCornerShape(18.dp))
             .testTag(testTag),

@@ -20,6 +20,8 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.pressKey
+import app.danmaku.domain.LibraryCatalog
+import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.PlaybackCommand
 import app.danmaku.domain.PlaybackPosition
 import app.danmaku.domain.PlaybackSnapshot
@@ -347,6 +349,65 @@ class TvFocusNavigationTest {
             check(openedFolder == "M:\\Anime")
         }
     }
+
+    @Test
+    fun folderBrowserFallsBackWhenSavedEntryDisappears() {
+        val route = TvRoute.FolderBrowser()
+        val navigator = TvNavigator(route)
+        var browse by mutableStateOf(
+            TvBrowseUiState(catalog = folderCatalog("alpha", "Alpha/Episode 1.mkv")),
+        )
+
+        composeRule.setContent {
+            DanmakuTvTheme {
+                TvFolderBrowserScreen(
+                    route = route,
+                    navigation = navigator.state.value,
+                    navigator = navigator,
+                    browse = browse,
+                    onOpenFolder = {},
+                    onOpenFile = {},
+                    onNavigateUp = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("folder-entry:Alpha").assertIsFocused()
+
+        composeRule.runOnIdle {
+            browse = TvBrowseUiState(catalog = folderCatalog("beta", "Beta/Episode 1.mkv"))
+        }
+        composeRule.onNodeWithTag("folder-entry:Beta").assertIsFocused()
+
+        composeRule.runOnIdle {
+            browse = TvBrowseUiState(
+                catalog = LibraryCatalog(
+                    rootName = "Anime",
+                    indexedAtEpochMs = 3,
+                    items = emptyList(),
+                ),
+            )
+        }
+        composeRule.onNodeWithTag("folder-empty").assertIsFocused()
+    }
+
+    private fun folderCatalog(id: String, relativePath: String) =
+        LibraryCatalog(
+            rootName = "Anime",
+            indexedAtEpochMs = 2,
+            items = listOf(
+                LibraryMediaItem(
+                    id = id,
+                    seriesTitle = "Series $id",
+                    episodeTitle = "Episode 1",
+                    relativePath = relativePath,
+                    sizeBytes = 1,
+                    mediaType = "video/mp4",
+                    streamPath = "/media/$id",
+                ),
+            ),
+        )
+
     private fun TvQaFixture.session(): TvSessionUiState =
         TvSessionUiState(
             serverUrl = "http://10.0.2.2:18688",
