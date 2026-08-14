@@ -2,7 +2,7 @@
 name = "player-windows-mpv"
 version = "0.1.0"
 edition = "2024"
-description = "Dependency-free Windows libmpv loader"
+description = "Dependency-free cross-platform libmpv loader and renderer"
 license = "MIT"
 
 [lib]

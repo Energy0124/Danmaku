@@ -1,7 +1,8 @@
 # Roadmap
 
 Windows, Android mobile/tablet, and Android TV are the first-class targets.
-macOS and other platforms are deferred until those workflows are dependable.
+macOS now has an experimental Rust-native development slice; promotion remains
+deferred until its release and provider gaps are closed.
 
 ## 1. Native Windows Release Quality
 
@@ -50,8 +51,14 @@ Status: not implemented in the active applications.
 
 ## 6. Platform Expansion
 
-Status: deferred.
+Status: macOS development slice implemented; release promotion deferred.
 
 - Re-audit the pinned libmpv dependency before changing its producer or hash.
-- Consider macOS, Linux, iOS/iPadOS, and broader web delivery only after the
+- Add a reviewed redistributable macOS libmpv artifact or a documented external
+  dependency policy, then release signing and notarization.
+- Add cross-platform provider HTTPS and protected credential persistence before
+  treating the local macOS server as feature-complete.
+- Run supervised Apple Silicon and Intel playback/resize/fullscreen/hardware
+  decode QA before promotion.
+- Consider Linux, iOS/iPadOS, and broader web delivery only after the
   first-class release gates pass.

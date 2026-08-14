@@ -185,6 +185,49 @@ jobs:
           path: build/release/rust-library-server/*.zip
           if-no-files-found: error
 
+  macos-native:
+    name: macOS native build and package
+    runs-on: macos-14
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/web-ui/package-lock.json
+
+      - name: Install macOS libmpv
+        run: brew install mpv
+
+      - name: Check Rust formatting
+        run: cargo fmt --all --check
+
+      - name: Test Rust workspace on macOS
+        run: cargo test --workspace
+
+      - name: Build packaged web UI
+        working-directory: apps/web-ui
+        run: |
+          npm ci
+          npm run build
+
+      - name: Package and verify macOS app
+        run: ./tools/macos/prepare-rust-player-release.sh
+
+      - name: Upload macOS Native Player
+        uses: actions/upload-artifact@v7
+        with:
+          name: danmaku-macos-native-player
+          path: build/release/macos/*.zip
+          if-no-files-found: error
+
   dandanplay-worker-proxy:
     name: Dandanplay Worker proxy
     runs-on: ubuntu-latest

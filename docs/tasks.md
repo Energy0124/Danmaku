@@ -27,6 +27,9 @@ Status: `[x]` done, `[~]` in progress, `[ ]` not started.
   focus, responsiveness, and real-LAN playback.
 - `[~]` Continue Android mobile/TV and native Windows library polish where
   title clarity, poster state, resume, search, and focus affect daily use.
+- `[~]` Harden the experimental Rust macOS player: provider HTTPS, protected
+  token storage, reviewed libmpv distribution policy, signing/notarization,
+  and supervised Apple Silicon/Intel playback QA remain.
 
 ## Product Backlog
 

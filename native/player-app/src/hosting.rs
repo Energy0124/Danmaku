@@ -1,4 +1,4 @@
-//! Local packaged-server supervision for the unified Windows player.
+//! Local packaged-server supervision for the unified desktop player.
 
 use std::{
     fs::{self, File, OpenOptions},
@@ -14,6 +14,7 @@ use eframe::egui;
 use serde::Deserialize;
 
 use crate::net::http_get;
+use crate::platform::application_support_directory;
 use crate::preferences::DandanplayCredentials;
 
 const DEFAULT_BASE_URL: &str = "http://127.0.0.1:8686";
@@ -125,14 +126,7 @@ impl LocalServerPackage {
             .into_iter()
             .chain([executable_directory.join(server_executable_name())]);
         let executable = candidates.into_iter().find(|path| path.is_file())?;
-        let packaged_web = executable_directory.join("web");
-        let repository_web = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("..")
-            .join("..")
-            .join("apps")
-            .join("web-ui")
-            .join("dist");
-        let web_assets = [packaged_web, repository_web]
+        let web_assets = web_asset_candidates(executable_directory)
             .into_iter()
             .find(|path| path.is_dir());
         Some(Self {
@@ -140,6 +134,22 @@ impl LocalServerPackage {
             web_assets,
         })
     }
+}
+
+fn web_asset_candidates(executable_directory: &Path) -> Vec<PathBuf> {
+    vec![
+        executable_directory.join("web"),
+        executable_directory
+            .join("..")
+            .join("Resources")
+            .join("web"),
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("..")
+            .join("apps")
+            .join("web-ui")
+            .join("dist"),
+    ]
 }
 
 pub struct LocalServerSupervisor {
@@ -600,12 +610,7 @@ fn normalize_roots(roots: &[String]) -> Vec<PathBuf> {
 }
 
 fn default_data_directory() -> PathBuf {
-    std::env::var_os("LOCALAPPDATA")
-        .map(PathBuf::from)
-        .or_else(|| std::env::current_dir().ok())
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("Danmaku")
-        .join("server")
+    application_support_directory().join("server")
 }
 
 fn server_executable_name() -> &'static str {
@@ -677,6 +682,14 @@ mod tests {
             "Z:/definitely-missing-danmaku-root".to_owned(),
         ]);
         assert_eq!(roots, vec![root]);
+    }
+
+    #[test]
+    fn macos_bundle_web_assets_are_discovered_beside_contents_macos() {
+        let executable_directory = Path::new("/Applications/Danmaku.app/Contents/MacOS");
+        assert!(web_asset_candidates(executable_directory).contains(
+            &Path::new("/Applications/Danmaku.app/Contents/MacOS/../Resources/web").to_path_buf()
+        ));
     }
 
     #[test]

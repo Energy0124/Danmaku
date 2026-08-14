@@ -2,7 +2,7 @@
 
 Danmaku is in early foundation work. Contributions are welcome, especially when
 they keep the first release targets focused: Windows desktop, Android, and
-Android TV.
+Android TV, while keeping the experimental Rust macOS slice modular.
 
 By contributing, you agree that your contributions may be distributed under
 the project's [MIT License](LICENSE).
@@ -14,6 +14,8 @@ the project's [MIT License](LICENSE).
   Android application code.
 - Use Media3 ExoPlayer for Android and Android TV playback.
 - Use libmpv for Windows playback.
+- Use the same Rust/libmpv render boundary for experimental macOS playback;
+  keep platform discovery, storage, windowing, and packaging explicit.
 - Keep native APIs coarse-grained and keep platform player types behind clear
   application boundaries.
 

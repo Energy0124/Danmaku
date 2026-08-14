@@ -464,7 +464,11 @@ pub fn resolve_libmpv_path() -> Result<PathBuf, String> {
         .join("..")
         .join("..")
         .join("runtime")
-        .join("windows")
+        .join(if cfg!(target_os = "macos") {
+            "macos"
+        } else {
+            "windows"
+        })
         .join("libmpv")
         .join(LIBMPV_DLL_NAME);
     searched.push(repo_runtime.clone());
@@ -506,7 +510,28 @@ unsafe extern "C" fn get_proc_address(_context: *mut c_void, name: *const c_char
     unsafe { GetProcAddress(module, name) }
 }
 
-#[cfg(not(windows))]
+#[cfg(target_os = "macos")]
+unsafe extern "C" fn get_proc_address(_context: *mut c_void, name: *const c_char) -> *mut c_void {
+    if name.is_null() {
+        return ptr::null_mut();
+    }
+    let module = macos_opengl_module();
+    if module.is_null() {
+        return ptr::null_mut();
+    }
+    unsafe { dlsym(module, name) }
+}
+
+#[cfg(target_os = "macos")]
+fn macos_opengl_module() -> *mut c_void {
+    static OPENGL: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
+    *OPENGL.get_or_init(|| {
+        const OPENGL_FRAMEWORK: &[u8] = b"/System/Library/Frameworks/OpenGL.framework/OpenGL\0";
+        unsafe { dlopen(OPENGL_FRAMEWORK.as_ptr().cast::<c_char>(), 1) as usize }
+    }) as *mut c_void
+}
+
+#[cfg(all(not(windows), not(target_os = "macos")))]
 unsafe extern "C" fn get_proc_address(_context: *mut c_void, _name: *const c_char) -> *mut c_void {
     ptr::null_mut()
 }
@@ -525,14 +550,20 @@ fn is_invalid_gl_proc(address: *mut c_void) -> bool {
     matches!(address as usize, 0 | 1 | 2 | 3 | usize::MAX)
 }
 
-#[cfg(windows)]
+#[cfg(any(windows, target_os = "macos"))]
 fn native_framebuffer_id(framebuffer: glow::NativeFramebuffer) -> i32 {
     framebuffer.0.get() as i32
 }
 
-#[cfg(not(windows))]
+#[cfg(all(not(windows), not(target_os = "macos")))]
 fn native_framebuffer_id(_framebuffer: glow::NativeFramebuffer) -> i32 {
     0
+}
+
+#[cfg(target_os = "macos")]
+unsafe extern "C" {
+    fn dlopen(path: *const c_char, mode: i32) -> *mut c_void;
+    fn dlsym(handle: *mut c_void, symbol: *const c_char) -> *mut c_void;
 }
 
 #[cfg(windows)]
@@ -546,4 +577,18 @@ unsafe extern "system" {
 unsafe extern "system" {
     fn LoadLibraryW(file_name: *const u16) -> *mut c_void;
     fn GetProcAddress(module: *mut c_void, procedure_name: *const c_char) -> *mut c_void;
+}
+
+#[cfg(all(test, target_os = "macos"))]
+mod macos_tests {
+    use super::{dlsym, macos_opengl_module};
+    use std::ffi::c_char;
+
+    #[test]
+    fn opens_the_system_opengl_framework_and_resolves_symbols() {
+        let module = macos_opengl_module();
+        assert!(!module.is_null());
+        let symbol = unsafe { dlsym(module, b"glGetString\0".as_ptr().cast::<c_char>()) };
+        assert!(!symbol.is_null());
+    }
 }

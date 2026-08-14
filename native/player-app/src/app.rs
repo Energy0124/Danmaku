@@ -1318,7 +1318,7 @@ impl PlayerApp {
     }
 
     fn show_window_title_bar(&mut self, ctx: &egui::Context) {
-        if self.fullscreen {
+        if self.fullscreen || !crate::platform::uses_custom_window_chrome() {
             return;
         }
         egui::TopBottomPanel::top("app_window_title_bar")

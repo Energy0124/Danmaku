@@ -4,8 +4,9 @@
 
 Danmaku is a local-first anime library, player, and danmaku application. The
 first-class targets are the Rust-native Windows player, Android mobile/tablet,
-and Android TV. A Rust library server publishes authorized local media to the
-clients over a trusted LAN and serves the browser administration UI.
+and Android TV, with an experimental native macOS build. A Rust library server
+publishes authorized local media to the clients over a trusted LAN and serves
+the browser administration UI.
 
 The project is still in active foundation work. Local library scanning,
 Windows libmpv playback, Android Media3 playback, progress synchronization,
@@ -29,8 +30,8 @@ shared/
 
 native/
   library-server/         Rust library, provider, progress, and web server
-  player-app/             Rust egui/libmpv Windows player
-  player-windows-mpv/     Rust libmpv loader, renderer, and probe
+  player-app/             Rust egui/libmpv Windows and macOS player
+  player-windows-mpv/     Cross-platform Rust libmpv loader, renderer, and probe
   rust-core/              Shared Rust timeline/indexing behavior
 ```
 
@@ -41,7 +42,8 @@ rescan them.
 
 ## Requirements
 
-- Windows x64 and a stable Rust toolchain for the desktop player/server
+- Windows x64 or macOS 12+ and a stable Rust toolchain for the desktop player/server
+- Homebrew `mpv` (`brew install mpv`) for macOS playback and packaging
 - JDK 17 and an Android SDK for Android builds
 - Node 22 for the web UI and dandanplay Worker proxy
 - A connected emulator/device only for Android instrumentation tests
@@ -116,6 +118,28 @@ $package = ".\build\release\rust-player\danmaku-player-0.1.0-windows-x64"
 & "$package\manage-rust-library-background-host.ps1" -Action Install -LibraryRoot "W:\Anime"
 & "$package\manage-rust-library-background-host.ps1" -Action Status
 ```
+
+## macOS Player (Experimental)
+
+The active Rust player also builds as a native macOS application. Install the
+runtime playback dependency and build the verified app bundle:
+
+```bash
+brew install mpv
+./build-macos.sh
+open build/release/macos/danmaku-player-0.1.0-macos-*/Danmaku.app
+```
+
+The package contains `Danmaku.app`, its sibling Rust library server, and the
+web UI. The app discovers Homebrew libmpv on both Apple Silicon and Intel Macs,
+uses native macOS window decorations, stores durable state under
+`~/Library/Application Support/Danmaku`, and stores its session cache under
+`~/Library/Caches/Danmaku`. The package is ad-hoc signed for development, is
+not notarized, and requires Homebrew `mpv` on the target Mac.
+
+Local and trusted-LAN library playback plus local XML/JSON/ASS danmaku are
+available. Online provider HTTPS and secure provider-token persistence remain
+Windows-only in this initial macOS slice; see [Current state](docs/current-state.md).
 
 ## Standalone Library Server
 

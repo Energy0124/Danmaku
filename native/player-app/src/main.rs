@@ -53,7 +53,7 @@ fn main() {
     let mut viewport = egui::ViewportBuilder::default()
         .with_inner_size(initial_window_size)
         .with_min_inner_size([960.0, 600.0])
-        .with_decorations(false)
+        .with_decorations(!danmaku_player::platform::uses_custom_window_chrome())
         .with_title(window_title.clone());
     if let Some(icon) = load_app_icon() {
         viewport = viewport.with_icon(Arc::new(icon));
