@@ -56,6 +56,7 @@ internal class TvSessionViewModel(
         viewModelScope.launch {
             discoveryError.value = null
             repository.refresh().onSuccess { outcome ->
+                if (outcome == TvCatalogRefreshOutcome.Applied) repository.loadTracking()
                 if (
                     navigateOnSuccess &&
                     outcome == TvCatalogRefreshOutcome.Applied
@@ -79,6 +80,7 @@ internal class TvSessionViewModel(
                 repository.refresh()
                     .onSuccess { outcome ->
                         if (outcome == TvCatalogRefreshOutcome.Applied) {
+                            repository.loadTracking()
                             navigator.reset(TvRoute.Home)
                         }
                     }
@@ -96,11 +98,24 @@ internal class TvSessionViewModel(
         }
     }
 
+    fun loadTracking() {
+        viewModelScope.launch { repository.loadTracking() }
+    }
+
+    fun readTracking() {
+        viewModelScope.launch { repository.readTracking() }
+    }
+
+    fun syncTracking() {
+        viewModelScope.launch { repository.syncTracking() }
+    }
+
     fun selectConnection(connection: LanLibraryConnectionProfile) {
         viewModelScope.launch {
             repository.selectConnection(connection)
             val outcome = repository.refresh().getOrNull()
             if (outcome == TvCatalogRefreshOutcome.Stale) return@launch
+            if (outcome == TvCatalogRefreshOutcome.Applied) repository.loadTracking()
             navigator.reset(
                 if (repository.state.value.catalog == null) TvRoute.Pc else TvRoute.Home,
             )

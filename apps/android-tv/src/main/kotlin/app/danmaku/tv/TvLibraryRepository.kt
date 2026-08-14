@@ -8,6 +8,8 @@ import app.danmaku.library.LanLibraryConnectionSession
 import app.danmaku.library.LanPlaybackTarget
 import app.danmaku.library.android.AndroidLanLibraryConnectionStore
 import app.danmaku.library.android.AndroidLibraryFavoriteStore
+import app.danmaku.library.android.LanExternalTrackingClient
+import app.danmaku.library.android.LanExternalTrackingException
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -30,8 +32,10 @@ internal class TvLibraryRepository(
     defaultServerUrl: String,
     defaultPairingToken: String,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val trackingClient: LanExternalTrackingClient = LanExternalTrackingClient(),
 ): TvPlaybackSession {
     private val refreshGeneration = AtomicLong()
+    private val trackingGeneration = AtomicLong()
     private val initialConnections = connectionStore.loadProfiles()
     private val mutableState = MutableStateFlow(
         TvSessionUiState(
@@ -47,15 +51,27 @@ internal class TvLibraryRepository(
 
     fun updateServerUrl(serverUrl: String) {
         invalidateRefresh()
+        invalidateTracking()
         mutableState.update {
-            it.copy(serverUrl = serverUrl, isRefreshing = false, errorMessage = null)
+            it.copy(
+                serverUrl = serverUrl,
+                isRefreshing = false,
+                errorMessage = null,
+                tracking = TvTrackingState(),
+            )
         }
     }
 
     fun updatePairingToken(pairingToken: String) {
         invalidateRefresh()
+        invalidateTracking()
         mutableState.update {
-            it.copy(pairingToken = pairingToken, isRefreshing = false, errorMessage = null)
+            it.copy(
+                pairingToken = pairingToken,
+                isRefreshing = false,
+                errorMessage = null,
+                tracking = TvTrackingState(),
+            )
         }
     }
 
@@ -159,8 +175,136 @@ internal class TvLibraryRepository(
             mutableState.update { it.copy(errorMessage = error.message) }
         }
 
+    suspend fun loadTracking(): Result<Unit> {
+        val request = state.value
+        if (request.serverUrl.isBlank() || request.pairingToken.isBlank()) return Result.success(Unit)
+        val generation = trackingGeneration.incrementAndGet()
+        mutableState.update { it.copy(tracking = it.tracking.copy(isBusy = true, error = null, errorDetail = null)) }
+        return runCatching {
+            withContext(ioDispatcher) {
+                trackingClient.fetchAccounts(request.serverUrl, request.pairingToken) to
+                    trackingClient.fetchTracking(request.serverUrl, request.pairingToken)
+            }
+        }.map { (accounts, document) ->
+            if (trackingGeneration.get() == generation && state.value.matches(request)) {
+                mutableState.update {
+                    it.copy(tracking = TvTrackingState(accounts = accounts, document = document))
+                }
+            }
+        }.onFailure { error ->
+            if (trackingGeneration.get() == generation && state.value.matches(request)) {
+                mutableState.update {
+                    it.copy(
+                        tracking = it.tracking.copy(
+                            isBusy = false,
+                            error = trackingError(error),
+                            errorDetail = trackingErrorDetail(error),
+                        ),
+                    )
+                }
+            }
+            refreshTrackingAccountsAfterFailure(request, generation)
+        }
+    }
+
+    suspend fun readTracking(): Result<Unit> {
+        val request = state.value
+        val generation = trackingGeneration.incrementAndGet()
+        mutableState.update {
+            it.copy(
+                tracking = it.tracking.copy(
+                    isBusy = true,
+                    hasFreshReadback = false,
+                    error = null,
+                    errorDetail = null,
+                    lastOperation = null,
+                    lastResponse = null,
+                ),
+            )
+        }
+        return runCatching {
+            withContext(ioDispatcher) {
+                trackingClient.refreshReadback(request.serverUrl, request.pairingToken)
+            }
+        }.map { response ->
+            if (trackingGeneration.get() == generation && state.value.matches(request)) {
+                mutableState.update {
+                    it.copy(
+                        tracking = it.tracking.copy(
+                            document = response.document,
+                            isBusy = false,
+                            hasFreshReadback = response.errors.isEmpty(),
+                            lastOperation = TvTrackingOperation.READBACK,
+                            lastResponse = response,
+                        ),
+                    )
+                }
+            }
+        }.onFailure { error ->
+            if (trackingGeneration.get() == generation && state.value.matches(request)) {
+                mutableState.update {
+                    it.copy(
+                        tracking = it.tracking.copy(
+                            isBusy = false,
+                            error = trackingError(error),
+                            errorDetail = trackingErrorDetail(error),
+                        ),
+                    )
+                }
+            }
+            refreshTrackingAccountsAfterFailure(request, generation)
+        }
+    }
+
+    suspend fun syncTracking(): Result<Unit> {
+        val request = state.value
+        if (!request.tracking.hasFreshReadback) return Result.success(Unit)
+        val updates = request.tracking.document?.plan?.updates?.map { it.update }.orEmpty()
+        if (updates.isEmpty()) return Result.success(Unit)
+        val generation = trackingGeneration.incrementAndGet()
+        mutableState.update {
+            it.copy(tracking = it.tracking.copy(isBusy = true, hasFreshReadback = false, error = null, errorDetail = null))
+        }
+        return runCatching {
+            withContext(ioDispatcher) {
+                trackingClient.sync(request.serverUrl, request.pairingToken, updates)
+            }
+        }.map { response ->
+            if (trackingGeneration.get() == generation && state.value.matches(request)) {
+                mutableState.update {
+                    it.copy(
+                        tracking = it.tracking.copy(
+                            document = response.document,
+                            isBusy = false,
+                            lastOperation = TvTrackingOperation.SYNC,
+                            lastResponse = response,
+                        ),
+                    )
+                }
+            }
+        }.onFailure { error ->
+            if (trackingGeneration.get() == generation && state.value.matches(request)) {
+                mutableState.update {
+                    it.copy(
+                        tracking = it.tracking.copy(
+                            isBusy = false,
+                            error = if ((error as? LanExternalTrackingException)?.statusCode == 409) {
+                                TvTrackingError.PREVIEW_CHANGED
+                            } else {
+                                trackingError(error)
+                            },
+                            errorDetail = trackingErrorDetail(error),
+                        ),
+                    )
+                }
+            }
+            refreshTrackingAccountsAfterFailure(request, generation)
+        }
+    }
+
     suspend fun selectConnection(connection: LanLibraryConnectionProfile) {
         invalidateRefresh()
+        invalidateTracking()
         mutableState.update {
             it.copy(
                 serverUrl = connection.baseUrl,
@@ -170,6 +314,7 @@ internal class TvLibraryRepository(
                 catalogSource = TvCatalogSource.None,
                 isOffline = false,
                 errorMessage = null,
+                tracking = TvTrackingState(),
             )
         }
         loadCachedCatalog()
@@ -177,6 +322,7 @@ internal class TvLibraryRepository(
 
     suspend fun forgetConnection(connection: LanLibraryConnectionProfile) {
         invalidateRefresh()
+        invalidateTracking()
         withContext(ioDispatcher) {
             connectionStore.forgetProfile(connection.id)
             catalogCache.clear(connection.baseUrl)
@@ -192,6 +338,7 @@ internal class TvLibraryRepository(
                     playbackProgresses = emptyList(),
                     catalogSource = TvCatalogSource.None,
                     isRefreshing = false,
+                    tracking = TvTrackingState(),
                 )
             } else {
                 current.copy(savedConnections = saved, isRefreshing = false)
@@ -232,6 +379,7 @@ internal class TvLibraryRepository(
         target: LanPlaybackTarget,
         progresses: List<PlaybackProgress>,
     ): Boolean {
+        invalidateTracking()
         var applied = false
         var catalogToCache: LibraryCatalog? = null
         var serverUrlToCache: String? = null
@@ -240,7 +388,13 @@ internal class TvLibraryRepository(
             if (applied) {
                 catalogToCache = current.catalog
                 serverUrlToCache = current.serverUrl
-                current.copy(playbackProgresses = progresses)
+                current.copy(
+                    playbackProgresses = progresses,
+                    tracking = current.tracking.copy(
+                        isBusy = false,
+                        hasFreshReadback = false,
+                    ),
+                )
             } else {
                 current
             }
@@ -254,6 +408,48 @@ internal class TvLibraryRepository(
 
     private fun invalidateRefresh() {
         refreshGeneration.incrementAndGet()
+    }
+
+    private fun invalidateTracking() {
+        trackingGeneration.incrementAndGet()
+    }
+
+    private fun TvSessionUiState.matches(other: TvSessionUiState): Boolean =
+        serverUrl.trim().trimEnd('/') == other.serverUrl.trim().trimEnd('/') &&
+            pairingToken == other.pairingToken
+
+    private fun trackingError(error: Throwable): TvTrackingError =
+        if ((error as? LanExternalTrackingException)?.statusCode == 401) {
+            TvTrackingError.ACCESS_CODE_REJECTED
+        } else {
+            TvTrackingError.REQUEST_FAILED
+        }
+
+    private fun trackingErrorDetail(error: Throwable): String? {
+        val providerError = error as? LanExternalTrackingException ?: return null
+        if (providerError.statusCode in setOf(401, 409)) return null
+        return providerError.message
+            ?.trim()
+            ?.lineSequence()
+            ?.firstOrNull()
+            ?.take(240)
+            ?.takeIf(String::isNotBlank)
+    }
+
+    private suspend fun refreshTrackingAccountsAfterFailure(
+        request: TvSessionUiState,
+        generation: Long,
+    ) {
+        val accounts = runCatching {
+            withContext(ioDispatcher) {
+                trackingClient.fetchAccounts(request.serverUrl, request.pairingToken)
+            }
+        }.getOrNull() ?: return
+        if (trackingGeneration.get() == generation && state.value.matches(request)) {
+            mutableState.update { current ->
+                current.copy(tracking = current.tracking.copy(accounts = accounts))
+            }
+        }
     }
 
     private fun TvSessionUiState.matches(target: LanPlaybackTarget): Boolean =

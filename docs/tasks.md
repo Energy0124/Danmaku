@@ -23,6 +23,9 @@ Status: `[x]` done, `[~]` in progress, `[ ]` not started.
 - `[x]` Add native Windows account connection, series mapping, readback,
   conflict import, preview/confirm sync, and episode-completion prompts; keep
   the web UI as an advanced mirror instead of the only usable surface.
+- `[x]` Add Android mobile/TV tracking status, provider readback, full progress
+  preview, and explicit exact-preview sync while keeping administration on
+  Windows/web.
 - `[~]` Complete one budget-class physical Android TV pass for safe areas,
   focus, responsiveness, and real-LAN playback.
 - `[~]` Continue Android mobile/TV and native Windows library polish where

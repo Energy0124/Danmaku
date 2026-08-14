@@ -129,6 +129,9 @@ internal fun TvConsumerShell(
                     onSave = sessionViewModel::saveConnection,
                     onSelectConnection = sessionViewModel::selectConnection,
                     onForgetConnection = sessionViewModel::forgetConnection,
+                    onLoadTracking = sessionViewModel::loadTracking,
+                    onReadTracking = sessionViewModel::readTracking,
+                    onSyncTracking = sessionViewModel::syncTracking,
                 )
             is TvRoute.FolderBrowser ->
                 TvFolderBrowserScreen(
