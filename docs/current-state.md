@@ -41,8 +41,9 @@ Compose macOS artifact are retired.
   dedicated top-level destination backed by shared folder-listing rules.
 - Mobile playback has a responsive side-panel for playback speed, audio and
   subtitle tracks, plus persistent danmaku visibility, opacity, size, travel
-  speed, density, screen area, timing offset, and per-type scrolling/top/bottom
-  visibility controls. TV provides the same per-type controls in its translucent,
+  speed, density, screen area, full-hour timing offset with exact entry and
+  selectable adjustment steps, and per-type scrolling/top/bottom visibility
+  controls. TV provides the same per-type controls in its translucent,
   D-pad-native danmaku panel, with Left/Right value sliders and text sizing down
   to 10%.
 - Native MAL/Bangumi account status, provider readback, exact progress preview,

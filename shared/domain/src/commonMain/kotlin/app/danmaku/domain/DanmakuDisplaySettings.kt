@@ -20,7 +20,9 @@ data class DanmakuDisplaySettings(
     init {
         require(opacityPercent in 0..100) { "opacityPercent must be between 0 and 100" }
         require(fontScalePercent in 50..200) { "fontScalePercent must be between 50 and 200" }
-        require(speedPercent in 25..300) { "speedPercent must be between 25 and 300" }
+        require(speedPercent in MIN_SPEED_PERCENT..MAX_SPEED_PERCENT) {
+            "speedPercent must be between $MIN_SPEED_PERCENT and $MAX_SPEED_PERCENT"
+        }
         require(densityPercent in 10..200) { "densityPercent must be between 10 and 200" }
         require(displayAreaPercent in 10..100) { "displayAreaPercent must be between 10 and 100" }
         require(offsetMs in -MAX_OFFSET_MS..MAX_OFFSET_MS) {
@@ -71,7 +73,9 @@ data class DanmakuDisplaySettings(
     fun shiftedTimestampMs(timestampMs: Long): Long =
         (timestampMs + offsetMs).coerceAtLeast(0)
 
-    private companion object {
+    companion object {
+        const val MIN_SPEED_PERCENT = 25
+        const val MAX_SPEED_PERCENT = 300
         const val MAX_OFFSET_MS = 60L * 60L * 1_000L
     }
 }

@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -25,20 +26,25 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -48,7 +54,10 @@ import app.danmaku.domain.DanmakuDisplaySettings
 import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.PlaybackTrack
 import app.danmaku.domain.PlaybackTrackKind
+import java.util.Locale
+import kotlin.math.abs
 import kotlin.math.roundToInt
+import kotlin.math.roundToLong
 
 @Composable
 internal fun PlaybackOptionsDialog(
@@ -210,8 +219,9 @@ internal fun PlaybackOptionsDialog(
                                 danmakuSettings.speedPercent,
                             ),
                             value = danmakuSettings.speedPercent.toFloat(),
-                            valueRange = 50f..200f,
-                            steps = 14,
+                            valueRange = DanmakuDisplaySettings.MIN_SPEED_PERCENT.toFloat()..
+                                DanmakuDisplaySettings.MAX_SPEED_PERCENT.toFloat(),
+                            steps = 10,
                             testTag = "danmaku-speed-slider",
                             onValueChange = { value ->
                                 onUpdateDanmakuSettings(
@@ -453,17 +463,80 @@ private fun DanmakuTimingControls(
     offsetMs: Long,
     onOffsetChange: (Long) -> Unit,
 ) {
+    var offsetStepMs by remember { mutableStateOf(OFFSET_STEPS_MS.first()) }
+    var offsetText by remember(offsetMs) { mutableStateOf(formatDanmakuOffset(offsetMs)) }
+    val parsedOffset = parseDanmakuOffset(offsetText)
+
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
-            text = stringResource(R.string.danmaku_timing_value, offsetMs / 1_000f),
+            text = stringResource(R.string.danmaku_timing_value, formatDanmakuOffset(offsetMs)),
             style = MaterialTheme.typography.labelLarge,
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            OutlinedTextField(
+                value = offsetText,
+                onValueChange = { value ->
+                    if (value.length <= MAX_OFFSET_INPUT_LENGTH) {
+                        offsetText = value
+                    }
+                },
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag("danmaku-offset-input"),
+                label = { Text(stringResource(R.string.danmaku_timing_exact_label)) },
+                supportingText = { Text(stringResource(R.string.danmaku_timing_exact_hint)) },
+                isError = parsedOffset == null,
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
+            )
+            OutlinedButton(
+                onClick = { parsedOffset?.let(onOffsetChange) },
+                enabled = parsedOffset != null && parsedOffset != offsetMs,
+                modifier = Modifier.testTag("danmaku-offset-apply"),
+            ) {
+                Text(stringResource(R.string.action_apply))
+            }
+        }
+        Text(
+            text = stringResource(R.string.danmaku_timing_step_title),
+            style = MaterialTheme.typography.bodySmall,
+            color = SubtleText,
+        )
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            OFFSET_STEPS_MS.forEach { stepMs ->
+                FilterChip(
+                    selected = offsetStepMs == stepMs,
+                    onClick = { offsetStepMs = stepMs },
+                    label = {
+                        Text(
+                            stringResource(
+                                R.string.danmaku_timing_step_seconds,
+                                formatOffsetStepSeconds(stepMs),
+                            ),
+                        )
+                    },
+                    modifier = Modifier.testTag("danmaku-offset-step:$stepMs"),
+                )
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             OutlinedButton(
-                onClick = { onOffsetChange((offsetMs - OFFSET_STEP_MS).coerceAtLeast(-MAX_OFFSET_MS)) },
+                onClick = {
+                    onOffsetChange(
+                        (offsetMs - offsetStepMs).coerceAtLeast(-DanmakuDisplaySettings.MAX_OFFSET_MS),
+                    )
+                },
+                enabled = offsetMs > -DanmakuDisplaySettings.MAX_OFFSET_MS,
                 modifier = Modifier
                     .weight(1f)
                     .testTag("danmaku-offset-minus"),
@@ -480,7 +553,12 @@ private fun DanmakuTimingControls(
                 Text(stringResource(R.string.action_reset))
             }
             OutlinedButton(
-                onClick = { onOffsetChange((offsetMs + OFFSET_STEP_MS).coerceAtMost(MAX_OFFSET_MS)) },
+                onClick = {
+                    onOffsetChange(
+                        (offsetMs + offsetStepMs).coerceAtMost(DanmakuDisplaySettings.MAX_OFFSET_MS),
+                    )
+                },
+                enabled = offsetMs < DanmakuDisplaySettings.MAX_OFFSET_MS,
                 modifier = Modifier
                     .weight(1f)
                     .testTag("danmaku-offset-plus"),
@@ -496,6 +574,43 @@ private fun PlaybackTrack.optionLabel(): String = label.ifBlank { id }
 private fun formatRate(rate: Float): String =
     if (rate == rate.toInt().toFloat()) rate.toInt().toString() else rate.toString()
 
+internal fun parseDanmakuOffset(value: String): Long? {
+    val match = OFFSET_INPUT_REGEX.matchEntire(value.trim()) ?: return null
+    val sign = if (match.groupValues[1] == "-") -1 else 1
+    val minutes = match.groupValues[2].toLongOrNull() ?: return null
+    val seconds = match.groupValues[3].toDoubleOrNull() ?: return null
+    if (minutes > 60 || seconds >= 60.0 || (minutes == 60L && seconds != 0.0)) return null
+    val magnitudeMs = ((minutes * 60_000.0) + (seconds * 1_000.0)).roundToLong()
+    return (sign * magnitudeMs).takeIf {
+        it in -DanmakuDisplaySettings.MAX_OFFSET_MS..DanmakuDisplaySettings.MAX_OFFSET_MS
+    }
+}
+
+internal fun formatDanmakuOffset(offsetMs: Long): String {
+    val clamped = offsetMs.coerceIn(
+        -DanmakuDisplaySettings.MAX_OFFSET_MS,
+        DanmakuDisplaySettings.MAX_OFFSET_MS,
+    )
+    val magnitudeMs = abs(clamped)
+    val minutes = magnitudeMs / 60_000L
+    val seconds = (magnitudeMs % 60_000L) / 1_000.0
+    return String.format(
+        Locale.US,
+        "%s%02d:%06.3f",
+        if (clamped < 0) "-" else "+",
+        minutes,
+        seconds,
+    )
+}
+
+private fun formatOffsetStepSeconds(stepMs: Long): String =
+    if (stepMs % 1_000L == 0L) {
+        (stepMs / 1_000L).toString()
+    } else {
+        String.format(Locale.US, "%.1f", stepMs / 1_000.0)
+    }
+
 private val PLAYBACK_RATES = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f)
-private const val OFFSET_STEP_MS = 500L
-private const val MAX_OFFSET_MS = 60_000L
+private val OFFSET_STEPS_MS = listOf(500L, 5_000L, 30_000L)
+private val OFFSET_INPUT_REGEX = Regex("^([+-]?)(\\d{1,2}):([0-5]\\d(?:\\.\\d{1,3})?)$")
+private const val MAX_OFFSET_INPUT_LENGTH = 10

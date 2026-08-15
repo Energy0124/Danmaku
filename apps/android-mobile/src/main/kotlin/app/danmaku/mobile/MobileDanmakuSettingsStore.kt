@@ -25,10 +25,16 @@ internal class MobileDanmakuSettingsStore(
             showBottom = preferences.getBoolean(SHOW_BOTTOM, true),
             opacityPercent = preferences.getInt(OPACITY_PERCENT, 90).coerceIn(0, 100),
             fontScalePercent = preferences.getInt(FONT_SCALE_PERCENT, 100).coerceIn(50, 200),
-            speedPercent = preferences.getInt(SPEED_PERCENT, 100).coerceIn(25, 300),
+            speedPercent = preferences.getInt(SPEED_PERCENT, 100).coerceIn(
+                DanmakuDisplaySettings.MIN_SPEED_PERCENT,
+                DanmakuDisplaySettings.MAX_SPEED_PERCENT,
+            ),
             densityPercent = preferences.getInt(DENSITY_PERCENT, 100).coerceIn(10, 200),
             displayAreaPercent = preferences.getInt(DISPLAY_AREA_PERCENT, 50).coerceIn(10, 100),
-            offsetMs = preferences.getLong(OFFSET_MS, 0L).coerceIn(-MAX_OFFSET_MS, MAX_OFFSET_MS),
+            offsetMs = preferences.getLong(OFFSET_MS, 0L).coerceIn(
+                -DanmakuDisplaySettings.MAX_OFFSET_MS,
+                DanmakuDisplaySettings.MAX_OFFSET_MS,
+            ),
         )
 
     override fun save(value: DanmakuDisplaySettings) {
@@ -58,6 +64,5 @@ internal class MobileDanmakuSettingsStore(
         const val DENSITY_PERCENT = "danmaku_density_percent"
         const val DISPLAY_AREA_PERCENT = "danmaku_display_area_percent"
         const val OFFSET_MS = "danmaku_offset_ms"
-        const val MAX_OFFSET_MS = 60L * 60L * 1_000L
     }
 }

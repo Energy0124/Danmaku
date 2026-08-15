@@ -77,6 +77,14 @@ class DanmakuDisplaySettingsTest {
 
     @Test
     fun validatesRangesAndBlankFilters() {
+        DanmakuDisplaySettings(
+            speedPercent = DanmakuDisplaySettings.MIN_SPEED_PERCENT,
+            offsetMs = -DanmakuDisplaySettings.MAX_OFFSET_MS,
+        )
+        DanmakuDisplaySettings(
+            speedPercent = DanmakuDisplaySettings.MAX_SPEED_PERCENT,
+            offsetMs = DanmakuDisplaySettings.MAX_OFFSET_MS,
+        )
         assertFailsWith<IllegalArgumentException> {
             DanmakuDisplaySettings(opacityPercent = -1)
         }
@@ -88,6 +96,12 @@ class DanmakuDisplaySettingsTest {
         }
         assertFailsWith<IllegalArgumentException> {
             DanmakuDisplaySettings(offsetMs = 3_600_001)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            DanmakuDisplaySettings(speedPercent = DanmakuDisplaySettings.MIN_SPEED_PERCENT - 1)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            DanmakuDisplaySettings(speedPercent = DanmakuDisplaySettings.MAX_SPEED_PERCENT + 1)
         }
     }
 

@@ -19,6 +19,8 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.performTextClearance
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.unit.dp
 import app.danmaku.domain.DanmakuDisplaySettings
 import app.danmaku.domain.LibraryMediaItem
@@ -350,8 +352,17 @@ class MobileWatchPageTest {
         composeRule.onNodeWithTag("danmaku-opacity-slider")
             .performScrollTo()
             .performSemanticsAction(SemanticsActions.SetProgress) { it(70f) }
+        composeRule.onNodeWithTag("danmaku-speed-slider")
+            .performScrollTo()
+            .performSemanticsAction(SemanticsActions.SetProgress) { it(300f) }
         composeRule.onNodeWithTag("danmaku-visible-toggle").performScrollTo().performClick()
+        composeRule.onNodeWithTag("danmaku-offset-step:30000").performScrollTo().performClick()
         composeRule.onNodeWithTag("danmaku-offset-plus").performScrollTo().performClick()
+        val offsetInput = composeRule.onNodeWithTag("danmaku-offset-input")
+        offsetInput.performScrollTo()
+        offsetInput.performTextClearance()
+        offsetInput.performTextInput("-02:30.500")
+        composeRule.onNodeWithTag("danmaku-offset-apply").performScrollTo().performClick()
 
         composeRule.runOnIdle {
             assertEquals(1.5f, playbackRate)
@@ -360,7 +371,8 @@ class MobileWatchPageTest {
             assertEquals(false, settings.visible)
             assertEquals(false, settings.showBottom)
             assertEquals(70, settings.opacityPercent)
-            assertEquals(500L, settings.offsetMs)
+            assertEquals(300, settings.speedPercent)
+            assertEquals(-150_500L, settings.offsetMs)
         }
 
         composeRule.onNodeWithTag("playback-options-close").performScrollTo().performClick()
