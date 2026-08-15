@@ -49,8 +49,8 @@ Compose macOS artifact are retired.
   and explicitly confirmed sync; account/mapping/conflict administration stays
   on Windows and the web UI.
 - Dedicated Android TV navigation and D-pad focus, including folder-level back
-  navigation, a responsive snap-open rail with bounded border/color focus
-  indicators, cached-first presentation,
+  navigation, a fixed compact rail with focused-item labels and bounded
+  border/color focus indicators, cached-first presentation,
   latest-request-wins refresh handling, queued playback startup, and benchmark
   journeys.
 - Shared domain, LAN-client, and Media3 modules without a JVM server runtime
