@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredWidthIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.automirrored.filled.List
@@ -308,6 +309,7 @@ private fun TvCompactNavigationItem(
                     .align(Alignment.CenterStart)
                     .offset(x = 80.dp)
                     .zIndex(2f)
+                    .requiredWidthIn(min = 144.dp, max = 280.dp)
                     .clip(RoundedCornerShape(12.dp))
                     .background(TvSurfaceRaised)
                     .border(1.dp, TvAccentBlue, RoundedCornerShape(12.dp))

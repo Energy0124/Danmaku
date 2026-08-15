@@ -306,14 +306,18 @@ class TvFocusNavigationTest {
             }
             .assertIsFocused()
         composeRule.onNodeWithTag("tv-app-rail").assertWidthIsEqualTo(96.dp)
-        composeRule.onNodeWithTag("tv-route-label:Home").assertIsDisplayed()
+        composeRule.onNodeWithTag("tv-route-label:Home")
+            .assertIsDisplayed()
+            .assertWidthIsEqualTo(144.dp)
 
         composeRule.onNodeWithTag("tv-route:Home")
             .performKeyInput { pressKey(Key.DirectionDown) }
         composeRule.onNodeWithTag("tv-route:Library").assertIsFocused()
         composeRule.onNodeWithTag("tv-app-rail").assertWidthIsEqualTo(96.dp)
         composeRule.onAllNodesWithTag("tv-route-label:Home").assertCountEquals(0)
-        composeRule.onNodeWithTag("tv-route-label:Library").assertIsDisplayed()
+        composeRule.onNodeWithTag("tv-route-label:Library")
+            .assertIsDisplayed()
+            .assertWidthIsEqualTo(144.dp)
     }
 
     @Test
