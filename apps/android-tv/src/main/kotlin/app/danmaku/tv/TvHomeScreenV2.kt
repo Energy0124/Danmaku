@@ -170,7 +170,7 @@ private fun TvHomeHero(
                 "home-hero",
                 isDefault = true,
             )
-            .tvFocusHalo(RoundedCornerShape(28.dp), focusedScale = 1f)
+            .tvFocusHalo(RoundedCornerShape(28.dp))
             .testTag("home-hero"),
         colors = tvButtonColors(selected = true),
         shape = ButtonDefaults.shape(RoundedCornerShape(28.dp)),

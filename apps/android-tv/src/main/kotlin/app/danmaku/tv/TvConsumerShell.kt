@@ -1,6 +1,5 @@
 package app.danmaku.tv
 
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -39,6 +38,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Button
+import androidx.tv.material3.ButtonDefaults
 import androidx.tv.material3.Icon
 import androidx.tv.material3.Text
 
@@ -214,10 +214,7 @@ private fun TvCompactNavigationRail(
     onNavigate: (TvRoute) -> Unit,
 ) {
     var railFocused by remember { mutableStateOf(false) }
-    val width by animateDpAsState(
-        targetValue = if (railFocused) 240.dp else 96.dp,
-        label = "tv-navigation-rail-width",
-    )
+    val width = if (railFocused) 240.dp else 96.dp
     val destinations = listOf(
         TvNavItem(TvRoute.Home, R.string.nav_home, Icons.Default.Home),
         TvNavItem(TvRoute.Library, R.string.nav_library, Icons.AutoMirrored.Filled.List),
@@ -253,6 +250,7 @@ private fun TvCompactNavigationRail(
                     .then(if (selected) Modifier.focusRequester(focusRequester) else Modifier)
                     .testTag("tv-route:${item.route.javaClass.simpleName}"),
                 colors = tvButtonColors(selected),
+                scale = ButtonDefaults.scale(focusedScale = 1f),
             ) {
                 Icon(
                     imageVector = item.icon,

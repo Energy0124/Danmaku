@@ -17,6 +17,7 @@ import app.danmaku.library.LanPlaybackTarget
 import app.danmaku.library.android.ExternalTrackingDocument
 import app.danmaku.library.android.ExternalTrackingOperationResponse
 import app.danmaku.library.android.ProviderAccountsDocument
+import kotlin.math.roundToInt
 
 internal enum class TvTrackingOperation { READBACK, SYNC }
 internal enum class TvTrackingError { ACCESS_CODE_REJECTED, PREVIEW_CHANGED, REQUEST_FAILED }
@@ -116,7 +117,7 @@ internal data class TvDanmakuPreferences(
 ) {
     init {
         require(opacity in 0.2f..1f)
-        require(fontScale in 0.75f..1.5f)
+        require(fontScale in 0.1f..1.5f)
         require(speed in 0.5f..2f)
         require(maxScreenArea in 0.2f..0.8f)
     }
@@ -126,6 +127,18 @@ internal data class TvDanmakuPreferences(
         DanmakuMode.TOP -> showTop
         DanmakuMode.BOTTOM -> showBottom
     }
+}
+
+internal fun adjustSteppedValue(
+    value: Float,
+    range: ClosedFloatingPointRange<Float>,
+    step: Float,
+    increase: Boolean,
+): Float {
+    require(step > 0f)
+    val currentStep = ((value - range.start) / step).roundToInt()
+    val nextStep = currentStep + if (increase) 1 else -1
+    return (range.start + nextStep * step).coerceIn(range)
 }
 
 internal enum class TvPlaybackError {

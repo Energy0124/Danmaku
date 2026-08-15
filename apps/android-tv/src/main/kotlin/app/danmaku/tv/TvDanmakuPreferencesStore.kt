@@ -23,7 +23,7 @@ internal class TvDanmakuPreferencesStore(
             showTop = preferences.getBoolean(SHOW_TOP, true),
             showBottom = preferences.getBoolean(SHOW_BOTTOM, true),
             opacity = preferences.getFloat(OPACITY, 0.9f).coerceIn(0.2f, 1f),
-            fontScale = preferences.getFloat(FONT_SCALE, 1f).coerceIn(0.75f, 1.5f),
+            fontScale = preferences.getFloat(FONT_SCALE, 1f).coerceIn(0.1f, 1.5f),
             speed = preferences.getFloat(SPEED, 1f).coerceIn(0.5f, 2f),
             maxScreenArea = preferences.getFloat(MAX_SCREEN_AREA, 0.5f).coerceIn(0.2f, 0.8f),
         )

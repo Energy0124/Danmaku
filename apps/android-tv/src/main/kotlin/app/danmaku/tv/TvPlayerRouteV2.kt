@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -51,6 +52,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import androidx.tv.material3.Button
+import androidx.tv.material3.ButtonDefaults
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import app.danmaku.domain.DanmakuEvent
@@ -477,7 +479,7 @@ private fun TvPlaybackProgressBar(
         modifier = modifier
             .fillMaxWidth()
             .height(24.dp)
-            .tvFocusHalo(RoundedCornerShape(12.dp), focusedScale = 1f)
+            .tvFocusHalo(RoundedCornerShape(12.dp))
             .onPreviewKeyEvent { event ->
                 if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                 when (event.key) {
@@ -616,6 +618,7 @@ private fun TvDanmakuSettingsOverlay(
         Button(
             onClick = { onUpdate { it.copy(enabled = !it.enabled) } },
             colors = tvButtonColors(preferences.enabled),
+            scale = ButtonDefaults.scale(focusedScale = 1f),
             modifier = Modifier
                 .fillMaxWidth()
                 .focusRequester(firstFocusRequester),
@@ -639,6 +642,7 @@ private fun TvDanmakuSettingsOverlay(
             Button(
                 onClick = { onUpdate { it.copy(showScrolling = !it.showScrolling) } },
                 colors = tvButtonColors(preferences.showScrolling),
+                scale = ButtonDefaults.scale(focusedScale = 1f),
                 modifier = Modifier.weight(1f),
             ) {
                 Text(stringResource(R.string.danmaku_type_scrolling))
@@ -646,6 +650,7 @@ private fun TvDanmakuSettingsOverlay(
             Button(
                 onClick = { onUpdate { it.copy(showTop = !it.showTop) } },
                 colors = tvButtonColors(preferences.showTop),
+                scale = ButtonDefaults.scale(focusedScale = 1f),
                 modifier = Modifier.weight(1f),
             ) {
                 Text(stringResource(R.string.danmaku_type_top))
@@ -653,80 +658,169 @@ private fun TvDanmakuSettingsOverlay(
             Button(
                 onClick = { onUpdate { it.copy(showBottom = !it.showBottom) } },
                 colors = tvButtonColors(preferences.showBottom),
+                scale = ButtonDefaults.scale(focusedScale = 1f),
                 modifier = Modifier.weight(1f),
             ) {
                 Text(stringResource(R.string.danmaku_type_bottom))
             }
         }
-        TvPreferenceStepButton(
+        TvPreferenceSliderButton(
             label = stringResource(
                 R.string.danmaku_opacity_value,
                 (preferences.opacity * 100).toInt(),
             ),
-            onClick = {
+            progress = (preferences.opacity - 0.2f) / 0.8f,
+            onDecrease = {
                 onUpdate {
-                    it.copy(opacity = (it.opacity + 0.1f).let { value ->
-                        if (value > 1f) 0.3f else value
-                    })
+                    it.copy(
+                        opacity = adjustSteppedValue(it.opacity, 0.2f..1f, 0.1f, false),
+                    )
+                }
+            },
+            onIncrease = {
+                onUpdate {
+                    it.copy(
+                        opacity = adjustSteppedValue(it.opacity, 0.2f..1f, 0.1f, true),
+                    )
                 }
             },
         )
-        TvPreferenceStepButton(
+        TvPreferenceSliderButton(
             label = stringResource(
                 R.string.danmaku_size_value,
                 (preferences.fontScale * 100).toInt(),
             ),
-            onClick = {
+            progress = (preferences.fontScale - 0.1f) / 1.4f,
+            onDecrease = {
                 onUpdate {
-                    it.copy(fontScale = (it.fontScale + 0.1f).let { value ->
-                        if (value > 1.5f) 0.8f else value
-                    })
+                    it.copy(
+                        fontScale = adjustSteppedValue(it.fontScale, 0.1f..1.5f, 0.1f, false),
+                    )
+                }
+            },
+            onIncrease = {
+                onUpdate {
+                    it.copy(
+                        fontScale = adjustSteppedValue(it.fontScale, 0.1f..1.5f, 0.1f, true),
+                    )
                 }
             },
         )
-        TvPreferenceStepButton(
+        TvPreferenceSliderButton(
             label = stringResource(
                 R.string.danmaku_speed_value,
                 preferences.speed,
             ),
-            onClick = {
+            progress = (preferences.speed - 0.5f) / 1.5f,
+            onDecrease = {
                 onUpdate {
-                    it.copy(speed = (it.speed + 0.25f).let { value ->
-                        if (value > 2f) 0.5f else value
-                    })
+                    it.copy(
+                        speed = adjustSteppedValue(it.speed, 0.5f..2f, 0.25f, false),
+                    )
+                }
+            },
+            onIncrease = {
+                onUpdate {
+                    it.copy(
+                        speed = adjustSteppedValue(it.speed, 0.5f..2f, 0.25f, true),
+                    )
                 }
             },
         )
-        TvPreferenceStepButton(
+        TvPreferenceSliderButton(
             label = stringResource(
                 R.string.danmaku_area_value,
                 (preferences.maxScreenArea * 100).toInt(),
             ),
-            onClick = {
+            progress = (preferences.maxScreenArea - 0.2f) / 0.6f,
+            onDecrease = {
                 onUpdate {
-                    it.copy(maxScreenArea = (it.maxScreenArea + 0.1f).let { value ->
-                        if (value > 0.8f) 0.2f else value
-                    })
+                    it.copy(
+                        maxScreenArea = adjustSteppedValue(
+                            it.maxScreenArea,
+                            0.2f..0.8f,
+                            0.1f,
+                            false,
+                        ),
+                    )
+                }
+            },
+            onIncrease = {
+                onUpdate {
+                    it.copy(
+                        maxScreenArea = adjustSteppedValue(
+                            it.maxScreenArea,
+                            0.2f..0.8f,
+                            0.1f,
+                            true,
+                        ),
+                    )
                 }
             },
         )
-        Button(onClick = { onClose() }, colors = tvButtonColors(selected = true)) {
+        Button(
+            onClick = { onClose() },
+            colors = tvButtonColors(selected = true),
+            scale = ButtonDefaults.scale(focusedScale = 1f),
+        ) {
             Text(stringResource(R.string.action_close))
         }
     }
 }
 
 @Composable
-private fun TvPreferenceStepButton(
+private fun TvPreferenceSliderButton(
     label: String,
-    onClick: () -> Unit,
+    progress: Float,
+    onDecrease: () -> Unit,
+    onIncrease: () -> Unit,
 ) {
     Button(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        onClick = onIncrease,
+        modifier = Modifier
+            .fillMaxWidth()
+            .onPreviewKeyEvent { event ->
+                if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                when (event.key) {
+                    Key.DirectionLeft -> {
+                        onDecrease()
+                        true
+                    }
+                    Key.DirectionRight -> {
+                        onIncrease()
+                        true
+                    }
+                    else -> false
+                }
+            },
         colors = tvButtonColors(),
+        scale = ButtonDefaults.scale(focusedScale = 1f),
     ) {
-        Text(label)
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(label)
+                Text("◀  ▶", color = TvSecondaryContent)
+            }
+            Box(
+                modifier = Modifier
+                    .padding(top = 8.dp)
+                    .fillMaxWidth()
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(Color.White.copy(alpha = 0.18f)),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(progress.coerceIn(0f, 1f))
+                        .fillMaxHeight()
+                        .background(TvAccentBlue),
+                )
+            }
+        }
     }
 }
 

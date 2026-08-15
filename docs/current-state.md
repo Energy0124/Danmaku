@@ -43,12 +43,14 @@ Compose macOS artifact are retired.
   subtitle tracks, plus persistent danmaku visibility, opacity, size, travel
   speed, density, screen area, timing offset, and per-type scrolling/top/bottom
   visibility controls. TV provides the same per-type controls in its translucent,
-  D-pad-native danmaku panel.
+  D-pad-native danmaku panel, with Left/Right value sliders and text sizing down
+  to 10%.
 - Native MAL/Bangumi account status, provider readback, exact progress preview,
   and explicitly confirmed sync; account/mapping/conflict administration stays
   on Windows and the web UI.
 - Dedicated Android TV navigation and D-pad focus, including folder-level back
-  navigation, cached-first presentation,
+  navigation, a responsive snap-open rail with bounded border/color focus
+  indicators, cached-first presentation,
   latest-request-wins refresh handling, queued playback startup, and benchmark
   journeys.
 - Shared domain, LAN-client, and Media3 modules without a JVM server runtime
