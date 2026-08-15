@@ -52,7 +52,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import androidx.tv.material3.Button
-import androidx.tv.material3.ButtonDefaults
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import app.danmaku.domain.DanmakuEvent
@@ -458,6 +457,7 @@ private fun TvPlayerControlButton(
         onClick = onClick,
         modifier = modifier.tvFocusHalo(RoundedCornerShape(16.dp)),
         colors = tvButtonColors(selected),
+        scale = tvButtonScale(),
     ) {
         Text(label, maxLines = 1)
     }
@@ -548,6 +548,7 @@ private fun TvTrackOverlay(
             Button(
                 onClick = { onDispatch(PlaybackCommand.SelectSubtitleTrack(null)) },
                 colors = tvButtonColors(),
+                scale = tvButtonScale(),
                 modifier = Modifier
                     .fillMaxWidth()
                     .focusRequester(firstFocusRequester),
@@ -567,6 +568,7 @@ private fun TvTrackOverlay(
                     )
                 },
                 colors = tvButtonColors(track.selected),
+                scale = tvButtonScale(),
                 modifier = Modifier
                     .fillMaxWidth()
                     .then(
@@ -583,6 +585,7 @@ private fun TvTrackOverlay(
         Button(
             onClick = { onClose() },
             colors = tvButtonColors(selected = true),
+            scale = tvButtonScale(),
             modifier = if (kind == PlaybackTrackKind.AUDIO && tracks.isEmpty()) {
                 Modifier.focusRequester(firstFocusRequester)
             } else {
@@ -618,7 +621,7 @@ private fun TvDanmakuSettingsOverlay(
         Button(
             onClick = { onUpdate { it.copy(enabled = !it.enabled) } },
             colors = tvButtonColors(preferences.enabled),
-            scale = ButtonDefaults.scale(focusedScale = 1f),
+            scale = tvButtonScale(),
             modifier = Modifier
                 .fillMaxWidth()
                 .focusRequester(firstFocusRequester),
@@ -642,7 +645,7 @@ private fun TvDanmakuSettingsOverlay(
             Button(
                 onClick = { onUpdate { it.copy(showScrolling = !it.showScrolling) } },
                 colors = tvButtonColors(preferences.showScrolling),
-                scale = ButtonDefaults.scale(focusedScale = 1f),
+                scale = tvButtonScale(),
                 modifier = Modifier.weight(1f),
             ) {
                 Text(stringResource(R.string.danmaku_type_scrolling))
@@ -650,7 +653,7 @@ private fun TvDanmakuSettingsOverlay(
             Button(
                 onClick = { onUpdate { it.copy(showTop = !it.showTop) } },
                 colors = tvButtonColors(preferences.showTop),
-                scale = ButtonDefaults.scale(focusedScale = 1f),
+                scale = tvButtonScale(),
                 modifier = Modifier.weight(1f),
             ) {
                 Text(stringResource(R.string.danmaku_type_top))
@@ -658,7 +661,7 @@ private fun TvDanmakuSettingsOverlay(
             Button(
                 onClick = { onUpdate { it.copy(showBottom = !it.showBottom) } },
                 colors = tvButtonColors(preferences.showBottom),
-                scale = ButtonDefaults.scale(focusedScale = 1f),
+                scale = tvButtonScale(),
                 modifier = Modifier.weight(1f),
             ) {
                 Text(stringResource(R.string.danmaku_type_bottom))
@@ -761,7 +764,7 @@ private fun TvDanmakuSettingsOverlay(
         Button(
             onClick = { onClose() },
             colors = tvButtonColors(selected = true),
-            scale = ButtonDefaults.scale(focusedScale = 1f),
+            scale = tvButtonScale(),
         ) {
             Text(stringResource(R.string.action_close))
         }
@@ -794,7 +797,7 @@ private fun TvPreferenceSliderButton(
                 }
             },
         colors = tvButtonColors(),
-        scale = ButtonDefaults.scale(focusedScale = 1f),
+        scale = tvButtonScale(),
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(

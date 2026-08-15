@@ -38,7 +38,6 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Button
-import androidx.tv.material3.ButtonDefaults
 import androidx.tv.material3.Icon
 import androidx.tv.material3.Text
 
@@ -250,7 +249,7 @@ private fun TvCompactNavigationRail(
                     .then(if (selected) Modifier.focusRequester(focusRequester) else Modifier)
                     .testTag("tv-route:${item.route.javaClass.simpleName}"),
                 colors = tvButtonColors(selected),
-                scale = ButtonDefaults.scale(focusedScale = 1f),
+                scale = tvButtonScale(),
             ) {
                 Icon(
                     imageVector = item.icon,

@@ -174,7 +174,7 @@ private fun TvHomeHero(
             .testTag("home-hero"),
         colors = tvButtonColors(selected = true),
         shape = ButtonDefaults.shape(RoundedCornerShape(28.dp)),
-        scale = ButtonDefaults.scale(focusedScale = 1f),
+        scale = tvButtonScale(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
     ) {
         Box(Modifier.fillMaxSize()) {
@@ -256,7 +256,7 @@ private fun TvHomeConnectHero(
             .testTag("home-hero"),
         colors = tvButtonColors(),
         shape = ButtonDefaults.shape(RoundedCornerShape(28.dp)),
-        scale = ButtonDefaults.scale(focusedScale = 1f),
+        scale = tvButtonScale(),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),

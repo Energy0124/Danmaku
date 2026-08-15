@@ -39,6 +39,8 @@ internal fun tvButtonColors(selected: Boolean = false): ButtonColors =
         disabledContentColor = Color(0xFF64748B),
     )
 
+internal fun tvButtonScale() = ButtonDefaults.scale(focusedScale = 1f)
+
 internal data class LibraryPosterEndpoint(
     val baseUrl: String,
     val pairingToken: String,

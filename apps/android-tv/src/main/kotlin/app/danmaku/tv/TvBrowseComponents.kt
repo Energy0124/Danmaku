@@ -88,6 +88,7 @@ internal fun TvSeriesCard(
             .tvFocusHalo(RoundedCornerShape(20.dp))
             .testTag("series-card:${series.id}"),
         colors = tvButtonColors(),
+        scale = tvButtonScale(),
         shape = ButtonDefaults.shape(RoundedCornerShape(20.dp)),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
     ) {
@@ -189,6 +190,7 @@ internal fun TvEpisodePosterCard(
             .tvFocusHalo(RoundedCornerShape(18.dp))
             .testTag("media-card:${item.id}"),
         colors = tvButtonColors(),
+        scale = tvButtonScale(),
         shape = ButtonDefaults.shape(RoundedCornerShape(18.dp)),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
     ) {

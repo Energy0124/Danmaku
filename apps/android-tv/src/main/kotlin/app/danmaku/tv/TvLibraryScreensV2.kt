@@ -75,6 +75,7 @@ internal fun TvLibraryGridScreen(
                         .tvFocusHalo(RoundedCornerShape(18.dp))
                         .testTag("library-filters"),
                     colors = tvButtonColors(),
+                    scale = tvButtonScale(),
                 ) {
                     Text(stringResource(R.string.action_filters))
                 }
@@ -159,6 +160,7 @@ internal fun TvFolderBrowserScreen(
                             .tvFocusHalo(RoundedCornerShape(18.dp))
                             .testTag("folder-up"),
                         colors = tvButtonColors(),
+                        scale = tvButtonScale(),
                     ) {
                         Text(stringResource(R.string.action_up))
                     }
@@ -413,6 +415,7 @@ private fun TvFolderRow(
             .tvFocusHalo(RoundedCornerShape(18.dp))
             .testTag(testTag),
         colors = tvButtonColors(),
+        scale = tvButtonScale(),
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
@@ -459,6 +462,7 @@ internal fun TvLibraryFiltersOverlay(
         Button(
             onClick = { onSetSort(query.sort.next()) },
             colors = tvButtonColors(query.sort != TvLibrarySort.TITLE),
+            scale = tvButtonScale(),
             modifier = Modifier
                 .fillMaxWidth()
                 .focusRequester(firstFocusRequester)
@@ -474,6 +478,7 @@ internal fun TvLibraryFiltersOverlay(
             },
             enabled = availableReleaseYears.isNotEmpty(),
             colors = tvButtonColors(query.releaseYear != null),
+            scale = tvButtonScale(),
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag("library-filter-season"),
@@ -489,6 +494,7 @@ internal fun TvLibraryFiltersOverlay(
             colors = tvButtonColors(
                 query.subtitleFilter == app.danmaku.domain.LibrarySubtitleFilter.WITH_SUBTITLES,
             ),
+            scale = tvButtonScale(),
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag("library-filter-subtitles"),
@@ -498,6 +504,7 @@ internal fun TvLibraryFiltersOverlay(
         Button(
             onClick = onReset,
             colors = tvButtonColors(),
+            scale = tvButtonScale(),
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag("library-filter-reset"),
@@ -507,6 +514,7 @@ internal fun TvLibraryFiltersOverlay(
         Button(
             onClick = onClose,
             colors = tvButtonColors(selected = true),
+            scale = tvButtonScale(),
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag("library-filter-close"),
