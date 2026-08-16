@@ -49,6 +49,7 @@ internal fun TvSavedConnectionCard(
                     .tvFocusHalo(RoundedCornerShape(16.dp))
                     .testTag("saved-connection:${connection.id}"),
                 colors = tvButtonColors(selected = isSelected),
+                scale = tvButtonScale(),
             ) {
                 Text(
                     if (isSelected) {
@@ -64,6 +65,7 @@ internal fun TvSavedConnectionCard(
                     .tvFocusHalo(RoundedCornerShape(16.dp))
                     .testTag("saved-connection-forget:${connection.id}"),
                 colors = tvButtonColors(),
+                scale = tvButtonScale(),
             ) {
                 Text(stringResource(R.string.action_forget))
             }

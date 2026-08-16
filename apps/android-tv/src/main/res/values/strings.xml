@@ -148,6 +148,10 @@
     <string name="danmaku_settings_title">Danmaku settings</string>
     <string name="danmaku_enabled">Danmaku on</string>
     <string name="danmaku_disabled">Danmaku off</string>
+    <string name="danmaku_types_title">Danmaku types</string>
+    <string name="danmaku_type_scrolling">Scroll</string>
+    <string name="danmaku_type_top">Top</string>
+    <string name="danmaku_type_bottom">Bottom</string>
     <string name="danmaku_opacity_value">Opacity %1$d%%</string>
     <string name="danmaku_size_value">Text size %1$d%%</string>
     <string name="danmaku_speed_value">Speed %1$.2fx</string>

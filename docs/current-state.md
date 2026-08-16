@@ -1,6 +1,6 @@
 # Current State
 
-Last reviewed: 2026-08-12.
+Last reviewed: 2026-08-14.
 
 Danmaku's active product is a Rust-native Windows library/player/server with
 Android mobile, Android TV, and browser clients on the same trusted-LAN API,
@@ -16,7 +16,9 @@ Compose macOS artifact are retired.
   tracks, seeking, playback rate, native danmaku, local overlay attachment,
   discovery, library browsing, progress/resume, previous/next, and auto-next.
 - English and Traditional Chinese UI, durable playback/danmaku preferences,
-  remembered local roots and server URL, and session-only pairing tokens.
+  a translucent in-player danmaku panel with independent scrolling/top/bottom
+  visibility controls, remembered local roots and server URL, and session-only
+  pairing tokens.
 - Unified local mode that starts the sibling Rust server, waits asynchronously
   for readiness, connects, and stops only a child it owns.
 - Optional current-user Task Scheduler background host with install, root
@@ -37,11 +39,19 @@ Compose macOS artifact are retired.
   Media3 streaming, subtitles, playback progress, resume, and danmaku.
 - Mobile and TV expose the server's original multi-root folder layout as a
   dedicated top-level destination backed by shared folder-listing rules.
+- Mobile playback has a responsive side-panel for playback speed, audio and
+  subtitle tracks, plus persistent danmaku visibility, opacity, size, travel
+  speed, density, screen area, full-hour timing offset with exact entry and
+  selectable adjustment steps, and per-type scrolling/top/bottom visibility
+  controls. TV provides the same per-type controls in its translucent,
+  D-pad-native danmaku panel, with Left/Right value sliders and text sizing down
+  to 10%.
 - Native MAL/Bangumi account status, provider readback, exact progress preview,
   and explicitly confirmed sync; account/mapping/conflict administration stays
   on Windows and the web UI.
 - Dedicated Android TV navigation and D-pad focus, including folder-level back
-  navigation, cached-first presentation,
+  navigation, a fixed compact rail with focused-item labels and bounded
+  border/color focus indicators, cached-first presentation,
   latest-request-wins refresh handling, queued playback startup, and benchmark
   journeys.
 - Shared domain, LAN-client, and Media3 modules without a JVM server runtime

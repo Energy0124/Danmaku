@@ -55,14 +55,36 @@ class PreparedDanmakuTimelineTest {
         assertEquals(listOf("middle"), visible)
     }
 
+    @Test
+    fun filteredFixedEventsDoNotConsumeTheRenderLimit() {
+        val timeline = PreparedDanmakuTimeline.prepare(
+            listOf(
+                fixed("hidden-top", 1_000),
+                fixed("visible-bottom", 1_000, DanmakuMode.BOTTOM),
+            ),
+        )
+        val visible = mutableListOf<String>()
+
+        timeline.forEachActiveFixed(
+            positionMs = 1_100,
+            limit = 1,
+            predicate = { it.style.mode == DanmakuMode.BOTTOM },
+        ) {
+            visible += it.id
+        }
+
+        assertEquals(listOf("visible-bottom"), visible)
+    }
+
     private fun fixed(
         id: String,
         timestampMs: Long,
+        mode: DanmakuMode = DanmakuMode.TOP,
     ): DanmakuEvent =
         DanmakuEvent(
             id = id,
             timestampMs = timestampMs,
             text = id,
-            style = DanmakuStyle(mode = DanmakuMode.TOP),
+            style = DanmakuStyle(mode = mode),
         )
 }

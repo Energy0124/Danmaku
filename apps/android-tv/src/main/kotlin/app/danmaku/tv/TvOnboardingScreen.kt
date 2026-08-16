@@ -73,6 +73,7 @@ internal fun TvOnboardingScreen(
                 .tvFocusHalo(RoundedCornerShape(20.dp))
                 .testTag("onboarding-discover"),
             colors = tvButtonColors(selected = true),
+            scale = tvButtonScale(),
         ) {
             Text(
                 if (isDiscovering) {
@@ -96,6 +97,7 @@ internal fun TvOnboardingScreen(
                 .tvFocusHalo(RoundedCornerShape(20.dp))
                 .testTag("onboarding-manual"),
             colors = tvButtonColors(),
+            scale = tvButtonScale(),
         ) {
             Text(stringResource(R.string.action_manual_connection))
         }

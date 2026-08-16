@@ -286,6 +286,9 @@ impl Cli {
         let defaults = DanmakuDisplaySettings::default();
         DanmakuDisplaySettings {
             enabled: defaults.enabled,
+            show_scrolling: defaults.show_scrolling,
+            show_top: defaults.show_top,
+            show_bottom: defaults.show_bottom,
             opacity: self.danmaku_opacity.unwrap_or(defaults.opacity),
             speed: self.danmaku_speed.unwrap_or(defaults.speed),
             density: self.danmaku_density.unwrap_or(defaults.density),

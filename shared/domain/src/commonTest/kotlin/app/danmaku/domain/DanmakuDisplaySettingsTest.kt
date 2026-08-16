@@ -32,6 +32,24 @@ class DanmakuDisplaySettingsTest {
     }
 
     @Test
+    fun filtersIndependentlyDisabledDanmakuModes() {
+        val events = listOf(
+            event("scrolling", "scrolling", DanmakuMode.SCROLLING),
+            event("top", "top", DanmakuMode.TOP),
+            event("bottom", "bottom", DanmakuMode.BOTTOM),
+        )
+
+        assertEquals(
+            listOf(events[0], events[1]),
+            DanmakuDisplaySettings(showBottom = false).filter(events),
+        )
+        assertEquals(
+            listOf(events[2]),
+            DanmakuDisplaySettings(showScrolling = false, showTop = false).filter(events),
+        )
+    }
+
+    @Test
     fun ignoresInvalidRegexFiltersWithoutDroppingSafeEvents() {
         val settings = DanmakuDisplaySettings(regexFilters = listOf("["))
 
@@ -59,6 +77,14 @@ class DanmakuDisplaySettingsTest {
 
     @Test
     fun validatesRangesAndBlankFilters() {
+        DanmakuDisplaySettings(
+            speedPercent = DanmakuDisplaySettings.MIN_SPEED_PERCENT,
+            offsetMs = -DanmakuDisplaySettings.MAX_OFFSET_MS,
+        )
+        DanmakuDisplaySettings(
+            speedPercent = DanmakuDisplaySettings.MAX_SPEED_PERCENT,
+            offsetMs = DanmakuDisplaySettings.MAX_OFFSET_MS,
+        )
         assertFailsWith<IllegalArgumentException> {
             DanmakuDisplaySettings(opacityPercent = -1)
         }
@@ -71,11 +97,23 @@ class DanmakuDisplaySettingsTest {
         assertFailsWith<IllegalArgumentException> {
             DanmakuDisplaySettings(offsetMs = 3_600_001)
         }
+        assertFailsWith<IllegalArgumentException> {
+            DanmakuDisplaySettings(speedPercent = DanmakuDisplaySettings.MIN_SPEED_PERCENT - 1)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            DanmakuDisplaySettings(speedPercent = DanmakuDisplaySettings.MAX_SPEED_PERCENT + 1)
+        }
     }
 
     private fun event(
         id: String,
         text: String,
+        mode: DanmakuMode = DanmakuMode.SCROLLING,
     ): DanmakuEvent =
-        DanmakuEvent(id = id, timestampMs = 0, text = text)
+        DanmakuEvent(
+            id = id,
+            timestampMs = 0,
+            text = text,
+            style = DanmakuStyle(mode = mode),
+        )
 }

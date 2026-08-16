@@ -1,7 +1,7 @@
 package app.danmaku.tv
 
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,7 +9,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredWidthIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.automirrored.filled.List
@@ -35,9 +37,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Button
 import androidx.tv.material3.Icon
 import androidx.tv.material3.Text
@@ -207,17 +210,12 @@ internal fun TvConsumerShell(
 }
 
 @Composable
-private fun TvCompactNavigationRail(
+internal fun TvCompactNavigationRail(
     currentRoute: TvRoute,
     session: TvSessionUiState,
     focusRequester: FocusRequester,
     onNavigate: (TvRoute) -> Unit,
 ) {
-    var railFocused by remember { mutableStateOf(false) }
-    val width by animateDpAsState(
-        targetValue = if (railFocused) 240.dp else 96.dp,
-        label = "tv-navigation-rail-width",
-    )
     val destinations = listOf(
         TvNavItem(TvRoute.Home, R.string.nav_home, Icons.Default.Home),
         TvNavItem(TvRoute.Library, R.string.nav_library, Icons.AutoMirrored.Filled.List),
@@ -226,60 +224,99 @@ private fun TvCompactNavigationRail(
         TvNavItem(TvRoute.Favorites, R.string.nav_favorites, Icons.Default.Favorite),
         TvNavItem(TvRoute.Pc, R.string.nav_pc, Icons.Default.Settings),
     )
-    Column(
+    Box(
         modifier = Modifier
-            .width(width)
+            .width(96.dp)
             .fillMaxHeight()
-            .clip(RoundedCornerShape(24.dp))
-            .onFocusChanged { railFocused = it.hasFocus }
-            .background(TvSurface)
-            .padding(12.dp)
+            .zIndex(1f)
             .testTag("tv-app-rail"),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(
-            text = "D",
-            color = TvAccent,
-            modifier = Modifier.padding(vertical = 12.dp),
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(RoundedCornerShape(24.dp))
+                .background(TvSurface),
         )
-        destinations.forEach { item ->
-            val selected = currentRoute.matchesTopLevel(item.route)
-            Button(
-                onClick = { onNavigate(item.route) },
-                modifier = Modifier
-                    .width(if (railFocused) 216.dp else 68.dp)
-                    .tvFocusHalo(RoundedCornerShape(18.dp))
-                    .then(if (selected) Modifier.focusRequester(focusRequester) else Modifier)
-                    .testTag("tv-route:${item.route.javaClass.simpleName}"),
-                colors = tvButtonColors(selected),
-            ) {
-                Icon(
-                    imageVector = item.icon,
-                    contentDescription = stringResource(item.label),
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = "D",
+                color = TvAccent,
+                modifier = Modifier.padding(vertical = 12.dp),
+            )
+            destinations.forEach { item ->
+                TvCompactNavigationItem(
+                    item = item,
+                    selected = currentRoute.matchesTopLevel(item.route),
+                    focusRequester = focusRequester,
+                    onNavigate = onNavigate,
                 )
-                if (railFocused) {
-                    Spacer(Modifier.width(12.dp))
-                    Text(
-                        text = stringResource(item.label),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
             }
+            Spacer(Modifier.weight(1f))
+            Text(
+                text = if (session.catalog == null) {
+                    stringResource(R.string.pc_offline)
+                } else if (session.isOffline) {
+                    stringResource(R.string.status_cached_offline)
+                } else {
+                    stringResource(R.string.pc_ready)
+                },
+                color = if (session.catalog == null) TvSecondaryContent else TvSuccess,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
-        Spacer(Modifier.weight(1f))
-        Text(
-            text = if (session.catalog == null) {
-                stringResource(R.string.pc_offline)
-            } else if (session.isOffline) {
-                stringResource(R.string.status_cached_offline)
-            } else {
-                stringResource(R.string.pc_ready)
-            },
-            color = if (session.catalog == null) TvSecondaryContent else TvSuccess,
-            maxLines = 1,
-        )
+    }
+}
+
+@Composable
+private fun TvCompactNavigationItem(
+    item: TvNavItem,
+    selected: Boolean,
+    focusRequester: FocusRequester,
+    onNavigate: (TvRoute) -> Unit,
+) {
+    var focused by remember { mutableStateOf(false) }
+    val label = stringResource(item.label)
+    Box(modifier = Modifier.width(68.dp)) {
+        Button(
+            onClick = { onNavigate(item.route) },
+            modifier = Modifier
+                .width(68.dp)
+                .onFocusChanged { focused = it.isFocused }
+                .tvFocusHalo(RoundedCornerShape(18.dp))
+                .then(if (selected) Modifier.focusRequester(focusRequester) else Modifier)
+                .testTag("tv-route:${item.route.javaClass.simpleName}"),
+            colors = tvButtonColors(selected),
+            scale = tvButtonScale(),
+        ) {
+            Icon(
+                imageVector = item.icon,
+                contentDescription = label,
+            )
+        }
+        if (focused) {
+            Text(
+                text = label,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .offset(x = 80.dp)
+                    .zIndex(2f)
+                    .requiredWidthIn(min = 144.dp, max = 280.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(TvSurfaceRaised)
+                    .border(1.dp, TvAccentBlue, RoundedCornerShape(12.dp))
+                    .padding(horizontal = 16.dp, vertical = 10.dp)
+                    .testTag("tv-route-label:${item.route.javaClass.simpleName}"),
+            )
+        }
     }
 }
 

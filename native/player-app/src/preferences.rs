@@ -20,6 +20,9 @@ pub struct PlayerPreferences {
     pub playback_rate: f64,
     pub auto_next: bool,
     pub danmaku_enabled: bool,
+    pub danmaku_show_scrolling: bool,
+    pub danmaku_show_top: bool,
+    pub danmaku_show_bottom: bool,
     pub danmaku_opacity: f32,
     pub danmaku_speed: f32,
     pub danmaku_density: f32,
@@ -37,6 +40,9 @@ impl Default for PlayerPreferences {
             playback_rate: 1.0,
             auto_next: false,
             danmaku_enabled: danmaku.enabled,
+            danmaku_show_scrolling: danmaku.show_scrolling,
+            danmaku_show_top: danmaku.show_top,
+            danmaku_show_bottom: danmaku.show_bottom,
             danmaku_opacity: danmaku.opacity,
             danmaku_speed: danmaku.speed,
             danmaku_density: danmaku.density,
@@ -57,6 +63,9 @@ impl PlayerPreferences {
         };
         let danmaku = self.danmaku_settings().sanitized();
         self.danmaku_enabled = danmaku.enabled;
+        self.danmaku_show_scrolling = danmaku.show_scrolling;
+        self.danmaku_show_top = danmaku.show_top;
+        self.danmaku_show_bottom = danmaku.show_bottom;
         self.danmaku_opacity = danmaku.opacity;
         self.danmaku_speed = danmaku.speed;
         self.danmaku_density = danmaku.density;
@@ -83,6 +92,9 @@ impl PlayerPreferences {
     pub fn danmaku_settings(&self) -> DanmakuDisplaySettings {
         DanmakuDisplaySettings {
             enabled: self.danmaku_enabled,
+            show_scrolling: self.danmaku_show_scrolling,
+            show_top: self.danmaku_show_top,
+            show_bottom: self.danmaku_show_bottom,
             opacity: self.danmaku_opacity,
             speed: self.danmaku_speed,
             density: self.danmaku_density,
@@ -93,6 +105,9 @@ impl PlayerPreferences {
     pub fn update_danmaku(&mut self, settings: &DanmakuDisplaySettings) {
         let settings = settings.sanitized();
         self.danmaku_enabled = settings.enabled;
+        self.danmaku_show_scrolling = settings.show_scrolling;
+        self.danmaku_show_top = settings.show_top;
+        self.danmaku_show_bottom = settings.show_bottom;
         self.danmaku_opacity = settings.opacity;
         self.danmaku_speed = settings.speed;
         self.danmaku_density = settings.density;
@@ -292,6 +307,8 @@ mod tests {
             volume_percent: 72,
             playback_rate: 1.25,
             auto_next: true,
+            danmaku_show_scrolling: false,
+            danmaku_show_bottom: false,
             last_server_url: Some("http://192.168.1.2:8686".to_owned()),
             local_library_roots: vec!["W:/Anime".to_owned()],
             ..Default::default()

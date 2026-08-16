@@ -250,7 +250,9 @@ class TvPlaybackViewModelTest {
 
         viewModel.play(item)
         runCurrent()
-        viewModel.updateDanmakuPreferences { it.copy(opacity = 0.7f) }
+        viewModel.updateDanmakuPreferences {
+            it.copy(opacity = 0.7f, showBottom = false)
+        }
         viewModel.stopAndReturn()
         advanceUntilIdle()
 
@@ -259,6 +261,7 @@ class TvPlaybackViewModelTest {
         assertEquals(listOf(expectedProgress), session.savedProgresses)
         assertEquals(gateway.savedTarget, session.savedTarget)
         assertEquals(0.7f, preferences.load().opacity)
+        assertFalse(preferences.load().showBottom)
     }
 
     private fun viewModel(

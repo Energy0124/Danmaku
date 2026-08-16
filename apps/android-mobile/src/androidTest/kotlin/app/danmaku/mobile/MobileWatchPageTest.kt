@@ -2,6 +2,9 @@ package app.danmaku.mobile
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsEnabled
@@ -16,7 +19,10 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.performTextClearance
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.unit.dp
+import app.danmaku.domain.DanmakuDisplaySettings
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.PlaybackPosition
 import app.danmaku.domain.PlaybackSnapshot
@@ -271,6 +277,106 @@ class MobileWatchPageTest {
             assertTrue(openedVideo)
             assertEquals(1, fullscreenToggleCount)
         }
+    }
+
+    @Test
+    fun playbackOptionsRouteSupportedMediaAndDanmakuChanges() {
+        var settings by mutableStateOf(
+            DanmakuDisplaySettings(
+                opacityPercent = 90,
+                displayAreaPercent = 50,
+            ),
+        )
+        var playbackRate: Float? = null
+        var selectedAudio: String? = null
+        var selectedSubtitle = "unchanged"
+
+        composeRule.setContent {
+            MaterialTheme {
+                WatchPage(
+                    contentPadding = PaddingValues(0.dp),
+                    controller = null,
+                    snapshot = PlaybackSnapshot(
+                        status = PlaybackStatus.PAUSED,
+                        source = PlaybackSource.RemoteStream("http://pc.local/media/example-1"),
+                        position = PlaybackPosition(positionMs = 60_000, durationMs = 1_200_000),
+                        playbackRate = 1f,
+                        tracks = listOf(
+                            PlaybackTrack(
+                                id = "audio-ja",
+                                kind = PlaybackTrackKind.AUDIO,
+                                label = "Japanese",
+                                selected = true,
+                            ),
+                            PlaybackTrack(
+                                id = "audio-en",
+                                kind = PlaybackTrackKind.AUDIO,
+                                label = "English",
+                            ),
+                            PlaybackTrack(
+                                id = "subtitle-en",
+                                kind = PlaybackTrackKind.SUBTITLE,
+                                label = "English subs",
+                                selected = true,
+                            ),
+                        ),
+                    ),
+                    nowPlaying = seededItem(),
+                    playbackError = null,
+                    isFullscreen = true,
+                    danmakuDisplaySettings = settings,
+                    onOpen = {},
+                    onPlayPause = {},
+                    onSeekTo = {},
+                    onSetVolume = {},
+                    onSetPlaybackRate = { playbackRate = it },
+                    onUpdateDanmakuDisplaySettings = { settings = it },
+                    onSelectAudio = { selectedAudio = it },
+                    onSelectSubtitle = { selectedSubtitle = it ?: "off" },
+                    onBrowseLibrary = {},
+                    onToggleFullscreen = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("watch-playback-options").performClick()
+        composeRule.onNodeWithTag("playback-options-panel").assertExists()
+        composeRule.onNodeWithText("Playback options").assertExists()
+        composeRule.onNodeWithText("Video").assertExists()
+        composeRule.onNodeWithText("Danmaku").assertExists()
+
+        composeRule.onNodeWithTag("playback-rate:1.5").performClick()
+        composeRule.onNodeWithTag("options-audio-track:audio-en").performClick()
+        composeRule.onNodeWithTag("options-subtitle-off").performClick()
+        composeRule.onNodeWithTag("danmaku-type-bottom").performScrollTo().performClick()
+        composeRule.onNodeWithTag("danmaku-opacity-slider")
+            .performScrollTo()
+            .performSemanticsAction(SemanticsActions.SetProgress) { it(70f) }
+        composeRule.onNodeWithTag("danmaku-speed-slider")
+            .performScrollTo()
+            .performSemanticsAction(SemanticsActions.SetProgress) { it(300f) }
+        composeRule.onNodeWithTag("danmaku-visible-toggle").performScrollTo().performClick()
+        composeRule.onNodeWithTag("danmaku-offset-step:30000").performScrollTo().performClick()
+        composeRule.onNodeWithTag("danmaku-offset-plus").performScrollTo().performClick()
+        val offsetInput = composeRule.onNodeWithTag("danmaku-offset-input")
+        offsetInput.performScrollTo()
+        offsetInput.performTextClearance()
+        offsetInput.performTextInput("-02:30.500")
+        composeRule.onNodeWithTag("danmaku-offset-apply").performScrollTo().performClick()
+
+        composeRule.runOnIdle {
+            assertEquals(1.5f, playbackRate)
+            assertEquals("audio-en", selectedAudio)
+            assertEquals("off", selectedSubtitle)
+            assertEquals(false, settings.visible)
+            assertEquals(false, settings.showBottom)
+            assertEquals(70, settings.opacityPercent)
+            assertEquals(300, settings.speedPercent)
+            assertEquals(-150_500L, settings.offsetMs)
+        }
+
+        composeRule.onNodeWithTag("playback-options-close").performScrollTo().performClick()
+        composeRule.onAllNodesWithTag("playback-options-panel").assertCountEquals(0)
     }
 
     private fun seededItem(): LibraryMediaItem =

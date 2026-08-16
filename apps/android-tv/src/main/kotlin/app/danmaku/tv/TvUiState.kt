@@ -1,5 +1,6 @@
 package app.danmaku.tv
 
+import app.danmaku.domain.DanmakuMode
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryFavoriteFilter
 import app.danmaku.domain.LibraryMediaItem
@@ -16,6 +17,7 @@ import app.danmaku.library.LanPlaybackTarget
 import app.danmaku.library.android.ExternalTrackingDocument
 import app.danmaku.library.android.ExternalTrackingOperationResponse
 import app.danmaku.library.android.ProviderAccountsDocument
+import kotlin.math.roundToInt
 
 internal enum class TvTrackingOperation { READBACK, SYNC }
 internal enum class TvTrackingError { ACCESS_CODE_REJECTED, PREVIEW_CHANGED, REQUEST_FAILED }
@@ -105,6 +107,9 @@ internal data class TvBrowseUiState(
 
 internal data class TvDanmakuPreferences(
     val enabled: Boolean = true,
+    val showScrolling: Boolean = true,
+    val showTop: Boolean = true,
+    val showBottom: Boolean = true,
     val opacity: Float = 0.9f,
     val fontScale: Float = 1f,
     val speed: Float = 1f,
@@ -112,10 +117,28 @@ internal data class TvDanmakuPreferences(
 ) {
     init {
         require(opacity in 0.2f..1f)
-        require(fontScale in 0.75f..1.5f)
+        require(fontScale in 0.1f..1.5f)
         require(speed in 0.5f..2f)
         require(maxScreenArea in 0.2f..0.8f)
     }
+
+    fun shows(mode: DanmakuMode): Boolean = when (mode) {
+        DanmakuMode.SCROLLING -> showScrolling
+        DanmakuMode.TOP -> showTop
+        DanmakuMode.BOTTOM -> showBottom
+    }
+}
+
+internal fun adjustSteppedValue(
+    value: Float,
+    range: ClosedFloatingPointRange<Float>,
+    step: Float,
+    increase: Boolean,
+): Float {
+    require(step > 0f)
+    val currentStep = ((value - range.start) / step).roundToInt()
+    val nextStep = currentStep + if (increase) 1 else -1
+    return (range.start + nextStep * step).coerceIn(range)
 }
 
 internal enum class TvPlaybackError {

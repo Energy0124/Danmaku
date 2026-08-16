@@ -225,6 +225,18 @@ impl Strings {
     pub fn show_danmaku(self) -> &'static str {
         self.text("Show danmaku", "顯示彈幕")
     }
+    pub fn danmaku_types(self) -> &'static str {
+        self.text("Danmaku types", "彈幕類型")
+    }
+    pub fn scrolling_danmaku(self) -> &'static str {
+        self.text("Scrolling", "滾動")
+    }
+    pub fn top_danmaku(self) -> &'static str {
+        self.text("Top", "頂部")
+    }
+    pub fn bottom_danmaku(self) -> &'static str {
+        self.text("Bottom", "底部")
+    }
     pub fn opacity(self) -> &'static str {
         self.text("Opacity", "透明度")
     }

@@ -2142,53 +2142,68 @@ impl PlayerApp {
             self.danmaku_settings.enabled && self.danmaku.kind != DanmakuLoadKind::Failed,
         )
         .on_hover_text(format!("{}: {status}", strings.danmaku_label()));
-        egui::Popup::menu(&response).show(|ui| {
-            ui.set_min_width(280.0);
-            ui.label(RichText::new(&self.danmaku.status).small());
-            if self.danmaku.kind == DanmakuLoadKind::Ass {
-                ui.label(strings.ass_compatibility());
-                ui.label(strings.select_subtitles());
-                return;
-            }
-            ui.label(strings.drop_danmaku());
-            ui.separator();
-            ui.checkbox(&mut self.danmaku_settings.enabled, strings.show_danmaku());
-            ui.add_enabled_ui(self.danmaku_settings.enabled, |ui| {
-                ui.horizontal(|ui| {
-                    ui.label(strings.opacity());
-                    ui.add(
-                        egui::Slider::new(&mut self.danmaku_settings.opacity, 0.0..=1.0)
-                            .show_value(true),
-                    );
+        egui::Popup::menu(&response)
+            .frame(Frame::popup(ui.style()).fill(Color32::from_rgba_unmultiplied(24, 28, 34, 200)))
+            .show(|ui| {
+                ui.set_min_width(280.0);
+                ui.label(RichText::new(&self.danmaku.status).small());
+                if self.danmaku.kind == DanmakuLoadKind::Ass {
+                    ui.label(strings.ass_compatibility());
+                    ui.label(strings.select_subtitles());
+                    return;
+                }
+                ui.label(strings.drop_danmaku());
+                ui.separator();
+                ui.checkbox(&mut self.danmaku_settings.enabled, strings.show_danmaku());
+                ui.add_enabled_ui(self.danmaku_settings.enabled, |ui| {
+                    ui.label(strings.danmaku_types());
+                    ui.horizontal_wrapped(|ui| {
+                        ui.checkbox(
+                            &mut self.danmaku_settings.show_scrolling,
+                            strings.scrolling_danmaku(),
+                        );
+                        ui.checkbox(&mut self.danmaku_settings.show_top, strings.top_danmaku());
+                        ui.checkbox(
+                            &mut self.danmaku_settings.show_bottom,
+                            strings.bottom_danmaku(),
+                        );
+                    });
+                    ui.separator();
+                    ui.horizontal(|ui| {
+                        ui.label(strings.opacity());
+                        ui.add(
+                            egui::Slider::new(&mut self.danmaku_settings.opacity, 0.0..=1.0)
+                                .show_value(true),
+                        );
+                    });
+                    ui.horizontal(|ui| {
+                        ui.label(strings.speed());
+                        ui.add(
+                            egui::Slider::new(&mut self.danmaku_settings.speed, 0.25..=4.0)
+                                .logarithmic(true)
+                                .suffix("x"),
+                        );
+                    });
+                    ui.horizontal(|ui| {
+                        ui.label(strings.density());
+                        ui.add(
+                            egui::Slider::new(&mut self.danmaku_settings.density, 0.0..=1.0)
+                                .show_value(true),
+                        );
+                    });
+                    let mut lanes = self.danmaku_settings.max_lanes as u32;
+                    ui.horizontal(|ui| {
+                        ui.label(strings.lanes());
+                        if ui.add(egui::Slider::new(&mut lanes, 1..=32)).changed() {
+                            self.danmaku_settings.max_lanes = lanes as usize;
+                        }
+                    });
                 });
-                ui.horizontal(|ui| {
-                    ui.label(strings.speed());
-                    ui.add(
-                        egui::Slider::new(&mut self.danmaku_settings.speed, 0.25..=4.0)
-                            .logarithmic(true)
-                            .suffix("x"),
-                    );
-                });
-                ui.horizontal(|ui| {
-                    ui.label(strings.density());
-                    ui.add(
-                        egui::Slider::new(&mut self.danmaku_settings.density, 0.0..=1.0)
-                            .show_value(true),
-                    );
-                });
-                let mut lanes = self.danmaku_settings.max_lanes as u32;
-                ui.horizontal(|ui| {
-                    ui.label(strings.lanes());
-                    if ui.add(egui::Slider::new(&mut lanes, 1..=32)).changed() {
-                        self.danmaku_settings.max_lanes = lanes as usize;
-                    }
-                });
+                if ui.button(strings.reset_display()).clicked() {
+                    self.danmaku_settings = DanmakuDisplaySettings::default();
+                }
+                ui.label(strings.danmaku_shortcut());
             });
-            if ui.button(strings.reset_display()).clicked() {
-                self.danmaku_settings = DanmakuDisplaySettings::default();
-            }
-            ui.label(strings.danmaku_shortcut());
-        });
     }
 
     fn show_track_menus(&mut self, ui: &mut egui::Ui) {

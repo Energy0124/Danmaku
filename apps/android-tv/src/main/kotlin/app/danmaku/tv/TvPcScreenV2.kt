@@ -82,6 +82,7 @@ internal fun TvPcScreen(
                         .tvFocusHalo(RoundedCornerShape(18.dp))
                         .testTag("pc-discover"),
                     colors = tvButtonColors(selected = true),
+                    scale = tvButtonScale(),
                 ) {
                     Text(stringResource(R.string.action_discover_pc))
                 }
@@ -93,6 +94,7 @@ internal fun TvPcScreen(
                         .tvFocusHalo(RoundedCornerShape(18.dp))
                         .testTag("pc-refresh"),
                     colors = tvButtonColors(),
+                    scale = tvButtonScale(),
                 ) {
                     Text(
                         if (session.isRefreshing) {
@@ -110,6 +112,7 @@ internal fun TvPcScreen(
                         .tvFocusHalo(RoundedCornerShape(18.dp))
                         .testTag("pc-save"),
                     colors = tvButtonColors(),
+                    scale = tvButtonScale(),
                 ) {
                     Text(stringResource(R.string.action_save))
                 }

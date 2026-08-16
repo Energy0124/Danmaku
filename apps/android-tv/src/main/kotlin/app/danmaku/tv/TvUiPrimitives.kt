@@ -1,6 +1,5 @@
 package app.danmaku.tv
 
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -9,7 +8,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -41,6 +39,8 @@ internal fun tvButtonColors(selected: Boolean = false): ButtonColors =
         disabledContentColor = Color(0xFF64748B),
     )
 
+internal fun tvButtonScale() = ButtonDefaults.scale(focusedScale = 1f)
+
 internal data class LibraryPosterEndpoint(
     val baseUrl: String,
     val pairingToken: String,
@@ -54,15 +54,9 @@ internal data class LibraryPosterEndpoint(
 @Composable
 internal fun Modifier.tvFocusHalo(
     shape: RoundedCornerShape = RoundedCornerShape(20.dp),
-    focusedScale: Float = 1.035f,
 ): Modifier {
     var isFocused by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(
-        targetValue = if (isFocused) focusedScale else 1f,
-        label = "tv-focus-halo-scale",
-    )
     return this
-        .scale(scale)
         .border(
             width = if (isFocused) 2.dp else 1.dp,
             color = if (isFocused) TvAccentBlue else Color.Transparent,

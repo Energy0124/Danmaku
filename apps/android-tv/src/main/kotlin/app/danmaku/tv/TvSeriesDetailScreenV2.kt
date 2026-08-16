@@ -134,6 +134,7 @@ internal fun TvSeriesDetailScreen(
                     .tvFocusHalo(RoundedCornerShape(18.dp))
                     .testTag("series-play"),
                 colors = tvButtonColors(selected = true),
+                scale = tvButtonScale(),
             ) {
                 Text(
                     if (browse.watchStatusById[selected.id]?.progress == null) {
@@ -155,6 +156,7 @@ internal fun TvSeriesDetailScreen(
                     )
                     .tvFocusHalo(RoundedCornerShape(18.dp)),
                 colors = tvButtonColors(isFavorite),
+                scale = tvButtonScale(),
             ) {
                 Text(
                     if (isFavorite) {
@@ -196,6 +198,7 @@ internal fun TvSeriesDetailScreen(
                             .tvFocusHalo(RoundedCornerShape(16.dp))
                             .testTag("episode-row:${item.id}"),
                         colors = tvButtonColors(selectedRow),
+                        scale = tvButtonScale(),
                     ) {
                         Column(modifier = Modifier.fillMaxWidth()) {
                             Text(

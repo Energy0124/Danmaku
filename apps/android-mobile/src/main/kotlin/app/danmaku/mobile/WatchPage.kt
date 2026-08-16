@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay10
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
@@ -69,6 +70,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
+import app.danmaku.domain.DanmakuDisplaySettings
 import app.danmaku.domain.DanmakuEvent
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.PlaybackSnapshot
@@ -89,11 +91,14 @@ internal fun WatchPage(
     playbackError: String?,
     isFullscreen: Boolean,
     danmakuState: MobileDanmakuState = MobileDanmakuState.Idle,
+    danmakuDisplaySettings: DanmakuDisplaySettings = DanmakuDisplaySettings(),
     playbackStartupPhase: MobilePlaybackStartupPhase = MobilePlaybackStartupPhase.Idle,
     onOpen: () -> Unit,
     onPlayPause: () -> Unit,
     onSeekTo: (Long) -> Unit,
     onSetVolume: (Int) -> Unit,
+    onSetPlaybackRate: (Float) -> Unit = {},
+    onUpdateDanmakuDisplaySettings: (DanmakuDisplaySettings) -> Unit = {},
     onSelectAudio: (String) -> Unit,
     onSelectSubtitle: (String?) -> Unit,
     onBrowseLibrary: () -> Unit,
@@ -108,11 +113,16 @@ internal fun WatchPage(
             nowPlaying = nowPlaying,
             isFullscreen = true,
             danmakuState = danmakuState,
+            danmakuDisplaySettings = danmakuDisplaySettings,
             playbackStartupPhase = playbackStartupPhase,
             onOpen = onOpen,
             onPlayPause = onPlayPause,
             onSeekTo = onSeekTo,
             onSetVolume = onSetVolume,
+            onSetPlaybackRate = onSetPlaybackRate,
+            onUpdateDanmakuDisplaySettings = onUpdateDanmakuDisplaySettings,
+            onSelectAudio = onSelectAudio,
+            onSelectSubtitle = onSelectSubtitle,
             onToggleFullscreen = onToggleFullscreen,
             modifier = Modifier
                 .fillMaxSize()
@@ -133,11 +143,16 @@ internal fun WatchPage(
                     nowPlaying = nowPlaying,
                     isFullscreen = false,
                     danmakuState = danmakuState,
+                    danmakuDisplaySettings = danmakuDisplaySettings,
                     playbackStartupPhase = playbackStartupPhase,
                     onOpen = onOpen,
                     onPlayPause = onPlayPause,
                     onSeekTo = onSeekTo,
                     onSetVolume = onSetVolume,
+                    onSetPlaybackRate = onSetPlaybackRate,
+                    onUpdateDanmakuDisplaySettings = onUpdateDanmakuDisplaySettings,
+                    onSelectAudio = onSelectAudio,
+                    onSelectSubtitle = onSelectSubtitle,
                     onToggleFullscreen = onToggleFullscreen,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -193,15 +208,21 @@ private fun PlayerStage(
     nowPlaying: LibraryMediaItem?,
     isFullscreen: Boolean,
     danmakuState: MobileDanmakuState,
+    danmakuDisplaySettings: DanmakuDisplaySettings,
     playbackStartupPhase: MobilePlaybackStartupPhase,
     onOpen: () -> Unit,
     onPlayPause: () -> Unit,
     onSeekTo: (Long) -> Unit,
     onSetVolume: (Int) -> Unit,
+    onSetPlaybackRate: (Float) -> Unit,
+    onUpdateDanmakuDisplaySettings: (DanmakuDisplaySettings) -> Unit,
+    onSelectAudio: (String) -> Unit,
+    onSelectSubtitle: (String?) -> Unit,
     onToggleFullscreen: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var controlsVisible by remember(snapshot.source, isFullscreen) { mutableStateOf(true) }
+    var optionsVisible by remember(snapshot.source) { mutableStateOf(false) }
     val hasSource = snapshot.source != null
     val player = controller?.player
 
@@ -255,6 +276,7 @@ private fun PlayerStage(
             events = danmakuState.events,
             snapshot = snapshot,
             isFullscreen = isFullscreen,
+            settings = danmakuDisplaySettings,
             modifier = Modifier.fillMaxSize(),
         )
 
@@ -281,6 +303,7 @@ private fun PlayerStage(
                     onPlayPause = onPlayPause,
                     onSeekTo = onSeekTo,
                     onToggleFullscreen = onToggleFullscreen,
+                    onOpenOptions = { optionsVisible = true },
                 )
             } else {
                 InlinePlayerChrome(
@@ -291,9 +314,21 @@ private fun PlayerStage(
                     onSeekTo = onSeekTo,
                     onSetVolume = onSetVolume,
                     onToggleFullscreen = onToggleFullscreen,
+                    onOpenOptions = { optionsVisible = true },
                 )
             }
         }
+    }
+    if (optionsVisible) {
+        PlaybackOptionsDialog(
+            snapshot = snapshot,
+            danmakuSettings = danmakuDisplaySettings,
+            onSetPlaybackRate = onSetPlaybackRate,
+            onSelectAudio = onSelectAudio,
+            onSelectSubtitle = onSelectSubtitle,
+            onUpdateDanmakuSettings = onUpdateDanmakuDisplaySettings,
+            onDismiss = { optionsVisible = false },
+        )
     }
 }
 
@@ -307,6 +342,7 @@ private fun PlayerChrome(
     onPlayPause: () -> Unit,
     onSeekTo: (Long) -> Unit,
     onToggleFullscreen: () -> Unit,
+    onOpenOptions: () -> Unit,
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         PlayerTopChrome(
@@ -316,6 +352,7 @@ private fun PlayerChrome(
             danmakuState = danmakuState,
             playbackStartupPhase = playbackStartupPhase,
             onToggleFullscreen = onToggleFullscreen,
+            onOpenOptions = onOpenOptions,
             modifier = Modifier.align(Alignment.TopCenter),
         )
         PlayerCenterControls(
@@ -343,6 +380,7 @@ private fun InlinePlayerChrome(
     onSeekTo: (Long) -> Unit,
     onSetVolume: (Int) -> Unit,
     onToggleFullscreen: () -> Unit,
+    onOpenOptions: () -> Unit,
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         Row(
@@ -376,6 +414,13 @@ private fun InlinePlayerChrome(
                 )
             }
             OverlayPill(label = snapshot.status.displayLabel())
+            InlinePlayerIconButton(
+                onClick = onOpenOptions,
+                enabled = true,
+                icon = Icons.Filled.Settings,
+                contentDescription = stringResource(R.string.action_playback_options),
+                modifier = Modifier.testTag("watch-playback-options"),
+            )
         }
         Column(
             modifier = Modifier
@@ -475,6 +520,7 @@ private fun PlayerTopChrome(
     danmakuState: MobileDanmakuState,
     playbackStartupPhase: MobilePlaybackStartupPhase,
     onToggleFullscreen: () -> Unit,
+    onOpenOptions: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -523,6 +569,16 @@ private fun PlayerTopChrome(
             Spacer(modifier = Modifier.width(8.dp))
         }
         OverlayPill(label = snapshot.status.displayLabel())
+        IconButton(
+            onClick = onOpenOptions,
+            modifier = Modifier.testTag("watch-playback-options"),
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Settings,
+                contentDescription = stringResource(R.string.action_playback_options),
+                tint = Color.White,
+            )
+        }
     }
 }
 
@@ -683,16 +739,23 @@ private fun MobileDanmakuOverlay(
     events: List<DanmakuEvent>,
     snapshot: PlaybackSnapshot,
     isFullscreen: Boolean,
+    settings: DanmakuDisplaySettings,
     modifier: Modifier = Modifier,
 ) {
+    val displayEvents = remember(events, settings) {
+        settings.filter(events).map { event ->
+            event.copy(timestampMs = settings.shiftedTimestampMs(event.timestampMs))
+        }
+    }
     AndroidView(
         factory = { MobileDanmakuOverlayView(it) },
         modifier = modifier.testTag("watch-danmaku-overlay"),
         update = { view ->
             view.update(
-                events = events,
+                events = displayEvents,
                 snapshot = snapshot,
                 isFullscreen = isFullscreen,
+                settings = settings,
             )
         },
     )
