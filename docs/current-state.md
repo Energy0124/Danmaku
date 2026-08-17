@@ -1,6 +1,6 @@
 # Current State
 
-Last reviewed: 2026-08-14.
+Last reviewed: 2026-08-17.
 
 Danmaku's active product is a Rust-native Windows library/player/server with
 Android mobile, Android TV, and browser clients on the same trusted-LAN API,
@@ -25,6 +25,10 @@ Compose macOS artifact are retired.
   management, start/stop/status, uninstall, and non-mutating plan checks.
 - Multi-root scanning, normalized catalog snapshots, subtitles, posters,
   streaming/range requests, progress, UDP discovery, and data-directory locks.
+- Authenticated, asynchronous manual rescans of the current folder. The server
+  replaces only the selected catalog subtree, preserves sibling folders and
+  stable media IDs, and exposes live file counts and scan failures through its
+  status endpoint.
 - dandanplay matching/comment cache and repair status; provider metadata,
   settings, secret storage, external mappings, list readback, conflict-aware
   previews, and explicitly acknowledged MAL/Bangumi writes.
@@ -38,7 +42,9 @@ Compose macOS artifact are retired.
 - Discovery/manual connection, catalog browsing, series/episode presentation,
   Media3 streaming, subtitles, playback progress, resume, and danmaku.
 - Mobile and TV expose the server's original multi-root folder layout as a
-  dedicated top-level destination backed by shared folder-listing rules.
+  dedicated top-level destination backed by shared folder-listing rules. Both
+  provide a manual current-folder refresh action and poll only while that
+  requested server scan remains active.
 - Mobile playback has a responsive side-panel for playback speed, audio and
   subtitle tracks, plus persistent danmaku visibility, opacity, size, travel
   speed, density, screen area, full-hour timing offset with exact entry and

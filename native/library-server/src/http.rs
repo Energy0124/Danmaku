@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 
 use axum::Router;
-use axum::body::Body;
+use axum::body::{Body, to_bytes};
 use axum::extract::State;
 use axum::http::header::{
     ACCEPT, ACCEPT_RANGES, AUTHORIZATION, CACHE_CONTROL, CONTENT_LENGTH, CONTENT_RANGE,
@@ -18,7 +18,7 @@ use tokio_util::io::ReaderStream;
 
 use crate::Result;
 use crate::attention::{AttentionFailureStore, build_attention_document};
-use crate::catalog::{ExternalAnimeId, PublishedLibrary, normalize_lexically};
+use crate::catalog::{CatalogStore, ExternalAnimeId, PublishedLibrary, normalize_lexically};
 use crate::catalog_metadata::CatalogMetadataStore;
 use crate::dandanplay::{
     DandanplayResolveResult, DandanplayResolver, LanDanmakuTrack, apply_dandanplay_local_defaults,
@@ -32,10 +32,13 @@ use crate::external_provider::{
     fetch_bangumi_identity, fetch_my_anime_list_identity, my_anime_list_authorization_url,
     parse_provider_alias, provider_runtime_status, refresh_my_anime_list_token,
 };
+use crate::logging::CatalogScanSummary;
 use crate::poster_cache::PosterCacheStore;
 use crate::progress::PlaybackProgressStore;
 use crate::provider_secrets::{ProviderSecretStore, ProviderSecrets};
-use crate::scanner::ScanProgress;
+use crate::scanner::{
+    LibraryRescanTarget, ScanProgress, rescan_target_with_progress, resolve_rescan_target,
+};
 use crate::settings::{
     HeadlessDandanplayAuthenticationMode, HeadlessServerSettings, SettingsStore,
     apply_external_anime_local_defaults, embedded_my_anime_list_client_id, is_http_base_url,
@@ -887,6 +890,12 @@ pub struct AuthenticatedPostHookConfig {
 }
 
 #[derive(Debug, Clone)]
+struct LibraryScanConfig {
+    roots: Vec<PathBuf>,
+    catalog_store: CatalogStore,
+}
+
+#[derive(Debug, Clone)]
 pub struct HttpServerState {
     /// Hot-swappable so a background rescan can publish a fresh library while
     /// the server keeps answering requests from the previous snapshot.
@@ -910,6 +919,8 @@ pub struct HttpServerState {
     /// `/api/server/status` so clients can show indexing progress.
     scanning: Arc<AtomicBool>,
     scan_progress: Arc<ScanProgress>,
+    scan_error: Arc<RwLock<Option<String>>>,
+    library_scan: Option<Arc<LibraryScanConfig>>,
 }
 
 impl HttpServerState {
@@ -946,7 +957,17 @@ impl HttpServerState {
             poster_resolution_in_flight: Arc::new(Mutex::new(BTreeSet::new())),
             scanning: Arc::new(AtomicBool::new(false)),
             scan_progress: Arc::new(ScanProgress::default()),
+            scan_error: Arc::new(RwLock::new(None)),
+            library_scan: None,
         }
+    }
+
+    pub fn with_library_scan(mut self, roots: Vec<PathBuf>, catalog_store: CatalogStore) -> Self {
+        self.library_scan = Some(Arc::new(LibraryScanConfig {
+            roots,
+            catalog_store,
+        }));
+        self
     }
 
     fn provider_runtime_status(
@@ -994,6 +1015,38 @@ impl HttpServerState {
         self.scanning.store(scanning, Ordering::Relaxed);
     }
 
+    pub fn try_start_scan(&self) -> bool {
+        if self
+            .scanning
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Relaxed)
+            .is_err()
+        {
+            return false;
+        }
+        self.scan_progress.reset();
+        self.set_scan_error(None);
+        true
+    }
+
+    pub fn finish_scan(&self, error: Option<String>) {
+        self.set_scan_error(error);
+        self.scanning.store(false, Ordering::Release);
+    }
+
+    fn set_scan_error(&self, error: Option<String>) {
+        match self.scan_error.write() {
+            Ok(mut guard) => *guard = error,
+            Err(poisoned) => *poisoned.into_inner() = error,
+        }
+    }
+
+    fn scan_error(&self) -> Option<String> {
+        self.scan_error
+            .read()
+            .map(|error| error.clone())
+            .unwrap_or_else(|poisoned| poisoned.into_inner().clone())
+    }
+
     pub fn scan_progress(&self) -> Arc<ScanProgress> {
         Arc::clone(&self.scan_progress)
     }
@@ -1012,6 +1065,9 @@ async fn dispatch(State(state): State<HttpServerState>, request: Request<Body>) 
 
     if path.starts_with("/api/server/status") {
         return handle_server_status(&state, &method);
+    }
+    if path == "/api/library/rescan" {
+        return handle_library_rescan(&state, method, headers, body).await;
     }
     if path == "/api/library/attention" {
         return handle_library_attention(&state, &method);
@@ -1094,7 +1150,77 @@ fn handle_server_status(state: &HttpServerState, method: &Method) -> Response<Bo
         status.scanning = true;
         status.scan_files_seen = Some(state.scan_progress.media_files_seen());
     }
+    status.scan_error = state.scan_error();
     json_response(StatusCode::OK, &status)
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LibraryRescanRequest {
+    #[serde(default)]
+    path: Vec<String>,
+}
+
+async fn handle_library_rescan(
+    state: &HttpServerState,
+    method: Method,
+    headers: HeaderMap,
+    body: Body,
+) -> Response<Body> {
+    if method != Method::POST {
+        return empty_status(StatusCode::METHOD_NOT_ALLOWED);
+    }
+    let Some(admin) = state.provider_admin.as_ref() else {
+        return empty_status(StatusCode::NOT_FOUND);
+    };
+    if !admin.is_authorized(&headers) {
+        return empty_status(StatusCode::UNAUTHORIZED);
+    }
+    let Some(config) = state.library_scan.as_ref().map(Arc::clone) else {
+        return empty_status(StatusCode::NOT_FOUND);
+    };
+    let bytes = match to_bytes(body, 64 * 1024).await {
+        Ok(bytes) => bytes,
+        Err(error) => return text_response(StatusCode::BAD_REQUEST, &error.to_string()),
+    };
+    let request = match serde_json::from_slice::<LibraryRescanRequest>(&bytes) {
+        Ok(request) => request,
+        Err(error) => return text_response(StatusCode::BAD_REQUEST, &error.to_string()),
+    };
+    let target = match resolve_rescan_target(&config.roots, &request.path) {
+        Ok(target) => target,
+        Err(error) => return text_response(StatusCode::BAD_REQUEST, &error.to_string()),
+    };
+    if !state.try_start_scan() {
+        return text_response(StatusCode::CONFLICT, "A library scan is already running.");
+    }
+
+    let scan_state = state.clone();
+    tokio::task::spawn_blocking(move || {
+        let result = rescan_and_publish(&scan_state, &config, &target);
+        let error = result.err().map(|error| error.to_string());
+        if let Some(error) = &error {
+            eprintln!("catalog rescan failed: {error}");
+        }
+        scan_state.finish_scan(error);
+    });
+    empty_status(StatusCode::ACCEPTED)
+}
+
+fn rescan_and_publish(
+    state: &HttpServerState,
+    config: &LibraryScanConfig,
+    target: &LibraryRescanTarget,
+) -> crate::Result<()> {
+    let previous = config.catalog_store.load()?;
+    let progress = state.scan_progress();
+    let scan =
+        rescan_target_with_progress(&config.roots, target, previous.as_ref(), Some(&progress))?;
+    let summary = CatalogScanSummary::from(&scan);
+    let stored = config.catalog_store.save_scan(scan)?;
+    state.publish_library(stored.published_library);
+    println!("{}", summary.to_log_line());
+    Ok(())
 }
 
 fn handle_catalog(state: &HttpServerState, method: &Method) -> Response<Body> {
@@ -2544,6 +2670,9 @@ struct LanLibraryServerStatus {
     /// while `scanning` is true.
     #[serde(skip_serializing_if = "Option::is_none")]
     scan_files_seen: Option<u64>,
+    /// Most recent background scan failure. Cleared when a new scan starts.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    scan_error: Option<String>,
 }
 
 impl Default for LanLibraryServerStatus {
@@ -2561,6 +2690,7 @@ impl Default for LanLibraryServerStatus {
             provider_settings: None,
             scanning: false,
             scan_files_seen: None,
+            scan_error: None,
         }
     }
 }

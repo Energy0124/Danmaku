@@ -71,7 +71,7 @@ pub(crate) fn http_authenticated_json(
         body,
         &[("Authorization", authorization.as_str())],
     )?;
-    require_status(response, &[200, 201, 204])?.body_string()
+    require_status(response, &[200, 201, 202, 204])?.body_string()
 }
 
 fn require_status(response: HttpResponse, accepted: &[u16]) -> Result<HttpResponse, String> {

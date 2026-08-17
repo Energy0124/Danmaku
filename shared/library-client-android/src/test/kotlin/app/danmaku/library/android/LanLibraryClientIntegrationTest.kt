@@ -74,6 +74,16 @@ class LanLibraryClientIntegrationTest {
 
             assertEquals(LanLibraryServerStatus(), client.fetchServerStatus(server.baseUrl))
             assertEquals(catalog, client.fetchCatalog(server.baseUrl, server.pairingToken))
+            client.requestFolderRescan(
+                server.baseUrl,
+                server.pairingToken,
+                listOf("Example Show", "Season 2"),
+            )
+            assertEquals(
+                "{\"path\":[\"Example Show\",\"Season 2\"]}",
+                server.lastRescanBody,
+            )
+            assertEquals("Bearer ${server.pairingToken}", server.lastRescanAuthorization)
             assertArrayEquals(
                 mediaBytes,
                 URI(client.streamUrl(server.baseUrl, item, server.pairingToken))

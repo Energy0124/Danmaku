@@ -47,6 +47,12 @@ class LanProtocolFixtureServer(
     val pairingToken: String = "token with spaces"
     val danmakuForceRefreshRequests: Int
         get() = forceRefreshCount.get()
+    @Volatile
+    var lastRescanBody: String? = null
+        private set
+    @Volatile
+    var lastRescanAuthorization: String? = null
+        private set
 
     init {
         executor.submit {
@@ -89,6 +95,12 @@ class LanProtocolFixtureServer(
 
             request.method == "GET" && path == "/api/library" ->
                 jsonResponse(catalog)
+
+            request.method == "POST" && path == "/api/library/rescan" -> {
+                lastRescanBody = request.body.toString(StandardCharsets.UTF_8)
+                lastRescanAuthorization = request.headers["authorization"]
+                Response.accepted()
+            }
 
             request.method == "GET" && path == "/api/progress" ->
                 jsonResponse(progressByMediaId.values.sortedBy(PlaybackProgress::mediaId))
@@ -151,6 +163,7 @@ class LanProtocolFixtureServer(
     private data class Request(
         val method: String,
         val target: String,
+        val headers: Map<String, String>,
         val body: ByteArray,
     )
 
@@ -168,6 +181,8 @@ class LanProtocolFixtureServer(
 
             fun noContent(): Response = Response(204, "No Content")
 
+            fun accepted(): Response = Response(202, "Accepted")
+
             fun badRequest(): Response = Response(400, "Bad Request")
 
             fun notFound(): Response = Response(404, "Not Found")
@@ -181,12 +196,18 @@ class LanProtocolFixtureServer(
         val parts = requestLine.split(' ', limit = 3)
         require(parts.size == 3) { "invalid fixture request line: $requestLine" }
         var contentLength = 0
+        val headers = mutableMapOf<String, String>()
         while (true) {
             val header = readAsciiLine() ?: return null
             if (header.isBlank()) break
             val fields = header.split(':', limit = 2)
-            if (fields.size == 2 && fields[0].equals("Content-Length", ignoreCase = true)) {
-                contentLength = fields[1].trim().toInt()
+            if (fields.size == 2) {
+                val name = fields[0].trim().lowercase()
+                val value = fields[1].trim()
+                headers[name] = value
+                if (name == "content-length") {
+                    contentLength = value.toInt()
+                }
             }
         }
         val body = ByteArray(contentLength)
@@ -196,7 +217,7 @@ class LanProtocolFixtureServer(
             require(count >= 0) { "fixture request body ended early" }
             offset += count
         }
-        return Request(parts[0], parts[1], body)
+        return Request(parts[0], parts[1], headers, body)
     }
 
     private fun BufferedInputStream.readAsciiLine(): String? {

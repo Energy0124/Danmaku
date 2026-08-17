@@ -99,7 +99,10 @@ impl LoadedServer {
                 LibraryServerError::with_context(error, "failed to read HTTP socket address")
             })?
             .port();
-        let state = self.http_state()?;
+        let state = self.http_state()?.with_library_scan(
+            self.effective_library_roots.clone(),
+            CatalogStore::new(self.options.data_directory.join("catalog.json")),
+        );
         let app = http::app(state.clone());
         Ok(BoundServer {
             loaded: self,
@@ -190,9 +193,14 @@ impl BoundServer {
         let catalog_store = CatalogStore::new(loaded.options.data_directory.join("catalog.json"));
         // Flag before serving starts so a client's very first status poll
         // already reports the scan.
-        state.set_scanning(true);
+        if !state.try_start_scan() {
+            return;
+        }
         tokio::task::spawn_blocking(move || {
-            scan_and_publish(&roots, previous, &catalog_store, &state);
+            let error = scan_and_publish(&roots, previous, &catalog_store, &state)
+                .err()
+                .map(|error| error.to_string());
+            state.finish_scan(error);
         });
     }
 }
@@ -205,26 +213,14 @@ fn scan_and_publish(
     previous: Option<HeadlessStoredLibrary>,
     catalog_store: &CatalogStore,
     state: &HttpServerState,
-) {
+) -> Result<()> {
     let progress = state.scan_progress();
-    match scan_roots_with_progress(roots, previous.as_ref(), Some(&progress)) {
-        Ok(scan) => {
-            let summary = CatalogScanSummary::from(&scan);
-            match catalog_store.save_scan(scan) {
-                Ok(stored) => {
-                    state.publish_library(stored.published_library);
-                    println!("{}", summary.to_log_line());
-                }
-                Err(error) => {
-                    eprintln!("failed to persist catalog scan: {error}");
-                }
-            }
-        }
-        Err(error) => {
-            eprintln!("catalog scan failed: {error}");
-        }
-    }
-    state.set_scanning(false);
+    let scan = scan_roots_with_progress(roots, previous.as_ref(), Some(&progress))?;
+    let summary = CatalogScanSummary::from(&scan);
+    let stored = catalog_store.save_scan(scan)?;
+    state.publish_library(stored.published_library);
+    println!("{}", summary.to_log_line());
+    Ok(())
 }
 
 #[cfg(test)]
@@ -267,6 +263,25 @@ mod tests {
         serde_json::from_slice(&bytes).expect("body is JSON")
     }
 
+    async fn post_rescan(app: &Router, token: Option<&str>, path: &[&str]) -> StatusCode {
+        let mut request = Request::builder()
+            .method("POST")
+            .uri("/api/library/rescan")
+            .header("content-type", "application/json");
+        if let Some(token) = token {
+            request = request.header("authorization", format!("Bearer {token}"));
+        }
+        app.clone()
+            .oneshot(
+                request
+                    .body(Body::from(serde_json::json!({ "path": path }).to_string()))
+                    .expect("request builds"),
+            )
+            .await
+            .expect("request succeeds")
+            .status()
+    }
+
     #[tokio::test]
     async fn binds_before_scanning_and_publishes_the_scan_result() {
         let temp = temp_dir("danmaku-runtime-deferred-scan");
@@ -293,15 +308,18 @@ mod tests {
 
         // Run the deferred scan synchronously (production spawns it on a
         // blocking task once serving starts) and confirm it is published.
-        bound.state.set_scanning(true);
+        assert!(bound.state.try_start_scan());
         let status = get_json(&bound.app, "/api/server/status").await;
         assert_eq!(Value::Bool(true), status["scanning"]);
-        scan_and_publish(
+        let result = scan_and_publish(
             &bound.loaded.effective_library_roots,
             bound.loaded.stored_library.clone(),
             &CatalogStore::new(data_directory.join("catalog.json")),
             &bound.state,
         );
+        bound
+            .state
+            .finish_scan(result.err().map(|error| error.to_string()));
 
         let status = get_json(&bound.app, "/api/server/status").await;
         assert_eq!(Value::Null, status["scanning"]);
@@ -314,6 +332,65 @@ mod tests {
                 .expect("catalog loads")
                 .is_some()
         );
+
+        drop(bound);
+        fs::remove_dir_all(temp).expect("temp should delete");
+    }
+
+    #[tokio::test]
+    async fn authenticated_folder_rescan_publishes_new_files() {
+        let temp = temp_dir("danmaku-runtime-folder-rescan");
+        let data_directory = temp.join("data");
+        let root = temp.join("Anime");
+        let show = root.join("Example Show");
+        fs::create_dir_all(&show).expect("fixture dirs");
+        fs::write(show.join("Episode 01.mp4"), [1, 2, 3, 4]).expect("first media");
+
+        let loaded = LoadedServer::load(ServerOptions {
+            data_directory: data_directory.clone(),
+            library_roots: vec![root.clone()],
+            port: 0,
+            pairing_token: Some("123456".to_owned()),
+            web_assets_root: None,
+        })
+        .expect("server loads");
+        let bound = loaded.bind().await.expect("server binds");
+        assert!(bound.state.try_start_scan());
+        let initial = scan_and_publish(
+            &bound.loaded.effective_library_roots,
+            None,
+            &CatalogStore::new(data_directory.join("catalog.json")),
+            &bound.state,
+        );
+        bound
+            .state
+            .finish_scan(initial.err().map(|error| error.to_string()));
+        fs::write(show.join("Episode 02.mp4"), [5, 6, 7, 8]).expect("second media");
+
+        assert_eq!(
+            StatusCode::UNAUTHORIZED,
+            post_rescan(&bound.app, None, &["Example Show"]).await
+        );
+        assert!(bound.state.try_start_scan());
+        assert_eq!(
+            StatusCode::CONFLICT,
+            post_rescan(&bound.app, Some("123456"), &["Example Show"]).await
+        );
+        bound.state.finish_scan(None);
+        assert_eq!(
+            StatusCode::ACCEPTED,
+            post_rescan(&bound.app, Some("123456"), &["Example Show"]).await
+        );
+        for _ in 0..100 {
+            let status = get_json(&bound.app, "/api/server/status").await;
+            if status["scanning"] != Value::Bool(true) {
+                assert_eq!(Value::Null, status["scanError"]);
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+        let catalog = get_json(&bound.app, "/api/library").await;
+        assert_eq!(2, catalog["items"].as_array().expect("items").len());
 
         drop(bound);
         fs::remove_dir_all(temp).expect("temp should delete");

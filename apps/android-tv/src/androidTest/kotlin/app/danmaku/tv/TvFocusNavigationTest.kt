@@ -373,10 +373,12 @@ class TvFocusNavigationTest {
                     route = route,
                     navigation = navigator.state.value,
                     navigator = navigator,
+                    session = session,
                     browse = browse,
                     onOpenFolder = { openedFolder = it },
                     onOpenFile = {},
                     onNavigateUp = {},
+                    onRefresh = {},
                 )
             }
         }
@@ -403,10 +405,12 @@ class TvFocusNavigationTest {
                     route = route,
                     navigation = navigator.state.value,
                     navigator = navigator,
+                    session = TvSessionUiState(catalog = browse.catalog),
                     browse = browse,
                     onOpenFolder = {},
                     onOpenFile = {},
                     onNavigateUp = {},
+                    onRefresh = {},
                 )
             }
         }

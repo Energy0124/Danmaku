@@ -548,6 +548,9 @@ pub enum LibraryAction {
         anime_id: u64,
     },
     Refresh,
+    RescanFolder {
+        path: Vec<String>,
+    },
     Disconnect,
     Settings,
 }
@@ -1517,6 +1520,44 @@ impl LibraryScreen {
         );
 
         let mut action = None;
+        ui.horizontal(|ui| {
+            ui.add_space(PAGE_GUTTER);
+            if ui
+                .add_enabled(
+                    !session.server_scanning,
+                    egui::Button::new(strings.refresh_folder()),
+                )
+                .clicked()
+            {
+                action = Some(LibraryAction::RescanFolder {
+                    path: self.folder_path.clone(),
+                });
+            }
+            if session.server_scanning {
+                ui.add(egui::Spinner::new().size(14.0));
+                let status = session.server_scan_files_seen.map_or_else(
+                    || strings.scanning_folder().to_owned(),
+                    |files| {
+                        format!(
+                            "{} · {}",
+                            strings.scanning_folder(),
+                            strings.indexing_files_found(files)
+                        )
+                    },
+                );
+                ui.label(RichText::new(status).color(palette::TEXT_SECONDARY));
+            }
+        });
+        if let Some(error) = &session.server_scan_error {
+            ui.horizontal(|ui| {
+                ui.add_space(PAGE_GUTTER);
+                ui.label(
+                    RichText::new(format!("{} {error}", strings.folder_scan_failed()))
+                        .color(palette::DANGER),
+                );
+            });
+        }
+        ui.add_space(8.0);
         let mut navigate: Option<Option<String>> = None;
         if !self.folder_path.is_empty() && explorer_folder_row(ui, None, 0, strings).clicked() {
             navigate = Some(None);

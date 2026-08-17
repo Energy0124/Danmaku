@@ -17,7 +17,7 @@ use crate::{
     library::{
         AttentionMappingStatus, AttentionRepairRequest, LibraryAttentionDocument, LibraryCatalog,
         PlaybackProgress, fetch_attention, fetch_catalog, fetch_progress, fetch_progress_list,
-        fetch_server_status, upload_progress,
+        fetch_server_status, request_folder_rescan, upload_progress,
     },
     tracking::{
         ExternalAnimeId, ExternalProvider, ProviderAccounts, SearchCandidate, TrackingDocument,
@@ -37,7 +37,9 @@ pub enum SessionEvent {
     ServerScan {
         scanning: bool,
         files_seen: Option<u64>,
+        error: Option<String>,
     },
+    FolderRescan(Result<(), String>),
     ResumeLookup {
         media_id: String,
         progress: Option<PlaybackProgress>,
@@ -97,6 +99,7 @@ pub struct LibrarySession {
     pub server_scanning: bool,
     /// Media files the in-flight server scan has discovered so far.
     pub server_scan_files_seen: Option<u64>,
+    pub server_scan_error: Option<String>,
     /// Bumped whenever fresh (non-cache) catalog or progress data lands, so
     /// the app knows when to persist the session cache.
     pub sync_version: u64,
@@ -130,6 +133,7 @@ impl LibrarySession {
             catalog_from_cache: false,
             server_scanning: false,
             server_scan_files_seen: None,
+            server_scan_error: None,
             sync_version: 0,
             catalog_version: 0,
             inbox: Arc::new(Mutex::new(Vec::new())),
@@ -166,6 +170,7 @@ impl LibrarySession {
             catalog_from_cache: true,
             server_scanning: false,
             server_scan_files_seen: None,
+            server_scan_error: None,
             sync_version: 0,
             catalog_version: 1,
             inbox: Arc::new(Mutex::new(Vec::new())),
@@ -233,22 +238,36 @@ impl LibrarySession {
         let base_url = self.base_url.clone();
         self.spawn(
             move |base| {
-                let (scanning, files_seen) = fetch_server_status(&base)
+                let (scanning, files_seen, error) = fetch_server_status(&base)
                     .ok()
                     .and_then(|body| serde_json::from_str::<serde_json::Value>(&body).ok())
                     .map(|status| {
                         (
                             status["scanning"].as_bool().unwrap_or(false),
                             status["scanFilesSeen"].as_u64(),
+                            status["scanError"].as_str().map(ToOwned::to_owned),
                         )
                     })
-                    .unwrap_or((false, None));
+                    .unwrap_or((false, None, None));
                 SessionEvent::ServerScan {
                     scanning,
                     files_seen,
+                    error,
                 }
             },
             base_url,
+        );
+    }
+
+    pub fn refresh_folder(&mut self, path: Vec<String>) {
+        let Some((base_url, token)) = self.authenticated_server() else {
+            self.server_scan_error = Some("PC access code is required".to_owned());
+            return;
+        };
+        self.server_scan_error = None;
+        self.spawn(
+            move |_| SessionEvent::FolderRescan(request_folder_rescan(&base_url, &token, &path)),
+            self.base_url.clone(),
         );
     }
 
@@ -621,13 +640,24 @@ impl LibrarySession {
                 SessionEvent::ServerScan {
                     scanning,
                     files_seen,
+                    error,
                 } => {
                     if self.server_scanning && !scanning {
                         scan_finished = true;
                     }
                     self.server_scanning = scanning;
                     self.server_scan_files_seen = files_seen;
+                    self.server_scan_error = error;
                 }
+                SessionEvent::FolderRescan(result) => match result {
+                    Ok(()) => {
+                        self.server_scanning = true;
+                        self.server_scan_files_seen = Some(0);
+                        self.server_scan_error = None;
+                        self.refresh_server_scan();
+                    }
+                    Err(error) => self.server_scan_error = Some(error),
+                },
                 other => for_app.push(other),
             }
         }
@@ -694,6 +724,7 @@ mod tests {
             catalog_from_cache: false,
             server_scanning: false,
             server_scan_files_seen: None,
+            server_scan_error: None,
             sync_version: 0,
             catalog_version: 0,
             inbox: Arc::new(Mutex::new(Vec::new())),
@@ -836,6 +867,7 @@ mod tests {
             .push(SessionEvent::ServerScan {
                 scanning: true,
                 files_seen: Some(12),
+                error: None,
             });
         session.drain_events();
         assert!(session.server_scanning);
@@ -849,6 +881,7 @@ mod tests {
             .push(SessionEvent::ServerScan {
                 scanning: false,
                 files_seen: None,
+                error: None,
             });
         session.drain_events();
         assert!(!session.server_scanning);

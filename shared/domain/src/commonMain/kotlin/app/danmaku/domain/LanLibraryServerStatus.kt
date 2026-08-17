@@ -14,12 +14,16 @@ data class LanLibraryServerStatus(
     val webUiPath: String? = null,
     val hostMode: String = HOST_MODE_HEADLESS_SERVER,
     val providerSettings: LanProviderSettingsStatus? = null,
+    val scanning: Boolean = false,
+    val scanFilesSeen: Long? = null,
+    val scanError: String? = null,
 ) {
     init {
         require(appName.isNotBlank()) { "appName must not be blank" }
         require(apiVersion > 0) { "apiVersion must be positive" }
         require(webUiPath == null || webUiPath.startsWith("/")) { "webUiPath must be absolute when present" }
         require(hostMode.isNotBlank()) { "hostMode must not be blank" }
+        require(scanFilesSeen == null || scanFilesSeen >= 0) { "scanFilesSeen must not be negative" }
     }
 
     companion object {

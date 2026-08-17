@@ -18,7 +18,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -50,8 +52,27 @@ internal fun FolderPage(
     onNavigateUp: () -> Unit,
     onPlay: (LibraryMediaItem) -> Unit,
     onConnect: () -> Unit,
+    isRefreshing: Boolean = false,
+    refreshFilesSeen: Long? = null,
+    refreshError: MobileFolderRefreshError? = null,
+    refreshErrorDetail: String? = null,
+    onRefresh: (List<String>) -> Unit = { _ -> },
 ) {
     val listing = remember(catalog, path) { catalog?.folderListing(path) }
+    val refreshErrorText = refreshError?.let {
+        stringResource(
+            when (it) {
+                MobileFolderRefreshError.ACCESS_CODE_REQUIRED ->
+                    R.string.folders_refresh_access_code_required
+                MobileFolderRefreshError.ALREADY_RUNNING ->
+                    R.string.folders_refresh_already_running
+                MobileFolderRefreshError.SCAN_FAILED ->
+                    R.string.folders_refresh_scan_failed
+                MobileFolderRefreshError.REQUEST_FAILED ->
+                    R.string.folders_refresh_request_failed
+            },
+        )
+    }
 
     BackHandler(enabled = path.isNotEmpty(), onBack = onNavigateUp)
 
@@ -75,6 +96,49 @@ internal fun FolderPage(
                     Spacer(Modifier.width(8.dp))
                     Text(stringResource(R.string.action_up))
                 }
+            }
+        }
+        if (catalog != null) {
+            item(key = "folder-refresh") {
+                Button(
+                    onClick = { onRefresh(path) },
+                    enabled = !isRefreshing,
+                    modifier = Modifier.testTag("folder-refresh"),
+                ) {
+                    if (isRefreshing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                        )
+                    } else {
+                        Icon(Icons.Filled.Refresh, contentDescription = null)
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        if (isRefreshing) {
+                            refreshFilesSeen?.let {
+                                stringResource(R.string.folders_refresh_progress, it)
+                            } ?: stringResource(R.string.folders_refresh_scanning)
+                        } else {
+                            stringResource(R.string.folders_refresh_action)
+                        },
+                    )
+                }
+            }
+        }
+        refreshErrorText?.let { errorText ->
+            item(key = "folder-refresh-error") {
+                FolderMessageCard(
+                    title = stringResource(R.string.folders_refresh_failed_title),
+                    body = buildString {
+                        append(errorText)
+                        refreshErrorDetail?.takeIf(String::isNotBlank)?.let {
+                            append("\n")
+                            append(it)
+                        }
+                    },
+                )
             }
         }
         when {

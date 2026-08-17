@@ -155,6 +155,12 @@ dandanplay resolution/cache, external tracking state, HTTP media/subtitle/
 poster routes, UDP discovery, and `/web/` administration. It does not import
 the retired Compose desktop database.
 
+The Windows, Android mobile, and Android TV folder views include a manual
+refresh action. It asks the server to rescan only the folder currently being
+viewed (or all configured roots at the folder-browser root), shows live scan
+progress, and reloads the catalog when the scan finishes. There is no constant
+background full-library polling.
+
 ### MyAnimeList and Bangumi tracking
 
 In the Windows player, open **Settings → Accounts & tracking**. MyAnimeList
@@ -183,8 +189,8 @@ server, browse its catalog, stream through Media3, render danmaku, and
 synchronize playback progress. Their Connect/PC screens can also read MAL and
 Bangumi state, review pending progress updates, and explicitly confirm the
 exact preview before syncing. Account connection, series mapping, and conflict
-import remain in the Windows app or web administration UI. Android TV remains a dedicated module with
-TV-specific focus and remote-navigation behavior.
+import remain in the Windows app or web administration UI. Android TV remains
+a dedicated module with TV-specific focus and remote-navigation behavior.
 
 Connected checks require an emulator or physical device and are documented in
 [CONTRIBUTING.md](CONTRIBUTING.md).

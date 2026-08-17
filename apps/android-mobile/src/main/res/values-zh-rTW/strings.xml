@@ -52,6 +52,14 @@
     <string name="folder_item_count">%1$d 個檔案</string>
     <string name="folders_empty_title">此資料夾是空的</string>
     <string name="folders_empty_body">返回上一層並選擇其他媒體庫資料夾。</string>
+    <string name="folders_refresh_action">重新掃描目前資料夾</string>
+    <string name="folders_refresh_scanning">掃描中…</string>
+    <string name="folders_refresh_progress">掃描中… 已找到 %1$d 個檔案</string>
+    <string name="folders_refresh_failed_title">無法重新掃描此資料夾</string>
+    <string name="folders_refresh_access_code_required">請先在「連線」分頁輸入電腦存取碼。</string>
+    <string name="folders_refresh_already_running">另一個媒體庫掃描正在進行中，請在完成後再試。</string>
+    <string name="folders_refresh_scan_failed">電腦無法掃描此資料夾，已保留先前的媒體庫清單。</string>
+    <string name="folders_refresh_request_failed">請檢查電腦連線後再試一次。</string>
     <string name="action_up">上一層</string>
     <string name="matched_anime">已匹配動畫：%1$s</string>
     <string name="matched_anime_short">匹配：%1$s</string>

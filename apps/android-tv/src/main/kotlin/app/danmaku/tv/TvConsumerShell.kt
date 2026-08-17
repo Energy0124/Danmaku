@@ -141,6 +141,7 @@ internal fun TvConsumerShell(
                     route = route,
                     navigation = navigation,
                     navigator = navigator,
+                    session = session,
                     browse = browse,
                     onOpenFolder = { folder ->
                         onNavigate(TvRoute.FolderBrowser(route.path + folder))
@@ -154,6 +155,7 @@ internal fun TvConsumerShell(
                             ?.let(playbackViewModel::play)
                     },
                     onNavigateUp = { navigator.back() },
+                    onRefresh = { sessionViewModel.refreshFolder(route.path) },
                 )
             is TvRoute.SeriesDetail ->
                 TvSeriesDetailScreen(

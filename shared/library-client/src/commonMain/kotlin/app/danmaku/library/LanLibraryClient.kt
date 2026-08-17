@@ -20,6 +20,12 @@ interface LanLibraryClient {
         pairingToken: String,
     ): LibraryCatalog
 
+    fun requestFolderRescan(
+        baseUrl: String,
+        pairingToken: String,
+        path: List<String>,
+    )
+
     fun streamUrl(
         baseUrl: String,
         item: LibraryMediaItem,
@@ -60,6 +66,7 @@ interface LanLibraryClient {
 class LanLibraryClientException(
     message: String,
     cause: Throwable? = null,
+    val statusCode: Int? = null,
 ) : RuntimeException(message, cause)
 
 data class LanPlaybackTarget(
@@ -233,6 +240,14 @@ class LanLibraryConnectionSession(
     ): LibraryCatalog {
         validateServer(baseUrl)
         return libraryClient.fetchCatalog(baseUrl, pairingToken)
+    }
+
+    fun requestFolderRescan(
+        baseUrl: String,
+        pairingToken: String,
+        path: List<String>,
+    ) {
+        libraryClient.requestFolderRescan(baseUrl, pairingToken, path)
     }
 
     fun fetchCatalogWithProgress(

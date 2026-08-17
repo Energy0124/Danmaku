@@ -7,6 +7,7 @@ import app.danmaku.library.LanDanmakuLoader
 import app.danmaku.library.LanLibraryConnectionProfile
 import app.danmaku.library.LanLibraryConnectionSnapshot
 import app.danmaku.library.LanLibraryConnectionSession
+import app.danmaku.library.LanLibraryClientException
 import app.danmaku.library.LanPlaybackPreparer
 import app.danmaku.library.LanPlaybackProgressSync
 import app.danmaku.library.LanPlaybackTarget
@@ -21,6 +22,7 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.atomic.AtomicLong
@@ -40,6 +42,7 @@ internal class MobilePlayerActionHandler(
     private val openVideoPicker: () -> Unit,
 ) {
     private val trackingGeneration = AtomicLong()
+    private val folderRefreshGeneration = AtomicLong()
     fun connectToInitialLibrary() {
         if (state.catalog != null) return
         connectToLibrary(
@@ -86,6 +89,63 @@ internal class MobilePlayerActionHandler(
     fun refreshLibrary() {
         connectToLibrary(state.serverUrl, state.pairingToken)
     }
+
+    fun refreshFolder(path: List<String>) {
+        val baseUrl = state.serverUrl.trim().trimEnd('/')
+        val token = state.pairingToken
+        if (baseUrl.isBlank() || token.isBlank()) {
+            state.folderRefreshError = MobileFolderRefreshError.ACCESS_CODE_REQUIRED
+            state.folderRefreshErrorDetail = null
+            return
+        }
+        val generation = folderRefreshGeneration.incrementAndGet()
+        state.folderRefreshInProgress = true
+        state.folderRefreshFilesSeen = null
+        state.folderRefreshError = null
+        state.folderRefreshErrorDetail = null
+        scope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    libraryConnectionSession.requestFolderRescan(baseUrl, token, path)
+                }
+                while (true) {
+                    delay(FOLDER_SCAN_POLL_INTERVAL_MS)
+                    val status = withContext(Dispatchers.IO) {
+                        libraryConnectionSession.validateServer(baseUrl)
+                    }
+                    if (!isCurrentFolderRefresh(baseUrl, token, generation)) return@launch
+                    state.folderRefreshFilesSeen = status.scanFilesSeen
+                    if (!status.scanning) {
+                        status.scanError?.let { throw FolderScanException(it) }
+                        break
+                    }
+                }
+                fetchCatalogWithProgress(baseUrl, token)
+            }.onSuccess { snapshot ->
+                if (!isCurrentFolderRefresh(baseUrl, token, generation)) return@onSuccess
+                state.catalog = snapshot.catalog
+                state.playbackProgresses = snapshot.playbackProgresses
+                state.libraryError = null
+                state.folderRefreshInProgress = false
+                state.folderRefreshFilesSeen = null
+            }.onFailure { error ->
+                if (!isCurrentFolderRefresh(baseUrl, token, generation)) return@onFailure
+                state.folderRefreshInProgress = false
+                state.folderRefreshError = when {
+                    error is LanLibraryClientException && error.statusCode == 409 ->
+                        MobileFolderRefreshError.ALREADY_RUNNING
+                    error is FolderScanException -> MobileFolderRefreshError.SCAN_FAILED
+                    else -> MobileFolderRefreshError.REQUEST_FAILED
+                }
+                state.folderRefreshErrorDetail = error.message
+            }
+        }
+    }
+
+    private fun isCurrentFolderRefresh(baseUrl: String, token: String, generation: Long): Boolean =
+        folderRefreshGeneration.get() == generation &&
+            state.serverUrl.trim().trimEnd('/') == baseUrl &&
+            state.pairingToken == token
 
     fun loadTracking() {
         val baseUrl = state.serverUrl.trim().trimEnd('/')
@@ -486,10 +546,14 @@ internal class MobilePlayerActionHandler(
             onFavoriteFilterChange = { state.libraryFavoriteFilter = it },
             onSetFavorite = ::setFavorite,
             onServerUrlChange = {
+                folderRefreshGeneration.incrementAndGet()
+                state.folderRefreshInProgress = false
                 state.serverUrl = it
                 state.tracking = MobileTrackingState()
             },
             onPairingTokenChange = {
+                folderRefreshGeneration.incrementAndGet()
+                state.folderRefreshInProgress = false
                 state.pairingToken = it
                 state.tracking = MobileTrackingState()
             },
@@ -499,6 +563,7 @@ internal class MobilePlayerActionHandler(
             onSaveConnection = ::saveConnection,
             onDiscover = ::discoverPc,
             onRefresh = ::refreshLibrary,
+            onRefreshFolder = ::refreshFolder,
             onTogglePlayerFullscreen = { state.isPlayerFullscreen = !state.isPlayerFullscreen },
             onLoadTracking = ::loadTracking,
             onReadTracking = ::readTracking,
@@ -507,5 +572,8 @@ internal class MobilePlayerActionHandler(
 
     private companion object {
         const val DANMAKU_PLAYBACK_WAIT_TIMEOUT_MS = 15_000L
+        const val FOLDER_SCAN_POLL_INTERVAL_MS = 750L
     }
 }
+
+private class FolderScanException(message: String) : RuntimeException(message)

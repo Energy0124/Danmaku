@@ -22,6 +22,7 @@ import app.danmaku.library.android.ProviderAccountsDocument
 
 internal enum class MobileTrackingOperation { READBACK, SYNC }
 internal enum class MobileTrackingError { ACCESS_CODE_REQUIRED, ACCESS_CODE_REJECTED, PREVIEW_CHANGED, REQUEST_FAILED }
+internal enum class MobileFolderRefreshError { ACCESS_CODE_REQUIRED, ALREADY_RUNNING, SCAN_FAILED, REQUEST_FAILED }
 
 internal data class MobileTrackingState(
     val accounts: ProviderAccountsDocument? = null,
@@ -63,6 +64,10 @@ internal class MobilePlayerState(
     var selectedTab by mutableStateOf(MobileTab.Home)
     var isPlayerFullscreen by mutableStateOf(false)
     var tracking by mutableStateOf(MobileTrackingState())
+    var folderRefreshInProgress by mutableStateOf(false)
+    var folderRefreshFilesSeen by mutableStateOf<Long?>(null)
+    var folderRefreshError by mutableStateOf<MobileFolderRefreshError?>(null)
+    var folderRefreshErrorDetail by mutableStateOf<String?>(null)
 
     private val totalItems: List<LibraryMediaItem>
         get() = catalog?.items.orEmpty()
@@ -111,5 +116,9 @@ internal class MobilePlayerState(
             playbackStartupPhase = playbackStartupPhase,
             isPlayerFullscreen = isPlayerFullscreen,
             tracking = tracking,
+            folderRefreshInProgress = folderRefreshInProgress,
+            folderRefreshFilesSeen = folderRefreshFilesSeen,
+            folderRefreshError = folderRefreshError,
+            folderRefreshErrorDetail = folderRefreshErrorDetail,
         )
 }

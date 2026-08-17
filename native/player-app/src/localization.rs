@@ -126,6 +126,18 @@ impl Strings {
     pub fn refresh(self) -> &'static str {
         self.text("Refresh", "重新整理")
     }
+    pub fn refresh_folder(self) -> &'static str {
+        self.text("Refresh current folder", "重新掃描目前資料夾")
+    }
+    pub fn scanning_folder(self) -> &'static str {
+        self.text("Scanning folder…", "正在掃描資料夾…")
+    }
+    pub fn folder_scan_failed(self) -> &'static str {
+        self.text(
+            "Couldn’t refresh this folder. The previous listing was kept.",
+            "無法重新掃描此資料夾，已保留先前的清單。",
+        )
+    }
     pub fn settings(self) -> &'static str {
         self.text("Settings", "設定")
     }
