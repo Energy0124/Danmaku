@@ -95,8 +95,8 @@ internal class MobilePlayerActionHandler(
     fun refreshFolder(path: List<String>) {
         val baseUrl = state.serverUrl.trim().trimEnd('/')
         val token = state.pairingToken
-        if (baseUrl.isBlank() || token.isBlank()) {
-            state.folderRefreshError = MobileFolderRefreshError.ACCESS_CODE_REQUIRED
+        if (baseUrl.isBlank()) {
+            state.folderRefreshError = MobileFolderRefreshError.REQUEST_FAILED
             state.folderRefreshErrorDetail = null
             return
         }
@@ -108,7 +108,7 @@ internal class MobilePlayerActionHandler(
         scope.launch {
             runCatching {
                 withContext(Dispatchers.IO) {
-                    libraryConnectionSession.requestFolderRescan(baseUrl, token, path)
+                    libraryConnectionSession.requestFolderRescan(baseUrl, path)
                 }
                 while (true) {
                     delay(FOLDER_SCAN_POLL_INTERVAL_MS)

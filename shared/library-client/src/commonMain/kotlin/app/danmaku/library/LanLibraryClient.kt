@@ -22,7 +22,6 @@ interface LanLibraryClient {
 
     fun requestFolderRescan(
         baseUrl: String,
-        pairingToken: String,
         path: List<String>,
     )
 
@@ -244,10 +243,9 @@ class LanLibraryConnectionSession(
 
     fun requestFolderRescan(
         baseUrl: String,
-        pairingToken: String,
         path: List<String>,
     ) {
-        libraryClient.requestFolderRescan(baseUrl, pairingToken, path)
+        libraryClient.requestFolderRescan(baseUrl, path)
     }
 
     fun fetchCatalogWithProgress(

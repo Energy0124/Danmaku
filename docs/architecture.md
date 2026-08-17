@@ -21,9 +21,11 @@ metadata/posters, progress, dandanplay resolution/cache, provider credentials,
 external tracking state, HTTP media delivery, UDP discovery, and `/web/`
 assets. Its data-directory lock prevents two writers from using the same
 state. The server is also distributable as a standalone headless package.
-Manual current-folder rescans are authenticated server mutations: the server
+Manual current-folder rescans are trusted-LAN server operations: the server
 resolves a client folder path against configured roots, scans in the
 background, and atomically merges that subtree into the persisted catalog.
+They follow the catalog's code-free LAN access rather than provider
+administration authentication.
 It owns MAL OAuth state/token exchange and encrypted refresh tokens; the native
 player owns only the fixed loopback browser callback and forwards the short-
 lived authorization code. Bangumi tokens are validated against `/v0/me`

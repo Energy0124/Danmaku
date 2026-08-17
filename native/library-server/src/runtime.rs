@@ -263,14 +263,11 @@ mod tests {
         serde_json::from_slice(&bytes).expect("body is JSON")
     }
 
-    async fn post_rescan(app: &Router, token: Option<&str>, path: &[&str]) -> StatusCode {
-        let mut request = Request::builder()
+    async fn post_rescan(app: &Router, path: &[&str]) -> StatusCode {
+        let request = Request::builder()
             .method("POST")
             .uri("/api/library/rescan")
             .header("content-type", "application/json");
-        if let Some(token) = token {
-            request = request.header("authorization", format!("Bearer {token}"));
-        }
         app.clone()
             .oneshot(
                 request
@@ -338,7 +335,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn authenticated_folder_rescan_publishes_new_files() {
+    async fn folder_rescan_without_access_code_publishes_new_files() {
         let temp = temp_dir("danmaku-runtime-folder-rescan");
         let data_directory = temp.join("data");
         let root = temp.join("Anime");
@@ -367,19 +364,15 @@ mod tests {
             .finish_scan(initial.err().map(|error| error.to_string()));
         fs::write(show.join("Episode 02.mp4"), [5, 6, 7, 8]).expect("second media");
 
-        assert_eq!(
-            StatusCode::UNAUTHORIZED,
-            post_rescan(&bound.app, None, &["Example Show"]).await
-        );
         assert!(bound.state.try_start_scan());
         assert_eq!(
             StatusCode::CONFLICT,
-            post_rescan(&bound.app, Some("123456"), &["Example Show"]).await
+            post_rescan(&bound.app, &["Example Show"]).await
         );
         bound.state.finish_scan(None);
         assert_eq!(
             StatusCode::ACCEPTED,
-            post_rescan(&bound.app, Some("123456"), &["Example Show"]).await
+            post_rescan(&bound.app, &["Example Show"]).await
         );
         for _ in 0..100 {
             let status = get_json(&bound.app, "/api/server/status").await;

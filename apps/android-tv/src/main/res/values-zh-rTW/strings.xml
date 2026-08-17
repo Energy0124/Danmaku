@@ -46,7 +46,6 @@
     <string name="library_folder_refresh_action">重新掃描資料夾</string>
     <string name="library_folder_refresh_scanning">掃描中…</string>
     <string name="library_folder_refresh_progress">掃描中… %1$d 個檔案</string>
-    <string name="library_folder_refresh_access_code_required">請先輸入電腦存取碼再重新掃描。</string>
     <string name="library_folder_refresh_already_running">另一個媒體庫掃描正在進行中，請在完成後再試。</string>
     <string name="library_folder_refresh_scan_failed">電腦無法掃描此資料夾，已保留先前的清單。</string>
     <string name="library_folder_refresh_request_failed">請檢查電腦連線後再試一次。</string>

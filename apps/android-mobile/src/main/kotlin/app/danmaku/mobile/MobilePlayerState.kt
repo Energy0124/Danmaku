@@ -22,7 +22,7 @@ import app.danmaku.library.android.ProviderAccountsDocument
 
 internal enum class MobileTrackingOperation { READBACK, SYNC }
 internal enum class MobileTrackingError { ACCESS_CODE_REQUIRED, ACCESS_CODE_REJECTED, PREVIEW_CHANGED, REQUEST_FAILED }
-internal enum class MobileFolderRefreshError { ACCESS_CODE_REQUIRED, ALREADY_RUNNING, SCAN_FAILED, REQUEST_FAILED }
+internal enum class MobileFolderRefreshError { ALREADY_RUNNING, SCAN_FAILED, REQUEST_FAILED }
 
 internal data class MobileTrackingState(
     val accounts: ProviderAccountsDocument? = null,

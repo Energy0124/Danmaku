@@ -164,12 +164,12 @@ internal class TvLibraryRepository(
 
     suspend fun refreshFolder(path: List<String>): Result<TvCatalogRefreshOutcome> {
         val request = state.value
-        if (request.serverUrl.isBlank() || request.pairingToken.isBlank()) {
-            val error = IllegalArgumentException("PC access code is required")
+        if (request.serverUrl.isBlank()) {
+            val error = IllegalArgumentException("PC address is required")
             mutableState.update {
                 it.copy(
                     folderRefresh = TvFolderRefreshState(
-                        error = TvFolderRefreshError.ACCESS_CODE_REQUIRED,
+                        error = TvFolderRefreshError.REQUEST_FAILED,
                     ),
                 )
             }
@@ -183,7 +183,6 @@ internal class TvLibraryRepository(
             withContext(ioDispatcher) {
                 connectionSession.requestFolderRescan(
                     request.serverUrl,
-                    request.pairingToken,
                     path,
                 )
             }

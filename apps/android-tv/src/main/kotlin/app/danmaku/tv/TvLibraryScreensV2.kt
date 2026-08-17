@@ -136,8 +136,6 @@ internal fun TvFolderBrowserScreen(
     val refreshErrorText = session.folderRefresh.error?.let {
         stringResource(
             when (it) {
-                TvFolderRefreshError.ACCESS_CODE_REQUIRED ->
-                    R.string.library_folder_refresh_access_code_required
                 TvFolderRefreshError.ALREADY_RUNNING ->
                     R.string.library_folder_refresh_already_running
                 TvFolderRefreshError.SCAN_FAILED ->

@@ -1067,7 +1067,7 @@ async fn dispatch(State(state): State<HttpServerState>, request: Request<Body>) 
         return handle_server_status(&state, &method);
     }
     if path == "/api/library/rescan" {
-        return handle_library_rescan(&state, method, headers, body).await;
+        return handle_library_rescan(&state, method, body).await;
     }
     if path == "/api/library/attention" {
         return handle_library_attention(&state, &method);
@@ -1164,17 +1164,10 @@ struct LibraryRescanRequest {
 async fn handle_library_rescan(
     state: &HttpServerState,
     method: Method,
-    headers: HeaderMap,
     body: Body,
 ) -> Response<Body> {
     if method != Method::POST {
         return empty_status(StatusCode::METHOD_NOT_ALLOWED);
-    }
-    let Some(admin) = state.provider_admin.as_ref() else {
-        return empty_status(StatusCode::NOT_FOUND);
-    };
-    if !admin.is_authorized(&headers) {
-        return empty_status(StatusCode::UNAUTHORIZED);
     }
     let Some(config) = state.library_scan.as_ref().map(Arc::clone) else {
         return empty_status(StatusCode::NOT_FOUND);

@@ -116,7 +116,8 @@ Quirk: the handler does not check the exact path.
 
 ### `POST /api/library/rescan`
 
-Auth: `Authorization: Bearer <pairing-token>`.
+Auth: none. Like catalog browsing, folder refresh is available to clients on
+the trusted LAN without an access code.
 
 Requests an asynchronous scan of the folder currently shown by a native
 client. The body is a JSON object containing the folder browser's logical path:
@@ -141,11 +142,9 @@ Status codes:
 - `202`: scan accepted.
 - `400`: malformed JSON, invalid path segments, or a path outside configured
   roots.
-- `401`: missing or incorrect pairing token.
 - `409`: another scan is already running.
 - `405`: method is not `POST`.
-- `404`: this server instance was not configured with authenticated
-  administration or scan roots/storage.
+- `404`: this server instance was not configured with scan roots/storage.
 
 ### `GET /api/progress`
 

@@ -62,8 +62,6 @@ internal fun FolderPage(
     val refreshErrorText = refreshError?.let {
         stringResource(
             when (it) {
-                MobileFolderRefreshError.ACCESS_CODE_REQUIRED ->
-                    R.string.folders_refresh_access_code_required
                 MobileFolderRefreshError.ALREADY_RUNNING ->
                     R.string.folders_refresh_already_running
                 MobileFolderRefreshError.SCAN_FAILED ->

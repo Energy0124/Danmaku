@@ -46,7 +46,6 @@
     <string name="library_folder_refresh_action">Refresh folder</string>
     <string name="library_folder_refresh_scanning">Scanning…</string>
     <string name="library_folder_refresh_progress">Scanning… %1$d files</string>
-    <string name="library_folder_refresh_access_code_required">Enter the PC access code before refreshing.</string>
     <string name="library_folder_refresh_already_running">Another library scan is already running. Try again when it finishes.</string>
     <string name="library_folder_refresh_scan_failed">The PC couldn’t scan this folder. The previous listing was kept.</string>
     <string name="library_folder_refresh_request_failed">Check the PC connection and try again.</string>

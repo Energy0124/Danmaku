@@ -257,13 +257,14 @@ impl LibrarySession {
     }
 
     pub fn refresh_folder(&mut self, path: Vec<String>) {
-        let Some((base_url, token)) = self.authenticated_server() else {
-            self.server_scan_error = Some("PC access code is required".to_owned());
+        if !self.connected {
+            self.server_scan_error = Some("Connect to a PC first".to_owned());
             return;
-        };
+        }
+        let base_url = self.base_url.clone();
         self.server_scan_error = None;
         self.spawn(
-            move |_| SessionEvent::FolderRescan(request_folder_rescan(&base_url, &token, &path)),
+            move |_| SessionEvent::FolderRescan(request_folder_rescan(&base_url, &path)),
             self.base_url.clone(),
         );
     }

@@ -55,13 +55,11 @@ class JvmLanLibraryClient(
 
     override fun requestFolderRescan(
         baseUrl: String,
-        pairingToken: String,
         path: List<String>,
     ) {
         val connection = open("${baseUrl.trimEnd('/')}/api/library/rescan").apply {
             requestMethod = "POST"
             doOutput = true
-            setRequestProperty("Authorization", "Bearer $pairingToken")
             setRequestProperty("Content-Type", "application/json; charset=utf-8")
         }
         try {

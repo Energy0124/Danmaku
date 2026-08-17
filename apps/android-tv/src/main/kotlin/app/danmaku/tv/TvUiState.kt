@@ -21,7 +21,7 @@ import kotlin.math.roundToInt
 
 internal enum class TvTrackingOperation { READBACK, SYNC }
 internal enum class TvTrackingError { ACCESS_CODE_REJECTED, PREVIEW_CHANGED, REQUEST_FAILED }
-internal enum class TvFolderRefreshError { ACCESS_CODE_REQUIRED, ALREADY_RUNNING, SCAN_FAILED, REQUEST_FAILED }
+internal enum class TvFolderRefreshError { ALREADY_RUNNING, SCAN_FAILED, REQUEST_FAILED }
 
 internal data class TvFolderRefreshState(
     val isBusy: Boolean = false,

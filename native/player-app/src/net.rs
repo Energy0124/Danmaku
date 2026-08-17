@@ -54,6 +54,25 @@ pub(crate) fn http_put_json(
     }
 }
 
+/// POST with a JSON body; returns the response status on any 2xx.
+pub(crate) fn http_post_json(
+    base_url: &str,
+    path_and_query: &str,
+    json_body: &str,
+) -> Result<u16, String> {
+    let response = http_request(
+        base_url,
+        "POST",
+        path_and_query,
+        Some(("application/json; charset=utf-8", json_body.as_bytes())),
+    )?;
+    if (200..300).contains(&response.status) {
+        Ok(response.status)
+    } else {
+        Err(status_error(&response))
+    }
+}
+
 /// Authenticated JSON request used by provider-account and tracking screens.
 pub(crate) fn http_authenticated_json(
     base_url: &str,

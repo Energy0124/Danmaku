@@ -218,7 +218,6 @@ class LanPlaybackProgressSyncTest {
 
         override fun requestFolderRescan(
             baseUrl: String,
-            pairingToken: String,
             path: List<String>,
         ) = Unit
 

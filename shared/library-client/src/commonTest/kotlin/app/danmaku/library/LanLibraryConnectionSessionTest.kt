@@ -112,7 +112,6 @@ class LanLibraryConnectionSessionTest {
 
         override fun requestFolderRescan(
             baseUrl: String,
-            pairingToken: String,
             path: List<String>,
         ) = Unit
 
