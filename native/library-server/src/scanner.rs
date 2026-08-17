@@ -281,6 +281,7 @@ pub fn rescan_target_with_progress(
                 &mut refreshed_item_count,
                 &mut skipped_unreadable_count,
                 progress,
+                true,
             )?);
         }
         Ok(_) => return Err(LibraryServerError::new("folder path is not a directory")),
@@ -356,6 +357,7 @@ fn scan_root(
         refreshed_item_count,
         skipped_unreadable_count,
         progress,
+        false,
     )
 }
 
@@ -373,10 +375,12 @@ fn scan_directory(
     refreshed_item_count: &mut usize,
     skipped_unreadable_count: &mut usize,
     progress: Option<&ScanProgress>,
+    fail_on_unreadable: bool,
 ) -> Result<Vec<LibraryMediaItem>> {
     let id_namespace = path_string(root);
     let mut items = Vec::new();
-    for path in regular_files_recursively(directory, skipped_unreadable_count) {
+    for path in regular_files_recursively(directory, skipped_unreadable_count, fail_on_unreadable)?
+    {
         let extension = extension_lowercase(&path);
         if !VIDEO_EXTENSIONS.contains(&extension.as_str()) {
             continue;
@@ -387,11 +391,17 @@ fn scan_directory(
 
         let relative_path = relative_media_path(root, &path)?;
         let Some((size_bytes, last_modified_epoch_ms)) =
-            file_metadata_snapshot(&path, skipped_unreadable_count)
+            file_metadata_snapshot(&path, skipped_unreadable_count, fail_on_unreadable)?
         else {
             continue;
         };
-        let subtitles = sidecar_subtitles(root, &path, &id_namespace, skipped_unreadable_count)?;
+        let subtitles = sidecar_subtitles(
+            root,
+            &path,
+            &id_namespace,
+            skipped_unreadable_count,
+            fail_on_unreadable,
+        )?;
         let id = sha256_hex(&format!("{id_namespace}/{relative_path}"))
             .chars()
             .take(24)
@@ -515,19 +525,37 @@ fn root_is_readable_directory(root: &Path, skipped_unreadable_count: &mut usize)
     }
 }
 
-fn regular_files_recursively(root: &Path, skipped_unreadable_count: &mut usize) -> Vec<PathBuf> {
+fn regular_files_recursively(
+    root: &Path,
+    skipped_unreadable_count: &mut usize,
+    fail_on_unreadable: bool,
+) -> Result<Vec<PathBuf>> {
     let mut stack = vec![root.to_path_buf()];
     let mut files = Vec::new();
     while let Some(directory) = stack.pop() {
-        let Ok(read_dir) = fs::read_dir(&directory).inspect_err(|error| {
-            warn_skipped_unreadable(&directory, error, skipped_unreadable_count);
-        }) else {
-            continue;
+        let read_dir = match fs::read_dir(&directory) {
+            Ok(read_dir) => read_dir,
+            Err(error) if fail_on_unreadable => {
+                return Err(LibraryServerError::with_context(
+                    error,
+                    format!("failed to read folder {}", directory.display()),
+                ));
+            }
+            Err(error) => {
+                warn_skipped_unreadable(&directory, error, skipped_unreadable_count);
+                continue;
+            }
         };
         let mut entries = Vec::new();
         for entry in read_dir {
             match entry {
                 Ok(entry) => entries.push(entry),
+                Err(error) if fail_on_unreadable => {
+                    return Err(LibraryServerError::with_context(
+                        error,
+                        format!("failed to enumerate folder {}", directory.display()),
+                    ));
+                }
                 Err(error) => {
                     warn_skipped_unreadable(&directory, error, skipped_unreadable_count);
                 }
@@ -537,28 +565,33 @@ fn regular_files_recursively(root: &Path, skipped_unreadable_count: &mut usize) 
         for entry in entries.into_iter().rev() {
             let path = entry.path();
             let metadata = fs::metadata(&path);
-            match classify_path(path, metadata, skipped_unreadable_count) {
+            match classify_path(path, metadata, skipped_unreadable_count, fail_on_unreadable)? {
                 Some(WalkEntry::Directory(path)) => stack.push(path),
                 Some(WalkEntry::File(path)) => files.push(path),
                 None => {}
             }
         }
     }
-    files
+    Ok(files)
 }
 
 fn classify_path(
     path: PathBuf,
     metadata: io::Result<fs::Metadata>,
     skipped_unreadable_count: &mut usize,
-) -> Option<WalkEntry> {
+    fail_on_unreadable: bool,
+) -> Result<Option<WalkEntry>> {
     match metadata {
-        Ok(metadata) if metadata.is_dir() => Some(WalkEntry::Directory(path)),
-        Ok(metadata) if metadata.is_file() => Some(WalkEntry::File(path)),
-        Ok(_) => None,
+        Ok(metadata) if metadata.is_dir() => Ok(Some(WalkEntry::Directory(path))),
+        Ok(metadata) if metadata.is_file() => Ok(Some(WalkEntry::File(path))),
+        Ok(_) => Ok(None),
+        Err(error) if fail_on_unreadable => Err(LibraryServerError::with_context(
+            error,
+            format!("failed to read path {}", path.display()),
+        )),
         Err(error) => {
             warn_skipped_unreadable(&path, error, skipped_unreadable_count);
-            None
+            Ok(None)
         }
     }
 }
@@ -568,22 +601,38 @@ enum WalkEntry {
     File(PathBuf),
 }
 
-fn file_metadata_snapshot(path: &Path, skipped_unreadable_count: &mut usize) -> Option<(u64, u64)> {
+fn file_metadata_snapshot(
+    path: &Path,
+    skipped_unreadable_count: &mut usize,
+    fail_on_unreadable: bool,
+) -> Result<Option<(u64, u64)>> {
     let metadata = match path.metadata() {
         Ok(metadata) => metadata,
+        Err(error) if fail_on_unreadable => {
+            return Err(LibraryServerError::with_context(
+                error,
+                format!("failed to read media file {}", path.display()),
+            ));
+        }
         Err(error) => {
             warn_skipped_unreadable(path, error, skipped_unreadable_count);
-            return None;
+            return Ok(None);
         }
     };
     let modified = match metadata.modified() {
         Ok(modified) => modified,
+        Err(error) if fail_on_unreadable => {
+            return Err(LibraryServerError::with_context(
+                error,
+                format!("failed to read media timestamp {}", path.display()),
+            ));
+        }
         Err(error) => {
             warn_skipped_unreadable(path, error, skipped_unreadable_count);
-            return None;
+            return Ok(None);
         }
     };
-    Some((metadata.len(), system_time_epoch_ms(modified)))
+    Ok(Some((metadata.len(), system_time_epoch_ms(modified))))
 }
 
 fn warn_skipped_unreadable(
@@ -603,6 +652,7 @@ fn sidecar_subtitles(
     video_path: &Path,
     id_namespace: &str,
     skipped_unreadable_count: &mut usize,
+    fail_on_unreadable: bool,
 ) -> Result<Vec<SubtitleFile>> {
     let Some(parent) = video_path.parent() else {
         return Ok(Vec::new());
@@ -610,15 +660,29 @@ fn sidecar_subtitles(
     let video_base_name = file_stem(video_path);
     let video_base_name_lowercase = video_base_name.to_lowercase();
     let mut subtitles = Vec::new();
-    let Ok(read_dir) = fs::read_dir(parent).inspect_err(|error| {
-        warn_skipped_unreadable(parent, error, skipped_unreadable_count);
-    }) else {
-        return Ok(Vec::new());
+    let read_dir = match fs::read_dir(parent) {
+        Ok(read_dir) => read_dir,
+        Err(error) if fail_on_unreadable => {
+            return Err(LibraryServerError::with_context(
+                error,
+                format!("failed to read subtitle folder {}", parent.display()),
+            ));
+        }
+        Err(error) => {
+            warn_skipped_unreadable(parent, error, skipped_unreadable_count);
+            return Ok(Vec::new());
+        }
     };
     let mut entries = Vec::new();
     for entry in read_dir {
         match entry {
             Ok(entry) => entries.push(entry),
+            Err(error) if fail_on_unreadable => {
+                return Err(LibraryServerError::with_context(
+                    error,
+                    format!("failed to enumerate subtitle folder {}", parent.display()),
+                ));
+            }
             Err(error) => {
                 warn_skipped_unreadable(parent, error, skipped_unreadable_count);
             }
@@ -628,10 +692,18 @@ fn sidecar_subtitles(
 
     for entry in entries {
         let path = entry.path();
-        let Ok(metadata) = fs::metadata(&path).inspect_err(|error| {
-            warn_skipped_unreadable(&path, error, skipped_unreadable_count);
-        }) else {
-            continue;
+        let metadata = match fs::metadata(&path) {
+            Ok(metadata) => metadata,
+            Err(error) if fail_on_unreadable => {
+                return Err(LibraryServerError::with_context(
+                    error,
+                    format!("failed to read subtitle path {}", path.display()),
+                ));
+            }
+            Err(error) => {
+                warn_skipped_unreadable(&path, error, skipped_unreadable_count);
+                continue;
+            }
         };
         if !metadata.is_file() {
             continue;
@@ -1365,7 +1437,9 @@ mod tests {
             PathBuf::from("vanished.mkv"),
             Err(io::Error::new(io::ErrorKind::NotFound, "file vanished")),
             &mut skipped_unreadable_count,
-        );
+            false,
+        )
+        .expect("tolerant scans skip vanished entries");
 
         assert!(classified.is_none());
         assert_eq!(1, skipped_unreadable_count);
@@ -1405,6 +1479,48 @@ mod tests {
             scan.published_library.catalog.items[0].series_title
         );
 
+        drop(guard);
+        fs::remove_dir_all(temp).expect("temp should delete");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn scoped_rescan_rejects_unreadable_subtree_instead_of_deleting_cached_items() {
+        let temp = temp_dir("danmaku-subtree-rescan-unreadable");
+        let root = temp.join("Anime");
+        let selected = root.join("Selected Show");
+        fs::create_dir_all(&selected).expect("selected dirs");
+        write_bytes(&selected.join("Episode 01.mkv"), &[1, 2, 3]);
+        let previous =
+            stored_from_scan(scan_roots(std::slice::from_ref(&root), None).expect("first scan"));
+        let target = resolve_rescan_target(&[root.clone()], &["Selected Show".to_owned()])
+            .expect("target resolves");
+        let Some(guard) = deny_windows_read(&selected) else {
+            eprintln!(
+                "skipping Windows unreadable-directory fixture; icacls could not deny reads for {}",
+                selected.display()
+            );
+            fs::remove_dir_all(temp).expect("temp should delete");
+            return;
+        };
+        if fs::read_dir(&selected).is_ok() {
+            drop(guard);
+            fs::remove_dir_all(temp).expect("temp should delete");
+            panic!("unreadable fixture should reject directory reads");
+        }
+
+        let result = rescan_target_with_progress(
+            std::slice::from_ref(&root),
+            &target,
+            Some(&previous),
+            None,
+        );
+
+        assert!(
+            result.is_err(),
+            "an unreadable subtree must not publish an empty replacement"
+        );
+        assert_eq!(1, previous.published_library.catalog.items.len());
         drop(guard);
         fs::remove_dir_all(temp).expect("temp should delete");
     }

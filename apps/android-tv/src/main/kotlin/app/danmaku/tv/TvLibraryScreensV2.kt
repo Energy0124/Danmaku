@@ -186,8 +186,9 @@ internal fun TvFolderBrowserScreen(
                         }
                         if (catalog != null) {
                             Button(
-                                onClick = onRefresh,
-                                enabled = !session.folderRefresh.isBusy,
+                                onClick = {
+                                    if (!session.folderRefresh.isBusy) onRefresh()
+                                },
                                 modifier = Modifier
                                     .tvRouteFocus(
                                         navigation,

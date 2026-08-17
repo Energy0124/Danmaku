@@ -7,6 +7,7 @@ import androidx.test.core.app.ApplicationProvider
 import app.danmaku.domain.LanLibraryServerStatus
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.library.LanLibraryConnectionSession
+import app.danmaku.library.LanLibraryConnectionProfile
 import app.danmaku.library.LanPlaybackTarget
 import app.danmaku.library.android.AndroidLanLibraryConnectionStore
 import app.danmaku.library.android.AndroidLibraryFavoriteStore
@@ -120,6 +121,39 @@ class TvReviewRegressionInstrumentedTest {
             assertNull(repository.state.value.errorMessage)
         } finally {
             server.shutdown()
+        }
+    }
+
+    @Test
+    fun connectionSelectionClearsInFlightFolderRefresh() = runBlocking {
+        val json = Json { encodeDefaults = true }
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setResponseCode(202))
+            server.enqueue(
+                MockResponse()
+                    .setHeader("Content-Type", "application/json")
+                    .setBody(json.encodeToString(LanLibraryServerStatus(scanning = true)))
+                    .setBodyDelay(1, TimeUnit.SECONDS),
+            )
+            val repository = trackingRepository(server)
+            val refresh = async(Dispatchers.Default) {
+                repository.refreshFolder(listOf("Example Show"))
+            }
+            assertNotNull(server.takeRequest(5, TimeUnit.SECONDS))
+            assertTrue(repository.state.value.folderRefresh.isBusy)
+
+            repository.selectConnection(
+                LanLibraryConnectionProfile(
+                    id = "replacement",
+                    displayName = "Replacement PC",
+                    baseUrl = "http://replacement.invalid:8686",
+                    pairingToken = "replacement-token",
+                ),
+            )
+
+            assertFalse(repository.state.value.folderRefresh.isBusy)
+            assertNull(repository.state.value.folderRefresh.error)
+            assertEquals(TvCatalogRefreshOutcome.Stale, refresh.await().getOrThrow())
         }
     }
 

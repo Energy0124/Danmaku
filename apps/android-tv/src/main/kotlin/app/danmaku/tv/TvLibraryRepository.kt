@@ -409,6 +409,7 @@ internal class TvLibraryRepository(
     suspend fun selectConnection(connection: LanLibraryConnectionProfile) {
         invalidateRefresh()
         invalidateTracking()
+        invalidateFolderRefresh()
         mutableState.update {
             it.copy(
                 serverUrl = connection.baseUrl,
@@ -419,6 +420,7 @@ internal class TvLibraryRepository(
                 isOffline = false,
                 errorMessage = null,
                 tracking = TvTrackingState(),
+                folderRefresh = TvFolderRefreshState(),
             )
         }
         loadCachedCatalog()
@@ -427,6 +429,7 @@ internal class TvLibraryRepository(
     suspend fun forgetConnection(connection: LanLibraryConnectionProfile) {
         invalidateRefresh()
         invalidateTracking()
+        invalidateFolderRefresh()
         withContext(ioDispatcher) {
             connectionStore.forgetProfile(connection.id)
             catalogCache.clear(connection.baseUrl)
@@ -443,15 +446,21 @@ internal class TvLibraryRepository(
                     catalogSource = TvCatalogSource.None,
                     isRefreshing = false,
                     tracking = TvTrackingState(),
+                    folderRefresh = TvFolderRefreshState(),
                 )
             } else {
-                current.copy(savedConnections = saved, isRefreshing = false)
+                current.copy(
+                    savedConnections = saved,
+                    isRefreshing = false,
+                    folderRefresh = TvFolderRefreshState(),
+                )
             }
         }
     }
 
     fun installQaFixture(fixture: TvQaFixture) {
         invalidateRefresh()
+        invalidateFolderRefresh()
         isQaFixtureInstalled = true
         mutableState.value = TvSessionUiState(
             serverUrl = "http://10.0.2.2:18688",

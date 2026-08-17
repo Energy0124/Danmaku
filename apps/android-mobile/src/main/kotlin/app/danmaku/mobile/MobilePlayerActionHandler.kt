@@ -53,6 +53,7 @@ internal class MobilePlayerActionHandler(
     }
 
     fun discoverPc() {
+        resetFolderRefresh()
         scope.launch {
             runCatching { discoverFirstServerUrl() }
                 .onSuccess { connectToLibrary(it, "") }
@@ -66,6 +67,7 @@ internal class MobilePlayerActionHandler(
         fallbackDisplayName: String? = null,
         discoverOnFailure: Boolean = false,
     ) {
+        resetFolderRefresh()
         scope.launch {
             runCatching {
                 fetchCatalogWithProgress(requestedServerUrl, requestedPairingToken)
@@ -146,6 +148,14 @@ internal class MobilePlayerActionHandler(
         folderRefreshGeneration.get() == generation &&
             state.serverUrl.trim().trimEnd('/') == baseUrl &&
             state.pairingToken == token
+
+    private fun resetFolderRefresh() {
+        folderRefreshGeneration.incrementAndGet()
+        state.folderRefreshInProgress = false
+        state.folderRefreshFilesSeen = null
+        state.folderRefreshError = null
+        state.folderRefreshErrorDetail = null
+    }
 
     fun loadTracking() {
         val baseUrl = state.serverUrl.trim().trimEnd('/')
@@ -486,6 +496,7 @@ internal class MobilePlayerActionHandler(
     }
 
     fun editConnection(connection: LanLibraryConnectionProfile) {
+        resetFolderRefresh()
         state.serverUrl = connection.baseUrl
         state.pairingToken = connection.pairingToken
         state.tracking = MobileTrackingState()
@@ -546,14 +557,12 @@ internal class MobilePlayerActionHandler(
             onFavoriteFilterChange = { state.libraryFavoriteFilter = it },
             onSetFavorite = ::setFavorite,
             onServerUrlChange = {
-                folderRefreshGeneration.incrementAndGet()
-                state.folderRefreshInProgress = false
+                resetFolderRefresh()
                 state.serverUrl = it
                 state.tracking = MobileTrackingState()
             },
             onPairingTokenChange = {
-                folderRefreshGeneration.incrementAndGet()
-                state.folderRefreshInProgress = false
+                resetFolderRefresh()
                 state.pairingToken = it
                 state.tracking = MobileTrackingState()
             },
