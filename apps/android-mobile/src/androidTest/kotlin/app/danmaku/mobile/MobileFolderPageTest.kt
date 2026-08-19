@@ -10,6 +10,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.unit.dp
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryMediaItem
@@ -78,6 +79,52 @@ class MobileFolderPageTest {
 
         composeRule.onNodeWithText("Connect").performClick()
         composeRule.runOnIdle { assertEquals(1, connectCount) }
+    }
+
+    @Test
+    fun refreshUsesTheCurrentNestedFolderAndShowsBusyProgress() {
+        val catalog = LibraryCatalog(
+            rootName = "Anime",
+            indexedAtEpochMs = 1,
+            items = listOf(item("episode", "M:\\Anime", "Example/Episode 1.mkv")),
+        )
+        var refreshedPath: List<String>? = null
+        composeRule.setContent {
+            MaterialTheme {
+                FolderPage(
+                    contentPadding = PaddingValues(0.dp),
+                    catalog = catalog,
+                    path = listOf("Example"),
+                    onOpenFolder = {},
+                    onNavigateUp = {},
+                    onPlay = {},
+                    onConnect = {},
+                    isRefreshing = false,
+                    onRefresh = { refreshedPath = it },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("folder-refresh").performClick()
+        composeRule.runOnIdle { assertEquals(listOf("Example"), refreshedPath) }
+
+        composeRule.setContent {
+            MaterialTheme {
+                FolderPage(
+                    contentPadding = PaddingValues(0.dp),
+                    catalog = catalog,
+                    path = listOf("Example"),
+                    onOpenFolder = {},
+                    onNavigateUp = {},
+                    onPlay = {},
+                    onConnect = {},
+                    isRefreshing = true,
+                    refreshFilesSeen = 42,
+                )
+            }
+        }
+        composeRule.onNodeWithTag("folder-refresh").assertIsNotEnabled()
+        composeRule.onNodeWithText("Scanning… 42 files found").assertExists()
     }
 
     private fun item(id: String, root: String, path: String) =

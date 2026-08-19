@@ -65,6 +65,12 @@ internal class TvSessionViewModel(
         }
     }
 
+    fun refreshFolder(path: List<String>) {
+        viewModelScope.launch {
+            repository.refreshFolder(path)
+        }
+    }
+
     fun discoverPc() {
         viewModelScope.launch {
             discoveryError.value = null

@@ -17,7 +17,7 @@ use crate::{
     library::{
         AttentionMappingStatus, AttentionRepairRequest, LibraryAttentionDocument, LibraryCatalog,
         PlaybackProgress, fetch_attention, fetch_catalog, fetch_progress, fetch_progress_list,
-        fetch_server_status, upload_progress,
+        fetch_server_status, request_folder_rescan, upload_progress,
     },
     tracking::{
         ExternalAnimeId, ExternalProvider, ProviderAccounts, SearchCandidate, TrackingDocument,
@@ -32,12 +32,10 @@ pub enum SessionEvent {
     Catalog(Result<LibraryCatalog, String>),
     Attention(Result<LibraryAttentionDocument, String>),
     ProgressList(Result<Vec<PlaybackProgress>, String>),
-    /// Background-scan state parsed from `/api/server/status`; `files_seen`
-    /// is only present while a scan is running.
-    ServerScan {
-        scanning: bool,
-        files_seen: Option<u64>,
-    },
+    /// Background-scan state parsed from `/api/server/status`. Transport and
+    /// decoding failures stay distinct so an active scan keeps polling.
+    ServerScan(Result<ServerScanStatus, String>),
+    FolderRescan(Result<(), String>),
     ResumeLookup {
         media_id: String,
         progress: Option<PlaybackProgress>,
@@ -76,6 +74,12 @@ pub enum SessionEvent {
     },
 }
 
+pub struct ServerScanStatus {
+    scanning: bool,
+    files_seen: Option<u64>,
+    error: Option<String>,
+}
+
 pub struct LibrarySession {
     pub base_url: String,
     pub pairing_token: Option<String>,
@@ -97,6 +101,7 @@ pub struct LibrarySession {
     pub server_scanning: bool,
     /// Media files the in-flight server scan has discovered so far.
     pub server_scan_files_seen: Option<u64>,
+    pub server_scan_error: Option<String>,
     /// Bumped whenever fresh (non-cache) catalog or progress data lands, so
     /// the app knows when to persist the session cache.
     pub sync_version: u64,
@@ -130,6 +135,7 @@ impl LibrarySession {
             catalog_from_cache: false,
             server_scanning: false,
             server_scan_files_seen: None,
+            server_scan_error: None,
             sync_version: 0,
             catalog_version: 0,
             inbox: Arc::new(Mutex::new(Vec::new())),
@@ -166,6 +172,7 @@ impl LibrarySession {
             catalog_from_cache: true,
             server_scanning: false,
             server_scan_files_seen: None,
+            server_scan_error: None,
             sync_version: 0,
             catalog_version: 1,
             inbox: Arc::new(Mutex::new(Vec::new())),
@@ -233,22 +240,32 @@ impl LibrarySession {
         let base_url = self.base_url.clone();
         self.spawn(
             move |base| {
-                let (scanning, files_seen) = fetch_server_status(&base)
-                    .ok()
-                    .and_then(|body| serde_json::from_str::<serde_json::Value>(&body).ok())
-                    .map(|status| {
-                        (
-                            status["scanning"].as_bool().unwrap_or(false),
-                            status["scanFilesSeen"].as_u64(),
-                        )
+                let status = fetch_server_status(&base)
+                    .and_then(|body| {
+                        serde_json::from_str::<serde_json::Value>(&body)
+                            .map_err(|error| format!("invalid server status response: {error}"))
                     })
-                    .unwrap_or((false, None));
-                SessionEvent::ServerScan {
-                    scanning,
-                    files_seen,
-                }
+                    .map(|status| ServerScanStatus {
+                        scanning: status["scanning"].as_bool().unwrap_or(false),
+                        files_seen: status["scanFilesSeen"].as_u64(),
+                        error: status["scanError"].as_str().map(ToOwned::to_owned),
+                    });
+                SessionEvent::ServerScan(status)
             },
             base_url,
+        );
+    }
+
+    pub fn refresh_folder(&mut self, path: Vec<String>) {
+        if !self.connected {
+            self.server_scan_error = Some("Connect to a PC first".to_owned());
+            return;
+        }
+        let base_url = self.base_url.clone();
+        self.server_scan_error = None;
+        self.spawn(
+            move |_| SessionEvent::FolderRescan(request_folder_rescan(&base_url, &path)),
+            self.base_url.clone(),
         );
     }
 
@@ -618,16 +635,28 @@ impl LibrarySession {
                         self.sync_version = self.sync_version.wrapping_add(1);
                     }
                 }
-                SessionEvent::ServerScan {
-                    scanning,
-                    files_seen,
-                } => {
-                    if self.server_scanning && !scanning {
+                SessionEvent::ServerScan(Ok(status)) => {
+                    if self.server_scanning && !status.scanning {
                         scan_finished = true;
                     }
-                    self.server_scanning = scanning;
-                    self.server_scan_files_seen = files_seen;
+                    self.server_scanning = status.scanning;
+                    self.server_scan_files_seen = status.files_seen;
+                    self.server_scan_error = status.error;
                 }
+                SessionEvent::ServerScan(Err(error)) => {
+                    if self.server_scanning {
+                        self.server_scan_error = Some(error);
+                    }
+                }
+                SessionEvent::FolderRescan(result) => match result {
+                    Ok(()) => {
+                        self.server_scanning = true;
+                        self.server_scan_files_seen = Some(0);
+                        self.server_scan_error = None;
+                        self.refresh_server_scan();
+                    }
+                    Err(error) => self.server_scan_error = Some(error),
+                },
                 other => for_app.push(other),
             }
         }
@@ -694,6 +723,7 @@ mod tests {
             catalog_from_cache: false,
             server_scanning: false,
             server_scan_files_seen: None,
+            server_scan_error: None,
             sync_version: 0,
             catalog_version: 0,
             inbox: Arc::new(Mutex::new(Vec::new())),
@@ -833,10 +863,11 @@ mod tests {
             .inbox
             .lock()
             .expect("inbox lock")
-            .push(SessionEvent::ServerScan {
+            .push(SessionEvent::ServerScan(Ok(ServerScanStatus {
                 scanning: true,
                 files_seen: Some(12),
-            });
+                error: None,
+            })));
         session.drain_events();
         assert!(session.server_scanning);
         assert_eq!(session.server_scan_files_seen, Some(12));
@@ -846,14 +877,39 @@ mod tests {
             .inbox
             .lock()
             .expect("inbox lock")
-            .push(SessionEvent::ServerScan {
+            .push(SessionEvent::ServerScan(Ok(ServerScanStatus {
                 scanning: false,
                 files_seen: None,
-            });
+                error: None,
+            })));
         session.drain_events();
         assert!(!session.server_scanning);
         // The flip to "not scanning" refreshes the catalog to pick up the
         // scan result exactly once.
         assert!(session.loading_catalog);
+    }
+
+    #[test]
+    fn failed_scan_status_poll_keeps_active_scan_running() {
+        let mut session = test_session("http://127.0.0.1:1");
+        session.server_scanning = true;
+        session.server_scan_files_seen = Some(7);
+        session
+            .inbox
+            .lock()
+            .expect("inbox lock")
+            .push(SessionEvent::ServerScan(Err(
+                "status unavailable".to_owned()
+            )));
+
+        session.drain_events();
+
+        assert!(session.server_scanning);
+        assert_eq!(session.server_scan_files_seen, Some(7));
+        assert_eq!(
+            session.server_scan_error.as_deref(),
+            Some("status unavailable")
+        );
+        assert!(!session.loading_catalog);
     }
 }

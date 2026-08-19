@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -32,6 +32,16 @@ impl ScanProgress {
     fn record_media_file(&self) {
         self.media_files_seen.fetch_add(1, Ordering::Relaxed);
     }
+
+    pub fn reset(&self) {
+        self.media_files_seen.store(0, Ordering::Relaxed);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LibraryRescanTarget {
+    All,
+    Subtree { root: PathBuf, directory: PathBuf },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -148,6 +158,168 @@ pub fn scan_roots_with_progress(
     })
 }
 
+pub fn resolve_rescan_target(
+    roots: &[PathBuf],
+    logical_path: &[String],
+) -> Result<LibraryRescanTarget> {
+    let normalized_roots = normalized_distinct_roots(roots)?;
+    if normalized_roots.is_empty() {
+        return Err(LibraryServerError::new("no library folders are configured"));
+    }
+    if logical_path.is_empty() {
+        return Ok(LibraryRescanTarget::All);
+    }
+
+    let (root, relative_segments) = if normalized_roots.len() >= 2 {
+        let requested_root = &logical_path[0];
+        let root = normalized_roots
+            .iter()
+            .find(|root| path_label_eq(&path_string(root), requested_root))
+            .cloned()
+            .ok_or_else(|| {
+                LibraryServerError::new("folder path does not identify a library root")
+            })?;
+        (root, &logical_path[1..])
+    } else {
+        (normalized_roots[0].clone(), logical_path)
+    };
+
+    let mut directory = root.clone();
+    for segment in relative_segments {
+        if !valid_logical_path_segment(segment) {
+            return Err(LibraryServerError::new(
+                "folder path contains an invalid segment",
+            ));
+        }
+        directory.push(segment);
+    }
+    Ok(LibraryRescanTarget::Subtree { root, directory })
+}
+
+pub fn rescan_target_with_progress(
+    roots: &[PathBuf],
+    target: &LibraryRescanTarget,
+    previous: Option<&HeadlessStoredLibrary>,
+    progress: Option<&ScanProgress>,
+) -> Result<LibraryScan> {
+    let LibraryRescanTarget::Subtree { root, directory } = target else {
+        return scan_roots_with_progress(roots, previous, progress);
+    };
+    let Some(previous) = previous else {
+        return scan_roots_with_progress(roots, None, progress);
+    };
+
+    let normalized_roots = normalized_distinct_roots(roots)?;
+    let normalized_root = absolute_normalized_path(root)?;
+    let normalized_directory = absolute_normalized_path(directory)?;
+    if !path_is_within(&normalized_directory, &normalized_root) {
+        return Err(LibraryServerError::new(
+            "folder path is outside the library root",
+        ));
+    }
+
+    let scan_started_at_epoch_ms = current_epoch_ms();
+    let previous_items_by_id = previous
+        .published_library
+        .catalog
+        .items
+        .iter()
+        .map(|item| (item.id.clone(), item.clone()))
+        .collect::<BTreeMap<_, _>>();
+    let previous_last_modified_by_id = previous.file_last_modified_epoch_ms_by_id.clone();
+
+    let mut removed_media_ids = BTreeSet::new();
+    let mut removed_subtitle_ids = BTreeSet::new();
+    for item in &previous.published_library.catalog.items {
+        let absolute_path = previous
+            .published_library
+            .files_by_id
+            .get(&item.id)
+            .cloned()
+            .or_else(|| item_path(item, &normalized_root));
+        if absolute_path
+            .as_deref()
+            .is_some_and(|path| path_is_within(path, &normalized_directory))
+        {
+            removed_media_ids.insert(item.id.clone());
+            removed_subtitle_ids.extend(item.subtitles.iter().map(|subtitle| subtitle.id.clone()));
+        }
+    }
+
+    let mut files_by_id = previous.published_library.files_by_id.clone();
+    files_by_id.retain(|id, _| !removed_media_ids.contains(id));
+    let mut subtitle_files_by_id = previous.published_library.subtitle_files_by_id.clone();
+    subtitle_files_by_id.retain(|id, _| !removed_subtitle_ids.contains(id));
+    let mut poster_files_by_id = previous.published_library.poster_files_by_id.clone();
+    poster_files_by_id.retain(|id, _| !removed_media_ids.contains(id));
+    let mut file_last_modified_epoch_ms_by_id = previous.file_last_modified_epoch_ms_by_id.clone();
+    file_last_modified_epoch_ms_by_id.retain(|id, _| !removed_media_ids.contains(id));
+    let mut items = previous
+        .published_library
+        .catalog
+        .items
+        .iter()
+        .filter(|item| !removed_media_ids.contains(&item.id))
+        .cloned()
+        .collect::<Vec<_>>();
+
+    let mut reused_item_count = 0;
+    let mut refreshed_item_count = 0;
+    let mut skipped_unreadable_count = 0;
+    match fs::metadata(&normalized_directory) {
+        Ok(metadata) if metadata.is_dir() => {
+            items.extend(scan_directory(
+                &normalized_root,
+                &normalized_directory,
+                scan_started_at_epoch_ms,
+                &previous_items_by_id,
+                &previous_last_modified_by_id,
+                &mut files_by_id,
+                &mut subtitle_files_by_id,
+                &mut file_last_modified_epoch_ms_by_id,
+                &mut reused_item_count,
+                &mut refreshed_item_count,
+                &mut skipped_unreadable_count,
+                progress,
+                true,
+            )?);
+        }
+        Ok(_) => return Err(LibraryServerError::new("folder path is not a directory")),
+        Err(error)
+            if error.kind() == io::ErrorKind::NotFound
+                && !paths_equal(&normalized_directory, &normalized_root) => {}
+        Err(error) => {
+            return Err(LibraryServerError::with_context(
+                error,
+                format!("failed to read folder {}", normalized_directory.display()),
+            ));
+        }
+    }
+
+    items.sort_by(|left, right| {
+        left.series_title
+            .cmp(&right.series_title)
+            .then_with(|| left.relative_path.cmp(&right.relative_path))
+    });
+    Ok(LibraryScan {
+        published_library: PublishedLibrary {
+            catalog: LibraryCatalog {
+                root_name: root_name(&normalized_roots),
+                indexed_at_epoch_ms: scan_started_at_epoch_ms,
+                items,
+            },
+            files_by_id,
+            subtitle_files_by_id,
+            poster_files_by_id,
+        },
+        scanned_root_count: 1,
+        reused_item_count,
+        refreshed_item_count,
+        skipped_unreadable_count,
+        file_last_modified_epoch_ms_by_id,
+    })
+}
+
 fn normalized_distinct_roots(roots: &[PathBuf]) -> Result<Vec<PathBuf>> {
     let mut normalized = roots
         .iter()
@@ -172,9 +344,43 @@ fn scan_root(
     skipped_unreadable_count: &mut usize,
     progress: Option<&ScanProgress>,
 ) -> Result<Vec<LibraryMediaItem>> {
+    scan_directory(
+        root,
+        root,
+        scan_started_at_epoch_ms,
+        previous_items_by_id,
+        previous_last_modified_by_id,
+        files_by_id,
+        subtitle_files_by_id,
+        file_last_modified_epoch_ms_by_id,
+        reused_item_count,
+        refreshed_item_count,
+        skipped_unreadable_count,
+        progress,
+        false,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn scan_directory(
+    root: &Path,
+    directory: &Path,
+    scan_started_at_epoch_ms: u64,
+    previous_items_by_id: &BTreeMap<String, LibraryMediaItem>,
+    previous_last_modified_by_id: &BTreeMap<String, u64>,
+    files_by_id: &mut PathMap,
+    subtitle_files_by_id: &mut PathMap,
+    file_last_modified_epoch_ms_by_id: &mut BTreeMap<String, u64>,
+    reused_item_count: &mut usize,
+    refreshed_item_count: &mut usize,
+    skipped_unreadable_count: &mut usize,
+    progress: Option<&ScanProgress>,
+    fail_on_unreadable: bool,
+) -> Result<Vec<LibraryMediaItem>> {
     let id_namespace = path_string(root);
     let mut items = Vec::new();
-    for path in regular_files_recursively(root, skipped_unreadable_count) {
+    for path in regular_files_recursively(directory, skipped_unreadable_count, fail_on_unreadable)?
+    {
         let extension = extension_lowercase(&path);
         if !VIDEO_EXTENSIONS.contains(&extension.as_str()) {
             continue;
@@ -185,11 +391,17 @@ fn scan_root(
 
         let relative_path = relative_media_path(root, &path)?;
         let Some((size_bytes, last_modified_epoch_ms)) =
-            file_metadata_snapshot(&path, skipped_unreadable_count)
+            file_metadata_snapshot(&path, skipped_unreadable_count, fail_on_unreadable)?
         else {
             continue;
         };
-        let subtitles = sidecar_subtitles(root, &path, &id_namespace, skipped_unreadable_count)?;
+        let subtitles = sidecar_subtitles(
+            root,
+            &path,
+            &id_namespace,
+            skipped_unreadable_count,
+            fail_on_unreadable,
+        )?;
         let id = sha256_hex(&format!("{id_namespace}/{relative_path}"))
             .chars()
             .take(24)
@@ -256,6 +468,49 @@ fn scan_root(
     Ok(items)
 }
 
+fn valid_logical_path_segment(segment: &str) -> bool {
+    !segment.is_empty()
+        && segment != "."
+        && segment != ".."
+        && !segment.contains(['/', '\\'])
+        && Path::new(segment).components().count() == 1
+}
+
+fn path_label_eq(left: &str, right: &str) -> bool {
+    if cfg!(windows) {
+        left.eq_ignore_ascii_case(right)
+    } else {
+        left == right
+    }
+}
+
+fn path_is_within(path: &Path, parent: &Path) -> bool {
+    let path_components = path.components().collect::<Vec<_>>();
+    let parent_components = parent.components().collect::<Vec<_>>();
+    path_components.len() >= parent_components.len()
+        && parent_components
+            .iter()
+            .zip(path_components.iter())
+            .all(|(left, right)| {
+                path_label_eq(
+                    &left.as_os_str().to_string_lossy(),
+                    &right.as_os_str().to_string_lossy(),
+                )
+            })
+}
+
+fn paths_equal(left: &Path, right: &Path) -> bool {
+    left.components().count() == right.components().count() && path_is_within(left, right)
+}
+
+fn item_path(item: &LibraryMediaItem, expected_root: &Path) -> Option<PathBuf> {
+    let root_label = item.root_label.as_deref()?;
+    if !path_label_eq(root_label, &path_string(expected_root)) {
+        return None;
+    }
+    Some(expected_root.join(&item.relative_path))
+}
+
 fn root_is_readable_directory(root: &Path, skipped_unreadable_count: &mut usize) -> bool {
     match fs::metadata(root) {
         Ok(metadata) if metadata.is_dir() => true,
@@ -270,19 +525,37 @@ fn root_is_readable_directory(root: &Path, skipped_unreadable_count: &mut usize)
     }
 }
 
-fn regular_files_recursively(root: &Path, skipped_unreadable_count: &mut usize) -> Vec<PathBuf> {
+fn regular_files_recursively(
+    root: &Path,
+    skipped_unreadable_count: &mut usize,
+    fail_on_unreadable: bool,
+) -> Result<Vec<PathBuf>> {
     let mut stack = vec![root.to_path_buf()];
     let mut files = Vec::new();
     while let Some(directory) = stack.pop() {
-        let Ok(read_dir) = fs::read_dir(&directory).inspect_err(|error| {
-            warn_skipped_unreadable(&directory, error, skipped_unreadable_count);
-        }) else {
-            continue;
+        let read_dir = match fs::read_dir(&directory) {
+            Ok(read_dir) => read_dir,
+            Err(error) if fail_on_unreadable => {
+                return Err(LibraryServerError::with_context(
+                    error,
+                    format!("failed to read folder {}", directory.display()),
+                ));
+            }
+            Err(error) => {
+                warn_skipped_unreadable(&directory, error, skipped_unreadable_count);
+                continue;
+            }
         };
         let mut entries = Vec::new();
         for entry in read_dir {
             match entry {
                 Ok(entry) => entries.push(entry),
+                Err(error) if fail_on_unreadable => {
+                    return Err(LibraryServerError::with_context(
+                        error,
+                        format!("failed to enumerate folder {}", directory.display()),
+                    ));
+                }
                 Err(error) => {
                     warn_skipped_unreadable(&directory, error, skipped_unreadable_count);
                 }
@@ -292,28 +565,33 @@ fn regular_files_recursively(root: &Path, skipped_unreadable_count: &mut usize) 
         for entry in entries.into_iter().rev() {
             let path = entry.path();
             let metadata = fs::metadata(&path);
-            match classify_path(path, metadata, skipped_unreadable_count) {
+            match classify_path(path, metadata, skipped_unreadable_count, fail_on_unreadable)? {
                 Some(WalkEntry::Directory(path)) => stack.push(path),
                 Some(WalkEntry::File(path)) => files.push(path),
                 None => {}
             }
         }
     }
-    files
+    Ok(files)
 }
 
 fn classify_path(
     path: PathBuf,
     metadata: io::Result<fs::Metadata>,
     skipped_unreadable_count: &mut usize,
-) -> Option<WalkEntry> {
+    fail_on_unreadable: bool,
+) -> Result<Option<WalkEntry>> {
     match metadata {
-        Ok(metadata) if metadata.is_dir() => Some(WalkEntry::Directory(path)),
-        Ok(metadata) if metadata.is_file() => Some(WalkEntry::File(path)),
-        Ok(_) => None,
+        Ok(metadata) if metadata.is_dir() => Ok(Some(WalkEntry::Directory(path))),
+        Ok(metadata) if metadata.is_file() => Ok(Some(WalkEntry::File(path))),
+        Ok(_) => Ok(None),
+        Err(error) if fail_on_unreadable => Err(LibraryServerError::with_context(
+            error,
+            format!("failed to read path {}", path.display()),
+        )),
         Err(error) => {
             warn_skipped_unreadable(&path, error, skipped_unreadable_count);
-            None
+            Ok(None)
         }
     }
 }
@@ -323,22 +601,38 @@ enum WalkEntry {
     File(PathBuf),
 }
 
-fn file_metadata_snapshot(path: &Path, skipped_unreadable_count: &mut usize) -> Option<(u64, u64)> {
+fn file_metadata_snapshot(
+    path: &Path,
+    skipped_unreadable_count: &mut usize,
+    fail_on_unreadable: bool,
+) -> Result<Option<(u64, u64)>> {
     let metadata = match path.metadata() {
         Ok(metadata) => metadata,
+        Err(error) if fail_on_unreadable => {
+            return Err(LibraryServerError::with_context(
+                error,
+                format!("failed to read media file {}", path.display()),
+            ));
+        }
         Err(error) => {
             warn_skipped_unreadable(path, error, skipped_unreadable_count);
-            return None;
+            return Ok(None);
         }
     };
     let modified = match metadata.modified() {
         Ok(modified) => modified,
+        Err(error) if fail_on_unreadable => {
+            return Err(LibraryServerError::with_context(
+                error,
+                format!("failed to read media timestamp {}", path.display()),
+            ));
+        }
         Err(error) => {
             warn_skipped_unreadable(path, error, skipped_unreadable_count);
-            return None;
+            return Ok(None);
         }
     };
-    Some((metadata.len(), system_time_epoch_ms(modified)))
+    Ok(Some((metadata.len(), system_time_epoch_ms(modified))))
 }
 
 fn warn_skipped_unreadable(
@@ -358,6 +652,7 @@ fn sidecar_subtitles(
     video_path: &Path,
     id_namespace: &str,
     skipped_unreadable_count: &mut usize,
+    fail_on_unreadable: bool,
 ) -> Result<Vec<SubtitleFile>> {
     let Some(parent) = video_path.parent() else {
         return Ok(Vec::new());
@@ -365,15 +660,29 @@ fn sidecar_subtitles(
     let video_base_name = file_stem(video_path);
     let video_base_name_lowercase = video_base_name.to_lowercase();
     let mut subtitles = Vec::new();
-    let Ok(read_dir) = fs::read_dir(parent).inspect_err(|error| {
-        warn_skipped_unreadable(parent, error, skipped_unreadable_count);
-    }) else {
-        return Ok(Vec::new());
+    let read_dir = match fs::read_dir(parent) {
+        Ok(read_dir) => read_dir,
+        Err(error) if fail_on_unreadable => {
+            return Err(LibraryServerError::with_context(
+                error,
+                format!("failed to read subtitle folder {}", parent.display()),
+            ));
+        }
+        Err(error) => {
+            warn_skipped_unreadable(parent, error, skipped_unreadable_count);
+            return Ok(Vec::new());
+        }
     };
     let mut entries = Vec::new();
     for entry in read_dir {
         match entry {
             Ok(entry) => entries.push(entry),
+            Err(error) if fail_on_unreadable => {
+                return Err(LibraryServerError::with_context(
+                    error,
+                    format!("failed to enumerate subtitle folder {}", parent.display()),
+                ));
+            }
             Err(error) => {
                 warn_skipped_unreadable(parent, error, skipped_unreadable_count);
             }
@@ -383,10 +692,18 @@ fn sidecar_subtitles(
 
     for entry in entries {
         let path = entry.path();
-        let Ok(metadata) = fs::metadata(&path).inspect_err(|error| {
-            warn_skipped_unreadable(&path, error, skipped_unreadable_count);
-        }) else {
-            continue;
+        let metadata = match fs::metadata(&path) {
+            Ok(metadata) => metadata,
+            Err(error) if fail_on_unreadable => {
+                return Err(LibraryServerError::with_context(
+                    error,
+                    format!("failed to read subtitle path {}", path.display()),
+                ));
+            }
+            Err(error) => {
+                warn_skipped_unreadable(&path, error, skipped_unreadable_count);
+                continue;
+            }
         };
         if !metadata.is_file() {
             continue;
@@ -995,6 +1312,124 @@ mod tests {
     }
 
     #[test]
+    fn rescans_only_the_selected_subtree_and_preserves_siblings() {
+        let temp = temp_dir("danmaku-subtree-rescan");
+        let root = temp.join("Anime");
+        let selected = root.join("Selected Show");
+        let sibling = root.join("Sibling Show");
+        fs::create_dir_all(&selected).expect("selected dirs");
+        fs::create_dir_all(&sibling).expect("sibling dirs");
+        let removed = selected.join("Episode 01.mkv");
+        write_bytes(&removed, &[1, 2, 3]);
+        write_bytes(&sibling.join("Episode 01.mkv"), &[4, 5, 6]);
+
+        let first = scan_roots(std::slice::from_ref(&root), None).expect("first scan");
+        let sibling_before = first
+            .published_library
+            .catalog
+            .items
+            .iter()
+            .find(|item| item.series_title == "Sibling Show")
+            .expect("sibling item")
+            .clone();
+        let previous = stored_from_scan(first);
+
+        fs::remove_file(removed).expect("old episode removes");
+        write_bytes(&selected.join("Episode 02.mkv"), &[7, 8, 9, 10]);
+        let target = resolve_rescan_target(&[root.clone()], &["Selected Show".to_owned()])
+            .expect("target resolves");
+        let rescanned = rescan_target_with_progress(
+            std::slice::from_ref(&root),
+            &target,
+            Some(&previous),
+            None,
+        )
+        .expect("subtree rescans");
+
+        assert_eq!(2, rescanned.published_library.catalog.items.len());
+        assert!(
+            rescanned
+                .published_library
+                .catalog
+                .items
+                .iter()
+                .any(|item| item.relative_path == "Selected Show/Episode 02.mkv")
+        );
+        let sibling_after = rescanned
+            .published_library
+            .catalog
+            .items
+            .iter()
+            .find(|item| item.series_title == "Sibling Show")
+            .expect("sibling remains");
+        assert_eq!(sibling_before, *sibling_after);
+        assert!(
+            rescanned
+                .published_library
+                .files_by_id
+                .contains_key(&sibling_before.id)
+        );
+
+        fs::remove_dir_all(temp).expect("temp should delete");
+    }
+
+    #[test]
+    fn rescanning_a_deleted_subtree_removes_its_stale_items() {
+        let temp = temp_dir("danmaku-deleted-subtree-rescan");
+        let root = temp.join("Anime");
+        let selected = root.join("Removed Show");
+        fs::create_dir_all(&selected).expect("selected dirs");
+        write_bytes(&selected.join("Episode 01.mkv"), &[1, 2, 3]);
+        let previous =
+            stored_from_scan(scan_roots(std::slice::from_ref(&root), None).expect("first scan"));
+        fs::remove_dir_all(&selected).expect("folder removes");
+
+        let target = resolve_rescan_target(&[root.clone()], &["Removed Show".to_owned()])
+            .expect("target resolves");
+        let rescanned = rescan_target_with_progress(
+            std::slice::from_ref(&root),
+            &target,
+            Some(&previous),
+            None,
+        )
+        .expect("missing subtree is an empty successful scan");
+
+        assert!(rescanned.published_library.catalog.items.is_empty());
+        assert!(rescanned.published_library.files_by_id.is_empty());
+        fs::remove_dir_all(temp).expect("temp should delete");
+    }
+
+    #[test]
+    fn resolves_multi_root_paths_and_rejects_traversal() {
+        let temp = temp_dir("danmaku-rescan-paths");
+        let first = temp.join("First");
+        let second = temp.join("Second");
+        fs::create_dir_all(&first).expect("first root");
+        fs::create_dir_all(&second).expect("second root");
+        let second_label = path_string(&absolute_normalized_path(&second).expect("normalizes"));
+
+        let target = resolve_rescan_target(
+            &[first.clone(), second.clone()],
+            &[second_label, "Show".to_owned()],
+        )
+        .expect("multi-root target resolves");
+        assert_eq!(
+            LibraryRescanTarget::Subtree {
+                root: absolute_normalized_path(&second).expect("root normalizes"),
+                directory: absolute_normalized_path(&second.join("Show"))
+                    .expect("directory normalizes"),
+            },
+            target
+        );
+        assert!(
+            resolve_rescan_target(&[first], &["..".to_owned()]).is_err(),
+            "parent traversal must be rejected"
+        );
+
+        fs::remove_dir_all(temp).expect("temp should delete");
+    }
+
+    #[test]
     fn classifies_vanished_entry_as_unreadable_skip() {
         let mut skipped_unreadable_count = 0;
 
@@ -1002,7 +1437,9 @@ mod tests {
             PathBuf::from("vanished.mkv"),
             Err(io::Error::new(io::ErrorKind::NotFound, "file vanished")),
             &mut skipped_unreadable_count,
-        );
+            false,
+        )
+        .expect("tolerant scans skip vanished entries");
 
         assert!(classified.is_none());
         assert_eq!(1, skipped_unreadable_count);
@@ -1042,6 +1479,48 @@ mod tests {
             scan.published_library.catalog.items[0].series_title
         );
 
+        drop(guard);
+        fs::remove_dir_all(temp).expect("temp should delete");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn scoped_rescan_rejects_unreadable_subtree_instead_of_deleting_cached_items() {
+        let temp = temp_dir("danmaku-subtree-rescan-unreadable");
+        let root = temp.join("Anime");
+        let selected = root.join("Selected Show");
+        fs::create_dir_all(&selected).expect("selected dirs");
+        write_bytes(&selected.join("Episode 01.mkv"), &[1, 2, 3]);
+        let previous =
+            stored_from_scan(scan_roots(std::slice::from_ref(&root), None).expect("first scan"));
+        let target = resolve_rescan_target(&[root.clone()], &["Selected Show".to_owned()])
+            .expect("target resolves");
+        let Some(guard) = deny_windows_read(&selected) else {
+            eprintln!(
+                "skipping Windows unreadable-directory fixture; icacls could not deny reads for {}",
+                selected.display()
+            );
+            fs::remove_dir_all(temp).expect("temp should delete");
+            return;
+        };
+        if fs::read_dir(&selected).is_ok() {
+            drop(guard);
+            fs::remove_dir_all(temp).expect("temp should delete");
+            panic!("unreadable fixture should reject directory reads");
+        }
+
+        let result = rescan_target_with_progress(
+            std::slice::from_ref(&root),
+            &target,
+            Some(&previous),
+            None,
+        );
+
+        assert!(
+            result.is_err(),
+            "an unreadable subtree must not publish an empty replacement"
+        );
+        assert_eq!(1, previous.published_library.catalog.items.len());
         drop(guard);
         fs::remove_dir_all(temp).expect("temp should delete");
     }

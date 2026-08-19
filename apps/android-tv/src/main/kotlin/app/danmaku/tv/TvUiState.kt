@@ -21,6 +21,14 @@ import kotlin.math.roundToInt
 
 internal enum class TvTrackingOperation { READBACK, SYNC }
 internal enum class TvTrackingError { ACCESS_CODE_REJECTED, PREVIEW_CHANGED, REQUEST_FAILED }
+internal enum class TvFolderRefreshError { ALREADY_RUNNING, SCAN_FAILED, REQUEST_FAILED }
+
+internal data class TvFolderRefreshState(
+    val isBusy: Boolean = false,
+    val filesSeen: Long? = null,
+    val error: TvFolderRefreshError? = null,
+    val errorDetail: String? = null,
+)
 
 internal data class TvTrackingState(
     val accounts: ProviderAccountsDocument? = null,
@@ -66,6 +74,7 @@ internal data class TvSessionUiState(
     val isOffline: Boolean = false,
     val errorMessage: String? = null,
     val tracking: TvTrackingState = TvTrackingState(),
+    val folderRefresh: TvFolderRefreshState = TvFolderRefreshState(),
 ) {
     val hasConnection: Boolean
         get() = serverUrl.isNotBlank()

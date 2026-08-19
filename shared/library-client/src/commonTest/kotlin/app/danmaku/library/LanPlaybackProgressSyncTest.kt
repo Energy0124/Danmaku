@@ -216,6 +216,11 @@ class LanPlaybackProgressSyncTest {
         override fun fetchCatalog(baseUrl: String, pairingToken: String): LibraryCatalog =
             error("not used")
 
+        override fun requestFolderRescan(
+            baseUrl: String,
+            path: List<String>,
+        ) = Unit
+
         override fun streamUrl(
             baseUrl: String,
             item: LibraryMediaItem,

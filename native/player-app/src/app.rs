@@ -2629,6 +2629,11 @@ impl eframe::App for PlayerApp {
                             session.refresh_progress();
                         }
                     }
+                    Some(LibraryAction::RescanFolder { path }) => {
+                        if let Some(session) = &mut self.session {
+                            session.refresh_folder(path);
+                        }
+                    }
                     Some(LibraryAction::Disconnect) => self.disconnect(),
                     Some(LibraryAction::Settings) => self.open_settings(AppScreen::Library),
                     None => {}

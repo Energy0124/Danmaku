@@ -49,12 +49,18 @@ Body shape:
   "webUiAvailable": false,
   "webUiPath": null,
   "hostMode": "headless-server",
+  "scanning": false,
+  "scanFilesSeen": null,
+  "scanError": null,
   "providerSettings": null
 }
 ```
 
 Default fields are omitted on the wire except `hostMode`, which is always
 `headless-server`. A configured server may include web and provider fields.
+While a startup or manual library scan is running, `scanning` is true and
+`scanFilesSeen` reports its current discovered-file count. `scanError` holds
+the last scan failure until the next scan starts.
 
 Status codes:
 
@@ -107,6 +113,38 @@ Status codes:
 - `401`: unreachable with current `isAuthorized()` implementation.
 
 Quirk: the handler does not check the exact path.
+
+### `POST /api/library/rescan`
+
+Auth: none. Like catalog browsing, folder refresh is available to clients on
+the trusted LAN without an access code.
+
+Requests an asynchronous scan of the folder currently shown by a native
+client. The body is a JSON object containing the folder browser's logical path:
+
+```json
+{
+  "path": ["M:\\Anime", "Example Show"]
+}
+```
+
+For a single configured root, `path` contains only relative folder segments.
+For multiple roots, the first segment is the root label returned in
+`LibraryMediaItem.rootLabel`. An empty array requests a full scan of every
+configured root. The accepted request returns immediately; clients use
+`GET /api/server/status` while `scanning` is true, then reload
+`GET /api/library`. The server merges a folder scan into the existing catalog
+so unrelated roots and sibling folders are preserved. A folder removed from
+disk produces an empty subtree and removes its stale catalog entries.
+
+Status codes:
+
+- `202`: scan accepted.
+- `400`: malformed JSON, invalid path segments, or a path outside configured
+  roots.
+- `409`: another scan is already running.
+- `405`: method is not `POST`.
+- `404`: this server instance was not configured with scan roots/storage.
 
 ### `GET /api/progress`
 

@@ -373,10 +373,12 @@ class TvFocusNavigationTest {
                     route = route,
                     navigation = navigator.state.value,
                     navigator = navigator,
+                    session = session,
                     browse = browse,
                     onOpenFolder = { openedFolder = it },
                     onOpenFile = {},
                     onNavigateUp = {},
+                    onRefresh = {},
                 )
             }
         }
@@ -403,10 +405,12 @@ class TvFocusNavigationTest {
                     route = route,
                     navigation = navigator.state.value,
                     navigator = navigator,
+                    session = TvSessionUiState(catalog = browse.catalog),
                     browse = browse,
                     onOpenFolder = {},
                     onOpenFile = {},
                     onNavigateUp = {},
+                    onRefresh = {},
                 )
             }
         }
@@ -428,6 +432,48 @@ class TvFocusNavigationTest {
             )
         }
         composeRule.onNodeWithTag("folder-empty").assertIsFocused()
+    }
+
+    @Test
+    fun folderRefreshKeepsFocusWhileScanIsBusy() {
+        val route = TvRoute.FolderBrowser()
+        val navigator = TvNavigator(route).apply {
+            saveFocus(route, "folder-refresh")
+        }
+        val catalog = folderCatalog("alpha", "Alpha/Episode 1.mkv")
+        val browse = TvBrowseUiState(catalog = catalog)
+        var session by mutableStateOf(TvSessionUiState(catalog = catalog))
+        var refreshCount = 0
+
+        composeRule.setContent {
+            DanmakuTvTheme {
+                TvFolderBrowserScreen(
+                    route = route,
+                    navigation = navigator.state.value,
+                    navigator = navigator,
+                    session = session,
+                    browse = browse,
+                    onOpenFolder = {},
+                    onOpenFile = {},
+                    onNavigateUp = {},
+                    onRefresh = {
+                        refreshCount += 1
+                        session = session.copy(
+                            folderRefresh = TvFolderRefreshState(isBusy = true),
+                        )
+                    },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("folder-refresh")
+            .assertIsFocused()
+            .performKeyInput { pressKey(Key.DirectionCenter) }
+            .assertIsFocused()
+            .performKeyInput { pressKey(Key.DirectionCenter) }
+        composeRule.runOnIdle {
+            check(refreshCount == 1)
+        }
     }
 
     private fun folderCatalog(id: String, relativePath: String) =

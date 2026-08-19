@@ -53,6 +53,25 @@ class JvmLanLibraryClient(
         }
     }
 
+    override fun requestFolderRescan(
+        baseUrl: String,
+        path: List<String>,
+    ) {
+        val connection = open("${baseUrl.trimEnd('/')}/api/library/rescan").apply {
+            requestMethod = "POST"
+            doOutput = true
+            setRequestProperty("Content-Type", "application/json; charset=utf-8")
+        }
+        try {
+            connection.outputStream.bufferedWriter().use {
+                it.write("{\"path\":${json.encodeToString(path)}}")
+            }
+            connection.requireResponse(HttpURLConnection.HTTP_ACCEPTED)
+        } finally {
+            connection.disconnect()
+        }
+    }
+
     override fun streamUrl(
         baseUrl: String,
         item: LibraryMediaItem,
@@ -181,4 +200,7 @@ private fun HttpURLConnection.requireResponse(expectedCode: Int) {
 }
 
 private fun HttpURLConnection.httpException(): LanLibraryClientException =
-    LanLibraryClientException("Library server returned HTTP $responseCode")
+    LanLibraryClientException(
+        message = "Library server returned HTTP $responseCode",
+        statusCode = responseCode,
+    )

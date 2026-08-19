@@ -8,7 +8,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::net::{http_get, http_put_json, percent_encode_path_segment};
+use crate::net::{http_get, http_post_json, http_put_json, percent_encode_path_segment};
 
 pub const DEFAULT_NEXT_UP_LIMIT: usize = 8;
 pub const MINIMUM_RESUME_POSITION_MS: i64 = 10_000;
@@ -827,6 +827,11 @@ pub fn next_up_items(
 pub fn fetch_catalog(base_url: &str) -> Result<LibraryCatalog, String> {
     let body = http_get(base_url, "/api/library")?;
     serde_json::from_str(&body).map_err(|error| format!("invalid catalog JSON: {error}"))
+}
+
+pub fn request_folder_rescan(base_url: &str, path: &[String]) -> Result<(), String> {
+    let body = serde_json::json!({ "path": path }).to_string();
+    http_post_json(base_url, "/api/library/rescan", &body).map(|_| ())
 }
 
 pub fn fetch_attention(base_url: &str) -> Result<LibraryAttentionDocument, String> {

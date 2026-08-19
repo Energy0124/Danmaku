@@ -43,6 +43,12 @@
     <string name="library_folder_item_count">%1$d 個檔案</string>
     <string name="library_folder_empty_title">此資料夾是空的</string>
     <string name="library_folder_empty_body">返回上一層並選擇其他媒體庫資料夾。</string>
+    <string name="library_folder_refresh_action">重新掃描資料夾</string>
+    <string name="library_folder_refresh_scanning">掃描中…</string>
+    <string name="library_folder_refresh_progress">掃描中… %1$d 個檔案</string>
+    <string name="library_folder_refresh_already_running">另一個媒體庫掃描正在進行中，請在完成後再試。</string>
+    <string name="library_folder_refresh_scan_failed">電腦無法掃描此資料夾，已保留先前的清單。</string>
+    <string name="library_folder_refresh_request_failed">請檢查電腦連線後再試一次。</string>
     <string name="library_all_series">所有系列</string>
     <string name="library_all">全部</string>
     <string name="library_no_pc_title">尚未連線 PC 媒體庫</string>

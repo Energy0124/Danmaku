@@ -5,6 +5,7 @@ import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.library.LanLibraryConnectionProfile
 import app.danmaku.library.LanLibraryConnectionSession
+import app.danmaku.library.LanLibraryClientException
 import app.danmaku.library.LanPlaybackTarget
 import app.danmaku.library.android.AndroidLanLibraryConnectionStore
 import app.danmaku.library.android.AndroidLibraryFavoriteStore
@@ -18,6 +19,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.delay
 
 internal enum class TvCatalogRefreshOutcome {
     Applied,
@@ -36,6 +38,7 @@ internal class TvLibraryRepository(
 ): TvPlaybackSession {
     private val refreshGeneration = AtomicLong()
     private val trackingGeneration = AtomicLong()
+    private val folderRefreshGeneration = AtomicLong()
     private val initialConnections = connectionStore.loadProfiles()
     private val mutableState = MutableStateFlow(
         TvSessionUiState(
@@ -52,12 +55,14 @@ internal class TvLibraryRepository(
     fun updateServerUrl(serverUrl: String) {
         invalidateRefresh()
         invalidateTracking()
+        invalidateFolderRefresh()
         mutableState.update {
             it.copy(
                 serverUrl = serverUrl,
                 isRefreshing = false,
                 errorMessage = null,
                 tracking = TvTrackingState(),
+                folderRefresh = TvFolderRefreshState(),
             )
         }
     }
@@ -65,12 +70,14 @@ internal class TvLibraryRepository(
     fun updatePairingToken(pairingToken: String) {
         invalidateRefresh()
         invalidateTracking()
+        invalidateFolderRefresh()
         mutableState.update {
             it.copy(
                 pairingToken = pairingToken,
                 isRefreshing = false,
                 errorMessage = null,
                 tracking = TvTrackingState(),
+                folderRefresh = TvFolderRefreshState(),
             )
         }
     }
@@ -153,6 +160,102 @@ internal class TvLibraryRepository(
                 }
             }
         }
+    }
+
+    suspend fun refreshFolder(path: List<String>): Result<TvCatalogRefreshOutcome> {
+        val request = state.value
+        if (request.serverUrl.isBlank()) {
+            val error = IllegalArgumentException("PC address is required")
+            mutableState.update {
+                it.copy(
+                    folderRefresh = TvFolderRefreshState(
+                        error = TvFolderRefreshError.REQUEST_FAILED,
+                    ),
+                )
+            }
+            return Result.failure(error)
+        }
+        val generation = folderRefreshGeneration.incrementAndGet()
+        mutableState.update {
+            it.copy(folderRefresh = TvFolderRefreshState(isBusy = true))
+        }
+        return runCatching {
+            withContext(ioDispatcher) {
+                connectionSession.requestFolderRescan(
+                    request.serverUrl,
+                    path,
+                )
+            }
+            while (true) {
+                delay(FOLDER_SCAN_POLL_INTERVAL_MS)
+                val status = withContext(ioDispatcher) {
+                    connectionSession.validateServer(request.serverUrl)
+                }
+                if (!isCurrentFolderRefresh(request, generation)) {
+                    return@runCatching null
+                }
+                mutableState.update {
+                    it.copy(folderRefresh = it.folderRefresh.copy(filesSeen = status.scanFilesSeen))
+                }
+                if (!status.scanning) {
+                    status.scanError?.let { throw TvFolderScanException(it) }
+                    break
+                }
+            }
+            withContext(ioDispatcher) {
+                connectionSession.fetchCatalogWithProgress(
+                    request.serverUrl,
+                    request.pairingToken,
+                )
+            }
+        }.map { snapshot ->
+            if (snapshot == null || !isCurrentFolderRefresh(request, generation)) {
+                return@map TvCatalogRefreshOutcome.Stale
+            }
+            catalogCache.save(
+                serverUrl = request.serverUrl,
+                catalog = snapshot.catalog,
+                playbackProgresses = snapshot.playbackProgresses,
+            )
+            if (!isCurrentFolderRefresh(request, generation)) {
+                return@map TvCatalogRefreshOutcome.Stale
+            }
+            mutableState.update {
+                it.copy(
+                    catalog = snapshot.catalog,
+                    playbackProgresses = snapshot.playbackProgresses,
+                    catalogSource = TvCatalogSource.Network,
+                    isOffline = false,
+                    folderRefresh = TvFolderRefreshState(),
+                )
+            }
+            TvCatalogRefreshOutcome.Applied
+        }.onFailure { error ->
+            if (isCurrentFolderRefresh(request, generation)) {
+                mutableState.update {
+                    it.copy(
+                        folderRefresh = TvFolderRefreshState(
+                            error = when {
+                                error is LanLibraryClientException && error.statusCode == 409 ->
+                                    TvFolderRefreshError.ALREADY_RUNNING
+                                error is TvFolderScanException -> TvFolderRefreshError.SCAN_FAILED
+                                else -> TvFolderRefreshError.REQUEST_FAILED
+                            },
+                            errorDetail = error.message,
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
+    private fun isCurrentFolderRefresh(request: TvSessionUiState, generation: Long): Boolean =
+        folderRefreshGeneration.get() == generation &&
+            state.value.serverUrl == request.serverUrl &&
+            state.value.pairingToken == request.pairingToken
+
+    private fun invalidateFolderRefresh() {
+        folderRefreshGeneration.incrementAndGet()
     }
 
     suspend fun saveConnection(): Result<Unit> =
@@ -305,6 +408,7 @@ internal class TvLibraryRepository(
     suspend fun selectConnection(connection: LanLibraryConnectionProfile) {
         invalidateRefresh()
         invalidateTracking()
+        invalidateFolderRefresh()
         mutableState.update {
             it.copy(
                 serverUrl = connection.baseUrl,
@@ -315,6 +419,7 @@ internal class TvLibraryRepository(
                 isOffline = false,
                 errorMessage = null,
                 tracking = TvTrackingState(),
+                folderRefresh = TvFolderRefreshState(),
             )
         }
         loadCachedCatalog()
@@ -323,6 +428,7 @@ internal class TvLibraryRepository(
     suspend fun forgetConnection(connection: LanLibraryConnectionProfile) {
         invalidateRefresh()
         invalidateTracking()
+        invalidateFolderRefresh()
         withContext(ioDispatcher) {
             connectionStore.forgetProfile(connection.id)
             catalogCache.clear(connection.baseUrl)
@@ -339,15 +445,21 @@ internal class TvLibraryRepository(
                     catalogSource = TvCatalogSource.None,
                     isRefreshing = false,
                     tracking = TvTrackingState(),
+                    folderRefresh = TvFolderRefreshState(),
                 )
             } else {
-                current.copy(savedConnections = saved, isRefreshing = false)
+                current.copy(
+                    savedConnections = saved,
+                    isRefreshing = false,
+                    folderRefresh = TvFolderRefreshState(),
+                )
             }
         }
     }
 
     fun installQaFixture(fixture: TvQaFixture) {
         invalidateRefresh()
+        invalidateFolderRefresh()
         isQaFixtureInstalled = true
         mutableState.value = TvSessionUiState(
             serverUrl = "http://10.0.2.2:18688",
@@ -456,3 +568,6 @@ internal class TvLibraryRepository(
         serverUrl.trim().trimEnd('/') == target.baseUrl.trim().trimEnd('/') &&
             pairingToken == target.pairingToken
 }
+
+private class TvFolderScanException(message: String) : RuntimeException(message)
+private const val FOLDER_SCAN_POLL_INTERVAL_MS = 750L

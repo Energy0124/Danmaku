@@ -79,6 +79,15 @@ class JvmLanLibraryClientTest {
 
             assertEquals(LanLibraryServerStatus(), client.fetchServerStatus(server.baseUrl))
             assertEquals(catalog, client.fetchCatalog(server.baseUrl, server.pairingToken))
+            client.requestFolderRescan(
+                server.baseUrl,
+                listOf("Example Show", "Season 2"),
+            )
+            assertEquals(
+                "{\"path\":[\"Example Show\",\"Season 2\"]}",
+                server.lastRescanBody,
+            )
+            assertEquals(null, server.lastRescanAuthorization)
             assertContentEquals(
                 mediaBytes,
                 URI(client.streamUrl(server.baseUrl, item, server.pairingToken))

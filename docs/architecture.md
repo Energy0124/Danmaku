@@ -21,6 +21,11 @@ metadata/posters, progress, dandanplay resolution/cache, provider credentials,
 external tracking state, HTTP media delivery, UDP discovery, and `/web/`
 assets. Its data-directory lock prevents two writers from using the same
 state. The server is also distributable as a standalone headless package.
+Manual current-folder rescans are trusted-LAN server operations: the server
+resolves a client folder path against configured roots, scans in the
+background, and atomically merges that subtree into the persisted catalog.
+They follow the catalog's code-free LAN access rather than provider
+administration authentication.
 It owns MAL OAuth state/token exchange and encrypted refresh tokens; the native
 player owns only the fixed loopback browser callback and forwards the short-
 lived authorization code. Bangumi tokens are validated against `/v0/me`
@@ -51,7 +56,9 @@ Android applications are trusted-LAN clients. They share domain, connection,
 Media3, and authenticated tracking transport code while retaining
 platform-specific UI. Shared domain folder projections keep mobile and TV
 multi-root browsing consistent while each app owns its navigation and input
-behavior. They may read provider state and submit an explicitly
+behavior. Their manual folder refresh actions request a server-side subtree
+rescan and poll status only until that requested scan finishes. They may read
+provider state and submit an explicitly
 reviewed, server-validated tracking preview, but provider credentials, mappings,
 and conflict reconciliation remain server-owned Windows/web administration.
 Android TV remains a
@@ -101,7 +108,8 @@ apps/web-ui
 ## Data Flow
 
 1. The Rust server scans configured authorized roots and persists normalized
-   catalog state.
+   catalog state. A manual folder rescan replaces only the selected subtree;
+   an empty path intentionally requests a full-root refresh.
 2. Windows, Android, TV, and web clients consume the same LAN catalog and
    progress contracts.
 3. Media, subtitle, poster, danmaku, and progress requests use coarse-grained

@@ -110,6 +110,11 @@ class LanLibraryConnectionSessionTest {
             return catalog
         }
 
+        override fun requestFolderRescan(
+            baseUrl: String,
+            path: List<String>,
+        ) = Unit
+
         override fun streamUrl(
             baseUrl: String,
             item: LibraryMediaItem,

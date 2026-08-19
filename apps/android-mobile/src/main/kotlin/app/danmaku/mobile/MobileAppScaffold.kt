@@ -44,6 +44,10 @@ internal data class MobileAppUiState(
     val playbackStartupPhase: MobilePlaybackStartupPhase,
     val isPlayerFullscreen: Boolean,
     val tracking: MobileTrackingState = MobileTrackingState(),
+    val folderRefreshInProgress: Boolean = false,
+    val folderRefreshFilesSeen: Long? = null,
+    val folderRefreshError: MobileFolderRefreshError? = null,
+    val folderRefreshErrorDetail: String? = null,
 )
 
 internal data class MobileAppActions(
@@ -74,6 +78,7 @@ internal data class MobileAppActions(
     val onSaveConnection: () -> Unit,
     val onDiscover: () -> Unit,
     val onRefresh: () -> Unit,
+    val onRefreshFolder: (List<String>) -> Unit,
     val onTogglePlayerFullscreen: () -> Unit,
     val onLoadTracking: () -> Unit,
     val onReadTracking: () -> Unit,
@@ -85,7 +90,7 @@ internal fun MobileAppScaffold(
     state: MobileAppUiState,
     actions: MobileAppActions,
 ) {
-    var folderPath by remember(state.catalog) { mutableStateOf(emptyList<String>()) }
+    var folderPath by remember(state.serverUrl) { mutableStateOf(emptyList<String>()) }
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = AppBackground,
@@ -166,6 +171,11 @@ internal fun MobileAppScaffold(
                 onNavigateUp = { folderPath = folderPath.dropLast(1) },
                 onPlay = actions.onPlay,
                 onConnect = actions.onConnect,
+                isRefreshing = state.folderRefreshInProgress,
+                refreshFilesSeen = state.folderRefreshFilesSeen,
+                refreshError = state.folderRefreshError,
+                refreshErrorDetail = state.folderRefreshErrorDetail,
+                onRefresh = actions.onRefreshFolder,
             )
             MobileTab.Connect -> ConnectPage(
                 contentPadding = innerPadding,

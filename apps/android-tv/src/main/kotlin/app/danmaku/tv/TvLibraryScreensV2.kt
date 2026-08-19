@@ -110,10 +110,12 @@ internal fun TvFolderBrowserScreen(
     route: TvRoute.FolderBrowser,
     navigation: TvNavigationState,
     navigator: TvNavigator,
+    session: TvSessionUiState,
     browse: TvBrowseUiState,
     onOpenFolder: (String) -> Unit,
     onOpenFile: (String) -> Unit,
     onNavigateUp: () -> Unit,
+    onRefresh: () -> Unit,
 ) {
     val catalog = browse.catalog
     val listing = remember(catalog, route.path) {
@@ -122,6 +124,7 @@ internal fun TvFolderBrowserScreen(
     val validFocusKeys = remember(catalog, listing, route.path) {
         buildSet {
             if (route.path.isNotEmpty()) add("folder-up")
+            if (catalog != null) add("folder-refresh")
             if (catalog == null || (listing.folders.isEmpty() && listing.files.isEmpty())) {
                 add("folder-empty")
             }
@@ -130,6 +133,18 @@ internal fun TvFolderBrowserScreen(
         }
     }
     val fallbackToDefault = navigator.savedFocus(route) !in validFocusKeys
+    val refreshErrorText = session.folderRefresh.error?.let {
+        stringResource(
+            when (it) {
+                TvFolderRefreshError.ALREADY_RUNNING ->
+                    R.string.library_folder_refresh_already_running
+                TvFolderRefreshError.SCAN_FAILED ->
+                    R.string.library_folder_refresh_scan_failed
+                TvFolderRefreshError.REQUEST_FAILED ->
+                    R.string.library_folder_refresh_request_failed
+            },
+        )
+    }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -144,31 +159,78 @@ internal fun TvFolderBrowserScreen(
                 listing.folders.size,
                 listing.files.size,
             ),
-            action = if (route.path.isNotEmpty()) {
+            action = if (route.path.isNotEmpty() || catalog != null) {
                 {
-                    Button(
-                        onClick = onNavigateUp,
-                        modifier = Modifier
-                            .tvRouteFocus(
-                                navigation,
-                                navigator,
-                                route,
-                                "folder-up",
-                                isDefault = listing.folders.isEmpty() && listing.files.isEmpty(),
-                                fallbackToDefault = fallbackToDefault,
-                            )
-                            .tvFocusHalo(RoundedCornerShape(18.dp))
-                            .testTag("folder-up"),
-                        colors = tvButtonColors(),
-                        scale = tvButtonScale(),
-                    ) {
-                        Text(stringResource(R.string.action_up))
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        if (route.path.isNotEmpty()) {
+                            Button(
+                                onClick = onNavigateUp,
+                                modifier = Modifier
+                                    .tvRouteFocus(
+                                        navigation,
+                                        navigator,
+                                        route,
+                                        "folder-up",
+                                        isDefault = listing.folders.isEmpty() && listing.files.isEmpty(),
+                                        fallbackToDefault = fallbackToDefault,
+                                    )
+                                    .tvFocusHalo(RoundedCornerShape(18.dp))
+                                    .testTag("folder-up"),
+                                colors = tvButtonColors(),
+                                scale = tvButtonScale(),
+                            ) {
+                                Text(stringResource(R.string.action_up))
+                            }
+                        }
+                        if (catalog != null) {
+                            Button(
+                                onClick = {
+                                    if (!session.folderRefresh.isBusy) onRefresh()
+                                },
+                                modifier = Modifier
+                                    .tvRouteFocus(
+                                        navigation,
+                                        navigator,
+                                        route,
+                                        "folder-refresh",
+                                        isDefault = false,
+                                        fallbackToDefault = fallbackToDefault,
+                                    )
+                                    .tvFocusHalo(RoundedCornerShape(18.dp))
+                                    .testTag("folder-refresh"),
+                                colors = tvButtonColors(),
+                                scale = tvButtonScale(),
+                            ) {
+                                Text(
+                                    if (session.folderRefresh.isBusy) {
+                                        session.folderRefresh.filesSeen?.let { files ->
+                                            stringResource(R.string.library_folder_refresh_progress, files)
+                                        } ?: stringResource(R.string.library_folder_refresh_scanning)
+                                    } else {
+                                        stringResource(R.string.library_folder_refresh_action)
+                                    },
+                                )
+                            }
+                        }
                     }
                 }
             } else {
                 null
             },
         )
+        refreshErrorText?.let { error ->
+            Text(
+                text = buildString {
+                    append(error)
+                    session.folderRefresh.errorDetail?.takeIf(String::isNotBlank)?.let {
+                        append(" ")
+                        append(it)
+                    }
+                },
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.testTag("folder-refresh-error"),
+            )
+        }
         if (catalog == null) {
             TvEmptyState(
                 title = stringResource(R.string.library_no_pc_title),
