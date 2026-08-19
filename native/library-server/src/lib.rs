@@ -10,6 +10,7 @@ pub(crate) mod hash;
 pub mod http;
 pub mod lock;
 pub mod logging;
+pub mod organizer;
 pub mod poster_cache;
 pub mod progress;
 pub mod provider_secrets;

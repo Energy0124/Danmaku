@@ -129,6 +129,97 @@ impl Strings {
     pub fn refresh_folder(self) -> &'static str {
         self.text("Refresh current folder", "重新掃描目前資料夾")
     }
+    pub fn organize_library(self) -> &'static str {
+        self.text("Organize library", "整理媒體庫")
+    }
+    pub fn organizer_title(self) -> &'static str {
+        self.text("Progressive library organizer", "漸進式媒體庫整理")
+    }
+    pub fn organizer_safety(self) -> &'static str {
+        self.text(
+            "Nothing is overwritten or deleted. Review and approve one series at a time.",
+            "不會覆寫或刪除任何內容。請逐一檢查並核准每個系列。",
+        )
+    }
+    pub fn organizer_root(self) -> &'static str {
+        self.text("Library root", "媒體庫根目錄")
+    }
+    pub fn organizer_base(self) -> &'static str {
+        self.text("Destination base inside root", "根目錄內的目標資料夾")
+    }
+    pub fn generate_preview(self) -> &'static str {
+        self.text("Generate preview", "產生預覽")
+    }
+    pub fn series_title_label(self) -> &'static str {
+        self.text("Series title", "系列名稱")
+    }
+    pub fn season_number_label(self) -> &'static str {
+        self.text("Season number", "季度編號")
+    }
+    pub fn nearby_files_label(self) -> &'static str {
+        self.text("Nearby files (optional)", "附近檔案（選填）")
+    }
+    pub fn update_preview(self) -> &'static str {
+        self.text("Update exact preview", "更新精確預覽")
+    }
+    pub fn approved_moves(self, count: usize) -> String {
+        match self.language {
+            Language::English => format!("{count} exact moves"),
+            Language::TraditionalChinese => format!("{count} 個精確移動"),
+        }
+    }
+    pub fn approve_series(self) -> &'static str {
+        self.text("Approve and move this series", "核准並移動此系列")
+    }
+    pub fn organizer_cancel(self) -> &'static str {
+        self.text("Cancel and roll back", "取消並復原")
+    }
+    pub fn undo_last_series(self) -> &'static str {
+        self.text("Undo last completed series", "復原上一個已完成系列")
+    }
+    pub fn organizer_conflicts(self) -> &'static str {
+        self.text(
+            "Resolve these conflicts before approval:",
+            "核准前請先解決以下衝突：",
+        )
+    }
+    pub fn organizer_batch_summary(self, title: &str, videos: usize, ready: bool) -> String {
+        match self.language {
+            Language::English => format!(
+                "{title} · {videos} videos{}",
+                if ready { " · already organized" } else { "" }
+            ),
+            Language::TraditionalChinese => format!(
+                "{title} · {videos} 個影片{}",
+                if ready { " · 已整理" } else { "" }
+            ),
+        }
+    }
+    pub fn organizer_reason(self, confidence: &str) -> &'static str {
+        match confidence {
+            "PROVIDER" => self.text("Matched provider identity", "已比對外部資料庫識別"),
+            "PARSED" => self.text("Grouped from title and filename", "依標題與檔名分組"),
+            _ => self.text(
+                "Choose a series title and season before approval",
+                "核准前請選擇系列名稱與季度",
+            ),
+        }
+    }
+    pub fn organizer_status(self, state: &str, done: usize, total: usize) -> String {
+        let label = match state {
+            "RUNNING" => self.text("Moving approved files", "正在移動已核准的檔案"),
+            "ROLLING_BACK" => self.text("Rolling back", "正在復原"),
+            "COMPLETED" => self.text("Completed", "已完成"),
+            "CANCELLED" => self.text("Cancelled and rolled back", "已取消並復原"),
+            "FAILED" => self.text("Failed and rolled back", "失敗並已復原"),
+            "RECOVERY_REQUIRED" => self.text("Recovery required", "需要復原"),
+            _ => self.text("Ready", "就緒"),
+        };
+        format!("{label} · {done}/{total}")
+    }
+    pub fn close(self) -> &'static str {
+        self.text("Close", "關閉")
+    }
     pub fn scanning_folder(self) -> &'static str {
         self.text("Scanning folder…", "正在掃描資料夾…")
     }

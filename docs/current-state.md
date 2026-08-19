@@ -29,6 +29,12 @@ Compose macOS artifact are retired.
   replaces only the selected catalog subtree, preserves sibling folders and
   stable media IDs, and exposes live file counts and scan failures through its
   status endpoint.
+- The native desktop Folders view includes a progressive library organizer.
+  It previews an AniRss-style series/season layout, requires exact per-series
+  approval, never overwrites or deletes files, journals and verifies moves,
+  rolls back failures or cancellation, preserves media IDs, and can undo the
+  last completed series. Mutation endpoints require the desktop token and a
+  loopback connection; LAN clients cannot invoke them.
 - dandanplay matching/comment cache and repair status; provider metadata,
   settings, secret storage, external mappings, list readback, conflict-aware
   previews, and explicitly acknowledged MAL/Bangumi writes.

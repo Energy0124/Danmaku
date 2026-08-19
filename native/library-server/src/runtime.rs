@@ -172,10 +172,14 @@ impl BoundServer {
         let _discovery = DiscoveryAnnouncer::start(self.local_port).await?;
         let loaded = self.loaded;
         Self::spawn_background_scan(&loaded, self.state);
-        axum::serve(self.listener, self.app)
-            .with_graceful_shutdown(shutdown)
-            .await
-            .map_err(|error| LibraryServerError::with_context(error, "HTTP server failed"))?;
+        axum::serve(
+            self.listener,
+            self.app
+                .into_make_service_with_connect_info::<std::net::SocketAddr>(),
+        )
+        .with_graceful_shutdown(shutdown)
+        .await
+        .map_err(|error| LibraryServerError::with_context(error, "HTTP server failed"))?;
         drop(loaded);
         Ok(())
     }

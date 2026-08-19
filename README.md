@@ -161,6 +161,13 @@ viewed (or all configured roots at the folder-browser root), shows live scan
 progress, and reloads the catalog when the scan finishes. There is no constant
 background full-library polling.
 
+The Windows desktop Folders view also offers **Organize library** for local
+libraries. It creates an AniRss-style `<series>/Season <number>` preview and
+requires approval one series at a time. Filenames are preserved; existing
+destinations block approval; companion files are opt-in; nothing is deleted or
+overwritten. Moves are journaled and verified, with cancel/rollback and undo for
+the last completed series. This control is intentionally unavailable over LAN.
+
 ### MyAnimeList and Bangumi tracking
 
 In the Windows player, open **Settings → Accounts & tracking**. MyAnimeList

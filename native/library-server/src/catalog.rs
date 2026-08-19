@@ -23,6 +23,10 @@ impl CatalogStore {
         Self { file: file.into() }
     }
 
+    pub(crate) fn file_path(&self) -> &Path {
+        &self.file
+    }
+
     pub fn load(&self) -> Result<Option<HeadlessStoredLibrary>> {
         if !self.file.is_file() {
             return Ok(None);

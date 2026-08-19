@@ -26,6 +26,13 @@ resolves a client folder path against configured roots, scans in the
 background, and atomically merges that subtree into the persisted catalog.
 They follow the catalog's code-free LAN access rather than provider
 administration authentication.
+Library organization is a separate desktop-only mutation boundary. The egui
+client requests a read-only plan, submits the exact approved series manifest,
+and polls progress. `native/library-server` validates the catalog revision,
+configured root, loopback peer, bearer token, and every source/destination;
+then it journals each rename, updates catalog paths without changing media IDs,
+and provides rollback and one-series undo. Android, TV, and browser clients do
+not receive this capability.
 It owns MAL OAuth state/token exchange and encrypted refresh tokens; the native
 player owns only the fixed loopback browser callback and forwards the short-
 lived authorization code. Bangumi tokens are validated against `/v0/me`

@@ -1,11 +1,12 @@
 use std::collections::{BTreeMap, BTreeSet};
+use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 
 use axum::Router;
 use axum::body::{Body, to_bytes};
-use axum::extract::State;
+use axum::extract::{ConnectInfo, State};
 use axum::http::header::{
     ACCEPT, ACCEPT_RANGES, AUTHORIZATION, CACHE_CONTROL, CONTENT_LENGTH, CONTENT_RANGE,
     CONTENT_TYPE, HeaderValue, LOCATION,
@@ -33,6 +34,10 @@ use crate::external_provider::{
     parse_provider_alias, provider_runtime_status, refresh_my_anime_list_token,
 };
 use crate::logging::CatalogScanSummary;
+use crate::organizer::{
+    LibraryOrganizer, OrganizationAccepted, OrganizationExecuteRequest, OrganizationPreviewRequest,
+    OrganizationUndoRequest,
+};
 use crate::poster_cache::PosterCacheStore;
 use crate::progress::PlaybackProgressStore;
 use crate::provider_secrets::{ProviderSecretStore, ProviderSecrets};
@@ -918,9 +923,11 @@ pub struct HttpServerState {
     /// True while a background catalog scan is running; surfaced on
     /// `/api/server/status` so clients can show indexing progress.
     scanning: Arc<AtomicBool>,
+    library_mutating: Arc<AtomicBool>,
     scan_progress: Arc<ScanProgress>,
     scan_error: Arc<RwLock<Option<String>>>,
     library_scan: Option<Arc<LibraryScanConfig>>,
+    organizer: Option<Arc<LibraryOrganizer>>,
 }
 
 impl HttpServerState {
@@ -956,13 +963,19 @@ impl HttpServerState {
             provider_admin: config.provider_admin,
             poster_resolution_in_flight: Arc::new(Mutex::new(BTreeSet::new())),
             scanning: Arc::new(AtomicBool::new(false)),
+            library_mutating: Arc::new(AtomicBool::new(false)),
             scan_progress: Arc::new(ScanProgress::default()),
             scan_error: Arc::new(RwLock::new(None)),
             library_scan: None,
+            organizer: None,
         }
     }
 
     pub fn with_library_scan(mut self, roots: Vec<PathBuf>, catalog_store: CatalogStore) -> Self {
+        self.organizer = Some(Arc::new(LibraryOrganizer::new(
+            roots.clone(),
+            catalog_store.clone(),
+        )));
         self.library_scan = Some(Arc::new(LibraryScanConfig {
             roots,
             catalog_store,
@@ -1011,16 +1024,20 @@ impl HttpServerState {
         }
     }
 
-    pub fn set_scanning(&self, scanning: bool) {
-        self.scanning.store(scanning, Ordering::Relaxed);
-    }
-
     pub fn try_start_scan(&self) -> bool {
+        if self
+            .library_mutating
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Relaxed)
+            .is_err()
+        {
+            return false;
+        }
         if self
             .scanning
             .compare_exchange(false, true, Ordering::AcqRel, Ordering::Relaxed)
             .is_err()
         {
+            self.library_mutating.store(false, Ordering::Release);
             return false;
         }
         self.scan_progress.reset();
@@ -1031,6 +1048,17 @@ impl HttpServerState {
     pub fn finish_scan(&self, error: Option<String>) {
         self.set_scan_error(error);
         self.scanning.store(false, Ordering::Release);
+        self.library_mutating.store(false, Ordering::Release);
+    }
+
+    fn try_start_organization(&self) -> bool {
+        self.library_mutating
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Relaxed)
+            .is_ok()
+    }
+
+    fn finish_organization(&self) {
+        self.library_mutating.store(false, Ordering::Release);
     }
 
     fn set_scan_error(&self, error: Option<String>) {
@@ -1061,6 +1089,10 @@ async fn dispatch(State(state): State<HttpServerState>, request: Request<Body>) 
     let method = parts.method;
     let path = parts.uri.path().to_owned();
     let query = parts.uri.query().map(ToOwned::to_owned);
+    let peer = parts
+        .extensions
+        .get::<ConnectInfo<SocketAddr>>()
+        .map(|ConnectInfo(peer)| *peer);
     let headers = parts.headers;
 
     if path.starts_with("/api/server/status") {
@@ -1068,6 +1100,9 @@ async fn dispatch(State(state): State<HttpServerState>, request: Request<Body>) 
     }
     if path == "/api/library/rescan" {
         return handle_library_rescan(&state, method, body).await;
+    }
+    if path.starts_with("/api/library/organize") {
+        return handle_library_organize(&state, peer, method, &path, &headers, body).await;
     }
     if path == "/api/library/attention" {
         return handle_library_attention(&state, &method);
@@ -1138,6 +1173,138 @@ async fn dispatch(State(state): State<HttpServerState>, request: Request<Body>) 
     empty_status(StatusCode::NOT_FOUND)
 }
 
+async fn handle_library_organize(
+    state: &HttpServerState,
+    peer: Option<SocketAddr>,
+    method: Method,
+    path: &str,
+    headers: &HeaderMap,
+    body: Body,
+) -> Response<Body> {
+    let Some(admin) = &state.provider_admin else {
+        return empty_status(StatusCode::NOT_FOUND);
+    };
+    if !admin.is_authorized(headers) {
+        return empty_status(StatusCode::UNAUTHORIZED);
+    }
+    if !peer.is_some_and(|peer| peer.ip().is_loopback()) {
+        return text_response(
+            StatusCode::FORBIDDEN,
+            "Library organization is available only from the desktop app on this PC.",
+        );
+    }
+    let Some(organizer) = state.organizer.as_ref().map(Arc::clone) else {
+        return empty_status(StatusCode::NOT_FOUND);
+    };
+    match (method, path) {
+        (Method::GET, "/api/library/organize/status") => {
+            json_response(StatusCode::OK, &organizer.status())
+        }
+        (Method::POST, "/api/library/organize/cancel") => {
+            organizer.cancel();
+            empty_status(StatusCode::ACCEPTED)
+        }
+        (Method::POST, "/api/library/organize/preview") => {
+            let request = match parse_json_body::<OrganizationPreviewRequest>(body).await {
+                Ok(request) => request,
+                Err(response) => return response,
+            };
+            let library = state.library();
+            match tokio::task::spawn_blocking(move || organizer.preview(&library, request)).await {
+                Ok(Ok(plan)) => json_response(StatusCode::OK, &plan),
+                Ok(Err(error)) => text_response(StatusCode::CONFLICT, &error.to_string()),
+                Err(error) => text_response(StatusCode::INTERNAL_SERVER_ERROR, &error.to_string()),
+            }
+        }
+        (Method::POST, "/api/library/organize/execute") => {
+            let request = match parse_json_body::<OrganizationExecuteRequest>(body).await {
+                Ok(request) => request,
+                Err(response) => return response,
+            };
+            if !state.try_start_organization() {
+                return text_response(
+                    StatusCode::CONFLICT,
+                    "Wait for the current library operation to finish.",
+                );
+            }
+            let batch_id = request.batch_id.clone();
+            let prepared = match organizer.prepare_execute(&state.library().catalog, request) {
+                Ok(prepared) => prepared,
+                Err(error) => {
+                    state.finish_organization();
+                    return text_response(StatusCode::CONFLICT, &error.to_string());
+                }
+            };
+            spawn_organization(state.clone(), organizer, prepared);
+            json_response(
+                StatusCode::ACCEPTED,
+                &OrganizationAccepted {
+                    batch_id,
+                    status: "ACCEPTED",
+                },
+            )
+        }
+        (Method::POST, "/api/library/organize/undo") => {
+            let request = match parse_json_body::<OrganizationUndoRequest>(body).await {
+                Ok(request) => request,
+                Err(response) => return response,
+            };
+            if !state.try_start_organization() {
+                return text_response(
+                    StatusCode::CONFLICT,
+                    "Wait for the current library operation to finish.",
+                );
+            }
+            let prepared = match organizer.prepare_undo(&request.completed_batch_id) {
+                Ok(prepared) => prepared,
+                Err(error) => {
+                    state.finish_organization();
+                    return text_response(StatusCode::CONFLICT, &error.to_string());
+                }
+            };
+            let batch_id = format!("undo-{}", request.completed_batch_id);
+            spawn_organization(state.clone(), organizer, prepared);
+            json_response(
+                StatusCode::ACCEPTED,
+                &OrganizationAccepted {
+                    batch_id,
+                    status: "ACCEPTED",
+                },
+            )
+        }
+        (_, "/api/library/organize/status") => empty_status(StatusCode::METHOD_NOT_ALLOWED),
+        (_, "/api/library/organize/cancel")
+        | (_, "/api/library/organize/preview")
+        | (_, "/api/library/organize/execute")
+        | (_, "/api/library/organize/undo") => empty_status(StatusCode::METHOD_NOT_ALLOWED),
+        _ => empty_status(StatusCode::NOT_FOUND),
+    }
+}
+
+async fn parse_json_body<T: for<'de> Deserialize<'de>>(
+    body: Body,
+) -> std::result::Result<T, Response<Body>> {
+    let bytes = to_bytes(body, 1024 * 1024)
+        .await
+        .map_err(|error| text_response(StatusCode::BAD_REQUEST, &error.to_string()))?;
+    serde_json::from_slice(&bytes)
+        .map_err(|error| text_response(StatusCode::BAD_REQUEST, &error.to_string()))
+}
+
+fn spawn_organization(
+    state: HttpServerState,
+    organizer: Arc<LibraryOrganizer>,
+    prepared: crate::organizer::PreparedOrganization,
+) {
+    tokio::task::spawn_blocking(move || {
+        match organizer.execute(prepared) {
+            Ok(library) => state.publish_library(library),
+            Err(error) => eprintln!("library organization failed: {error}"),
+        }
+        state.finish_organization();
+    });
+}
+
 fn handle_server_status(state: &HttpServerState, method: &Method) -> Response<Body> {
     if method != Method::GET {
         return empty_status(StatusCode::METHOD_NOT_ALLOWED);
@@ -1185,7 +1352,10 @@ async fn handle_library_rescan(
         Err(error) => return text_response(StatusCode::BAD_REQUEST, &error.to_string()),
     };
     if !state.try_start_scan() {
-        return text_response(StatusCode::CONFLICT, "A library scan is already running.");
+        return text_response(
+            StatusCode::CONFLICT,
+            "A library operation is already running.",
+        );
     }
 
     let scan_state = state.clone();
@@ -2823,6 +2993,73 @@ mod tests {
     use crate::settings::HeadlessDandanplayAuthenticationMode;
 
     static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+    #[tokio::test]
+    async fn organizer_requires_desktop_authentication_and_loopback_peer() {
+        let fixture = FixtureEnvironment::new();
+        let settings = HeadlessServerSettings {
+            pairing_token: "123456".to_owned(),
+            library_roots: vec![fixture.temp.clone()],
+            dandanplay: crate::settings::HeadlessDandanplayProviderSettings::default(),
+            external_anime: crate::settings::HeadlessExternalAnimeProviderSettings::default(),
+        };
+        let admin = Arc::new(
+            ProviderAdminState::new(fixture.temp.clone(), settings.clone(), settings, None)
+                .expect("organizer admin creates"),
+        );
+        let mut config = HttpServerConfig::fixture(fixture.web_root.clone());
+        config.provider_admin = Some(admin);
+        let store = CatalogStore::new(fixture.temp.join("organizer-catalog.json"));
+        let state = HttpServerState::new(
+            fixture.library.clone(),
+            Arc::new(PlaybackProgressStore::new(
+                fixture.temp.join("organizer-progress.json"),
+            )),
+            config,
+        )
+        .with_library_scan(vec![fixture.temp.clone()], store);
+        assert!(state.try_start_organization());
+        assert!(!state.try_start_scan());
+        state.finish_organization();
+        let router = app(state);
+        let body = json!({
+            "root": fixture.temp.display().to_string(),
+            "baseRelativePath": "Anime",
+            "overrides": []
+        })
+        .to_string();
+        let request = |peer: [u8; 4], authorized: bool| {
+            let mut builder = Request::builder()
+                .method(Method::POST)
+                .uri("/api/library/organize/preview")
+                .header(CONTENT_TYPE, "application/json")
+                .extension(ConnectInfo(std::net::SocketAddr::from((peer, 5000))));
+            if authorized {
+                builder = builder.header(AUTHORIZATION, "Bearer 123456");
+            }
+            builder
+                .body(Body::from(body.clone()))
+                .expect("request builds")
+        };
+
+        let unauthorized = router
+            .clone()
+            .oneshot(request([127, 0, 0, 1], false))
+            .await
+            .expect("unauthorized response");
+        assert_eq!(StatusCode::UNAUTHORIZED, unauthorized.status());
+        let remote = router
+            .clone()
+            .oneshot(request([192, 168, 2, 20], true))
+            .await
+            .expect("remote response");
+        assert_eq!(StatusCode::FORBIDDEN, remote.status());
+        let local = router
+            .oneshot(request([127, 0, 0, 1], true))
+            .await
+            .expect("local response");
+        assert_eq!(StatusCode::OK, local.status());
+    }
 
     #[tokio::test]
     async fn lan_protocol_http_fixtures_match_contract() {

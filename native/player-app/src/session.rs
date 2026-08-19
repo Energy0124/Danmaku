@@ -16,8 +16,11 @@ use crate::{
     },
     library::{
         AttentionMappingStatus, AttentionRepairRequest, LibraryAttentionDocument, LibraryCatalog,
-        PlaybackProgress, fetch_attention, fetch_catalog, fetch_progress, fetch_progress_list,
-        fetch_server_status, request_folder_rescan, upload_progress,
+        OrganizationPlan, OrganizationPreviewRequest, OrganizationSeriesBatch, OrganizationStatus,
+        PlaybackProgress, cancel_organization, execute_organization, fetch_attention,
+        fetch_catalog, fetch_organization_status, fetch_progress, fetch_progress_list,
+        fetch_server_status, preview_organization, request_folder_rescan, undo_organization,
+        upload_progress,
     },
     tracking::{
         ExternalAnimeId, ExternalProvider, ProviderAccounts, SearchCandidate, TrackingDocument,
@@ -36,6 +39,9 @@ pub enum SessionEvent {
     /// decoding failures stay distinct so an active scan keeps polling.
     ServerScan(Result<ServerScanStatus, String>),
     FolderRescan(Result<(), String>),
+    OrganizationPreview(Result<OrganizationPlan, String>),
+    OrganizationCommand(Result<(), String>),
+    OrganizationStatus(Result<OrganizationStatus, String>),
     ResumeLookup {
         media_id: String,
         progress: Option<PlaybackProgress>,
@@ -102,6 +108,10 @@ pub struct LibrarySession {
     /// Media files the in-flight server scan has discovered so far.
     pub server_scan_files_seen: Option<u64>,
     pub server_scan_error: Option<String>,
+    pub organization_plan: Option<OrganizationPlan>,
+    pub organization_status: Option<OrganizationStatus>,
+    pub organization_error: Option<String>,
+    pub organization_loading: bool,
     /// Bumped whenever fresh (non-cache) catalog or progress data lands, so
     /// the app knows when to persist the session cache.
     pub sync_version: u64,
@@ -136,6 +146,10 @@ impl LibrarySession {
             server_scanning: false,
             server_scan_files_seen: None,
             server_scan_error: None,
+            organization_plan: None,
+            organization_status: None,
+            organization_error: None,
+            organization_loading: false,
             sync_version: 0,
             catalog_version: 0,
             inbox: Arc::new(Mutex::new(Vec::new())),
@@ -173,6 +187,10 @@ impl LibrarySession {
             server_scanning: false,
             server_scan_files_seen: None,
             server_scan_error: None,
+            organization_plan: None,
+            organization_status: None,
+            organization_error: None,
+            organization_loading: false,
             sync_version: 0,
             catalog_version: 1,
             inbox: Arc::new(Mutex::new(Vec::new())),
@@ -266,6 +284,75 @@ impl LibrarySession {
         self.spawn(
             move |_| SessionEvent::FolderRescan(request_folder_rescan(&base_url, &path)),
             self.base_url.clone(),
+        );
+    }
+
+    pub fn preview_organization(&mut self, request: OrganizationPreviewRequest) {
+        let Some((base_url, token)) = self.authenticated_server() else {
+            self.organization_error = Some("Desktop access token is unavailable".to_owned());
+            return;
+        };
+        self.organization_loading = true;
+        self.organization_error = None;
+        self.spawn(
+            move |_| {
+                SessionEvent::OrganizationPreview(preview_organization(&base_url, &token, &request))
+            },
+            String::new(),
+        );
+    }
+
+    pub fn execute_organization(&mut self, plan_id: String, batch: OrganizationSeriesBatch) {
+        let Some((base_url, token)) = self.authenticated_server() else {
+            self.organization_error = Some("Desktop access token is unavailable".to_owned());
+            return;
+        };
+        self.organization_loading = true;
+        self.organization_error = None;
+        self.spawn(
+            move |_| {
+                SessionEvent::OrganizationCommand(execute_organization(
+                    &base_url, &token, &plan_id, &batch,
+                ))
+            },
+            String::new(),
+        );
+    }
+
+    pub fn refresh_organization_status(&self) {
+        let Some((base_url, token)) = self.authenticated_server() else {
+            return;
+        };
+        self.spawn(
+            move |_| SessionEvent::OrganizationStatus(fetch_organization_status(&base_url, &token)),
+            String::new(),
+        );
+    }
+
+    pub fn cancel_organization(&mut self) {
+        let Some((base_url, token)) = self.authenticated_server() else {
+            return;
+        };
+        self.spawn(
+            move |_| SessionEvent::OrganizationCommand(cancel_organization(&base_url, &token)),
+            String::new(),
+        );
+    }
+
+    pub fn undo_organization(&mut self, completed_batch_id: String) {
+        let Some((base_url, token)) = self.authenticated_server() else {
+            return;
+        };
+        self.organization_loading = true;
+        self.spawn(
+            move |_| {
+                SessionEvent::OrganizationCommand(undo_organization(
+                    &base_url,
+                    &token,
+                    &completed_batch_id,
+                ))
+            },
+            String::new(),
         );
     }
 
@@ -657,6 +744,47 @@ impl LibrarySession {
                     }
                     Err(error) => self.server_scan_error = Some(error),
                 },
+                SessionEvent::OrganizationPreview(result) => {
+                    self.organization_loading = false;
+                    match result {
+                        Ok(plan) => {
+                            self.organization_plan = Some(plan);
+                            self.organization_error = None;
+                        }
+                        Err(error) => self.organization_error = Some(error),
+                    }
+                }
+                SessionEvent::OrganizationCommand(result) => {
+                    self.organization_loading = false;
+                    match result {
+                        Ok(()) => self.refresh_organization_status(),
+                        Err(error) => self.organization_error = Some(error),
+                    }
+                }
+                SessionEvent::OrganizationStatus(result) => match result {
+                    Ok(status) => {
+                        let was_active = self.organization_status.as_ref().is_some_and(|status| {
+                            matches!(status.state.as_str(), "RUNNING" | "ROLLING_BACK")
+                        });
+                        let completion_changed = self
+                            .organization_status
+                            .as_ref()
+                            .map(|previous| &previous.last_completed_batch_id)
+                            != Some(&status.last_completed_batch_id);
+                        let is_terminal = matches!(
+                            status.state.as_str(),
+                            "COMPLETED" | "CANCELLED" | "FAILED" | "RECOVERY_REQUIRED"
+                        );
+                        self.organization_status = Some(status);
+                        if is_terminal && (was_active || completion_changed) {
+                            self.organization_plan = None;
+                            self.refresh_catalog();
+                            self.refresh_attention();
+                            self.refresh_progress();
+                        }
+                    }
+                    Err(error) => self.organization_error = Some(error),
+                },
                 other => for_app.push(other),
             }
         }
@@ -724,6 +852,10 @@ mod tests {
             server_scanning: false,
             server_scan_files_seen: None,
             server_scan_error: None,
+            organization_plan: None,
+            organization_status: None,
+            organization_error: None,
+            organization_loading: false,
             sync_version: 0,
             catalog_version: 0,
             inbox: Arc::new(Mutex::new(Vec::new())),
