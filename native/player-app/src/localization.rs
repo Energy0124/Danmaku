@@ -369,6 +369,78 @@ impl Strings {
     pub fn saved(self) -> &'static str {
         self.text("Preferences save automatically.", "偏好設定會自動儲存。")
     }
+    pub fn application_updates(self) -> &'static str {
+        self.text("Application updates", "應用程式更新")
+    }
+    pub fn current_version(self) -> &'static str {
+        self.text("Current version", "目前版本")
+    }
+    pub fn updates_unavailable_portable(self) -> &'static str {
+        self.text(
+            "Automatic updates are available in the installed Windows app.",
+            "自動更新僅適用於已安裝的 Windows 應用程式。",
+        )
+    }
+    pub fn download_latest_installer(self) -> &'static str {
+        self.text("Download the latest installer", "下載最新安裝程式")
+    }
+    pub fn up_to_date(self) -> &'static str {
+        self.text("Danmaku is up to date.", "Danmaku 已是最新版本。")
+    }
+    pub fn check_for_updates(self) -> &'static str {
+        self.text("Check for updates", "檢查更新")
+    }
+    pub fn checking_for_updates(self) -> &'static str {
+        self.text("Checking for updates…", "正在檢查更新…")
+    }
+    pub fn update_available_title(self) -> &'static str {
+        self.text("Danmaku update", "Danmaku 更新")
+    }
+    pub fn update_available(self, version: &str) -> String {
+        match self.language {
+            Language::English => format!("Version {version} is available."),
+            Language::TraditionalChinese => format!("版本 {version} 已可下載。"),
+        }
+    }
+    pub fn downloading_update(self, version: &str, progress: u8) -> String {
+        match self.language {
+            Language::English => format!("Downloading version {version}… {progress}%"),
+            Language::TraditionalChinese => format!("正在下載版本 {version}… {progress}%"),
+        }
+    }
+    pub fn update_ready(self, version: &str) -> String {
+        match self.language {
+            Language::English => format!("Version {version} is ready to install."),
+            Language::TraditionalChinese => format!("版本 {version} 已可安裝。"),
+        }
+    }
+    pub fn update_and_restart(self) -> &'static str {
+        self.text("Update and restart", "更新並重新啟動")
+    }
+    pub fn update_downloaded(self) -> &'static str {
+        self.text(
+            "The update is downloaded and ready. Danmaku will close, install it, and restart.",
+            "更新已下載完成。Danmaku 將關閉、安裝更新並重新啟動。",
+        )
+    }
+    pub fn release_notes(self) -> &'static str {
+        self.text("Release notes", "版本說明")
+    }
+    pub fn no_release_notes(self) -> &'static str {
+        self.text(
+            "No release notes were provided for this version.",
+            "此版本未提供版本說明。",
+        )
+    }
+    pub fn update_failed(self, message: &str) -> String {
+        match self.language {
+            Language::English => format!("Update failed: {message}"),
+            Language::TraditionalChinese => format!("更新失敗：{message}"),
+        }
+    }
+    pub fn retry(self) -> &'static str {
+        self.text("Retry", "重試")
+    }
     pub fn this_pc(self) -> &'static str {
         self.text("Library on this PC", "此電腦上的媒體庫")
     }

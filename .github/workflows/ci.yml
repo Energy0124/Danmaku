@@ -44,6 +44,11 @@ jobs:
           cache: npm
           cache-dependency-path: apps/web-ui/package-lock.json
 
+      - name: Set up .NET for pinned Velopack CLI
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "8.0.x"
+
       - name: Test Windows libmpv bundle verifier
         shell: pwsh
         run: .\tools\windows\test-verify-libmpv-bundle.ps1
@@ -131,6 +136,16 @@ jobs:
         shell: pwsh
         run: .\tools\windows\prepare-rust-player-release.ps1
 
+      - name: Install pinned Velopack CLI
+        shell: pwsh
+        run: dotnet tool install --tool-path "$env:RUNNER_TEMP\vpk" vpk --version 1.2.0
+
+      - name: Verify unsigned Windows installer packaging
+        shell: pwsh
+        run: |
+          .\tools\windows\prepare-windows-installer.ps1 `
+            -VpkPath "$env:RUNNER_TEMP\vpk\vpk.exe"
+
       - name: Upload Android Mobile APK
         uses: actions/upload-artifact@v7
         with:
@@ -150,6 +165,16 @@ jobs:
         with:
           name: danmaku-windows-native-player
           path: build/release/rust-player/*.zip
+          if-no-files-found: error
+
+      - name: Upload unsigned Windows installer verification artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: danmaku-windows-installer-unsigned
+          path: |
+            build/release/windows-installer/*-Setup.exe
+            build/release/windows-installer/*-full.nupkg
+            build/release/windows-installer/releases.win-x64-stable.json
           if-no-files-found: error
 
   rust:

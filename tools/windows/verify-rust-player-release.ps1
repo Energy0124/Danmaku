@@ -96,6 +96,14 @@ try {
     ) {
         throw "Packaged background-host PlanOnly output is invalid."
     }
+    $refreshOutput = & $backgroundManagerPath -Action Refresh -PlanOnly
+    if ($LASTEXITCODE -ne 0) {
+        throw "Packaged background-host Refresh PlanOnly check failed with exit code $LASTEXITCODE."
+    }
+    $refreshPlan = ($refreshOutput | Out-String) | ConvertFrom-Json
+    if ($refreshPlan.action -ne "Refresh" -or $refreshPlan.task -ne "\Danmaku\Library Server") {
+        throw "Packaged background-host Refresh PlanOnly output is invalid."
+    }
 } finally {
     Remove-Item -LiteralPath $planRoot -Recurse -Force -ErrorAction SilentlyContinue
 }

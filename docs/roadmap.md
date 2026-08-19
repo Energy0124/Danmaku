@@ -9,6 +9,9 @@ deferred until its release and provider gaps are closed.
 Status: implemented vertical slice; broader manual QA remains.
 
 - Keep the unified Rust player/server package reproducible.
+- Keep the signed per-user installer, stable updater feed, delta generation,
+  and explicit update/restart UX reproducible; exercise two-version upgrade,
+  corruption rejection, rollback, and uninstall preservation in release QA.
 - Validate fullscreen, resize, aspect ratio, hardware decoding, 4K playback,
   multiple displays, resume, and background-host ownership.
 - Improve startup, catalog, playback, and failure diagnostics without adding a

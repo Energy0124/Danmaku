@@ -36,6 +36,14 @@ owns libmpv discovery/loading and the OpenGL render API bindings plus the
 `mpv-probe` diagnostic binary. It exposes no JVM/JNA-compatible dynamic-library
 ABI.
 
+Windows installation and updates use Velopack. `native/player-app::updater`
+owns the non-blocking stable-channel state machine and invokes the external
+updater only after user approval. The installed app lives below the current
+user's LocalAppData; durable player/server state remains in the separate
+`%LOCALAPPDATA%\Danmaku` tree. A restarted updated app refreshes an installed
+background-host copy with an atomic directory swap while preserving its task
+and configuration. Portable and QA builds do not contact the update feed.
+
 ### macOS
 
 macOS reuses `native/player-app`, `native/library-server`, and the Rust libmpv

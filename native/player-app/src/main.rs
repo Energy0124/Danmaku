@@ -28,6 +28,8 @@ fn load_app_icon() -> Option<egui::IconData> {
 }
 
 fn main() {
+    danmaku_player::updater::run_startup_hooks();
+
     let cli = match Cli::parse_env() {
         Ok(cli) => cli,
         Err(error) => {

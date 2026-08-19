@@ -17,6 +17,9 @@ Status: `[x]` done, `[~]` in progress, `[ ]` not started.
 - `[~]` Close remaining Windows native release QA: fullscreen restore, resize,
   aspect, track selection, hardware decode, 4K duration, multiple displays,
   resume, and background-host ownership.
+- `[x]` Add a per-user Windows installer, stable-channel auto-updater,
+  localized release-note approval UX, signing-gated SemVer release workflow,
+  checksums, and background-host binary refresh that preserves data.
 - `[~]` Complete live MyAnimeList/Bangumi readback and deliberate write QA.
   `tools/windows/run-live-external-sync-readback-qa.ps1` is read-only; every
   provider write still requires explicit preview acknowledgement and approval.

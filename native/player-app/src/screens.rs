@@ -26,6 +26,7 @@ use crate::{
     preferences::{DandanplayCredentials, PlayerPreferences},
     session::LibrarySession,
     theme::{self, metrics, palette, typography},
+    updater::{LATEST_INSTALLER_URL, UpdateStatus},
 };
 
 const CARD_WIDTH: f32 = 158.0;
@@ -4015,6 +4016,14 @@ pub enum SettingsAction {
     RemoveLibraryFolder(String),
     SaveDandanplayCredentials,
     ClearDandanplayCredentials,
+    CheckForUpdates,
+    UpdateAndRestart,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum UpdatePromptAction {
+    Dismiss,
+    UpdateAndRestart,
 }
 
 pub fn show_settings(
@@ -4025,6 +4034,7 @@ pub fn show_settings(
     local_host_status: Option<&LocalHostStatus>,
     local_roots: &[String],
     dandanplay: &mut DandanplayCredentials,
+    update_status: &UpdateStatus,
 ) -> Option<SettingsAction> {
     let mut action = None;
     egui::CentralPanel::default()
@@ -4047,6 +4057,7 @@ pub fn show_settings(
                                 local_host_status,
                                 local_roots,
                                 dandanplay,
+                                update_status,
                                 &mut action,
                             ) {
                                 action = Some(SettingsAction::Back);
@@ -4069,6 +4080,7 @@ fn settings_body(
     local_host_status: Option<&LocalHostStatus>,
     local_roots: &[String],
     dandanplay: &mut DandanplayCredentials,
+    update_status: &UpdateStatus,
     action: &mut Option<SettingsAction>,
 ) -> bool {
     let strings = Strings::new(preferences.language);
@@ -4385,6 +4397,65 @@ fn settings_body(
         });
     }
 
+    ui.add_space(14.0);
+    settings_card(ui, strings.application_updates(), |ui| {
+        card_status_line(
+            ui,
+            &format!(
+                "{}: {}",
+                strings.current_version(),
+                update_status.current_version()
+            ),
+        );
+        ui.add_space(6.0);
+        match update_status {
+            UpdateStatus::Unavailable { .. } => {
+                card_status_line(ui, strings.updates_unavailable_portable());
+                ui.hyperlink_to(strings.download_latest_installer(), LATEST_INSTALLER_URL);
+            }
+            UpdateStatus::Idle { .. } => {
+                card_status_line(ui, strings.up_to_date());
+                if settings_pill_button(ui, strings.check_for_updates(), false).clicked() {
+                    *action = Some(SettingsAction::CheckForUpdates);
+                }
+            }
+            UpdateStatus::Checking { .. } => {
+                ui.horizontal(|ui| {
+                    ui.add(egui::Spinner::new().size(14.0));
+                    card_status_line(ui, strings.checking_for_updates());
+                });
+            }
+            UpdateStatus::Available { version, .. } => {
+                card_status_line(ui, &strings.update_available(version));
+                if settings_pill_button(ui, strings.update_and_restart(), true).clicked() {
+                    *action = Some(SettingsAction::UpdateAndRestart);
+                }
+            }
+            UpdateStatus::Downloading {
+                version, progress, ..
+            } => {
+                card_status_line(ui, &strings.downloading_update(version, *progress));
+                ui.add(egui::ProgressBar::new(*progress as f32 / 100.0).show_percentage());
+            }
+            UpdateStatus::Ready { version, .. } => {
+                card_status_line(ui, &strings.update_ready(version));
+                if settings_pill_button(ui, strings.update_and_restart(), true).clicked() {
+                    *action = Some(SettingsAction::UpdateAndRestart);
+                }
+            }
+            UpdateStatus::Failed { message, .. } => {
+                ui.label(
+                    RichText::new(strings.update_failed(message))
+                        .font(typography::caption())
+                        .color(palette::DANGER),
+                );
+                if settings_pill_button(ui, strings.retry(), false).clicked() {
+                    *action = Some(SettingsAction::CheckForUpdates);
+                }
+            }
+        }
+    });
+
     ui.add_space(16.0);
     ui.horizontal(|ui| {
         ui.add_space(2.0);
@@ -4396,6 +4467,56 @@ fn settings_body(
     });
     ui.add_space(28.0);
     back
+}
+
+pub fn show_update_prompt(
+    ctx: &egui::Context,
+    status: &UpdateStatus,
+    language: Language,
+) -> Option<UpdatePromptAction> {
+    let strings = Strings::new(language);
+    let (version, notes, ready) = match status {
+        UpdateStatus::Available { version, notes, .. } => (version.as_str(), notes.as_str(), false),
+        UpdateStatus::Ready { version, .. } => (version.as_str(), "", true),
+        _ => return None,
+    };
+    let mut action = None;
+    egui::Window::new(strings.update_available_title())
+        .id(egui::Id::new("application_update_prompt"))
+        .collapsible(false)
+        .resizable(false)
+        .anchor(Align2::CENTER_CENTER, [0.0, 0.0])
+        .fixed_size([500.0, 330.0])
+        .show(ctx, |ui| {
+            ui.label(
+                RichText::new(strings.update_available(version))
+                    .font(typography::title())
+                    .strong(),
+            );
+            ui.add_space(10.0);
+            if ready {
+                card_status_line(ui, strings.update_downloaded());
+            } else if notes.trim().is_empty() {
+                card_status_line(ui, strings.no_release_notes());
+            } else {
+                ui.label(RichText::new(strings.release_notes()).strong());
+                egui::ScrollArea::vertical()
+                    .max_height(190.0)
+                    .show(ui, |ui| {
+                        ui.label(notes);
+                    });
+            }
+            ui.add_space(14.0);
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                if settings_pill_button(ui, strings.update_and_restart(), true).clicked() {
+                    action = Some(UpdatePromptAction::UpdateAndRestart);
+                }
+                if settings_pill_button(ui, strings.not_now(), false).clicked() {
+                    action = Some(UpdatePromptAction::Dismiss);
+                }
+            });
+        });
+    action
 }
 
 /// Rounded raised card with a title; runs `add_contents` for the body rows.

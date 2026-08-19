@@ -31,13 +31,14 @@ use crate::{
     preferences::{CredentialStore, DandanplayCredentials, PlayerPreferences, PreferenceStore},
     screens::{
         BangumiDetailState, ConnectAction, ConnectRequest, ConnectScreen, LibraryAction,
-        LibraryScreen, SettingsAction, show_settings,
+        LibraryScreen, SettingsAction, UpdatePromptAction, show_settings, show_update_prompt,
     },
     session::{LibrarySession, SessionEvent},
     smoke::SmokeReport,
     theme::{self, metrics, palette, typography},
     tracking::{TrackingAction, TrackingScreenState, show_tracking},
     tracks::{TrackInventory, TrackKind, read_track_inventory, selection_command},
+    updater::{UpdateService, UpdateStatus, automatic_updates_enabled},
     video::{RenderCounters, SharedVideoRenderer, VideoRenderer},
 };
 
@@ -229,6 +230,7 @@ pub struct PlayerApp {
     /// `sync_version` of the session data last written to the disk cache.
     last_cache_saved_sync_version: u64,
     last_scan_poll: Instant,
+    updater: UpdateService,
 }
 
 impl PlayerApp {
@@ -389,6 +391,12 @@ impl PlayerApp {
         }
         let auto_next = preferences.auto_next;
         let qa_play_first_pending = cli.qa_play_first;
+        let updates_enabled = automatic_updates_enabled(
+            cli.smoke.is_some(),
+            cli.qa_screenshot.is_some(),
+            cli.qa_onboarding,
+        );
+        let updater = UpdateService::new(updates_enabled, &creation_context.egui_ctx);
 
         Ok(Self {
             cli,
@@ -442,6 +450,7 @@ impl PlayerApp {
             session_cache_store,
             last_cache_saved_sync_version: 0,
             last_scan_poll: now,
+            updater,
         })
     }
 
@@ -2506,6 +2515,9 @@ impl PlayerApp {
 impl eframe::App for PlayerApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         let now = Instant::now();
+        if self.updater.poll(ctx) {
+            ctx.send_viewport_cmd(ViewportCommand::Close);
+        }
         if !self.window_effects_applied {
             crate::platform::apply_rounded_corners(frame);
             self.window_effects_applied = true;
@@ -2655,6 +2667,7 @@ impl eframe::App for PlayerApp {
                     self.local_host.as_ref().map(LocalServerSupervisor::status),
                     &local_roots,
                     &mut self.dandanplay_credentials,
+                    self.updater.status(),
                 ) {
                     Some(SettingsAction::Back) => self.screen = self.settings_return,
                     Some(SettingsAction::OpenTracking) => self.open_tracking(AppScreen::Settings),
@@ -2736,6 +2749,14 @@ impl eframe::App for PlayerApp {
                             local_host.set_dandanplay(None);
                         }
                         self.restart_local_host_with_saved_roots();
+                    }
+                    Some(SettingsAction::CheckForUpdates) => self.updater.check(ctx),
+                    Some(SettingsAction::UpdateAndRestart) => {
+                        if matches!(self.updater.status(), UpdateStatus::Available { .. }) {
+                            self.updater.download(ctx);
+                        } else if self.updater.install_and_restart() {
+                            ctx.send_viewport_cmd(ViewportCommand::Close);
+                        }
                     }
                     None => {}
                 }
@@ -2853,6 +2874,21 @@ impl eframe::App for PlayerApp {
         self.sync_fullscreen_window_level(ctx);
         self.show_match_picker_overlay(ctx);
         self.show_tracking_completion_prompt(ctx);
+        if self.updater.should_prompt()
+            && let Some(action) =
+                show_update_prompt(ctx, self.updater.status(), self.preferences.language)
+        {
+            match action {
+                UpdatePromptAction::Dismiss => self.updater.dismiss_prompt(),
+                UpdatePromptAction::UpdateAndRestart => {
+                    if matches!(self.updater.status(), UpdateStatus::Available { .. }) {
+                        self.updater.download(ctx);
+                    } else if self.updater.install_and_restart() {
+                        ctx.send_viewport_cmd(ViewportCommand::Close);
+                    }
+                }
+            }
+        }
         self.save_preferences_if_changed();
         self.finish_qa_screenshot_if_needed(ctx);
     }

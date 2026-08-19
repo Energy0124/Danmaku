@@ -170,10 +170,11 @@ does not require administrator access:
 
     .\manage-rust-library-background-host.ps1 -Action Install -LibraryRoot "D:\Anime"
 
-Repeat -LibraryRoot for multiple folders. Use -Action Status, Start, Stop,
-SetRoots, or Uninstall to manage it. SetRoots accepts the same repeated
+Repeat -LibraryRoot for multiple folders. Use -Action Status, Refresh, Start,
+Stop, SetRoots, or Uninstall to manage it. SetRoots accepts the same repeated
 -LibraryRoot argument. Uninstall removes the task and installed program files
-but preserves the server database and settings under %LOCALAPPDATA%\Danmaku.
+but preserves the background-host configuration, server database, and settings
+under %LOCALAPPDATA%\Danmaku. Installed app updates run Refresh automatically.
 
 The player automatically attaches to this host and will not stop it when the
 player exits. Use -PlanOnly with Install or SetRoots to validate and preview

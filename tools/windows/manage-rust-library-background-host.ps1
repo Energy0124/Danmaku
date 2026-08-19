@@ -1,6 +1,6 @@
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
-    [ValidateSet("Install", "Start", "Stop", "Status", "SetRoots", "Uninstall")]
+    [ValidateSet("Install", "Refresh", "Start", "Stop", "Status", "SetRoots", "Uninstall")]
     [string]$Action = "Status",
     [string[]]$LibraryRoot = @(),
     [switch]$NoStart,
@@ -147,6 +147,29 @@ function Stop-BackgroundTask {
     }
 }
 
+function Assert-SourcePackage {
+    foreach ($requiredPath in @(
+        $sourceServer,
+        (Join-Path $sourceWeb "index.html"),
+        $sourceRunner,
+        $sourceManager
+    )) {
+        if (-not (Test-Path -LiteralPath $requiredPath)) {
+            throw "Required background-host package file does not exist: $requiredPath"
+        }
+    }
+}
+
+function Copy-BackgroundPackage {
+    param([Parameter(Mandatory = $true)][string]$Destination)
+
+    New-Item -ItemType Directory -Path $Destination -Force | Out-Null
+    Copy-Item -LiteralPath $sourceServer -Destination (Join-Path $Destination "library-server.exe") -Force
+    Copy-Item -LiteralPath $sourceRunner -Destination (Join-Path $Destination "run-rust-library-background-host.ps1") -Force
+    Copy-Item -LiteralPath $sourceManager -Destination (Join-Path $Destination "manage-rust-library-background-host.ps1") -Force
+    Copy-Item -LiteralPath $sourceWeb -Destination (Join-Path $Destination "web") -Recurse -Force
+}
+
 function Show-Status {
     $task = Get-Task
     $config = $null
@@ -192,16 +215,7 @@ if ($Action -eq "Status") {
 }
 
 if ($Action -eq "Install") {
-    foreach ($requiredPath in @(
-        $sourceServer,
-        (Join-Path $sourceWeb "index.html"),
-        $sourceRunner,
-        $sourceManager
-    )) {
-        if (-not (Test-Path -LiteralPath $requiredPath)) {
-            throw "Required background-host package file does not exist: $requiredPath"
-        }
-    }
+    Assert-SourcePackage
 
     $roots = Get-NormalizedRoots -ExplicitRoots $LibraryRoot
     if ($PlanOnly) {
@@ -291,6 +305,59 @@ if ($Action -eq "Install") {
     exit 0
 }
 
+if ($Action -eq "Refresh") {
+    Assert-SourcePackage
+    if ($PlanOnly) {
+        Show-Plan -Roots @()
+        exit 0
+    }
+    if ($null -eq (Get-Task)) {
+        Show-Status
+        exit 0
+    }
+    if ($PSCmdlet.ShouldProcess($taskDisplayName, "Refresh installed program files and preserve configuration")) {
+        $installParent = Split-Path -Parent $installDirectory
+        $operationId = [Guid]::NewGuid().ToString("N")
+        $stagingDirectory = Join-Path $installParent "LibraryServer.refresh-$operationId"
+        $backupDirectory = Join-Path $installParent "LibraryServer.backup-$operationId"
+        $swapped = $false
+        try {
+            Copy-BackgroundPackage -Destination $stagingDirectory
+            Stop-BackgroundTask
+            if (Test-Path -LiteralPath $installDirectory) {
+                Move-Item -LiteralPath $installDirectory -Destination $backupDirectory
+            }
+            Move-Item -LiteralPath $stagingDirectory -Destination $installDirectory
+            $swapped = $true
+            if (-not $NoStart) {
+                Start-ScheduledTask -TaskPath $taskPath -TaskName $taskName
+            }
+            if (Test-Path -LiteralPath $backupDirectory) {
+                Remove-Item -LiteralPath $backupDirectory -Recurse -Force
+            }
+        } catch {
+            if ($swapped -and (Test-Path -LiteralPath $backupDirectory)) {
+                if (Test-Path -LiteralPath $installDirectory) {
+                    Remove-Item -LiteralPath $installDirectory -Recurse -Force
+                }
+                Move-Item -LiteralPath $backupDirectory -Destination $installDirectory
+            } elseif (-not (Test-Path -LiteralPath $installDirectory) -and (Test-Path -LiteralPath $backupDirectory)) {
+                Move-Item -LiteralPath $backupDirectory -Destination $installDirectory
+            }
+            if (-not $NoStart -and $null -ne (Get-Task)) {
+                Start-ScheduledTask -TaskPath $taskPath -TaskName $taskName -ErrorAction SilentlyContinue
+            }
+            throw
+        } finally {
+            if (Test-Path -LiteralPath $stagingDirectory) {
+                Remove-Item -LiteralPath $stagingDirectory -Recurse -Force
+            }
+        }
+    }
+    Show-Status
+    exit 0
+}
+
 if ($Action -eq "SetRoots") {
     $roots = Get-NormalizedRoots -ExplicitRoots $LibraryRoot
     if ($PlanOnly) {
@@ -338,9 +405,6 @@ if ($Action -eq "Uninstall") {
         Stop-BackgroundTask
         if ($null -ne (Get-Task)) {
             Unregister-ScheduledTask -TaskPath $taskPath -TaskName $taskName -Confirm:$false
-        }
-        if (Test-Path -LiteralPath $configPath) {
-            Remove-Item -LiteralPath $configPath -Force
         }
         if (Test-Path -LiteralPath $installDirectory) {
             Remove-Item -LiteralPath $installDirectory -Recurse -Force
