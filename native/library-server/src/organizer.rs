@@ -198,10 +198,9 @@ struct StoredBatch {
     moves: Vec<OrganizationMove>,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct OrganizationJournal {
-    #[serde(default = "journal_schema_version")]
     schema_version: u32,
     #[serde(default)]
     active: Option<JournalTransaction>,
@@ -209,6 +208,17 @@ struct OrganizationJournal {
     completed: Vec<CompletedBatch>,
     #[serde(default)]
     recovery_error: Option<String>,
+}
+
+impl Default for OrganizationJournal {
+    fn default() -> Self {
+        Self {
+            schema_version: JOURNAL_SCHEMA_VERSION,
+            active: None,
+            completed: Vec::new(),
+            recovery_error: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -227,10 +237,6 @@ struct CompletedBatch {
     completed_at_epoch_ms: u64,
 }
 
-fn journal_schema_version() -> u32 {
-    JOURNAL_SCHEMA_VERSION
-}
-
 impl LibraryOrganizer {
     pub fn new(roots: Vec<PathBuf>, catalog_store: CatalogStore) -> Self {
         let journal_file = catalog_store
@@ -238,9 +244,20 @@ impl LibraryOrganizer {
             .parent()
             .unwrap_or_else(|| Path::new("."))
             .join("library-organization.json");
-        let mut journal = load_journal(&journal_file);
         let mut status = OrganizationStatus::default();
-        if let Some(error) = recover_interrupted(&catalog_store, &mut journal) {
+        let (mut journal, journal_loaded) = match load_journal(&journal_file) {
+            Ok(journal) => (journal, true),
+            Err(error) => {
+                let message =
+                    format!("The organization journal could not be loaded safely: {error}");
+                status.state = OrganizationState::RecoveryRequired;
+                status.message = Some(message.clone());
+                let mut journal = OrganizationJournal::default();
+                journal.recovery_error = Some(message);
+                (journal, false)
+            }
+        };
+        if journal_loaded && let Some(error) = recover_interrupted(&catalog_store, &mut journal) {
             status.state = OrganizationState::RecoveryRequired;
             status.message = Some(error.clone());
             journal.recovery_error = Some(error);
@@ -262,7 +279,7 @@ impl LibraryOrganizer {
             }),
             cancel_requested: AtomicBool::new(false),
         };
-        if let Err(error) = organizer.persist_journal() {
+        if journal_loaded && let Err(error) = organizer.persist_journal() {
             organizer.finish_failed(
                 format!("The organization journal is unavailable: {error}"),
                 true,
@@ -400,7 +417,13 @@ impl LibraryOrganizer {
                 .expect("organizer lock should not poison");
             runtime.journal.active = Some(transaction);
         }
-        self.persist_journal()?;
+        if let Err(error) = self.persist_journal() {
+            self.finish_failed(
+                format!("The organization journal is unavailable: {error}"),
+                true,
+            );
+            return Err(error);
+        }
 
         if let Err(error) = preflight_batch(&batch) {
             self.finish_failed(error.to_string(), false);
@@ -1256,22 +1279,30 @@ fn catalog_revision(catalog: &LibraryCatalog) -> String {
 }
 
 fn validate_relative_directory(value: &str) -> Result<PathBuf> {
-    let trimmed = value.trim().trim_matches(['/', '\\']);
+    let trimmed = value.trim().trim_end_matches(['/', '\\']);
     if trimmed.is_empty() {
         return Ok(PathBuf::new());
     }
-    let path = PathBuf::from(trimmed.replace('/', "\\"));
-    if path.is_absolute()
-        || path
-            .components()
-            .any(|component| !matches!(component, Component::Normal(_)))
-    {
+    if trimmed.starts_with(['/', '\\']) {
         return Err(LibraryServerError::new(
             "The destination base must be a relative folder inside the selected root.",
         ));
     }
-    for component in path.components() {
-        sanitize_component(&component.as_os_str().to_string_lossy())?;
+
+    let mut path = PathBuf::new();
+    for component in trimmed.split(['/', '\\']).filter(|value| !value.is_empty()) {
+        let mut components = Path::new(component).components();
+        if !matches!(components.next(), Some(Component::Normal(_)))
+            || components.next().is_some()
+            || (component.len() == 2
+                && component.as_bytes()[0].is_ascii_alphabetic()
+                && component.ends_with(':'))
+        {
+            return Err(LibraryServerError::new(
+                "The destination base must be a relative folder inside the selected root.",
+            ));
+        }
+        path.push(sanitize_component(component)?);
     }
     Ok(path)
 }
@@ -1443,15 +1474,30 @@ fn looks_like_season_directory(value: &str) -> bool {
         .is_some_and(|number| number.parse::<u32>().is_ok())
 }
 
-fn load_journal(file: &Path) -> OrganizationJournal {
-    fs::read_to_string(file)
-        .ok()
-        .and_then(|body| serde_json::from_str::<OrganizationJournal>(&body).ok())
-        .filter(|journal| journal.schema_version == JOURNAL_SCHEMA_VERSION)
-        .unwrap_or_else(|| OrganizationJournal {
-            schema_version: JOURNAL_SCHEMA_VERSION,
-            ..OrganizationJournal::default()
-        })
+fn load_journal(file: &Path) -> Result<OrganizationJournal> {
+    let body = match fs::read_to_string(file) {
+        Ok(body) => body,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(OrganizationJournal::default());
+        }
+        Err(error) => {
+            return Err(LibraryServerError::with_context(
+                error,
+                format!("failed to read {}", file.display()),
+            ));
+        }
+    };
+    let journal = serde_json::from_str::<OrganizationJournal>(&body).map_err(|error| {
+        LibraryServerError::with_context(error, format!("failed to parse {}", file.display()))
+    })?;
+    if journal.schema_version != JOURNAL_SCHEMA_VERSION {
+        return Err(LibraryServerError::new(format!(
+            "unsupported organization journal schema {} in {}",
+            journal.schema_version,
+            file.display()
+        )));
+    }
+    Ok(journal)
 }
 
 fn write_json_atomically<T: Serialize>(file: &Path, value: &T) -> Result<()> {
@@ -1478,6 +1524,131 @@ mod tests {
     use super::*;
 
     static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+    #[test]
+    fn relative_directory_uses_portable_separators_and_rejects_roots() {
+        assert_eq!(
+            PathBuf::from("Anime").join("Current Season"),
+            validate_relative_directory("Anime/Current Season").expect("forward slash path")
+        );
+        assert_eq!(
+            PathBuf::from("Anime").join("Current Season"),
+            validate_relative_directory(r"Anime\Current Season").expect("backslash path")
+        );
+        assert_eq!(
+            PathBuf::from("Anime： Shows").join("Current Season"),
+            validate_relative_directory("Anime: Shows/Current Season")
+                .expect("sanitized component")
+        );
+
+        for invalid in ["/Anime", r"\Anime", "../Anime", r"C:\Anime"] {
+            assert!(
+                validate_relative_directory(invalid).is_err(),
+                "{invalid} must remain relative"
+            );
+        }
+    }
+
+    #[test]
+    fn invalid_journals_require_recovery_without_overwriting_evidence() {
+        for body in ["{not-json", "{}", r#"{"schemaVersion":99}"#] {
+            let fixture = fixture();
+            fs::create_dir_all(&fixture.data).expect("data directory creates");
+            let journal_file = fixture.data.join("library-organization.json");
+            fs::write(&journal_file, body).expect("invalid journal writes");
+
+            let organizer = LibraryOrganizer::new(
+                vec![fixture.root.clone()],
+                CatalogStore::new(fixture.data.join("catalog.json")),
+            );
+
+            assert_eq!(
+                OrganizationState::RecoveryRequired,
+                organizer.status().state
+            );
+            assert!(
+                organizer
+                    .preview(
+                        &fixture.published,
+                        OrganizationPreviewRequest {
+                            root: fixture.root.display().to_string(),
+                            base_relative_path: String::new(),
+                            overrides: Vec::new(),
+                        },
+                    )
+                    .is_err()
+            );
+            assert_eq!(
+                body,
+                fs::read_to_string(&journal_file).expect("journal evidence remains")
+            );
+            cleanup(fixture.temp);
+        }
+    }
+
+    #[test]
+    fn initial_journal_write_failure_never_leaves_running_status_or_moves_files() {
+        let fixture = fixture();
+        let mut organizer = LibraryOrganizer::new(
+            vec![fixture.root.clone()],
+            CatalogStore::new(fixture.data.join("catalog.json")),
+        );
+        let batch = fixture_batch(&fixture);
+        organizer.runtime.lock().expect("organizer lock").status = running_status(&batch, false);
+        let blocked_parent = fixture.data.join("journal-parent-is-a-file");
+        fs::write(&blocked_parent, b"blocked").expect("journal parent blocker writes");
+        organizer.journal_file = blocked_parent.join("library-organization.json");
+
+        let result = organizer.execute(PreparedOrganization { batch, undo: false });
+
+        assert!(result.is_err());
+        assert_eq!(
+            OrganizationState::RecoveryRequired,
+            organizer.status().state
+        );
+        assert!(fixture.root.join("[Group] Example Show - 01.mkv").is_file());
+        assert!(
+            !fixture
+                .root
+                .join("Example Show/Season 1/[Group] Example Show - 01.mkv")
+                .exists()
+        );
+        cleanup(fixture.temp);
+    }
+
+    #[test]
+    fn startup_recovery_rolls_back_a_partially_moved_batch() {
+        let fixture = fixture();
+        fs::create_dir_all(&fixture.data).expect("data directory creates");
+        let batch = fixture_batch(&fixture);
+        let source = fixture.root.join(&batch.moves[0].source_relative_path);
+        let destination = fixture
+            .root
+            .join(path_from_wire(&batch.moves[0].destination_relative_path));
+        fs::create_dir_all(destination.parent().expect("destination parent"))
+            .expect("destination parent creates");
+        let journal = OrganizationJournal {
+            active: Some(JournalTransaction {
+                batch,
+                moved_count: 1,
+                undo: false,
+            }),
+            ..OrganizationJournal::default()
+        };
+        write_json_atomically(&fixture.data.join("library-organization.json"), &journal)
+            .expect("journal writes before move");
+        move_without_overwrite(&source, &destination).expect("fixture move succeeds");
+
+        let organizer = LibraryOrganizer::new(
+            vec![fixture.root.clone()],
+            CatalogStore::new(fixture.data.join("catalog.json")),
+        );
+
+        assert_eq!(OrganizationState::Idle, organizer.status().state);
+        assert!(source.is_file());
+        assert!(!destination.exists());
+        cleanup(fixture.temp);
+    }
 
     #[test]
     fn preview_requires_review_then_builds_exact_series_manifest() {
@@ -1715,6 +1886,26 @@ mod tests {
         root: PathBuf,
         data: PathBuf,
         published: PublishedLibrary,
+    }
+
+    fn fixture_batch(fixture: &Fixture) -> StoredBatch {
+        let source_relative_path = "[Group] Example Show - 01.mkv".to_owned();
+        StoredBatch {
+            batch_id: "fixture-batch".to_owned(),
+            series_title: "Example Show".to_owned(),
+            root: fixture.root.clone(),
+            moves: vec![OrganizationMove {
+                media_id: Some("one".to_owned()),
+                subtitle_id: None,
+                source_relative_path,
+                destination_relative_path: "Example Show/Season 1/[Group] Example Show - 01.mkv"
+                    .to_owned(),
+                size_bytes: 3,
+                kind: OrganizationMoveKind::Video,
+                original_series_title: Some("Example Show".to_owned()),
+                destination_series_title: Some("Example Show".to_owned()),
+            }],
+        }
     }
 
     fn fixture() -> Fixture {

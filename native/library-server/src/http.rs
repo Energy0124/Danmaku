@@ -1210,7 +1210,16 @@ async fn handle_library_organize(
                 Err(response) => return response,
             };
             let library = state.library();
-            match tokio::task::spawn_blocking(move || organizer.preview(&library, request)).await {
+            let catalog_metadata = state.catalog_metadata.clone();
+            match tokio::task::spawn_blocking(move || {
+                let mut library = (*library).clone();
+                if let Some(store) = catalog_metadata {
+                    library.catalog = store.enrich_catalog(&library.catalog);
+                }
+                organizer.preview(&library, request)
+            })
+            .await
+            {
                 Ok(Ok(plan)) => json_response(StatusCode::OK, &plan),
                 Ok(Err(error)) => text_response(StatusCode::CONFLICT, &error.to_string()),
                 Err(error) => text_response(StatusCode::INTERNAL_SERVER_ERROR, &error.to_string()),
@@ -3007,11 +3016,38 @@ mod tests {
             ProviderAdminState::new(fixture.temp.clone(), settings.clone(), settings, None)
                 .expect("organizer admin creates"),
         );
+        let mut library = fixture.library.clone();
+        library.catalog.items[0].root_label = Some(fixture.temp.display().to_string());
+        library.catalog.items[0].series_title = "First Release Name".to_owned();
+        let second_file = fixture.temp.join("second-release.bin");
+        fs::write(&second_file, b"second").expect("second release writes");
+        let mut second_item = library.catalog.items[0].clone();
+        second_item.id = "episode-id-2".to_owned();
+        second_item.series_title = "Completely Different Release".to_owned();
+        second_item.episode_title = "Episode 02".to_owned();
+        second_item.relative_path = "Completely Different Release/Episode 02.bin".to_owned();
+        second_item.stream_path = "/media/episode-id-2".to_owned();
+        second_item.size_bytes = second_file.metadata().expect("second metadata").len();
+        second_item.subtitles.clear();
+        second_item.poster_path = None;
+        library.catalog.items.push(second_item);
+        library
+            .files_by_id
+            .insert("episode-id-2".to_owned(), second_file);
+        let catalog_metadata = Arc::new(CatalogMetadataStore::new(
+            fixture.temp.join("organizer-metadata.json"),
+        ));
+        for media_id in ["episode-id", "episode-id-2"] {
+            catalog_metadata
+                .record(media_id, 42, "Unified Anime".to_owned(), None)
+                .expect("organizer identity records");
+        }
         let mut config = HttpServerConfig::fixture(fixture.web_root.clone());
         config.provider_admin = Some(admin);
+        config.catalog_metadata = Some(catalog_metadata);
         let store = CatalogStore::new(fixture.temp.join("organizer-catalog.json"));
         let state = HttpServerState::new(
-            fixture.library.clone(),
+            library,
             Arc::new(PlaybackProgressStore::new(
                 fixture.temp.join("organizer-progress.json"),
             )),
@@ -3059,6 +3095,14 @@ mod tests {
             .await
             .expect("local response");
         assert_eq!(StatusCode::OK, local.status());
+        let local_body = to_bytes(local.into_body(), 1_048_576)
+            .await
+            .expect("organizer preview body");
+        let plan: Value = serde_json::from_slice(&local_body).expect("organizer preview json");
+        let batches = plan["batches"].as_array().expect("organizer batches");
+        assert_eq!(1, batches.len());
+        assert_eq!(Some("PROVIDER"), batches[0]["confidence"].as_str());
+        assert_eq!(Some("Unified Anime"), batches[0]["seriesTitle"].as_str());
     }
 
     #[tokio::test]

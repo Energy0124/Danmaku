@@ -940,8 +940,8 @@ pub fn execute_organization(
 ) -> Result<(), String> {
     let body = serde_json::json!({
         "planId": plan_id,
-        "batchId": batch.batch_id,
-        "expectedMoves": batch.moves,
+        "batchId": &batch.batch_id,
+        "expectedMoves": &batch.moves,
     })
     .to_string();
     http_authenticated_json(
