@@ -313,33 +313,39 @@ mod platform {
     }
 
     pub fn run_startup_hooks() {
-        let uninstalling = env::args().any(|arg| arg == "--veloapp-uninstall");
-        if uninstalling {
-            run_background_host_action("Uninstall");
-        }
         VelopackApp::build()
             .set_auto_apply_on_startup(false)
-            .on_restarted(|_| run_background_host_action("Refresh"))
+            .on_before_uninstall_fast_callback(|_| {
+                if let Err(error) = run_background_host_action("Uninstall") {
+                    eprintln!("{error}");
+                    std::process::exit(1);
+                }
+            })
+            .on_restarted(|_| {
+                if let Err(error) = run_background_host_action("Refresh") {
+                    eprintln!("{error}");
+                }
+            })
             .run();
     }
 
-    fn run_background_host_action(action: &str) {
+    fn run_background_host_action(action: &str) -> Result<(), String> {
         let Some(directory) = env::current_exe()
             .ok()
             .and_then(|path| path.parent().map(Path::to_owned))
         else {
-            return;
+            return Ok(());
         };
         let manager = directory.join("manage-rust-library-background-host.ps1");
         if !manager.is_file() {
-            return;
+            return Ok(());
         }
         let powershell = env::var_os("SystemRoot")
             .map(|root| Path::new(&root).join("System32/WindowsPowerShell/v1.0/powershell.exe"))
             .unwrap_or_else(|| "powershell.exe".into());
         use std::os::windows::process::CommandExt;
         const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-        let _ = Command::new(powershell)
+        let status = Command::new(powershell)
             .args([
                 "-NoLogo",
                 "-NoProfile",
@@ -353,7 +359,18 @@ mod platform {
             .arg(manager)
             .args(["-Action", action])
             .creation_flags(CREATE_NO_WINDOW)
-            .status();
+            .status()
+            .map_err(|error| format!("Background host {action} failed to start: {error}"))?;
+        if status.success() {
+            Ok(())
+        } else {
+            Err(format!(
+                "Background host {action} failed with exit code {}.",
+                status
+                    .code()
+                    .map_or_else(|| "unknown".to_owned(), |code| code.to_string())
+            ))
+        }
     }
 
     #[cfg(test)]

@@ -105,7 +105,7 @@ if ($libmpvHashAfter -ne $libmpvHashBefore) {
     throw "Installer packaging modified the separately licensed libmpv binary."
 }
 $setup = Get-ChildItem -LiteralPath $outputPath -Filter "*-Setup.exe" -File | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
-$fullPackage = Get-ChildItem -LiteralPath $outputPath -Filter "*-full.nupkg" -File | Where-Object { $_.Name -like "*-$version-*" } | Select-Object -First 1
+$fullPackage = Get-ChildItem -LiteralPath $outputPath -Filter "*-full.nupkg" -File | Where-Object { $_.Name -like "*-$version-*" } | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
 $feed = Join-Path $outputPath "releases.win-x64-stable.json"
 if ($null -eq $setup -or $null -eq $fullPackage -or -not (Test-Path -LiteralPath $feed -PathType Leaf)) {
     throw "Velopack did not produce the Setup executable, full update package, and stable feed."

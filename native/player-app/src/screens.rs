@@ -26,8 +26,11 @@ use crate::{
     preferences::{DandanplayCredentials, PlayerPreferences},
     session::LibrarySession,
     theme::{self, metrics, palette, typography},
-    updater::{LATEST_INSTALLER_URL, UpdateStatus},
+    updater::UpdateStatus,
 };
+
+#[cfg(windows)]
+use crate::updater::LATEST_INSTALLER_URL;
 
 const CARD_WIDTH: f32 = 158.0;
 const CARD_HEIGHT: f32 = 236.0;
@@ -4411,6 +4414,7 @@ fn settings_body(
         match update_status {
             UpdateStatus::Unavailable { .. } => {
                 card_status_line(ui, strings.updates_unavailable_portable());
+                #[cfg(windows)]
                 ui.hyperlink_to(strings.download_latest_installer(), LATEST_INSTALLER_URL);
             }
             UpdateStatus::Idle { .. } => {
