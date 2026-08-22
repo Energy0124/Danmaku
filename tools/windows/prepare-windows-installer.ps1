@@ -139,7 +139,7 @@ if ($RequireSigning) {
         }
         $packagedLibmpvHash = (Get-FileHash -LiteralPath (Join-Path $packagedApp "libmpv-2.dll") -Algorithm SHA256).Hash
         if ($packagedLibmpvHash -ne $libmpvHashBefore) {
-            throw "The full update package does not preserve the approved libmpv hash."
+            throw "The full update package does not preserve the release-resolved libmpv hash."
         }
     } finally {
         if (Test-Path -LiteralPath $verificationDirectory) {

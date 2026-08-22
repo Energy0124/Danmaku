@@ -16,18 +16,21 @@ secrets and fails closed when either is missing:
 - `WINDOWS_SIGNING_PFX_BASE64`: base64-encoded Authenticode PFX;
 - `WINDOWS_SIGNING_PFX_PASSWORD`: PFX password.
 
-The workflow uses Velopack 1.2.0 to publish the signed per-user Setup, full and
-delta update packages, `releases.win-x64-stable.json`, the portable zip, and
-`SHA256SUMS.txt`. It creates the GitHub release as a draft and publishes it
-only after verification. The installed app checks stable GitHub releases at
-startup and applies an update only after the user selects **Update and
-restart**.
+The workflow resolves the latest published zhongfly LGPL x64 libmpv asset,
+requires its GitHub SHA-256 digest, and caches it by that digest. It then uses
+Velopack 1.2.0 to publish the signed per-user Setup, full and delta update
+packages, `releases.win-x64-stable.json`, the portable zip,
+`libmpv-provenance.json`, and `SHA256SUMS.txt`. It creates the GitHub release as
+a draft and publishes it only after verification. The installed app checks
+stable GitHub releases at startup and applies an update only after the user
+selects **Update and restart**.
 
 The `danmaku-windows-native-player` artifact contains a versioned zip with:
 
 - `danmaku-player.exe` and `library-server.exe`;
 - bundled `/web/` assets and launcher/background-host scripts;
-- the approved pinned `libmpv-2.dll` and `mpv-probe` verification;
+- the release-resolved, digest-verified `libmpv-2.dll` and `mpv-probe`
+  verification;
 - project licenses, libmpv provenance, and generated Rust dependency
   inventories.
 
@@ -112,12 +115,13 @@ server and use Media3 for playback.
 ## Release Checklist
 
 - `[ ]` Run CI-equivalent Rust, Gradle, web, and Worker checks.
-- `[ ]` Verify the pinned libmpv hashes, license texts, and source provenance.
+- `[ ]` Verify the resolved libmpv release, GitHub asset digest, extracted DLL
+  hash, license texts, and generated source provenance.
 - `[ ]` Build and verify the standalone server and unified Windows zips.
 - `[ ]` Confirm the tag, both Rust package versions, and changelog section
   match; confirm signing secrets are available to the protected tag workflow.
-- `[ ]` Verify Setup/full/delta/feed/checksum assets and valid Authenticode
-  signatures without changing the approved libmpv hash.
+- `[ ]` Verify Setup/full/delta/feed/checksum/provenance assets and valid
+  Authenticode signatures without changing the resolved libmpv hash.
 - `[ ]` Exercise install, startup check, release-note approval, update/restart,
   corrupted-package rejection, background-host refresh, and uninstall data
   preservation with two release versions.

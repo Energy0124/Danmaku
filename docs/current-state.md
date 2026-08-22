@@ -1,6 +1,6 @@
 # Current State
 
-Last reviewed: 2026-08-17.
+Last reviewed: 2026-08-21.
 
 Danmaku's active product is a Rust-native Windows library/player/server with
 Android mobile, Android TV, and browser clients on the same trusted-LAN API,
@@ -77,13 +77,15 @@ Compose macOS artifact are retired.
 ### Packaging And CI
 
 - Versioned native Windows player and standalone server zips with web assets,
-  pinned libmpv, provenance, licenses, and generated dependency inventories.
+  latest-release LGPL libmpv resolution, exact hash provenance, licenses, and
+  generated dependency inventories.
 - Velopack-based per-user Windows Setup, stable-channel full/delta update
   packages, quiet startup checks, release-note prompts, explicit
   update-and-restart approval, and portable-build detection.
 - SemVer tag release automation validates versions/changelog, requires a CI
-  Authenticode certificate, preserves the approved libmpv hash, and publishes
-  checksums only after all build and package checks pass.
+  Authenticode certificate, resolves and verifies the latest stable LGPL x64
+  libmpv asset, preserves its recorded DLL hash, and publishes checksums only
+  after all build and package checks pass.
 - Windows CI for Rust, Android, web assets, packaging, and libmpv checks;
   separate Rust and Worker proxy jobs.
 - Native macOS CI compiles and tests the Rust workspace, verifies Homebrew

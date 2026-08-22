@@ -29,13 +29,15 @@ The verified portable stage is the input to `vpk pack`. The package ID is
 executable is `danmaku-player.exe`. Production uses SHA-256 Authenticode with
 an RFC 3161 timestamp. CI fails if `WINDOWS_SIGNING_PFX_BASE64` or
 `WINDOWS_SIGNING_PFX_PASSWORD` is absent. `libmpv-2.dll` is excluded from
-signing and its approved hash is checked before and after packaging.
+signing and its release-resolved hash is checked before and after packaging.
 
 The release workflow validates the tag against both Rust package versions and
 the matching `CHANGELOG.md` section, downloads the previous stable package for
 delta generation when one exists, and publishes Setup, full/delta packages,
-the channel feed, portable zip, release notes, and SHA-256 checksums only after
-verification succeeds.
+the channel feed, portable zip, exact libmpv provenance, release notes, and
+SHA-256 checksums only after verification succeeds. Before building, it resolves
+the latest published LGPL x64 libmpv asset, verifies GitHub's asset digest, and
+caches the archive by that digest rather than relying on an expiring dated URL.
 
 ## Background Host
 

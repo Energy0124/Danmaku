@@ -38,8 +38,9 @@ the Chrome/Edge interaction probe.
 
 ## Package Checks
 
-- Verify the native zip contains the player, server, web assets, pinned libmpv,
-  launch/background scripts, licenses, provenance, and dependency inventories.
+- Verify the native zip contains the player, server, web assets, the
+  release-resolved libmpv, launch/background scripts, licenses, exact
+  provenance, and dependency inventories.
 - Verify no Java runtime, application JARs, JVM bridge DLL, credentials, SDK
   paths, generated QA reports, or downloaded media are present.
 - Run the native `--help`, server `--help`, background-host PlanOnly, libmpv

@@ -69,13 +69,16 @@ jobs:
           npm ci
           npm run build
 
-      - name: Read libmpv dependency manifest
+      - name: Resolve latest LGPL libmpv release
         id: libmpv
         shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
-          $manifest = Get-Content `
-            -LiteralPath "third_party\windows\libmpv\zhongfly-lgpl-x86_64-20260708.json" `
-            -Raw | ConvertFrom-Json
+          $resolutionPath = Join-Path $env:RUNNER_TEMP "libmpv-resolution.json"
+          .\tools\windows\resolve-latest-libmpv-dependency.ps1 `
+            -OutputPath $resolutionPath
+          $manifest = Get-Content -LiteralPath $resolutionPath -Raw | ConvertFrom-Json
           $cacheDir = Join-Path $env:RUNNER_TEMP "libmpv-archive-cache"
           New-Item -ItemType Directory -Path $cacheDir -Force | Out-Null
           $archivePath = Join-Path $cacheDir $manifest.archiveFileName
@@ -83,27 +86,31 @@ jobs:
           Add-Content -Path $env:GITHUB_OUTPUT -Value "archive-url=$($manifest.archiveUrl)"
           Add-Content -Path $env:GITHUB_OUTPUT -Value "archive-path=$archivePath"
           Add-Content -Path $env:GITHUB_OUTPUT -Value "cache-dir=$cacheDir"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "resolution-path=$resolutionPath"
 
-      - name: Restore approved libmpv archive
+      - name: Restore resolved libmpv archive by digest
         uses: actions/cache@v6
         with:
           path: ${{ steps.libmpv.outputs.cache-dir }}
           key: libmpv-windows-${{ steps.libmpv.outputs.archive-sha256 }}
 
-      - name: Install approved libmpv dependency
+      - name: Download and install resolved libmpv dependency
         shell: pwsh
         run: |
           $archivePath = "${{ steps.libmpv.outputs.archive-path }}"
+          $expectedHash = "${{ steps.libmpv.outputs.archive-sha256 }}"
+          if ((Test-Path -LiteralPath $archivePath -PathType Leaf) -and
+              (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash -ne $expectedHash) {
+            Remove-Item -LiteralPath $archivePath -Force
+          }
           if (-not (Test-Path -LiteralPath $archivePath -PathType Leaf)) {
             $archiveUrl = "${{ steps.libmpv.outputs.archive-url }}"
-            try {
-              Invoke-WebRequest -Uri $archiveUrl -OutFile $archivePath -UseBasicParsing
-            } catch {
-              throw "Pinned libmpv archive is absent from the release cache and unavailable upstream: $($_.Exception.Message)"
-            }
+            Invoke-WebRequest -Uri $archiveUrl -OutFile $archivePath -UseBasicParsing
           }
           .\tools\windows\install-libmpv-dependency.ps1 `
+            -ManifestPath "${{ steps.libmpv.outputs.resolution-path }}" `
             -ArchivePath $archivePath `
+            -ProvenancePath .\runtime\windows\libmpv\libmpv-provenance.json `
             -AcceptLicense
 
       - name: Build and verify portable Windows package
@@ -168,6 +175,7 @@ jobs:
                 ($_.Extension -eq ".nupkg" -and $_.Name -like "*-$version-*")
               }
             Get-ChildItem .\build\release\rust-player -Filter "*.zip" -File
+            Get-Item .\runtime\windows\libmpv\libmpv-provenance.json
           )
           $lines = $assets | Sort-Object Name | ForEach-Object {
             $hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -192,6 +200,7 @@ jobs:
               ForEach-Object FullName
             Get-ChildItem .\build\release\rust-player -Filter "*.zip" -File |
               ForEach-Object FullName
+            (Resolve-Path .\runtime\windows\libmpv\libmpv-provenance.json).Path
             (Resolve-Path .\build\release\SHA256SUMS.txt).Path
           )
           gh release create $tag --verify-tag --draft --title "Danmaku ${{ steps.version.outputs.value }}" --notes-file "${{ steps.version.outputs.notes }}" @assets

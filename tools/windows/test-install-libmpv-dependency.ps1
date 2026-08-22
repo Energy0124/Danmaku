@@ -34,18 +34,23 @@ try {
     $archiveHash = (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash
     $dllHash = (Get-FileHash -LiteralPath (Join-Path $fixturePath "libmpv-2.dll") -Algorithm SHA256).Hash
     $manifest = @{
-        schemaVersion = 1
+        schemaVersion = 2
         dependencyName = "libmpv-2.dll"
-        distributionModel = "optional-user-download"
+        distributionModel = "approved-direct-redistribution"
+        selectionPolicy = "latest-stable-lgpl-x86_64"
         license = "LGPL-3.0-or-later"
         licenseUrl = "https://example.invalid/license"
         projectUrl = "https://example.invalid/project"
+        releaseTag = "fixture"
         releaseUrl = "https://example.invalid/release"
         archiveFileName = "fixture.7z"
         archiveUrl = "https://example.invalid/fixture.7z"
         archiveSha256 = $archiveHash
         dllArchivePath = "libmpv-2.dll"
         dllSha256 = $dllHash
+        approval = @{
+            status = "policy-approved"
+        }
     }
     $manifest | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $manifestPath
 
@@ -77,15 +82,27 @@ try {
     if ((Get-FileHash -LiteralPath $installedDll -Algorithm SHA256).Hash -ne $dllHash) {
         throw "Installed libmpv-2.dll hash did not match the fixture."
     }
+    $installedProvenancePath = Join-Path $installPath "libmpv-provenance.json"
+    $installedProvenance = Get-Content -LiteralPath $installedProvenancePath -Raw |
+        ConvertFrom-Json
+    if (
+        $installedProvenance.dllSha256 -ne $dllHash.ToLowerInvariant() -or
+        [string]::IsNullOrWhiteSpace([string]$installedProvenance.resolvedAtUtc)
+    ) {
+        throw "Installer did not write verified libmpv provenance."
+    }
 
     New-Item -ItemType Directory -Path $packagedDependencyPath -Force | Out-Null
     New-Item -ItemType Directory -Path $packagedAppPath -Force | Out-Null
     Copy-Item -LiteralPath $installer -Destination $packagedDependencyPath
     Copy-Item `
         -LiteralPath $manifestPath `
-        -Destination (Join-Path $packagedDependencyPath "zhongfly-lgpl-x86_64-20260708.json")
+        -Destination (Join-Path $packagedDependencyPath "libmpv-resolution.json")
 
     & (Join-Path $packagedDependencyPath "install-libmpv-dependency.ps1") `
+        -ManifestPath (Join-Path $packagedDependencyPath "libmpv-resolution.json") `
+        -InstallPath $packagedAppPath `
+        -ProvenancePath (Join-Path $packagedDependencyPath "libmpv-provenance.json") `
         -ArchivePath $archivePath `
         -SevenZipExecutable $sevenZip `
         -AcceptLicense

@@ -56,7 +56,8 @@ Status: not implemented in the active applications.
 
 Status: macOS development slice implemented; release promotion deferred.
 
-- Re-audit the pinned libmpv dependency before changing its producer or hash.
+- Re-audit the Windows libmpv producer, automated latest-release selection
+  policy, and license evidence before changing the producer or asset pattern.
 - Add a reviewed redistributable macOS libmpv artifact or a documented external
   dependency policy, then release signing and notarization.
 - Add cross-platform provider HTTPS and protected credential persistence before

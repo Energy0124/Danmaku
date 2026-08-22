@@ -6,40 +6,24 @@ downloaded for, or linked with Danmaku remains under its own license.
 ## Windows Playback Dependency
 
 Danmaku's Windows playback foundation is designed to load `libmpv-2.dll`
-dynamically. The Windows release directly redistributes this pinned third-party
-DLL as a separately licensed dependency:
+dynamically. Windows CI and release builds resolve the latest published
+`mpv-dev-lgpl-x86_64-*.7z` asset from
+[zhongfly/mpv-winbuild](https://github.com/zhongfly/mpv-winbuild), verifies the
+GitHub-provided archive SHA-256, extracts only `libmpv-2.dll`, and records its
+SHA-256 before packaging.
 
-- Artifact:
-  `mpv-dev-lgpl-x86_64-20260708-git-68387ea859.7z`
-- Producer:
-  [zhongfly/mpv-winbuild](https://github.com/zhongfly/mpv-winbuild)
-- Release:
-  [2026-07-08-cc763d17dc](https://github.com/zhongfly/mpv-winbuild/releases/tag/2026-07-08-cc763d17dc)
-- Producer build:
-  [GitHub Actions run 28968190020](https://github.com/zhongfly/mpv-winbuild/actions/runs/28968190020)
-- mpv source:
-  [68387ea859d20bc3313cdbbe49ca2f25aa54b935](https://github.com/mpv-player/mpv/commit/68387ea859d20bc3313cdbbe49ca2f25aa54b935)
-- FFmpeg source:
-  [c57660fb18f058e8ead224e840b242d9c68fd3c4](https://github.com/FFmpeg/FFmpeg/commit/c57660fb18f058e8ead224e840b242d9c68fd3c4)
-- mpv license:
-  [LGPL-2.1-or-later when built with `-Dgpl=false`](https://github.com/mpv-player/mpv#license)
-- FFmpeg license:
-  [LGPL with configuration-dependent terms](https://ffmpeg.org/legal.html)
-- LGPL version 3 text:
-  [GNU Lesser General Public License version 3](https://www.gnu.org/licenses/lgpl-3.0.html)
+The exact producer release, asset, hashes, resolution time, and selection
+policy for each Danmaku release are recorded in
+`dependencies/libmpv/libmpv-provenance.json` and published beside the GitHub
+Release. The release also contains the LGPL license texts and the source notice
+under `dependencies/libmpv`.
 
-The producer describes the `mpv-dev-lgpl-*` artifact as LGPLv2.1+ libmpv with
-statically linked FFmpeg under LGPLv3. Danmaku therefore presents the bundled
-dependency as an LGPLv3 dependency. The producer also states that it cannot
-guarantee every LGPL-incompatible package has been disabled. Danmaku accepts
-that residual risk as a project distribution decision based on the producer's
-explicit LGPL artifact designation and the reviewed build output.
-
-Danmaku verifies the pinned archive and extracted DLL SHA-256 hashes before
-packaging. The Windows release includes the GPL/LGPL license texts and a source
-and provenance notice under `dependencies/libmpv`. Redistributing the
-dependency does not change Danmaku's MIT license, and it does not relicense
-libmpv, FFmpeg, or their bundled dependencies.
+The producer describes the LGPL artifact as LGPLv2.1+ libmpv with statically
+linked FFmpeg under LGPLv3. The producer also states that it cannot guarantee
+every LGPL-incompatible package has been disabled. Danmaku accepts that
+residual risk as a project distribution decision. Redistributing the dependency
+does not change Danmaku's MIT license or relicense libmpv, FFmpeg, or their
+bundled dependencies.
 
 ## Application Dependencies
 

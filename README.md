@@ -110,8 +110,9 @@ installing the pinned Velopack 1.2.0 `vpk` tool:
 ```
 
 The package contains `danmaku-player.exe`, `library-server.exe`, the web UI,
-the pinned `libmpv-2.dll`, background-host scripts, licenses, and dependency
-inventories. On first launch, select one or more local library folders. The
+the release-resolved and digest-verified `libmpv-2.dll`, background-host
+scripts, licenses, and dependency inventories. On first launch, select one or
+more local library folders. The
 player starts and connects to the sibling server automatically. It can also
 discover or manually connect to another trusted-LAN server.
 
