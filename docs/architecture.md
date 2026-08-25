@@ -61,6 +61,11 @@ rescan and poll status only until that requested scan finishes. They may read
 provider state and submit an explicitly
 reviewed, server-validated tracking preview, but provider credentials, mappings,
 and conflict reconciliation remain server-owned Windows/web administration.
+Android mobile also owns an app-private, versioned offline-cache index and a
+persistent WorkManager download queue. Cache manifests contain only authorized
+user-owned, DRM-free media assets and never persist pairing tokens. Offline
+Media3 playback records progress locally and reconciles it with the library
+server after the trusted LAN becomes reachable again.
 Android TV remains a
 dedicated module with TV layouts, D-pad focus, remote navigation, and
 Macrobenchmark coverage.
@@ -84,7 +89,8 @@ shared:library-client
   Platform-neutral LAN session, catalog, and progress policy.
 
 shared:library-client-android
-  Android HTTP, discovery, connection, and persistence adapters.
+  Android HTTP, discovery, connection, persistence, offline cache, and
+  background download adapters.
 
 shared:player-android-media3
   Android Media3 playback service and adapter.

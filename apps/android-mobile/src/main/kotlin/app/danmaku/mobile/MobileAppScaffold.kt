@@ -1,6 +1,13 @@
 package app.danmaku.mobile
 
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -8,6 +15,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import app.danmaku.domain.DanmakuDisplaySettings
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryCatalogSort
@@ -18,6 +26,10 @@ import app.danmaku.domain.PlaybackProgress
 import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.library.LanLibraryConnectionProfile
 import app.danmaku.player.android.Media3PlaybackController
+import app.danmaku.library.android.OfflineCacheEntry
+import app.danmaku.library.android.OfflineCacheState
+import app.danmaku.domain.itemsInFolder
+import androidx.compose.ui.res.stringResource
 
 internal data class MobileAppUiState(
     val selectedTab: MobileTab,
@@ -48,6 +60,11 @@ internal data class MobileAppUiState(
     val folderRefreshFilesSeen: Long? = null,
     val folderRefreshError: MobileFolderRefreshError? = null,
     val folderRefreshErrorDetail: String? = null,
+    val cacheEntries: List<OfflineCacheEntry> = emptyList(),
+    val pendingCacheItems: List<LibraryMediaItem> = emptyList(),
+    val isDownloadsOpen: Boolean = false,
+    val cacheError: String? = null,
+    val cacheAvailableBytes: Long = 0,
 )
 
 internal data class MobileAppActions(
@@ -83,6 +100,16 @@ internal data class MobileAppActions(
     val onLoadTracking: () -> Unit,
     val onReadTracking: () -> Unit,
     val onSyncTracking: () -> Unit,
+    val onOpenDownloads: () -> Unit,
+    val onCloseDownloads: () -> Unit,
+    val onRequestCache: (List<LibraryMediaItem>) -> Unit,
+    val onConfirmCache: () -> Unit,
+    val onDismissCache: () -> Unit,
+    val onPauseCache: (String) -> Unit,
+    val onResumeCache: (String) -> Unit,
+    val onDeleteCache: (String) -> Unit,
+    val onClearCache: () -> Unit,
+    val onPlayCached: (String) -> Unit,
 )
 
 @Composable
@@ -95,15 +122,41 @@ internal fun MobileAppScaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = AppBackground,
         bottomBar = {
-            if (!state.isPlayerFullscreen) {
+            if (!state.isPlayerFullscreen && !state.isDownloadsOpen) {
                 MobileBottomBar(
                     selectedTab = state.selectedTab,
                     onTabSelected = actions.onTabSelected,
                 )
             }
         },
+        floatingActionButton = {
+            if (
+                !state.isDownloadsOpen && !state.isPlayerFullscreen &&
+                state.selectedTab in setOf(MobileTab.Home, MobileTab.Library)
+            ) {
+                ExtendedFloatingActionButton(
+                    onClick = actions.onOpenDownloads,
+                    modifier = Modifier.testTag("open-downloads"),
+                    icon = { Icon(Icons.Filled.Download, contentDescription = null) },
+                    text = { Text(stringResource(R.string.downloads_title)) },
+                )
+            }
+        },
     ) { innerPadding ->
-        when (state.selectedTab) {
+        if (state.isDownloadsOpen) {
+            DownloadsPage(
+                contentPadding = innerPadding,
+                entries = state.cacheEntries,
+                availableBytes = state.cacheAvailableBytes,
+                error = state.cacheError,
+                onBack = actions.onCloseDownloads,
+                onPlay = actions.onPlayCached,
+                onPause = actions.onPauseCache,
+                onResume = actions.onResumeCache,
+                onDelete = actions.onDeleteCache,
+                onClear = actions.onClearCache,
+            )
+        } else when (state.selectedTab) {
             MobileTab.Home -> HomePage(
                 contentPadding = innerPadding,
                 catalog = state.catalog,
@@ -162,6 +215,13 @@ internal fun MobileAppScaffold(
                 onPlayPause = actions.onPlayPause,
                 onOpenPlayer = actions.onOpenPlayer,
                 onConnect = actions.onConnect,
+                cachedMediaIds = state.cacheEntries
+                    .filter {
+                        it.serverUrl == state.serverUrl && it.state == OfflineCacheState.READY
+                    }
+                    .mapTo(mutableSetOf()) { it.item.id },
+                onRequestCache = actions.onRequestCache,
+                onOpenDownloads = actions.onOpenDownloads,
             )
             MobileTab.Folders -> FolderPage(
                 contentPadding = innerPadding,
@@ -176,6 +236,16 @@ internal fun MobileAppScaffold(
                 refreshError = state.folderRefreshError,
                 refreshErrorDetail = state.folderRefreshErrorDetail,
                 onRefresh = actions.onRefreshFolder,
+                cachedMediaIds = state.cacheEntries
+                    .filter {
+                        it.serverUrl == state.serverUrl && it.state == OfflineCacheState.READY
+                    }
+                    .mapTo(mutableSetOf()) { it.item.id },
+                onCacheFile = { actions.onRequestCache(listOf(it)) },
+                onCacheFolder = { path ->
+                    state.catalog?.itemsInFolder(path)?.let(actions.onRequestCache)
+                },
+                onOpenDownloads = actions.onOpenDownloads,
             )
             MobileTab.Connect -> ConnectPage(
                 contentPadding = innerPadding,
@@ -202,5 +272,40 @@ internal fun MobileAppScaffold(
                 onOpenPlayer = actions.onOpenPlayer,
             )
         }
+    }
+    if (state.pendingCacheItems.isNotEmpty()) {
+        AlertDialog(
+            onDismissRequest = actions.onDismissCache,
+            title = { Text(stringResource(R.string.cache_confirm_title)) },
+            text = {
+                Text(
+                    stringResource(
+                        R.string.cache_confirm_body,
+                        state.pendingCacheItems.size,
+                        state.pendingCacheItems.sumOf(LibraryMediaItem::sizeBytes).formatCacheSize(),
+                    ),
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = actions.onConfirmCache) {
+                    Text(stringResource(R.string.action_cache))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = actions.onDismissCache) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            },
+        )
+    }
+}
+
+internal fun Long.formatCacheSize(): String {
+    val value = coerceAtLeast(0)
+    return when {
+        value >= 1024L * 1024L * 1024L -> "%.1f GB".format(value / (1024.0 * 1024.0 * 1024.0))
+        value >= 1024L * 1024L -> "%.1f MB".format(value / (1024.0 * 1024.0))
+        value >= 1024L -> "%.1f KB".format(value / 1024.0)
+        else -> "$value B"
     }
 }

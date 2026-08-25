@@ -17,6 +17,8 @@ import app.danmaku.library.android.LanLibraryDiscoveryClient
 import app.danmaku.library.android.LanLibraryDiscoveryException
 import app.danmaku.library.android.LanExternalTrackingClient
 import app.danmaku.library.android.LanExternalTrackingException
+import app.danmaku.library.android.AndroidOfflineCacheRepository
+import app.danmaku.library.android.OfflinePlaybackPreparation
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
@@ -38,6 +40,7 @@ internal class MobilePlayerActionHandler(
     private val favoriteStore: AndroidLibraryFavoriteStore,
     private val danmakuSettingsStore: MobileDanmakuSettingsPersistence,
     private val discoveryClient: LanLibraryDiscoveryClient,
+    private val offlineCacheRepository: AndroidOfflineCacheRepository,
     private val trackingClient: LanExternalTrackingClient,
     private val openVideoPicker: () -> Unit,
 ) {
@@ -359,6 +362,19 @@ internal class MobilePlayerActionHandler(
         state.savedConnections = connectionStore.loadProfiles()
         state.libraryError = null
         state.selectedTab = MobileTab.Library
+        scope.launch {
+            val mergedProgress = withContext(Dispatchers.IO) {
+                offlineCacheRepository.syncPendingProgress(
+                    serverUrl = state.serverUrl,
+                    pairingToken = requestedPairingToken,
+                    remoteProgress = snapshot.playbackProgresses,
+                )
+            }
+            if (state.serverUrl == requestedServerUrl.trim().trimEnd('/')) {
+                state.playbackProgresses = mergedProgress
+                refreshCacheState()
+            }
+        }
         loadTracking()
     }
 
@@ -381,6 +397,12 @@ internal class MobilePlayerActionHandler(
             return
         }
 
+        val cached = offlineCacheRepository.playable(state.serverUrl, item.id)
+        if (cached != null) {
+            playCached(cached)
+            return
+        }
+
         val target = LanPlaybackTarget(state.serverUrl, state.pairingToken, item.id)
         val previousTarget = state.activePlaybackTarget
         if (previousTarget != null && previousTarget != target) {
@@ -392,6 +414,7 @@ internal class MobilePlayerActionHandler(
         }
         state.nowPlaying = item
         state.activePlaybackTarget = target
+        state.activeOfflineCacheKey = null
         state.selectedTab = MobileTab.Watch
         state.isPlayerFullscreen = true
         state.playbackStartupPhase = MobilePlaybackStartupPhase.WaitingForDanmaku
@@ -457,6 +480,39 @@ internal class MobilePlayerActionHandler(
         }
     }
 
+    private fun playCached(preparation: OfflinePlaybackPreparation) {
+        val activeController = state.controller
+        if (activeController == null) {
+            state.playbackError = "Player service is not connected yet."
+            return
+        }
+        state.activePlaybackTarget?.let { previousTarget ->
+            val previousSnapshot = activeController.snapshot()
+            scope.launch(Dispatchers.IO) {
+                runCatching { progressSync.saveProgress(previousTarget, previousSnapshot) }
+            }
+        }
+        state.nowPlaying = preparation.item
+        state.activePlaybackTarget = null
+        state.activeOfflineCacheKey = preparation.cacheKey
+        state.selectedTab = MobileTab.Watch
+        state.isDownloadsOpen = false
+        state.isPlayerFullscreen = true
+        state.playbackStartupPhase = MobilePlaybackStartupPhase.Playing
+        state.danmakuState = MobileDanmakuState.fromTrack(preparation.danmaku)
+        state.libraryError = null
+        state.playbackError = null
+        activeController.load(preparation)
+        val resumePositionMs = preparation.resumePositionMs
+            ?: state.playbackProgresses
+                .firstOrNull { it.mediaId == preparation.item.id }
+                ?.positionMs
+        resumePositionMs?.takeIf { it > 0 }?.let {
+            activeController.dispatch(PlaybackCommand.SeekTo(it))
+        }
+        activeController.dispatch(PlaybackCommand.Play)
+    }
+
     private fun awaitDanmakuAfterTimeout(
         target: LanPlaybackTarget,
         danmakuDeferred: Deferred<Result<MobileDanmakuState>>,
@@ -479,6 +535,28 @@ internal class MobilePlayerActionHandler(
         } else {
             state.controller?.dispatch(PlaybackCommand.Play)
         }
+    }
+
+    private fun requestCache(items: List<LibraryMediaItem>) {
+        state.pendingCacheItems = items.distinctBy(LibraryMediaItem::id)
+        state.cacheError = null
+    }
+
+    private fun confirmCache() {
+        val pending = state.pendingCacheItems
+        if (pending.isEmpty()) return
+        runCatching { offlineCacheRepository.enqueue(state.serverUrl, pending) }
+            .onSuccess {
+                state.pendingCacheItems = emptyList()
+                state.isDownloadsOpen = true
+                refreshCacheState()
+            }
+            .onFailure { state.cacheError = it.message }
+    }
+
+    private fun refreshCacheState() {
+        state.cacheEntries = offlineCacheRepository.entries()
+        state.cacheAvailableBytes = offlineCacheRepository.availableBytes()
     }
 
     fun showLibraryItem(item: LibraryMediaItem) {
@@ -526,6 +604,7 @@ internal class MobilePlayerActionHandler(
         MobileAppActions(
             onTabSelected = {
                 state.isPlayerFullscreen = false
+                state.isDownloadsOpen = false
                 state.selectedTab = it
             },
             onPlay = ::playEpisode,
@@ -577,7 +656,51 @@ internal class MobilePlayerActionHandler(
             onLoadTracking = ::loadTracking,
             onReadTracking = ::readTracking,
             onSyncTracking = ::syncTracking,
+            onOpenDownloads = {
+                state.isPlayerFullscreen = false
+                state.isDownloadsOpen = true
+                refreshCacheState()
+            },
+            onCloseDownloads = { state.isDownloadsOpen = false },
+            onRequestCache = ::requestCache,
+            onConfirmCache = ::confirmCache,
+            onDismissCache = {
+                state.pendingCacheItems = emptyList()
+                state.cacheError = null
+            },
+            onPauseCache = {
+                offlineCacheRepository.pause(it)
+                refreshCacheState()
+            },
+            onResumeCache = {
+                offlineCacheRepository.resume(it)
+                refreshCacheState()
+            },
+            onDeleteCache = {
+                if (state.activeOfflineCacheKey == it) stopOfflinePlayback()
+                offlineCacheRepository.delete(it)
+                refreshCacheState()
+            },
+            onClearCache = {
+                if (state.activeOfflineCacheKey != null) stopOfflinePlayback()
+                offlineCacheRepository.clear()
+                refreshCacheState()
+            },
+            onPlayCached = { key ->
+                offlineCacheRepository.playable(key)?.let(::playCached)
+                    ?: run { state.cacheError = "Cached video is no longer available" }
+            },
         )
+
+    private fun stopOfflinePlayback() {
+        state.controller?.stop()
+        state.activeOfflineCacheKey = null
+        state.nowPlaying = null
+        state.snapshot = state.controller?.snapshot() ?: state.snapshot
+        state.danmakuState = MobileDanmakuState.Idle
+        state.playbackStartupPhase = MobilePlaybackStartupPhase.Idle
+        state.isPlayerFullscreen = false
+    }
 
     private companion object {
         const val DANMAKU_PLAYBACK_WAIT_TIMEOUT_MS = 15_000L

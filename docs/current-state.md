@@ -52,6 +52,14 @@ Compose macOS artifact are retired.
   controls. TV provides the same per-type controls in its translucent,
   D-pad-native danmaku panel, with Left/Right value sliders and text sizing down
   to 10%.
+- Android mobile can explicitly cache one episode, every episode in a series,
+  one file from the folder browser, or a one-time recursive folder snapshot.
+  Its persistent background queue stores video, resolved danmaku, sidecar
+  subtitles, posters, and item metadata in app-managed storage; cached entries
+  remain browsable and playable away from the trusted LAN. Downloads support
+  byte-range resume, pause, retry, cancel, per-item deletion, and clear-all.
+  Offline playback progress is checkpointed by the Media3 service and the
+  newest pending checkpoint is uploaded after the corresponding PC reconnects.
 - Native MAL/Bangumi account status, provider readback, exact progress preview,
   and explicitly confirmed sync; account/mapping/conflict administration stays
   on Windows and the web UI.
@@ -103,7 +111,9 @@ Compose macOS artifact are retired.
   remain release gates.
 - Richer danmaku filters/offsets, per-series playback preferences, metadata
   depth, collections, and notification surfaces remain planned.
-- Authorized download execution is not implemented in an active application.
+- Authorized downloads are currently implemented only for user-owned files
+  published by the Android mobile client's trusted-LAN desktop library. TV,
+  native desktop, and provider-managed download execution remain pending.
 - macOS online-provider HTTPS and protected provider-token persistence are not
   implemented; the current slice supports local/LAN playback and local
   XML/JSON/ASS danmaku. Packaging is not notarized or release-signed.

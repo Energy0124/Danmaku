@@ -45,8 +45,8 @@ Status: `[x]` done, `[~]` in progress, `[ ]` not started.
   season/year, episode counts, and specials/OVA/movie ordering.
 - `[ ]` Add favorites, watch-later, custom collections, and useful smart
   filters against normalized server-owned state.
-- `[ ]` Define authorized source contracts and build a download engine with
-  queue execution, pause/resume, retry, cache management, and diagnostics.
+- `[~]` Extend authorized downloads beyond the implemented Android mobile
+  user-owned LAN-library queue; TV/native execution remains unimplemented.
 - `[ ]` Add notification surfaces for newly indexed episodes, provider
   failures, tracking conflicts, and server availability.
 

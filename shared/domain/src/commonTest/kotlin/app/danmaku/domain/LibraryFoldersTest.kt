@@ -43,6 +43,25 @@ class LibraryFoldersTest {
         assertEquals("Anime\\Alpha", catalog.folderHeading(listOf("Alpha")))
     }
 
+    @Test
+    fun recursivelySelectsOnlyItemsBelowTheRequestedMultiRootFolder() {
+        val catalog = LibraryCatalog(
+            rootName = "Merged",
+            indexedAtEpochMs = 1,
+            items = listOf(
+                item("one", "M:\\Anime", "Alpha/Season 1/01.mkv"),
+                item("two", "M:\\Anime", "Alpha/Season 2/02.mkv"),
+                item("three", "M:\\Anime", "Beta/01.mkv"),
+                item("four", "N:\\Anime", "Alpha/03.mkv"),
+            ),
+        )
+
+        assertEquals(
+            listOf("one", "two"),
+            catalog.itemsInFolder(listOf("M:\\Anime", "Alpha")).map { it.id },
+        )
+    }
+
     private fun item(id: String, rootLabel: String, relativePath: String) =
         LibraryMediaItem(
             id = id,

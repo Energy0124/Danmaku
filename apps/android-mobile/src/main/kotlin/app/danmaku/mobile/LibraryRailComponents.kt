@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -21,6 +22,9 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -391,6 +395,7 @@ private fun SeriesPosterCard(
 internal fun SeriesDetailPanel(
     series: LibrarySeries,
     watchSummary: LibrarySeriesWatchSummary?,
+    onCacheSeries: (List<LibraryMediaItem>) -> Unit = {},
 ) {
     Surface(
         modifier = Modifier
@@ -429,6 +434,14 @@ internal fun SeriesDetailPanel(
                 AssistChip(onClick = {}, label = { Text(watchSummary.progressLabel()) })
                 AssistChip(onClick = {}, label = { Text(series.totalSizeBytes.formatSize()) })
                 AssistChip(onClick = {}, label = { Text(series.latestIndexedItem.episodeTitle) })
+            }
+            OutlinedButton(
+                onClick = { onCacheSeries(series.seasons.flatMap { it.items }) },
+                modifier = Modifier.testTag("series-detail-cache:${series.id}"),
+            ) {
+                Icon(Icons.Filled.Download, contentDescription = null)
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.action_cache_series))
             }
             series.seasons.take(3).forEach { season ->
                 Row(

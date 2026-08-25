@@ -10,6 +10,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.unit.dp
 import app.danmaku.domain.LibraryCatalog
@@ -79,6 +80,30 @@ class MobileFolderPageTest {
 
         composeRule.onNodeWithText("Connect").performClick()
         composeRule.runOnIdle { assertEquals(1, connectCount) }
+    }
+
+    @Test
+    fun cachesOneFolderFileWithoutSelectingItsSiblings() {
+        val first = item("first", "M:\\Anime", "Example/01.mkv")
+        val second = item("second", "M:\\Anime", "Example/02.mkv")
+        var selected: List<String> = emptyList()
+        composeRule.setContent {
+            MaterialTheme {
+                FolderPage(
+                    contentPadding = PaddingValues(0.dp),
+                    catalog = LibraryCatalog("Anime", 1, listOf(first, second)),
+                    path = listOf("Example"),
+                    onOpenFolder = {},
+                    onNavigateUp = {},
+                    onPlay = {},
+                    onConnect = {},
+                    onCacheFile = { selected = listOf(it.id) },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("folder-file-cache:first").performScrollTo().performClick()
+        composeRule.runOnIdle { assertEquals(listOf("first"), selected) }
     }
 
     @Test

@@ -17,6 +17,8 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -81,6 +83,9 @@ internal fun EpisodeDetailPanel(
     onSetFavorite: (Boolean) -> Unit,
     onPlay: (LibraryMediaItem) -> Unit,
     onSelectEpisode: (LibraryMediaItem) -> Unit,
+    isCached: Boolean = false,
+    onCache: (LibraryMediaItem) -> Unit = {},
+    onOpenDownloads: () -> Unit = {},
 ) {
     Surface(
         modifier = Modifier
@@ -177,6 +182,23 @@ internal fun EpisodeDetailPanel(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(stringResource(R.string.action_play))
+                }
+                OutlinedButton(
+                    onClick = {
+                        if (isCached) onOpenDownloads() else onCache(detail.mediaItem)
+                    },
+                    modifier = Modifier.testTag("episode-detail-cache:${detail.mediaItem.id}"),
+                ) {
+                    Icon(
+                        imageVector = if (isCached) Icons.Filled.CheckCircle else Icons.Filled.Download,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        if (isCached) stringResource(R.string.status_cached)
+                        else stringResource(R.string.action_cache),
+                    )
                 }
                 OutlinedButton(
                     onClick = { onSetFavorite(!isFavorite) },

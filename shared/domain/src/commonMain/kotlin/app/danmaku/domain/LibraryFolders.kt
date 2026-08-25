@@ -27,6 +27,27 @@ fun LibraryCatalog.folderListing(path: List<String>): LibraryFolderListing {
     )
 }
 
+/** Returns every media item below [path], including items in descendant folders. */
+fun LibraryCatalog.itemsInFolder(path: List<String>): List<LibraryMediaItem> {
+    val roots = rootLabels()
+    val (scopedItems, relativePath) = if (roots.size >= 2 && path.isNotEmpty()) {
+        items.filter { it.rootLabel.equals(path.first(), ignoreCase = true) } to path.drop(1)
+    } else if (roots.size >= 2) {
+        items to emptyList()
+    } else {
+        items to path
+    }
+    return scopedItems.filter { item ->
+        val segments = item.relativePath
+            .split('/', '\\')
+            .filter(String::isNotEmpty)
+        segments.size > relativePath.size &&
+            relativePath.indices.all { index ->
+                relativePath[index].equals(segments[index], ignoreCase = true)
+            }
+    }.sortedBy { it.relativePath.lowercase() }
+}
+
 fun LibraryCatalog.folderHeading(path: List<String>): String {
     if (path.isEmpty()) return rootName
     return if (rootLabels().size >= 2) {

@@ -9,6 +9,7 @@ import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.library.LanPlaybackProgressSync
 import app.danmaku.library.LanPlaybackTarget
 import app.danmaku.library.android.LanLibraryClient
+import app.danmaku.library.android.AndroidOfflineCacheRepository
 import app.danmaku.library.android.lanPlaybackTargetFromStreamUrl
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -31,6 +32,7 @@ class DanmakuPlaybackService : MediaSessionService() {
     private var mediaSession: MediaSession? = null
     private var progressUploadJob: Job? = null
     private var activeProgressTarget: LanPlaybackTarget? = null
+    private var activeOfflineCacheKey: String? = null
     private val progressUploadMutex = Mutex()
 
     override fun onCreate() {
@@ -98,22 +100,42 @@ class DanmakuPlaybackService : MediaSessionService() {
             ?.uri
             ?.toString()
             ?.let(::lanPlaybackTargetFromStreamUrl)
-        val target = activeProgressTarget
-            ?: return
+        activeOfflineCacheKey = mediaItem?.mediaId
+            ?.takeIf { it.startsWith(OFFLINE_MEDIA_ID_PREFIX) }
+            ?.removePrefix(OFFLINE_MEDIA_ID_PREFIX)
+        if (activeProgressTarget == null && activeOfflineCacheKey == null) return
         progressUploadJob = serviceScope.launch {
             while (isActive) {
                 delay(PROGRESS_UPLOAD_INTERVAL_MS)
                 val snapshot = Media3PlaybackController(player).snapshot()
-                uploadProgress(target, snapshot)
+                checkpointProgress(snapshot)
             }
         }
     }
 
     private fun checkpointProgress(player: Player) {
-        val target = activeProgressTarget ?: return
+        if (activeProgressTarget == null && activeOfflineCacheKey == null) return
         val snapshot = Media3PlaybackController(player).snapshot()
         serviceScope.launch {
+            checkpointProgress(snapshot)
+        }
+    }
+
+    private suspend fun checkpointProgress(snapshot: PlaybackSnapshot) {
+        val target = activeProgressTarget
+        val offlineKey = activeOfflineCacheKey
+        if (target != null) {
             uploadProgress(target, snapshot)
+        } else if (offlineKey != null && snapshot.position.positionMs > 0) {
+            progressUploadMutex.withLock {
+                withContext(Dispatchers.IO) {
+                    AndroidOfflineCacheRepository(applicationContext).savePendingProgress(
+                        offlineKey,
+                        snapshot,
+                        System.currentTimeMillis(),
+                    )
+                }
+            }
         }
     }
 
