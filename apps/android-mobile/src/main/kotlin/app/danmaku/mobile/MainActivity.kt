@@ -75,6 +75,8 @@ import app.danmaku.library.android.AndroidOfflineCacheRepository
 import app.danmaku.player.android.Media3PlaybackController
 import app.danmaku.player.android.Media3PlaybackServiceConnection
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 internal val AppBackground = Color(0xFF101214)
 internal val PlayerBlack = Color(0xFF050607)
@@ -157,8 +159,11 @@ private fun MobilePlayerScreen() {
     }
     LaunchedEffect(offlineCacheRepository) {
         while (true) {
-            appState.cacheEntries = offlineCacheRepository.entries()
-            appState.cacheAvailableBytes = offlineCacheRepository.availableBytes()
+            val cacheState = withContext(Dispatchers.IO) {
+                offlineCacheRepository.entries() to offlineCacheRepository.availableBytes()
+            }
+            appState.cacheEntries = cacheState.first
+            appState.cacheAvailableBytes = cacheState.second
             delay(1_000)
         }
     }

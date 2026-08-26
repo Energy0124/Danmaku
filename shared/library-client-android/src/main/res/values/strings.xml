@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="offline_download_channel_name">Offline downloads</string>
+    <string name="offline_download_action_pause">Pause</string>
+    <string name="offline_download_action_cancel">Cancel</string>
+</resources>

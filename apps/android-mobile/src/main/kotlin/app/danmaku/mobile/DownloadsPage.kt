@@ -153,7 +153,7 @@ private fun DownloadEntryCard(
             Text(entry.item.episodeTitle, fontWeight = FontWeight.SemiBold)
             Text(entry.item.seriesTitle, color = SubtleText, style = MaterialTheme.typography.bodySmall)
             Text(
-                "${entry.state.displayLabel()} · ${entry.downloadedBytes.formatCacheSize()} / ${entry.totalBytes.formatCacheSize()}",
+                "${stringResource(entry.state.labelResource())} · ${entry.downloadedBytes.formatCacheSize()} / ${entry.totalBytes.formatCacheSize()}",
                 color = SubtleText,
                 style = MaterialTheme.typography.bodySmall,
             )
@@ -205,5 +205,11 @@ private fun DownloadEntryCard(
     }
 }
 
-private fun OfflineCacheState.displayLabel(): String =
-    name.lowercase().replaceFirstChar(Char::uppercase)
+private fun OfflineCacheState.labelResource(): Int = when (this) {
+    OfflineCacheState.QUEUED -> R.string.cache_state_queued
+    OfflineCacheState.DOWNLOADING -> R.string.cache_state_downloading
+    OfflineCacheState.PAUSED -> R.string.cache_state_paused
+    OfflineCacheState.RETRYING -> R.string.cache_state_retrying
+    OfflineCacheState.READY -> R.string.cache_state_ready
+    OfflineCacheState.FAILED -> R.string.cache_state_failed
+}

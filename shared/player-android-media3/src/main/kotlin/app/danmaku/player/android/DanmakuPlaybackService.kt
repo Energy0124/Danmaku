@@ -32,7 +32,7 @@ class DanmakuPlaybackService : MediaSessionService() {
     private var mediaSession: MediaSession? = null
     private var progressUploadJob: Job? = null
     private var activeProgressTarget: LanPlaybackTarget? = null
-    private var activeOfflineCacheKey: String? = null
+    private var activeOfflineProgressTarget: OfflineProgressTarget? = null
     private val progressUploadMutex = Mutex()
 
     override fun onCreate() {
@@ -100,10 +100,17 @@ class DanmakuPlaybackService : MediaSessionService() {
             ?.uri
             ?.toString()
             ?.let(::lanPlaybackTargetFromStreamUrl)
-        activeOfflineCacheKey = mediaItem?.mediaId
+        val offlineKey = mediaItem?.mediaId
             ?.takeIf { it.startsWith(OFFLINE_MEDIA_ID_PREFIX) }
             ?.removePrefix(OFFLINE_MEDIA_ID_PREFIX)
-        if (activeProgressTarget == null && activeOfflineCacheKey == null) return
+        val extras = mediaItem?.mediaMetadata?.extras
+        activeOfflineProgressTarget = offlineKey?.let { key ->
+            val serverUrl = extras?.getString(OFFLINE_SERVER_URL_EXTRA)
+            val mediaId = extras?.getString(OFFLINE_LIBRARY_MEDIA_ID_EXTRA)
+            if (serverUrl.isNullOrBlank() || mediaId.isNullOrBlank()) null
+            else OfflineProgressTarget(key, serverUrl, mediaId)
+        }
+        if (activeProgressTarget == null && activeOfflineProgressTarget == null) return
         progressUploadJob = serviceScope.launch {
             while (isActive) {
                 delay(PROGRESS_UPLOAD_INTERVAL_MS)
@@ -114,7 +121,7 @@ class DanmakuPlaybackService : MediaSessionService() {
     }
 
     private fun checkpointProgress(player: Player) {
-        if (activeProgressTarget == null && activeOfflineCacheKey == null) return
+        if (activeProgressTarget == null && activeOfflineProgressTarget == null) return
         val snapshot = Media3PlaybackController(player).snapshot()
         serviceScope.launch {
             checkpointProgress(snapshot)
@@ -123,14 +130,16 @@ class DanmakuPlaybackService : MediaSessionService() {
 
     private suspend fun checkpointProgress(snapshot: PlaybackSnapshot) {
         val target = activeProgressTarget
-        val offlineKey = activeOfflineCacheKey
+        val offlineTarget = activeOfflineProgressTarget
         if (target != null) {
             uploadProgress(target, snapshot)
-        } else if (offlineKey != null && snapshot.position.positionMs > 0) {
+        } else if (offlineTarget != null && snapshot.position.positionMs > 0) {
             progressUploadMutex.withLock {
                 withContext(Dispatchers.IO) {
                     AndroidOfflineCacheRepository(applicationContext).savePendingProgress(
-                        offlineKey,
+                        offlineTarget.cacheKey,
+                        offlineTarget.serverUrl,
+                        offlineTarget.mediaId,
                         snapshot,
                         System.currentTimeMillis(),
                     )
@@ -157,3 +166,9 @@ class DanmakuPlaybackService : MediaSessionService() {
         private const val PROGRESS_UPLOAD_INTERVAL_MS = 5_000L
     }
 }
+
+private data class OfflineProgressTarget(
+    val cacheKey: String,
+    val serverUrl: String,
+    val mediaId: String,
+)

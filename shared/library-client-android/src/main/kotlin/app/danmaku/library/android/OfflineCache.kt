@@ -43,8 +43,8 @@ import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -76,7 +76,6 @@ data class OfflineCacheEntry(
     val warnings: List<String> = emptyList(),
     val errorMessage: String? = null,
     val cachedAtEpochMs: Long? = null,
-    val pendingProgress: PlaybackProgress? = null,
 )
 
 data class OfflineSubtitlePreparation(
@@ -86,6 +85,7 @@ data class OfflineSubtitlePreparation(
 
 data class OfflinePlaybackPreparation(
     val cacheKey: String,
+    val serverUrl: String,
     val item: LibraryMediaItem,
     val source: PlaybackSource.LocalFile,
     val subtitles: List<OfflineSubtitlePreparation>,
@@ -99,14 +99,57 @@ private data class OfflineCacheIndex(
     val entries: List<OfflineCacheEntry> = emptyList(),
 )
 
-class AndroidOfflineCacheRepository(
-    context: Context,
+@Serializable
+private data class OfflinePendingProgress(
+    val key: String,
+    val serverUrl: String,
+    val mediaId: String,
+    val progress: PlaybackProgress,
+)
+
+@Serializable
+private data class OfflineProgressIndex(
+    val version: Int = PROGRESS_INDEX_VERSION,
+    val entries: List<OfflinePendingProgress> = emptyList(),
+)
+
+internal fun interface OfflineProgressUploader {
+    fun upload(serverUrl: String, pairingToken: String, progress: PlaybackProgress)
+}
+
+internal interface OfflineWorkScheduler {
+    fun enqueue(key: String)
+    fun cancelAll()
+}
+
+internal fun interface OfflineAtomicMove {
+    fun move(source: File, destination: File)
+}
+
+class AndroidOfflineCacheRepository internal constructor(
+    private val root: File,
     private val json: Json = DEFAULT_JSON,
+    private val workScheduler: OfflineWorkScheduler,
+    private val progressUploader: OfflineProgressUploader,
+    private val atomicMove: OfflineAtomicMove,
 ) {
-    private val appContext = context.applicationContext
-    private val root = cacheRoot(appContext)
+    constructor(
+        context: Context,
+        json: Json = DEFAULT_JSON,
+    ) : this(
+        root = cacheRoot(context.applicationContext),
+        json = json,
+        workScheduler = WorkManagerOfflineWorkScheduler(context.applicationContext),
+        progressUploader = OfflineProgressUploader { serverUrl, pairingToken, progress ->
+            LanLibraryClient().saveProgress(serverUrl, pairingToken, progress)
+        },
+        atomicMove = OfflineAtomicMove { source, destination ->
+            Os.rename(source.absolutePath, destination.absolutePath)
+        },
+    )
+
     private val indexFile = File(root, "index.json")
-    private val workManager = WorkManager.getInstance(appContext)
+    private val progressFile = File(root, "progress.json")
 
     init {
         root.mkdirs()
@@ -154,33 +197,33 @@ class AndroidOfflineCacheRepository(
             val key = cacheKey(normalizedServerUrl, item.id)
             updated.entries.firstOrNull { it.key == key }
                 ?.takeIf { it.state == OfflineCacheState.QUEUED }
-                ?.let { schedule(it.key) }
+                ?.let { workScheduler.enqueue(it.key) }
         }
         return updated.entries.filter { entry -> selected.any { it.id == entry.item.id } }
     }
 
     fun pause(key: String) {
-        workManager.cancelUniqueWork(workName(key))
         updateEntry(key) { it.copy(state = OfflineCacheState.PAUSED, errorMessage = null) }
     }
 
     fun resume(key: String) {
         updateEntry(key) { it.copy(state = OfflineCacheState.QUEUED, errorMessage = null) }
-        schedule(key)
+        workScheduler.enqueue(key)
     }
 
     fun retry(key: String) = resume(key)
 
     fun delete(key: String) {
-        workManager.cancelUniqueWork(workName(key))
-        File(root, key).deleteRecursively()
         mutateIndex { index -> index.copy(entries = index.entries.filterNot { it.key == key }) }
+        File(root, key).deleteRecursively()
     }
 
     fun clear() {
-        entries().forEach { workManager.cancelUniqueWork(workName(it.key)) }
-        root.listFiles()?.filter { it != indexFile }?.forEach(File::deleteRecursively)
+        workScheduler.cancelAll()
         writeIndex(OfflineCacheIndex())
+        root.listFiles()
+            ?.filter { it != indexFile && it != progressFile }
+            ?.forEach(File::deleteRecursively)
     }
 
     fun playable(serverUrl: String, mediaId: String): OfflinePlaybackPreparation? =
@@ -190,13 +233,24 @@ class AndroidOfflineCacheRepository(
         entries().firstOrNull { it.key == key }?.let(::playable)
 
     fun savePendingProgress(key: String, progress: PlaybackProgress) {
-        updateEntry(key) { current ->
-            val existing = current.pendingProgress
-            if (existing == null || progress.updatedAtEpochMs >= existing.updatedAtEpochMs) {
-                current.copy(pendingProgress = progress)
-            } else {
-                current
+        val entry = entry(key) ?: return
+        savePendingProgress(key, entry.serverUrl, entry.item.id, progress)
+    }
+
+    fun savePendingProgress(
+        key: String,
+        serverUrl: String,
+        mediaId: String,
+        progress: PlaybackProgress,
+    ) {
+        val normalizedServerUrl = serverUrl.trim().trimEnd('/')
+        mutateProgress { index ->
+            val byKey = index.entries.associateByTo(linkedMapOf(), OfflinePendingProgress::key)
+            val existing = byKey[key]
+            if (existing == null || progress.updatedAtEpochMs >= existing.progress.updatedAtEpochMs) {
+                byKey[key] = OfflinePendingProgress(key, normalizedServerUrl, mediaId, progress)
             }
+            index.copy(entries = byKey.values.toList())
         }
     }
 
@@ -205,8 +259,20 @@ class AndroidOfflineCacheRepository(
         snapshot.toPlaybackProgress(mediaId, updatedAtEpochMs)?.let { savePendingProgress(key, it) }
     }
 
+    fun savePendingProgress(
+        key: String,
+        serverUrl: String,
+        mediaId: String,
+        snapshot: PlaybackSnapshot,
+        updatedAtEpochMs: Long,
+    ) {
+        snapshot.toPlaybackProgress(mediaId, updatedAtEpochMs)?.let {
+            savePendingProgress(key, serverUrl, mediaId, it)
+        }
+    }
+
     fun clearPendingProgress(key: String) {
-        updateEntry(key) { it.copy(pendingProgress = null) }
+        mutateProgress { index -> index.copy(entries = index.entries.filterNot { it.key == key }) }
     }
 
     fun syncPendingProgress(
@@ -216,19 +282,19 @@ class AndroidOfflineCacheRepository(
     ): List<PlaybackProgress> {
         val normalized = serverUrl.trim().trimEnd('/')
         val remoteById = remoteProgress.associateBy(PlaybackProgress::mediaId).toMutableMap()
-        entries()
-            .filter { it.serverUrl == normalized && it.pendingProgress != null }
-            .forEach { entry ->
-                val pending = entry.pendingProgress ?: return@forEach
-                val remote = remoteById[pending.mediaId]
+        readProgress().entries
+            .filter { it.serverUrl == normalized }
+            .forEach { pendingEntry ->
+                val pending = pendingEntry.progress
+                val remote = remoteById[pendingEntry.mediaId]
                 if (remote != null && remote.updatedAtEpochMs >= pending.updatedAtEpochMs) {
-                    clearPendingProgress(entry.key)
+                    clearPendingProgress(pendingEntry.key)
                 } else {
                     runCatching {
-                        LanLibraryClient().saveProgress(normalized, pairingToken, pending)
+                        progressUploader.upload(normalized, pairingToken, pending)
                     }.onSuccess {
                         remoteById[pending.mediaId] = pending
-                        clearPendingProgress(entry.key)
+                        clearPendingProgress(pendingEntry.key)
                     }
                 }
             }
@@ -241,10 +307,37 @@ class AndroidOfflineCacheRepository(
         }
     }
 
+    internal fun completeEntry(
+        key: String,
+        transform: (OfflineCacheEntry) -> OfflineCacheEntry,
+    ): Boolean {
+        var completed = false
+        mutateIndex { index ->
+            index.copy(
+                entries = index.entries.map { entry ->
+                    if (
+                        entry.key == key &&
+                        entry.state in setOf(OfflineCacheState.DOWNLOADING, OfflineCacheState.RETRYING)
+                    ) {
+                        completed = true
+                        transform(entry)
+                    } else {
+                        entry
+                    }
+                },
+            )
+        }
+        return completed
+    }
+
     internal fun entryByKey(key: String): OfflineCacheEntry? =
         entries().firstOrNull { it.key == key }
 
     internal fun directory(key: String): File = File(root, key).also(File::mkdirs)
+
+    internal fun deleteDirectory(key: String) {
+        File(root, key).deleteRecursively()
+    }
 
     private fun playable(entry: OfflineCacheEntry): OfflinePlaybackPreparation? {
         if (entry.state != OfflineCacheState.READY || !isPlayable(entry)) return null
@@ -255,6 +348,7 @@ class AndroidOfflineCacheRepository(
         }.getOrNull() ?: return null
         return OfflinePlaybackPreparation(
             cacheKey = entry.key,
+            serverUrl = entry.serverUrl,
             item = entry.item,
             source = PlaybackSource.LocalFile(video.toURI().toString()),
             subtitles = entry.item.subtitles.mapNotNull { track ->
@@ -264,28 +358,16 @@ class AndroidOfflineCacheRepository(
                 }
             },
             danmaku = danmaku,
-            resumePositionMs = entry.pendingProgress?.positionMs,
+            resumePositionMs = readProgress().entries
+                .firstOrNull { it.key == entry.key }
+                ?.progress
+                ?.positionMs,
         )
     }
 
     private fun isPlayable(entry: OfflineCacheEntry): Boolean =
         entry.videoPath?.let { File(root, it).isFile } == true &&
             entry.danmakuPath?.let { File(root, it).isFile } == true
-
-    private fun schedule(key: String) {
-        val request = OneTimeWorkRequestBuilder<OfflineDownloadWorker>()
-            .setInputData(Data.Builder().putString(WORK_KEY, key).build())
-            .setConstraints(
-                Constraints.Builder()
-                    .setRequiredNetworkType(NetworkType.CONNECTED)
-                    .setRequiresStorageNotLow(true)
-                    .build(),
-            )
-            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
-            .addTag(WORK_TAG)
-            .build()
-        workManager.enqueueUniqueWork(workName(key), ExistingWorkPolicy.REPLACE, request)
-    }
 
     private fun readIndex(): OfflineCacheIndex = synchronized(INDEX_LOCK) {
         if (!indexFile.isFile) return@synchronized OfflineCacheIndex()
@@ -306,19 +388,41 @@ class AndroidOfflineCacheRepository(
             transform(current).also(::writeIndexLocked)
         }
 
+    private fun readProgress(): OfflineProgressIndex = synchronized(INDEX_LOCK) {
+        if (!progressFile.isFile) return@synchronized OfflineProgressIndex()
+        runCatching { json.decodeFromString<OfflineProgressIndex>(progressFile.readText()) }
+            .getOrNull()
+            ?.takeIf { it.version == PROGRESS_INDEX_VERSION }
+            ?: OfflineProgressIndex()
+    }
+
+    private fun mutateProgress(
+        transform: (OfflineProgressIndex) -> OfflineProgressIndex,
+    ): OfflineProgressIndex = synchronized(INDEX_LOCK) {
+        transform(readProgress()).also { writeProgressLocked(it) }
+    }
+
     private fun writeIndex(index: OfflineCacheIndex) = synchronized(INDEX_LOCK) {
         writeIndexLocked(index)
     }
 
     private fun writeIndexLocked(index: OfflineCacheIndex) {
+        writeAtomically(indexFile, json.encodeToString(index))
+    }
+
+    private fun writeProgressLocked(index: OfflineProgressIndex) {
+        writeAtomically(progressFile, json.encodeToString(index))
+    }
+
+    private fun writeAtomically(destination: File, contents: String) {
         root.mkdirs()
-        val temporary = File(root, "index.json.tmp")
-        temporary.writeText(json.encodeToString(index))
+        val temporary = File(root, "${destination.name}.tmp")
+        temporary.writeText(contents)
         try {
-            Os.rename(temporary.absolutePath, indexFile.absolutePath)
+            atomicMove.move(temporary, destination)
         } catch (error: Exception) {
             temporary.delete()
-            throw IllegalStateException("Unable to commit offline cache index", error)
+            throw IllegalStateException("Unable to commit ${destination.name}", error)
         }
     }
 
@@ -333,7 +437,35 @@ class AndroidOfflineCacheRepository(
                 .joinToString("") { "%02x".format(it) }
         }
 
-        internal fun workName(key: String) = "danmaku-offline-cache-$key"
+        internal const val QUEUE_WORK_NAME = "danmaku-offline-cache-queue"
+    }
+}
+
+private class WorkManagerOfflineWorkScheduler(context: Context) : OfflineWorkScheduler {
+    private val workManager = WorkManager.getInstance(context)
+
+    override fun enqueue(key: String) {
+        val request = OneTimeWorkRequestBuilder<OfflineDownloadWorker>()
+            .setInputData(Data.Builder().putString(WORK_KEY, key).build())
+            .setConstraints(
+                Constraints.Builder()
+                    .setRequiredNetworkType(NetworkType.CONNECTED)
+                    .setRequiresStorageNotLow(true)
+                    .build(),
+            )
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
+            .addTag(WORK_TAG)
+            .addTag(workTag(key))
+            .build()
+        workManager.enqueueUniqueWork(
+            AndroidOfflineCacheRepository.QUEUE_WORK_NAME,
+            ExistingWorkPolicy.APPEND_OR_REPLACE,
+            request,
+        )
+    }
+
+    override fun cancelAll() {
+        workManager.cancelUniqueWork(AndroidOfflineCacheRepository.QUEUE_WORK_NAME)
     }
 }
 
@@ -344,9 +476,12 @@ class OfflineDownloadWorker(
     private val repository = AndroidOfflineCacheRepository(appContext)
     private val libraryClient = LanLibraryClient()
 
-    override suspend fun doWork(): Result = DOWNLOAD_MUTEX.withLock {
-        val key = inputData.getString(WORK_KEY) ?: return@withLock Result.failure()
-        val entry = repository.entryByKey(key) ?: return@withLock Result.success()
+    override suspend fun doWork(): Result {
+        val key = inputData.getString(WORK_KEY) ?: return Result.failure()
+        val entry = repository.entryByKey(key) ?: return Result.success()
+        if (entry.state !in setOf(OfflineCacheState.QUEUED, OfflineCacheState.RETRYING)) {
+            return Result.success()
+        }
         setForeground(foregroundInfo(entry, entry.downloadedBytes))
         repository.updateEntry(key) {
             it.copy(
@@ -354,10 +489,14 @@ class OfflineDownloadWorker(
                 errorMessage = null,
             )
         }
-        try {
+        return try {
             withContext(Dispatchers.IO) { download(entry) }
             Result.success()
+        } catch (inactive: OfflineEntryInactiveException) {
+            if (repository.entryByKey(key) == null) repository.deleteDirectory(key)
+            Result.success()
         } catch (cancelled: CancellationException) {
+            if (repository.entryByKey(key) == null) repository.deleteDirectory(key)
             throw cancelled
         } catch (error: PermanentDownloadException) {
             repository.updateEntry(key) {
@@ -393,28 +532,43 @@ class OfflineDownloadWorker(
             expectedBytes = entry.item.sizeBytes,
             entry = entry,
         )
+        ensureEntryActive(entry.key)
 
         val danmaku = libraryClient.fetchDanmaku(entry.serverUrl, entry.item.id, token)
+        ensureEntryActive(entry.key)
         val danmakuFile = File(directory, "danmaku.json")
         danmakuFile.writeText(DEFAULT_JSON.encodeToString(danmaku))
 
         val warnings = mutableListOf<String>()
         val subtitlePaths = entry.item.subtitles.mapIndexedNotNull { index, subtitle ->
             val file = File(directory, "subtitle-$index.${subtitle.relativePath.safeExtension("sub")}")
-            runCatching {
+            try {
                 downloadSmall(libraryClient.subtitleUrl(entry.serverUrl, subtitle, token), file)
+                ensureEntryActive(entry.key)
                 subtitle.id to file.relativeTo(cacheRoot(applicationContext)).path
-            }.onFailure { warnings += "${subtitle.label}: ${it.userMessage()}" }.getOrNull()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Throwable) {
+                warnings += "${subtitle.label}: ${error.userMessage()}"
+                null
+            }
         }.toMap()
         val posterPath = entry.item.posterPath?.let { path ->
             val poster = File(directory, "poster.${path.safeExtension("image")}")
-            runCatching {
+            try {
                 downloadSmall("${entry.serverUrl}$path", poster)
+                ensureEntryActive(entry.key)
                 poster.relativeTo(cacheRoot(applicationContext)).path
-            }.onFailure { warnings += "Poster: ${it.userMessage()}" }.getOrNull()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Throwable) {
+                warnings += "Poster: ${error.userMessage()}"
+                null
+            }
         }
+        ensureEntryActive(entry.key)
         val totalBytes = directory.walkTopDown().filter(File::isFile).sumOf(File::length)
-        repository.updateEntry(entry.key) {
+        val completed = repository.completeEntry(entry.key) {
             it.copy(
                 state = OfflineCacheState.READY,
                 downloadedBytes = totalBytes,
@@ -428,6 +582,10 @@ class OfflineDownloadWorker(
                 cachedAtEpochMs = System.currentTimeMillis(),
             )
         }
+        if (!completed) {
+            if (repository.entryByKey(entry.key) == null) repository.deleteDirectory(entry.key)
+            throw OfflineEntryInactiveException()
+        }
     }
 
     private suspend fun downloadResumable(
@@ -436,51 +594,35 @@ class OfflineDownloadWorker(
         expectedBytes: Long,
         entry: OfflineCacheEntry,
     ) {
-        if (destination.isFile && destination.length() == expectedBytes) return
-        val part = File(destination.parentFile, "${destination.name}.part")
-        var existingBytes = part.takeIf(File::isFile)?.length() ?: 0L
-        if (existingBytes > expectedBytes) {
-            part.delete()
-            existingBytes = 0
+        downloadResumableFile(
+            url = url,
+            destination = destination,
+            expectedBytes = expectedBytes,
+            progressUpdateIntervalMs = PROGRESS_UPDATE_INTERVAL_MS,
+        ) { downloadedBytes ->
+            reportProgress(entry, downloadedBytes, expectedBytes)
         }
-        val connection = open(url).apply {
-            if (existingBytes > 0) setRequestProperty("Range", "bytes=$existingBytes-")
+    }
+
+    private suspend fun reportProgress(
+        entry: OfflineCacheEntry,
+        downloadedBytes: Long,
+        expectedBytes: Long,
+    ) {
+        ensureEntryActive(entry.key)
+        repository.updateEntry(entry.key) {
+            it.copy(downloadedBytes = downloadedBytes, totalBytes = expectedBytes)
         }
-        try {
-            val responseCode = connection.responseCode
-            if (responseCode == HttpURLConnection.HTTP_NOT_FOUND) {
-                throw PermanentDownloadException("Video is no longer available on the PC")
-            }
-            if (responseCode !in setOf(HttpURLConnection.HTTP_OK, HttpURLConnection.HTTP_PARTIAL)) {
-                throw connection.failure()
-            }
-            val append = existingBytes > 0 && responseCode == HttpURLConnection.HTTP_PARTIAL
-            if (!append) existingBytes = 0
-            FileOutputStream(part, append).use { output ->
-                connection.inputStream.use { input ->
-                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-                    var downloaded = existingBytes
-                    while (true) {
-                        val count = input.read(buffer)
-                        if (count < 0) break
-                        output.write(buffer, 0, count)
-                        downloaded += count
-                        repository.updateEntry(entry.key) {
-                            it.copy(downloadedBytes = downloaded, totalBytes = expectedBytes)
-                        }
-                        setProgress(Data.Builder().putLong("downloadedBytes", downloaded).build())
-                        setForeground(foregroundInfo(entry, downloaded))
-                    }
-                }
-            }
-        } finally {
-            connection.disconnect()
+        setProgress(Data.Builder().putLong("downloadedBytes", downloadedBytes).build())
+        setForeground(foregroundInfo(entry.copy(totalBytes = expectedBytes), downloadedBytes))
+    }
+
+    private suspend fun ensureEntryActive(key: String) {
+        currentCoroutineContext().ensureActive()
+        val state = repository.entryByKey(key)?.state
+        if (state !in setOf(OfflineCacheState.DOWNLOADING, OfflineCacheState.RETRYING)) {
+            throw OfflineEntryInactiveException()
         }
-        if (part.length() != expectedBytes) {
-            throw IllegalStateException("Downloaded ${part.length()} of $expectedBytes bytes")
-        }
-        if (destination.exists()) destination.delete()
-        if (!part.renameTo(destination)) throw IllegalStateException("Unable to finalize video cache")
     }
 
     private fun downloadSmall(url: String, destination: File) {
@@ -534,8 +676,8 @@ class OfflineDownloadWorker(
             .setOnlyAlertOnce(true)
             .setOngoing(true)
             .setProgress(100, progress, entry.totalBytes <= 0)
-            .addAction(0, "Pause", pauseIntent)
-            .addAction(0, "Cancel", cancelIntent)
+            .addAction(0, applicationContext.getString(R.string.offline_download_action_pause), pauseIntent)
+            .addAction(0, applicationContext.getString(R.string.offline_download_action_cancel), cancelIntent)
             .build()
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             ForegroundInfo(entry.key.hashCode(), notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
@@ -550,17 +692,89 @@ class OfflineDownloadWorker(
             .createNotificationChannel(
                 NotificationChannel(
                     NOTIFICATION_CHANNEL,
-                    "Offline downloads",
+                    applicationContext.getString(R.string.offline_download_channel_name),
                     NotificationManager.IMPORTANCE_LOW,
                 ),
             )
     }
 
     private companion object {
-        val DOWNLOAD_MUTEX = Mutex()
         const val MAX_RETRIES = 5
+        const val PROGRESS_UPDATE_INTERVAL_MS = 1_000L
     }
 }
+
+internal suspend fun downloadResumableFile(
+    url: String,
+    destination: File,
+    expectedBytes: Long,
+    progressUpdateIntervalMs: Long = 1_000L,
+    elapsedRealtimeMs: () -> Long = { System.nanoTime() / 1_000_000L },
+    onProgress: suspend (Long) -> Unit = {},
+) {
+    require(expectedBytes >= 0) { "expectedBytes must not be negative" }
+    if (destination.isFile && destination.length() == expectedBytes) return
+    destination.parentFile?.mkdirs()
+    val part = File(destination.parentFile, "${destination.name}.part")
+    var existingBytes = part.takeIf(File::isFile)?.length() ?: 0L
+    if (existingBytes > expectedBytes) {
+        part.delete()
+        existingBytes = 0
+    }
+    val connection = openDownloadConnection(url).apply {
+        if (existingBytes > 0) setRequestProperty("Range", "bytes=$existingBytes-")
+    }
+    try {
+        val responseCode = connection.responseCode
+        if (responseCode == HttpURLConnection.HTTP_NOT_FOUND) {
+            throw PermanentDownloadException("Video is no longer available on the PC")
+        }
+        if (responseCode !in setOf(HttpURLConnection.HTTP_OK, HttpURLConnection.HTTP_PARTIAL)) {
+            throw connection.failure()
+        }
+        val append = existingBytes > 0 && responseCode == HttpURLConnection.HTTP_PARTIAL
+        if (append) {
+            val contentRange = connection.getHeaderField("Content-Range").orEmpty()
+            if (!contentRange.startsWith("bytes $existingBytes-")) {
+                throw IllegalStateException("Server returned an invalid byte range")
+            }
+        } else {
+            existingBytes = 0
+        }
+        FileOutputStream(part, append).use { output ->
+            connection.inputStream.use { input ->
+                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                var downloaded = existingBytes
+                var lastProgressUpdateAtMs = elapsedRealtimeMs()
+                while (true) {
+                    val count = input.read(buffer)
+                    if (count < 0) break
+                    output.write(buffer, 0, count)
+                    downloaded += count
+                    val nowMs = elapsedRealtimeMs()
+                    if (nowMs - lastProgressUpdateAtMs >= progressUpdateIntervalMs) {
+                        onProgress(downloaded)
+                        lastProgressUpdateAtMs = nowMs
+                    }
+                }
+                onProgress(downloaded)
+            }
+        }
+    } finally {
+        connection.disconnect()
+    }
+    if (part.length() != expectedBytes) {
+        throw IllegalStateException("Downloaded ${part.length()} of $expectedBytes bytes")
+    }
+    if (destination.exists()) destination.delete()
+    if (!part.renameTo(destination)) throw IllegalStateException("Unable to finalize video cache")
+}
+
+private fun openDownloadConnection(url: String): HttpURLConnection =
+    (URI(url).toURL().openConnection() as HttpURLConnection).apply {
+        connectTimeout = 10_000
+        readTimeout = 30_000
+    }
 
 class OfflineDownloadActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -573,7 +787,8 @@ class OfflineDownloadActionReceiver : BroadcastReceiver() {
     }
 }
 
-private class PermanentDownloadException(message: String) : IllegalStateException(message)
+internal class PermanentDownloadException(message: String) : IllegalStateException(message)
+private class OfflineEntryInactiveException : CancellationException()
 
 private fun HttpURLConnection.failure(): Throwable =
     if (responseCode in 400..499) {
@@ -664,12 +879,14 @@ private fun offlineManifest(
 }
 
 private const val INDEX_VERSION = 1
+private const val PROGRESS_INDEX_VERSION = 1
 private const val WORK_KEY = "offlineCacheKey"
 private const val WORK_TAG = "danmaku-offline-cache"
 private const val ACTION_PAUSE = "app.danmaku.offline.PAUSE"
 private const val ACTION_CANCEL = "app.danmaku.offline.CANCEL"
 private const val NOTIFICATION_CHANNEL = "offline-downloads"
 private const val SPACE_RESERVE_BYTES = 256L * 1024L * 1024L
+private fun workTag(key: String) = "$WORK_TAG:$key"
 private val DEFAULT_JSON = Json {
     ignoreUnknownKeys = true
     encodeDefaults = true

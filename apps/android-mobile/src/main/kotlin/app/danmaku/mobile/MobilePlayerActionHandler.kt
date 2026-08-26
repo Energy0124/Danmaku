@@ -19,6 +19,7 @@ import app.danmaku.library.android.LanExternalTrackingClient
 import app.danmaku.library.android.LanExternalTrackingException
 import app.danmaku.library.android.AndroidOfflineCacheRepository
 import app.danmaku.library.android.OfflinePlaybackPreparation
+import app.danmaku.player.android.Media3PlaybackController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
@@ -46,6 +47,8 @@ internal class MobilePlayerActionHandler(
 ) {
     private val trackingGeneration = AtomicLong()
     private val folderRefreshGeneration = AtomicLong()
+    private val connectionGeneration = AtomicLong()
+    private val playbackGeneration = AtomicLong()
     fun connectToInitialLibrary() {
         if (state.catalog != null) return
         connectToLibrary(
@@ -71,19 +74,23 @@ internal class MobilePlayerActionHandler(
         discoverOnFailure: Boolean = false,
     ) {
         resetFolderRefresh()
+        val generation = connectionGeneration.incrementAndGet()
         scope.launch {
             runCatching {
                 fetchCatalogWithProgress(requestedServerUrl, requestedPairingToken)
             }.onSuccess {
+                if (connectionGeneration.get() != generation) return@onSuccess
                 applyLibraryConnection(
                     requestedServerUrl = requestedServerUrl,
                     requestedPairingToken = requestedPairingToken,
                     fallbackDisplayName = fallbackDisplayName,
                     snapshot = it,
+                    generation = generation,
                 )
             }.onFailure { failure ->
+                if (connectionGeneration.get() != generation) return@onFailure
                 if (discoverOnFailure) {
-                    connectToDiscoveredLibrary(failure)
+                    connectToDiscoveredLibrary(failure, generation)
                 } else {
                     state.libraryError = failure.message
                 }
@@ -307,19 +314,25 @@ internal class MobilePlayerActionHandler(
             ?.takeIf(String::isNotBlank)
     }
 
-    private suspend fun connectToDiscoveredLibrary(originalFailure: Throwable) {
+    private suspend fun connectToDiscoveredLibrary(
+        originalFailure: Throwable,
+        generation: Long,
+    ) {
         runCatching {
             val discoveredServerUrl = discoverFirstServerUrl()
             val snapshot = fetchCatalogWithProgress(discoveredServerUrl, "")
             discoveredServerUrl to snapshot
         }.onSuccess { (discoveredServerUrl, snapshot) ->
+            if (connectionGeneration.get() != generation) return@onSuccess
             applyLibraryConnection(
                 requestedServerUrl = discoveredServerUrl,
                 requestedPairingToken = "",
                 fallbackDisplayName = null,
                 snapshot = snapshot,
+                generation = generation,
             )
         }.onFailure { discoveryFailure ->
+            if (connectionGeneration.get() != generation) return@onFailure
             state.libraryError = listOfNotNull(
                 originalFailure.message,
                 discoveryFailure.message?.let { "Discovery failed: $it" },
@@ -349,9 +362,13 @@ internal class MobilePlayerActionHandler(
         requestedPairingToken: String,
         fallbackDisplayName: String?,
         snapshot: LanLibraryConnectionSnapshot,
+        generation: Long,
     ) {
-        state.serverUrl = requestedServerUrl.trim().trimEnd('/')
-        state.pairingToken = requestedPairingToken
+        val connectedServerUrl = requestedServerUrl.trim().trimEnd('/')
+        val connectedPairingToken = requestedPairingToken
+        val connectedRemoteProgress = snapshot.playbackProgresses.toList()
+        state.serverUrl = connectedServerUrl
+        state.pairingToken = connectedPairingToken
         state.catalog = snapshot.catalog
         state.playbackProgresses = snapshot.playbackProgresses
         connectionStore.saveCurrentConnection(
@@ -365,12 +382,16 @@ internal class MobilePlayerActionHandler(
         scope.launch {
             val mergedProgress = withContext(Dispatchers.IO) {
                 offlineCacheRepository.syncPendingProgress(
-                    serverUrl = state.serverUrl,
-                    pairingToken = requestedPairingToken,
-                    remoteProgress = snapshot.playbackProgresses,
+                    serverUrl = connectedServerUrl,
+                    pairingToken = connectedPairingToken,
+                    remoteProgress = connectedRemoteProgress,
                 )
             }
-            if (state.serverUrl == requestedServerUrl.trim().trimEnd('/')) {
+            if (
+                state.serverUrl == connectedServerUrl &&
+                state.pairingToken == connectedPairingToken &&
+                connectionGeneration.get() == generation
+            ) {
                 state.playbackProgresses = mergedProgress
                 refreshCacheState()
             }
@@ -397,13 +418,32 @@ internal class MobilePlayerActionHandler(
             return
         }
 
-        val cached = offlineCacheRepository.playable(state.serverUrl, item.id)
-        if (cached != null) {
-            playCached(cached)
-            return
+        val serverUrl = state.serverUrl
+        val pairingToken = state.pairingToken
+        val generation = playbackGeneration.incrementAndGet()
+        scope.launch {
+            val cached = withContext(Dispatchers.IO) {
+                offlineCacheRepository.playable(serverUrl, item.id)
+            }
+            if (
+                state.serverUrl != serverUrl || state.pairingToken != pairingToken ||
+                playbackGeneration.get() != generation
+            ) return@launch
+            if (cached != null) {
+                playCached(cached)
+            } else {
+                playRemoteEpisode(item, activeController, serverUrl, pairingToken)
+            }
         }
+    }
 
-        val target = LanPlaybackTarget(state.serverUrl, state.pairingToken, item.id)
+    private fun playRemoteEpisode(
+        item: LibraryMediaItem,
+        activeController: Media3PlaybackController,
+        serverUrl: String,
+        pairingToken: String,
+    ) {
+        val target = LanPlaybackTarget(serverUrl, pairingToken, item.id)
         val previousTarget = state.activePlaybackTarget
         if (previousTarget != null && previousTarget != target) {
             val previousSnapshot = activeController.snapshot()
@@ -545,18 +585,27 @@ internal class MobilePlayerActionHandler(
     private fun confirmCache() {
         val pending = state.pendingCacheItems
         if (pending.isEmpty()) return
-        runCatching { offlineCacheRepository.enqueue(state.serverUrl, pending) }
-            .onSuccess {
+        val serverUrl = state.serverUrl
+        scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching { offlineCacheRepository.enqueue(serverUrl, pending) }
+            }
+            result.onSuccess {
                 state.pendingCacheItems = emptyList()
                 state.isDownloadsOpen = true
                 refreshCacheState()
-            }
-            .onFailure { state.cacheError = it.message }
+            }.onFailure { state.cacheError = it.message }
+        }
     }
 
     private fun refreshCacheState() {
-        state.cacheEntries = offlineCacheRepository.entries()
-        state.cacheAvailableBytes = offlineCacheRepository.availableBytes()
+        scope.launch {
+            val cacheState = withContext(Dispatchers.IO) {
+                offlineCacheRepository.entries() to offlineCacheRepository.availableBytes()
+            }
+            state.cacheEntries = cacheState.first
+            state.cacheAvailableBytes = cacheState.second
+        }
     }
 
     fun showLibraryItem(item: LibraryMediaItem) {
@@ -669,34 +718,67 @@ internal class MobilePlayerActionHandler(
                 state.cacheError = null
             },
             onPauseCache = {
-                offlineCacheRepository.pause(it)
-                refreshCacheState()
+                scope.launch {
+                    withContext(Dispatchers.IO) { offlineCacheRepository.pause(it) }
+                    refreshCacheState()
+                }
             },
             onResumeCache = {
-                offlineCacheRepository.resume(it)
-                refreshCacheState()
+                scope.launch {
+                    withContext(Dispatchers.IO) { offlineCacheRepository.resume(it) }
+                    refreshCacheState()
+                }
             },
             onDeleteCache = {
                 if (state.activeOfflineCacheKey == it) stopOfflinePlayback()
-                offlineCacheRepository.delete(it)
-                refreshCacheState()
+                scope.launch {
+                    withContext(Dispatchers.IO) { offlineCacheRepository.delete(it) }
+                    refreshCacheState()
+                }
             },
             onClearCache = {
                 if (state.activeOfflineCacheKey != null) stopOfflinePlayback()
-                offlineCacheRepository.clear()
-                refreshCacheState()
+                scope.launch {
+                    withContext(Dispatchers.IO) { offlineCacheRepository.clear() }
+                    refreshCacheState()
+                }
             },
             onPlayCached = { key ->
-                offlineCacheRepository.playable(key)?.let(::playCached)
-                    ?: run { state.cacheError = "Cached video is no longer available" }
+                val generation = playbackGeneration.incrementAndGet()
+                scope.launch {
+                    val preparation = withContext(Dispatchers.IO) {
+                        offlineCacheRepository.playable(key)
+                    }
+                    if (playbackGeneration.get() != generation) return@launch
+                    preparation?.let(::playCached)
+                        ?: run { state.cacheError = "Cached video is no longer available" }
+                }
             },
         )
 
     private fun stopOfflinePlayback() {
+        val cacheKey = state.activeOfflineCacheKey
+        val item = state.nowPlaying
+        val finalSnapshot = state.controller?.snapshot()
+        val serverUrl = state.cacheEntries.firstOrNull { it.key == cacheKey }?.serverUrl
+        if (
+            cacheKey != null && item != null && serverUrl != null &&
+            finalSnapshot != null && finalSnapshot.position.positionMs > 0
+        ) {
+            scope.launch(Dispatchers.IO) {
+                offlineCacheRepository.savePendingProgress(
+                    key = cacheKey,
+                    serverUrl = serverUrl,
+                    mediaId = item.id,
+                    snapshot = finalSnapshot,
+                    updatedAtEpochMs = System.currentTimeMillis(),
+                )
+            }
+        }
         state.controller?.stop()
         state.activeOfflineCacheKey = null
         state.nowPlaying = null
-        state.snapshot = state.controller?.snapshot() ?: state.snapshot
+        state.snapshot = finalSnapshot ?: state.snapshot
         state.danmakuState = MobileDanmakuState.Idle
         state.playbackStartupPhase = MobilePlaybackStartupPhase.Idle
         state.isPlayerFullscreen = false

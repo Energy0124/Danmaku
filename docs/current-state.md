@@ -58,8 +58,10 @@ Compose macOS artifact are retired.
   subtitles, posters, and item metadata in app-managed storage; cached entries
   remain browsable and playable away from the trusted LAN. Downloads support
   byte-range resume, pause, retry, cancel, per-item deletion, and clear-all.
-  Offline playback progress is checkpointed by the Media3 service and the
-  newest pending checkpoint is uploaded after the corresponding PC reconnects.
+  WorkManager serializes transfers through one persistent chain and throttles
+  durable progress updates. Offline playback progress is checkpointed by the
+  Media3 service in a separate journal that survives cache deletion; the newest
+  pending checkpoint is uploaded after the corresponding PC reconnects.
 - Native MAL/Bangumi account status, provider readback, exact progress preview,
   and explicitly confirmed sync; account/mapping/conflict administration stays
   on Windows and the web UI.

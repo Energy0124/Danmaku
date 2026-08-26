@@ -1,6 +1,8 @@
 package app.danmaku.mobile
 
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -16,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.dp
 import app.danmaku.domain.DanmakuDisplaySettings
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryCatalogSort
@@ -278,13 +281,16 @@ internal fun MobileAppScaffold(
             onDismissRequest = actions.onDismissCache,
             title = { Text(stringResource(R.string.cache_confirm_title)) },
             text = {
-                Text(
-                    stringResource(
-                        R.string.cache_confirm_body,
-                        state.pendingCacheItems.size,
-                        state.pendingCacheItems.sumOf(LibraryMediaItem::sizeBytes).formatCacheSize(),
-                    ),
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        stringResource(
+                            R.string.cache_confirm_body,
+                            state.pendingCacheItems.size,
+                            state.pendingCacheItems.sumOf(LibraryMediaItem::sizeBytes).formatCacheSize(),
+                        ),
+                    )
+                    state.cacheError?.let { ErrorText(it) }
+                }
             },
             confirmButton = {
                 TextButton(onClick = actions.onConfirmCache) {

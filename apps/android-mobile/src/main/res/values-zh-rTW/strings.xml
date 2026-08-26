@@ -137,6 +137,12 @@
     <string name="action_clear_all">全部清除</string>
     <string name="action_delete">刪除</string>
     <string name="status_cached">已快取</string>
+    <string name="cache_state_queued">等待中</string>
+    <string name="cache_state_downloading">下載中</string>
+    <string name="cache_state_paused">已暫停</string>
+    <string name="cache_state_retrying">正在重試</string>
+    <string name="cache_state_ready">已就緒</string>
+    <string name="cache_state_failed">失敗</string>
     <string name="cache_confirm_title">要快取以供離線觀看嗎？</string>
     <string name="cache_confirm_body">快取 %1$d 部影片（約 %2$s），包含彈幕、字幕與海報。</string>
     <string name="downloads_summary">%1$d 部就緒 · 已使用 %2$s · 可用 %3$s</string>

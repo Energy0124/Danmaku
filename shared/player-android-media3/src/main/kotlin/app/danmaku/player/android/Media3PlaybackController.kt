@@ -1,8 +1,10 @@
 package app.danmaku.player.android
 
 import android.net.Uri
+import android.os.Bundle
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
@@ -52,6 +54,16 @@ class Media3PlaybackController(
             source = preparation.source,
             mediaItem = MediaItem.Builder()
                 .setMediaId(OFFLINE_MEDIA_ID_PREFIX + preparation.cacheKey)
+                .setMediaMetadata(
+                    MediaMetadata.Builder()
+                        .setExtras(
+                            Bundle().apply {
+                                putString(OFFLINE_SERVER_URL_EXTRA, preparation.serverUrl)
+                                putString(OFFLINE_LIBRARY_MEDIA_ID_EXTRA, preparation.item.id)
+                            },
+                        )
+                        .build(),
+                )
                 .setUri(preparation.source.toUri())
                 .setSubtitleConfigurations(
                     preparation.subtitles.map { subtitle ->
@@ -186,6 +198,8 @@ class Media3PlaybackController(
 }
 
 internal const val OFFLINE_MEDIA_ID_PREFIX = "offline-cache:"
+internal const val OFFLINE_SERVER_URL_EXTRA = "offline-server-url"
+internal const val OFFLINE_LIBRARY_MEDIA_ID_EXTRA = "offline-library-media-id"
 
 private data class Media3TrackReference(
     val track: PlaybackTrack,

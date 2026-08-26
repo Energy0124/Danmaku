@@ -137,6 +137,12 @@
     <string name="action_clear_all">Clear all</string>
     <string name="action_delete">Delete</string>
     <string name="status_cached">Cached</string>
+    <string name="cache_state_queued">Queued</string>
+    <string name="cache_state_downloading">Downloading</string>
+    <string name="cache_state_paused">Paused</string>
+    <string name="cache_state_retrying">Retrying</string>
+    <string name="cache_state_ready">Ready</string>
+    <string name="cache_state_failed">Failed</string>
     <string name="cache_confirm_title">Cache for offline viewing?</string>
     <string name="cache_confirm_body">Cache %1$d videos (about %2$s), including danmaku, subtitles, and posters.</string>
     <string name="downloads_summary">%1$d ready · %2$s used · %3$s free</string>

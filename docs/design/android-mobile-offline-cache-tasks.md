@@ -7,9 +7,11 @@
 - `[x]` Persist authorized manifests and app-private cache metadata without access codes.
 - `[x]` Download video with byte-range resume and cache resolved danmaku, subtitles, and posters.
 - `[x]` Provide persistent background execution, pause, retry, cancel, delete, and clear-all.
+- `[x]` Serialize queued transfers through WorkManager and throttle durable progress updates.
 - `[x]` Browse and play completed entries without a live desktop connection.
-- `[x]` Checkpoint offline playback in the Media3 service and sync newer progress on reconnect.
+- `[x]` Keep playback checkpoints outside disposable media entries and sync newer progress on reconnect.
 - `[x]` Localize the mobile cache flow in English and Traditional Chinese.
+- `[x]` Cover byte-range resume/restart, progress tombstones, corrupt indexes, and missing assets in unit tests.
 
 ## Boundaries
 
