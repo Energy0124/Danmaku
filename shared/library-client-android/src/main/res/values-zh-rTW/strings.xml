@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="offline_download_channel_name">離線下載</string>
+    <string name="offline_download_action_pause">暫停</string>
+    <string name="offline_download_action_cancel">取消</string>
+</resources>

@@ -1,8 +1,10 @@
 package app.danmaku.player.android
 
 import android.net.Uri
+import android.os.Bundle
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
@@ -16,6 +18,7 @@ import app.danmaku.domain.PlaybackStatus
 import app.danmaku.domain.PlaybackTrack
 import app.danmaku.domain.PlaybackTrackKind
 import app.danmaku.library.LanPlaybackPreparation
+import app.danmaku.library.android.OfflinePlaybackPreparation
 import java.io.File
 
 class Media3PlaybackController(
@@ -32,6 +35,35 @@ class Media3PlaybackController(
         loadMediaItem(
             source = preparation.source,
             mediaItem = MediaItem.Builder()
+                .setUri(preparation.source.toUri())
+                .setSubtitleConfigurations(
+                    preparation.subtitles.map { subtitle ->
+                        MediaItem.SubtitleConfiguration.Builder(subtitle.source.toUri())
+                            .setId(subtitle.track.id)
+                            .setLabel(subtitle.track.label)
+                            .setMimeType(subtitle.track.mediaType.toMedia3SubtitleMimeType())
+                            .build()
+                    },
+                )
+                .build(),
+        )
+    }
+
+    fun load(preparation: OfflinePlaybackPreparation) {
+        loadMediaItem(
+            source = preparation.source,
+            mediaItem = MediaItem.Builder()
+                .setMediaId(OFFLINE_MEDIA_ID_PREFIX + preparation.cacheKey)
+                .setMediaMetadata(
+                    MediaMetadata.Builder()
+                        .setExtras(
+                            Bundle().apply {
+                                putString(OFFLINE_SERVER_URL_EXTRA, preparation.serverUrl)
+                                putString(OFFLINE_LIBRARY_MEDIA_ID_EXTRA, preparation.item.id)
+                            },
+                        )
+                        .build(),
+                )
                 .setUri(preparation.source.toUri())
                 .setSubtitleConfigurations(
                     preparation.subtitles.map { subtitle ->
@@ -164,6 +196,10 @@ class Media3PlaybackController(
             }
         }
 }
+
+internal const val OFFLINE_MEDIA_ID_PREFIX = "offline-cache:"
+internal const val OFFLINE_SERVER_URL_EXTRA = "offline-server-url"
+internal const val OFFLINE_LIBRARY_MEDIA_ID_EXTRA = "offline-library-media-id"
 
 private data class Media3TrackReference(
     val track: PlaybackTrack,

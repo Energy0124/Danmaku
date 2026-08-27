@@ -19,6 +19,7 @@ import app.danmaku.player.android.Media3PlaybackController
 import app.danmaku.library.android.ExternalTrackingDocument
 import app.danmaku.library.android.ExternalTrackingOperationResponse
 import app.danmaku.library.android.ProviderAccountsDocument
+import app.danmaku.library.android.OfflineCacheEntry
 
 internal enum class MobileTrackingOperation { READBACK, SYNC }
 internal enum class MobileTrackingError { ACCESS_CODE_REQUIRED, ACCESS_CODE_REJECTED, PREVIEW_CHANGED, REQUEST_FAILED }
@@ -64,6 +65,12 @@ internal class MobilePlayerState(
     var selectedTab by mutableStateOf(MobileTab.Home)
     var isPlayerFullscreen by mutableStateOf(false)
     var tracking by mutableStateOf(MobileTrackingState())
+    var cacheEntries by mutableStateOf<List<OfflineCacheEntry>>(emptyList())
+    var pendingCacheItems by mutableStateOf<List<LibraryMediaItem>>(emptyList())
+    var isDownloadsOpen by mutableStateOf(false)
+    var cacheError by mutableStateOf<String?>(null)
+    var cacheAvailableBytes by mutableStateOf(0L)
+    var activeOfflineCacheKey by mutableStateOf<String?>(null)
     var folderRefreshInProgress by mutableStateOf(false)
     var folderRefreshFilesSeen by mutableStateOf<Long?>(null)
     var folderRefreshError by mutableStateOf<MobileFolderRefreshError?>(null)
@@ -116,6 +123,11 @@ internal class MobilePlayerState(
             playbackStartupPhase = playbackStartupPhase,
             isPlayerFullscreen = isPlayerFullscreen,
             tracking = tracking,
+            cacheEntries = cacheEntries,
+            pendingCacheItems = pendingCacheItems,
+            isDownloadsOpen = isDownloadsOpen,
+            cacheError = cacheError,
+            cacheAvailableBytes = cacheAvailableBytes,
             folderRefreshInProgress = folderRefreshInProgress,
             folderRefreshFilesSeen = folderRefreshFilesSeen,
             folderRefreshError = folderRefreshError,

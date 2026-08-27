@@ -19,13 +19,17 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -57,6 +61,10 @@ internal fun FolderPage(
     refreshError: MobileFolderRefreshError? = null,
     refreshErrorDetail: String? = null,
     onRefresh: (List<String>) -> Unit = { _ -> },
+    cachedMediaIds: Set<String> = emptySet(),
+    onCacheFile: (LibraryMediaItem) -> Unit = {},
+    onCacheFolder: (List<String>) -> Unit = {},
+    onOpenDownloads: () -> Unit = {},
 ) {
     val listing = remember(catalog, path) { catalog?.folderListing(path) }
     val refreshErrorText = refreshError?.let {
@@ -124,6 +132,16 @@ internal fun FolderPage(
                     )
                 }
             }
+            item(key = "folder-cache-current") {
+                OutlinedButton(
+                    onClick = { onCacheFolder(path) },
+                    modifier = Modifier.testTag("folder-cache-current"),
+                ) {
+                    Icon(Icons.Filled.Download, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.action_cache_folder))
+                }
+            }
         }
         refreshErrorText?.let { errorText ->
             item(key = "folder-refresh-error") {
@@ -166,6 +184,9 @@ internal fun FolderPage(
                         subtitle = stringResource(R.string.folder_item_count, folder.itemCount),
                         testTag = "folder-entry:${folder.name}",
                         onClick = { onOpenFolder(folder.name) },
+                        onAction = { onCacheFolder(path + folder.name) },
+                        actionDescription = stringResource(R.string.action_cache_folder),
+                        actionTestTag = "folder-cache:${folder.name}",
                     )
                 }
                 items(listing.files, key = { "file:${it.id}" }) { file ->
@@ -175,6 +196,16 @@ internal fun FolderPage(
                         subtitle = "${file.seriesTitle} · ${file.episodeTitle}",
                         testTag = "folder-file:${file.id}",
                         onClick = { onPlay(file) },
+                        onAction = {
+                            if (file.id in cachedMediaIds) onOpenDownloads() else onCacheFile(file)
+                        },
+                        actionDescription = if (file.id in cachedMediaIds) {
+                            stringResource(R.string.status_cached)
+                        } else {
+                            stringResource(R.string.action_cache)
+                        },
+                        actionTestTag = "folder-file-cache:${file.id}",
+                        actionIsComplete = file.id in cachedMediaIds,
                     )
                 }
             }
@@ -189,6 +220,10 @@ private fun FolderBrowserRow(
     subtitle: String,
     testTag: String,
     onClick: () -> Unit,
+    onAction: (() -> Unit)? = null,
+    actionDescription: String? = null,
+    actionTestTag: String? = null,
+    actionIsComplete: Boolean = false,
 ) {
     Surface(
         modifier = Modifier
@@ -227,6 +262,22 @@ private fun FolderBrowserRow(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+            }
+            if (onAction != null && actionDescription != null) {
+                IconButton(
+                    onClick = onAction,
+                    modifier = actionTestTag?.let(Modifier::testTag) ?: Modifier,
+                ) {
+                    Icon(
+                        imageVector = if (actionIsComplete) {
+                            Icons.Filled.CheckCircle
+                        } else {
+                            Icons.Filled.Download
+                        },
+                        contentDescription = actionDescription,
+                        tint = if (actionIsComplete) AccentAmber else AccentBlue,
+                    )
+                }
             }
         }
     }

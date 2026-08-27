@@ -46,11 +46,12 @@ Status: implementation ready for approved live-account QA.
 
 ## 5. Authorized Downloads
 
-Status: not implemented in the active applications.
+Status: Android mobile vertical slice implemented; other platforms pending.
 
-- Define authorized source contracts before adding an engine.
-- Implement queue execution, pause/resume, retry, cache management, and
-  diagnostics without DRM circumvention or unauthorized search behavior.
+- Keep the Android mobile user-owned LAN-library queue, byte-range resume,
+  offline danmaku/subtitles, management UI, and deferred progress sync reliable.
+- Extend the authorized engine to TV or native platforms only when their
+  product flows require it; do not add DRM circumvention or unauthorized search.
 
 ## 6. Platform Expansion
 

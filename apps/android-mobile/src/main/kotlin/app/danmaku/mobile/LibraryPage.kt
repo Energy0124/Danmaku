@@ -92,6 +92,9 @@ internal fun LibraryPage(
     onPlayPause: () -> Unit,
     onOpenPlayer: () -> Unit,
     onConnect: () -> Unit,
+    cachedMediaIds: Set<String> = emptySet(),
+    onRequestCache: (List<LibraryMediaItem>) -> Unit = {},
+    onOpenDownloads: () -> Unit = {},
 ) {
     var selectedEpisodeId by remember(catalog) { mutableStateOf<String?>(null) }
     val series = catalog?.groupedSeries().orEmpty()
@@ -203,6 +206,7 @@ internal fun LibraryPage(
                     SeriesDetailPanel(
                         series = series,
                         watchSummary = seriesWatchSummaryById[series.id],
+                        onCacheSeries = onRequestCache,
                     )
                 }
             }
@@ -246,6 +250,9 @@ internal fun LibraryPage(
                         onSetFavorite = { onSetFavorite(detail.mediaItem, it) },
                         onPlay = onPlay,
                         onSelectEpisode = { selectedEpisodeId = it.id },
+                        isCached = detail.mediaItem.id in cachedMediaIds,
+                        onCache = { onRequestCache(listOf(it)) },
+                        onOpenDownloads = onOpenDownloads,
                     )
                 }
             }
@@ -291,6 +298,9 @@ internal fun LibraryPage(
                             onSetFavorite = { onSetFavorite(detail.mediaItem, it) },
                             onPlay = onPlay,
                             onSelectEpisode = { selectedEpisodeId = it.id },
+                            isCached = detail.mediaItem.id in cachedMediaIds,
+                            onCache = { onRequestCache(listOf(it)) },
+                            onOpenDownloads = onOpenDownloads,
                         )
                     } ?: TabletDetailPlaceholder(catalog = catalog)
                 }

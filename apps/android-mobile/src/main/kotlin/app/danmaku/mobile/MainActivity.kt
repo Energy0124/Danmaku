@@ -71,9 +71,12 @@ import app.danmaku.library.android.AndroidLanLibraryConnectionStore
 import app.danmaku.library.android.LanLibraryClient
 import app.danmaku.library.android.LanExternalTrackingClient
 import app.danmaku.library.android.LanLibraryDiscoveryClient
+import app.danmaku.library.android.AndroidOfflineCacheRepository
 import app.danmaku.player.android.Media3PlaybackController
 import app.danmaku.player.android.Media3PlaybackServiceConnection
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 internal val AppBackground = Color(0xFF101214)
 internal val PlayerBlack = Color(0xFF050607)
@@ -143,6 +146,9 @@ private fun MobilePlayerScreen() {
         MobileDanmakuSettingsStore(context.applicationContext)
     }
     val discoveryClient = remember { LanLibraryDiscoveryClient() }
+    val offlineCacheRepository = remember(context) {
+        AndroidOfflineCacheRepository(context.applicationContext)
+    }
     val scope = rememberCoroutineScope()
     val appState = remember(connectionStore, favoriteStore, danmakuSettingsStore) {
         MobilePlayerState(
@@ -151,11 +157,22 @@ private fun MobilePlayerScreen() {
             initialDanmakuDisplaySettings = danmakuSettingsStore.load(),
         )
     }
+    LaunchedEffect(offlineCacheRepository) {
+        while (true) {
+            val cacheState = withContext(Dispatchers.IO) {
+                offlineCacheRepository.entries() to offlineCacheRepository.availableBytes()
+            }
+            appState.cacheEntries = cacheState.first
+            appState.cacheAvailableBytes = cacheState.second
+            delay(1_000)
+        }
+    }
     val openDocument = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri ?: return@rememberLauncherForActivityResult
         appState.controller?.let {
             appState.nowPlaying = null
             appState.activePlaybackTarget = null
+            appState.activeOfflineCacheKey = null
             appState.danmakuState = MobileDanmakuState.Idle
             appState.playbackStartupPhase = MobilePlaybackStartupPhase.Playing
             it.load(PlaybackSource.LocalFile(uri.toString()))
@@ -173,6 +190,7 @@ private fun MobilePlayerScreen() {
         favoriteStore,
         danmakuSettingsStore,
         discoveryClient,
+        offlineCacheRepository,
     ) {
         MobilePlayerActionHandler(
             state = appState,
@@ -185,6 +203,7 @@ private fun MobilePlayerScreen() {
             favoriteStore = favoriteStore,
             danmakuSettingsStore = danmakuSettingsStore,
             discoveryClient = discoveryClient,
+            offlineCacheRepository = offlineCacheRepository,
             trackingClient = trackingClient,
             openVideoPicker = { openDocument.launch(arrayOf("video/*")) },
         )
