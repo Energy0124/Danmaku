@@ -2293,12 +2293,21 @@ impl PlayerApp {
         let Some(session) = &self.session else {
             return;
         };
-        if !session.connected || !session.server_scanning {
+        let organizer_active = session
+            .organization_status
+            .as_ref()
+            .is_some_and(|status| matches!(status.state.as_str(), "RUNNING" | "ROLLING_BACK"));
+        if !session.connected || (!session.server_scanning && !organizer_active) {
             return;
         }
         if now.saturating_duration_since(self.last_scan_poll) >= SCAN_POLL_INTERVAL {
             self.last_scan_poll = now;
-            session.refresh_server_scan();
+            if session.server_scanning {
+                session.refresh_server_scan();
+            }
+            if organizer_active {
+                session.refresh_organization_status();
+            }
         }
         ctx.request_repaint_after(Duration::from_millis(400));
     }
@@ -2632,6 +2641,31 @@ impl eframe::App for PlayerApp {
                     Some(LibraryAction::RescanFolder { path }) => {
                         if let Some(session) = &mut self.session {
                             session.refresh_folder(path);
+                        }
+                    }
+                    Some(LibraryAction::PreviewOrganization(request)) => {
+                        if let Some(session) = &mut self.session {
+                            session.preview_organization(request);
+                        }
+                    }
+                    Some(LibraryAction::ExecuteOrganization { plan_id, batch }) => {
+                        if let Some(session) = &mut self.session {
+                            session.execute_organization(plan_id, batch);
+                        }
+                    }
+                    Some(LibraryAction::RefreshOrganizationStatus) => {
+                        if let Some(session) = &self.session {
+                            session.refresh_organization_status();
+                        }
+                    }
+                    Some(LibraryAction::CancelOrganization) => {
+                        if let Some(session) = &mut self.session {
+                            session.cancel_organization();
+                        }
+                    }
+                    Some(LibraryAction::UndoOrganization { completed_batch_id }) => {
+                        if let Some(session) = &mut self.session {
+                            session.undo_organization(completed_batch_id);
                         }
                     }
                     Some(LibraryAction::Disconnect) => self.disconnect(),

@@ -10,6 +10,9 @@ Status: `[x]` done, `[~]` in progress, `[ ]` not started.
 - `[x]` Retire the Kotlin Compose desktop app, JVM library server/host modules,
   JNA bridge, legacy database importer, compatibility artifact, and macOS
   desktop job. Rust is the only desktop player/server implementation.
+- `[x]` Add the desktop progressive library organizer: per-series review,
+  editable title/season, opt-in nearby files, exact approval, durable rollback,
+  stable catalog IDs, cancellation, and undo without overwrite or deletion.
 - `[x]` Complete the Android TV single-cutover presentation rewrite with
   lifecycle-owned state, cached/off-composition catalog derivation,
   non-blocking danmaku, typed navigation, D-pad/focus coverage, screenshots,

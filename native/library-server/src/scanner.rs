@@ -104,6 +104,9 @@ pub fn scan_roots_with_progress(
     let previous_last_modified_by_id = previous
         .map(|stored| stored.file_last_modified_epoch_ms_by_id.clone())
         .unwrap_or_default();
+    let previous_id_by_path = previous
+        .map(previous_id_by_absolute_path)
+        .unwrap_or_default();
 
     let mut files_by_id = PathMap::new();
     let mut subtitle_files_by_id = PathMap::new();
@@ -122,6 +125,7 @@ pub fn scan_roots_with_progress(
             scan_started_at_epoch_ms,
             &previous_items_by_id,
             &previous_last_modified_by_id,
+            &previous_id_by_path,
             &mut files_by_id,
             &mut subtitle_files_by_id,
             &mut file_last_modified_epoch_ms_by_id,
@@ -227,6 +231,7 @@ pub fn rescan_target_with_progress(
         .map(|item| (item.id.clone(), item.clone()))
         .collect::<BTreeMap<_, _>>();
     let previous_last_modified_by_id = previous.file_last_modified_epoch_ms_by_id.clone();
+    let previous_id_by_path = previous_id_by_absolute_path(previous);
 
     let mut removed_media_ids = BTreeSet::new();
     let mut removed_subtitle_ids = BTreeSet::new();
@@ -274,6 +279,7 @@ pub fn rescan_target_with_progress(
                 scan_started_at_epoch_ms,
                 &previous_items_by_id,
                 &previous_last_modified_by_id,
+                &previous_id_by_path,
                 &mut files_by_id,
                 &mut subtitle_files_by_id,
                 &mut file_last_modified_epoch_ms_by_id,
@@ -336,6 +342,7 @@ fn scan_root(
     scan_started_at_epoch_ms: u64,
     previous_items_by_id: &BTreeMap<String, LibraryMediaItem>,
     previous_last_modified_by_id: &BTreeMap<String, u64>,
+    previous_id_by_path: &BTreeMap<PathBuf, String>,
     files_by_id: &mut PathMap,
     subtitle_files_by_id: &mut PathMap,
     file_last_modified_epoch_ms_by_id: &mut BTreeMap<String, u64>,
@@ -350,6 +357,7 @@ fn scan_root(
         scan_started_at_epoch_ms,
         previous_items_by_id,
         previous_last_modified_by_id,
+        previous_id_by_path,
         files_by_id,
         subtitle_files_by_id,
         file_last_modified_epoch_ms_by_id,
@@ -368,6 +376,7 @@ fn scan_directory(
     scan_started_at_epoch_ms: u64,
     previous_items_by_id: &BTreeMap<String, LibraryMediaItem>,
     previous_last_modified_by_id: &BTreeMap<String, u64>,
+    previous_id_by_path: &BTreeMap<PathBuf, String>,
     files_by_id: &mut PathMap,
     subtitle_files_by_id: &mut PathMap,
     file_last_modified_epoch_ms_by_id: &mut BTreeMap<String, u64>,
@@ -402,10 +411,15 @@ fn scan_directory(
             skipped_unreadable_count,
             fail_on_unreadable,
         )?;
-        let id = sha256_hex(&format!("{id_namespace}/{relative_path}"))
-            .chars()
-            .take(24)
-            .collect::<String>();
+        let id = absolute_normalized_path(&path)
+            .ok()
+            .and_then(|path| previous_id_by_path.get(&path).cloned())
+            .unwrap_or_else(|| {
+                sha256_hex(&format!("{id_namespace}/{relative_path}"))
+                    .chars()
+                    .take(24)
+                    .collect::<String>()
+            });
         let series_title = series_title(root, &path);
         let episode_title = file_stem(&path);
         let media_type = media_type(&extension).to_owned();
@@ -810,7 +824,15 @@ fn series_title(root: &Path, path: &Path) -> String {
         infer_root_file_series_title(&file_stem(path))
     } else {
         path.parent()
-            .and_then(Path::file_name)
+            .and_then(|parent| {
+                let name = parent.file_name()?;
+                let label = name.to_string_lossy();
+                if is_season_directory_name(&label) {
+                    parent.parent().and_then(Path::file_name)
+                } else {
+                    Some(name)
+                }
+            })
             .map(|name| name.to_string_lossy().into_owned())
             .or_else(|| {
                 root.file_name()
@@ -818,6 +840,27 @@ fn series_title(root: &Path, path: &Path) -> String {
             })
             .unwrap_or_else(|| path_string(root))
     }
+}
+
+fn previous_id_by_absolute_path(previous: &HeadlessStoredLibrary) -> BTreeMap<PathBuf, String> {
+    previous
+        .published_library
+        .files_by_id
+        .iter()
+        .filter_map(|(id, path)| {
+            absolute_normalized_path(path)
+                .ok()
+                .map(|path| (path, id.clone()))
+        })
+        .collect()
+}
+
+fn is_season_directory_name(value: &str) -> bool {
+    value
+        .trim()
+        .to_ascii_lowercase()
+        .strip_prefix("season ")
+        .is_some_and(|number| number.parse::<u32>().is_ok())
 }
 
 fn infer_root_file_series_title(file_stem: &str) -> String {

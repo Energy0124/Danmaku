@@ -1,6 +1,9 @@
 //! Library-mode screens: server connect and catalog browse.
 
-use std::{collections::BTreeMap, path::PathBuf};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    path::PathBuf,
+};
 
 use eframe::egui::{
     self, Align, Align2, Color32, CursorIcon, FontId, Frame, Layout, Rect, RichText, Sense,
@@ -17,6 +20,7 @@ use crate::{
         AttentionCacheStatus, AttentionIssueCode, AttentionMappingStatus, AttentionRepairRequest,
         DEFAULT_NEXT_UP_LIMIT, FolderListing, LibraryAttentionDocument, LibraryCatalog,
         MINIMUM_REMAINING_MS, MINIMUM_RESUME_POSITION_MS, MediaItem, NextUpItem, NextUpReason,
+        OrganizationPreviewRequest, OrganizationSeriesBatch, OrganizationSeriesOverride,
         PlaybackProgress, ProgressItem, Series, continue_watching_items, file_name,
         folder_grouped_series, grouped_series, item_in_folder_shortcut, library_folder_shortcuts,
         library_root_labels, matched_anime_series, next_up_items, scoped_folder_listing,
@@ -551,6 +555,16 @@ pub enum LibraryAction {
     RescanFolder {
         path: Vec<String>,
     },
+    PreviewOrganization(OrganizationPreviewRequest),
+    ExecuteOrganization {
+        plan_id: String,
+        batch: OrganizationSeriesBatch,
+    },
+    RefreshOrganizationStatus,
+    CancelOrganization,
+    UndoOrganization {
+        completed_batch_id: String,
+    },
     Disconnect,
     Settings,
 }
@@ -669,6 +683,13 @@ pub struct LibraryScreen {
     cached_folder_listing: FolderListing,
     /// (catalog version, path) the listing above was computed for.
     cached_folder_listing_key: Option<(u64, Vec<String>)>,
+    organizer_open: bool,
+    organizer_root: String,
+    organizer_base: String,
+    organizer_batch_id: Option<String>,
+    organizer_series_title: String,
+    organizer_season: String,
+    organizer_nearby: BTreeSet<String>,
 }
 
 impl Default for LibraryScreen {
@@ -692,6 +713,13 @@ impl Default for LibraryScreen {
             folder_path: Vec::new(),
             cached_folder_listing: FolderListing::default(),
             cached_folder_listing_key: None,
+            organizer_open: false,
+            organizer_root: String::new(),
+            organizer_base: "Anime".to_owned(),
+            organizer_batch_id: None,
+            organizer_series_title: String::new(),
+            organizer_season: String::new(),
+            organizer_nearby: BTreeSet::new(),
         }
     }
 }
@@ -855,6 +883,11 @@ impl LibraryScreen {
                     action = inner_action;
                 }
             });
+        if self.organizer_open
+            && let Some(organizer_action) = self.show_organizer(ctx, session, strings)
+        {
+            action = Some(organizer_action);
+        }
         action
     }
 
@@ -1547,6 +1580,25 @@ impl LibraryScreen {
                 );
                 ui.label(RichText::new(status).color(palette::TEXT_SECONDARY));
             }
+            let local = session.base_url.starts_with("http://127.")
+                || session.base_url.starts_with("http://localhost")
+                || session.base_url.starts_with("http://[::1]");
+            let organize = ui.add_enabled(
+                local && session.pairing_token.is_some() && !session.server_scanning,
+                egui::Button::new(strings.organize_library()),
+            );
+            if organize.clicked() {
+                let roots = library_root_labels(catalog);
+                self.organizer_root = roots
+                    .iter()
+                    .find(|(root, _)| self.folder_path.first() == Some(root))
+                    .or_else(|| roots.first())
+                    .map(|(root, _)| root.clone())
+                    .unwrap_or_default();
+                self.organizer_open = true;
+                action = Some(LibraryAction::RefreshOrganizationStatus);
+            }
+            organize.on_hover_text(strings.organizer_safety());
         });
         if let Some(error) = &session.server_scan_error {
             ui.horizontal(|ui| {
@@ -1589,6 +1641,247 @@ impl LibraryScreen {
             Some(Some(folder)) => self.folder_path.push(folder),
             None => {}
         }
+        action
+    }
+
+    fn show_organizer(
+        &mut self,
+        ctx: &egui::Context,
+        session: &LibrarySession,
+        strings: Strings,
+    ) -> Option<LibraryAction> {
+        let mut action = None;
+        let mut open = self.organizer_open;
+        egui::Window::new(strings.organizer_title())
+            .open(&mut open)
+            .resizable(true)
+            .collapsible(false)
+            .default_width(760.0)
+            .max_height(ctx.available_rect().height() * 0.9)
+            .show(ctx, |ui| {
+                ui.label(RichText::new(strings.organizer_safety()).color(palette::TEXT_SECONDARY));
+                ui.add_space(8.0);
+                let organizer_busy = session.organization_status.as_ref().is_some_and(|status| {
+                    matches!(status.state.as_str(), "RUNNING" | "ROLLING_BACK")
+                });
+                let roots = session
+                    .catalog
+                    .as_ref()
+                    .map(library_root_labels)
+                    .unwrap_or_default();
+                egui::ComboBox::from_label(strings.organizer_root())
+                    .selected_text(if self.organizer_root.is_empty() {
+                        strings.organizer_root()
+                    } else {
+                        &self.organizer_root
+                    })
+                    .show_ui(ui, |ui| {
+                        for (root, _) in roots {
+                            ui.selectable_value(&mut self.organizer_root, root.clone(), root);
+                        }
+                    });
+                ui.horizontal(|ui| {
+                    ui.label(strings.organizer_base());
+                    ui.add(TextEdit::singleline(&mut self.organizer_base).desired_width(300.0));
+                    if ui
+                        .add_enabled(
+                            !self.organizer_root.is_empty()
+                                && !session.organization_loading
+                                && !organizer_busy,
+                            egui::Button::new(strings.generate_preview()),
+                        )
+                        .clicked()
+                    {
+                        self.organizer_batch_id = None;
+                        action = Some(LibraryAction::PreviewOrganization(
+                            OrganizationPreviewRequest {
+                                root: self.organizer_root.clone(),
+                                base_relative_path: self.organizer_base.clone(),
+                                overrides: Vec::new(),
+                            },
+                        ));
+                    }
+                });
+                if session.organization_loading {
+                    ui.add(egui::Spinner::new());
+                }
+                if let Some(error) = &session.organization_error {
+                    ui.label(RichText::new(error).color(palette::DANGER));
+                }
+                if let Some(status) = &session.organization_status {
+                    ui.separator();
+                    ui.label(strings.organizer_status(
+                        &status.state,
+                        status.completed_operations,
+                        status.total_operations,
+                    ));
+                    if matches!(status.state.as_str(), "FAILED" | "RECOVERY_REQUIRED")
+                        && let Some(message) = &status.message
+                    {
+                        ui.label(RichText::new(message).color(palette::DANGER));
+                    }
+                    if matches!(status.state.as_str(), "RUNNING" | "ROLLING_BACK") {
+                        ui.add(egui::ProgressBar::new(
+                            status.completed_operations as f32
+                                / status.total_operations.max(1) as f32,
+                        ));
+                        if ui.button(strings.organizer_cancel()).clicked() {
+                            action = Some(LibraryAction::CancelOrganization);
+                        }
+                    } else if status.can_undo
+                        && let Some(completed_batch_id) = &status.last_completed_batch_id
+                        && ui.button(strings.undo_last_series()).clicked()
+                    {
+                        action = Some(LibraryAction::UndoOrganization {
+                            completed_batch_id: completed_batch_id.clone(),
+                        });
+                    }
+                }
+                let Some(plan) = session.organization_plan.as_ref() else {
+                    return;
+                };
+                ui.separator();
+                egui::ScrollArea::vertical()
+                    .id_salt("organizer-series-list")
+                    .max_height(180.0)
+                    .show(ui, |ui| {
+                        for batch in &plan.batches {
+                            let label = strings.organizer_batch_summary(
+                                &batch.series_title,
+                                batch.video_count,
+                                batch.already_organized,
+                            );
+                            if ui
+                                .selectable_label(
+                                    self.organizer_batch_id.as_deref()
+                                        == Some(batch.batch_id.as_str()),
+                                    label,
+                                )
+                                .clicked()
+                            {
+                                self.organizer_batch_id = Some(batch.batch_id.clone());
+                                self.organizer_series_title = batch.series_title.clone();
+                                self.organizer_season = batch
+                                    .season_number
+                                    .map(|season| season.to_string())
+                                    .unwrap_or_default();
+                                self.organizer_nearby = batch
+                                    .nearby_files
+                                    .iter()
+                                    .filter(|file| file.selected)
+                                    .map(|file| file.relative_path.clone())
+                                    .collect();
+                            }
+                        }
+                    });
+                let Some(batch) = self
+                    .organizer_batch_id
+                    .as_deref()
+                    .and_then(|id| plan.batches.iter().find(|batch| batch.batch_id == id))
+                else {
+                    return;
+                };
+                ui.separator();
+                ui.label(strings.organizer_reason(&batch.confidence));
+                ui.horizontal(|ui| {
+                    ui.label(strings.series_title_label());
+                    ui.add(
+                        TextEdit::singleline(&mut self.organizer_series_title).desired_width(360.0),
+                    );
+                    ui.label(strings.season_number_label());
+                    ui.add(TextEdit::singleline(&mut self.organizer_season).desired_width(60.0));
+                });
+                if !batch.nearby_files.is_empty() {
+                    ui.label(strings.nearby_files_label());
+                    egui::ScrollArea::vertical()
+                        .id_salt("organizer-nearby")
+                        .max_height(110.0)
+                        .show(ui, |ui| {
+                            for file in &batch.nearby_files {
+                                let mut selected =
+                                    self.organizer_nearby.contains(&file.relative_path);
+                                if ui.checkbox(&mut selected, &file.relative_path).changed() {
+                                    if selected {
+                                        self.organizer_nearby.insert(file.relative_path.clone());
+                                    } else {
+                                        self.organizer_nearby.remove(&file.relative_path);
+                                    }
+                                }
+                            }
+                        });
+                }
+                if ui.button(strings.update_preview()).clicked()
+                    && let Ok(season_number) = self.organizer_season.trim().parse::<u32>()
+                {
+                    action = Some(LibraryAction::PreviewOrganization(
+                        OrganizationPreviewRequest {
+                            root: self.organizer_root.clone(),
+                            base_relative_path: self.organizer_base.clone(),
+                            overrides: vec![OrganizationSeriesOverride {
+                                batch_id: batch.batch_id.clone(),
+                                series_title: self.organizer_series_title.clone(),
+                                season_number,
+                                included_nearby_paths: self
+                                    .organizer_nearby
+                                    .iter()
+                                    .cloned()
+                                    .collect(),
+                            }],
+                        },
+                    ));
+                }
+                if !batch.conflicts.is_empty() {
+                    ui.label(RichText::new(strings.organizer_conflicts()).color(palette::DANGER));
+                    for conflict in &batch.conflicts {
+                        ui.label(
+                            RichText::new(
+                                conflict
+                                    .strip_prefix("Destination already exists: ")
+                                    .unwrap_or(conflict),
+                            )
+                            .color(palette::DANGER),
+                        );
+                    }
+                }
+                ui.label(strings.approved_moves(batch.moves.len()));
+                egui::ScrollArea::vertical()
+                    .id_salt("organizer-exact-moves")
+                    .max_height(180.0)
+                    .show(ui, |ui| {
+                        for operation in &batch.moves {
+                            ui.label(format!(
+                                "{}  →  {}",
+                                operation.source_relative_path, operation.destination_relative_path
+                            ));
+                        }
+                    });
+                let preview_nearby = batch
+                    .nearby_files
+                    .iter()
+                    .filter(|file| file.selected)
+                    .map(|file| file.relative_path.clone())
+                    .collect::<BTreeSet<_>>();
+                let review_matches_preview = self.organizer_series_title.trim()
+                    == batch.series_title
+                    && self.organizer_season.trim().parse::<u32>().ok() == batch.season_number
+                    && self.organizer_nearby == preview_nearby;
+                if ui
+                    .add_enabled(
+                        batch.executable
+                            && review_matches_preview
+                            && !session.organization_loading
+                            && !organizer_busy,
+                        egui::Button::new(strings.approve_series()),
+                    )
+                    .clicked()
+                {
+                    action = Some(LibraryAction::ExecuteOrganization {
+                        plan_id: plan.plan_id.clone(),
+                        batch: batch.clone(),
+                    });
+                }
+            });
+        self.organizer_open = open;
         action
     }
 

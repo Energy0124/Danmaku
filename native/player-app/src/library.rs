@@ -8,7 +8,9 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::net::{http_get, http_post_json, http_put_json, percent_encode_path_segment};
+use crate::net::{
+    http_authenticated_json, http_get, http_post_json, http_put_json, percent_encode_path_segment,
+};
 
 pub const DEFAULT_NEXT_UP_LIMIT: usize = 8;
 pub const MINIMUM_RESUME_POSITION_MS: i64 = 10_000;
@@ -65,6 +67,86 @@ pub struct AnimeMetadata {
     pub image_url: Option<String>,
     pub episode_count: Option<u32>,
     pub start_year: Option<i32>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct OrganizationPreviewRequest {
+    pub root: String,
+    pub base_relative_path: String,
+    pub overrides: Vec<OrganizationSeriesOverride>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct OrganizationSeriesOverride {
+    pub batch_id: String,
+    pub series_title: String,
+    pub season_number: u32,
+    pub included_nearby_paths: Vec<String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct OrganizationPlan {
+    pub plan_id: String,
+    pub catalog_revision: String,
+    pub root: String,
+    pub base_relative_path: String,
+    pub batches: Vec<OrganizationSeriesBatch>,
+    pub unassigned_count: usize,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct OrganizationSeriesBatch {
+    pub batch_id: String,
+    pub series_title: String,
+    pub season_number: Option<u32>,
+    pub confidence: String,
+    pub reason: String,
+    pub video_count: usize,
+    pub executable: bool,
+    pub already_organized: bool,
+    pub conflicts: Vec<String>,
+    pub moves: Vec<OrganizationMove>,
+    pub nearby_files: Vec<OrganizationNearbyFile>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct OrganizationMove {
+    pub media_id: Option<String>,
+    pub subtitle_id: Option<String>,
+    pub source_relative_path: String,
+    pub destination_relative_path: String,
+    pub size_bytes: u64,
+    pub kind: String,
+    pub original_series_title: Option<String>,
+    pub destination_series_title: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct OrganizationNearbyFile {
+    pub relative_path: String,
+    pub size_bytes: u64,
+    pub recommended: bool,
+    pub selected: bool,
+    pub destination_relative_path: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct OrganizationStatus {
+    pub state: String,
+    pub batch_id: Option<String>,
+    pub series_title: Option<String>,
+    pub completed_operations: usize,
+    pub total_operations: usize,
+    pub message: Option<String>,
+    pub last_completed_batch_id: Option<String>,
+    pub can_undo: bool,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
@@ -834,6 +916,80 @@ pub fn request_folder_rescan(base_url: &str, path: &[String]) -> Result<(), Stri
     http_post_json(base_url, "/api/library/rescan", &body).map(|_| ())
 }
 
+pub fn preview_organization(
+    base_url: &str,
+    token: &str,
+    request: &OrganizationPreviewRequest,
+) -> Result<OrganizationPlan, String> {
+    let body = serde_json::to_string(request).map_err(|error| error.to_string())?;
+    let response = http_authenticated_json(
+        base_url,
+        token,
+        "POST",
+        "/api/library/organize/preview",
+        Some(&body),
+    )?;
+    serde_json::from_str(&response).map_err(|error| format!("invalid organizer preview: {error}"))
+}
+
+pub fn execute_organization(
+    base_url: &str,
+    token: &str,
+    plan_id: &str,
+    batch: &OrganizationSeriesBatch,
+) -> Result<(), String> {
+    let body = serde_json::json!({
+        "planId": plan_id,
+        "batchId": &batch.batch_id,
+        "expectedMoves": &batch.moves,
+    })
+    .to_string();
+    http_authenticated_json(
+        base_url,
+        token,
+        "POST",
+        "/api/library/organize/execute",
+        Some(&body),
+    )
+    .map(|_| ())
+}
+
+pub fn fetch_organization_status(
+    base_url: &str,
+    token: &str,
+) -> Result<OrganizationStatus, String> {
+    let response =
+        http_authenticated_json(base_url, token, "GET", "/api/library/organize/status", None)?;
+    serde_json::from_str(&response).map_err(|error| format!("invalid organizer status: {error}"))
+}
+
+pub fn cancel_organization(base_url: &str, token: &str) -> Result<(), String> {
+    http_authenticated_json(
+        base_url,
+        token,
+        "POST",
+        "/api/library/organize/cancel",
+        Some("{}"),
+    )
+    .map(|_| ())
+}
+
+pub fn undo_organization(
+    base_url: &str,
+    token: &str,
+    completed_batch_id: &str,
+) -> Result<(), String> {
+    let body = serde_json::json!({ "completedBatchId": completed_batch_id }).to_string();
+    http_authenticated_json(
+        base_url,
+        token,
+        "POST",
+        "/api/library/organize/undo",
+        Some(&body),
+    )
+    .map(|_| ())
+}
+
 pub fn fetch_attention(base_url: &str) -> Result<LibraryAttentionDocument, String> {
     let body = http_get(base_url, "/api/library/attention")?;
     serde_json::from_str(&body).map_err(|error| format!("invalid library attention JSON: {error}"))
@@ -889,6 +1045,32 @@ mod tests {
         let source =
             std::fs::read_to_string(format!("{path}{name}.json")).expect("fixture file readable");
         serde_json::from_str(&source).expect("fixture JSON parses")
+    }
+
+    #[test]
+    fn organizer_wire_models_keep_the_exact_approved_move_list() {
+        let batch = OrganizationSeriesBatch {
+            batch_id: "series-1".to_owned(),
+            moves: vec![OrganizationMove {
+                media_id: Some("episode-1".to_owned()),
+                source_relative_path: "Loose/Episode 1.mkv".to_owned(),
+                destination_relative_path: "Anime/Show/Season 1/Episode 1.mkv".to_owned(),
+                size_bytes: 42,
+                kind: "VIDEO".to_owned(),
+                ..OrganizationMove::default()
+            }],
+            ..OrganizationSeriesBatch::default()
+        };
+        let body = serde_json::json!({
+            "planId": "plan-1",
+            "batchId": batch.batch_id,
+            "expectedMoves": batch.moves,
+        });
+        assert_eq!("episode-1", body["expectedMoves"][0]["mediaId"]);
+        assert_eq!(
+            "Anime/Show/Season 1/Episode 1.mkv",
+            body["expectedMoves"][0]["destinationRelativePath"]
+        );
     }
 
     fn catalog_from(input: &Value) -> LibraryCatalog {
