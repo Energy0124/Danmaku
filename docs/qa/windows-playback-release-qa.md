@@ -8,8 +8,8 @@ Use this checklist before treating Windows desktop playback as release-ready. Th
 
 ## Prerequisites
 
-- Build the Rust-native player package. It must contain the pinned libmpv
-  dependency.
+- Build the Rust-native player package. It must contain the release-resolved,
+  digest-verified libmpv dependency and its exact provenance document.
 - Have at least one 1080p H.264 file, one 4K file, one HEVC or AV1 file if available, and one file with sidecar subtitles.
 - Use a machine with hardware decoding support and, when available, a second display.
 
@@ -50,7 +50,7 @@ against `build/release/rust-player/danmaku-player-0.1.0-windows-x64`:
 - 4K HEVC/AAC MKV: 174 rendered frames, 0 failures, NVDEC, 7 dropped.
 - Large BD MKV: 181 rendered frames, 0 failures, NVDEC, 5 dropped.
 
-Each smoke ran for eight seconds. The packaged runtime probe, approved libmpv
+Each smoke ran for eight seconds. The packaged runtime probe, resolved libmpv
 hash check, and generated report also passed. The report is written to
 `build/qa/windows-playback/windows-playback-release-qa.md`; manual interaction
 and multi-display scenarios below remain release sign-off rather than blockers

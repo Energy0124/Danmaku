@@ -2,6 +2,7 @@
 param(
     [string]$ReleaseRoot = (Join-Path $PSScriptRoot "..\..\build\release\rust-player"),
     [string]$LibmpvPath = (Join-Path $PSScriptRoot "..\..\runtime\windows\libmpv\libmpv-2.dll"),
+    [string]$LibmpvProvenancePath = (Join-Path $PSScriptRoot "..\..\runtime\windows\libmpv\libmpv-provenance.json"),
     [string]$WebUiDistPath = (Join-Path $PSScriptRoot "..\..\apps\web-ui\dist"),
     [string]$MyAnimeListClientId = $env:DANMAKU_MYANIMELIST_CLIENT_ID,
     [bool]$ProbeLibmpv = $true
@@ -170,10 +171,11 @@ does not require administrator access:
 
     .\manage-rust-library-background-host.ps1 -Action Install -LibraryRoot "D:\Anime"
 
-Repeat -LibraryRoot for multiple folders. Use -Action Status, Start, Stop,
-SetRoots, or Uninstall to manage it. SetRoots accepts the same repeated
+Repeat -LibraryRoot for multiple folders. Use -Action Status, Refresh, Start,
+Stop, SetRoots, or Uninstall to manage it. SetRoots accepts the same repeated
 -LibraryRoot argument. Uninstall removes the task and installed program files
-but preserves the server database and settings under %LOCALAPPDATA%\Danmaku.
+but preserves the background-host configuration, server database, and settings
+under %LOCALAPPDATA%\Danmaku. Installed app updates run Refresh automatically.
 
 The player automatically attaches to this host and will not stop it when the
 player exits. Use -PlanOnly with Install or SetRoots to validate and preview
@@ -184,11 +186,11 @@ the operation without changing Task Scheduler.
 - danmaku-player.exe: egui/libmpv player and LAN library client.
 - library-server.exe: local library, streaming, danmaku, and web server.
 - web/: packaged server administration UI.
-- libmpv-2.dll: pinned, separately licensed LGPL libmpv dependency.
+- libmpv-2.dll: release-resolved, separately licensed LGPL libmpv dependency.
 - run-danmaku-player.ps1: launcher that selects the packaged libmpv.
 - manage-rust-library-background-host.ps1: install and manage the per-user task.
 - run-rust-library-background-host.ps1: hidden Task Scheduler entry-point.
-- dependencies/libmpv/: pinned manifest and source provenance.
+- dependencies/libmpv/: exact release-time source and hash provenance.
 - RUST_CRATE_LICENSES.md: generated player Rust dependency inventory.
 - RUST_SERVER_CRATE_LICENSES.md: generated server Rust dependency inventory.
 - licenses/, LICENSE, and THIRD_PARTY_NOTICES.md: license texts and notices.
@@ -267,23 +269,33 @@ if (-not (Test-Path -LiteralPath $webUiIndexPath -PathType Leaf)) {
     throw "Built web UI does not exist at $webUiIndexPath. Run npm ci and npm run build in apps/web-ui first."
 }
 
-$manifestPath = Join-Path $repoRoot "third_party\windows\libmpv\zhongfly-lgpl-x86_64-20260708.json"
 $sourcePath = Join-Path $repoRoot "third_party\windows\libmpv\SOURCE.md"
 $libmpvFullPath = [System.IO.Path]::GetFullPath($LibmpvPath)
-if (-not (Test-Path -LiteralPath $libmpvFullPath -PathType Leaf)) {
-    & (Join-Path $repoRoot "tools\windows\install-libmpv-dependency.ps1") -ManifestPath $manifestPath -InstallPath (Split-Path -Parent $libmpvFullPath) -AcceptLicense
+$provenanceFullPath = [System.IO.Path]::GetFullPath($LibmpvProvenancePath)
+if (
+    -not (Test-Path -LiteralPath $libmpvFullPath -PathType Leaf) -or
+    -not (Test-Path -LiteralPath $provenanceFullPath -PathType Leaf)
+) {
+    & (Join-Path $repoRoot "tools\windows\install-libmpv-dependency.ps1") `
+        -InstallPath (Split-Path -Parent $libmpvFullPath) `
+        -ProvenancePath $provenanceFullPath `
+        -AcceptLicense
     if ($LASTEXITCODE -ne 0) {
-        throw "Pinned libmpv installation failed."
+        throw "Latest libmpv resolution and installation failed."
     }
 }
 
-$dependencyManifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
-if ($dependencyManifest.approval.status -ne "approved") {
-    throw "Pinned libmpv dependency is not approved for redistribution."
+$dependencyManifest = Get-Content -LiteralPath $provenanceFullPath -Raw | ConvertFrom-Json
+if (
+    $dependencyManifest.schemaVersion -ne 2 -or
+    $dependencyManifest.selectionPolicy -ne "latest-stable-lgpl-x86_64" -or
+    $dependencyManifest.approval.status -ne "policy-approved"
+) {
+    throw "Resolved libmpv dependency does not satisfy the release selection policy."
 }
 $actualDllHash = (Get-FileHash -LiteralPath $libmpvFullPath -Algorithm SHA256).Hash
 if ($actualDllHash -ne $dependencyManifest.dllSha256) {
-    throw "Pinned libmpv SHA-256 mismatch: expected $($dependencyManifest.dllSha256), got $actualDllHash."
+    throw "Resolved libmpv SHA-256 mismatch: expected $($dependencyManifest.dllSha256), got $actualDllHash."
 }
 
 if (Test-Path -LiteralPath $stagePath) {
@@ -304,7 +316,10 @@ Copy-Item -LiteralPath $libmpvFullPath -Destination $stagePath -Force
 Copy-Item -LiteralPath (Join-Path $repoRoot "tools\windows\run-rust-player.ps1") -Destination (Join-Path $stagePath "run-danmaku-player.ps1") -Force
 Copy-Item -LiteralPath (Join-Path $repoRoot "tools\windows\manage-rust-library-background-host.ps1") -Destination $stagePath -Force
 Copy-Item -LiteralPath (Join-Path $repoRoot "tools\windows\run-rust-library-background-host.ps1") -Destination $stagePath -Force
-Copy-Item -LiteralPath $manifestPath -Destination $dependencyStagePath -Force
+Copy-Item `
+    -LiteralPath $provenanceFullPath `
+    -Destination (Join-Path $dependencyStagePath "libmpv-provenance.json") `
+    -Force
 Copy-Item -LiteralPath $sourcePath -Destination $dependencyStagePath -Force
 Copy-Item -LiteralPath (Join-Path $repoRoot "LICENSE") -Destination $stagePath -Force
 Copy-Item -LiteralPath (Join-Path $repoRoot "THIRD_PARTY_NOTICES.md") -Destination $stagePath -Force

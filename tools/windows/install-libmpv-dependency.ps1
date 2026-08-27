@@ -3,6 +3,7 @@ param(
     [string]$ManifestPath,
     [string]$InstallPath,
     [string]$ArchivePath,
+    [string]$ProvenancePath,
     [string]$SevenZipExecutable,
     [switch]$AcceptLicense
 )
@@ -68,7 +69,7 @@ function Resolve-SevenZip {
     $command = Get-Command 7z.exe, 7z -ErrorAction SilentlyContinue |
         Select-Object -First 1
     if ($null -eq $command) {
-        throw "7-Zip is required to extract the pinned libmpv archive."
+        throw "7-Zip is required to extract the resolved libmpv archive."
     }
     return $command.Source
 }
@@ -98,66 +99,19 @@ function Resolve-ChildPath {
     return $fullPath
 }
 
-$packagedManifestPath = Join-Path $PSScriptRoot "zhongfly-lgpl-x86_64-20260708.json"
-$repoManifestPath = Join-Path $PSScriptRoot (
-    "..\..\third_party\windows\libmpv\zhongfly-lgpl-x86_64-20260708.json"
-)
-$isPackagedInstaller = Test-Path -LiteralPath $packagedManifestPath -PathType Leaf
-
-if ([string]::IsNullOrWhiteSpace($ManifestPath)) {
-    $ManifestPath = if ($isPackagedInstaller) {
-        $packagedManifestPath
-    } else {
-        $repoManifestPath
-    }
-}
-$manifestFullPath = Get-FullPath $ManifestPath
-if (-not (Test-Path -LiteralPath $manifestFullPath -PathType Leaf)) {
-    throw "libmpv dependency manifest does not exist: $manifestFullPath"
+if (-not $AcceptLicense) {
+    throw "Review the libmpv LGPL terms, then rerun with -AcceptLicense."
 }
 
 if ([string]::IsNullOrWhiteSpace($InstallPath)) {
-    $InstallPath = if ($isPackagedInstaller) {
-        Join-Path $PSScriptRoot "..\..\app"
-    } else {
-        Join-Path $PSScriptRoot "..\..\runtime\windows\libmpv"
-    }
+    $InstallPath = Join-Path $PSScriptRoot "..\..\runtime\windows\libmpv"
 }
 $installFullPath = Get-FullPath $InstallPath
+if ([string]::IsNullOrWhiteSpace($ProvenancePath)) {
+    $ProvenancePath = Join-Path $installFullPath "libmpv-provenance.json"
+}
+$provenanceFullPath = Get-FullPath $ProvenancePath
 
-$manifest = Get-Content -LiteralPath $manifestFullPath -Raw | ConvertFrom-Json
-if ($manifest.schemaVersion -ne 1) {
-    throw "Unsupported libmpv dependency manifest schemaVersion '$($manifest.schemaVersion)'."
-}
-@(
-    "dependencyName",
-    "distributionModel",
-    "license",
-    "licenseUrl",
-    "projectUrl",
-    "releaseUrl",
-    "archiveFileName",
-    "archiveUrl",
-    "archiveSha256",
-    "dllArchivePath",
-    "dllSha256"
-) | ForEach-Object {
-    Assert-NonBlankProperty -Object $manifest -Name $_
-}
-Assert-Sha256 -Value $manifest.archiveSha256 -Description "archiveSha256"
-Assert-Sha256 -Value $manifest.dllSha256 -Description "dllSha256"
-
-if ($manifest.distributionModel -notin @(
-    "optional-user-download",
-    "approved-direct-redistribution"
-)) {
-    throw "Unsupported dependency distribution model '$($manifest.distributionModel)'."
-}
-if (-not $AcceptLicense) {
-    throw "Review $($manifest.license) at $($manifest.licenseUrl), then rerun with -AcceptLicense."
-}
-
-$sevenZip = Resolve-SevenZip -ConfiguredPath $SevenZipExecutable
 $temporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) (
     "danmaku-libmpv-install-" + [System.Guid]::NewGuid().ToString("N")
 )
@@ -165,19 +119,57 @@ $temporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) (
 try {
     New-Item -ItemType Directory -Path $temporaryRoot -Force | Out-Null
 
+    if ([string]::IsNullOrWhiteSpace($ManifestPath)) {
+        $ManifestPath = Join-Path $temporaryRoot "libmpv-resolution.json"
+        & (Join-Path $PSScriptRoot "resolve-latest-libmpv-dependency.ps1") `
+            -OutputPath $ManifestPath | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            throw "Latest libmpv dependency resolution failed."
+        }
+    }
+    $manifestFullPath = Get-FullPath $ManifestPath
+    if (-not (Test-Path -LiteralPath $manifestFullPath -PathType Leaf)) {
+        throw "libmpv dependency manifest does not exist: $manifestFullPath"
+    }
+
+    $manifest = Get-Content -LiteralPath $manifestFullPath -Raw | ConvertFrom-Json
+    if ($manifest.schemaVersion -ne 2) {
+        throw "Unsupported libmpv dependency manifest schemaVersion '$($manifest.schemaVersion)'."
+    }
+    @(
+        "dependencyName",
+        "distributionModel",
+        "selectionPolicy",
+        "license",
+        "licenseUrl",
+        "projectUrl",
+        "releaseTag",
+        "releaseUrl",
+        "archiveFileName",
+        "archiveUrl",
+        "archiveSha256",
+        "dllArchivePath"
+    ) | ForEach-Object {
+        Assert-NonBlankProperty -Object $manifest -Name $_
+    }
+    Assert-Sha256 -Value $manifest.archiveSha256 -Description "archiveSha256"
+    if ($manifest.distributionModel -ne "approved-direct-redistribution") {
+        throw "Unsupported dependency distribution model '$($manifest.distributionModel)'."
+    }
+    if ($manifest.selectionPolicy -ne "latest-stable-lgpl-x86_64") {
+        throw "Unsupported libmpv selection policy '$($manifest.selectionPolicy)'."
+    }
+    if (
+        $null -eq $manifest.PSObject.Properties["approval"] -or
+        [string]$manifest.approval.status -ne "policy-approved"
+    ) {
+        throw "Resolved libmpv dependency is not approved by the release selection policy."
+    }
+
     if ([string]::IsNullOrWhiteSpace($ArchivePath)) {
         $archiveFullPath = Join-Path $temporaryRoot $manifest.archiveFileName
-        Write-Host "Downloading pinned dependency from $($manifest.archiveUrl)"
-        try {
-            Invoke-WebRequest -Uri $manifest.archiveUrl -OutFile $archiveFullPath -UseBasicParsing
-        } catch {
-            throw (
-                "Could not download pinned libmpv archive from $($manifest.archiveUrl). " +
-                "The upstream zhongfly/mpv-winbuild release probably rotated or was deleted, " +
-                "and the libmpv pin needs updating. See docs/windows-libmpv-bundle.md. " +
-                "Original error: $($_.Exception.Message)"
-            )
-        }
+        Write-Host "Downloading resolved libmpv dependency from $($manifest.archiveUrl)"
+        Invoke-WebRequest -Uri $manifest.archiveUrl -OutFile $archiveFullPath -UseBasicParsing
     } else {
         $archiveFullPath = Get-FullPath $ArchivePath
         if (-not (Test-Path -LiteralPath $archiveFullPath -PathType Leaf)) {
@@ -190,6 +182,7 @@ try {
         -ExpectedHash $manifest.archiveSha256 `
         -Description "archive '$($manifest.archiveFileName)'"
 
+    $sevenZip = Resolve-SevenZip -ConfiguredPath $SevenZipExecutable
     $extractPath = Join-Path $temporaryRoot "extracted"
     New-Item -ItemType Directory -Path $extractPath -Force | Out-Null
     & $sevenZip x $archiveFullPath "-o$extractPath" -y $manifest.dllArchivePath | Out-Null
@@ -199,21 +192,46 @@ try {
 
     $dllPath = Resolve-ChildPath -RootPath $extractPath -RelativePath $manifest.dllArchivePath
     if (-not (Test-Path -LiteralPath $dllPath -PathType Leaf)) {
-        throw "Pinned archive did not contain $($manifest.dllArchivePath)."
+        throw "Resolved archive did not contain $($manifest.dllArchivePath)."
     }
-    Assert-Hash `
-        -Path $dllPath `
-        -ExpectedHash $manifest.dllSha256 `
-        -Description "extracted $($manifest.dependencyName)"
+    $dllHash = (Get-FileHash -LiteralPath $dllPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    if (
+        $null -ne $manifest.PSObject.Properties["dllSha256"] -and
+        -not [string]::IsNullOrWhiteSpace([string]$manifest.dllSha256)
+    ) {
+        Assert-Sha256 -Value $manifest.dllSha256 -Description "dllSha256"
+        if ($dllHash -ne [string]$manifest.dllSha256) {
+            throw (
+                "SHA-256 mismatch for extracted $($manifest.dependencyName): " +
+                "expected $($manifest.dllSha256), got $dllHash."
+            )
+        }
+    }
 
     New-Item -ItemType Directory -Path $installFullPath -Force | Out-Null
     $destinationPath = Join-Path $installFullPath $manifest.dependencyName
     Copy-Item -LiteralPath $dllPath -Destination $destinationPath -Force
 
-    Write-Host "Installed $($manifest.dependencyName) dependency to $destinationPath"
-    Write-Host "License: $($manifest.license) ($($manifest.licenseUrl))"
-    Write-Host "Project: $($manifest.projectUrl)"
-    Write-Host "Release: $($manifest.releaseUrl)"
+    $manifest | Add-Member -NotePropertyName dllSha256 -NotePropertyValue $dllHash -Force
+    $manifest | Add-Member `
+        -NotePropertyName resolvedAtUtc `
+        -NotePropertyValue ([DateTimeOffset]::UtcNow.ToString("O")) `
+        -Force
+    $provenanceParent = Split-Path -Parent $provenanceFullPath
+    if (-not [string]::IsNullOrWhiteSpace($provenanceParent)) {
+        New-Item -ItemType Directory -Path $provenanceParent -Force | Out-Null
+    }
+    [System.IO.File]::WriteAllText(
+        $provenanceFullPath,
+        ($manifest | ConvertTo-Json -Depth 8) + [Environment]::NewLine,
+        [System.Text.UTF8Encoding]::new($false)
+    )
+
+    Write-Host "Installed $($manifest.dependencyName) to $destinationPath"
+    Write-Host "Resolved release: $($manifest.releaseTag) ($($manifest.releaseUrl))"
+    Write-Host "Archive SHA-256: $($manifest.archiveSha256)"
+    Write-Host "DLL SHA-256: $dllHash"
+    Write-Host "Provenance: $provenanceFullPath"
 } finally {
     $resolvedTemporaryRoot = Get-FullPath $temporaryRoot
     $systemTemporaryRoot = Get-FullPath ([System.IO.Path]::GetTempPath())

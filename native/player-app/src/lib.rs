@@ -29,4 +29,5 @@ pub mod smoke;
 pub mod theme;
 pub mod tracking;
 pub mod tracks;
+pub mod updater;
 pub mod video;

@@ -44,6 +44,11 @@ jobs:
           cache: npm
           cache-dependency-path: apps/web-ui/package-lock.json
 
+      - name: Set up .NET for pinned Velopack CLI
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "8.0.x"
+
       - name: Test Windows libmpv bundle verifier
         shell: pwsh
         run: .\tools\windows\test-verify-libmpv-bundle.ps1
@@ -52,14 +57,20 @@ jobs:
         shell: pwsh
         run: .\tools\windows\test-install-libmpv-dependency.ps1
 
-      - name: Read libmpv dependency manifest
+      - name: Test latest libmpv resolver
+        shell: pwsh
+        run: .\tools\windows\test-resolve-latest-libmpv-dependency.ps1
+
+      - name: Resolve latest LGPL libmpv release
         id: libmpv
         shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
-          $manifest = Get-Content `
-            -LiteralPath "third_party\windows\libmpv\zhongfly-lgpl-x86_64-20260708.json" `
-            -Raw |
-            ConvertFrom-Json
+          $resolutionPath = Join-Path $env:RUNNER_TEMP "libmpv-resolution.json"
+          .\tools\windows\resolve-latest-libmpv-dependency.ps1 `
+            -OutputPath $resolutionPath
+          $manifest = Get-Content -LiteralPath $resolutionPath -Raw | ConvertFrom-Json
           $cacheDir = Join-Path $env:RUNNER_TEMP "libmpv-archive-cache"
           New-Item -ItemType Directory -Path $cacheDir -Force | Out-Null
           $archivePath = Join-Path $cacheDir $manifest.archiveFileName
@@ -67,35 +78,34 @@ jobs:
           Add-Content -Path $env:GITHUB_OUTPUT -Value "archive-url=$($manifest.archiveUrl)"
           Add-Content -Path $env:GITHUB_OUTPUT -Value "archive-path=$archivePath"
           Add-Content -Path $env:GITHUB_OUTPUT -Value "cache-dir=$cacheDir"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "resolution-path=$resolutionPath"
 
-      - name: Cache approved libmpv archive
+      - name: Cache resolved libmpv archive by digest
         uses: actions/cache@v6
         with:
           path: ${{ steps.libmpv.outputs.cache-dir }}
           key: libmpv-windows-${{ steps.libmpv.outputs.archive-sha256 }}
 
-      - name: Install approved libmpv dependency
+      - name: Download and install resolved libmpv dependency
         shell: pwsh
         run: |
           $archivePath = "${{ steps.libmpv.outputs.archive-path }}"
+          $expectedHash = "${{ steps.libmpv.outputs.archive-sha256 }}"
+          if ((Test-Path -LiteralPath $archivePath -PathType Leaf) -and
+              (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash -ne $expectedHash) {
+            Remove-Item -LiteralPath $archivePath -Force
+          }
           if (-not (Test-Path -LiteralPath $archivePath -PathType Leaf)) {
             $archiveUrl = "${{ steps.libmpv.outputs.archive-url }}"
-            Write-Host "Downloading pinned libmpv archive into the CI cache from $archiveUrl"
-            try {
-              Invoke-WebRequest -Uri $archiveUrl -OutFile $archivePath -UseBasicParsing
-            } catch {
-              throw (
-                "Could not download pinned libmpv archive from $archiveUrl. " +
-                "The upstream zhongfly/mpv-winbuild release probably rotated or was deleted, " +
-                "and the libmpv pin needs updating. See docs/windows-libmpv-bundle.md. " +
-                "Original error: $($_.Exception.Message)"
-              )
-            }
+            Write-Host "Downloading latest resolved libmpv archive from $archiveUrl"
+            Invoke-WebRequest -Uri $archiveUrl -OutFile $archivePath -UseBasicParsing
           } else {
-            Write-Host "Using cached pinned libmpv archive at $archivePath"
+            Write-Host "Using digest-keyed libmpv archive cache at $archivePath"
           }
           .\tools\windows\install-libmpv-dependency.ps1 `
+            -ManifestPath "${{ steps.libmpv.outputs.resolution-path }}" `
             -ArchivePath $archivePath `
+            -ProvenancePath .\runtime\windows\libmpv\libmpv-provenance.json `
             -AcceptLicense
 
       - name: Decode Android CI signing key
@@ -131,6 +141,16 @@ jobs:
         shell: pwsh
         run: .\tools\windows\prepare-rust-player-release.ps1
 
+      - name: Install pinned Velopack CLI
+        shell: pwsh
+        run: dotnet tool install --tool-path "$env:RUNNER_TEMP\vpk" vpk --version 1.2.0
+
+      - name: Verify unsigned Windows installer packaging
+        shell: pwsh
+        run: |
+          .\tools\windows\prepare-windows-installer.ps1 `
+            -VpkPath "$env:RUNNER_TEMP\vpk\vpk.exe"
+
       - name: Upload Android Mobile APK
         uses: actions/upload-artifact@v7
         with:
@@ -150,6 +170,16 @@ jobs:
         with:
           name: danmaku-windows-native-player
           path: build/release/rust-player/*.zip
+          if-no-files-found: error
+
+      - name: Upload unsigned Windows installer verification artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: danmaku-windows-installer-unsigned
+          path: |
+            build/release/windows-installer/*-Setup.exe
+            build/release/windows-installer/*-full.nupkg
+            build/release/windows-installer/releases.win-x64-stable.json
           if-no-files-found: error
 
   rust:

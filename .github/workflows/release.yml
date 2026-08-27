@@ -1,0 +1,207 @@
+name: Release Windows Desktop
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows-release:
+    name: Signed Windows installer and updates
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/web-ui/package-lock.json
+
+      - name: Set up .NET for pinned Velopack CLI
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Validate tag, package versions, and release notes
+        id: version
+        shell: pwsh
+        run: |
+          if ("${{ github.ref_name }}" -notmatch '^v\d+\.\d+\.\d+$') {
+            throw "Production tags must use vX.Y.Z SemVer format."
+          }
+          $version = "${{ github.ref_name }}".Substring(1)
+          $metadata = cargo metadata --format-version 1 --no-deps --locked | ConvertFrom-Json
+          foreach ($name in @("danmaku-player", "library-server")) {
+            $package = $metadata.packages | Where-Object { $_.name -eq $name } | Select-Object -First 1
+            if ($null -eq $package -or [string]$package.version -ne $version) {
+              throw "$name version must match tag v$version."
+            }
+          }
+          $notes = Join-Path $env:RUNNER_TEMP "release-notes.md"
+          .\tools\windows\get-release-notes.ps1 -Version $version -OutputPath $notes
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "value=$version"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "notes=$notes"
+
+      - name: Check Rust formatting and tests
+        run: |
+          cargo fmt --all --check
+          cargo test --workspace
+
+      - name: Build packaged web UI
+        working-directory: apps/web-ui
+        run: |
+          npm ci
+          npm run build
+
+      - name: Resolve latest LGPL libmpv release
+        id: libmpv
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          $resolutionPath = Join-Path $env:RUNNER_TEMP "libmpv-resolution.json"
+          .\tools\windows\resolve-latest-libmpv-dependency.ps1 `
+            -OutputPath $resolutionPath
+          $manifest = Get-Content -LiteralPath $resolutionPath -Raw | ConvertFrom-Json
+          $cacheDir = Join-Path $env:RUNNER_TEMP "libmpv-archive-cache"
+          New-Item -ItemType Directory -Path $cacheDir -Force | Out-Null
+          $archivePath = Join-Path $cacheDir $manifest.archiveFileName
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "archive-sha256=$($manifest.archiveSha256.ToLowerInvariant())"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "archive-url=$($manifest.archiveUrl)"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "archive-path=$archivePath"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "cache-dir=$cacheDir"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "resolution-path=$resolutionPath"
+
+      - name: Restore resolved libmpv archive by digest
+        uses: actions/cache@v6
+        with:
+          path: ${{ steps.libmpv.outputs.cache-dir }}
+          key: libmpv-windows-${{ steps.libmpv.outputs.archive-sha256 }}
+
+      - name: Download and install resolved libmpv dependency
+        shell: pwsh
+        run: |
+          $archivePath = "${{ steps.libmpv.outputs.archive-path }}"
+          $expectedHash = "${{ steps.libmpv.outputs.archive-sha256 }}"
+          if ((Test-Path -LiteralPath $archivePath -PathType Leaf) -and
+              (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash -ne $expectedHash) {
+            Remove-Item -LiteralPath $archivePath -Force
+          }
+          if (-not (Test-Path -LiteralPath $archivePath -PathType Leaf)) {
+            $archiveUrl = "${{ steps.libmpv.outputs.archive-url }}"
+            Invoke-WebRequest -Uri $archiveUrl -OutFile $archivePath -UseBasicParsing
+          }
+          .\tools\windows\install-libmpv-dependency.ps1 `
+            -ManifestPath "${{ steps.libmpv.outputs.resolution-path }}" `
+            -ArchivePath $archivePath `
+            -ProvenancePath .\runtime\windows\libmpv\libmpv-provenance.json `
+            -AcceptLicense
+
+      - name: Build and verify portable Windows package
+        shell: pwsh
+        run: .\tools\windows\prepare-rust-player-release.ps1
+
+      - name: Require and decode Windows signing certificate
+        id: signing
+        shell: pwsh
+        env:
+          WINDOWS_SIGNING_PFX_BASE64: ${{ secrets.WINDOWS_SIGNING_PFX_BASE64 }}
+          WINDOWS_SIGNING_PFX_PASSWORD: ${{ secrets.WINDOWS_SIGNING_PFX_PASSWORD }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:WINDOWS_SIGNING_PFX_BASE64) -or
+              [string]::IsNullOrWhiteSpace($env:WINDOWS_SIGNING_PFX_PASSWORD)) {
+            throw "Production release signing secrets are not configured."
+          }
+          $path = Join-Path $env:RUNNER_TEMP "danmaku-signing.pfx"
+          [System.IO.File]::WriteAllBytes($path, [Convert]::FromBase64String($env:WINDOWS_SIGNING_PFX_BASE64))
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "pfx=$path"
+
+      - name: Install pinned Velopack CLI
+        shell: pwsh
+        run: dotnet tool install --tool-path "$env:RUNNER_TEMP\vpk" vpk --version 1.2.0
+
+      - name: Download previous stable package for delta generation
+        shell: pwsh
+        env:
+          VPK_TOKEN: ${{ github.token }}
+        run: |
+          $vpk = Join-Path $env:RUNNER_TEMP "vpk\vpk.exe"
+          & $vpk -y --skip-updates true download github `
+            --repoUrl "https://github.com/${{ github.repository }}" `
+            --channel win-x64-stable `
+            --outputDir .\build\release\windows-installer
+          if ($LASTEXITCODE -ne 0) {
+            Write-Warning "No previous stable package was downloaded; this release will contain a full update only."
+          }
+          exit 0
+
+      - name: Build signed installer and stable update feed
+        shell: pwsh
+        env:
+          WINDOWS_SIGNING_PFX_PASSWORD: ${{ secrets.WINDOWS_SIGNING_PFX_PASSWORD }}
+        run: |
+          $vpk = Join-Path $env:RUNNER_TEMP "vpk\vpk.exe"
+          .\tools\windows\prepare-windows-installer.ps1 `
+            -VpkPath $vpk `
+            -ReleaseNotesPath "${{ steps.version.outputs.notes }}" `
+            -SigningPfxPath "${{ steps.signing.outputs.pfx }}" `
+            -RequireSigning
+
+      - name: Create release checksums
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.value }}"
+          $assets = @(
+            Get-ChildItem .\build\release\windows-installer -File |
+              Where-Object {
+                $_.Name -like "*-Setup.exe" -or
+                $_.Name -eq "releases.win-x64-stable.json" -or
+                ($_.Extension -eq ".nupkg" -and $_.Name -like "*-$version-*")
+              }
+            Get-ChildItem .\build\release\rust-player -Filter "*.zip" -File
+            Get-Item .\runtime\windows\libmpv\libmpv-provenance.json
+          )
+          $lines = $assets | Sort-Object Name | ForEach-Object {
+            $hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $($_.Name)"
+          }
+          $lines | Set-Content -LiteralPath .\build\release\SHA256SUMS.txt -Encoding utf8NoBOM
+
+      - name: Publish GitHub release after all verification succeeds
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $version = "${{ steps.version.outputs.value }}"
+          $assets = @(
+            Get-ChildItem .\build\release\windows-installer -File |
+              Where-Object {
+                $_.Name -like "*-Setup.exe" -or
+                $_.Name -eq "releases.win-x64-stable.json" -or
+                ($_.Extension -eq ".nupkg" -and $_.Name -like "*-$version-*")
+              } |
+              ForEach-Object FullName
+            Get-ChildItem .\build\release\rust-player -Filter "*.zip" -File |
+              ForEach-Object FullName
+            (Resolve-Path .\runtime\windows\libmpv\libmpv-provenance.json).Path
+            (Resolve-Path .\build\release\SHA256SUMS.txt).Path
+          )
+          gh release create $tag --verify-tag --draft --title "Danmaku ${{ steps.version.outputs.value }}" --notes-file "${{ steps.version.outputs.notes }}" @assets
+          gh release edit $tag --draft=false

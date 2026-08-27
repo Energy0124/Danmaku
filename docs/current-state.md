@@ -1,6 +1,6 @@
 # Current State
 
-Last reviewed: 2026-08-17.
+Last reviewed: 2026-08-21.
 
 Danmaku's active product is a Rust-native Windows library/player/server with
 Android mobile, Android TV, and browser clients on the same trusted-LAN API,
@@ -21,8 +21,10 @@ Compose macOS artifact are retired.
   pairing tokens.
 - Unified local mode that starts the sibling Rust server, waits asynchronously
   for readiness, connects, and stops only a child it owns.
-- Optional current-user Task Scheduler background host with install, root
-  management, start/stop/status, uninstall, and non-mutating plan checks.
+- Optional current-user Task Scheduler background host with install, atomic
+  package refresh, root management, start/stop/status, uninstall, and
+  non-mutating plan checks. Refresh and uninstall preserve server data,
+  preferences, credentials, and configured roots.
 - Multi-root scanning, normalized catalog snapshots, subtitles, posters,
   streaming/range requests, progress, UDP discovery, and data-directory locks.
 - Authenticated, asynchronous manual rescans of the current folder. The server
@@ -81,7 +83,15 @@ Compose macOS artifact are retired.
 ### Packaging And CI
 
 - Versioned native Windows player and standalone server zips with web assets,
-  pinned libmpv, provenance, licenses, and generated dependency inventories.
+  latest-release LGPL libmpv resolution, exact hash provenance, licenses, and
+  generated dependency inventories.
+- Velopack-based per-user Windows Setup, stable-channel full/delta update
+  packages, quiet startup checks, release-note prompts, explicit
+  update-and-restart approval, and portable-build detection.
+- SemVer tag release automation validates versions/changelog, requires a CI
+  Authenticode certificate, resolves and verifies the latest stable LGPL x64
+  libmpv asset, preserves its recorded DLL hash, and publishes checksums only
+  after all build and package checks pass.
 - Windows CI for Rust, Android, web assets, packaging, and libmpv checks;
   separate Rust and Worker proxy jobs.
 - Native macOS CI compiles and tests the Rust workspace, verifies Homebrew

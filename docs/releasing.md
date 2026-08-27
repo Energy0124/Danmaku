@@ -1,18 +1,36 @@
 # Releasing
 
-Danmaku currently publishes development artifacts through CI. Windows and the
-experimental macOS desktop build are Rust-native; there is no Java/Compose
-desktop artifact.
+Danmaku publishes signed Windows desktop releases from SemVer tags and
+development artifacts through CI. Windows and the experimental macOS desktop
+build are Rust-native; there is no Java/Compose desktop artifact.
 
 ## Artifacts
 
 ### Windows Native Player
 
+Pushing a tag such as `v0.2.0` runs `.github/workflows/release.yml`. The tag
+must match the `danmaku-player` and `library-server` Cargo versions and a
+non-empty `CHANGELOG.md` section. The workflow requires these repository
+secrets and fails closed when either is missing:
+
+- `WINDOWS_SIGNING_PFX_BASE64`: base64-encoded Authenticode PFX;
+- `WINDOWS_SIGNING_PFX_PASSWORD`: PFX password.
+
+The workflow resolves the latest published zhongfly LGPL x64 libmpv asset,
+requires its GitHub SHA-256 digest, and caches it by that digest. It then uses
+Velopack 1.2.0 to publish the signed per-user Setup, full and delta update
+packages, `releases.win-x64-stable.json`, the portable zip,
+`libmpv-provenance.json`, and `SHA256SUMS.txt`. It creates the GitHub release as
+a draft and publishes it only after verification. The installed app checks
+stable GitHub releases at startup and applies an update only after the user
+selects **Update and restart**.
+
 The `danmaku-windows-native-player` artifact contains a versioned zip with:
 
 - `danmaku-player.exe` and `library-server.exe`;
 - bundled `/web/` assets and launcher/background-host scripts;
-- the approved pinned `libmpv-2.dll` and `mpv-probe` verification;
+- the release-resolved, digest-verified `libmpv-2.dll` and `mpv-probe`
+  verification;
 - project licenses, libmpv provenance, and generated Rust dependency
   inventories.
 
@@ -34,7 +52,15 @@ Run individual packaging checks only after `apps/web-ui/dist` exists:
 .\tools\windows\verify-rust-player-release.ps1 `
   -WindowsDistributionPath .\build\release\rust-player\danmaku-player-0.1.0-windows-x64 `
   -ProbeExecutable .\target\release\mpv-probe.exe
+.\tools\windows\prepare-windows-installer.ps1 `
+  -VpkPath <path-to-vpk-1.2.0>
 ```
+
+For a production-equivalent local build, also pass `-ReleaseNotesPath`,
+`-SigningPfxPath`, and `-RequireSigning`; provide the password through
+`WINDOWS_SIGNING_PFX_PASSWORD`. Do not place certificates or passwords in the
+repository. The installer is one-click, per-user, and does not install the
+optional background host automatically.
 
 Supervised playback QA requires known-good local media and launches the GUI:
 
@@ -89,8 +115,16 @@ server and use Media3 for playback.
 ## Release Checklist
 
 - `[ ]` Run CI-equivalent Rust, Gradle, web, and Worker checks.
-- `[ ]` Verify the pinned libmpv hashes, license texts, and source provenance.
+- `[ ]` Verify the resolved libmpv release, GitHub asset digest, extracted DLL
+  hash, license texts, and generated source provenance.
 - `[ ]` Build and verify the standalone server and unified Windows zips.
+- `[ ]` Confirm the tag, both Rust package versions, and changelog section
+  match; confirm signing secrets are available to the protected tag workflow.
+- `[ ]` Verify Setup/full/delta/feed/checksum/provenance assets and valid
+  Authenticode signatures without changing the resolved libmpv hash.
+- `[ ]` Exercise install, startup check, release-note approval, update/restart,
+  corrupted-package rejection, background-host refresh, and uninstall data
+  preservation with two release versions.
 - `[ ]` Build and verify the macOS `.app` on Apple Silicon and Intel.
 - `[ ]` Before macOS promotion, complete libmpv provenance, release signing,
   notarization, provider HTTPS/token storage, and supervised playback QA.

@@ -21,7 +21,7 @@ $launcherPath = Join-Path $distributionPath "run-danmaku-player.ps1"
 $backgroundManagerPath = Join-Path $distributionPath "manage-rust-library-background-host.ps1"
 $backgroundRunnerPath = Join-Path $distributionPath "run-rust-library-background-host.ps1"
 $dependencyPath = Join-Path $distributionPath "dependencies\libmpv"
-$manifestPath = Join-Path $dependencyPath "zhongfly-lgpl-x86_64-20260708.json"
+$manifestPath = Join-Path $dependencyPath "libmpv-provenance.json"
 $requiredFiles = @(
     $playerPath,
     $serverPath,
@@ -46,11 +46,14 @@ foreach ($requiredPath in $requiredFiles) {
 }
 
 $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
-if ($manifest.schemaVersion -ne 1) {
+if ($manifest.schemaVersion -ne 2) {
     throw "Unsupported libmpv dependency manifest schemaVersion '$($manifest.schemaVersion)'."
 }
-if ($manifest.approval.status -ne "approved") {
-    throw "libmpv dependency manifest is not approved for redistribution."
+if (
+    $manifest.selectionPolicy -ne "latest-stable-lgpl-x86_64" -or
+    $manifest.approval.status -ne "policy-approved"
+) {
+    throw "libmpv provenance does not satisfy the release selection policy."
 }
 if ([string]$manifest.dllSha256 -notmatch "^[0-9a-fA-F]{64}$") {
     throw "libmpv dependency manifest dllSha256 is invalid."
@@ -95,6 +98,14 @@ try {
         [System.IO.Path]::GetFullPath([string]$plan.libraryRoots[0]) -ne [System.IO.Path]::GetFullPath($planRoot)
     ) {
         throw "Packaged background-host PlanOnly output is invalid."
+    }
+    $refreshOutput = & $backgroundManagerPath -Action Refresh -PlanOnly
+    if ($LASTEXITCODE -ne 0) {
+        throw "Packaged background-host Refresh PlanOnly check failed with exit code $LASTEXITCODE."
+    }
+    $refreshPlan = ($refreshOutput | Out-String) | ConvertFrom-Json
+    if ($refreshPlan.action -ne "Refresh" -or $refreshPlan.task -ne "\Danmaku\Library Server") {
+        throw "Packaged background-host Refresh PlanOnly output is invalid."
     }
 } finally {
     Remove-Item -LiteralPath $planRoot -Recurse -Force -ErrorAction SilentlyContinue

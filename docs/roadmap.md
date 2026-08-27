@@ -9,6 +9,9 @@ deferred until its release and provider gaps are closed.
 Status: implemented vertical slice; broader manual QA remains.
 
 - Keep the unified Rust player/server package reproducible.
+- Keep the signed per-user installer, stable updater feed, delta generation,
+  and explicit update/restart UX reproducible; exercise two-version upgrade,
+  corruption rejection, rollback, and uninstall preservation in release QA.
 - Validate fullscreen, resize, aspect ratio, hardware decoding, 4K playback,
   multiple displays, resume, and background-host ownership.
 - Improve startup, catalog, playback, and failure diagnostics without adding a
@@ -53,7 +56,8 @@ Status: not implemented in the active applications.
 
 Status: macOS development slice implemented; release promotion deferred.
 
-- Re-audit the pinned libmpv dependency before changing its producer or hash.
+- Re-audit the Windows libmpv producer, automated latest-release selection
+  policy, and license evidence before changing the producer or asset pattern.
 - Add a reviewed redistributable macOS libmpv artifact or a documented external
   dependency policy, then release signing and notarization.
 - Add cross-platform provider HTTPS and protected credential persistence before

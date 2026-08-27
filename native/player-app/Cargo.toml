@@ -22,6 +22,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "=1.0.150"
 
 [target.'cfg(windows)'.dependencies]
+velopack = "=1.2.0"
 windows-sys = { version = "=0.61.2", features = ["Win32_Foundation", "Win32_Graphics_Dwm"] }
 
 [target.'cfg(windows)'.build-dependencies]

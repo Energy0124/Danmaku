@@ -87,6 +87,14 @@ npm test
 
 ## Windows Player
 
+Tagged releases publish a signed, per-user `app.danmaku.player-Setup.exe`.
+It installs without administrator access, creates Desktop and Start Menu
+shortcuts, and checks the stable GitHub release channel quietly at startup.
+An available update shows its release notes and is downloaded/applied only
+after **Update and restart** is selected. Player preferences, server settings,
+and library data remain under `%LOCALAPPDATA%\Danmaku` across updates and
+uninstall. Portable zips remain available but do not update themselves.
+
 Build and verify the unified portable package, then launch the newest package:
 
 ```powershell
@@ -94,9 +102,17 @@ Build and verify the unified portable package, then launch the newest package:
 .\run-rust-player.bat
 ```
 
+Build an unsigned local installer after preparing the portable stage and
+installing the pinned Velopack 1.2.0 `vpk` tool:
+
+```powershell
+.\tools\windows\prepare-windows-installer.ps1
+```
+
 The package contains `danmaku-player.exe`, `library-server.exe`, the web UI,
-the pinned `libmpv-2.dll`, background-host scripts, licenses, and dependency
-inventories. On first launch, select one or more local library folders. The
+the release-resolved and digest-verified `libmpv-2.dll`, background-host
+scripts, licenses, and dependency inventories. On first launch, select one or
+more local library folders. The
 player starts and connects to the sibling server automatically. It can also
 discover or manually connect to another trusted-LAN server.
 
