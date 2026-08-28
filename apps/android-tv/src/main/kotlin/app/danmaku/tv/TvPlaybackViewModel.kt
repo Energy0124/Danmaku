@@ -96,7 +96,7 @@ internal class TvPlaybackViewModel(
             }
         }
         val session = repository.state.value
-        val target = LanPlaybackTarget(session.serverUrl, session.pairingToken, item.id)
+        val target = LanPlaybackTarget(session.serverUrl, item.id)
         playbackGeneration += 1
         val generation = playbackGeneration
         preparationJob?.cancel()

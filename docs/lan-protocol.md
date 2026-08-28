@@ -22,10 +22,9 @@ The Rust server and its fixtures are authoritative for server behavior.
 - Simple status errors have no JSON envelope unless a route documents one.
 - Public hook validation errors are `text/plain; charset=utf-8` bodies with
   `Cache-Control: no-store`.
-- Pairing-token route auth is not enforced today. The server stores a pairing
-  token, but catalog, media, subtitle, poster, danmaku, and progress routes
-  remain available on the trusted LAN. `pairingRequired` is therefore false.
-- `AuthenticatedPostHook` token auth is separate from pairing. It uses
+- Client routes do not require authentication. Run the server only on a trusted
+  LAN and do not expose it directly to the public internet.
+- `AuthenticatedPostHook` is a separate webhook boundary and uses
   `X-Danmaku-Webhook-Token`.
 
 ## Core HTTP Routes
@@ -42,7 +41,6 @@ Body shape:
 {
   "appName": "Danmaku",
   "apiVersion": 1,
-  "pairingRequired": false,
   "mediaStreaming": true,
   "progressSync": true,
   "trustedDeviceManagement": false,
@@ -69,7 +67,7 @@ Status codes:
 
 ### `GET /api/library`
 
-Auth: none in current code, despite the stored pairing token.
+Auth: none.
 
 Success: `200 application/json; charset=utf-8`, `Cache-Control: no-store`.
 
@@ -117,7 +115,7 @@ Quirk: the handler does not check the exact path.
 ### `POST /api/library/rescan`
 
 Auth: none. Like catalog browsing, folder refresh is available to clients on
-the trusted LAN without an access code.
+the trusted LAN without client authentication.
 
 Requests an asynchronous scan of the folder currently shown by a native
 client. The body is a JSON object containing the folder browser's logical path:
@@ -457,9 +455,7 @@ These routes are implemented by `native/library-server`.
 
 ### `GET|PUT /api/providers/settings`
 
-Rust headless-server only. Auth is required even though the legacy catalog and
-media routes do not yet enforce pairing: send the server pairing token as
-`Authorization: Bearer <token>`. Token comparison is constant-time.
+Rust headless-server only. Auth: none; trusted LAN only.
 
 `GET` returns a secret-redacted settings document plus current runtime
 capabilities. `PUT` accepts the same non-secret settings plus write-only
@@ -681,7 +677,7 @@ Status codes:
 
 ### Provider account routes
 
-All account routes require `Authorization: Bearer <pairing token>`.
+Account routes require no client authentication and must remain on a trusted LAN.
 
 - `GET /api/providers/accounts` returns normalized MAL and Bangumi connection
   states (`CONNECTED`, `DISCONNECTED`, `NEEDS_RECONNECT`, or `UNAVAILABLE`),
@@ -704,8 +700,8 @@ are refreshed before readback/sync when they are within one minute of expiry.
 
 ### Provider tracking routes
 
-All tracking routes require the pairing bearer token. `GET
-/api/providers/tracking` returns persisted mappings plus a no-write preview.
+Tracking routes require no client authentication. `GET /api/providers/tracking`
+returns persisted mappings plus a no-write preview.
 `PUT|DELETE /api/providers/tracking/mapping` persists or removes a series
 mapping. `POST /api/providers/tracking/readback` reads mapped provider state.
 `POST /api/providers/tracking/sync` accepts the exact previewed

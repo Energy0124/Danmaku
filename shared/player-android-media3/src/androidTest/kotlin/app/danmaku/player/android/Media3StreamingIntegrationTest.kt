@@ -72,17 +72,16 @@ class Media3StreamingIntegrationTest {
             ),
             target = LanPlaybackTarget(
                 baseUrl = "http://127.0.0.1:8686",
-                pairingToken = "123456",
                 mediaId = "episode-id",
             ),
             source = PlaybackSource.RemoteStream(
-                "http://127.0.0.1:8686/media/episode-id?token=123456",
+                "http://127.0.0.1:8686/media/episode-id",
             ),
             subtitles = listOf(
                 LanSubtitlePreparation(
                     track = subtitleTrack,
                     source = PlaybackSource.RemoteStream(
-                        "http://127.0.0.1:8686/subtitles/subtitle-id?token=123456",
+                        "http://127.0.0.1:8686/subtitles/subtitle-id",
                     ),
                 ),
             ),
@@ -137,14 +136,14 @@ class Media3StreamingIntegrationTest {
                     streamPath = "/media/episode-id",
                     subtitles = listOf(subtitleTrack),
                 ),
-                target = LanPlaybackTarget(server.url, "123456", "episode-id"),
+                target = LanPlaybackTarget(server.url, "episode-id"),
                 source = PlaybackSource.RemoteStream(server.url),
                 resumePositionMs = null,
                 subtitles = listOf(
                     LanSubtitlePreparation(
                         track = subtitleTrack,
                         source = PlaybackSource.RemoteStream(
-                            server.subtitleUrl(subtitleTrack.id, "123456"),
+                            server.subtitleUrl(subtitleTrack.id),
                         ),
                     ),
                 ),
@@ -278,7 +277,6 @@ class Media3StreamingIntegrationTest {
         val connected = CountDownLatch(1)
         val connectionError = AtomicReference<Throwable?>()
         val mediaId = "episode 01"
-        val pairingToken = "123456"
         val mainHandler = Handler(Looper.getMainLooper())
 
         FixtureHttpServer(fixture, json).use { server ->
@@ -288,7 +286,7 @@ class Media3StreamingIntegrationTest {
                     onConnected = { controller ->
                         controller.load(
                             PlaybackSource.RemoteStream(
-                                server.streamUrl(mediaId, pairingToken),
+                                server.streamUrl(mediaId),
                             ),
                         )
                         controller.dispatch(PlaybackCommand.SetPlaybackRate(0.1f))
@@ -336,17 +334,11 @@ class Media3StreamingIntegrationTest {
         val url: String =
             "http://127.0.0.1:${serverSocket.localPort}/short-stream.mp4"
 
-        fun streamUrl(
-            mediaId: String,
-            pairingToken: String,
-        ): String =
-            "http://127.0.0.1:${serverSocket.localPort}/media/${mediaId.encoded()}?token=${pairingToken.encoded()}"
+        fun streamUrl(mediaId: String): String =
+            "http://127.0.0.1:${serverSocket.localPort}/media/${mediaId.encoded()}"
 
-        fun subtitleUrl(
-            subtitleId: String,
-            pairingToken: String,
-        ): String =
-            "http://127.0.0.1:${serverSocket.localPort}/subtitles/${subtitleId.encoded()}?token=${pairingToken.encoded()}"
+        fun subtitleUrl(subtitleId: String): String =
+            "http://127.0.0.1:${serverSocket.localPort}/subtitles/${subtitleId.encoded()}"
 
         fun awaitProgress(
             timeout: Long,

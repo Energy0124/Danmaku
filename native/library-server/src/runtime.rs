@@ -17,10 +17,7 @@ use crate::poster_cache::PosterCacheStore;
 use crate::progress::PlaybackProgressStore;
 use crate::provider_secrets::ProviderSecretStore;
 use crate::scanner::scan_roots_with_progress;
-use crate::settings::{
-    HeadlessServerSettings, SettingsStore, apply_external_anime_local_defaults,
-    generate_pairing_token,
-};
+use crate::settings::{HeadlessServerSettings, SettingsStore, apply_external_anime_local_defaults};
 use crate::{LibraryServerError, Result};
 
 #[derive(Debug)]
@@ -43,8 +40,7 @@ impl LoadedServer {
         let lock = DataDirectoryLock::acquire(&options.data_directory)?;
         let settings_store =
             SettingsStore::new(options.data_directory.join("server-settings.json"));
-        let mut persisted_settings = settings_store
-            .load_or_create(options.pairing_token.as_deref(), generate_pairing_token)?;
+        let mut persisted_settings = settings_store.load_or_create()?;
         let secret_store =
             ProviderSecretStore::platform(options.data_directory.join("provider-secrets.json"));
         secret_store.load()?.merge_into(&mut persisted_settings);
@@ -296,7 +292,6 @@ mod tests {
             data_directory: data_directory.clone(),
             library_roots: vec![root],
             port: 0,
-            pairing_token: Some("123456".to_owned()),
             web_assets_root: None,
         })
         .expect("server loads");
@@ -339,7 +334,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn folder_rescan_without_access_code_publishes_new_files() {
+    async fn folder_rescan_publishes_new_files() {
         let temp = temp_dir("danmaku-runtime-folder-rescan");
         let data_directory = temp.join("data");
         let root = temp.join("Anime");
@@ -351,7 +346,6 @@ mod tests {
             data_directory: data_directory.clone(),
             library_roots: vec![root.clone()],
             port: 0,
-            pairing_token: Some("123456".to_owned()),
             web_assets_root: None,
         })
         .expect("server loads");

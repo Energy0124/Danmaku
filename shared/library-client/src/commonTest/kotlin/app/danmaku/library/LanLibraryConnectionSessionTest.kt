@@ -24,7 +24,6 @@ class LanLibraryConnectionSessionTest {
 
         val snapshot = LanLibraryConnectionSession(client).fetchCatalogWithProgress(
             baseUrl = "http://192.168.1.20:8686",
-            pairingToken = "123456",
         )
 
         assertEquals(LanLibraryServerStatus(), snapshot.status)
@@ -44,7 +43,6 @@ class LanLibraryConnectionSessionTest {
         val error = assertFailsWith<LanLibraryClientException> {
             LanLibraryConnectionSession(client).fetchCatalogWithProgress(
                 baseUrl = "http://192.168.1.20:8686",
-                pairingToken = "123456",
             )
         }
 
@@ -66,7 +64,6 @@ class LanLibraryConnectionSessionTest {
             client.catalog,
             LanLibraryConnectionSession(client).fetchCatalog(
                 baseUrl = "http://192.168.1.20:8686",
-                pairingToken = "123456",
             ),
         )
         assertEquals(1, client.statusFetches)
@@ -105,7 +102,7 @@ class LanLibraryConnectionSessionTest {
             return status
         }
 
-        override fun fetchCatalog(baseUrl: String, pairingToken: String): LibraryCatalog {
+        override fun fetchCatalog(baseUrl: String): LibraryCatalog {
             catalogFetches += 1
             return catalog
         }
@@ -118,28 +115,22 @@ class LanLibraryConnectionSessionTest {
         override fun streamUrl(
             baseUrl: String,
             item: LibraryMediaItem,
-            pairingToken: String,
         ): String =
             "$baseUrl${item.streamPath}"
 
         override fun subtitleUrl(
             baseUrl: String,
             subtitle: LibrarySubtitleTrack,
-            pairingToken: String,
         ): String =
             "$baseUrl${subtitle.streamPath}"
 
         override fun fetchProgress(
             baseUrl: String,
             mediaId: String,
-            pairingToken: String,
         ): PlaybackProgress? =
             progresses.firstOrNull { it.mediaId == mediaId }
 
-        override fun fetchAllProgress(
-            baseUrl: String,
-            pairingToken: String,
-        ): List<PlaybackProgress> {
+        override fun fetchAllProgress(baseUrl: String): List<PlaybackProgress> {
             progressFetches += 1
             return progresses
         }
@@ -147,14 +138,12 @@ class LanLibraryConnectionSessionTest {
         override fun fetchDanmaku(
             baseUrl: String,
             mediaId: String,
-            pairingToken: String,
             forceRefresh: Boolean,
         ): LanDanmakuTrack =
             LanDanmakuTrack(mediaId = mediaId, status = LanDanmakuLoadStatus.UNAVAILABLE)
 
         override fun saveProgress(
             baseUrl: String,
-            pairingToken: String,
             progress: PlaybackProgress,
         ) = Unit
     }

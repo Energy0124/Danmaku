@@ -88,7 +88,6 @@
     <string name="connect_saved_pcs_title">Saved PCs</string>
     <string name="connect_saved_pcs_body">Connect to a remembered Windows library or edit the manual server URL.</string>
     <string name="connect_server_url_label">Server URL</string>
-    <string name="connect_pairing_code_label">Access code</string>
     <string name="server_status_title">Server Status</string>
     <string name="metadata_status_title">Metadata and Posters</string>
     <string name="downloads_status_title">Downloads</string>
@@ -180,7 +179,7 @@
     <string name="danmaku_timing_earlier">Earlier</string>
     <string name="danmaku_timing_later">Later</string>
     <string name="tracking_managed_on_windows">Accounts, reconnection, and series mappings are managed on Windows.</string>
-    <string name="tracking_connect_first">Connect to a PC with its access code to load tracking status.</string>
+    <string name="tracking_connect_first">Connect to a PC to load tracking status.</string>
     <string name="tracking_summary">%1$d ready · %2$d conflicts · %3$d skipped/in sync · %4$d failed</string>
     <string name="tracking_conflicts_windows">Conflicts are blocked. Resolve or import them from Windows or the web admin.</string>
     <string name="tracking_operation_result">%1$d succeeded · %2$d missing · %3$d failed</string>
@@ -204,8 +203,6 @@
     <string name="tracking_status_dropped">Dropped</string>
     <string name="tracking_status_plan_to_watch">Plan to watch</string>
     <string name="tracking_status_unchanged">Unchanged</string>
-    <string name="tracking_error_access_code_required">Enter the access code to load external tracking.</string>
-    <string name="tracking_error_access_code_rejected">The access code was rejected.</string>
     <string name="tracking_error_preview_changed">Progress changed. Check provider state and review the new preview.</string>
     <string name="tracking_error_request_failed">External tracking request failed.</string>
 </resources>

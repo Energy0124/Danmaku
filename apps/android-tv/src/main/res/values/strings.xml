@@ -92,7 +92,6 @@
     <string name="pc_no_server">No server</string>
     <string name="pc_server_set">Server set</string>
     <string name="pc_server_url_placeholder">PC server URL</string>
-    <string name="pairing_token_placeholder">Access code</string>
     <string name="saved_pcs_title">Saved PCs</string>
     <string name="server_status_title">Desktop Server</string>
     <string name="metadata_status_title">Metadata and Posters</string>
@@ -169,7 +168,7 @@
     <string name="action_refresh">Refresh</string>
     <string name="action_cancel">Cancel</string>
     <string name="tracking_managed_on_windows">Accounts, reconnection, and series mappings are managed on Windows.</string>
-    <string name="tracking_connect_first">Enter the PC address and access code to load tracking.</string>
+    <string name="tracking_connect_first">Enter the PC address to load tracking.</string>
     <string name="tracking_summary">%1$d ready · %2$d conflicts · %3$d skipped/in sync · %4$d failed</string>
     <string name="tracking_conflicts_windows">Conflicts are blocked. Resolve or import them from Windows or the web admin.</string>
     <string name="tracking_operation_result">%1$d succeeded · %2$d missing · %3$d failed</string>
@@ -193,7 +192,6 @@
     <string name="tracking_status_dropped">Dropped</string>
     <string name="tracking_status_plan_to_watch">Plan to watch</string>
     <string name="tracking_status_unchanged">Unchanged</string>
-    <string name="tracking_error_access_code_rejected">The access code was rejected.</string>
     <string name="tracking_error_preview_changed">Progress changed. Check provider state and review the new preview.</string>
     <string name="tracking_error_request_failed">External tracking request failed.</string>
 </resources>

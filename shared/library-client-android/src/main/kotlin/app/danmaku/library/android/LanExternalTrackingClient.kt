@@ -149,23 +149,21 @@ class LanExternalTrackingClient(
     private val connectTimeoutMillis: Int = 5_000,
     private val readTimeoutMillis: Int = 30_000,
 ) {
-    fun fetchAccounts(baseUrl: String, pairingToken: String): ProviderAccountsDocument =
-        request(baseUrl, pairingToken, "/api/providers/accounts", "GET")
+    fun fetchAccounts(baseUrl: String): ProviderAccountsDocument =
+        request(baseUrl, "/api/providers/accounts", "GET")
 
-    fun fetchTracking(baseUrl: String, pairingToken: String): ExternalTrackingDocument =
-        request(baseUrl, pairingToken, "/api/providers/tracking", "GET")
+    fun fetchTracking(baseUrl: String): ExternalTrackingDocument =
+        request(baseUrl, "/api/providers/tracking", "GET")
 
-    fun refreshReadback(baseUrl: String, pairingToken: String): ExternalTrackingOperationResponse =
-        request(baseUrl, pairingToken, "/api/providers/tracking/readback", "POST")
+    fun refreshReadback(baseUrl: String): ExternalTrackingOperationResponse =
+        request(baseUrl, "/api/providers/tracking/readback", "POST")
 
     fun sync(
         baseUrl: String,
-        pairingToken: String,
         expectedUpdates: List<ExternalAnimeTrackingUpdate>,
     ): ExternalTrackingOperationResponse =
         request(
             baseUrl,
-            pairingToken,
             "/api/providers/tracking/sync",
             "POST",
             json.encodeToString(ExternalTrackingSyncRequest(expectedUpdates)),
@@ -173,7 +171,6 @@ class LanExternalTrackingClient(
 
     private inline fun <reified T> request(
         baseUrl: String,
-        pairingToken: String,
         path: String,
         method: String,
         body: String? = null,
@@ -183,7 +180,6 @@ class LanExternalTrackingClient(
             requestMethod = method
             connectTimeout = connectTimeoutMillis
             readTimeout = readTimeoutMillis
-            setRequestProperty("Authorization", "Bearer $pairingToken")
             setRequestProperty("Accept", "application/json")
             if (body != null) {
                 doOutput = true

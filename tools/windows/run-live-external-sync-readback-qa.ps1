@@ -14,7 +14,6 @@ param(
     [string]$OutputDir,
     [ValidateRange(0, 65535)]
     [int]$Port = 0,
-    [string]$PairingToken = "123456",
     [switch]$AllowMissingEntry
 )
 
@@ -163,14 +162,10 @@ function Invoke-JsonRequest {
     param(
         [string]$Uri,
         [string]$Method = "GET",
-        [object]$Body = $null,
-        [switch]$Authenticated
+        [object]$Body = $null
     )
 
     $headers = @{ Accept = "application/json" }
-    if ($Authenticated) {
-        $headers.Authorization = "Bearer $PairingToken"
-    }
     $parameters = @{
         Uri = $Uri
         Method = $Method
@@ -216,8 +211,7 @@ function Wait-ForTrackingSeries {
     for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
         try {
             $document = (Invoke-JsonRequest `
-                -Uri "$BaseUrl/api/providers/tracking" `
-                -Authenticated).Content | ConvertFrom-Json
+                -Uri "$BaseUrl/api/providers/tracking").Content | ConvertFrom-Json
             if (@($document.series).Count -gt 0) {
                 return $document
             }
@@ -336,7 +330,7 @@ function Redact-SensitiveText {
         return $null
     }
     $redacted = $Text
-    foreach ($secret in @($MyAnimeListAccessToken, $BangumiAccessToken, $PairingToken)) {
+    foreach ($secret in @($MyAnimeListAccessToken, $BangumiAccessToken)) {
         if (-not [string]::IsNullOrWhiteSpace($secret)) {
             $redacted = $redacted.Replace($secret, "<redacted>")
         }
@@ -429,7 +423,6 @@ function Write-RustServerSettings {
     New-Item -ItemType File -Force -Path (Join-Path $fixtureSeries "Episode 01.mkv") | Out-Null
     $settings = [ordered]@{
         schemaVersion = 1
-        pairingToken = $PairingToken
         libraryRoots = @($fixtureLibrary)
         dandanplay = [ordered]@{
             baseUrl = "https://api.dandanplay.net"
@@ -506,8 +499,7 @@ function Invoke-RustLiveExternalSyncReadbackQa {
         $serverProcess = Start-RustServer -DataDir $dataDir -ServerPort $serverPort
         Wait-ForServer -BaseUrl $baseUrl
 
-        $tokenQuery = [System.Uri]::EscapeDataString($PairingToken)
-        $runtime = (Invoke-JsonRequest -Uri "$baseUrl/api/providers/runtime?token=$tokenQuery").Content | ConvertFrom-Json
+        $runtime = (Invoke-JsonRequest -Uri "$baseUrl/api/providers/runtime").Content | ConvertFrom-Json
         $runtimeProperty = if ($normalizedProvider -eq "MY_ANIME_LIST") { "myAnimeList" } else { "bangumi" }
         $providerRuntime = Get-RequiredJsonProperty -Object $runtime -Name $runtimeProperty
         $runtimeReasonCode = Get-RequiredJsonProperty -Object $providerRuntime -Name "reasonCode"
@@ -522,7 +514,6 @@ function Invoke-RustLiveExternalSyncReadbackQa {
         [void](Invoke-JsonRequest `
             -Uri "$baseUrl/api/providers/tracking/mapping" `
             -Method "PUT" `
-            -Authenticated `
             -Body ([ordered]@{
                 localSeriesId = $localSeriesId
                 animeId = [ordered]@{
@@ -533,7 +524,6 @@ function Invoke-RustLiveExternalSyncReadbackQa {
         $readback = (Invoke-JsonRequest `
             -Uri "$baseUrl/api/providers/tracking/readback" `
             -Method "POST" `
-            -Authenticated `
             -Body @{}).Content | ConvertFrom-Json
         if (@($readback.errors).Count -gt 0) {
             $messages = @($readback.errors | ForEach-Object { $_.message }) -join "; "

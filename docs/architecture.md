@@ -78,7 +78,7 @@ reviewed, server-validated tracking preview, but provider credentials, mappings,
 and conflict reconciliation remain server-owned Windows/web administration.
 Android mobile also owns an app-private, versioned offline-cache index and a
 persistent WorkManager download queue. Cache manifests contain only authorized
-user-owned, DRM-free media assets and never persist pairing tokens. Offline
+user-owned, DRM-free media assets. Offline
 Media3 playback records progress locally and reconciles it with the library
 server after the trusted LAN becomes reachable again.
 Android TV remains a
@@ -137,8 +137,8 @@ apps/web-ui
    server routes; native boundaries are never crossed per rendered comment.
 4. Provider response objects remain at Rust provider boundaries. Persisted
    state uses normalized catalog, mapping, and tracking models.
-5. Pairing tokens and provider secrets must not appear in logs, reports,
-   preferences, or committed fixtures.
+5. Provider secrets must not appear in logs, reports, preferences, or committed
+   fixtures.
 
 ## Compatibility
 

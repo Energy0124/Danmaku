@@ -29,10 +29,10 @@ class OfflineCacheRepositoryTest {
         repository.delete(entry.key)
 
         assertTrue(repository.entries().isEmpty())
-        assertEquals(listOf(progress), repository.syncPendingProgress(SERVER_URL, "token", emptyList()))
+        assertEquals(listOf(progress), repository.syncPendingProgress(SERVER_URL, emptyList()))
         assertEquals(listOf(progress), uploads)
 
-        repository.syncPendingProgress(SERVER_URL, "token", emptyList())
+        repository.syncPendingProgress(SERVER_URL, emptyList())
         assertEquals(1, uploads.size)
     }
 
@@ -48,7 +48,7 @@ class OfflineCacheRepositoryTest {
         repository.savePendingProgress(entry.key, pending)
 
         repository.clear()
-        val merged = repository.syncPendingProgress(SERVER_URL, "token", listOf(remote))
+        val merged = repository.syncPendingProgress(SERVER_URL, listOf(remote))
 
         assertEquals(listOf(remote), merged)
         assertTrue(uploads.isEmpty())

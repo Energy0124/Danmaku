@@ -92,7 +92,6 @@
     <string name="pc_no_server">沒有伺服器</string>
     <string name="pc_server_set">已設定伺服器</string>
     <string name="pc_server_url_placeholder">PC 伺服器 URL</string>
-    <string name="pairing_token_placeholder">存取碼</string>
     <string name="saved_pcs_title">已儲存 PC</string>
     <string name="server_status_title">桌面伺服器</string>
     <string name="metadata_status_title">中繼資料與海報</string>
@@ -169,7 +168,7 @@
     <string name="action_refresh">重新整理</string>
     <string name="action_cancel">取消</string>
     <string name="tracking_managed_on_windows">帳號、重新連線與作品對應由 Windows 管理。</string>
-    <string name="tracking_connect_first">請輸入 PC 位址與存取碼，以載入追蹤。</string>
+    <string name="tracking_connect_first">請輸入 PC 位址以載入追蹤。</string>
     <string name="tracking_summary">%1$d 項待同步 · %2$d 項衝突 · %3$d 項略過/已同步 · %4$d 項失敗</string>
     <string name="tracking_conflicts_windows">衝突已封鎖。請從 Windows 或網頁管理介面解決或匯入。</string>
     <string name="tracking_operation_result">%1$d 項成功 · %2$d 項不存在 · %3$d 項失敗</string>
@@ -193,7 +192,6 @@
     <string name="tracking_status_dropped">已棄追</string>
     <string name="tracking_status_plan_to_watch">計畫觀看</string>
     <string name="tracking_status_unchanged">不變</string>
-    <string name="tracking_error_access_code_rejected">存取碼遭拒絕。</string>
     <string name="tracking_error_preview_changed">進度已變更。請重新檢查服務狀態並檢視新預覽。</string>
     <string name="tracking_error_request_failed">外部追蹤要求失敗。</string>
 </resources>

@@ -126,7 +126,6 @@ internal fun TvConsumerShell(
                     navigator = navigator,
                     session = session,
                     onServerUrlChange = sessionViewModel::updateServerUrl,
-                    onPairingTokenChange = sessionViewModel::updatePairingToken,
                     onRefresh = { sessionViewModel.refreshLibrary() },
                     onDiscover = sessionViewModel::discoverPc,
                     onSave = sessionViewModel::saveConnection,

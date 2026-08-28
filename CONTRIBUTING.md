@@ -25,8 +25,7 @@ the project's [MIT License](LICENSE).
 - Do not add DRM circumvention.
 - Do not add torrent/search/download behavior without an approved authorized
   source policy.
-- Do not log pairing tokens, credentials, cookies, signed URLs, or raw provider
-  secrets.
+- Do not log credentials, cookies, signed URLs, or raw provider secrets.
 - Keep provider-specific response models at plugin boundaries. Persist
   normalized domain models instead.
 - Treat the current LAN server as trusted-local-network only.

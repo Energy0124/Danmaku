@@ -15,49 +15,32 @@ import app.danmaku.domain.toPlaybackProgress
 interface LanLibraryClient {
     fun fetchServerStatus(baseUrl: String): LanLibraryServerStatus
 
-    fun fetchCatalog(
-        baseUrl: String,
-        pairingToken: String,
-    ): LibraryCatalog
+    fun fetchCatalog(baseUrl: String): LibraryCatalog
 
     fun requestFolderRescan(
         baseUrl: String,
         path: List<String>,
     )
 
-    fun streamUrl(
-        baseUrl: String,
-        item: LibraryMediaItem,
-        pairingToken: String,
-    ): String
+    fun streamUrl(baseUrl: String, item: LibraryMediaItem): String
 
-    fun subtitleUrl(
-        baseUrl: String,
-        subtitle: LibrarySubtitleTrack,
-        pairingToken: String,
-    ): String
+    fun subtitleUrl(baseUrl: String, subtitle: LibrarySubtitleTrack): String
 
     fun fetchProgress(
         baseUrl: String,
         mediaId: String,
-        pairingToken: String,
     ): PlaybackProgress?
 
-    fun fetchAllProgress(
-        baseUrl: String,
-        pairingToken: String,
-    ): List<PlaybackProgress>
+    fun fetchAllProgress(baseUrl: String): List<PlaybackProgress>
 
     fun fetchDanmaku(
         baseUrl: String,
         mediaId: String,
-        pairingToken: String,
         forceRefresh: Boolean = false,
     ): LanDanmakuTrack
 
     fun saveProgress(
         baseUrl: String,
-        pairingToken: String,
         progress: PlaybackProgress,
     )
 }
@@ -70,7 +53,6 @@ class LanLibraryClientException(
 
 data class LanPlaybackTarget(
     val baseUrl: String,
-    val pairingToken: String,
     val mediaId: String,
 ) {
     init {
@@ -83,7 +65,6 @@ data class LanLibraryConnectionProfile(
     val id: String,
     val displayName: String,
     val baseUrl: String,
-    val pairingToken: String,
     val lastConnectedAtEpochMs: Long? = null,
 ) {
     init {
@@ -101,7 +82,6 @@ data class LanLibraryConnectionProfile(
 
 fun lanLibraryConnectionProfile(
     baseUrl: String,
-    pairingToken: String,
     displayName: String? = null,
     lastConnectedAtEpochMs: Long? = null,
 ): LanLibraryConnectionProfile {
@@ -117,7 +97,6 @@ fun lanLibraryConnectionProfile(
         id = normalizedBaseUrl,
         displayName = normalizedName,
         baseUrl = normalizedBaseUrl,
-        pairingToken = pairingToken,
         lastConnectedAtEpochMs = lastConnectedAtEpochMs,
     )
 }
@@ -140,40 +119,36 @@ class LanPlaybackPreparer(
 ) {
     fun prepare(
         baseUrl: String,
-        pairingToken: String,
         item: LibraryMediaItem,
     ): LanPlaybackPreparation =
         prepare(
             baseUrl = baseUrl,
-            pairingToken = pairingToken,
             item = item,
             resumePositionMs = libraryClient
-                .fetchProgress(baseUrl, item.id, pairingToken)
+                .fetchProgress(baseUrl, item.id)
                 ?.resumePositionMs(),
         )
 
     fun prepare(
         baseUrl: String,
-        pairingToken: String,
         item: LibraryMediaItem,
         resumePositionMs: Long?,
     ): LanPlaybackPreparation {
         val target = LanPlaybackTarget(
             baseUrl = baseUrl,
-            pairingToken = pairingToken,
             mediaId = item.id,
         )
         return LanPlaybackPreparation(
             item = item,
             target = target,
             source = PlaybackSource.RemoteStream(
-                libraryClient.streamUrl(baseUrl, item, pairingToken),
+                libraryClient.streamUrl(baseUrl, item),
             ),
             subtitles = item.subtitles.map { subtitle ->
                 LanSubtitlePreparation(
                     track = subtitle,
                     source = PlaybackSource.RemoteStream(
-                        libraryClient.subtitleUrl(baseUrl, subtitle, pairingToken),
+                        libraryClient.subtitleUrl(baseUrl, subtitle),
                     ),
                 )
             },
@@ -192,7 +167,6 @@ class LanDanmakuLoader(
         libraryClient.fetchDanmaku(
             baseUrl = target.baseUrl,
             mediaId = target.mediaId,
-            pairingToken = target.pairingToken,
             forceRefresh = forceRefresh,
         )
 }
@@ -203,14 +177,11 @@ class LanPlaybackProgressSync(
 ) {
     fun fetchResumePositionMs(target: LanPlaybackTarget): Long? =
         libraryClient
-            .fetchProgress(target.baseUrl, target.mediaId, target.pairingToken)
+            .fetchProgress(target.baseUrl, target.mediaId)
             ?.resumePositionMs()
 
-    fun fetchAllProgress(
-        baseUrl: String,
-        pairingToken: String,
-    ): List<PlaybackProgress> =
-        libraryClient.fetchAllProgress(baseUrl, pairingToken)
+    fun fetchAllProgress(baseUrl: String): List<PlaybackProgress> =
+        libraryClient.fetchAllProgress(baseUrl)
 
     fun saveProgress(
         target: LanPlaybackTarget,
@@ -220,7 +191,7 @@ class LanPlaybackProgressSync(
             .toPlaybackProgress(target.mediaId, currentTimeMillis())
             ?.takeIf { it.positionMs > 0 }
             ?.also {
-                libraryClient.saveProgress(target.baseUrl, target.pairingToken, it)
+                libraryClient.saveProgress(target.baseUrl, it)
             }
 }
 
@@ -233,12 +204,9 @@ data class LanLibraryConnectionSnapshot(
 class LanLibraryConnectionSession(
     private val libraryClient: LanLibraryClient,
 ) {
-    fun fetchCatalog(
-        baseUrl: String,
-        pairingToken: String,
-    ): LibraryCatalog {
+    fun fetchCatalog(baseUrl: String): LibraryCatalog {
         validateServer(baseUrl)
-        return libraryClient.fetchCatalog(baseUrl, pairingToken)
+        return libraryClient.fetchCatalog(baseUrl)
     }
 
     fun requestFolderRescan(
@@ -248,14 +216,11 @@ class LanLibraryConnectionSession(
         libraryClient.requestFolderRescan(baseUrl, path)
     }
 
-    fun fetchCatalogWithProgress(
-        baseUrl: String,
-        pairingToken: String,
-    ): LanLibraryConnectionSnapshot {
+    fun fetchCatalogWithProgress(baseUrl: String): LanLibraryConnectionSnapshot {
         val status = validateServer(baseUrl)
-        val catalog = libraryClient.fetchCatalog(baseUrl, pairingToken)
+        val catalog = libraryClient.fetchCatalog(baseUrl)
         val progress = runCatching {
-            libraryClient.fetchAllProgress(baseUrl, pairingToken)
+            libraryClient.fetchAllProgress(baseUrl)
         }.getOrDefault(emptyList())
         return LanLibraryConnectionSnapshot(
             status = status,

@@ -88,7 +88,6 @@
     <string name="connect_saved_pcs_title">已儲存 PC</string>
     <string name="connect_saved_pcs_body">連線已記住的 Windows 媒體庫，或編輯手動伺服器 URL。</string>
     <string name="connect_server_url_label">伺服器 URL</string>
-    <string name="connect_pairing_code_label">存取碼</string>
     <string name="server_status_title">伺服器狀態</string>
     <string name="metadata_status_title">中繼資料與海報</string>
     <string name="downloads_status_title">下載</string>
@@ -180,7 +179,7 @@
     <string name="danmaku_timing_earlier">提早</string>
     <string name="danmaku_timing_later">延後</string>
     <string name="tracking_managed_on_windows">帳號、重新連線與作品對應由 Windows 管理。</string>
-    <string name="tracking_connect_first">請使用存取碼連線至 PC，以載入追蹤狀態。</string>
+    <string name="tracking_connect_first">請連線至 PC，以載入追蹤狀態。</string>
     <string name="tracking_summary">%1$d 項待同步 · %2$d 項衝突 · %3$d 項略過/已同步 · %4$d 項失敗</string>
     <string name="tracking_conflicts_windows">衝突已封鎖。請從 Windows 或網頁管理介面解決或匯入。</string>
     <string name="tracking_operation_result">%1$d 項成功 · %2$d 項不存在 · %3$d 項失敗</string>
@@ -204,8 +203,6 @@
     <string name="tracking_status_dropped">已棄追</string>
     <string name="tracking_status_plan_to_watch">計畫觀看</string>
     <string name="tracking_status_unchanged">不變</string>
-    <string name="tracking_error_access_code_required">請輸入存取碼以載入外部追蹤。</string>
-    <string name="tracking_error_access_code_rejected">存取碼遭拒絕。</string>
     <string name="tracking_error_preview_changed">進度已變更。請重新檢查服務狀態並檢視新預覽。</string>
     <string name="tracking_error_request_failed">外部追蹤要求失敗。</string>
 </resources>

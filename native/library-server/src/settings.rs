@@ -25,29 +25,9 @@ impl SettingsStore {
         Self { file: file.into() }
     }
 
-    pub fn load_or_create<F>(
-        &self,
-        explicit_pairing_token: Option<&str>,
-        mut token_generator: F,
-    ) -> Result<HeadlessServerSettings>
-    where
-        F: FnMut() -> String,
-    {
+    pub fn load_or_create(&self) -> Result<HeadlessServerSettings> {
         let loaded = self.load()?;
-        let pairing_token = explicit_pairing_token
-            .map(str::to_owned)
-            .or_else(|| {
-                loaded
-                    .as_ref()
-                    .map(|settings| settings.pairing_token.clone())
-            })
-            .unwrap_or_else(&mut token_generator);
-        if pairing_token.trim().is_empty() {
-            return Err(LibraryServerError::new("pairingToken must not be blank"));
-        }
-
         let settings = HeadlessServerSettings {
-            pairing_token,
             library_roots: loaded
                 .as_ref()
                 .map(|settings| settings.library_roots.clone())
@@ -132,7 +112,6 @@ impl SettingsStore {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HeadlessServerSettings {
-    pub pairing_token: String,
     pub library_roots: Vec<PathBuf>,
     pub dandanplay: HeadlessDandanplayProviderSettings,
     pub external_anime: HeadlessExternalAnimeProviderSettings,
@@ -237,7 +216,6 @@ impl Default for HeadlessExternalAnimeProviderSettings {
 #[serde(rename_all = "camelCase")]
 struct SettingsSnapshot {
     schema_version: u32,
-    pairing_token: String,
     library_roots: Vec<String>,
     dandanplay: DandanplaySettingsSnapshot,
     external_anime: ExternalAnimeSettingsSnapshot,
@@ -247,7 +225,6 @@ impl From<&HeadlessServerSettings> for SettingsSnapshot {
     fn from(settings: &HeadlessServerSettings) -> Self {
         Self {
             schema_version: SCHEMA_VERSION,
-            pairing_token: settings.pairing_token.clone(),
             library_roots: settings
                 .library_roots
                 .iter()
@@ -332,27 +309,12 @@ impl From<&HeadlessExternalAnimeProviderSettings> for ExternalAnimeSettingsSnaps
     }
 }
 
-pub fn generate_pairing_token() -> String {
-    const TOKEN_BOUND: u32 = 1_000_000;
-    const REJECTION_ZONE: u32 = u32::MAX - (u32::MAX % TOKEN_BOUND);
-
-    loop {
-        let mut bytes = [0_u8; 4];
-        getrandom::fill(&mut bytes).expect("operating system randomness should be available");
-        let candidate = u32::from_ne_bytes(bytes);
-        if candidate < REJECTION_ZONE {
-            return format!("{:06}", candidate % TOKEN_BOUND);
-        }
-    }
-}
-
 fn settings_from_value(value: &Value) -> Option<HeadlessServerSettings> {
     let root = value.as_object()?;
     let schema_version = int_or_null(root, "schemaVersion")?;
     if schema_version != SCHEMA_VERSION as i64 {
         return None;
     }
-    let pairing_token = string_or_null(root, "pairingToken")?;
     let library_roots = library_roots_or_null(root.get("libraryRoots"))?;
     let dandanplay = match root.get("dandanplay").and_then(Value::as_object) {
         Some(object) => dandanplay_settings_or_null(object)?,
@@ -364,7 +326,6 @@ fn settings_from_value(value: &Value) -> Option<HeadlessServerSettings> {
     };
 
     Some(HeadlessServerSettings {
-        pairing_token,
         library_roots,
         dandanplay,
         external_anime,
@@ -725,7 +686,6 @@ mod tests {
             &file,
             r#"{
   "schemaVersion": 1,
-  "pairingToken": "123456",
   "libraryRoots": ["W:/Anime"],
   "dandanplay": {
     "baseUrl": "https://worker.example/dandanplay",
@@ -751,10 +711,9 @@ mod tests {
         .expect("settings fixture should write");
 
         let settings = SettingsStore::new(&file)
-            .load_or_create(None, || panic!("token should be loaded"))
+            .load_or_create()
             .expect("settings should load");
 
-        assert_eq!("123456", settings.pairing_token);
         assert_eq!(vec![PathBuf::from("W:/Anime")], settings.library_roots);
         assert_eq!(
             "https://worker.example/dandanplay",
@@ -791,52 +750,6 @@ mod tests {
         assert!(!rewritten.contains("raw-bangumi-token"));
         let json = serde_json::from_str::<Value>(&rewritten).expect("rewritten settings are json");
         assert_eq!(json["schemaVersion"], 1);
-        assert_eq!(json["pairingToken"], "123456");
-
-        fs::remove_dir_all(temp).expect("temp dir should delete");
-    }
-
-    #[test]
-    fn generated_pairing_token_round_trips() {
-        let temp = temp_dir("danmaku-settings-token");
-        let file = temp.join("server-settings.json");
-        let store = SettingsStore::new(&file);
-
-        let first = store
-            .load_or_create(None, || "654321".to_owned())
-            .expect("settings should create");
-        let second = store
-            .load_or_create(None, || "111111".to_owned())
-            .expect("settings should reload");
-
-        assert_eq!("654321", first.pairing_token);
-        assert_eq!("654321", second.pairing_token);
-        assert!(file.is_file());
-
-        fs::remove_dir_all(temp).expect("temp dir should delete");
-    }
-
-    #[test]
-    fn explicit_pairing_token_overrides_persisted_token() {
-        let temp = temp_dir("danmaku-settings-explicit-token");
-        let file = temp.join("server-settings.json");
-        let store = SettingsStore::new(&file);
-        store
-            .load_or_create(None, || "654321".to_owned())
-            .expect("settings should create");
-
-        let settings = store
-            .load_or_create(Some("222333"), || "111111".to_owned())
-            .expect("settings should reload");
-
-        assert_eq!("222333", settings.pairing_token);
-        assert_eq!(
-            "222333",
-            serde_json::from_str::<Value>(
-                &fs::read_to_string(&file).expect("settings should read")
-            )
-            .expect("settings json should parse")["pairingToken"]
-        );
 
         fs::remove_dir_all(temp).expect("temp dir should delete");
     }

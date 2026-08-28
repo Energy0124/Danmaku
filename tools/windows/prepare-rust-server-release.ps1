@@ -226,8 +226,6 @@ clients over the trusted LAN.
   omitted, saved roots from `server-settings.json` are used.
 - `--port <PORT>`: HTTP bind port. Default is `8686`. Use `0` only for
   local smoke runs where the selected port is read from process output.
-- `--pairing-token <TOKEN>`: pairing token to persist in
-  `server-settings.json` when settings are created.
 - `--web-assets-dir <PATH>`: web UI asset directory. For this package, point
   it at the bundled `web/` directory. Falls back to `DANMAKU_WEB_UI_DIST`.
 - `--help`: print the current command-line help.
@@ -242,10 +240,9 @@ clients over the trusted LAN.
 
 ## Trust Model
 
-The LAN server is for trusted local networks only. Pairing tokens protect
-catalog, media, and progress routes but are not an internet-facing auth
-design. Do not expose this server directly to the public internet. Do not log
-credentials, pairing tokens, cookies, signed URLs, or raw provider secrets.
+The LAN server has no client authentication and is for trusted local networks
+only. Do not expose it directly to the public internet. Do not log credentials,
+cookies, signed URLs, or raw provider secrets.
 
 '@
 

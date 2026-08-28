@@ -171,16 +171,14 @@ mod tests {
     };
 
     #[test]
-    fn startup_summary_omits_pairing_token_and_provider_values() {
+    fn startup_summary_omits_provider_values() {
         let options = ServerOptions {
             data_directory: PathBuf::from("data/library-server"),
             library_roots: vec![PathBuf::from("W:/Anime")],
             port: 8686,
-            pairing_token: Some("123456".to_owned()),
             web_assets_root: Some(PathBuf::from("apps/web-ui/dist")),
         };
         let settings = HeadlessServerSettings {
-            pairing_token: "123456".to_owned(),
             library_roots: vec![PathBuf::from("W:/Anime")],
             dandanplay: HeadlessDandanplayProviderSettings {
                 base_url: "https://signed.example.invalid/dandanplay?token=raw-url-token"
@@ -220,7 +218,6 @@ mod tests {
         let output = summary.to_log_lines().join("\n");
 
         for forbidden in [
-            "123456",
             "raw-url-token",
             "app-id-secret-ish",
             "raw-app-secret",

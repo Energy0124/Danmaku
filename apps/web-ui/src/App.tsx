@@ -29,7 +29,6 @@ import { TrackingAdminPanel } from "./TrackingAdminPanel";
 export function App() {
   const defaultBaseUrl = window.location.origin;
   const [baseUrl, setBaseUrl] = useState(defaultBaseUrl);
-  const [pairingToken, setPairingToken] = useState("");
   const [catalog, setCatalog] = useState<LibraryCatalog | null>(null);
   const [progress, setProgress] = useState<PlaybackProgress[]>([]);
   const [providerRuntime, setProviderRuntime] = useState<LanProviderRuntimeStatus | null>(null);
@@ -57,10 +56,9 @@ export function App() {
     setIsLoading(true);
     setMessage("Connecting...");
     try {
-      const token = pairingToken.trim();
       const [snapshot, runtime] = await Promise.all([
-        fetchLibrarySnapshot(normalizedBaseUrl, token),
-        fetchProviderRuntime(normalizedBaseUrl, token).catch(() => null)
+        fetchLibrarySnapshot(normalizedBaseUrl),
+        fetchProviderRuntime(normalizedBaseUrl).catch(() => null)
       ]);
       setCatalog(snapshot.catalog);
       setProgress(snapshot.progress);
@@ -97,18 +95,6 @@ export function App() {
             Host
             <input value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} />
           </label>
-          <label>
-            Pairing token
-            <input
-              autoComplete="off"
-              inputMode="numeric"
-              type="password"
-              value={pairingToken}
-              onChange={(event) => setPairingToken(event.target.value)}
-              placeholder="Required for administration"
-            />
-          </label>
-
           <button disabled={isLoading} type="submit">
             {isLoading ? "Connecting" : "Connect"}
           </button>
@@ -118,7 +104,6 @@ export function App() {
       {catalog ? (
         <ProviderSettingsPanel
           baseUrl={normalizedBaseUrl}
-          token={pairingToken}
           onRuntimeUpdated={setProviderRuntime}
         />
       ) : null}
@@ -127,7 +112,6 @@ export function App() {
         <ProviderAccountsPanel
           baseUrl={normalizedBaseUrl}
           refreshVersion={providerAccountRefreshVersion}
-          token={pairingToken}
         />
       ) : null}
 
@@ -137,7 +121,6 @@ export function App() {
           onAccountStatusMayHaveChanged={() =>
             setProviderAccountRefreshVersion((version) => version + 1)
           }
-          token={pairingToken}
         />
       ) : null}
 
@@ -176,7 +159,6 @@ export function App() {
           {selectedItem ? (
             <PlayerPanel
               baseUrl={normalizedBaseUrl}
-              token={pairingToken}
               providerRuntime={providerRuntime}
               item={selectedItem}
               savedProgress={progressById.get(selectedItem.id)}
@@ -237,14 +219,12 @@ function externalRuntimeDetail(runtime: LanProviderRuntimeStatus["myAnimeList"])
 
 function PlayerPanel({
   baseUrl,
-  token,
   providerRuntime,
   item,
   savedProgress,
   onProgressSaved
 }: {
   baseUrl: string;
-  token: string;
   providerRuntime: LanProviderRuntimeStatus | null;
   item: LibraryMediaItem;
   savedProgress?: PlaybackProgress;
@@ -253,7 +233,7 @@ function PlayerPanel({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const lastSavedAtRef = useRef(0);
   const resumeAppliedForItemRef = useRef<string | null>(null);
-  const poster = posterUrl(baseUrl, token, item);
+  const poster = posterUrl(baseUrl, item);
   const [dandanplay, setDandanplay] = useState<DandanplayResolveResult | null>(null);
   const [dandanplayMessage, setDandanplayMessage] = useState("");
   const [isDandanplayLoading, setIsDandanplayLoading] = useState(false);
@@ -306,7 +286,7 @@ function PlayerPanel({
     };
     window.addEventListener("pagehide", handlePageHide);
     return () => window.removeEventListener("pagehide", handlePageHide);
-  }, [baseUrl, item.id, token]);
+  }, [baseUrl, item.id]);
 
   function applySavedResume(video: HTMLVideoElement) {
     if (resumeAppliedForItemRef.current === item.id) return;
@@ -339,7 +319,7 @@ function PlayerPanel({
     setIsDandanplayLoading(true);
     setDandanplayMessage("Loading dandanplay...");
     try {
-      const result = await fetchDandanplayResolve(baseUrl, token, item.id);
+      const result = await fetchDandanplayResolve(baseUrl, item.id);
       setDandanplay(result);
       setDandanplayMessage(
         result.selectedMatch
@@ -366,7 +346,7 @@ function PlayerPanel({
     );
     if (!entry) return;
     lastSavedAtRef.current = now;
-    await saveProgress(baseUrl, token, entry, keepalive);
+    await saveProgress(baseUrl, entry, keepalive);
     onProgressSaved(entry);
   }
 
@@ -663,7 +643,7 @@ function PlayerPanel({
           controls
           playsInline
           poster={poster ?? undefined}
-          src={mediaUrl(baseUrl, token, item)}
+          src={mediaUrl(baseUrl, item)}
           onLoadedMetadata={(event) => applySavedResume(event.currentTarget)}
           onPause={(event) => void persist(event.currentTarget, true)}
           onEnded={(event) => void persist(event.currentTarget, true)}
@@ -680,7 +660,7 @@ function PlayerPanel({
                 key={subtitle.id}
                 kind="subtitles"
                 label={subtitle.label}
-                src={subtitleUrl(baseUrl, token, subtitle)}
+                src={subtitleUrl(baseUrl, subtitle)}
               />
             ))}
         </video>

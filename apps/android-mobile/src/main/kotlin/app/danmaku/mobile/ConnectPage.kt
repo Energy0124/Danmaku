@@ -35,7 +35,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryMediaItem
@@ -53,12 +52,10 @@ internal fun ConnectPage(
     snapshot: PlaybackSnapshot,
     nowPlaying: LibraryMediaItem?,
     serverUrl: String,
-    pairingToken: String,
     savedConnections: List<LanLibraryConnectionProfile>,
     libraryError: String?,
     tracking: MobileTrackingState,
     onServerUrlChange: (String) -> Unit,
-    onPairingTokenChange: (String) -> Unit,
     onSelectConnection: (LanLibraryConnectionProfile) -> Unit,
     onEditConnection: (LanLibraryConnectionProfile) -> Unit,
     onForgetConnection: (LanLibraryConnectionProfile) -> Unit,
@@ -97,11 +94,9 @@ internal fun ConnectPage(
             ConnectionPanel(
                 catalog = catalog,
                 serverUrl = serverUrl,
-                pairingToken = pairingToken,
                 savedConnections = savedConnections,
                 libraryError = libraryError,
                 onServerUrlChange = onServerUrlChange,
-                onPairingTokenChange = onPairingTokenChange,
                 onSelectConnection = onSelectConnection,
                 onEditConnection = onEditConnection,
                 onForgetConnection = onForgetConnection,
@@ -114,7 +109,6 @@ internal fun ConnectPage(
             MobileTrackingCard(
                 state = tracking,
                 hasConnection = catalog != null,
-                hasAccessCode = pairingToken.isNotBlank(),
                 onLoad = onLoadTracking,
                 onReadback = onReadTracking,
                 onSync = onSyncTracking,
@@ -133,11 +127,9 @@ internal fun ConnectPage(
 internal fun ConnectionPanel(
     catalog: LibraryCatalog?,
     serverUrl: String,
-    pairingToken: String = "",
     savedConnections: List<LanLibraryConnectionProfile>,
     libraryError: String?,
     onServerUrlChange: (String) -> Unit,
-    onPairingTokenChange: (String) -> Unit = {},
     onSelectConnection: (LanLibraryConnectionProfile) -> Unit,
     onEditConnection: (LanLibraryConnectionProfile) -> Unit,
     onForgetConnection: (LanLibraryConnectionProfile) -> Unit,
@@ -223,17 +215,6 @@ internal fun ConnectionPanel(
                     modifier = Modifier.fillMaxWidth(),
                 )
 
-                OutlinedTextField(
-                    value = pairingToken,
-                    onValueChange = onPairingTokenChange,
-                    label = { Text(stringResource(R.string.connect_pairing_code_label)) },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("pairing-token-field"),
-                )
-
             }
 
             FlowRow(
@@ -268,7 +249,6 @@ internal fun ConnectionPanel(
 private fun MobileTrackingCard(
     state: MobileTrackingState,
     hasConnection: Boolean,
-    hasAccessCode: Boolean,
     onLoad: () -> Unit,
     onReadback: () -> Unit,
     onSync: () -> Unit,
@@ -300,7 +280,7 @@ private fun MobileTrackingCard(
                 }
                 if (state.isBusy) CircularProgressIndicator(modifier = Modifier.size(24.dp))
             }
-            if (!hasConnection || !hasAccessCode) {
+            if (!hasConnection) {
                 Text(stringResource(R.string.tracking_connect_first), color = SubtleText)
             } else {
                 state.accounts?.let { accounts ->
@@ -447,8 +427,6 @@ private fun statusLabel(status: ExternalAnimeListStatus?): String = when (status
 
 @Composable
 private fun trackingErrorLabel(error: MobileTrackingError, detail: String?): String = when (error) {
-    MobileTrackingError.ACCESS_CODE_REQUIRED -> stringResource(R.string.tracking_error_access_code_required)
-    MobileTrackingError.ACCESS_CODE_REJECTED -> stringResource(R.string.tracking_error_access_code_rejected)
     MobileTrackingError.PREVIEW_CHANGED -> stringResource(R.string.tracking_error_preview_changed)
     MobileTrackingError.REQUEST_FAILED -> detail ?: stringResource(R.string.tracking_error_request_failed)
 }

@@ -7,11 +7,10 @@ import org.junit.Test
 
 class LanPlaybackTargetTest {
     @Test
-    fun parsesLanMediaStreamUrlsWithoutPairingToken() {
+    fun parsesLanMediaStreamUrls() {
         assertEquals(
             LanPlaybackTarget(
                 baseUrl = "http://192.168.1.20:8686",
-                pairingToken = "",
                 mediaId = "episode id",
             ),
             lanPlaybackTargetFromStreamUrl(

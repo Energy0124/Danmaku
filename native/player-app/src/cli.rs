@@ -16,7 +16,6 @@ pub struct Cli {
     pub smoke: Option<Duration>,
     pub danmaku_path: Option<PathBuf>,
     pub server_url: Option<String>,
-    pub pairing_token: Option<String>,
     pub media_id: Option<String>,
     pub auto_next: bool,
     /// QA hook: in library mode, plays the first catalog item as soon as
@@ -57,7 +56,6 @@ impl Cli {
         let mut smoke = None;
         let mut danmaku_path = None;
         let mut server_url = None;
-        let mut pairing_token = None;
         let mut media_id = None;
         let mut auto_next = false;
         let mut qa_play_first = false;
@@ -130,10 +128,6 @@ impl Cli {
                 }
                 "--media-id" => {
                     media_id = Some(next_string(&mut args, "--media-id requires a value")?);
-                }
-                "--pairing-token" => {
-                    pairing_token =
-                        Some(next_string(&mut args, "--pairing-token requires a value")?);
                 }
                 "--auto-next" => auto_next = true,
                 "--qa-play-first" => qa_play_first = true,
@@ -219,7 +213,6 @@ impl Cli {
             smoke,
             danmaku_path,
             server_url,
-            pairing_token,
             media_id,
             auto_next,
             qa_play_first,
@@ -336,7 +329,7 @@ fn parse_window_size(value: &str) -> Result<[f32; 2], String> {
 pub fn usage() -> &'static str {
     "Usage: danmaku-player [--media <path-or-url>] [--title <text>] [--start <seconds>] \
 [--volume <0-130>] [--danmaku <xml-json-ass>] \
-[--server-url <http-url> [--pairing-token <token>]] [--media-id <id>] \
+[--server-url <http-url>] [--media-id <id>] \
 [--auto-next] [--danmaku-force-refresh] \
 [--danmaku-opacity <0-1>] [--danmaku-speed <0.25-4>] \
 [--danmaku-density <0-1>] [--danmaku-lanes <1-64>] [--smoke <seconds>] \
@@ -367,15 +360,12 @@ mod tests {
             "danmaku-player",
             "--server-url",
             "http://127.0.0.1:8686",
-            "--pairing-token",
-            "123456",
             "--auto-next",
         ])
         .expect("library mode parses");
 
         assert_eq!(cli.media, None);
         assert_eq!(cli.server_url.as_deref(), Some("http://127.0.0.1:8686"));
-        assert_eq!(cli.pairing_token.as_deref(), Some("123456"));
         assert!(cli.auto_next);
     }
 

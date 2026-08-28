@@ -24,7 +24,6 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Button
 import androidx.tv.material3.Text
@@ -42,7 +41,6 @@ internal fun TvPcScreen(
     navigator: TvNavigator,
     session: TvSessionUiState,
     onServerUrlChange: (String) -> Unit,
-    onPairingTokenChange: (String) -> Unit,
     onRefresh: () -> Unit,
     onDiscover: () -> Unit,
     onSave: () -> Unit,
@@ -129,16 +127,6 @@ internal fun TvPcScreen(
                         .tvRouteFocus(navigation, navigator, TvRoute.Pc, "pc-url")
                         .testTag("pc-url"),
                 )
-                TvTextInput(
-                    value = session.pairingToken,
-                    onValueChange = onPairingTokenChange,
-                    placeholder = stringResource(R.string.pairing_token_placeholder),
-                    visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .tvRouteFocus(navigation, navigator, TvRoute.Pc, "pc-token")
-                        .testTag("pc-token"),
-                )
             }
         }
         session.errorMessage?.let { error ->
@@ -205,7 +193,7 @@ private fun TvTrackingCard(
         ) {
             Text(stringResource(R.string.tracking_status_title))
             Text(stringResource(R.string.tracking_managed_on_windows), color = TvSecondaryContent)
-            if (session.serverUrl.isBlank() || session.pairingToken.isBlank()) {
+            if (session.serverUrl.isBlank()) {
                 Text(stringResource(R.string.tracking_connect_first), color = TvSecondaryContent)
             }
             state.accounts?.let { accounts ->
@@ -256,7 +244,7 @@ private fun TvTrackingCard(
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Button(
                     onClick = onLoad,
-                    enabled = !state.isBusy && session.pairingToken.isNotBlank(),
+                    enabled = !state.isBusy && session.serverUrl.isNotBlank(),
                     modifier = Modifier.tvRouteFocus(navigation, navigator, TvRoute.Pc, "tracking-refresh"),
                 ) { Text(stringResource(R.string.action_refresh)) }
                 Button(
@@ -361,7 +349,6 @@ private fun tvStatusLabel(status: ExternalAnimeListStatus?): String = when (stat
 
 @Composable
 private fun tvTrackingErrorLabel(error: TvTrackingError, detail: String?): String = when (error) {
-    TvTrackingError.ACCESS_CODE_REJECTED -> stringResource(R.string.tracking_error_access_code_rejected)
     TvTrackingError.PREVIEW_CHANGED -> stringResource(R.string.tracking_error_preview_changed)
     TvTrackingError.REQUEST_FAILED -> detail ?: stringResource(R.string.tracking_error_request_failed)
 }

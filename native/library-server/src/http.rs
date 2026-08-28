@@ -8,8 +8,8 @@ use axum::Router;
 use axum::body::{Body, to_bytes};
 use axum::extract::{ConnectInfo, State};
 use axum::http::header::{
-    ACCEPT, ACCEPT_RANGES, AUTHORIZATION, CACHE_CONTROL, CONTENT_LENGTH, CONTENT_RANGE,
-    CONTENT_TYPE, HeaderValue, LOCATION,
+    ACCEPT, ACCEPT_RANGES, CACHE_CONTROL, CONTENT_LENGTH, CONTENT_RANGE, CONTENT_TYPE, HeaderValue,
+    LOCATION,
 };
 use axum::http::{HeaderMap, Method, Request, Response, StatusCode};
 use axum::routing::any;
@@ -260,7 +260,6 @@ impl ProviderRuntimeResources {
 
 #[derive(Debug)]
 pub struct ProviderAdminState {
-    expected_token: Vec<u8>,
     data_directory: PathBuf,
     settings_store: SettingsStore,
     secret_store: ProviderSecretStore,
@@ -297,7 +296,6 @@ impl ProviderAdminState {
         secret_store: ProviderSecretStore,
     ) -> Result<Self> {
         Ok(Self {
-            expected_token: persisted_settings.pairing_token.as_bytes().to_vec(),
             settings_store: SettingsStore::new(data_directory.join("server-settings.json")),
             secret_store,
             attention_failures: AttentionFailureStore::open(
@@ -331,15 +329,6 @@ impl ProviderAdminState {
             secret_store,
         )
         .expect("test tracking store should open")
-    }
-
-    fn is_authorized(&self, headers: &HeaderMap) -> bool {
-        let supplied = headers
-            .get(AUTHORIZATION)
-            .and_then(|value| value.to_str().ok())
-            .and_then(|value| value.strip_prefix("Bearer "))
-            .map(str::as_bytes);
-        constant_time_eq(&self.expected_token, supplied)
     }
 
     fn tracking_store(&self) -> &ExternalTrackingStore {
@@ -1102,7 +1091,7 @@ async fn dispatch(State(state): State<HttpServerState>, request: Request<Body>) 
         return handle_library_rescan(&state, method, body).await;
     }
     if path.starts_with("/api/library/organize") {
-        return handle_library_organize(&state, peer, method, &path, &headers, body).await;
+        return handle_library_organize(&state, peer, method, &path, body).await;
     }
     if path == "/api/library/attention" {
         return handle_library_attention(&state, &method);
@@ -1111,7 +1100,7 @@ async fn dispatch(State(state): State<HttpServerState>, request: Request<Body>) 
         return handle_catalog(&state, &method);
     }
     if path == "/api/progress" || path.starts_with("/api/progress/") {
-        return handle_progress(&state, method, &path, headers, body).await;
+        return handle_progress(&state, method, &path, body).await;
     }
     if path.starts_with("/api/progress") {
         return handle_progress_list_exact(&state, &method, &path);
@@ -1120,16 +1109,16 @@ async fn dispatch(State(state): State<HttpServerState>, request: Request<Body>) 
         return handle_danmaku(&state, &method, &path, query.as_deref()).await;
     }
     if path.starts_with("/api/providers/settings") {
-        return handle_provider_settings(&state, method, &path, headers, body).await;
+        return handle_provider_settings(&state, method, &path, body).await;
     }
     if path.starts_with("/api/providers/accounts") {
-        return handle_provider_accounts(&state, method, &path, headers, body).await;
+        return handle_provider_accounts(&state, method, &path, body).await;
     }
     if path.starts_with("/api/providers/runtime") {
         return handle_provider_runtime(&state, &method, &path);
     }
     if path.starts_with("/api/providers/tracking") {
-        return handle_provider_tracking(&state, method, &path, headers, body).await;
+        return handle_provider_tracking(&state, method, &path, body).await;
     }
     if path.starts_with("/api/providers/search") {
         return handle_provider_search(&state, &method, &path, query.as_deref()).await;
@@ -1178,14 +1167,10 @@ async fn handle_library_organize(
     peer: Option<SocketAddr>,
     method: Method,
     path: &str,
-    headers: &HeaderMap,
     body: Body,
 ) -> Response<Body> {
-    let Some(admin) = &state.provider_admin else {
+    if state.provider_admin.is_none() {
         return empty_status(StatusCode::NOT_FOUND);
-    };
-    if !admin.is_authorized(headers) {
-        return empty_status(StatusCode::UNAUTHORIZED);
     }
     if !peer.is_some_and(|peer| peer.ip().is_loopback()) {
         return text_response(
@@ -1602,7 +1587,6 @@ async fn handle_progress(
     state: &HttpServerState,
     method: Method,
     path: &str,
-    _headers: HeaderMap,
     body: Body,
 ) -> Response<Body> {
     if path == "/api/progress" {
@@ -1717,1079 +1701,10 @@ async fn handle_danmaku(
     json_response(StatusCode::OK, &track)
 }
 
-async fn handle_provider_settings(
-    state: &HttpServerState,
-    method: Method,
-    path: &str,
-    headers: HeaderMap,
-    body: Body,
-) -> Response<Body> {
-    if path != "/api/providers/settings" {
-        return empty_status(StatusCode::NOT_FOUND);
-    }
-    let Some(admin) = &state.provider_admin else {
-        return empty_status(StatusCode::NOT_FOUND);
-    };
-    if !admin.is_authorized(&headers) {
-        return empty_status(StatusCode::UNAUTHORIZED);
-    }
-    match method {
-        Method::GET => json_response(StatusCode::OK, &admin.snapshot()),
-        Method::PUT => {
-            let Ok(bytes) = axum::body::to_bytes(body, 65_536).await else {
-                return text_response(
-                    StatusCode::BAD_REQUEST,
-                    "Provider settings request body is too large.",
-                );
-            };
-            let Ok(update) = serde_json::from_slice::<ProviderSettingsUpdate>(&bytes) else {
-                return text_response(
-                    StatusCode::BAD_REQUEST,
-                    "Request body must be a provider settings JSON object.",
-                );
-            };
-            match admin.update(update) {
-                Ok(response) => json_response(StatusCode::OK, &response),
-                Err(error) => text_response(StatusCode::BAD_REQUEST, &error.to_string()),
-            }
-        }
-        _ => empty_status(StatusCode::METHOD_NOT_ALLOWED),
-    }
-}
-
-async fn handle_provider_accounts(
-    state: &HttpServerState,
-    method: Method,
-    path: &str,
-    headers: HeaderMap,
-    body: Body,
-) -> Response<Body> {
-    let Some(admin) = &state.provider_admin else {
-        return empty_status(StatusCode::NOT_FOUND);
-    };
-    if !admin.is_authorized(&headers) {
-        return empty_status(StatusCode::UNAUTHORIZED);
-    }
-    match (method, path) {
-        (Method::GET, "/api/providers/accounts") => {
-            json_response(StatusCode::OK, &admin.accounts())
-        }
-        (Method::POST, "/api/providers/accounts/myanimelist/oauth/start") => {
-            match admin.start_my_anime_list_oauth() {
-                Ok(response) => json_response(StatusCode::OK, &response),
-                Err(error) => text_response(StatusCode::CONFLICT, &error.to_string()),
-            }
-        }
-        (Method::POST, "/api/providers/accounts/myanimelist/oauth/complete") => {
-            let Ok(bytes) = axum::body::to_bytes(body, 65_536).await else {
-                return text_response(StatusCode::BAD_REQUEST, "OAuth request body is too large.");
-            };
-            let Ok(request) = serde_json::from_slice::<MyAnimeListOAuthCompleteRequest>(&bytes)
-            else {
-                return text_response(
-                    StatusCode::BAD_REQUEST,
-                    "Request body must contain flowId, state, and code.",
-                );
-            };
-            let admin = Arc::clone(admin);
-            match tokio::task::spawn_blocking(move || admin.complete_my_anime_list_oauth(request))
-                .await
-            {
-                Ok(Ok(response)) => json_response(StatusCode::OK, &response),
-                Ok(Err(error)) => text_response(StatusCode::BAD_REQUEST, &error.to_string()),
-                Err(error) => text_response(
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    &format!("OAuth account task failed: {error}"),
-                ),
-            }
-        }
-        (Method::DELETE, "/api/providers/accounts/myanimelist") => {
-            match admin.disconnect_account("myanimelist") {
-                Ok(response) => json_response(StatusCode::OK, &response),
-                Err(error) => text_response(StatusCode::BAD_REQUEST, &error.to_string()),
-            }
-        }
-        (Method::PUT, "/api/providers/accounts/bangumi") => {
-            let Ok(bytes) = axum::body::to_bytes(body, 65_536).await else {
-                return text_response(
-                    StatusCode::BAD_REQUEST,
-                    "Bangumi account request body is too large.",
-                );
-            };
-            let Ok(request) = serde_json::from_slice::<BangumiAccountRequest>(&bytes) else {
-                return text_response(
-                    StatusCode::BAD_REQUEST,
-                    "Request body must contain accessToken.",
-                );
-            };
-            let admin = Arc::clone(admin);
-            match tokio::task::spawn_blocking(move || admin.connect_bangumi(request.access_token))
-                .await
-            {
-                Ok(Ok(response)) => json_response(StatusCode::OK, &response),
-                Ok(Err(error)) => text_response(StatusCode::BAD_REQUEST, &error.to_string()),
-                Err(error) => text_response(
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    &format!("Bangumi account task failed: {error}"),
-                ),
-            }
-        }
-        (Method::DELETE, "/api/providers/accounts/bangumi") => {
-            match admin.disconnect_account("bangumi") {
-                Ok(response) => json_response(StatusCode::OK, &response),
-                Err(error) => text_response(StatusCode::BAD_REQUEST, &error.to_string()),
-            }
-        }
-        _ => empty_status(StatusCode::NOT_FOUND),
-    }
-}
-
-fn handle_provider_runtime(state: &HttpServerState, method: &Method, path: &str) -> Response<Body> {
-    if method != Method::GET {
-        return empty_status(StatusCode::METHOD_NOT_ALLOWED);
-    }
-    if path != "/api/providers/runtime" {
-        return empty_status(StatusCode::NOT_FOUND);
-    }
-    let Some(runtime_status) = state.provider_runtime_status() else {
-        return empty_status(StatusCode::NOT_FOUND);
-    };
-    json_response(StatusCode::OK, &runtime_status)
-}
-
-async fn handle_provider_search(
-    state: &HttpServerState,
-    method: &Method,
-    path: &str,
-    query: Option<&str>,
-) -> Response<Body> {
-    if method != Method::GET {
-        return empty_status(StatusCode::METHOD_NOT_ALLOWED);
-    }
-    if path != "/api/providers/search" {
-        return empty_status(StatusCode::NOT_FOUND);
-    }
-    let Some(service) = state.external_provider_service() else {
-        return json_response(StatusCode::OK, &Vec::<serde_json::Value>::new());
-    };
-    let query_parameters = parse_query_parameters(query);
-    let Some(title) = query_parameters
-        .get("title")
-        .map(|value| value.trim())
-        .filter(|value| !value.is_empty())
-        .map(ToOwned::to_owned)
-    else {
-        return text_response(
-            StatusCode::BAD_REQUEST,
-            "Query parameter 'title' is required.",
-        );
-    };
-    let limit = match query_parameters.get("limit") {
-        Some(value) => match value
-            .trim()
-            .parse::<u32>()
-            .ok()
-            .filter(|value| (1..=50).contains(value))
-        {
-            Some(value) => value,
-            None => {
-                return text_response(
-                    StatusCode::BAD_REQUEST,
-                    "Query parameter 'limit' must be between 1 and 50.",
-                );
-            }
-        },
-        None => 10,
-    };
-    let episode_count = match query_parameters.get("episodeCount") {
-        Some(value) => match value.trim().parse::<u32>().ok().filter(|value| *value > 0) {
-            Some(value) => Some(value),
-            None => {
-                return text_response(
-                    StatusCode::BAD_REQUEST,
-                    "Query parameter 'episodeCount' must be positive.",
-                );
-            }
-        },
-        None => None,
-    };
-    let start_year = match query_parameters.get("startYear") {
-        Some(value) => match value
-            .trim()
-            .parse::<u32>()
-            .ok()
-            .filter(|value| (1900..=2200).contains(value))
-        {
-            Some(value) => Some(value),
-            None => {
-                return text_response(
-                    StatusCode::BAD_REQUEST,
-                    "Query parameter 'startYear' must be between 1900 and 2200.",
-                );
-            }
-        },
-        None => None,
-    };
-    let providers = match parse_provider_filter(&query_parameters) {
-        Ok(providers) => providers,
-        Err(message) => return text_response(StatusCode::BAD_REQUEST, &message),
-    };
-    let matches = service
-        .search(
-            ExternalAnimeMatchQuery {
-                title,
-                alternate_titles: Vec::new(),
-                episode_count,
-                start_year,
-            },
-            providers,
-            limit,
-        )
-        .await;
-    json_response(StatusCode::OK, &matches)
-}
-
-async fn refresh_my_anime_list_without_blocking(
-    admin: Arc<ProviderAdminState>,
-) -> crate::Result<()> {
-    tokio::task::spawn_blocking(move || admin.refresh_my_anime_list_if_needed())
-        .await
-        .map_err(|error| {
-            crate::LibraryServerError::with_context(
-                error,
-                "MyAnimeList refresh task could not complete",
-            )
-        })?
-}
-
-async fn handle_provider_tracking(
-    state: &HttpServerState,
-    method: Method,
-    path: &str,
-    headers: HeaderMap,
-    body: Body,
-) -> Response<Body> {
-    let Some(admin) = &state.provider_admin else {
-        return empty_status(StatusCode::NOT_FOUND);
-    };
-    if !admin.is_authorized(&headers) {
-        return empty_status(StatusCode::UNAUTHORIZED);
-    }
-
-    let library = state.library();
-    let progress = state.progress_store.load_all_progress();
-    let document = || {
-        tracking_document(
-            &library.catalog,
-            &progress,
-            &admin.tracking_store().snapshot(),
-        )
-    };
-    match (method, path) {
-        (Method::GET, "/api/providers/tracking") => json_response(StatusCode::OK, &document()),
-        (Method::PUT, "/api/providers/tracking/mapping") => {
-            let Ok(bytes) = axum::body::to_bytes(body, 65_536).await else {
-                return text_response(
-                    StatusCode::BAD_REQUEST,
-                    "Tracking mapping body is too large.",
-                );
-            };
-            let Ok(request) = serde_json::from_slice::<ExternalTrackingMappingRequest>(&bytes)
-            else {
-                return text_response(
-                    StatusCode::BAD_REQUEST,
-                    "Request body must contain localSeriesId and animeId.",
-                );
-            };
-            let current_document = document();
-            let Some(series) = current_document
-                .series
-                .iter()
-                .find(|series| series.local_series_ids.contains(&request.local_series_id))
-            else {
-                return text_response(
-                    StatusCode::BAD_REQUEST,
-                    "The selected local series is not in the current library.",
-                );
-            };
-            let mapped_at_epoch_ms = current_epoch_ms();
-            let mappings = series
-                .local_series_ids
-                .iter()
-                .map(|local_series_id| ExternalAnimeMapping {
-                    local_series_id: local_series_id.clone(),
-                    anime_id: request.anime_id.clone(),
-                    source: ExternalAnimeMappingSource::Manual,
-                    confidence: 1.0,
-                    mapped_at_epoch_ms,
-                })
-                .collect();
-            match admin.tracking_store().save_mappings(mappings) {
-                Ok(()) => json_response(StatusCode::OK, &document()),
-                Err(error) => text_response(StatusCode::BAD_REQUEST, &error.to_string()),
-            }
-        }
-        (Method::DELETE, "/api/providers/tracking/mapping") => {
-            let Ok(bytes) = axum::body::to_bytes(body, 65_536).await else {
-                return text_response(
-                    StatusCode::BAD_REQUEST,
-                    "Tracking mapping body is too large.",
-                );
-            };
-            let Ok(request) = serde_json::from_slice::<ExternalTrackingMappingRequest>(&bytes)
-            else {
-                return text_response(
-                    StatusCode::BAD_REQUEST,
-                    "Request body must contain localSeriesId and animeId.",
-                );
-            };
-            let local_series_ids = document()
-                .series
-                .iter()
-                .find(|series| series.local_series_ids.contains(&request.local_series_id))
-                .map(|series| series.local_series_ids.clone())
-                .unwrap_or_else(|| vec![request.local_series_id.clone()]);
-            match admin
-                .tracking_store()
-                .delete_mappings(&local_series_ids, &request.anime_id)
-            {
-                Ok(true) => json_response(StatusCode::OK, &document()),
-                Ok(false) => {
-                    text_response(StatusCode::NOT_FOUND, "Tracking mapping was not found.")
-                }
-                Err(error) => text_response(StatusCode::BAD_REQUEST, &error.to_string()),
-            }
-        }
-        (Method::POST, "/api/providers/tracking/conflicts/import") => {
-            let Ok(bytes) = axum::body::to_bytes(body, 65_536).await else {
-                return text_response(
-                    StatusCode::BAD_REQUEST,
-                    "Tracking conflict import body is too large.",
-                );
-            };
-            let Ok(request) =
-                serde_json::from_slice::<ExternalTrackingConflictImportRequest>(&bytes)
-            else {
-                return text_response(
-                    StatusCode::BAD_REQUEST,
-                    "Request body must identify the reviewed tracking conflict.",
-                );
-            };
-            let imports = match provider_progress_import(
-                &library.catalog,
-                &progress,
-                &admin.tracking_store().snapshot(),
-                &request.local_series_id,
-                &request.anime_id,
-                request.expected_external_watched_episodes,
-            ) {
-                Ok(imports) => imports,
-                Err(error) => return text_response(StatusCode::CONFLICT, &error.to_string()),
-            };
-            for imported in &imports {
-                if let Err(error) = state.progress_store.save_progress(imported.clone()) {
-                    return text_response(StatusCode::INTERNAL_SERVER_ERROR, &error.to_string());
-                }
-            }
-            let updated_progress = state.progress_store.load_all_progress();
-            json_response(
-                StatusCode::OK,
-                &serde_json::json!({
-                    "importedCount": imports.len(),
-                    "document": tracking_document(
-                        &library.catalog,
-                        &updated_progress,
-                        &admin.tracking_store().snapshot(),
-                    ),
-                }),
-            )
-        }
-        (Method::POST, "/api/providers/tracking/readback") => {
-            if let Err(error) = refresh_my_anime_list_without_blocking(Arc::clone(admin)).await {
-                return text_response(StatusCode::BAD_GATEWAY, &error.to_string());
-            }
-            let service = state
-                .external_provider_service()
-                .expect("provider admin always has an external provider service");
-            match refresh_tracking_readback(
-                &service,
-                admin.tracking_store(),
-                &library.catalog,
-                &progress,
-            )
-            .await
-            {
-                Ok(response) => json_response(StatusCode::OK, &response),
-                Err(error) => text_response(StatusCode::INTERNAL_SERVER_ERROR, &error.to_string()),
-            }
-        }
-        (Method::POST, "/api/providers/tracking/sync") => {
-            let Ok(bytes) = axum::body::to_bytes(body, 262_144).await else {
-                return text_response(StatusCode::BAD_REQUEST, "Tracking sync body is too large.");
-            };
-            let Ok(request) = serde_json::from_slice::<ExternalTrackingSyncRequest>(&bytes) else {
-                return text_response(
-                    StatusCode::BAD_REQUEST,
-                    "Request body must contain the previewed expectedUpdates.",
-                );
-            };
-            if let Err(error) = refresh_my_anime_list_without_blocking(Arc::clone(admin)).await {
-                return text_response(StatusCode::BAD_GATEWAY, &error.to_string());
-            }
-            let service = state
-                .external_provider_service()
-                .expect("provider admin always has an external provider service");
-            match execute_tracking_sync(
-                &service,
-                admin.tracking_store(),
-                &library.catalog,
-                &progress,
-                &request.expected_updates,
-            )
-            .await
-            {
-                Ok(response) => json_response(StatusCode::OK, &response),
-                Err(error) => {
-                    let message = error.to_string();
-                    let status = if message.starts_with("tracking preview changed;") {
-                        StatusCode::CONFLICT
-                    } else {
-                        StatusCode::INTERNAL_SERVER_ERROR
-                    };
-                    text_response(status, &message)
-                }
-            }
-        }
-        _ => empty_status(StatusCode::NOT_FOUND),
-    }
-}
-async fn handle_dandanplay_resolve(
-    state: &HttpServerState,
-    method: &Method,
-    path: &str,
-    query: Option<&str>,
-) -> Response<Body> {
-    if method != Method::GET {
-        return empty_status(StatusCode::METHOD_NOT_ALLOWED);
-    }
-    if path != "/api/providers/dandanplay/resolve" {
-        return empty_status(StatusCode::NOT_FOUND);
-    }
-    let query = parse_query_parameters(query);
-    let Some(media_id) = query
-        .get("mediaId")
-        .map(|value| value.trim())
-        .filter(|value| !value.is_empty())
-        .map(ToOwned::to_owned)
-    else {
-        return text_response(
-            StatusCode::BAD_REQUEST,
-            "Query parameter 'mediaId' is required.",
-        );
-    };
-    let preferred_episode_id = match query.get("episodeId") {
-        Some(value) => match value.trim().parse::<u64>().ok().filter(|value| *value > 0) {
-            Some(value) => Some(value),
-            None => {
-                return text_response(
-                    StatusCode::BAD_REQUEST,
-                    "Query parameter 'episodeId' must be positive.",
-                );
-            }
-        },
-        None => None,
-    };
-    let with_related = match query.get("withRelated") {
-        Some(value) => match parse_boolean_query_parameter(value) {
-            Some(value) => value,
-            None => {
-                return text_response(
-                    StatusCode::BAD_REQUEST,
-                    "Query parameter 'withRelated' must be true or false.",
-                );
-            }
-        },
-        None => true,
-    };
-    // Selecting a specific episodeId already bypasses the single-candidate
-    // cache (see `DandanplayResolver::resolve`), but listing candidates
-    // (no episodeId) does not by default — a prior auto-match's cache entry
-    // only remembers the one candidate it picked, not the full list, so a
-    // match picker must force a fresh match to see alternatives.
-    let force_refresh = match query.get("forceRefresh") {
-        Some(value) => match parse_boolean_query_parameter(value) {
-            Some(value) => value,
-            None => {
-                return text_response(
-                    StatusCode::BAD_REQUEST,
-                    "Query parameter 'forceRefresh' must be true or false.",
-                );
-            }
-        },
-        None => false,
-    };
-    let anime_id = match query.get("animeId") {
-        Some(value) => match value.trim().parse::<u64>().ok().filter(|value| *value > 0) {
-            Some(value) => Some(value),
-            None => {
-                return text_response(
-                    StatusCode::BAD_REQUEST,
-                    "Query parameter 'animeId' must be positive.",
-                );
-            }
-        },
-        None => None,
-    };
-    // An episode picked from a keyword search may not be among the hash
-    // matches, so the caller passes the titles it saw; a synthesized match
-    // candidate carries them through selection into the recognized-identity
-    // record. animeId falls back to dandanplay's episodeId convention
-    // (animeId * 10000 + episode index) when not given.
-    let preferred_match = preferred_episode_id.map(|episode_id| {
-        crate::dandanplay::DandanplayMatch::new(
-            episode_id,
-            anime_id.or_else(|| Some(episode_id / 10_000).filter(|id| *id > 0)),
-            query
-                .get("animeTitle")
-                .map(|value| value.trim().to_owned())
-                .filter(|value| !value.is_empty()),
-            query
-                .get("episodeTitle")
-                .map(|value| value.trim().to_owned())
-                .filter(|value| !value.is_empty()),
-            None,
-        )
-    });
-    let library = state.library();
-    let Some(path) = library.files_by_id.get(&media_id) else {
-        return text_response(StatusCode::NOT_FOUND, "Media item was not found.");
-    };
-    if !path.is_file() {
-        return text_response(StatusCode::NOT_FOUND, "Media file was not found.");
-    }
-    let Some(resolver) = state.dandanplay_resolver() else {
-        return text_response(
-            StatusCode::BAD_GATEWAY,
-            "dandanplay request failed: Danmaku resolver is not available.",
-        );
-    };
-    match resolver
-        .resolve(
-            &media_id,
-            path,
-            preferred_match,
-            with_related,
-            force_refresh,
-        )
-        .await
-    {
-        Ok(result) => {
-            clear_attention_failure(state, &media_id);
-            record_recognized_identity(state, &media_id, &result);
-            json_response(StatusCode::OK, &result.to_provider_response(&media_id))
-        }
-        Err(error) => {
-            record_attention_failure(state, &media_id);
-            text_response(
-                StatusCode::BAD_GATEWAY,
-                &format!("dandanplay request failed: {error}"),
-            )
-        }
-    }
-}
-
-/// Searches the dandanplay database by anime keyword for the manual match
-/// picker, returning each anime with its full episode list.
-async fn handle_dandanplay_search(
-    state: &HttpServerState,
-    method: &Method,
-    path: &str,
-    query: Option<&str>,
-) -> Response<Body> {
-    if method != Method::GET {
-        return empty_status(StatusCode::METHOD_NOT_ALLOWED);
-    }
-    if path != "/api/providers/dandanplay/search" {
-        return empty_status(StatusCode::NOT_FOUND);
-    }
-    let query = parse_query_parameters(query);
-    let Some(keyword) = query
-        .get("keyword")
-        .map(|value| value.trim())
-        .filter(|value| !value.is_empty())
-        .map(ToOwned::to_owned)
-    else {
-        return text_response(
-            StatusCode::BAD_REQUEST,
-            "Query parameter 'keyword' is required.",
-        );
-    };
-    let Some(resolver) = state.dandanplay_resolver() else {
-        return text_response(
-            StatusCode::BAD_GATEWAY,
-            "dandanplay request failed: Danmaku resolver is not available.",
-        );
-    };
-    match resolver.search_episodes(&keyword).await {
-        Ok(animes) => json_response(StatusCode::OK, &serde_json::json!({ "animes": animes })),
-        Err(error) => text_response(
-            StatusCode::BAD_GATEWAY,
-            &format!("dandanplay request failed: {error}"),
-        ),
-    }
-}
-
-/// Proxies one anime's full dandanplay bangumi profile (rating, synopsis,
-/// tags, per-episode air dates, database links) for the library's anime
-/// information page.
-async fn handle_dandanplay_bangumi(
-    state: &HttpServerState,
-    method: &Method,
-    path: &str,
-    query: Option<&str>,
-) -> Response<Body> {
-    if method != Method::GET {
-        return empty_status(StatusCode::METHOD_NOT_ALLOWED);
-    }
-    if path != "/api/providers/dandanplay/bangumi" {
-        return empty_status(StatusCode::NOT_FOUND);
-    }
-    let query = parse_query_parameters(query);
-    let Some(anime_id) = query
-        .get("animeId")
-        .and_then(|value| value.trim().parse::<u64>().ok())
-        .filter(|value| *value > 0)
-    else {
-        return text_response(
-            StatusCode::BAD_REQUEST,
-            "Query parameter 'animeId' must be positive.",
-        );
-    };
-    let Some(resolver) = state.dandanplay_resolver() else {
-        return text_response(
-            StatusCode::BAD_GATEWAY,
-            "dandanplay request failed: Danmaku resolver is not available.",
-        );
-    };
-    match resolver.bangumi_detail(anime_id).await {
-        Ok(detail) => json_response(StatusCode::OK, &detail),
-        Err(error) => text_response(
-            StatusCode::BAD_GATEWAY,
-            &format!("dandanplay request failed: {error}"),
-        ),
-    }
-}
-
-async fn handle_media(
-    state: &HttpServerState,
-    method: &Method,
-    path: &str,
-    headers: &HeaderMap,
-) -> Response<Body> {
-    if method != Method::GET && method != Method::HEAD {
-        return empty_status(StatusCode::METHOD_NOT_ALLOWED);
-    }
-    let id = path.strip_prefix("/media/").unwrap_or_default();
-    let library = state.library();
-    let Some(path) = library.files_by_id.get(id) else {
-        return empty_status(StatusCode::NOT_FOUND);
-    };
-    let Ok(metadata) = tokio::fs::metadata(path).await else {
-        return empty_status(StatusCode::NOT_FOUND);
-    };
-    if !metadata.is_file() {
-        return empty_status(StatusCode::NOT_FOUND);
-    }
-    let file_size = metadata.len();
-    let range_header = headers.get("range").and_then(|value| value.to_str().ok());
-    let range = range_header.and_then(|header| parse_range(header, file_size));
-    if headers.contains_key("range") && range.is_none() {
-        let mut response_headers = HeaderMap::new();
-        response_headers.insert(CONTENT_RANGE, header_value(format!("bytes */{file_size}")));
-        response_headers.insert(CONTENT_LENGTH, HeaderValue::from_static("0"));
-        return response_with_headers(
-            StatusCode::RANGE_NOT_SATISFIABLE,
-            response_headers,
-            Body::empty(),
-        );
-    }
-
-    let start = range.map(|range| range.0).unwrap_or(0);
-    let content_length = range
-        .map(|range| range.1 - range.0 + 1)
-        .unwrap_or(file_size);
-    let mut response_headers = HeaderMap::new();
-    response_headers.insert(ACCEPT_RANGES, HeaderValue::from_static("bytes"));
-    response_headers.insert(CONTENT_TYPE, header_value(content_type(path)));
-    response_headers.insert(CONTENT_LENGTH, header_value(content_length.to_string()));
-    let status = if let Some((range_start, range_end)) = range {
-        response_headers.insert(
-            CONTENT_RANGE,
-            header_value(format!("bytes {range_start}-{range_end}/{file_size}")),
-        );
-        StatusCode::PARTIAL_CONTENT
-    } else {
-        StatusCode::OK
-    };
-
-    if method == Method::HEAD || content_length == 0 {
-        return response_with_headers(status, response_headers, Body::empty());
-    }
-
-    let Ok(mut file) = tokio::fs::File::open(path).await else {
-        return empty_status(StatusCode::NOT_FOUND);
-    };
-    if file.seek(std::io::SeekFrom::Start(start)).await.is_err() {
-        return empty_status(StatusCode::INTERNAL_SERVER_ERROR);
-    }
-    let stream = ReaderStream::new(file.take(content_length));
-    response_with_headers(status, response_headers, Body::from_stream(stream))
-}
-
-/// Serves `/posters/{mediaId}`, checking the scan-time static poster map
-/// first and falling back to a poster cached from anime recognition (see
-/// `spawn_poster_resolution`), which is not known until runtime.
-async fn handle_poster(state: &HttpServerState, method: &Method, path: &str) -> Response<Body> {
-    if method != Method::GET && method != Method::HEAD {
-        return empty_status(StatusCode::METHOD_NOT_ALLOWED);
-    }
-    let id = path.strip_prefix("/posters/").unwrap_or_default();
-    let library = state.library();
-    if let Some(file) = library.poster_files_by_id.get(id) {
-        return serve_file(file, method, "private, max-age=3600").await;
-    }
-    if let Some(store) = &state.catalog_metadata
-        && let Some(file) = store.poster_file(id)
-    {
-        return serve_file(&file, method, "private, max-age=3600").await;
-    }
-    empty_status(StatusCode::NOT_FOUND)
-}
-
-async fn handle_static_mapped_file(
-    files_by_id: &BTreeMap<String, PathBuf>,
-    prefix: &str,
-    cache_control: &'static str,
-    method: &Method,
-    path: &str,
-) -> Response<Body> {
-    if method != Method::GET && method != Method::HEAD {
-        return empty_status(StatusCode::METHOD_NOT_ALLOWED);
-    }
-    let id = path.strip_prefix(prefix).unwrap_or_default();
-    let Some(path) = files_by_id.get(id) else {
-        return empty_status(StatusCode::NOT_FOUND);
-    };
-    serve_file(path, method, cache_control).await
-}
-
-async fn handle_web_asset(
-    state: &HttpServerState,
-    method: &Method,
-    request_path: &str,
-    headers: &HeaderMap,
-) -> Response<Body> {
-    let Some(assets) = &state.web_assets else {
-        return empty_status(StatusCode::NOT_FOUND);
-    };
-    if method != Method::GET && method != Method::HEAD {
-        return empty_status(StatusCode::METHOD_NOT_ALLOWED);
-    }
-
-    if request_path == assets.path_prefix {
-        let mut response_headers = HeaderMap::new();
-        response_headers.insert(LOCATION, header_value(format!("{}/", assets.path_prefix)));
-        response_headers.insert(CONTENT_LENGTH, HeaderValue::from_static("0"));
-        return response_with_headers(StatusCode::FOUND, response_headers, Body::empty());
-    }
-    if request_path != format!("{}/", assets.path_prefix)
-        && !request_path.starts_with(&format!("{}/", assets.path_prefix))
-    {
-        return empty_status(StatusCode::NOT_FOUND);
-    }
-
-    let Some(relative_path) = request_path
-        .strip_prefix(&format!("{}/", assets.path_prefix))
-        .map(|path| {
-            if path.is_empty() {
-                assets.index_file_name.as_str()
-            } else {
-                path
-            }
-        })
-        .and_then(url_decode)
-    else {
-        return empty_status(StatusCode::NOT_FOUND);
-    };
-    let target = normalize_lexically(&assets.normalized_root.join(&relative_path));
-    if !target.starts_with(&assets.normalized_root) {
-        return empty_status(StatusCode::NOT_FOUND);
-    }
-
-    let file = if target.is_file() {
-        Some(target)
-    } else if should_serve_web_index(method, headers, &relative_path)
-        && assets.index_file_path.is_file()
-    {
-        Some(assets.index_file_path.clone())
-    } else {
-        None
-    };
-    let Some(file) = file else {
-        return empty_status(StatusCode::NOT_FOUND);
-    };
-    let cache_control = if file == assets.index_file_path {
-        "no-store"
-    } else {
-        "public, max-age=3600"
-    };
-    serve_file(&file, method, cache_control).await
-}
-
-fn handle_authenticated_post_hook(
-    _hook_path: &str,
-    expected_token: &[u8],
-    method: &Method,
-    headers: &HeaderMap,
-) -> Response<Body> {
-    if method != Method::POST {
-        return empty_status(StatusCode::METHOD_NOT_ALLOWED);
-    }
-    let supplied_token = headers
-        .get(WEBHOOK_TOKEN_HEADER)
-        .and_then(|value| value.to_str().ok())
-        .map(str::as_bytes);
-    if !constant_time_eq(expected_token, supplied_token) {
-        return empty_status(StatusCode::UNAUTHORIZED);
-    }
-    response_with_headers(StatusCode::ACCEPTED, HeaderMap::new(), Body::empty())
-}
-
-async fn serve_file(path: &Path, method: &Method, cache_control: &'static str) -> Response<Body> {
-    let Ok(metadata) = tokio::fs::metadata(path).await else {
-        return empty_status(StatusCode::NOT_FOUND);
-    };
-    if !metadata.is_file() {
-        return empty_status(StatusCode::NOT_FOUND);
-    }
-    let content_length = metadata.len();
-    let mut response_headers = HeaderMap::new();
-    response_headers.insert(CONTENT_TYPE, header_value(content_type(path)));
-    response_headers.insert(CACHE_CONTROL, HeaderValue::from_static(cache_control));
-    response_headers.insert(CONTENT_LENGTH, header_value(content_length.to_string()));
-    if method == Method::HEAD {
-        return response_with_headers(StatusCode::OK, response_headers, Body::empty());
-    }
-
-    match tokio::fs::read(path).await {
-        Ok(bytes) => response_with_headers(StatusCode::OK, response_headers, Body::from(bytes)),
-        Err(_) => empty_status(StatusCode::NOT_FOUND),
-    }
-}
-
-fn parse_range(header: &str, file_size: u64) -> Option<(u64, u64)> {
-    if !header.starts_with("bytes=") || file_size == 0 {
-        return None;
-    }
-    let value = header.strip_prefix("bytes=")?;
-    if value.contains(',') {
-        return None;
-    }
-    let (start_text, end_text) = value.split_once('-')?;
-    let (start, end_inclusive) = if start_text.is_empty() {
-        let suffix_length = end_text.parse::<u64>().ok().filter(|value| *value > 0)?;
-        (file_size.saturating_sub(suffix_length), file_size - 1)
-    } else {
-        let start = start_text.parse::<u64>().ok()?;
-        let end_inclusive = if end_text.is_empty() {
-            file_size - 1
-        } else {
-            end_text.parse::<u64>().ok()?.min(file_size - 1)
-        };
-        (start, end_inclusive)
-    };
-    if start < file_size && start <= end_inclusive {
-        Some((start, end_inclusive))
-    } else {
-        None
-    }
-}
-
-fn should_serve_web_index(method: &Method, headers: &HeaderMap, relative_path: &str) -> bool {
-    method == Method::GET
-        && (headers
-            .get(ACCEPT)
-            .and_then(|value| value.to_str().ok())
-            .is_some_and(|value| value.contains("text/html"))
-            || !relative_path
-                .rsplit('/')
-                .next()
-                .unwrap_or_default()
-                .contains('.'))
-}
-
-fn json_response<T: Serialize>(status: StatusCode, value: &T) -> Response<Body> {
-    match serde_json::to_vec(value) {
-        Ok(bytes) => {
-            let mut headers = HeaderMap::new();
-            headers.insert(
-                CONTENT_TYPE,
-                HeaderValue::from_static("application/json; charset=utf-8"),
-            );
-            headers.insert(CACHE_CONTROL, HeaderValue::from_static("no-store"));
-            headers.insert(CONTENT_LENGTH, header_value(bytes.len().to_string()));
-            response_with_headers(status, headers, Body::from(bytes))
-        }
-        Err(_) => empty_status(StatusCode::INTERNAL_SERVER_ERROR),
-    }
-}
-
-fn text_response(status: StatusCode, value: &str) -> Response<Body> {
-    let bytes = value.as_bytes().to_vec();
-    let mut headers = HeaderMap::new();
-    headers.insert(
-        CONTENT_TYPE,
-        HeaderValue::from_static("text/plain; charset=utf-8"),
-    );
-    headers.insert(CACHE_CONTROL, HeaderValue::from_static("no-store"));
-    headers.insert(CONTENT_LENGTH, header_value(bytes.len().to_string()));
-    response_with_headers(status, headers, Body::from(bytes))
-}
-
-fn empty_status(status: StatusCode) -> Response<Body> {
-    let mut headers = HeaderMap::new();
-    headers.insert(CONTENT_LENGTH, HeaderValue::from_static("0"));
-    response_with_headers(status, headers, Body::empty())
-}
-
-fn response_with_headers(status: StatusCode, headers: HeaderMap, body: Body) -> Response<Body> {
-    let mut response = Response::new(body);
-    *response.status_mut() = status;
-    for (name, value) in headers {
-        if let Some(name) = name {
-            response.headers_mut().insert(name, value);
-        }
-    }
-    response
-}
-
-fn header_value(value: impl AsRef<str>) -> HeaderValue {
-    HeaderValue::from_str(value.as_ref()).expect("generated header value should be valid")
-}
-
-fn content_type(path: &Path) -> &'static str {
-    match path
-        .extension()
-        .and_then(|extension| extension.to_str())
-        .unwrap_or_default()
-        .to_ascii_lowercase()
-        .as_str()
-    {
-        "ass" => "text/x-ass",
-        "css" => "text/css; charset=utf-8",
-        "gif" => "image/gif",
-        "html" | "htm" => "text/html; charset=utf-8",
-        "jpeg" | "jpg" => "image/jpeg",
-        "js" => "text/javascript; charset=utf-8",
-        "json" => "application/json; charset=utf-8",
-        "m4v" | "mp4" => "video/mp4",
-        "mkv" => "video/x-matroska",
-        "png" => "image/png",
-        "srt" => "application/x-subrip",
-        "ssa" => "text/x-ssa",
-        "svg" => "image/svg+xml",
-        "ts" | "m2ts" => "video/mp2t",
-        "vtt" => "text/vtt",
-        "webm" => "video/webm",
-        "webp" => "image/webp",
-        _ => "application/octet-stream",
-    }
-}
-
-fn url_decode(value: &str) -> Option<String> {
-    let mut bytes = Vec::with_capacity(value.len());
-    let mut input = value.as_bytes().iter().copied();
-    while let Some(byte) = input.next() {
-        match byte {
-            b'+' => bytes.push(b' '),
-            b'%' => {
-                let high = input.next()?;
-                let low = input.next()?;
-                bytes.push((hex_value(high)? << 4) | hex_value(low)?);
-            }
-            other => bytes.push(other),
-        }
-    }
-    String::from_utf8(bytes).ok()
-}
-
-fn parse_query_parameters(query: Option<&str>) -> BTreeMap<String, String> {
-    let mut parameters = BTreeMap::new();
-    let Some(query) = query else {
-        return parameters;
-    };
-    for part in query.split('&') {
-        let Some((key, value)) = part.split_once('=') else {
-            continue;
-        };
-        if let (Some(key), Some(value)) = (url_decode(key), url_decode(value)) {
-            parameters.insert(key, value);
-        }
-    }
-    parameters
-}
-
-fn parse_boolean_query_parameter(value: &str) -> Option<bool> {
-    match value.trim().to_ascii_lowercase().as_str() {
-        "true" | "1" | "yes" => Some(true),
-        "false" | "0" | "no" => Some(false),
-        _ => None,
-    }
-}
-
-fn parse_provider_filter(
-    query_parameters: &BTreeMap<String, String>,
-) -> std::result::Result<BTreeSet<crate::catalog::ExternalAnimeProvider>, String> {
-    let Some(providers) = query_parameters.get("providers") else {
-        return Ok(BTreeSet::new());
-    };
-    let mut parsed = BTreeSet::new();
-    for provider in providers
-        .split(',')
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-    {
-        let Some(provider_value) = parse_provider_alias(provider) else {
-            return Err(format!("Unsupported provider '{provider}'."));
-        };
-        parsed.insert(provider_value);
-    }
-    Ok(parsed)
-}
-
-fn hex_value(byte: u8) -> Option<u8> {
-    match byte {
-        b'0'..=b'9' => Some(byte - b'0'),
-        b'a'..=b'f' => Some(byte - b'a' + 10),
-        b'A'..=b'F' => Some(byte - b'A' + 10),
-        _ => None,
-    }
-}
-
-fn constant_time_eq(expected: &[u8], supplied: Option<&[u8]>) -> bool {
-    let Some(supplied) = supplied else {
-        return false;
-    };
-    let max_len = expected.len().max(supplied.len());
-    let mut diff = expected.len() ^ supplied.len();
-    for index in 0..max_len {
-        let left = expected.get(index).copied().unwrap_or(0);
-        let right = supplied.get(index).copied().unwrap_or(0);
-        diff |= usize::from(left ^ right);
-    }
-    diff == 0
-}
-
+mod providers;
+use providers::*;
+mod assets;
+use assets::*;
 #[derive(Debug, Clone)]
 struct StaticWebAssets {
     normalized_root: PathBuf,
@@ -2819,8 +1734,6 @@ struct LanLibraryServerStatus {
     app_name: String,
     #[serde(skip_serializing_if = "is_default_api_version")]
     api_version: u8,
-    #[serde(skip_serializing_if = "is_false")]
-    pairing_required: bool,
     #[serde(skip_serializing_if = "is_true")]
     media_streaming: bool,
     #[serde(skip_serializing_if = "is_true")]
@@ -2852,7 +1765,6 @@ impl Default for LanLibraryServerStatus {
         Self {
             app_name: "Danmaku".to_owned(),
             api_version: 1,
-            pairing_required: false,
             media_streaming: true,
             progress_sync: true,
             trusted_device_management: false,
@@ -3004,10 +1916,9 @@ mod tests {
     static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
     #[tokio::test]
-    async fn organizer_requires_desktop_authentication_and_loopback_peer() {
+    async fn organizer_requires_desktop_mode_and_loopback_peer() {
         let fixture = FixtureEnvironment::new();
         let settings = HeadlessServerSettings {
-            pairing_token: "123456".to_owned(),
             library_roots: vec![fixture.temp.clone()],
             dandanplay: crate::settings::HeadlessDandanplayProviderSettings::default(),
             external_anime: crate::settings::HeadlessExternalAnimeProviderSettings::default(),
@@ -3064,34 +1975,23 @@ mod tests {
             "overrides": []
         })
         .to_string();
-        let request = |peer: [u8; 4], authorized: bool| {
-            let mut builder = Request::builder()
+        let request = |peer: [u8; 4]| {
+            Request::builder()
                 .method(Method::POST)
                 .uri("/api/library/organize/preview")
                 .header(CONTENT_TYPE, "application/json")
-                .extension(ConnectInfo(std::net::SocketAddr::from((peer, 5000))));
-            if authorized {
-                builder = builder.header(AUTHORIZATION, "Bearer 123456");
-            }
-            builder
+                .extension(ConnectInfo(std::net::SocketAddr::from((peer, 5000))))
                 .body(Body::from(body.clone()))
                 .expect("request builds")
         };
-
-        let unauthorized = router
-            .clone()
-            .oneshot(request([127, 0, 0, 1], false))
-            .await
-            .expect("unauthorized response");
-        assert_eq!(StatusCode::UNAUTHORIZED, unauthorized.status());
         let remote = router
             .clone()
-            .oneshot(request([192, 168, 2, 20], true))
+            .oneshot(request([192, 168, 2, 20]))
             .await
             .expect("remote response");
         assert_eq!(StatusCode::FORBIDDEN, remote.status());
         let local = router
-            .oneshot(request([127, 0, 0, 1], true))
+            .oneshot(request([127, 0, 0, 1]))
             .await
             .expect("local response");
         assert_eq!(StatusCode::OK, local.status());
@@ -3130,7 +2030,7 @@ mod tests {
             assert_response_matches_fixture(file_name, response, &fixture).await;
             passed += 1;
         }
-        assert_eq!(19, passed);
+        assert_eq!(18, passed);
     }
 
     #[tokio::test]
@@ -3706,7 +2606,7 @@ mod tests {
         );
     }
     #[tokio::test]
-    async fn tracking_admin_requires_auth_persists_mapping_and_syncs_previewed_update() {
+    async fn tracking_admin_persists_mapping_and_syncs_previewed_update() {
         #[derive(Debug)]
         struct RecordingTrackingClient {
             writes: Arc<Mutex<Vec<ExternalAnimeTrackingUpdate>>>,
@@ -3756,7 +2656,6 @@ mod tests {
 
         let fixture = FixtureEnvironment::new();
         let settings = HeadlessServerSettings {
-            pairing_token: "123456".to_owned(),
             library_roots: Vec::new(),
             dandanplay: crate::settings::HeadlessDandanplayProviderSettings::default(),
             external_anime: crate::settings::HeadlessExternalAnimeProviderSettings::default(),
@@ -3798,22 +2697,9 @@ mod tests {
             HttpServerConfig::headless(None, &settings, None, None, None, admin),
         ));
 
-        let unauthorized = app
-            .clone()
-            .oneshot(get("/api/providers/tracking"))
-            .await
-            .expect("unauthorized response");
-        assert_eq!(StatusCode::UNAUTHORIZED, unauthorized.status());
-
         let initial = app
             .clone()
-            .oneshot(
-                Request::builder()
-                    .uri("/api/providers/tracking")
-                    .header(AUTHORIZATION, "Bearer 123456")
-                    .body(Body::empty())
-                    .expect("tracking request"),
-            )
+            .oneshot(get("/api/providers/tracking"))
             .await
             .expect("tracking response");
         assert_eq!(StatusCode::OK, initial.status());
@@ -3841,7 +2727,6 @@ mod tests {
                 Request::builder()
                     .method("PUT")
                     .uri("/api/providers/tracking/mapping")
-                    .header(AUTHORIZATION, "Bearer 123456")
                     .header("content-type", "application/json")
                     .body(Body::from(mapping.to_string()))
                     .expect("mapping request"),
@@ -3864,7 +2749,6 @@ mod tests {
                 Request::builder()
                     .method("POST")
                     .uri("/api/providers/tracking/readback")
-                    .header(AUTHORIZATION, "Bearer 123456")
                     .body(Body::empty())
                     .expect("readback request"),
             )
@@ -3887,7 +2771,6 @@ mod tests {
                 Request::builder()
                     .method("POST")
                     .uri("/api/providers/tracking/sync")
-                    .header(AUTHORIZATION, "Bearer 123456")
                     .header("content-type", "application/json")
                     .body(Body::from(json!({ "expectedUpdates": [] }).to_string()))
                     .expect("stale sync request"),
@@ -3903,7 +2786,6 @@ mod tests {
                 Request::builder()
                     .method("POST")
                     .uri("/api/providers/tracking/sync")
-                    .header(AUTHORIZATION, "Bearer 123456")
                     .header("content-type", "application/json")
                     .body(Body::from(
                         json!({ "expectedUpdates": expected_updates }).to_string(),
@@ -3927,11 +2809,10 @@ mod tests {
         let persisted = fs::read_to_string(fixture.temp.join("external-tracking.json"))
             .expect("tracking state");
         assert!(persisted.contains("400602"));
-        assert!(!persisted.contains("123456"));
     }
 
     #[tokio::test]
-    async fn provider_accounts_require_auth_and_start_mal_oauth_without_network_access() {
+    async fn provider_accounts_start_mal_oauth_without_network_access() {
         #[derive(Debug)]
         struct PassthroughSecretProtector;
 
@@ -3947,7 +2828,6 @@ mod tests {
 
         let fixture = FixtureEnvironment::new();
         let mut settings = HeadlessServerSettings {
-            pairing_token: "123456".to_owned(),
             library_roots: Vec::new(),
             dandanplay: crate::settings::HeadlessDandanplayProviderSettings::default(),
             external_anime: crate::settings::HeadlessExternalAnimeProviderSettings::default(),
@@ -3972,22 +2852,9 @@ mod tests {
         );
         let app = app(state);
 
-        let unauthorized = app
-            .clone()
-            .oneshot(get("/api/providers/accounts"))
-            .await
-            .expect("unauthorized response");
-        assert_eq!(StatusCode::UNAUTHORIZED, unauthorized.status());
-
         let accounts = app
             .clone()
-            .oneshot(
-                Request::builder()
-                    .uri("/api/providers/accounts")
-                    .header(AUTHORIZATION, "Bearer 123456")
-                    .body(Body::empty())
-                    .expect("accounts request"),
-            )
+            .oneshot(get("/api/providers/accounts"))
             .await
             .expect("accounts response");
         assert_eq!(StatusCode::OK, accounts.status());
@@ -4001,7 +2868,6 @@ mod tests {
                 Request::builder()
                     .method("POST")
                     .uri("/api/providers/accounts/myanimelist/oauth/start")
-                    .header(AUTHORIZATION, "Bearer 123456")
                     .body(Body::empty())
                     .expect("OAuth start request"),
             )
@@ -4038,7 +2904,6 @@ mod tests {
 
         let fixture = FixtureEnvironment::new();
         let mut settings = HeadlessServerSettings {
-            pairing_token: "123456".to_owned(),
             library_roots: Vec::new(),
             dandanplay: crate::settings::HeadlessDandanplayProviderSettings::default(),
             external_anime: crate::settings::HeadlessExternalAnimeProviderSettings::default(),
@@ -4100,7 +2965,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn provider_settings_require_auth_redact_secrets_and_reload_runtime() {
+    async fn provider_settings_redact_secrets_and_reload_runtime() {
         #[derive(Debug)]
         struct ReversingSecretProtector;
 
@@ -4116,7 +2981,6 @@ mod tests {
 
         let fixture = FixtureEnvironment::new();
         let settings = HeadlessServerSettings {
-            pairing_token: "123456".to_owned(),
             library_roots: Vec::new(),
             dandanplay: crate::settings::HeadlessDandanplayProviderSettings::default(),
             external_anime: crate::settings::HeadlessExternalAnimeProviderSettings::default(),
@@ -4139,13 +3003,6 @@ mod tests {
             HttpServerConfig::headless(None, &settings, None, None, None, admin),
         );
         let app = app(state);
-
-        let unauthorized = app
-            .clone()
-            .oneshot(get("/api/providers/settings"))
-            .await
-            .expect("unauthorized response");
-        assert_eq!(StatusCode::UNAUTHORIZED, unauthorized.status());
 
         let update = json!({
             "dandanplay": {
@@ -4170,7 +3027,6 @@ mod tests {
                 Request::builder()
                     .method("PUT")
                     .uri("/api/providers/settings")
-                    .header(AUTHORIZATION, "Bearer 123456")
                     .header("content-type", "application/json")
                     .body(Body::from(update.to_string()))
                     .expect("settings request"),
@@ -5174,7 +4030,6 @@ mod tests {
         &[
             "server-status.json",
             "catalog.json",
-            "pairing-token-auth-not-enforced.json",
             "media-full.json",
             "media-partial-range.json",
             "media-invalid-range.json",

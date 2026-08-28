@@ -87,8 +87,7 @@ libraries, emulators, or take over the desktop session:
   the library database, not provider response objects.
 - Support authorized media sources only. Do not add DRM circumvention or
   unauthorized source behavior.
-- Do not log pairing tokens, credentials, cookies, signed URLs, or raw
-  provider secrets.
+- Do not log credentials, cookies, signed URLs, or raw provider secrets.
 
 ## Localization
 

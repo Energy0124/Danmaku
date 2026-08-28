@@ -18,13 +18,12 @@ the Chrome/Edge interaction probe.
 
 ## Server Checks
 
-- Launch with explicit `--data-dir`, `--root`, `--port`, `--pairing-token`, and
-  `--web-assets-dir`.
+- Launch with explicit `--data-dir`, `--root`, `--port`, and `--web-assets-dir`.
 - Verify settings, catalog, progress, tracking state, and the lock remain under
   the data directory.
 - Verify a second process cannot write the same data directory.
 - Restart without CLI roots and confirm saved roots/catalog/progress load.
-- Confirm logs and reports redact credentials, pairing tokens, and signed URLs.
+- Confirm logs and reports redact credentials and signed URLs.
 
 ## Player Checks
 

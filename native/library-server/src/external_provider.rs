@@ -1527,7 +1527,6 @@ mod tests {
     #[test]
     fn runtime_reason_codes_match_headless_settings() {
         let mut settings = HeadlessServerSettings {
-            pairing_token: "123456".to_owned(),
             library_roots: Vec::new(),
             dandanplay: Default::default(),
             external_anime: Default::default(),

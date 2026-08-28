@@ -290,7 +290,7 @@ class TvPlaybackViewModelTest {
     private fun LibraryMediaItem.preparation(
         resumePositionMs: Long? = null,
     ): LanPlaybackPreparation {
-        val target = LanPlaybackTarget("http://pc", "token", id)
+        val target = LanPlaybackTarget("http://pc", id)
         return LanPlaybackPreparation(
             item = this,
             target = target,
@@ -303,7 +303,6 @@ class TvPlaybackViewModelTest {
         override val state: StateFlow<TvSessionUiState> = MutableStateFlow(
             TvSessionUiState(
                 serverUrl = "http://pc",
-                pairingToken = "token",
                 catalog = LibraryCatalog("PC", 1, items.toList()),
             ),
         )

@@ -5,7 +5,6 @@ Runs the repeatable headless web UI QA gate against the Rust library server.
 [CmdletBinding()]
 param(
     [int]$Port = 18686,
-    [string]$PairingToken = "123456",
     [string]$OutputDir,
     [switch]$SkipBrowserInteractionQa
 )
@@ -185,7 +184,6 @@ function Quote-ProcessArgument {
 function New-HeadlessServerCliArguments {
     param(
         [switch]$IncludeRoot,
-        [switch]$IncludePairingToken,
         [switch]$QuotePathValues
     )
 
@@ -198,9 +196,6 @@ function New-HeadlessServerCliArguments {
         $arguments += @("--root", $fixtureRootArgument)
     }
     $arguments += @("--port", "$Port")
-    if ($IncludePairingToken) {
-        $arguments += @("--pairing-token", $PairingToken)
-    }
     $arguments += @("--web-assets-dir", $webDistArgument)
     $arguments
 }
@@ -252,7 +247,7 @@ if (-not (Test-Path -LiteralPath $rustServerExe -PathType Leaf)) {
     throw "Rust library server executable does not exist after build: $rustServerExe"
 }
 
-$firstStartArguments = New-HeadlessServerCliArguments -IncludeRoot -IncludePairingToken -QuotePathValues
+$firstStartArguments = New-HeadlessServerCliArguments -IncludeRoot -QuotePathValues
 $serverProcess = Start-HeadlessServer -ServerArguments $firstStartArguments
 $baseUrl = "http://127.0.0.1:$Port"
 
@@ -275,7 +270,7 @@ try {
     if ($dandanplayBaseUrl -ne "https://api.dandanplay.net") {
         throw "Unexpected dandanplay status base URL: $dandanplayBaseUrl"
     }
-    $providerRuntime = (Invoke-JsonRequest -Uri "$baseUrl/api/providers/runtime?token=$PairingToken").Content | ConvertFrom-Json
+    $providerRuntime = (Invoke-JsonRequest -Uri "$baseUrl/api/providers/runtime").Content | ConvertFrom-Json
     if ($providerRuntime.dandanplay.reasonCode -ne "missing-credentials") {
         throw "Unexpected dandanplay runtime reason: $($providerRuntime.dandanplay.reasonCode)"
     }
@@ -293,7 +288,7 @@ try {
         $browserExecutable = Get-BrowserExecutable
         if ($null -ne $browserExecutable) {
             Invoke-RequiredCommand -Command {
-                node $browserQaScript --base-url $baseUrl --token $PairingToken --browser $browserExecutable --output-dir $OutputDir
+                node $browserQaScript --base-url $baseUrl --browser $browserExecutable --output-dir $OutputDir
             } -FailureMessage "Browser interaction QA failed."
             $browserInteractionQa = "PASS ($browserExecutable)"
         } else {
@@ -301,7 +296,7 @@ try {
         }
     }
 
-    $catalog = (Invoke-JsonRequest -Uri "$baseUrl/api/library?token=$PairingToken").Content | ConvertFrom-Json
+    $catalog = (Invoke-JsonRequest -Uri "$baseUrl/api/library").Content | ConvertFrom-Json
     $item = Get-FirstItem -Catalog $catalog
     if ($item.seriesTitle -ne "QA Show") {
         throw "Unexpected series title: $($item.seriesTitle)"
@@ -310,7 +305,7 @@ try {
         throw "Expected one sidecar subtitle track."
     }
 
-    $mediaHead = Invoke-WebRequest -Uri "$baseUrl$($item.streamPath)?token=$PairingToken" -Method Head -UseBasicParsing
+    $mediaHead = Invoke-WebRequest -Uri "$baseUrl$($item.streamPath)" -Method Head -UseBasicParsing
     if ($mediaHead.StatusCode -ne 200) {
         throw "Media HEAD failed with HTTP $($mediaHead.StatusCode)"
     }
@@ -321,12 +316,12 @@ try {
         durationMs = 90000
         updatedAtEpochMs = 1234567890
     }
-    $progressResponse = Invoke-JsonRequest -Uri "$baseUrl/api/progress/$($item.id)?token=$PairingToken" -Method PUT -Body $progress
+    $progressResponse = Invoke-JsonRequest -Uri "$baseUrl/api/progress/$($item.id)" -Method PUT -Body $progress
     if ($progressResponse.StatusCode -ne 204) {
         throw "Progress PUT failed with HTTP $($progressResponse.StatusCode)"
     }
 
-    $progressReadback = (Invoke-JsonRequest -Uri "$baseUrl/api/progress?token=$PairingToken").Content | ConvertFrom-Json
+    $progressReadback = (Invoke-JsonRequest -Uri "$baseUrl/api/progress").Content | ConvertFrom-Json
     $saved = @($progressReadback) | Where-Object { $_.mediaId -eq $item.id } | Select-Object -First 1
     if ($null -eq $saved -or $saved.positionMs -ne 42000) {
         throw "Progress readback did not contain the saved QA position."
@@ -340,18 +335,18 @@ try {
     $serverProcess = Start-HeadlessServer -ServerArguments $restartArguments
     Wait-ForServer -BaseUrl $baseUrl
 
-    $restartCatalog = (Invoke-JsonRequest -Uri "$baseUrl/api/library?token=$PairingToken").Content | ConvertFrom-Json
+    $restartCatalog = (Invoke-JsonRequest -Uri "$baseUrl/api/library").Content | ConvertFrom-Json
     $restartItem = Get-FirstItem -Catalog $restartCatalog
     if ($restartItem.id -ne $item.id) {
         throw "Restart catalog did not preserve the expected first media item."
     }
 
-    $restartMediaHead = Invoke-WebRequest -Uri "$baseUrl$($restartItem.streamPath)?token=$PairingToken" -Method Head -UseBasicParsing
+    $restartMediaHead = Invoke-WebRequest -Uri "$baseUrl$($restartItem.streamPath)" -Method Head -UseBasicParsing
     if ($restartMediaHead.StatusCode -ne 200) {
         throw "Restart media HEAD failed with HTTP $($restartMediaHead.StatusCode)"
     }
 
-    $restartProgressReadback = (Invoke-JsonRequest -Uri "$baseUrl/api/progress?token=$PairingToken").Content | ConvertFrom-Json
+    $restartProgressReadback = (Invoke-JsonRequest -Uri "$baseUrl/api/progress").Content | ConvertFrom-Json
     $restartSaved = @($restartProgressReadback) | Where-Object { $_.mediaId -eq $item.id } | Select-Object -First 1
     if ($null -eq $restartSaved -or $restartSaved.positionMs -ne 42000) {
         throw "Restart progress readback did not contain the saved QA position."
