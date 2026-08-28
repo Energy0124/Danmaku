@@ -1,4 +1,19 @@
-use super::*;
+use std::path::PathBuf;
+
+use eframe::egui::{
+    self, Align2, Color32, CursorIcon, Frame, Rect, RichText, Sense, TextEdit, pos2, vec2,
+};
+
+use crate::{
+    branding::Branding,
+    discovery::DiscoveredServer,
+    hosting::LocalHostStatus,
+    icons::{Icon, paint_icon},
+    localization::{Language, Strings},
+    theme::{self, palette, typography},
+};
+
+use super::{library_widgets::labeled_icon_button, paint_focus_outline};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ConnectRequest {

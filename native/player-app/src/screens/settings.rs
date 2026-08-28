@@ -1,4 +1,22 @@
-use super::*;
+use std::path::PathBuf;
+
+use eframe::egui::{
+    self, Align, Align2, Color32, CursorIcon, Frame, Layout, Rect, RichText, Sense, TextEdit, pos2,
+    vec2,
+};
+
+#[cfg(windows)]
+use crate::updater::LATEST_INSTALLER_URL;
+use crate::{
+    hosting::{LocalHostOwnership, LocalHostStatus},
+    icons::Icon,
+    localization::{Language, Strings},
+    preferences::{DandanplayCredentials, PlayerPreferences},
+    theme::{self, palette, typography},
+    updater::UpdateStatus,
+};
+
+use super::{PAGE_GUTTER, library_widgets::icon_chip_button, paint_focus_outline};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum SettingsAction {

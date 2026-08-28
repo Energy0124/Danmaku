@@ -8,7 +8,8 @@ use serde_json::{Value, json};
 use tokio::task;
 
 use crate::catalog::{ExternalAnimeExternalLink, ExternalAnimeId, ExternalAnimeProvider};
-use crate::dandanplay::{HttpRequest, ParsedUrl, parse_url, send_http_request, url_encode};
+use crate::dandanplay::url_encode;
+use crate::http_client::{HttpRequest, ParsedUrl, parse_url, send_http_request};
 use crate::settings::HeadlessServerSettings;
 use crate::{LibraryServerError, Result};
 

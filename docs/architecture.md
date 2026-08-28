@@ -115,9 +115,14 @@ apps:android-mobile / apps:android-tv
 
 native/library-server
   Authoritative desktop catalog/provider/progress host.
+  Shared outbound HTTP transport lives at crate scope; provider administration,
+  route dispatch/assets, and dandanplay cache persistence remain separate
+  responsibilities.
 
 native/player-app
   Windows/macOS UI, library client, playback, and server supervision.
+  Library screens separate orchestration from pure query/grouping policy,
+  poster components, episode/folder rows, and reusable widgets.
 
 native/player-windows-mpv
   Cross-platform Rust-only libmpv loader/render integration and probe.

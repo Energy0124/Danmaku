@@ -1,4 +1,17 @@
-use super::*;
+use eframe::egui::{self, Align2, Color32, CursorIcon, Frame, Rect, RichText, Sense, pos2, vec2};
+
+use crate::{
+    icons::{Icon, paint_icon},
+    library::{MediaItem, NextUpItem, NextUpReason, PlaybackProgress, ProgressItem, Series},
+    localization::Strings,
+    posters::PosterCache,
+    theme::{self, metrics, palette, typography},
+};
+
+use super::poster_components::{
+    mask_rounded_corners, paint_poster_rounded, poster_card, poster_card_with_title,
+};
+use super::{PAGE_GUTTER, paint_focus_outline};
 
 pub(super) fn sidebar_heading(ui: &mut egui::Ui, label: &str) {
     ui.add_space(16.0);

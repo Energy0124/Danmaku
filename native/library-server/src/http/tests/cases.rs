@@ -1,4 +1,9 @@
 use super::*;
+use crate::catalog::ExternalAnimeId;
+use crate::external_provider::{
+    ExternalAnimeTrackingUpdate, MAL_OAUTH_CALLBACK_URL, MyAnimeListTokenError,
+};
+use crate::provider_secrets::ProviderSecretStore;
 
 #[tokio::test]
 async fn organizer_requires_desktop_mode_and_loopback_peer() {

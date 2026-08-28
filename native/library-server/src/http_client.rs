@@ -1,4 +1,10 @@
-use super::*;
+use std::collections::BTreeMap;
+use std::io::{Read, Write};
+use std::net::TcpStream;
+
+use crate::{LibraryServerError, Result};
+
+const MAX_RESPONSE_BYTES: usize = 16 * 1024 * 1024;
 
 #[derive(Debug, Clone)]
 pub(crate) struct HttpRequest {
@@ -26,18 +32,18 @@ pub(crate) fn send_http_request(request: HttpRequest) -> Result<HttpResponse> {
     #[cfg(not(windows))]
     {
         Err(LibraryServerError::new(
-            "HTTPS dandanplay requests are only supported by the Windows server build",
+            "HTTPS outbound requests are only supported by the Windows server build",
         ))
     }
 }
 
-pub(super) fn send_plain_http_request(request: HttpRequest) -> Result<HttpResponse> {
+pub(crate) fn send_plain_http_request(request: HttpRequest) -> Result<HttpResponse> {
     let mut stream =
         TcpStream::connect((request.url.host.as_str(), request.url.port)).map_err(|error| {
             LibraryServerError::with_context(
                 error,
                 format!(
-                    "failed to connect to dandanplay endpoint {}",
+                    "failed to connect to HTTP endpoint {}",
                     request.url.redacted()
                 ),
             )
@@ -69,7 +75,7 @@ pub(super) fn send_plain_http_request(request: HttpRequest) -> Result<HttpRespon
 }
 
 #[cfg(windows)]
-pub(super) fn send_winhttp_request(request: HttpRequest) -> Result<HttpResponse> {
+pub(crate) fn send_winhttp_request(request: HttpRequest) -> Result<HttpResponse> {
     use std::ffi::c_void;
     use std::mem::size_of;
     use std::ptr::{null, null_mut};
@@ -153,9 +159,8 @@ pub(super) fn send_winhttp_request(request: HttpRequest) -> Result<HttpResponse>
     } else {
         request.body.as_ptr().cast::<c_void>()
     };
-    let body_len = u32::try_from(request.body.len()).map_err(|_| {
-        LibraryServerError::new("dandanplay request body exceeded WinHTTP length limit")
-    })?;
+    let body_len = u32::try_from(request.body.len())
+        .map_err(|_| LibraryServerError::new("HTTP request body exceeded WinHTTP length limit"))?;
     if unsafe {
         WinHttpSendRequest(
             win_request.0,
@@ -215,7 +220,7 @@ pub(super) fn send_winhttp_request(request: HttpRequest) -> Result<HttpResponse>
         body.extend_from_slice(&buffer[..bytes_read as usize]);
         if body.len() > MAX_RESPONSE_BYTES {
             return Err(LibraryServerError::new(format!(
-                "dandanplay response exceeded {MAX_RESPONSE_BYTES} bytes"
+                "HTTP response exceeded {MAX_RESPONSE_BYTES} bytes"
             )));
         }
     }
@@ -227,7 +232,7 @@ pub(super) fn send_winhttp_request(request: HttpRequest) -> Result<HttpResponse>
 }
 
 #[cfg(windows)]
-pub(super) fn winhttp_query_header_string(
+pub(crate) fn winhttp_query_header_string(
     request: *mut std::ffi::c_void,
     query: u32,
 ) -> Option<String> {
@@ -268,28 +273,28 @@ pub(super) fn winhttp_query_header_string(
 }
 
 #[cfg(windows)]
-pub(super) fn wide_null(value: &str) -> Vec<u16> {
+pub(crate) fn wide_null(value: &str) -> Vec<u16> {
     value.encode_utf16().chain(std::iter::once(0)).collect()
 }
 
 #[cfg(windows)]
-pub(super) fn winhttp_last_error(operation: &str) -> LibraryServerError {
+pub(crate) fn winhttp_last_error(operation: &str) -> LibraryServerError {
     let code = unsafe { windows_sys::Win32::Foundation::GetLastError() };
     LibraryServerError::new(format!("{operation} failed with Windows error {code}"))
 }
 
-pub(super) fn parse_http_response(bytes: Vec<u8>) -> Result<HttpResponse> {
+pub(crate) fn parse_http_response(bytes: Vec<u8>) -> Result<HttpResponse> {
     let header_end = bytes
         .windows(4)
         .position(|window| window == b"\r\n\r\n")
-        .ok_or_else(|| LibraryServerError::new("dandanplay HTTP response was malformed"))?;
+        .ok_or_else(|| LibraryServerError::new("HTTP response was malformed"))?;
     let head = String::from_utf8_lossy(&bytes[..header_end]);
     let mut lines = head.split("\r\n");
     let status = lines
         .next()
         .and_then(|line| line.split_whitespace().nth(1))
         .and_then(|value| value.parse::<u16>().ok())
-        .ok_or_else(|| LibraryServerError::new("dandanplay HTTP status was malformed"))?;
+        .ok_or_else(|| LibraryServerError::new("HTTP status was malformed"))?;
     let headers = lines
         .filter_map(|line| {
             let (name, value) = line.split_once(':')?;
@@ -305,7 +310,7 @@ pub(super) fn parse_http_response(bytes: Vec<u8>) -> Result<HttpResponse> {
     }
     if body.len() > MAX_RESPONSE_BYTES {
         return Err(LibraryServerError::new(format!(
-            "dandanplay response exceeded {MAX_RESPONSE_BYTES} bytes"
+            "HTTP response exceeded {MAX_RESPONSE_BYTES} bytes"
         )));
     }
     Ok(HttpResponse {
@@ -315,14 +320,14 @@ pub(super) fn parse_http_response(bytes: Vec<u8>) -> Result<HttpResponse> {
     })
 }
 
-pub(super) fn decode_chunked(input: &[u8]) -> Result<Vec<u8>> {
+pub(crate) fn decode_chunked(input: &[u8]) -> Result<Vec<u8>> {
     let mut output = Vec::new();
     let mut offset = 0;
     loop {
         let line_end = input[offset..]
             .windows(2)
             .position(|window| window == b"\r\n")
-            .ok_or_else(|| LibraryServerError::new("chunked dandanplay response was malformed"))?
+            .ok_or_else(|| LibraryServerError::new("chunked HTTP response was malformed"))?
             + offset;
         let size_text = std::str::from_utf8(&input[offset..line_end])
             .map_err(|error| LibraryServerError::with_context(error, "chunk size was not UTF-8"))?
@@ -336,9 +341,7 @@ pub(super) fn decode_chunked(input: &[u8]) -> Result<Vec<u8>> {
             break;
         }
         if offset + size + 2 > input.len() {
-            return Err(LibraryServerError::new(
-                "chunked dandanplay response ended early",
-            ));
+            return Err(LibraryServerError::new("chunked HTTP response ended early"));
         }
         output.extend_from_slice(&input[offset..offset + size]);
         offset += size + 2;
@@ -364,7 +367,7 @@ impl ParsedUrl {
     }
 }
 
-pub(super) fn endpoint_url(
+pub(crate) fn endpoint_url(
     base_url: &str,
     api_path: &str,
     query: Option<&str>,
@@ -382,7 +385,7 @@ pub(super) fn endpoint_url(
     })
 }
 
-pub(super) fn resolve_redirect(current: &ParsedUrl, location: &str) -> Result<ParsedUrl> {
+pub(crate) fn resolve_redirect(current: &ParsedUrl, location: &str) -> Result<ParsedUrl> {
     if location.starts_with("http://") || location.starts_with("https://") {
         return parse_url(location);
     }
@@ -410,12 +413,10 @@ pub(crate) fn parse_url(value: &str) -> Result<ParsedUrl> {
     let trimmed = value.trim();
     let (scheme, rest) = trimmed
         .split_once("://")
-        .ok_or_else(|| LibraryServerError::new("dandanplay base URL must use http or https"))?;
+        .ok_or_else(|| LibraryServerError::new("base URL must use http or https"))?;
     let scheme = scheme.to_ascii_lowercase();
     if scheme != "http" && scheme != "https" {
-        return Err(LibraryServerError::new(
-            "dandanplay base URL must use http or https",
-        ));
+        return Err(LibraryServerError::new("base URL must use http or https"));
     }
     let (authority, path) = rest
         .split_once('/')
@@ -423,7 +424,7 @@ pub(crate) fn parse_url(value: &str) -> Result<ParsedUrl> {
         .unwrap_or((rest, "/".to_owned()));
     if authority.contains('@') {
         return Err(LibraryServerError::new(
-            "dandanplay base URL must not include user info",
+            "base URL must not include user info",
         ));
     }
     let (host, port) = authority
@@ -431,9 +432,7 @@ pub(crate) fn parse_url(value: &str) -> Result<ParsedUrl> {
         .and_then(|(host, port)| Some((host, port.parse::<u16>().ok()?)))
         .unwrap_or((authority, if scheme == "https" { 443 } else { 80 }));
     if host.trim().is_empty() {
-        return Err(LibraryServerError::new(
-            "dandanplay base URL must include a host",
-        ));
+        return Err(LibraryServerError::new("base URL must include a host"));
     }
     Ok(ParsedUrl {
         scheme,
@@ -447,35 +446,12 @@ pub(crate) fn parse_url(value: &str) -> Result<ParsedUrl> {
     })
 }
 
-pub(super) fn normalize_base_url(value: &str) -> String {
+pub(crate) fn normalize_base_url(value: &str) -> String {
     value.trim().trim_end_matches('/').to_owned()
 }
 
-pub(super) fn should_follow_redirect(method: &str, body: Option<&str>, status: u16) -> bool {
+pub(crate) fn should_follow_redirect(method: &str, body: Option<&str>, status: u16) -> bool {
     body.is_none()
         && method.eq_ignore_ascii_case("GET")
         && matches!(status, 301 | 302 | 303 | 307 | 308)
-}
-
-pub(super) fn http_error_message(
-    status: u16,
-    url: &ParsedUrl,
-    location: Option<&String>,
-    body: &[u8],
-) -> String {
-    let mut message = format!("dandanplay returned HTTP {status} for {}", url.redacted());
-    if let Some(location) = location.filter(|location| !location.trim().is_empty()) {
-        message.push_str("; redirected to ");
-        message.push_str(location);
-    }
-    let body = String::from_utf8_lossy(body)
-        .replace(['\r', '\n'], " ")
-        .chars()
-        .take(256)
-        .collect::<String>();
-    if !body.trim().is_empty() {
-        message.push_str("; body=");
-        message.push_str(&body);
-    }
-    message
 }

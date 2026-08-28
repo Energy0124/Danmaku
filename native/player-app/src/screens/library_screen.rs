@@ -1,4 +1,38 @@
-use super::*;
+use std::collections::BTreeSet;
+
+use eframe::egui::{self, Align, Color32, Frame, Layout, Rect, RichText, TextEdit, pos2, vec2};
+
+use crate::{
+    danmaku::BangumiDetail,
+    icons::{Icon, paint_icon},
+    library::{
+        AttentionRepairRequest, DEFAULT_NEXT_UP_LIMIT, FolderListing, LibraryAttentionDocument,
+        LibraryCatalog, MINIMUM_REMAINING_MS, MINIMUM_RESUME_POSITION_MS, MediaItem, NextUpItem,
+        OrganizationPreviewRequest, OrganizationSeriesBatch, OrganizationSeriesOverride,
+        PlaybackProgress, Series, continue_watching_items, folder_grouped_series, grouped_series,
+        library_folder_shortcuts, library_root_labels, matched_anime_series, next_up_items,
+        scoped_folder_listing,
+    },
+    localization::Strings,
+    posters::PosterCache,
+    session::LibrarySession,
+    theme::{metrics, palette, typography},
+};
+
+use super::library_query::{
+    filtered_library_series, progress_is_completed, recent_series_groups, recently_played_groups,
+    season_series_groups, series_attention_count, series_attention_repairs,
+    series_latest_played_at, series_release_year,
+};
+use super::library_rows::{episode_row, explorer_file_row, explorer_folder_row, format_size};
+use super::library_widgets::{
+    continue_watching_rail, featured_media_card, filter_dropdown, filter_toggle_chip,
+    folder_nav_button, icon_chip_button, info_chip, muted_line, nav_button, next_up_rail,
+    online_pill, rating_chip, section_heading, section_subheading, series_fact, series_rail,
+    sidebar_heading, toolbar_chip_button,
+};
+use super::poster_components::{poster_thumbnail, series_grid};
+use super::{CARD_HEIGHT, CARD_WIDTH, PAGE_GUTTER, RAIL_LIMIT, local_hour};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum LibraryAction {
