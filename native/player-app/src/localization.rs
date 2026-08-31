@@ -418,6 +418,18 @@ impl Strings {
     pub fn open_web_admin(self) -> &'static str {
         self.text("Open web administration", "開啟網頁管理介面")
     }
+    pub fn auto_downloads(self) -> &'static str {
+        self.text("Automatic anime downloads", "自動下載動畫")
+    }
+    pub fn auto_downloads_note(self) -> &'static str {
+        self.text(
+            "Search and manage ANI-RSS subscriptions from the responsive web administration UI.",
+            "在響應式網頁管理介面中搜尋與管理 ANI-RSS 訂閱。",
+        )
+    }
+    pub fn open_auto_downloads(self) -> &'static str {
+        self.text("Manage automatic downloads", "管理自動下載")
+    }
     pub fn accounts_tracking(self) -> &'static str {
         self.text("Accounts & tracking", "帳號與追蹤")
     }

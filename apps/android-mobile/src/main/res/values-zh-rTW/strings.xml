@@ -110,6 +110,9 @@
     <string name="action_browse">瀏覽</string>
     <string name="action_open_video">開啟影片</string>
     <string name="action_open_library">開啟媒體庫</string>
+    <string name="auto_downloads_title">自動下載動畫</string>
+    <string name="auto_downloads_body">在安全的網頁管理介面搜尋與管理 ANI-RSS 訂閱；系統提示時請輸入此伺服器已儲存的存取碼。</string>
+    <string name="action_open_auto_downloads">開啟自動下載</string>
     <string name="action_connect_library">連線媒體庫</string>
     <string name="action_discover_pc">探索 PC</string>
     <string name="action_connect_current">連線目前設定</string>

@@ -27,6 +27,7 @@ internal fun HomePage(
     onOpenLibrary: () -> Unit,
     onShowLibraryItem: (LibraryMediaItem) -> Unit,
     onConnect: () -> Unit,
+    onOpenAutoDownloads: () -> Unit,
 ) {
     val nextUpItems = catalog?.nextUpItems(playbackProgresses, limit = 5).orEmpty()
     val continueWatchingItems = catalog?.continueWatchingItems(playbackProgresses, limit = 5).orEmpty()
@@ -125,6 +126,14 @@ internal fun HomePage(
                     body = stringResource(R.string.home_library_status_connected, catalog.rootName),
                     actionLabel = stringResource(R.string.action_open_library),
                     onAction = onOpenLibrary,
+                )
+            }
+            item(key = "home-auto-downloads") {
+                EmptyPanel(
+                    title = stringResource(R.string.auto_downloads_title),
+                    body = stringResource(R.string.auto_downloads_body),
+                    actionLabel = stringResource(R.string.action_open_auto_downloads),
+                    onAction = onOpenAutoDownloads,
                 )
             }
         }

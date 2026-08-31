@@ -4691,6 +4691,15 @@ fn settings_body(
                 format!("{}/web/", server.trim_end_matches('/')),
             );
         });
+        ui.add_space(14.0);
+        settings_card(ui, strings.auto_downloads(), |ui| {
+            card_status_line(ui, strings.auto_downloads_note());
+            ui.add_space(4.0);
+            ui.hyperlink_to(
+                strings.open_auto_downloads(),
+                format!("{}/web/#ani-rss", server.trim_end_matches('/')),
+            );
+        });
     }
 
     ui.add_space(14.0);

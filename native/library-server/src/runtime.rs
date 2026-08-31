@@ -63,7 +63,6 @@ impl LoadedServer {
 
         let catalog_store = CatalogStore::new(options.data_directory.join("catalog.json"));
         let stored_library = catalog_store.load()?;
-
         Ok(Self {
             options,
             settings,
@@ -171,7 +170,8 @@ impl BoundServer {
     {
         let _discovery = DiscoveryAnnouncer::start(self.local_port).await?;
         let loaded = self.loaded;
-        Self::spawn_background_scan(&loaded, self.state);
+        Self::spawn_background_scan(&loaded, self.state.clone());
+        Self::spawn_ani_rss_rescan_loop(&loaded, self.state);
         axum::serve(
             self.listener,
             self.app
@@ -205,6 +205,36 @@ impl BoundServer {
                 .err()
                 .map(|error| error.to_string());
             state.finish_scan(error);
+        });
+    }
+
+    fn spawn_ani_rss_rescan_loop(loaded: &LoadedServer, state: HttpServerState) {
+        if loaded.effective_library_roots.is_empty() {
+            return;
+        }
+        let roots = loaded.effective_library_roots.clone();
+        let catalog_store = CatalogStore::new(loaded.options.data_directory.join("catalog.json"));
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(std::time::Duration::from_secs(300)).await;
+                if !state.ani_rss_automatic_rescan_enabled() {
+                    continue;
+                }
+                if !state.try_start_scan() {
+                    continue;
+                }
+                let roots = roots.clone();
+                let catalog_store = catalog_store.clone();
+                let state = state.clone();
+                let _ = tokio::task::spawn_blocking(move || {
+                    let previous = catalog_store.load().ok().flatten();
+                    let error = scan_and_publish(&roots, previous, &catalog_store, &state)
+                        .err()
+                        .map(|error| error.to_string());
+                    state.finish_scan(error);
+                })
+                .await;
+            }
         });
     }
 }

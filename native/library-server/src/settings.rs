@@ -3,7 +3,7 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 use crate::{LibraryServerError, Result};
@@ -14,6 +14,8 @@ const DEFAULT_DANDANPLAY_CACHE_MAX_AGE_DAYS: u32 = 30;
 const MIN_DANDANPLAY_CACHE_MAX_AGE_DAYS: u32 = 1;
 const DEFAULT_BANGUMI_BASE_URL: &str = "https://api.bgm.tv/";
 const DEFAULT_BANGUMI_USER_AGENT: &str = "Danmaku/0.1 (https://github.com/Energy0124/Danmaku)";
+const DEFAULT_ANI_RSS_BASE_URL: &str = "http://127.0.0.1:7789";
+const DEFAULT_ANI_RSS_MANAGED_PORT: u16 = 7789;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SettingsStore {
@@ -59,6 +61,10 @@ impl SettingsStore {
             external_anime: loaded
                 .as_ref()
                 .map(|settings| settings.external_anime.clone())
+                .unwrap_or_default(),
+            ani_rss: loaded
+                .as_ref()
+                .map(|settings| settings.ani_rss.clone())
                 .unwrap_or_default(),
         };
         self.write_snapshot(&settings)?;
@@ -136,6 +142,58 @@ pub struct HeadlessServerSettings {
     pub library_roots: Vec<PathBuf>,
     pub dandanplay: HeadlessDandanplayProviderSettings,
     pub external_anime: HeadlessExternalAnimeProviderSettings,
+    pub ani_rss: HeadlessAniRssSettings,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HeadlessAniRssMode {
+    Disabled,
+    External,
+    ManagedWindows,
+}
+
+impl HeadlessAniRssMode {
+    pub fn wire_name(self) -> &'static str {
+        match self {
+            Self::Disabled => "DISABLED",
+            Self::External => "EXTERNAL",
+            Self::ManagedWindows => "MANAGED_WINDOWS",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AniRssPathMapping {
+    pub remote_prefix: String,
+    pub local_prefix: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HeadlessAniRssSettings {
+    pub mode: HeadlessAniRssMode,
+    pub base_url: String,
+    pub api_key: Option<String>,
+    pub has_api_key: bool,
+    pub managed_port: u16,
+    pub automatic_rescan: bool,
+    pub path_mappings: Vec<AniRssPathMapping>,
+    pub approved_sources: Vec<String>,
+}
+
+impl Default for HeadlessAniRssSettings {
+    fn default() -> Self {
+        Self {
+            mode: HeadlessAniRssMode::Disabled,
+            base_url: DEFAULT_ANI_RSS_BASE_URL.to_owned(),
+            api_key: None,
+            has_api_key: false,
+            managed_port: DEFAULT_ANI_RSS_MANAGED_PORT,
+            automatic_rescan: true,
+            path_mappings: Vec::new(),
+            approved_sources: Vec::new(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -241,6 +299,7 @@ struct SettingsSnapshot {
     library_roots: Vec<String>,
     dandanplay: DandanplaySettingsSnapshot,
     external_anime: ExternalAnimeSettingsSnapshot,
+    ani_rss: AniRssSettingsSnapshot,
 }
 
 impl From<&HeadlessServerSettings> for SettingsSnapshot {
@@ -255,6 +314,33 @@ impl From<&HeadlessServerSettings> for SettingsSnapshot {
                 .collect(),
             dandanplay: DandanplaySettingsSnapshot::from(&settings.dandanplay),
             external_anime: ExternalAnimeSettingsSnapshot::from(&settings.external_anime),
+            ani_rss: AniRssSettingsSnapshot::from(&settings.ani_rss),
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AniRssSettingsSnapshot {
+    mode: String,
+    base_url: String,
+    has_api_key: bool,
+    managed_port: u16,
+    automatic_rescan: bool,
+    path_mappings: Vec<AniRssPathMapping>,
+    approved_sources: Vec<String>,
+}
+
+impl From<&HeadlessAniRssSettings> for AniRssSettingsSnapshot {
+    fn from(settings: &HeadlessAniRssSettings) -> Self {
+        Self {
+            mode: settings.mode.wire_name().to_owned(),
+            base_url: settings.base_url.clone(),
+            has_api_key: settings.has_api_key,
+            managed_port: settings.managed_port,
+            automatic_rescan: settings.automatic_rescan,
+            path_mappings: settings.path_mappings.clone(),
+            approved_sources: settings.approved_sources.clone(),
         }
     }
 }
@@ -362,12 +448,78 @@ fn settings_from_value(value: &Value) -> Option<HeadlessServerSettings> {
         Some(object) => external_anime_settings_or_null(object)?,
         None => HeadlessExternalAnimeProviderSettings::default(),
     };
+    let ani_rss = match root.get("aniRss").and_then(Value::as_object) {
+        Some(object) => ani_rss_settings_or_null(object)?,
+        None => HeadlessAniRssSettings::default(),
+    };
 
     Some(HeadlessServerSettings {
         pairing_token,
         library_roots,
         dandanplay,
         external_anime,
+        ani_rss,
+    })
+}
+
+fn ani_rss_settings_or_null(object: &Map<String, Value>) -> Option<HeadlessAniRssSettings> {
+    let mode = match string_or_null(object, "mode").as_deref() {
+        Some("EXTERNAL") => HeadlessAniRssMode::External,
+        Some("MANAGED_WINDOWS") => HeadlessAniRssMode::ManagedWindows,
+        _ => HeadlessAniRssMode::Disabled,
+    };
+    let base_url =
+        string_or_null(object, "baseUrl").unwrap_or_else(|| DEFAULT_ANI_RSS_BASE_URL.to_owned());
+    if !is_http_base_url(&base_url) {
+        return None;
+    }
+    let api_key = string_or_null(object, "apiKey");
+    let has_api_key = api_key.is_some() || boolean_or_null(object, "hasApiKey") == Some(true);
+    let managed_port = int_or_null(object, "managedPort")
+        .and_then(|value| u16::try_from(value).ok())
+        .filter(|value| *value > 0)
+        .unwrap_or(DEFAULT_ANI_RSS_MANAGED_PORT);
+    let automatic_rescan = boolean_or_null(object, "automaticRescan").unwrap_or(true);
+    let path_mappings = object
+        .get("pathMappings")
+        .and_then(Value::as_array)
+        .map(|values| {
+            values
+                .iter()
+                .filter_map(|value| {
+                    let value = value.as_object()?;
+                    let remote_prefix = string_or_null(value, "remotePrefix")?;
+                    let local_prefix = string_or_null(value, "localPrefix")?;
+                    Some(AniRssPathMapping {
+                        remote_prefix,
+                        local_prefix,
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let approved_sources = object
+        .get("approvedSources")
+        .and_then(Value::as_array)
+        .map(|values| {
+            values
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(ToOwned::to_owned)
+                .collect()
+        })
+        .unwrap_or_default();
+    Some(HeadlessAniRssSettings {
+        mode,
+        base_url,
+        api_key,
+        has_api_key,
+        managed_port,
+        automatic_rescan,
+        path_mappings,
+        approved_sources,
     })
 }
 

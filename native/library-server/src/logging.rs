@@ -203,6 +203,7 @@ mod tests {
                 has_bangumi_access_token: true,
                 ..HeadlessExternalAnimeProviderSettings::default()
             },
+            ani_rss: Default::default(),
         };
         let stored_library = HeadlessStoredLibrary {
             published_library: PublishedLibrary::empty(),

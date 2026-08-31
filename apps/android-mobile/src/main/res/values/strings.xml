@@ -110,6 +110,9 @@
     <string name="action_browse">Browse</string>
     <string name="action_open_video">Open video</string>
     <string name="action_open_library">Open Library</string>
+    <string name="auto_downloads_title">Automatic anime downloads</string>
+    <string name="auto_downloads_body">Search and manage ANI-RSS subscriptions in the secure web admin. Enter this server’s saved access code when prompted.</string>
+    <string name="action_open_auto_downloads">Open auto downloads</string>
     <string name="action_connect_library">Connect library</string>
     <string name="action_discover_pc">Discover PC</string>
     <string name="action_connect_current">Connect current</string>

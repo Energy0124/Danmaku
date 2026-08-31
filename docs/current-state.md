@@ -73,6 +73,15 @@ Compose macOS artifact are retired.
 - Native MAL/Bangumi account status, provider readback, exact progress preview,
   and explicitly confirmed sync; account/mapping/conflict administration stays
   on Windows and the web UI.
+- ANI-RSS automatic-download administration through a normalized,
+  bearer-authenticated server API and responsive web panel. Desktop and mobile
+  entry points open the same workflow for explicit source approval, series
+  search, group selection, preview/confirm, subscription management, and
+  download status. The ANI-RSS API key stays in protected server storage.
+- Existing ANI-RSS installations can be attached by URL. Windows can also
+  supervise a user-supplied official `ani-rss.exe` on loopback, with isolated
+  configuration/logs and server-lifetime cleanup. Completed files are picked
+  up by an optional five-minute library rescan loop.
 - Dedicated Android TV navigation and D-pad focus, including folder-level back
   navigation, a fixed compact rail with focused-item labels and bounded
   border/color focus indicators, cached-first presentation,
@@ -129,9 +138,10 @@ Compose macOS artifact are retired.
   remain release gates.
 - Richer danmaku filters/offsets, per-series playback preferences, metadata
   depth, collections, and notification surfaces remain planned.
-- Authorized downloads are currently implemented only for user-owned files
-  published by the Android mobile client's trusted-LAN desktop library. TV,
-  native desktop, and provider-managed download execution remain pending.
+- Offline copies of server-owned files are currently implemented only by the
+  Android mobile trusted-LAN cache. ANI-RSS can now coordinate authorized
+  external automatic-download subscriptions, but Danmaku does not bundle a
+  downloader and TV has no subscription-management surface.
 - macOS online-provider HTTPS and protected provider-token persistence are not
   implemented; the current slice supports local/LAN playback and local
   XML/JSON/ASS danmaku. Packaging is not notarized or release-signed.
