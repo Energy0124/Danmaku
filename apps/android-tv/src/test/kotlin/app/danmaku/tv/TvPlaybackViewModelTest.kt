@@ -129,9 +129,10 @@ class TvPlaybackViewModelTest {
         viewModel.play(item)
         runCurrent()
 
+        assertEquals(42_000L, controller.loaded.single().resumePositionMs)
         assertEquals(
-            listOf(PlaybackCommand.SeekTo(42_000), PlaybackCommand.Play),
-            controller.commands,
+            listOf(controller.loaded.single(), PlaybackCommand.Play),
+            controller.events,
         )
     }
 
@@ -377,11 +378,13 @@ class TvPlaybackViewModelTest {
         override val androidPlayer: Player? = null
         val commands = mutableListOf<PlaybackCommand>()
         val loaded = mutableListOf<LanPlaybackPreparation>()
+        val events = mutableListOf<Any>()
         var stopCount = 0
         private var snapshot = PlaybackSnapshot()
 
         override fun load(preparation: LanPlaybackPreparation) {
             loaded += preparation
+            events += preparation
             snapshot = snapshot.copy(
                 source = preparation.source,
                 status = PlaybackStatus.READY,
@@ -390,6 +393,7 @@ class TvPlaybackViewModelTest {
 
         override fun dispatch(command: PlaybackCommand) {
             commands += command
+            events += command
             snapshot = when (command) {
                 PlaybackCommand.Play -> snapshot.copy(status = PlaybackStatus.PLAYING)
                 PlaybackCommand.Pause -> snapshot.copy(status = PlaybackStatus.PAUSED)

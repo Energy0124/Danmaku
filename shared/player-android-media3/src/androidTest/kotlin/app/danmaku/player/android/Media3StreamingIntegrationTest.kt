@@ -12,6 +12,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySubtitleTrack
+import app.danmaku.domain.LanDanmakuLoadStatus
+import app.danmaku.domain.LanDanmakuTrack
 import app.danmaku.domain.PlaybackCommand
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.domain.PlaybackSource
@@ -19,6 +21,8 @@ import app.danmaku.domain.PlaybackTrackKind
 import app.danmaku.library.LanPlaybackPreparation
 import app.danmaku.library.LanPlaybackTarget
 import app.danmaku.library.LanSubtitlePreparation
+import app.danmaku.library.android.OfflinePlaybackPreparation
+import java.io.File
 import java.net.InetAddress
 import java.net.ServerSocket
 import java.net.Socket
@@ -46,6 +50,80 @@ class Media3StreamingIntegrationTest {
     fun playsShortHttpFixtureToCompletion() {
         playHttpFixtureToCompletion { fixture ->
             FixtureHttpServer(fixture)
+        }
+    }
+
+    @Test
+    fun appliesResumePositionBeforePreparationCompletes() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val fixture = instrumentation.context.assets
+            .open("short-stream.mp4")
+            .use { it.readBytes() }
+
+        FixtureHttpServer(fixture).use { server ->
+            assertResumePositionApplied { controller, resumePositionMs ->
+                controller.load(
+                    LanPlaybackPreparation(
+                        item = LibraryMediaItem(
+                            id = "resume-episode",
+                            seriesTitle = "Example Show",
+                            episodeTitle = "Episode 01",
+                            relativePath = "Example Show/Episode 01.mp4",
+                            sizeBytes = fixture.size.toLong(),
+                            mediaType = "video/mp4",
+                            streamPath = "/media/resume-episode",
+                        ),
+                        target = LanPlaybackTarget(server.url, "123456", "resume-episode"),
+                        source = PlaybackSource.RemoteStream(server.url),
+                        resumePositionMs = resumePositionMs,
+                    )
+                )
+            }
+        }
+    }
+
+    @Test
+    fun appliesFallbackResumePositionToCachedPlaybackBeforePreparationCompletes() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val fixtureFile = File.createTempFile(
+            "danmaku-resume-",
+            ".mp4",
+            instrumentation.targetContext.cacheDir,
+        ).apply {
+            outputStream().use { output ->
+                instrumentation.context.assets.open("short-stream.mp4").use { input ->
+                    input.copyTo(output)
+                }
+            }
+        }
+        val item = LibraryMediaItem(
+            id = "cached-resume-episode",
+            seriesTitle = "Example Show",
+            episodeTitle = "Episode 01",
+            relativePath = "Example Show/Episode 01.mp4",
+            sizeBytes = fixtureFile.length(),
+            mediaType = "video/mp4",
+            streamPath = "/media/cached-resume-episode",
+        )
+        val preparation = OfflinePlaybackPreparation(
+            cacheKey = "cached-resume-episode",
+            serverUrl = "http://pc",
+            item = item,
+            source = PlaybackSource.LocalFile(fixtureFile.absolutePath),
+            subtitles = emptyList(),
+            danmaku = LanDanmakuTrack(
+                mediaId = item.id,
+                status = LanDanmakuLoadStatus.NO_MATCH,
+            ),
+            resumePositionMs = null,
+        )
+
+        try {
+            assertResumePositionApplied { controller, resumePositionMs ->
+                controller.load(preparation, resumePositionMs)
+            }
+        } finally {
+            fixtureFile.delete()
         }
     }
 
@@ -95,6 +173,7 @@ class Media3StreamingIntegrationTest {
                 Media3PlaybackController(player).load(preparation)
 
                 val mediaItem = checkNotNull(player.currentMediaItem)
+                assertEquals(0L, player.currentPosition)
                 val subtitle = checkNotNull(mediaItem.localConfiguration)
                     .subtitleConfigurations
                     .single()
@@ -211,6 +290,52 @@ class Media3StreamingIntegrationTest {
                 chunkSize = 256,
                 chunkDelayMillis = 25,
             )
+        }
+    }
+
+    private fun assertResumePositionApplied(
+        load: (Media3PlaybackController, Long) -> Unit,
+    ) {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val ready = CountDownLatch(1)
+        val playerError = AtomicReference<PlaybackException?>()
+        val resumePositionMs = 250L
+        lateinit var player: ExoPlayer
+
+        instrumentation.runOnMainSync {
+            player = ExoPlayer.Builder(instrumentation.targetContext).build().apply {
+                addListener(
+                    object : Player.Listener {
+                        override fun onPlaybackStateChanged(playbackState: Int) {
+                            if (playbackState == Player.STATE_READY) {
+                                ready.countDown()
+                            }
+                        }
+
+                        override fun onPlayerError(error: PlaybackException) {
+                            playerError.set(error)
+                            ready.countDown()
+                        }
+                    },
+                )
+            }
+            load(Media3PlaybackController(player), resumePositionMs)
+
+            assertEquals(resumePositionMs, player.currentPosition)
+        }
+
+        try {
+            assertTrue("Media3 did not prepare the fixture", ready.await(10, TimeUnit.SECONDS))
+            assertNull(playerError.get()?.message, playerError.get())
+            instrumentation.runOnMainSync {
+                assertEquals(Player.STATE_READY, player.playbackState)
+                assertEquals(resumePositionMs, player.currentPosition)
+                assertFalse(player.playWhenReady)
+            }
+        } finally {
+            instrumentation.runOnMainSync {
+                player.release()
+            }
         }
     }
 
