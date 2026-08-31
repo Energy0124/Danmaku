@@ -46,10 +46,13 @@ Status: implementation ready for approved live-account QA.
 
 ## 5. Authorized Downloads
 
-Status: Android mobile vertical slice implemented; other platforms pending.
+Status: Android mobile offline cache and ANI-RSS subscription administration implemented.
 
 - Keep the Android mobile user-owned LAN-library queue, byte-range resume,
   offline danmaku/subtitles, management UI, and deferred progress sync reliable.
+- Keep ANI-RSS source approvals, preview-before-subscribe behavior, protected
+  credentials, managed Windows lifecycle, and automatic catalog rescans
+  reliable across desktop and mobile administration.
 - Extend the authorized engine to TV or native platforms only when their
   product flows require it; do not add DRM circumvention or unauthorized search.
 

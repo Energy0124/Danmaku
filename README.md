@@ -199,6 +199,35 @@ Release packaging accepts `-MyAnimeListClientId` (or
 `DANMAKU_MYANIMELIST_CLIENT_ID`) and embeds that public OAuth client ID in the
 server binary. Development builds without one show MAL sign-in as unavailable.
 
+### ANI-RSS automatic downloads
+
+Open **Settings → Automatic anime downloads** in the Windows player, or open
+`/web/#ani-rss` from desktop or mobile. The authenticated responsive panel can
+configure ANI-RSS, approve each search source once, search Mikan/AniBT/Anime
+Garden, choose a release group, preview and confirm a subscription, pause or
+refresh it, remove it without deleting downloaded files, and inspect download
+progress. Custom RSS URLs are supported after approving **Custom RSS**.
+
+Use **External ANI-RSS** for an existing installation. On Windows, **Managed on
+Windows** supervises an official `ani-rss.exe` supplied by the user: place it at
+`<server data directory>\ani-rss\ani-rss.exe` or set
+`DANMAKU_ANI_RSS_EXECUTABLE`. Its configuration and log stay under
+`<server data directory>\ani-rss`;
+the sidecar binds only to loopback and is stopped with the server. Danmaku does
+not redistribute ANI-RSS or a downloader.
+
+Danmaku's ANI-RSS API key copy is stored in the protected provider-secret store
+and is never returned to clients. Managed mode synchronizes that key into
+ANI-RSS's own config so both processes authenticate consistently. Changing the
+ANI-RSS endpoint clears source approvals. When automatic rescanning is enabled,
+the server checks configured library roots every five minutes so completed
+episodes appear in the catalog.
+Managed mode and automatic rescanning changes apply immediately. The advanced
+ANI-RSS UI remains local to the Windows host; mobile clients use Danmaku's
+authenticated panel instead.
+Keep both applications on a trusted LAN or private VPN; this integration does
+not make either administration surface safe for direct Internet exposure.
+
 Repeatable local QA:
 
 ```powershell

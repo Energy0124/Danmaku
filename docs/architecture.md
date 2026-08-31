@@ -37,6 +37,14 @@ It owns MAL OAuth state/token exchange and encrypted refresh tokens; the native
 player owns only the fixed loopback browser callback and forwards the short-
 lived authorization code. Bangumi tokens are validated against `/v0/me`
 before encrypted storage.
+ANI-RSS is a provider plugin boundary in the same server. Clients call only the
+normalized `/api/automation/ani-rss/*` contract with the Danmaku bearer token;
+the server injects the protected ANI-RSS API key and converts upstream objects
+to Danmaku-owned status, search, group, subscription, preview, and download
+models. Source search is denied until that source is explicitly approved for
+the configured endpoint, and changing the endpoint clears approvals. Deletes
+always preserve downloaded files. An optional Windows supervisor runs a
+user-supplied official executable on loopback for the server lifetime.
 
 `native/player-windows-mpv` is an ordinary Rust library used by the player. It
 owns libmpv discovery/loading and the OpenGL render API bindings plus the
@@ -93,6 +101,11 @@ settings, mappings, tracking readback, provider-ahead import, conflict-aware
 previews, and explicit provider writes. Consumer sign-in and completion
 prompts live in the native Windows player. The web UI does not own server
 state.
+It also provides the responsive ANI-RSS administration workflow used from
+desktop and mobile browsers. External ANI-RSS installations can expose their
+advanced UI as a direct link. The managed sidecar stays loopback-only, so
+mobile clients use the normalized Danmaku administration surface instead;
+that surface never exposes the ANI-RSS API key.
 
 ## Module Boundaries
 

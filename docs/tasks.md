@@ -51,8 +51,9 @@ Status: `[x]` done, `[~]` in progress, `[ ]` not started.
   season/year, episode counts, and specials/OVA/movie ordering.
 - `[ ]` Add favorites, watch-later, custom collections, and useful smart
   filters against normalized server-owned state.
-- `[~]` Extend authorized downloads beyond the implemented Android mobile
-  user-owned LAN-library queue; TV/native execution remains unimplemented.
+- `[~]` Keep the Android mobile offline queue and ANI-RSS automatic-download
+  administration reliable; TV subscription management and a Danmaku-owned
+  native download engine remain unimplemented.
 - `[ ]` Add notification surfaces for newly indexed episodes, provider
   failures, tracking conflicts, and server availability.
 

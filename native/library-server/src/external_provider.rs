@@ -1531,6 +1531,7 @@ mod tests {
             library_roots: Vec::new(),
             dandanplay: Default::default(),
             external_anime: Default::default(),
+            ani_rss: Default::default(),
         };
         let runtime = provider_runtime_status(&settings);
         assert_eq!("missing-client-id", runtime.my_anime_list.reason_code);

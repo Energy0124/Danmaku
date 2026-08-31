@@ -14,6 +14,211 @@ body {
   margin: 0;
 }
 
+.ani-rss-panel {
+  margin: 12px 24px 0;
+  border: 1px solid #dce2e8;
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.ani-rss-panel > summary {
+  display: flex;
+  cursor: pointer;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  font-weight: 800;
+}
+
+.ani-rss-panel > summary small,
+.ani-rss-list small,
+.ani-rss-preview span {
+  color: #596873;
+}
+
+.ani-rss-content {
+  display: grid;
+  gap: 18px;
+  padding: 0 16px 18px;
+}
+
+.ani-rss-content section {
+  border-top: 1px solid #e7ebef;
+  padding-top: 14px;
+}
+
+.ani-rss-content h3,
+.ani-rss-content p {
+  margin: 0 0 10px;
+}
+
+.ani-rss-message {
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #eef5fb;
+}
+
+.ani-rss-settings,
+.ani-rss-draft {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.ani-rss-settings label,
+.ani-rss-draft label {
+  display: grid;
+  gap: 5px;
+  color: #45545f;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ani-rss-settings .ani-rss-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+}
+
+.ani-rss-settings .ani-rss-checkbox input {
+  min-height: auto;
+}
+
+.ani-rss-mappings {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid #e7ebef;
+  padding-top: 10px;
+}
+
+.ani-rss-mappings > div {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 8px;
+}
+
+.ani-rss-mappings > button {
+  justify-self: start;
+}
+
+.ani-rss-settings input,
+.ani-rss-settings select,
+.ani-rss-draft input,
+.ani-rss-draft select,
+.ani-rss-search input,
+.ani-rss-search select {
+  min-height: 38px;
+  border: 1px solid #bdc8d1;
+  border-radius: 7px;
+  padding: 7px 9px;
+  background: #fff;
+}
+
+.ani-rss-settings button,
+.ani-rss-draft button,
+.ani-rss-actions button,
+.ani-rss-search button,
+.ani-rss-results button,
+.ani-rss-preview button,
+.ani-rss-section-heading button {
+  min-height: 38px;
+  border: 1px solid #9daab5;
+  border-radius: 7px;
+  padding: 7px 11px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.ani-rss-settings a {
+  align-self: center;
+  white-space: nowrap;
+}
+
+.ani-rss-actions,
+.ani-rss-results {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ani-rss-search {
+  display: grid;
+  grid-template-columns: minmax(140px, 0.4fr) 1fr auto;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.ani-rss-results {
+  margin-bottom: 10px;
+}
+
+.ani-rss-preview {
+  display: grid;
+  gap: 5px;
+  margin-top: 10px;
+  border-radius: 9px;
+  padding: 12px;
+  background: #f4f7f9;
+}
+
+.ani-rss-preview button {
+  justify-self: start;
+}
+
+.ani-rss-section-heading,
+.ani-rss-list article {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ani-rss-list {
+  display: grid;
+  gap: 8px;
+}
+
+.ani-rss-list article {
+  border: 1px solid #e0e5ea;
+  border-radius: 9px;
+  padding: 10px 12px;
+}
+
+.ani-rss-list article > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.ani-rss-actions .danger {
+  border-color: #d0a1a1;
+  color: #8b2424;
+}
+
+@media (max-width: 760px) {
+  .ani-rss-panel {
+    margin-inline: 12px;
+  }
+
+  .ani-rss-panel > summary,
+  .ani-rss-list article,
+  .ani-rss-section-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .ani-rss-settings,
+  .ani-rss-draft,
+  .ani-rss-search,
+  .ani-rss-mappings > div {
+    grid-template-columns: 1fr;
+  }
+}
+
 button,
 input,
 select {

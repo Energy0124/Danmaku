@@ -1,3 +1,4 @@
+pub mod ani_rss;
 pub mod attention;
 pub mod catalog;
 pub mod catalog_metadata;
@@ -10,6 +11,7 @@ pub(crate) mod hash;
 pub mod http;
 pub mod lock;
 pub mod logging;
+pub mod managed_ani_rss;
 pub mod organizer;
 pub mod poster_cache;
 pub mod progress;

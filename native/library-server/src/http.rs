@@ -18,6 +18,10 @@ use tokio::io::{AsyncReadExt, AsyncSeekExt};
 use tokio_util::io::ReaderStream;
 
 use crate::Result;
+use crate::ani_rss::{
+    AniRssGroupsRequest, AniRssSearchRequest, AniRssService, AniRssStatus,
+    AniRssSubscriptionRequest, SUPPORTED_SOURCES, approved_source_name,
+};
 use crate::attention::{AttentionFailureStore, build_attention_document};
 use crate::catalog::{CatalogStore, ExternalAnimeId, PublishedLibrary, normalize_lexically};
 use crate::catalog_metadata::CatalogMetadataStore;
@@ -34,6 +38,7 @@ use crate::external_provider::{
     parse_provider_alias, provider_runtime_status, refresh_my_anime_list_token,
 };
 use crate::logging::CatalogScanSummary;
+use crate::managed_ani_rss::ManagedAniRss;
 use crate::organizer::{
     LibraryOrganizer, OrganizationAccepted, OrganizationExecuteRequest, OrganizationPreviewRequest,
     OrganizationUndoRequest,
@@ -45,6 +50,7 @@ use crate::scanner::{
     LibraryRescanTarget, ScanProgress, rescan_target_with_progress, resolve_rescan_target,
 };
 use crate::settings::{
+    AniRssPathMapping, HeadlessAniRssMode, HeadlessAniRssSettings,
     HeadlessDandanplayAuthenticationMode, HeadlessServerSettings, SettingsStore,
     apply_external_anime_local_defaults, embedded_my_anime_list_client_id, is_http_base_url,
     is_https_base_url,
@@ -121,6 +127,51 @@ impl HttpServerConfig {
 struct ProviderSettingsUpdate {
     dandanplay: DandanplaySettingsUpdate,
     external_anime: ExternalAnimeSettingsUpdate,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AniRssSettingsUpdate {
+    mode: String,
+    base_url: String,
+    #[serde(default)]
+    api_key: Option<String>,
+    #[serde(default)]
+    clear_api_key: bool,
+    #[serde(default = "default_ani_rss_port")]
+    managed_port: u16,
+    #[serde(default = "default_true")]
+    automatic_rescan: bool,
+    #[serde(default)]
+    path_mappings: Vec<AniRssPathMapping>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AniRssEnabledRequest {
+    enabled: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AniRssSettingsResponse {
+    mode: String,
+    base_url: String,
+    has_api_key: bool,
+    managed_port: u16,
+    automatic_rescan: bool,
+    path_mappings: Vec<AniRssPathMapping>,
+    approved_sources: Vec<String>,
+    supported_sources: Vec<&'static str>,
+    advanced_ui_url: Option<String>,
+}
+
+fn default_ani_rss_port() -> u16 {
+    7789
+}
+
+fn default_true() -> bool {
+    true
 }
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -266,6 +317,7 @@ pub struct ProviderAdminState {
     secret_store: ProviderSecretStore,
     persisted_settings: Mutex<HeadlessServerSettings>,
     runtime: RwLock<ProviderRuntimeResources>,
+    managed_ani_rss: Mutex<Option<ManagedAniRss>>,
     attention_failures: AttentionFailureStore,
     tracking_store: ExternalTrackingStore,
     pending_my_anime_list_oauth: Mutex<BTreeMap<String, PendingMyAnimeListOAuth>>,
@@ -296,6 +348,14 @@ impl ProviderAdminState {
         dandanplay_resolver: Option<Arc<DandanplayResolver>>,
         secret_store: ProviderSecretStore,
     ) -> Result<Self> {
+        let managed_ani_rss =
+            match ManagedAniRss::start(&effective_settings.ani_rss, &data_directory) {
+                Ok(sidecar) => sidecar,
+                Err(error) => {
+                    eprintln!("managed ANI-RSS is unavailable: {error}");
+                    None
+                }
+            };
         Ok(Self {
             expected_token: persisted_settings.pairing_token.as_bytes().to_vec(),
             settings_store: SettingsStore::new(data_directory.join("server-settings.json")),
@@ -313,6 +373,7 @@ impl ProviderAdminState {
                 &effective_settings,
                 dandanplay_resolver,
             )),
+            managed_ani_rss: Mutex::new(managed_ani_rss),
         })
     }
 
@@ -407,6 +468,118 @@ impl ProviderAdminState {
         apply_provider_settings_update(&mut next, update)?;
 
         self.commit_settings(&mut persisted, next)
+    }
+
+    fn ani_rss_settings(&self) -> crate::Result<AniRssSettingsResponse> {
+        let settings = self
+            .persisted_settings
+            .lock()
+            .map_err(|_| crate::LibraryServerError::new("provider settings lock is unavailable"))?;
+        Ok(AniRssSettingsResponse::from(&settings.ani_rss))
+    }
+
+    fn ani_rss_service(&self) -> crate::Result<(AniRssService, HeadlessAniRssMode)> {
+        let settings = self
+            .persisted_settings
+            .lock()
+            .map_err(|_| crate::LibraryServerError::new("provider settings lock is unavailable"))?;
+        Ok((
+            AniRssService::from_settings(&settings.ani_rss)?,
+            settings.ani_rss.mode,
+        ))
+    }
+
+    fn ani_rss_source_is_approved(&self, source: &str) -> crate::Result<bool> {
+        let source = approved_source_name(source)?;
+        let settings = self
+            .persisted_settings
+            .lock()
+            .map_err(|_| crate::LibraryServerError::new("provider settings lock is unavailable"))?;
+        Ok(settings
+            .ani_rss
+            .approved_sources
+            .iter()
+            .any(|approved| approved == source))
+    }
+
+    fn ani_rss_automatic_rescan_enabled(&self) -> bool {
+        self.persisted_settings
+            .lock()
+            .map(|settings| {
+                settings.ani_rss.automatic_rescan
+                    && settings.ani_rss.mode != HeadlessAniRssMode::Disabled
+            })
+            .unwrap_or(false)
+    }
+
+    fn update_ani_rss(
+        &self,
+        update: AniRssSettingsUpdate,
+    ) -> crate::Result<AniRssSettingsResponse> {
+        let mut persisted = self
+            .persisted_settings
+            .lock()
+            .map_err(|_| crate::LibraryServerError::new("provider settings lock is unavailable"))?;
+        let mut next = persisted.clone();
+        let previous_base_url = next.ani_rss.base_url.clone();
+        apply_ani_rss_settings_update(&mut next.ani_rss, update)?;
+        if next.ani_rss.base_url != previous_base_url {
+            next.ani_rss.approved_sources.clear();
+        }
+        self.commit_settings(&mut persisted, next)?;
+        let ani_rss = persisted.ani_rss.clone();
+        self.restart_managed_ani_rss(&ani_rss)?;
+        Ok(AniRssSettingsResponse::from(&ani_rss))
+    }
+
+    fn restart_managed_ani_rss(&self, settings: &HeadlessAniRssSettings) -> crate::Result<()> {
+        let mut sidecar = self
+            .managed_ani_rss
+            .lock()
+            .map_err(|_| crate::LibraryServerError::new("managed ANI-RSS lock is unavailable"))?;
+        sidecar.take();
+        *sidecar = ManagedAniRss::start(settings, &self.data_directory)?;
+        let started = sidecar.is_some();
+        drop(sidecar);
+        if !started {
+            return Ok(());
+        }
+
+        let service = AniRssService::from_settings(settings)?;
+        let mut last_message = "managed ANI-RSS did not become ready".to_owned();
+        for _ in 0..30 {
+            let status = service.status(settings.mode);
+            if status.reachable {
+                return Ok(());
+            }
+            last_message = status.message;
+            std::thread::sleep(std::time::Duration::from_millis(500));
+        }
+        Err(crate::LibraryServerError::new(format!(
+            "managed ANI-RSS started but is not ready: {last_message}"
+        )))
+    }
+
+    fn set_ani_rss_source_approval(
+        &self,
+        source: &str,
+        approved: bool,
+    ) -> crate::Result<AniRssSettingsResponse> {
+        let source = approved_source_name(source)?.to_owned();
+        let mut persisted = self
+            .persisted_settings
+            .lock()
+            .map_err(|_| crate::LibraryServerError::new("provider settings lock is unavailable"))?;
+        let mut next = persisted.clone();
+        next.ani_rss
+            .approved_sources
+            .retain(|value| value != &source);
+        if approved {
+            next.ani_rss.approved_sources.push(source);
+            next.ani_rss.approved_sources.sort();
+        }
+        self.commit_settings(&mut persisted, next)?;
+        Ok(AniRssSettingsResponse::from(&persisted.ani_rss))
     }
 
     fn commit_settings(
@@ -696,6 +869,23 @@ impl ProviderAdminState {
     }
 }
 
+impl From<&HeadlessAniRssSettings> for AniRssSettingsResponse {
+    fn from(settings: &HeadlessAniRssSettings) -> Self {
+        Self {
+            mode: settings.mode.wire_name().to_owned(),
+            base_url: settings.base_url.clone(),
+            has_api_key: settings.api_key.is_some(),
+            managed_port: settings.managed_port,
+            automatic_rescan: settings.automatic_rescan,
+            path_mappings: settings.path_mappings.clone(),
+            approved_sources: settings.approved_sources.clone(),
+            supported_sources: SUPPORTED_SOURCES.to_vec(),
+            advanced_ui_url: (settings.mode == HeadlessAniRssMode::External)
+                .then(|| settings.base_url.clone()),
+        }
+    }
+}
+
 impl ProviderAccountStatus {
     fn disconnected() -> Self {
         Self {
@@ -841,6 +1031,84 @@ fn apply_provider_settings_update(
         settings.external_anime.my_anime_list_access_token.is_some();
     settings.external_anime.has_bangumi_access_token =
         settings.external_anime.bangumi_access_token.is_some();
+    Ok(())
+}
+
+fn apply_ani_rss_settings_update(
+    settings: &mut HeadlessAniRssSettings,
+    update: AniRssSettingsUpdate,
+) -> crate::Result<()> {
+    let mode = match update.mode.trim().to_ascii_uppercase().as_str() {
+        "DISABLED" => HeadlessAniRssMode::Disabled,
+        "EXTERNAL" => HeadlessAniRssMode::External,
+        "MANAGED_WINDOWS" => HeadlessAniRssMode::ManagedWindows,
+        _ => {
+            return Err(crate::LibraryServerError::new(
+                "ANI-RSS mode must be DISABLED, EXTERNAL, or MANAGED_WINDOWS",
+            ));
+        }
+    };
+    #[cfg(not(windows))]
+    if mode == HeadlessAniRssMode::ManagedWindows {
+        return Err(crate::LibraryServerError::new(
+            "managed ANI-RSS mode is only available on Windows",
+        ));
+    }
+    if !is_http_base_url(&update.base_url) || update.base_url.len() > 2_048 {
+        return Err(crate::LibraryServerError::new(
+            "ANI-RSS baseUrl must be a valid HTTP(S) URL",
+        ));
+    }
+    if update.managed_port == 0 {
+        return Err(crate::LibraryServerError::new(
+            "ANI-RSS managedPort must be between 1 and 65535",
+        ));
+    }
+    if update.path_mappings.len() > 32 {
+        return Err(crate::LibraryServerError::new(
+            "ANI-RSS supports at most 32 path mappings",
+        ));
+    }
+    let mut mappings = Vec::with_capacity(update.path_mappings.len());
+    for mapping in update.path_mappings {
+        let remote_prefix = mapping.remote_prefix.trim();
+        let local_prefix = mapping.local_prefix.trim();
+        if remote_prefix.is_empty() || local_prefix.is_empty() {
+            return Err(crate::LibraryServerError::new(
+                "ANI-RSS path mapping prefixes must not be blank",
+            ));
+        }
+        if remote_prefix.len() > 4_096 || local_prefix.len() > 4_096 {
+            return Err(crate::LibraryServerError::new(
+                "ANI-RSS path mapping prefixes must be no more than 4096 bytes",
+            ));
+        }
+        mappings.push(AniRssPathMapping {
+            remote_prefix: remote_prefix.to_owned(),
+            local_prefix: local_prefix.to_owned(),
+        });
+    }
+    settings.mode = mode;
+    settings.base_url = if mode == HeadlessAniRssMode::ManagedWindows {
+        format!("http://127.0.0.1:{}", update.managed_port)
+    } else {
+        update.base_url.trim().trim_end_matches('/').to_owned()
+    };
+    settings.managed_port = update.managed_port;
+    settings.automatic_rescan = update.automatic_rescan;
+    settings.path_mappings = mappings;
+    apply_secret_update(
+        &mut settings.api_key,
+        update.api_key,
+        update.clear_api_key,
+        "ANI-RSS apiKey",
+    )?;
+    if mode != HeadlessAniRssMode::Disabled && settings.api_key.is_none() {
+        return Err(crate::LibraryServerError::new(
+            "ANI-RSS API key is required when the integration is enabled",
+        ));
+    }
+    settings.has_api_key = settings.api_key.is_some();
     Ok(())
 }
 
@@ -1006,6 +1274,12 @@ impl HttpServerState {
         }
     }
 
+    pub(crate) fn ani_rss_automatic_rescan_enabled(&self) -> bool {
+        self.provider_admin
+            .as_ref()
+            .is_some_and(|admin| admin.ani_rss_automatic_rescan_enabled())
+    }
+
     /// Snapshot of the currently published library; requests keep using the
     /// snapshot they read even if a rescan swaps the library mid-request.
     fn library(&self) -> Arc<PublishedLibrary> {
@@ -1119,6 +1393,9 @@ async fn dispatch(State(state): State<HttpServerState>, request: Request<Body>) 
     if path.starts_with("/api/danmaku/") {
         return handle_danmaku(&state, &method, &path, query.as_deref()).await;
     }
+    if path.starts_with("/api/automation/ani-rss") {
+        return handle_ani_rss(&state, method, &path, headers, body).await;
+    }
     if path.starts_with("/api/providers/settings") {
         return handle_provider_settings(&state, method, &path, headers, body).await;
     }
@@ -1171,6 +1448,262 @@ async fn dispatch(State(state): State<HttpServerState>, request: Request<Body>) 
     }
 
     empty_status(StatusCode::NOT_FOUND)
+}
+
+async fn handle_ani_rss(
+    state: &HttpServerState,
+    method: Method,
+    path: &str,
+    headers: HeaderMap,
+    body: Body,
+) -> Response<Body> {
+    let Some(admin) = &state.provider_admin else {
+        return empty_status(StatusCode::NOT_FOUND);
+    };
+    if !admin.is_authorized(&headers) {
+        return empty_status(StatusCode::UNAUTHORIZED);
+    }
+
+    if path == "/api/automation/ani-rss/settings" {
+        return match method {
+            Method::GET => match admin.ani_rss_settings() {
+                Ok(settings) => json_response(StatusCode::OK, &settings),
+                Err(error) => text_response(StatusCode::INTERNAL_SERVER_ERROR, &error.to_string()),
+            },
+            Method::PUT => {
+                let Ok(bytes) = to_bytes(body, 65_536).await else {
+                    return text_response(
+                        StatusCode::BAD_REQUEST,
+                        "ANI-RSS settings body is too large.",
+                    );
+                };
+                let Ok(update) = serde_json::from_slice::<AniRssSettingsUpdate>(&bytes) else {
+                    return text_response(
+                        StatusCode::BAD_REQUEST,
+                        "Request body must be ANI-RSS settings JSON.",
+                    );
+                };
+                let admin = Arc::clone(admin);
+                match tokio::task::spawn_blocking(move || admin.update_ani_rss(update)).await {
+                    Ok(Ok(settings)) => json_response(StatusCode::OK, &settings),
+                    Ok(Err(error)) => text_response(StatusCode::BAD_REQUEST, &error.to_string()),
+                    Err(error) => text_response(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        &format!("ANI-RSS settings task failed: {error}"),
+                    ),
+                }
+            }
+            _ => empty_status(StatusCode::METHOD_NOT_ALLOWED),
+        };
+    }
+
+    if let Some(source) = path
+        .strip_prefix("/api/automation/ani-rss/sources/")
+        .and_then(|value| value.strip_suffix("/approval"))
+        .and_then(url_decode)
+    {
+        let approved = match method {
+            Method::POST => true,
+            Method::DELETE => false,
+            _ => return empty_status(StatusCode::METHOD_NOT_ALLOWED),
+        };
+        return match admin.set_ani_rss_source_approval(&source, approved) {
+            Ok(settings) => json_response(StatusCode::OK, &settings),
+            Err(error) => text_response(StatusCode::BAD_REQUEST, &error.to_string()),
+        };
+    }
+
+    if path == "/api/automation/ani-rss/status" && method == Method::GET {
+        let settings = match admin.ani_rss_settings() {
+            Ok(settings) => settings,
+            Err(error) => {
+                return text_response(StatusCode::INTERNAL_SERVER_ERROR, &error.to_string());
+            }
+        };
+        let service = admin.ani_rss_service();
+        let status = match service {
+            Ok((service, mode)) => tokio::task::spawn_blocking(move || service.status(mode))
+                .await
+                .unwrap_or_else(|error| AniRssStatus {
+                    configured: true,
+                    reachable: false,
+                    mode: settings.mode,
+                    version: None,
+                    message: format!("ANI-RSS status task failed: {error}"),
+                }),
+            Err(error) => AniRssStatus {
+                configured: false,
+                reachable: false,
+                mode: settings.mode,
+                version: None,
+                message: error.to_string(),
+            },
+        };
+        return json_response(StatusCode::OK, &status);
+    }
+
+    if path == "/api/automation/ani-rss/subscriptions" && method == Method::GET {
+        return run_ani_rss_read(admin, |service| service.subscriptions()).await;
+    }
+    if path == "/api/automation/ani-rss/downloads" && method == Method::GET {
+        return run_ani_rss_read(admin, |service| service.downloads()).await;
+    }
+
+    if path == "/api/automation/ani-rss/search" && method == Method::POST {
+        let Ok(bytes) = to_bytes(body, 65_536).await else {
+            return text_response(StatusCode::BAD_REQUEST, "ANI-RSS search body is too large.");
+        };
+        let Ok(request) = serde_json::from_slice::<AniRssSearchRequest>(&bytes) else {
+            return text_response(
+                StatusCode::BAD_REQUEST,
+                "Request body must contain source and query.",
+            );
+        };
+        if !approved_ani_rss_source(admin, &request.source) {
+            return text_response(
+                StatusCode::FORBIDDEN,
+                "Approve this ANI-RSS source before searching it.",
+            );
+        }
+        return run_ani_rss_read(admin, move |service| service.search(&request)).await;
+    }
+
+    if path == "/api/automation/ani-rss/groups" && method == Method::POST {
+        let Ok(bytes) = to_bytes(body, 65_536).await else {
+            return text_response(StatusCode::BAD_REQUEST, "ANI-RSS group body is too large.");
+        };
+        let Ok(request) = serde_json::from_slice::<AniRssGroupsRequest>(&bytes) else {
+            return text_response(
+                StatusCode::BAD_REQUEST,
+                "Request body must contain source and locator.",
+            );
+        };
+        if !approved_ani_rss_source(admin, &request.source) {
+            return text_response(
+                StatusCode::FORBIDDEN,
+                "Approve this ANI-RSS source before using it.",
+            );
+        }
+        return run_ani_rss_read(admin, move |service| service.groups(&request)).await;
+    }
+
+    if (path == "/api/automation/ani-rss/preview"
+        || path == "/api/automation/ani-rss/subscriptions")
+        && method == Method::POST
+    {
+        let Ok(bytes) = to_bytes(body, 65_536).await else {
+            return text_response(
+                StatusCode::BAD_REQUEST,
+                "ANI-RSS subscription body is too large.",
+            );
+        };
+        let Ok(request) = serde_json::from_slice::<AniRssSubscriptionRequest>(&bytes) else {
+            return text_response(
+                StatusCode::BAD_REQUEST,
+                "Request body must describe an ANI-RSS subscription.",
+            );
+        };
+        if !approved_ani_rss_source(admin, &request.source) {
+            return text_response(
+                StatusCode::FORBIDDEN,
+                "Approve this ANI-RSS source before subscribing.",
+            );
+        }
+        if path.ends_with("/preview") {
+            return run_ani_rss_read(admin, move |service| service.preview(&request)).await;
+        }
+        return run_ani_rss_mutation(admin, StatusCode::CREATED, move |service| {
+            service.add_subscription(&request)
+        })
+        .await;
+    }
+
+    if let Some(suffix) = path.strip_prefix("/api/automation/ani-rss/subscriptions/") {
+        if let Some(id) = suffix.strip_suffix("/enabled").and_then(url_decode) {
+            if method != Method::PUT {
+                return empty_status(StatusCode::METHOD_NOT_ALLOWED);
+            }
+            let Ok(bytes) = to_bytes(body, 4_096).await else {
+                return text_response(
+                    StatusCode::BAD_REQUEST,
+                    "ANI-RSS enabled body is too large.",
+                );
+            };
+            let Ok(request) = serde_json::from_slice::<AniRssEnabledRequest>(&bytes) else {
+                return text_response(
+                    StatusCode::BAD_REQUEST,
+                    "Request body must contain enabled.",
+                );
+            };
+            return run_ani_rss_mutation(admin, StatusCode::OK, move |service| {
+                service.set_enabled(&id, request.enabled)
+            })
+            .await;
+        }
+        if let Some(id) = suffix.strip_suffix("/refresh").and_then(url_decode) {
+            if method != Method::POST {
+                return empty_status(StatusCode::METHOD_NOT_ALLOWED);
+            }
+            return run_ani_rss_mutation(admin, StatusCode::ACCEPTED, move |service| {
+                service.refresh(&id)
+            })
+            .await;
+        }
+        if method == Method::DELETE {
+            let Some(id) = url_decode(suffix).filter(|value| !value.is_empty()) else {
+                return empty_status(StatusCode::NOT_FOUND);
+            };
+            return run_ani_rss_mutation(admin, StatusCode::OK, move |service| service.remove(&id))
+                .await;
+        }
+    }
+
+    empty_status(StatusCode::NOT_FOUND)
+}
+
+fn approved_ani_rss_source(admin: &ProviderAdminState, source: &str) -> bool {
+    admin.ani_rss_source_is_approved(source).unwrap_or(false)
+}
+
+async fn run_ani_rss_read<T, F>(admin: &Arc<ProviderAdminState>, action: F) -> Response<Body>
+where
+    T: Serialize + Send + 'static,
+    F: FnOnce(AniRssService) -> crate::Result<T> + Send + 'static,
+{
+    let (service, _) = match admin.ani_rss_service() {
+        Ok(service) => service,
+        Err(error) => return text_response(StatusCode::SERVICE_UNAVAILABLE, &error.to_string()),
+    };
+    match tokio::task::spawn_blocking(move || action(service)).await {
+        Ok(Ok(value)) => json_response(StatusCode::OK, &value),
+        Ok(Err(error)) => text_response(StatusCode::BAD_GATEWAY, &error.to_string()),
+        Err(error) => text_response(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            &format!("ANI-RSS task failed: {error}"),
+        ),
+    }
+}
+
+async fn run_ani_rss_mutation<F>(
+    admin: &Arc<ProviderAdminState>,
+    status: StatusCode,
+    action: F,
+) -> Response<Body>
+where
+    F: FnOnce(AniRssService) -> crate::Result<()> + Send + 'static,
+{
+    let (service, _) = match admin.ani_rss_service() {
+        Ok(service) => service,
+        Err(error) => return text_response(StatusCode::SERVICE_UNAVAILABLE, &error.to_string()),
+    };
+    match tokio::task::spawn_blocking(move || action(service)).await {
+        Ok(Ok(())) => json_response(status, &serde_json::json!({ "accepted": true })),
+        Ok(Err(error)) => text_response(StatusCode::BAD_GATEWAY, &error.to_string()),
+        Err(error) => text_response(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            &format!("ANI-RSS task failed: {error}"),
+        ),
+    }
 }
 
 async fn handle_library_organize(
@@ -3011,6 +3544,7 @@ mod tests {
             library_roots: vec![fixture.temp.clone()],
             dandanplay: crate::settings::HeadlessDandanplayProviderSettings::default(),
             external_anime: crate::settings::HeadlessExternalAnimeProviderSettings::default(),
+            ani_rss: Default::default(),
         };
         let admin = Arc::new(
             ProviderAdminState::new(fixture.temp.clone(), settings.clone(), settings, None)
@@ -3760,6 +4294,7 @@ mod tests {
             library_roots: Vec::new(),
             dandanplay: crate::settings::HeadlessDandanplayProviderSettings::default(),
             external_anime: crate::settings::HeadlessExternalAnimeProviderSettings::default(),
+            ani_rss: Default::default(),
         };
         let admin = Arc::new(
             ProviderAdminState::new(
@@ -3951,6 +4486,7 @@ mod tests {
             library_roots: Vec::new(),
             dandanplay: crate::settings::HeadlessDandanplayProviderSettings::default(),
             external_anime: crate::settings::HeadlessExternalAnimeProviderSettings::default(),
+            ani_rss: Default::default(),
         };
         settings.external_anime.my_anime_list_client_id = Some("mal-client".to_owned());
         let secret_store = ProviderSecretStore::with_protector(
@@ -4042,6 +4578,7 @@ mod tests {
             library_roots: Vec::new(),
             dandanplay: crate::settings::HeadlessDandanplayProviderSettings::default(),
             external_anime: crate::settings::HeadlessExternalAnimeProviderSettings::default(),
+            ani_rss: Default::default(),
         };
         let external = &mut settings.external_anime;
         external.my_anime_list_client_id = Some("mal-client".to_owned());
@@ -4100,6 +4637,103 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn ani_rss_admin_requires_auth_and_enforces_source_approval() {
+        let fixture = FixtureEnvironment::new();
+        let settings = HeadlessServerSettings {
+            pairing_token: "123456".to_owned(),
+            library_roots: Vec::new(),
+            dandanplay: crate::settings::HeadlessDandanplayProviderSettings::default(),
+            external_anime: crate::settings::HeadlessExternalAnimeProviderSettings::default(),
+            ani_rss: Default::default(),
+        };
+        let admin = Arc::new(
+            ProviderAdminState::new(
+                fixture.temp.clone(),
+                settings.clone(),
+                settings.clone(),
+                None,
+            )
+            .expect("ANI-RSS admin creates"),
+        );
+        let app = app(HttpServerState::new(
+            fixture.library.clone(),
+            Arc::new(PlaybackProgressStore::new(
+                fixture.temp.join("progress-ani-rss.json"),
+            )),
+            HttpServerConfig::headless(None, &settings, None, None, None, admin),
+        ));
+
+        let unauthorized = app
+            .clone()
+            .oneshot(get("/api/automation/ani-rss/settings"))
+            .await
+            .expect("unauthorized response");
+        assert_eq!(StatusCode::UNAUTHORIZED, unauthorized.status());
+
+        let search = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/automation/ani-rss/search")
+                    .header(AUTHORIZATION, "Bearer 123456")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"source":"MIKAN","query":"Frieren"}"#))
+                    .expect("search request"),
+            )
+            .await
+            .expect("search response");
+        assert_eq!(StatusCode::FORBIDDEN, search.status());
+
+        let approval = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/automation/ani-rss/sources/MIKAN/approval")
+                    .header(AUTHORIZATION, "Bearer 123456")
+                    .body(Body::empty())
+                    .expect("approval request"),
+            )
+            .await
+            .expect("approval response");
+        assert_eq!(StatusCode::OK, approval.status());
+        let approved: Value =
+            serde_json::from_str(&body_text(approval).await).expect("approval JSON");
+        assert_eq!(json!(["MIKAN"]), approved["approvedSources"]);
+
+        let update = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("PUT")
+                    .uri("/api/automation/ani-rss/settings")
+                    .header(AUTHORIZATION, "Bearer 123456")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        json!({
+                            "mode": "EXTERNAL",
+                            "baseUrl": "http://127.0.0.1:7790",
+                            "apiKey": "test-ani-rss-key",
+                            "managedPort": 7790,
+                            "automaticRescan": true,
+                            "pathMappings": []
+                        })
+                        .to_string(),
+                    ))
+                    .expect("settings request"),
+            )
+            .await
+            .expect("settings response");
+        assert_eq!(StatusCode::OK, update.status());
+        let updated: Value = serde_json::from_str(&body_text(update).await).expect("settings JSON");
+        assert_eq!("EXTERNAL", updated["mode"]);
+        assert_eq!(json!([]), updated["approvedSources"]);
+        assert_eq!(true, updated["hasApiKey"]);
+        assert!(updated.get("apiKey").is_none());
+    }
+
+    #[tokio::test]
     async fn provider_settings_require_auth_redact_secrets_and_reload_runtime() {
         #[derive(Debug)]
         struct ReversingSecretProtector;
@@ -4120,6 +4754,7 @@ mod tests {
             library_roots: Vec::new(),
             dandanplay: crate::settings::HeadlessDandanplayProviderSettings::default(),
             external_anime: crate::settings::HeadlessExternalAnimeProviderSettings::default(),
+            ani_rss: Default::default(),
         };
         let secret_store = ProviderSecretStore::with_protector(
             fixture.temp.join("provider-secrets.json"),
