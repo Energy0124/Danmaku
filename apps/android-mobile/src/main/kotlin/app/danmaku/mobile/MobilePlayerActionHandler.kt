@@ -487,9 +487,6 @@ internal class MobilePlayerActionHandler(
                 if (!state.isCurrentPlayback(target)) return@launch
 
                 activeController.load(preparation)
-                preparation.resumePositionMs?.let {
-                    activeController.dispatch(PlaybackCommand.SeekTo(it))
-                }
 
                 val danmakuResult = withTimeoutOrNull(DANMAKU_PLAYBACK_WAIT_TIMEOUT_MS) {
                     danmakuDeferred.await()
@@ -542,14 +539,11 @@ internal class MobilePlayerActionHandler(
         state.danmakuState = MobileDanmakuState.fromTrack(preparation.danmaku)
         state.libraryError = null
         state.playbackError = null
-        activeController.load(preparation)
         val resumePositionMs = preparation.resumePositionMs
             ?: state.playbackProgresses
                 .firstOrNull { it.mediaId == preparation.item.id }
                 ?.positionMs
-        resumePositionMs?.takeIf { it > 0 }?.let {
-            activeController.dispatch(PlaybackCommand.SeekTo(it))
-        }
+        activeController.load(preparation, resumePositionMs)
         activeController.dispatch(PlaybackCommand.Play)
     }
 
