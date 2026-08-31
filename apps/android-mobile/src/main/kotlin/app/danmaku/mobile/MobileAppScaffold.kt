@@ -33,6 +33,7 @@ import app.danmaku.library.android.OfflineCacheEntry
 import app.danmaku.library.android.OfflineCacheState
 import app.danmaku.domain.itemsInFolder
 import androidx.compose.ui.res.stringResource
+import app.danmaku.updater.android.AppUpdateState
 
 internal data class MobileAppUiState(
     val selectedTab: MobileTab,
@@ -119,6 +120,11 @@ internal data class MobileAppActions(
 internal fun MobileAppScaffold(
     state: MobileAppUiState,
     actions: MobileAppActions,
+    appUpdateState: AppUpdateState,
+    currentVersionName: String,
+    onCheckForUpdates: () -> Unit,
+    onDownloadUpdate: () -> Unit,
+    onInstallUpdate: (String) -> Unit,
 ) {
     var folderPath by remember(state.serverUrl) { mutableStateOf(emptyList<String>()) }
     Scaffold(
@@ -273,6 +279,11 @@ internal fun MobileAppScaffold(
                 onSyncTracking = actions.onSyncTracking,
                 onPlayPause = actions.onPlayPause,
                 onOpenPlayer = actions.onOpenPlayer,
+                appUpdateState = appUpdateState,
+                currentVersionName = currentVersionName,
+                onCheckForUpdates = onCheckForUpdates,
+                onDownloadUpdate = onDownloadUpdate,
+                onInstallUpdate = onInstallUpdate,
             )
         }
     }

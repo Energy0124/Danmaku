@@ -1,8 +1,9 @@
 # Releasing
 
-Danmaku publishes signed Windows desktop releases from SemVer tags and
-development artifacts through CI. Windows and the experimental macOS desktop
-build are Rust-native; there is no Java/Compose desktop artifact.
+Danmaku publishes signed Windows desktop, Android mobile, and Android TV
+releases from SemVer tags and development artifacts through CI. Windows and the
+experimental macOS desktop build are Rust-native; there is no Java/Compose
+desktop artifact.
 
 ## Artifacts
 
@@ -10,7 +11,7 @@ build are Rust-native; there is no Java/Compose desktop artifact.
 
 Pushing a tag such as `v0.2.0` runs `.github/workflows/release.yml`. The tag
 must match the `danmaku-player` and `library-server` Cargo versions and a
-non-empty `CHANGELOG.md` section. The workflow requires these repository
+non-empty `CHANGELOG.md` section. The Windows portion requires these repository
 secrets and fails closed when either is missing:
 
 - `WINDOWS_SIGNING_PFX_BASE64`: base64-encoded Authenticode PFX;
@@ -108,9 +109,41 @@ have been reviewed.
 
 ### Android
 
-CI publishes Android mobile and TV debug APKs. Release signing uses the
-configured CI secrets when present. Android artifacts consume the trusted-LAN
-server and use Media3 for playback.
+The same `vX.Y.Z` workflow publishes production-signed universal APKs named
+`danmaku-android-mobile.apk` and `danmaku-android-tv.apk`, plus
+`android-update.json`. Android `versionName` matches the tag and `versionCode`
+is derived as `major * 1,000,000 + minor * 1,000 + patch`; minor and patch must
+be at most 999. The workflow requires all four durable signing secrets:
+
+- `DANMAKU_ANDROID_KEYSTORE_BASE64`: base64-encoded release keystore;
+- `DANMAKU_ANDROID_KEYSTORE_PASSWORD`: keystore password;
+- `DANMAKU_ANDROID_KEY_ALIAS`: release key alias;
+- `DANMAKU_ANDROID_KEY_PASSWORD`: release key password.
+
+Back up this keystore securely. Replacing it prevents installed copies from
+accepting future updates. Locally debug-signed builds may require uninstalling
+before the first production-signed installation.
+
+The workflow builds both release APKs with the stable manifest endpoint baked
+in, verifies their application IDs, versions, signatures, and shared signing
+certificate, then generates the manifest from their exact sizes and SHA-256
+digests. Android assets join the Windows assets in `SHA256SUMS.txt`; the GitHub
+Release remains a draft until every verification succeeds.
+
+Installed mobile and TV apps check
+`https://github.com/Energy0124/Danmaku/releases/latest/download/android-update.json`
+at startup at most once per day. The user must select **Update now** before the
+APK downloads. The app verifies its size, hash, package, version, and signing
+certificate before opening Android's system installer. Android 8+ may require
+the user to allow Danmaku as an installation source. Manual checks remain
+available in Mobile's Connect screen and TV's PC screen. Debug builds have no
+update endpoint by default.
+
+Test manifest generation without signing credentials:
+
+```powershell
+.\tools\windows\test-prepare-android-release.ps1
+```
 
 ## Release Checklist
 
@@ -119,12 +152,17 @@ server and use Media3 for playback.
   hash, license texts, and generated source provenance.
 - `[ ]` Build and verify the standalone server and unified Windows zips.
 - `[ ]` Confirm the tag, both Rust package versions, and changelog section
-  match; confirm signing secrets are available to the protected tag workflow.
+  match; confirm Windows and durable Android signing secrets are available to
+  the protected tag workflow.
 - `[ ]` Verify Setup/full/delta/feed/checksum/provenance assets and valid
   Authenticode signatures without changing the resolved libmpv hash.
 - `[ ]` Exercise install, startup check, release-note approval, update/restart,
   corrupted-package rejection, background-host refresh, and uninstall data
   preservation with two release versions.
+- `[ ]` Verify both Android APK identities, versions, signatures, manifest
+  hashes/sizes, and checksum entries; exercise a two-version phone and TV
+  upgrade including unknown-source approval, cancellation, retry, and corrupt
+  download rejection.
 - `[ ]` Build and verify the macOS `.app` on Apple Silicon and Intel.
 - `[ ]` Before macOS promotion, complete libmpv provenance, release signing,
   notarization, provider HTTPS/token storage, and supervised playback QA.

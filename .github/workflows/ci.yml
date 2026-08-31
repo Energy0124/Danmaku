@@ -61,6 +61,10 @@ jobs:
         shell: pwsh
         run: .\tools\windows\test-resolve-latest-libmpv-dependency.ps1
 
+      - name: Test Android release preparation
+        shell: pwsh
+        run: .\tools\windows\test-prepare-android-release.ps1
+
       - name: Resolve latest LGPL libmpv release
         id: libmpv
         shell: pwsh
@@ -129,7 +133,7 @@ jobs:
           DANMAKU_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.DANMAKU_ANDROID_KEYSTORE_PASSWORD }}
           DANMAKU_ANDROID_KEY_ALIAS: ${{ secrets.DANMAKU_ANDROID_KEY_ALIAS }}
           DANMAKU_ANDROID_KEY_PASSWORD: ${{ secrets.DANMAKU_ANDROID_KEY_PASSWORD }}
-        run: .\gradlew.bat --no-daemon :shared:domain:jvmTest :shared:library-client:jvmTest :shared:library-client-android:testDebugUnitTest :shared:player-android-media3:assembleDebugAndroidTest :apps:android-mobile:assembleDebug :apps:android-tv:assembleDebug
+        run: .\gradlew.bat --no-daemon :shared:domain:jvmTest :shared:library-client:jvmTest :shared:library-client-android:testDebugUnitTest :shared:app-update-android:testDebugUnitTest :shared:player-android-media3:assembleDebugAndroidTest :apps:android-mobile:assembleDebug :apps:android-tv:assembleDebug
 
       - name: Build packaged web UI
         working-directory: apps/web-ui

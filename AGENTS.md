@@ -35,6 +35,7 @@ Keep this guide limited to durable repository rules; use the canonical documents
 | `shared/domain`               | `:shared:domain:jvmTest`                                   |
 | `shared/library-client`       | `:shared:library-client:jvmTest`                           |
 | `shared/library-client-android` | `:shared:library-client-android:testDebugUnitTest`       |
+| `shared/app-update-android`  | `:shared:app-update-android:testDebugUnitTest`              |
 | `shared/player-android-media3` | `:shared:player-android-media3:assembleDebugAndroidTest`  |
 | `apps/android-mobile`         | `:apps:android-mobile:assembleDebug`                       |
 | `apps/android-tv`             | `:apps:android-tv:assembleDebug`                           |
@@ -108,6 +109,7 @@ shared/
   domain/                 Core models, catalog logic, playback contracts, danmaku logic
   library-client/         Shared LAN client/session/progress policy
   library-client-android/ Android HTTP/discovery/storage adapters
+  app-update-android/     GitHub release checks, APK verification, installer handoff
   player-android-media3/  Shared Media3 playback adapter/service
 
 native/
