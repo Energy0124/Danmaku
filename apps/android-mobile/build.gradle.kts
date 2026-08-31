@@ -47,6 +47,13 @@ val hasCiSigning = !ciKeystorePath.isNullOrBlank() &&
     !ciKeyAlias.isNullOrBlank() &&
     !ciKeyPassword.isNullOrBlank()
 
+val releaseVersionName = providers.gradleProperty("danmaku.releaseVersionName").getOrElse("0.1.0")
+val releaseVersionCode = providers.gradleProperty("danmaku.releaseVersionCode").getOrElse("1").toInt()
+val updateManifestUrl = providers.gradleProperty("danmaku.updateManifestUrl").getOrElse("")
+
+fun String.toBuildConfigString(): String =
+    "\"" + replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+
 android {
     namespace = "app.danmaku.mobile"
     compileSdk = 36
@@ -55,18 +62,20 @@ android {
         applicationId = "app.danmaku.mobile"
         minSdk = 23
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = releaseVersionCode
+        versionName = releaseVersionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "UPDATE_MANIFEST_URL", updateManifestUrl.toBuildConfigString())
     }
 
     buildFeatures {
+        buildConfig = true
         compose = true
     }
 
     if (hasCiSigning) {
         signingConfigs {
-            create("ciDebug") {
+            create("ci") {
                 storeFile = file(ciKeystorePath!!)
                 storePassword = ciKeystorePassword!!
                 keyAlias = ciKeyAlias!!
@@ -76,7 +85,10 @@ android {
 
         buildTypes {
             getByName("debug") {
-                signingConfig = signingConfigs.getByName("ciDebug")
+                signingConfig = signingConfigs.getByName("ci")
+            }
+            getByName("release") {
+                signingConfig = signingConfigs.getByName("ci")
             }
         }
     }
@@ -93,6 +105,7 @@ androidComponents {
 
 dependencies {
     implementation(project(":shared:domain"))
+    implementation(project(":shared:app-update-android"))
     implementation(project(":shared:library-client-android"))
     implementation(project(":shared:player-android-media3"))
 
@@ -107,6 +120,8 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.media3:media3-ui:1.8.1")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.10.0")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.10.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
 
     testImplementation("junit:junit:4.13.2")

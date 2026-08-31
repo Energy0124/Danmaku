@@ -47,6 +47,10 @@ val hasCiSigning = !ciKeystorePath.isNullOrBlank() &&
     !ciKeyAlias.isNullOrBlank() &&
     !ciKeyPassword.isNullOrBlank()
 
+val releaseVersionName = providers.gradleProperty("danmaku.releaseVersionName").getOrElse("0.1.0")
+val releaseVersionCode = providers.gradleProperty("danmaku.releaseVersionCode").getOrElse("1").toInt()
+val updateManifestUrl = providers.gradleProperty("danmaku.updateManifestUrl").getOrElse("")
+
 val defaultServerUrl = providers.gradleProperty("danmaku.tv.defaultServerUrl")
     .orElse(providers.environmentVariable("DANMAKU_TV_DEFAULT_SERVER_URL"))
     .getOrElse("")
@@ -65,12 +69,13 @@ android {
         applicationId = "app.danmaku.tv"
         minSdk = 23
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = releaseVersionCode
+        versionName = releaseVersionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "DEFAULT_SERVER_URL", defaultServerUrl.toBuildConfigString())
         buildConfigField("String", "DEFAULT_PAIRING_TOKEN", defaultPairingToken.toBuildConfigString())
         buildConfigField("boolean", "TV_QA_FIXTURES_ENABLED", "false")
+        buildConfigField("String", "UPDATE_MANIFEST_URL", updateManifestUrl.toBuildConfigString())
     }
 
     buildFeatures {
@@ -96,7 +101,7 @@ android {
 
     if (hasCiSigning) {
         signingConfigs {
-            create("ciDebug") {
+            create("ci") {
                 storeFile = file(ciKeystorePath!!)
                 storePassword = ciKeystorePassword!!
                 keyAlias = ciKeyAlias!!
@@ -106,7 +111,10 @@ android {
 
         buildTypes {
             getByName("debug") {
-                signingConfig = signingConfigs.getByName("ciDebug")
+                signingConfig = signingConfigs.getByName("ci")
+            }
+            getByName("release") {
+                signingConfig = signingConfigs.getByName("ci")
             }
         }
     }
@@ -123,6 +131,7 @@ androidComponents {
 
 dependencies {
     implementation(project(":shared:domain"))
+    implementation(project(":shared:app-update-android"))
     implementation(project(":shared:library-client-android"))
     implementation(project(":shared:player-android-media3"))
 

@@ -27,6 +27,7 @@ priorities change.
 
 ## Completed Design Records
 
+- [Android GitHub Release updater](design/android-github-updater.md)
 - [Rust server and Windows player migration](design/rust-migration-plan.md)
 - [Server, client, and web UI split](design/server-client-web-ui-split-plan.md)
 

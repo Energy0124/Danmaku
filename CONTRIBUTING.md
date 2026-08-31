@@ -38,11 +38,13 @@ Run the relevant checks for your change:
 ```powershell
 .\tools\windows\test-verify-libmpv-bundle.ps1
 .\tools\windows\test-install-libmpv-dependency.ps1
+.\tools\windows\test-prepare-android-release.ps1
 cargo fmt --all --check
 cargo test --workspace
 .\gradlew.bat --no-daemon :shared:domain:jvmTest
 .\gradlew.bat --no-daemon :shared:library-client:jvmTest
 .\gradlew.bat --no-daemon :shared:library-client-android:testDebugUnitTest
+.\gradlew.bat --no-daemon :shared:app-update-android:testDebugUnitTest
 .\gradlew.bat --no-daemon :shared:player-android-media3:assembleDebugAndroidTest
 .\gradlew.bat --no-daemon :apps:android-mobile:assembleDebug :apps:android-tv:assembleDebug
 ```

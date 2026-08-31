@@ -85,6 +85,14 @@ Android TV remains a
 dedicated module with TV layouts, D-pad focus, remote navigation, and
 Macrobenchmark coverage.
 
+`shared/app-update-android` owns the stable GitHub Release manifest contract,
+daily check policy, bounded APK download, checksum and package/signing
+verification, unknown-source settings intent, and system-installer handoff.
+The mobile and TV apps own their localized Material/TV dialogs and settings
+cards. Debug builds have no update endpoint by default. Android always retains
+the final installation confirmation; the updater does not attempt silent
+installation.
+
 ### Web UI
 
 `apps/web-ui` is served by the Rust server under `/web/`. It provides catalog
@@ -106,6 +114,9 @@ shared:library-client
 shared:library-client-android
   Android HTTP, discovery, connection, persistence, offline cache, and
   background download adapters.
+
+shared:app-update-android
+  GitHub release manifest, verified APK download, and installer handoff.
 
 shared:player-android-media3
   Android Media3 playback service and adapter.
