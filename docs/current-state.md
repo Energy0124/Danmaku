@@ -17,8 +17,7 @@ Compose macOS artifact are retired.
   discovery, library browsing, progress/resume, previous/next, and auto-next.
 - English and Traditional Chinese UI, durable playback/danmaku preferences,
   a translucent in-player danmaku panel with independent scrolling/top/bottom
-  visibility controls, remembered local roots and server URL, and session-only
-  pairing tokens.
+  visibility controls and remembered local roots and server URL.
 - Unified local mode that starts the sibling Rust server, waits asynchronously
   for readiness, connects, and stops only a child it owns.
 - Optional current-user Task Scheduler background host with install, atomic
@@ -27,7 +26,7 @@ Compose macOS artifact are retired.
   preferences, credentials, and configured roots.
 - Multi-root scanning, normalized catalog snapshots, subtitles, posters,
   streaming/range requests, progress, UDP discovery, and data-directory locks.
-- Authenticated, asynchronous manual rescans of the current folder. The server
+- Asynchronous manual rescans of the current folder. The server
   replaces only the selected catalog subtree, preserves sibling folders and
   stable media IDs, and exposes live file counts and scan failures through its
   status endpoint.

@@ -20,12 +20,6 @@ Revalidate that only successful upstream GET responses receive the long public
 cache policy. Provider failures and rate limits should be `no-store` or use a
 short failure TTL.
 
-### S3 (Low) — Pairing tokens can appear in media query strings
-
-The version-1 LAN API uses query tokens for URLs consumed by media players.
-Prefer authorization headers where clients support them, avoid logging full
-URLs, and treat query-token compatibility as a deliberate protocol constraint.
-
 ## Correctness And Quality
 
 ### C1 (Low) — Android error streams may inhibit connection reuse

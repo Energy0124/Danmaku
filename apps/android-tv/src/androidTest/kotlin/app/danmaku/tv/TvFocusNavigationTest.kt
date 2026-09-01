@@ -93,7 +93,6 @@ class TvFocusNavigationTest {
                         navigator = navigator,
                         session = session,
                         onServerUrlChange = {},
-                        onPairingTokenChange = {},
                         onRefresh = {},
                         onDiscover = {},
                         onSave = {},
@@ -496,7 +495,6 @@ class TvFocusNavigationTest {
     private fun TvQaFixture.session(): TvSessionUiState =
         TvSessionUiState(
             serverUrl = "http://10.0.2.2:18688",
-            pairingToken = "qa",
             catalog = catalog,
             playbackProgresses = progresses,
             favoriteMediaIds = favorites,

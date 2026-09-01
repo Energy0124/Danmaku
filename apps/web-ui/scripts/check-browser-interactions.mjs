@@ -6,7 +6,6 @@ import { findBrowserExecutable, launchChromium, waitForPageTarget } from "./brow
 
 const args = parseArgs(process.argv.slice(2));
 const baseUrl = requireArg(args, "base-url").replace(/\/+$/, "");
-const token = requireArg(args, "token");
 const browserPath = args.browser ?? findBrowserExecutable();
 const outputDir = path.resolve(args["output-dir"] ?? path.join("build", "qa", "headless-web-ui"));
 const reportPath = path.join(outputDir, "browser-interaction-qa.md");
@@ -65,18 +64,11 @@ async function reloadAndConnect(cdp) {
   await evaluate(cdp, "location.reload();");
   await waitForExpression(cdp, "document.readyState === 'complete'");
   await waitForExpression(cdp, "Boolean(document.querySelector('form.connection-form button'))");
-  await evaluate(cdp, `(() => {
-    const input = document.querySelector('form.connection-form input[type="password"]');
-    const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
-    descriptor.set.call(input, ${json(token)});
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-    input.dispatchEvent(new Event('change', { bubbles: true }));
-    document.querySelector('form.connection-form button').click();
-  })()`);
+  await evaluate(cdp, "document.querySelector('form.connection-form button').click();");
   await waitForExpression(cdp, "Boolean(document.querySelector('.player-panel .danmaku-controls'))", 15_000);
   await waitForExpression(
     cdp,
-    "document.querySelector('.provider-settings-shell .admin-state')?.textContent.includes('Authorized')",
+    "document.querySelector('.provider-settings-shell .admin-state')?.textContent.includes('Ready')",
     15_000
   );
 }
@@ -273,10 +265,6 @@ async function installQaFetchOverrides(cdp) {
         const url = new URL(rawUrl, window.location.href);
 
         if (url.pathname === "/api/providers/settings") {
-          const authorization = new Headers(init.headers).get("Authorization");
-          if (!authorization?.startsWith("Bearer ")) {
-            return jsonResponse({}, { status: 401 });
-          }
           return jsonResponse({
             settings: {
               dandanplay: {

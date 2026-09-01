@@ -197,11 +197,10 @@ the operation without changing Task Scheduler.
 
 ## Trust And Credentials
 
-The player is intended for trusted LAN servers. Pairing tokens are session-only
-and are not written to the preferences file. The background-host configuration
-contains only its schema, task name, loopback URL, and library roots; secrets
-remain in the existing protected server settings. Server administration is
-handled by the server's /web/ UI.
+The player is intended for trusted LAN servers. The background-host
+configuration contains only its schema, task name, loopback URL, and library
+roots; provider secrets remain in protected server settings. Server
+administration is handled by the server's /web/ UI.
 '@
     [System.IO.File]::WriteAllText(
         $DestinationPath,

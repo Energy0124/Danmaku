@@ -49,8 +49,7 @@ rescan them.
 - A connected emulator/device only for Android instrumentation tests
 
 `local.properties` is ignored and may hold the Android SDK path and local
-provider credentials. Never commit credentials, pairing tokens, cookies, or
-signed URLs.
+provider credentials. Never commit credentials, cookies, or signed URLs.
 
 ```properties
 sdk.dir=C\:\\path\\to\\Android\\Sdk
@@ -123,8 +122,8 @@ cargo run -p danmaku-player -- --media "W:\Anime\Show\Episode 01.mkv"
 .\run-rust-player.bat --media "W:\Anime\Show\Episode 01.mkv"
 ```
 
-Use `--help` for playback, danmaku, server, and QA options. Pairing tokens are
-session-only and are not written to player preferences.
+Use `--help` for playback, danmaku, server, and QA options. LAN clients connect
+without authentication, so run the server only on a trusted network.
 
 To keep the packaged server available after the player closes, use its
 current-user background-host manager:

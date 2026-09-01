@@ -73,23 +73,14 @@ pub(crate) fn http_post_json(
     }
 }
 
-/// Authenticated JSON request used by provider-account and tracking screens.
-pub(crate) fn http_authenticated_json(
+pub(crate) fn http_json(
     base_url: &str,
-    pairing_token: &str,
     method: &str,
     path_and_query: &str,
     json_body: Option<&str>,
 ) -> Result<String, String> {
     let body = json_body.map(|body| ("application/json; charset=utf-8", body.as_bytes()));
-    let authorization = format!("Bearer {pairing_token}");
-    let response = http_request_with_headers(
-        base_url,
-        method,
-        path_and_query,
-        body,
-        &[("Authorization", authorization.as_str())],
-    )?;
+    let response = http_request(base_url, method, path_and_query, body)?;
     require_status(response, &[200, 201, 202, 204])?.body_string()
 }
 

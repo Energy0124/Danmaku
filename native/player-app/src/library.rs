@@ -8,9 +8,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::net::{
-    http_authenticated_json, http_get, http_post_json, http_put_json, percent_encode_path_segment,
-};
+use crate::net::{http_get, http_json, http_post_json, http_put_json, percent_encode_path_segment};
 
 pub const DEFAULT_NEXT_UP_LIMIT: usize = 8;
 pub const MINIMUM_RESUME_POSITION_MS: i64 = 10_000;
@@ -918,13 +916,11 @@ pub fn request_folder_rescan(base_url: &str, path: &[String]) -> Result<(), Stri
 
 pub fn preview_organization(
     base_url: &str,
-    token: &str,
     request: &OrganizationPreviewRequest,
 ) -> Result<OrganizationPlan, String> {
     let body = serde_json::to_string(request).map_err(|error| error.to_string())?;
-    let response = http_authenticated_json(
+    let response = http_json(
         base_url,
-        token,
         "POST",
         "/api/library/organize/preview",
         Some(&body),
@@ -934,7 +930,6 @@ pub fn preview_organization(
 
 pub fn execute_organization(
     base_url: &str,
-    token: &str,
     plan_id: &str,
     batch: &OrganizationSeriesBatch,
 ) -> Result<(), String> {
@@ -944,9 +939,8 @@ pub fn execute_organization(
         "expectedMoves": &batch.moves,
     })
     .to_string();
-    http_authenticated_json(
+    http_json(
         base_url,
-        token,
         "POST",
         "/api/library/organize/execute",
         Some(&body),
@@ -954,40 +948,18 @@ pub fn execute_organization(
     .map(|_| ())
 }
 
-pub fn fetch_organization_status(
-    base_url: &str,
-    token: &str,
-) -> Result<OrganizationStatus, String> {
-    let response =
-        http_authenticated_json(base_url, token, "GET", "/api/library/organize/status", None)?;
+pub fn fetch_organization_status(base_url: &str) -> Result<OrganizationStatus, String> {
+    let response = http_json(base_url, "GET", "/api/library/organize/status", None)?;
     serde_json::from_str(&response).map_err(|error| format!("invalid organizer status: {error}"))
 }
 
-pub fn cancel_organization(base_url: &str, token: &str) -> Result<(), String> {
-    http_authenticated_json(
-        base_url,
-        token,
-        "POST",
-        "/api/library/organize/cancel",
-        Some("{}"),
-    )
-    .map(|_| ())
+pub fn cancel_organization(base_url: &str) -> Result<(), String> {
+    http_json(base_url, "POST", "/api/library/organize/cancel", Some("{}")).map(|_| ())
 }
 
-pub fn undo_organization(
-    base_url: &str,
-    token: &str,
-    completed_batch_id: &str,
-) -> Result<(), String> {
+pub fn undo_organization(base_url: &str, completed_batch_id: &str) -> Result<(), String> {
     let body = serde_json::json!({ "completedBatchId": completed_batch_id }).to_string();
-    http_authenticated_json(
-        base_url,
-        token,
-        "POST",
-        "/api/library/organize/undo",
-        Some(&body),
-    )
-    .map(|_| ())
+    http_json(base_url, "POST", "/api/library/organize/undo", Some(&body)).map(|_| ())
 }
 
 pub fn fetch_attention(base_url: &str) -> Result<LibraryAttentionDocument, String> {

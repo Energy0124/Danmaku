@@ -1,8 +1,8 @@
 # Danmaku Web UI
 
-Trusted-LAN browser client for the Danmaku library server. It supports pairing,
-catalog playback, progress sync, provider readiness, dandanplay match/comment
-preview, provider settings, and bearer-authenticated tracking administration.
+Trusted-LAN browser client for the Danmaku library server. It supports catalog
+playback, progress sync, provider readiness, dandanplay match/comment preview,
+provider settings, and tracking administration.
 Tracking administration persists series mappings, reads external list state,
 coalesces local series that share an exact provider anime identity, shows
 conflict-aware write previews, and requires explicit preview acknowledgement
@@ -17,7 +17,7 @@ npm install
 npm run dev
 ```
 
-The dev server expects a Danmaku library host URL and pairing token in the UI.
+The dev server expects a Danmaku library host URL in the UI.
 Production builds use `base: "/web/"` so the app can be served by the library
 server under `/web/`.
 

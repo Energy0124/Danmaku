@@ -1,7 +1,6 @@
 export interface LanLibraryServerStatus {
   appName: string;
   apiVersion: number;
-  pairingRequired: boolean;
   mediaStreaming: boolean;
   progressSync: boolean;
   trustedDeviceManagement: boolean;
@@ -385,19 +384,12 @@ export async function fetchServerStatus(baseUrl: string): Promise<LanLibraryServ
 }
 
 
-export async function fetchProviderSettings(
-  baseUrl: string,
-  token: string
-): Promise<ProviderSettingsDocument> {
-  return readJsonWithToken<ProviderSettingsDocument>(
-    normalizeBaseUrl(baseUrl) + "/api/providers/settings",
-    token
-  );
+export async function fetchProviderSettings(baseUrl: string): Promise<ProviderSettingsDocument> {
+  return readJson<ProviderSettingsDocument>(normalizeBaseUrl(baseUrl) + "/api/providers/settings");
 }
 
 export async function saveProviderSettings(
   baseUrl: string,
-  token: string,
   update: ProviderSettingsUpdate
 ): Promise<ProviderSettingsDocument> {
   const response = await fetch(
@@ -406,7 +398,6 @@ export async function saveProviderSettings(
       method: "PUT",
       headers: {
         Accept: "application/json",
-        Authorization: "Bearer " + token,
         "Content-Type": "application/json; charset=utf-8"
       },
       body: JSON.stringify(update)
@@ -422,10 +413,7 @@ export async function saveProviderSettings(
   return response.json() as Promise<ProviderSettingsDocument>;
 }
 
-export async function fetchProviderRuntime(
-  baseUrl: string,
-  token: string
-): Promise<LanProviderRuntimeStatus> {
+export async function fetchProviderRuntime(baseUrl: string): Promise<LanProviderRuntimeStatus> {
   return readJson<LanProviderRuntimeStatus>(
     `${normalizeBaseUrl(baseUrl)}/api/providers/runtime`
   );
@@ -433,7 +421,6 @@ export async function fetchProviderRuntime(
 
 export async function fetchProviderSearch(
   baseUrl: string,
-  token: string,
   title: string,
   options: ProviderSearchOptions = {}
 ): Promise<ExternalAnimeMatchCandidate[]> {
@@ -455,24 +442,16 @@ export async function fetchProviderSearch(
   );
 }
 
-export async function fetchProviderAccounts(
-  baseUrl: string,
-  token: string
-): Promise<ProviderAccountsDocument> {
-  return readJsonWithToken<ProviderAccountsDocument>(
-    normalizeBaseUrl(baseUrl) + "/api/providers/accounts",
-    token
-  );
+export async function fetchProviderAccounts(baseUrl: string): Promise<ProviderAccountsDocument> {
+  return readJson<ProviderAccountsDocument>(normalizeBaseUrl(baseUrl) + "/api/providers/accounts");
 }
 
 export async function connectBangumiAccount(
   baseUrl: string,
-  token: string,
   accessToken: string
 ): Promise<ProviderAccountsDocument> {
-  return writeJsonWithToken<ProviderAccountsDocument>(
+  return writeJson<ProviderAccountsDocument>(
     normalizeBaseUrl(baseUrl) + "/api/providers/accounts/bangumi",
-    token,
     "PUT",
     { accessToken }
   );
@@ -480,35 +459,25 @@ export async function connectBangumiAccount(
 
 export async function disconnectProviderAccount(
   baseUrl: string,
-  token: string,
   provider: "myanimelist" | "bangumi"
 ): Promise<ProviderAccountsDocument> {
-  return writeJsonWithToken<ProviderAccountsDocument>(
+  return writeJson<ProviderAccountsDocument>(
     normalizeBaseUrl(baseUrl) + "/api/providers/accounts/" + provider,
-    token,
     "DELETE"
   );
 }
 
-export async function fetchExternalTracking(
-  baseUrl: string,
-  token: string
-): Promise<ExternalTrackingDocument> {
-  return readJsonWithToken<ExternalTrackingDocument>(
-    normalizeBaseUrl(baseUrl) + "/api/providers/tracking",
-    token
-  );
+export async function fetchExternalTracking(baseUrl: string): Promise<ExternalTrackingDocument> {
+  return readJson<ExternalTrackingDocument>(normalizeBaseUrl(baseUrl) + "/api/providers/tracking");
 }
 
 export async function saveExternalTrackingMapping(
   baseUrl: string,
-  token: string,
   localSeriesId: string,
   animeId: ExternalAnimeId
 ): Promise<ExternalTrackingDocument> {
-  return writeJsonWithToken<ExternalTrackingDocument>(
+  return writeJson<ExternalTrackingDocument>(
     normalizeBaseUrl(baseUrl) + "/api/providers/tracking/mapping",
-    token,
     "PUT",
     { localSeriesId, animeId }
   );
@@ -516,37 +485,29 @@ export async function saveExternalTrackingMapping(
 
 export async function deleteExternalTrackingMapping(
   baseUrl: string,
-  token: string,
   localSeriesId: string,
   animeId: ExternalAnimeId
 ): Promise<ExternalTrackingDocument> {
-  return writeJsonWithToken<ExternalTrackingDocument>(
+  return writeJson<ExternalTrackingDocument>(
     normalizeBaseUrl(baseUrl) + "/api/providers/tracking/mapping",
-    token,
     "DELETE",
     { localSeriesId, animeId }
   );
 }
 
-export async function refreshExternalTrackingReadback(
-  baseUrl: string,
-  token: string
-): Promise<ExternalTrackingOperationResponse> {
-  return writeJsonWithToken<ExternalTrackingOperationResponse>(
+export async function refreshExternalTrackingReadback(baseUrl: string): Promise<ExternalTrackingOperationResponse> {
+  return writeJson<ExternalTrackingOperationResponse>(
     normalizeBaseUrl(baseUrl) + "/api/providers/tracking/readback",
-    token,
     "POST"
   );
 }
 
 export async function executeExternalTrackingSync(
   baseUrl: string,
-  token: string,
   expectedUpdates: ExternalAnimeTrackingUpdate[]
 ): Promise<ExternalTrackingOperationResponse> {
-  return writeJsonWithToken<ExternalTrackingOperationResponse>(
+  return writeJson<ExternalTrackingOperationResponse>(
     normalizeBaseUrl(baseUrl) + "/api/providers/tracking/sync",
-    token,
     "POST",
     { expectedUpdates }
   );
@@ -554,14 +515,12 @@ export async function executeExternalTrackingSync(
 
 export async function importExternalTrackingConflict(
   baseUrl: string,
-  token: string,
   localSeriesId: string,
   animeId: ExternalAnimeId,
   expectedExternalWatchedEpisodes: number
 ): Promise<{ importedCount: number; document: ExternalTrackingDocument }> {
-  return writeJsonWithToken(
+  return writeJson(
     normalizeBaseUrl(baseUrl) + "/api/providers/tracking/conflicts/import",
-    token,
     "POST",
     { localSeriesId, animeId, expectedExternalWatchedEpisodes }
   );
@@ -569,7 +528,6 @@ export async function importExternalTrackingConflict(
 
 export async function fetchDandanplayResolve(
   baseUrl: string,
-  token: string,
   mediaId: string,
   options: DandanplayResolveOptions = {}
 ): Promise<DandanplayResolveResult> {
@@ -585,7 +543,7 @@ export async function fetchDandanplayResolve(
   );
 }
 
-export async function fetchLibrarySnapshot(baseUrl: string, token: string): Promise<LibrarySnapshot> {
+export async function fetchLibrarySnapshot(baseUrl: string): Promise<LibrarySnapshot> {
   const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
   const status = await fetchServerStatus(normalizedBaseUrl);
   const [catalog, progress] = await Promise.all([
@@ -599,7 +557,6 @@ export async function fetchLibrarySnapshot(baseUrl: string, token: string): Prom
 
 export async function saveProgress(
   baseUrl: string,
-  token: string,
   progress: PlaybackProgress,
   keepalive = false
 ): Promise<void> {
@@ -617,16 +574,16 @@ export async function saveProgress(
   }
 }
 
-export function mediaUrl(baseUrl: string, token: string, item: LibraryMediaItem): string {
-  return tokenizedUrl(baseUrl, token, item.streamPath);
+export function mediaUrl(baseUrl: string, item: LibraryMediaItem): string {
+  return resourceUrl(baseUrl, item.streamPath);
 }
 
-export function posterUrl(baseUrl: string, token: string, item: LibraryMediaItem): string | null {
-  return item.posterPath ? tokenizedUrl(baseUrl, token, item.posterPath) : null;
+export function posterUrl(baseUrl: string, item: LibraryMediaItem): string | null {
+  return item.posterPath ? resourceUrl(baseUrl, item.posterPath) : null;
 }
 
-export function subtitleUrl(baseUrl: string, token: string, subtitle: LibrarySubtitleTrack): string {
-  return tokenizedUrl(baseUrl, token, subtitle.streamPath);
+export function subtitleUrl(baseUrl: string, subtitle: LibrarySubtitleTrack): string {
+  return resourceUrl(baseUrl, subtitle.streamPath);
 }
 
 export function normalizeBaseUrl(baseUrl: string): string {
@@ -634,9 +591,8 @@ export function normalizeBaseUrl(baseUrl: string): string {
 }
 
 
-async function writeJsonWithToken<T>(
+async function writeJson<T>(
   url: string,
-  token: string,
   method: "POST" | "PUT" | "DELETE",
   body?: unknown
 ): Promise<T> {
@@ -644,7 +600,6 @@ async function writeJsonWithToken<T>(
     method,
     headers: {
       Accept: "application/json",
-      Authorization: "Bearer " + token,
       ...(body === undefined ? {} : { "Content-Type": "application/json; charset=utf-8" })
     },
     body: body === undefined ? undefined : JSON.stringify(body)
@@ -659,19 +614,6 @@ async function writeJsonWithToken<T>(
   return response.json() as Promise<T>;
 }
 
-async function readJsonWithToken<T>(url: string, token: string): Promise<T> {
-  const response = await fetch(url, {
-    headers: {
-      Accept: "application/json",
-      Authorization: "Bearer " + token
-    }
-  });
-  if (!response.ok) {
-    throw new DanmakuApiError("Request failed with HTTP " + response.status, response.status);
-  }
-  return response.json() as Promise<T>;
-}
-
 async function readJson<T>(url: string): Promise<T> {
   const response = await fetch(url, { headers: { Accept: "application/json" } });
   if (!response.ok) {
@@ -680,6 +622,6 @@ async function readJson<T>(url: string): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-function tokenizedUrl(baseUrl: string, token: string, path: string): string {
+function resourceUrl(baseUrl: string, path: string): string {
   return `${normalizeBaseUrl(baseUrl)}${path}`;
 }

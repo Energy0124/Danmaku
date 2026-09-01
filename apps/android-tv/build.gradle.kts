@@ -50,9 +50,6 @@ val hasCiSigning = !ciKeystorePath.isNullOrBlank() &&
 val defaultServerUrl = providers.gradleProperty("danmaku.tv.defaultServerUrl")
     .orElse(providers.environmentVariable("DANMAKU_TV_DEFAULT_SERVER_URL"))
     .getOrElse("")
-val defaultPairingToken = providers.gradleProperty("danmaku.tv.defaultPairingToken")
-    .orElse(providers.environmentVariable("DANMAKU_TV_DEFAULT_PAIRING_TOKEN"))
-    .getOrElse("")
 
 fun String.toBuildConfigString(): String =
     "\"" + replace("\\", "\\\\").replace("\"", "\\\"") + "\""
@@ -69,7 +66,6 @@ android {
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "DEFAULT_SERVER_URL", defaultServerUrl.toBuildConfigString())
-        buildConfigField("String", "DEFAULT_PAIRING_TOKEN", defaultPairingToken.toBuildConfigString())
         buildConfigField("boolean", "TV_QA_FIXTURES_ENABLED", "false")
     }
 

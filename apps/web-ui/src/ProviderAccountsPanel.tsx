@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import {
-  DanmakuApiError,
   ProviderAccountStatus,
   ProviderAccountsDocument,
   connectBangumiAccount,
@@ -11,33 +10,27 @@ import {
 
 export function ProviderAccountsPanel({
   baseUrl,
-  refreshVersion,
-  token
+  refreshVersion
 }: {
   baseUrl: string;
   refreshVersion: number;
-  token: string;
 }) {
   const [accounts, setAccounts] = useState<ProviderAccountsDocument | null>(null);
   const [bangumiToken, setBangumiToken] = useState("");
-  const [message, setMessage] = useState("Enter the pairing token to manage accounts.");
+  const [message, setMessage] = useState("Loading account status...");
   const [isBusy, setIsBusy] = useState(false);
 
   useEffect(() => {
     setAccounts(null);
-    if (!token.trim()) {
-      setMessage("Enter the pairing token to manage accounts.");
-      return;
-    }
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [baseUrl, refreshVersion, token]);
+  }, [baseUrl, refreshVersion]);
 
   async function load() {
     setIsBusy(true);
     setMessage("Loading account status...");
     try {
-      setAccounts(await fetchProviderAccounts(baseUrl, token));
+      setAccounts(await fetchProviderAccounts(baseUrl));
       setMessage("Account credentials stay encrypted on the server.");
     } catch (error) {
       setMessage(describeError(error));
@@ -51,7 +44,7 @@ export function ProviderAccountsPanel({
     setIsBusy(true);
     setMessage("Validating the Bangumi account...");
     try {
-      setAccounts(await connectBangumiAccount(baseUrl, token, bangumiToken.trim()));
+      setAccounts(await connectBangumiAccount(baseUrl, bangumiToken.trim()));
       setBangumiToken("");
       setMessage("Bangumi connected.");
     } catch (error) {
@@ -65,7 +58,7 @@ export function ProviderAccountsPanel({
     setIsBusy(true);
     setMessage("Disconnecting account...");
     try {
-      setAccounts(await disconnectProviderAccount(baseUrl, token, provider));
+      setAccounts(await disconnectProviderAccount(baseUrl, provider));
       setMessage("Account disconnected. Series mappings and local progress were kept.");
     } catch (error) {
       setMessage(describeError(error));
@@ -174,8 +167,5 @@ function accountLabel(account: ProviderAccountStatus): string {
 }
 
 function describeError(error: unknown): string {
-  if (error instanceof DanmakuApiError && error.status === 401) {
-    return "The pairing token was rejected.";
-  }
   return error instanceof Error ? error.message : "Account operation failed.";
 }

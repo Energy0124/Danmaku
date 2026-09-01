@@ -25,7 +25,6 @@ internal suspend fun prepareTvLibraryItem(
     return withContext(Dispatchers.IO) {
         playbackPreparer.prepare(
             baseUrl = target.baseUrl,
-            pairingToken = target.pairingToken,
             item = item,
             resumePositionMs = resumePosition,
         )

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import {
-  DanmakuApiError,
   LanProviderRuntimeStatus,
   ProviderSettingsDocument,
   ProviderSettingsUpdate,
@@ -11,7 +10,6 @@ import {
 
 interface ProviderSettingsPanelProps {
   baseUrl: string;
-  token: string;
   onRuntimeUpdated: (runtime: LanProviderRuntimeStatus) => void;
 }
 
@@ -29,7 +27,6 @@ const defaultUpdate: ProviderSettingsUpdate = {
 
 export function ProviderSettingsPanel({
   baseUrl,
-  token,
   onRuntimeUpdated
 }: ProviderSettingsPanelProps) {
   const [document, setDocument] = useState<ProviderSettingsDocument | null>(null);
@@ -40,16 +37,9 @@ export function ProviderSettingsPanel({
 
   useEffect(() => {
     let cancelled = false;
-    if (!token.trim()) {
-      setDocument(null);
-      setMessage("Enter the server pairing token above to manage provider settings.");
-      return () => {
-        cancelled = true;
-      };
-    }
     setIsLoading(true);
     setMessage("Loading provider settings...");
-    void fetchProviderSettings(baseUrl, token.trim())
+    void fetchProviderSettings(baseUrl)
       .then((next) => {
         if (cancelled) return;
         setDocument(next);
@@ -68,14 +58,14 @@ export function ProviderSettingsPanel({
     return () => {
       cancelled = true;
     };
-  }, [baseUrl, token, onRuntimeUpdated]);
+  }, [baseUrl, onRuntimeUpdated]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsSaving(true);
     setMessage("Saving provider settings...");
     try {
-      const next = await saveProviderSettings(baseUrl, token.trim(), form);
+      const next = await saveProviderSettings(baseUrl, form);
       setDocument(next);
       setForm(formFromDocument(next));
       setMessage("Provider settings saved and the running provider clients were refreshed.");
@@ -100,7 +90,7 @@ export function ProviderSettingsPanel({
             <small>Credentials, API endpoints, and runtime readiness</small>
           </span>
           <span className={document ? "admin-state ready" : "admin-state limited"}>
-            {isLoading ? "Loading" : document ? "Authorized" : "Locked"}
+            {isLoading ? "Loading" : document ? "Ready" : "Unavailable"}
           </span>
         </summary>
 
@@ -333,9 +323,6 @@ function optionalValue(value: string): string | undefined {
 }
 
 function describeSettingsError(error: unknown): string {
-  if (error instanceof DanmakuApiError && error.status === 401) {
-    return "The pairing token was rejected. Check the token and reconnect.";
-  }
   if (error instanceof Error) return error.message;
   return "Provider settings could not be loaded.";
 }

@@ -108,9 +108,6 @@ impl Strings {
     pub fn manual_connection(self) -> &'static str {
         self.text("Manual connection", "手動連線")
     }
-    pub fn pairing_token(self) -> &'static str {
-        self.text("Pairing token (optional)", "配對權杖（選填）")
-    }
     pub fn connect(self) -> &'static str {
         self.text("Connect", "連線")
     }
@@ -449,12 +446,6 @@ impl Strings {
         self.text(
             "Complete MyAnimeList sign-in in your browser, then return here.",
             "請在瀏覽器完成 MyAnimeList 登入，然後返回此處。",
-        )
-    }
-    pub fn tracking_pairing_token_required(self) -> &'static str {
-        self.text(
-            "Reconnect with the server pairing token to manage accounts and tracking.",
-            "請使用伺服器配對權杖重新連線，以管理帳號與追蹤。",
         )
     }
     pub fn saved(self) -> &'static str {

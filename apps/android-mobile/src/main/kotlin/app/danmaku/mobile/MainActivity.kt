@@ -89,7 +89,6 @@ internal val DangerRed = Color(0xFFFCA5A5)
 
 internal data class LibraryPosterEndpoint(
     val baseUrl: String,
-    val pairingToken: String,
 ) {
     fun posterUrl(item: LibraryMediaItem): String? {
         val path = item.posterPath ?: return null

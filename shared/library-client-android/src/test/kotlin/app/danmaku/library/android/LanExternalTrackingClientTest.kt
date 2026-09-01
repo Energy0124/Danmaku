@@ -16,21 +16,19 @@ import kotlinx.serialization.json.put
 
 class LanExternalTrackingClientTest {
     @Test
-    fun readsAccountsAndTrackingWithBearerAuthentication() {
+    fun readsAccountsAndTrackingWithoutClientAuthentication() {
         MockWebServer().use { server ->
             server.enqueue(jsonResponse(ACCOUNTS_JSON))
             server.enqueue(jsonResponse(TRACKING_JSON))
             val client = LanExternalTrackingClient()
             val baseUrl = server.url("/").toString()
 
-            val accounts = client.fetchAccounts(baseUrl, "secret code")
-            val tracking = client.fetchTracking(baseUrl, "secret code")
+            val accounts = client.fetchAccounts(baseUrl)
+            val tracking = client.fetchTracking(baseUrl)
 
             assertEquals(ProviderAccountState.CONNECTED, accounts.myAnimeList.state)
             assertEquals(1, tracking.plan.summary.updateCount)
-            repeat(2) {
-                assertEquals("Bearer secret code", server.takeRequest().getHeader("Authorization"))
-            }
+            repeat(2) { assertEquals(null, server.takeRequest().getHeader("Authorization")) }
         }
     }
 
@@ -46,7 +44,6 @@ class LanExternalTrackingClientTest {
 
             val response = LanExternalTrackingClient().sync(
                 server.url("/").toString(),
-                "123456",
                 listOf(update),
             )
 
@@ -54,7 +51,7 @@ class LanExternalTrackingClientTest {
             val request = server.takeRequest()
             assertEquals("POST", request.method)
             assertEquals("/api/providers/tracking/sync", request.path)
-            assertEquals("Bearer 123456", request.getHeader("Authorization"))
+            assertEquals(null, request.getHeader("Authorization"))
             val body = Json.parseToJsonElement(request.body.readUtf8())
             val expected = buildJsonObject {
                 put("expectedUpdates", buildJsonArray {
@@ -73,12 +70,12 @@ class LanExternalTrackingClientTest {
     }
 
     @Test
-    fun preservesHttpStatusForAuthenticationConflictAndServerFailures() {
+    fun preservesHttpStatusForConflictAndServerFailures() {
         listOf(401, 404, 409, 502).forEach { status ->
             MockWebServer().use { server ->
                 server.enqueue(MockResponse().setResponseCode(status).setBody("failure-$status"))
                 val failure = runCatching {
-                    LanExternalTrackingClient().fetchTracking(server.url("/").toString(), "bad")
+                    LanExternalTrackingClient().fetchTracking(server.url("/").toString())
                 }.exceptionOrNull() as LanExternalTrackingException
 
                 assertEquals(status, failure.statusCode)

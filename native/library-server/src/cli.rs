@@ -13,7 +13,6 @@ pub struct ServerOptions {
     pub data_directory: PathBuf,
     pub library_roots: Vec<PathBuf>,
     pub port: u16,
-    pub pairing_token: Option<String>,
     pub web_assets_root: Option<PathBuf>,
 }
 
@@ -52,11 +51,6 @@ impl ServerOptions {
             .copied()
             .unwrap_or(DEFAULT_PORT);
 
-        let pairing_token = matches
-            .get_one::<String>("pairing-token")
-            .map(|value| non_blank_string(value, "--pairing-token"))
-            .transpose()?;
-
         let web_assets_root = matches
             .get_one::<String>("web-assets-dir")
             .map(|value| non_blank_path(value, "--web-assets-dir"))
@@ -67,7 +61,6 @@ impl ServerOptions {
             data_directory,
             library_roots,
             port,
-            pairing_token,
             web_assets_root,
         })
     }
@@ -99,13 +92,6 @@ fn command() -> Command {
                 .num_args(1)
                 .value_parser(parse_port)
                 .help("HTTP port to bind when serving is implemented"),
-        )
-        .arg(
-            Arg::new("pairing-token")
-                .long("pairing-token")
-                .value_name("TOKEN")
-                .num_args(1)
-                .help("Pairing token to persist into server-settings.json"),
         )
         .arg(
             Arg::new("web-assets-dir")
@@ -154,13 +140,7 @@ mod tests {
     #[test]
     fn parses_cli_and_environment_options() {
         let options = ServerOptions::parse_from_env(
-            [
-                "library-server",
-                "--root=W:/Anime",
-                "--port",
-                "0",
-                "--pairing-token=123456",
-            ],
+            ["library-server", "--root=W:/Anime", "--port", "0"],
             &HashMap::from([
                 (DATA_DIR_ENV.to_owned(), "S:/Danmaku/server-data".to_owned()),
                 (WEB_UI_DIST_ENV.to_owned(), "apps/web-ui/dist".to_owned()),
@@ -174,7 +154,6 @@ mod tests {
         );
         assert_eq!(vec![PathBuf::from("W:/Anime")], options.library_roots);
         assert_eq!(0, options.port);
-        assert_eq!(Some("123456".to_owned()), options.pairing_token);
         assert_eq!(
             Some(PathBuf::from("apps/web-ui/dist")),
             options.web_assets_root
@@ -211,7 +190,6 @@ mod tests {
         );
         assert!(options.library_roots.is_empty());
         assert_eq!(DEFAULT_PORT, options.port);
-        assert_eq!(None, options.pairing_token);
         assert_eq!(None, options.web_assets_root);
     }
 
@@ -234,18 +212,5 @@ mod tests {
             .expect_err("unknown argument should fail");
 
         assert!(error.to_string().contains("unexpected argument"));
-    }
-
-    #[test]
-    fn rejects_blank_option_values() {
-        let error =
-            ServerOptions::parse_from_env(["library-server", "--pairing-token="], &HashMap::new())
-                .expect_err("blank pairing token should fail");
-
-        assert!(
-            error
-                .to_string()
-                .contains("--pairing-token requires a value")
-        );
     }
 }
