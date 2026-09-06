@@ -25,6 +25,9 @@ Status: implemented; continuing QA and polish.
 - Complete mobile/tablet viewport QA and replacement-class physical TV QA.
 - Keep Android TV focus, cache, danmaku, screenshot, and Macrobenchmark gates
   green.
+- Keep signed mobile/TV GitHub Release updates reproducible; exercise
+  two-version upgrades, unknown-source approval, cancellation, and corrupted
+  APK rejection on physical phone and TV hardware.
 
 ## 3. Danmaku And Metadata Quality
 

@@ -1,6 +1,6 @@
 # Current State
 
-Last reviewed: 2026-08-21.
+Last reviewed: 2026-08-31.
 
 Danmaku's active product is a Rust-native Windows library/player/server with
 Android mobile, Android TV, and browser clients on the same trusted-LAN API,
@@ -80,6 +80,10 @@ Compose macOS artifact are retired.
   journeys.
 - Shared domain, LAN-client, and Media3 modules without a JVM server runtime
   dependency.
+- Android mobile and TV stable-release checks through a shared Android updater.
+  The apps check at most daily, expose manual checks, download only after
+  approval, validate the APK hash/size/package/version/signing certificate,
+  and invoke Android's user-confirmed package installer.
 
 ### Web UI
 
@@ -102,6 +106,9 @@ Compose macOS artifact are retired.
   Authenticode certificate, resolves and verifies the latest stable LGPL x64
   libmpv asset, preserves its recorded DLL hash, and publishes checksums only
   after all build and package checks pass.
+- The same tag requires the durable Android signing key, derives monotonic
+  Android version codes, verifies signed mobile/TV APK metadata, and publishes
+  both APKs plus `android-update.json` in the unified GitHub Release.
 - Windows CI for Rust, Android, web assets, packaging, and libmpv checks;
   separate Rust and Worker proxy jobs.
 - Native macOS CI compiles and tests the Rust workspace, verifies Homebrew

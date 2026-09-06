@@ -45,6 +45,7 @@ import app.danmaku.library.android.ExternalTrackingPlanUpdate
 import app.danmaku.library.android.ProviderAccountState
 import app.danmaku.domain.ExternalAnimeListStatus
 import app.danmaku.domain.ExternalAnimeProvider
+import app.danmaku.updater.android.AppUpdateState
 
 @Composable
 internal fun ConnectPage(
@@ -70,6 +71,11 @@ internal fun ConnectPage(
     onSyncTracking: () -> Unit,
     onPlayPause: () -> Unit,
     onOpenPlayer: () -> Unit,
+    appUpdateState: AppUpdateState = AppUpdateState.Disabled,
+    currentVersionName: String = "0.1.0",
+    onCheckForUpdates: () -> Unit = {},
+    onDownloadUpdate: () -> Unit = {},
+    onInstallUpdate: (String) -> Unit = {},
 ) {
     PageColumn(contentPadding) {
         item(key = "connect-page-header") {
@@ -118,6 +124,15 @@ internal fun ConnectPage(
                 onLoad = onLoadTracking,
                 onReadback = onReadTracking,
                 onSync = onSyncTracking,
+            )
+        }
+        item(key = "app-update") {
+            MobileAppUpdateCard(
+                state = appUpdateState,
+                currentVersionName = currentVersionName,
+                onCheck = onCheckForUpdates,
+                onDownload = onDownloadUpdate,
+                onInstall = onInstallUpdate,
             )
         }
         item(key = "connect-help") {

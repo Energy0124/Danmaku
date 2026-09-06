@@ -26,6 +26,7 @@ shared/
   domain/                 Platform-neutral models and behavior
   library-client/         Shared LAN client/session/progress policy
   library-client-android/ Android HTTP/discovery/storage adapters
+  app-update-android/     GitHub release checks and verified APK installation
   player-android-media3/  Shared Media3 playback adapter/service
 
 native/
@@ -65,7 +66,7 @@ danmaku.myanimelist.clientSecret=your-client-secret
 ```powershell
 cargo fmt --all --check
 cargo test --workspace
-.\gradlew.bat --no-daemon :shared:domain:jvmTest :shared:library-client:jvmTest :shared:library-client-android:testDebugUnitTest :shared:player-android-media3:assembleDebugAndroidTest :apps:android-mobile:assembleDebug :apps:android-tv:assembleDebug
+.\gradlew.bat --no-daemon :shared:domain:jvmTest :shared:library-client:jvmTest :shared:library-client-android:testDebugUnitTest :shared:app-update-android:testDebugUnitTest :shared:player-android-media3:assembleDebugAndroidTest :apps:android-mobile:assembleDebug :apps:android-tv:assembleDebug
 ```
 
 Web UI:
@@ -214,6 +215,13 @@ Bangumi state, review pending progress updates, and explicitly confirm the
 exact preview before syncing. Account connection, series mapping, and conflict
 import remain in the Windows app or web administration UI. Android TV remains
 a dedicated module with TV-specific focus and remote-navigation behavior.
+
+Signed mobile and TV builds check the stable GitHub Release manifest at startup
+at most once per day. Updates are downloaded only after approval, verified by
+size, SHA-256, package identity, version code, and the installed signing
+certificate, then handed to Android's system installer for final confirmation.
+The Connect/PC screens also provide a manual update check. Debug builds do not
+contact the update endpoint unless one is explicitly configured.
 
 Connected checks require an emulator or physical device and are documented in
 [CONTRIBUTING.md](CONTRIBUTING.md).

@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import app.danmaku.updater.android.AppUpdateState
 import androidx.tv.material3.Button
 import androidx.tv.material3.Icon
 import androidx.tv.material3.Text
@@ -59,6 +60,11 @@ internal fun TvConsumerShell(
     onNavigate: (TvRoute) -> Unit,
     onShowOverlay: (TvOverlay) -> Unit,
     onCloseOverlay: () -> Boolean,
+    appUpdateState: AppUpdateState,
+    currentVersionName: String,
+    onCheckForUpdates: () -> Unit,
+    onDownloadUpdate: () -> Unit,
+    onInstallUpdate: (String) -> Unit,
 ) {
     val railFocusRequester = remember(route) { FocusRequester() }
     Row(
@@ -135,6 +141,11 @@ internal fun TvConsumerShell(
                     onLoadTracking = sessionViewModel::loadTracking,
                     onReadTracking = sessionViewModel::readTracking,
                     onSyncTracking = sessionViewModel::syncTracking,
+                    appUpdateState = appUpdateState,
+                    currentVersionName = currentVersionName,
+                    onCheckForUpdates = onCheckForUpdates,
+                    onDownloadUpdate = onDownloadUpdate,
+                    onInstallUpdate = onInstallUpdate,
                 )
             is TvRoute.FolderBrowser ->
                 TvFolderBrowserScreen(

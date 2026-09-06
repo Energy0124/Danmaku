@@ -41,8 +41,11 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,6 +61,8 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.PlaybackSource
@@ -74,6 +79,12 @@ import app.danmaku.library.android.LanLibraryDiscoveryClient
 import app.danmaku.library.android.AndroidOfflineCacheRepository
 import app.danmaku.player.android.Media3PlaybackController
 import app.danmaku.player.android.Media3PlaybackServiceConnection
+import app.danmaku.updater.android.AndroidAppUpdateViewModel
+import app.danmaku.updater.android.AndroidAppUpdateViewModelFactory
+import app.danmaku.updater.android.AppUpdateConfiguration
+import app.danmaku.updater.android.AppUpdateInstaller
+import app.danmaku.updater.android.AppUpdateKind
+import app.danmaku.updater.android.AppUpdateState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -125,6 +136,46 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun MobilePlayerScreen() {
     val context = LocalContext.current
+    val updateViewModelFactory = remember(context) {
+        AndroidAppUpdateViewModelFactory(
+            context = context.applicationContext,
+            configuration = AppUpdateConfiguration(
+                manifestUrl = BuildConfig.UPDATE_MANIFEST_URL,
+                appKind = AppUpdateKind.MOBILE,
+                applicationId = BuildConfig.APPLICATION_ID,
+                currentVersionCode = BuildConfig.VERSION_CODE.toLong(),
+                currentVersionName = BuildConfig.VERSION_NAME,
+            ),
+        )
+    }
+    val updateViewModel: AndroidAppUpdateViewModel = viewModel(factory = updateViewModelFactory)
+    val appUpdateState by updateViewModel.state.collectAsStateWithLifecycle()
+    val updateInstaller = remember(context) { AppUpdateInstaller(context) }
+    var permissionRequired by remember { mutableStateOf(false) }
+    var installerUnavailable by remember { mutableStateOf(false) }
+    var pendingInstallPath by remember { mutableStateOf<String?>(null) }
+    var automaticInstallAttemptPath by remember { mutableStateOf<String?>(null) }
+    val unknownSourcesLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) {
+        val path = pendingInstallPath
+        if (path != null && updateInstaller.canRequestPackageInstalls()) {
+            permissionRequired = false
+            installerUnavailable = !updateInstaller.launchPackageInstaller(path)
+        } else {
+            permissionRequired = path != null
+        }
+    }
+    val requestUpdateInstall: (String) -> Unit = { path ->
+        pendingInstallPath = path
+        installerUnavailable = false
+        if (updateInstaller.canRequestPackageInstalls()) {
+            permissionRequired = false
+            installerUnavailable = !updateInstaller.launchPackageInstaller(path)
+        } else {
+            permissionRequired = true
+        }
+    }
     val playbackConnection = remember {
         Media3PlaybackServiceConnection(context.applicationContext)
     }
@@ -156,6 +207,17 @@ private fun MobilePlayerScreen() {
             initialFavoriteMediaIds = favoriteStore.loadFavoriteMediaIds(),
             initialDanmakuDisplaySettings = danmakuSettingsStore.load(),
         )
+    }
+    LaunchedEffect(updateViewModel) {
+        updateViewModel.startAutomaticCheck()
+    }
+    val readyUpdatePath = (appUpdateState as? AppUpdateState.Ready)?.apkPath
+    LaunchedEffect(readyUpdatePath) {
+        val path = readyUpdatePath ?: return@LaunchedEffect
+        if (automaticInstallAttemptPath != path) {
+            automaticInstallAttemptPath = path
+            requestUpdateInstall(path)
+        }
     }
     LaunchedEffect(offlineCacheRepository) {
         while (true) {
@@ -245,7 +307,43 @@ private fun MobilePlayerScreen() {
     MobileAppScaffold(
         state = appState.toUiState(),
         actions = actionHandler.toAppActions(),
+        appUpdateState = appUpdateState,
+        currentVersionName = BuildConfig.VERSION_NAME,
+        onCheckForUpdates = updateViewModel::checkNow,
+        onDownloadUpdate = updateViewModel::download,
+        onInstallUpdate = requestUpdateInstall,
     )
+    if (!appState.isPlayerFullscreen && appState.snapshot.source == null) {
+        MobileAppUpdateDialog(
+            state = appUpdateState,
+            permissionRequired = permissionRequired,
+            installerUnavailable = installerUnavailable,
+            onDownload = updateViewModel::download,
+            onRetry = {
+                if ((appUpdateState as? AppUpdateState.Failed)?.update == null) {
+                    updateViewModel.checkNow()
+                } else {
+                    updateViewModel.download()
+                }
+            },
+            onInstall = requestUpdateInstall,
+            onOpenPermissionSettings = {
+                val intent = updateInstaller.unknownSourcesSettingsIntent()
+                if (intent == null) {
+                    pendingInstallPath?.let(requestUpdateInstall)
+                } else {
+                    runCatching { unknownSourcesLauncher.launch(intent) }
+                        .onFailure { installerUnavailable = true }
+                }
+            },
+            onLater = {
+                permissionRequired = false
+                installerUnavailable = false
+                pendingInstallPath = null
+                updateViewModel.dismiss()
+            },
+        )
+    }
 }
 
 @Composable
