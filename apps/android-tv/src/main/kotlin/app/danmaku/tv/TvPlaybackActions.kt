@@ -36,9 +36,6 @@ internal fun loadPreparedTvLibraryItem(
     preparation: LanPlaybackPreparation,
 ) {
     controller.load(preparation)
-    preparation.resumePositionMs?.let {
-        controller.dispatch(PlaybackCommand.SeekTo(it))
-    }
 }
 
 internal fun startLoadedTvLibraryItem(controller: TvPlaybackController) {

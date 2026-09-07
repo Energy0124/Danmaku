@@ -46,10 +46,14 @@ class Media3PlaybackController(
                     },
                 )
                 .build(),
+            startPositionMs = preparation.resumePositionMs,
         )
     }
 
-    fun load(preparation: OfflinePlaybackPreparation) {
+    fun load(
+        preparation: OfflinePlaybackPreparation,
+        startPositionMs: Long? = preparation.resumePositionMs,
+    ) {
         loadMediaItem(
             source = preparation.source,
             mediaItem = MediaItem.Builder()
@@ -75,16 +79,22 @@ class Media3PlaybackController(
                     },
                 )
                 .build(),
+            startPositionMs = startPositionMs,
         )
     }
 
     private fun loadMediaItem(
         source: PlaybackSource,
         mediaItem: MediaItem,
+        startPositionMs: Long? = null,
     ) {
         this.source = source
         hasStartedPlayback = false
-        player.setMediaItem(mediaItem)
+        if (startPositionMs != null && startPositionMs > 0) {
+            player.setMediaItem(mediaItem, startPositionMs)
+        } else {
+            player.setMediaItem(mediaItem)
+        }
         player.prepare()
     }
 

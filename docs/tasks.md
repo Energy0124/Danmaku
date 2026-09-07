@@ -23,6 +23,9 @@ Status: `[x]` done, `[~]` in progress, `[ ]` not started.
 - `[x]` Add a per-user Windows installer, stable-channel auto-updater,
   localized release-note approval UX, signing-gated SemVer release workflow,
   checksums, and background-host binary refresh that preserves data.
+- `[x]` Add signed Android mobile/TV GitHub Release APKs, a shared daily update
+  checker, verified in-app download, localized approval UI, and Android
+  system-installer handoff.
 - `[~]` Complete live MyAnimeList/Bangumi readback and deliberate write QA.
   `tools/windows/run-live-external-sync-readback-qa.ps1` is read-only; every
   provider write still requires explicit preview acknowledgement and approval.
@@ -75,7 +78,7 @@ Status: `[x]` done, `[~]` in progress, `[ ]` not started.
 ```powershell
 cargo fmt --all --check
 cargo test --workspace
-.\gradlew.bat --no-daemon :shared:domain:jvmTest :shared:library-client:jvmTest :shared:library-client-android:testDebugUnitTest :shared:player-android-media3:assembleDebugAndroidTest :apps:android-mobile:assembleDebug :apps:android-tv:assembleDebug
+.\gradlew.bat --no-daemon :shared:domain:jvmTest :shared:library-client:jvmTest :shared:library-client-android:testDebugUnitTest :shared:app-update-android:testDebugUnitTest :shared:player-android-media3:assembleDebugAndroidTest :apps:android-mobile:assembleDebug :apps:android-tv:assembleDebug
 ```
 
 Connected Android checks:
