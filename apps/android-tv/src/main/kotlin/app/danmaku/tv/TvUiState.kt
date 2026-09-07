@@ -20,7 +20,7 @@ import app.danmaku.library.android.ProviderAccountsDocument
 import kotlin.math.roundToInt
 
 internal enum class TvTrackingOperation { READBACK, SYNC }
-internal enum class TvTrackingError { ACCESS_CODE_REJECTED, PREVIEW_CHANGED, REQUEST_FAILED }
+internal enum class TvTrackingError { PREVIEW_CHANGED, REQUEST_FAILED }
 internal enum class TvFolderRefreshError { ALREADY_RUNNING, SCAN_FAILED, REQUEST_FAILED }
 
 internal data class TvFolderRefreshState(
@@ -65,7 +65,6 @@ internal enum class TvLibrarySort {
 internal data class TvSessionUiState(
     val savedConnections: List<LanLibraryConnectionProfile> = emptyList(),
     val serverUrl: String = "",
-    val pairingToken: String = "",
     val catalog: LibraryCatalog? = null,
     val playbackProgresses: List<PlaybackProgress> = emptyList(),
     val favoriteMediaIds: Set<String> = emptySet(),
@@ -80,7 +79,7 @@ internal data class TvSessionUiState(
         get() = serverUrl.isNotBlank()
 
     val posterEndpoint: LibraryPosterEndpoint?
-        get() = catalog?.let { LibraryPosterEndpoint(serverUrl, pairingToken) }
+        get() = catalog?.let { LibraryPosterEndpoint(serverUrl) }
 }
 
 internal data class TvBrowseQuery(

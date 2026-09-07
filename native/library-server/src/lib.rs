@@ -8,6 +8,7 @@ pub mod domain;
 pub mod external_provider;
 pub(crate) mod hash;
 pub mod http;
+pub(crate) mod http_client;
 pub mod lock;
 pub mod logging;
 pub mod organizer;
@@ -94,7 +95,6 @@ mod tests {
             data_directory: data_directory.clone(),
             library_roots: vec![root],
             port: 0,
-            pairing_token: Some("123456".to_owned()),
             web_assets_root: None,
         })
         .expect("startup should load");

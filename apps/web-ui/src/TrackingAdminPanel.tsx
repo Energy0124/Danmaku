@@ -19,15 +19,13 @@ const trackingProviders: ExternalAnimeProvider[] = ["MY_ANIME_LIST", "BANGUMI"];
 
 export function TrackingAdminPanel({
   baseUrl,
-  onAccountStatusMayHaveChanged,
-  token
+  onAccountStatusMayHaveChanged
 }: {
   baseUrl: string;
   onAccountStatusMayHaveChanged: () => void;
-  token: string;
 }) {
   const [document, setDocument] = useState<ExternalTrackingDocument | null>(null);
-  const [message, setMessage] = useState("Enter the pairing token to load tracking administration.");
+  const [message, setMessage] = useState("Loading tracking administration...");
   const [isBusy, setIsBusy] = useState(false);
   const [selectedSeriesId, setSelectedSeriesId] = useState("");
   const [provider, setProvider] = useState<ExternalAnimeProvider>("MY_ANIME_LIST");
@@ -50,19 +48,15 @@ export function TrackingAdminPanel({
   useEffect(() => {
     setDocument(null);
     setPreviewReviewed(false);
-    if (!token.trim()) {
-      setMessage("Enter the pairing token to load tracking administration.");
-      return;
-    }
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [baseUrl, token]);
+  }, [baseUrl]);
 
   async function load() {
     setIsBusy(true);
     setMessage("Loading tracking preview...");
     try {
-      updateDocument(await fetchExternalTracking(baseUrl, token));
+      updateDocument(await fetchExternalTracking(baseUrl));
       setMessage("Tracking preview loaded. No provider data was changed.");
     } catch (error) {
       setMessage(describeError(error, "Tracking preview could not be loaded."));
@@ -91,7 +85,7 @@ export function TrackingAdminPanel({
     setMessage("Saving the series mapping...");
     try {
       updateDocument(
-        await saveExternalTrackingMapping(baseUrl, token, selectedSeries.id, {
+        await saveExternalTrackingMapping(baseUrl, selectedSeries.id, {
           provider,
           value: parsedAnimeId
         })
@@ -111,7 +105,7 @@ export function TrackingAdminPanel({
     setIsBusy(true);
     setMessage("Searching " + providerLabel(provider) + "...");
     try {
-      const results = await fetchProviderSearch(baseUrl, token, query, {
+      const results = await fetchProviderSearch(baseUrl, query, {
         providers: [provider],
         limit: 8,
         episodeCount: selectedSeries?.episodeCount
@@ -133,7 +127,6 @@ export function TrackingAdminPanel({
       updateDocument(
         await saveExternalTrackingMapping(
           baseUrl,
-          token,
           selectedSeries.id,
           candidate.anime.id
         )
@@ -157,7 +150,6 @@ export function TrackingAdminPanel({
     try {
       const response = await importExternalTrackingConflict(
         baseUrl,
-        token,
         localSeriesId,
         animeId,
         expectedEpisodes
@@ -176,7 +168,7 @@ export function TrackingAdminPanel({
     setMessage("Removing the series mapping...");
     try {
       updateDocument(
-        await deleteExternalTrackingMapping(baseUrl, token, localSeriesId, mappedAnimeId)
+        await deleteExternalTrackingMapping(baseUrl, localSeriesId, mappedAnimeId)
       );
       setMessage("Series mapping removed. The tracking preview was regenerated.");
     } catch (error) {
@@ -190,7 +182,7 @@ export function TrackingAdminPanel({
     setIsBusy(true);
     setMessage("Reading mapped entries from MAL and Bangumi...");
     try {
-      const response = await refreshExternalTrackingReadback(baseUrl, token);
+      const response = await refreshExternalTrackingReadback(baseUrl);
       updateDocument(response.document);
       setMessage(operationMessage("Readback", response));
     } catch (error) {
@@ -211,7 +203,6 @@ export function TrackingAdminPanel({
     try {
       const response = await executeExternalTrackingSync(
         baseUrl,
-        token,
         document.plan.updates.map((candidate) => candidate.update)
       );
       updateDocument(response.document);

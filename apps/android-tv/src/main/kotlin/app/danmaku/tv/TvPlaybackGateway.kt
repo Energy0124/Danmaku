@@ -94,6 +94,6 @@ internal class LanTvPlaybackGateway(
     ): List<PlaybackProgress> =
         withContext(ioDispatcher) {
             progressSync.saveProgress(target, snapshot)
-            progressSync.fetchAllProgress(target.baseUrl, target.pairingToken)
+            progressSync.fetchAllProgress(target.baseUrl)
         }
 }

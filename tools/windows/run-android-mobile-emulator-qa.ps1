@@ -10,8 +10,7 @@ param(
     [switch]$SkipScreenshots,
     [switch]$KeepEmulators,
     [switch]$RustServer,
-    [int]$RustServerPort = 18687,
-    [string]$RustServerPairingToken = "123456"
+    [int]$RustServerPort = 18687
 )
 
 Set-StrictMode -Version Latest
@@ -272,8 +271,7 @@ function Start-RustServerHost {
     $arguments = @(
         "--data-dir", $rustDataDir,
         "--root", $rustFixtureRoot,
-        "--port", "$RustServerPort",
-        "--pairing-token", $RustServerPairingToken
+        "--port", "$RustServerPort"
     )
     $script:rustServerProcess = Start-Process `
         -FilePath $rustServerExe `
@@ -301,15 +299,13 @@ function Invoke-RustServerConnectivityTestForSerial {
         "--no-daemon",
         ":apps:android-mobile:connectedDebugAndroidTest",
         "-Pandroid.testInstrumentationRunnerArguments.class=$testClass",
-        "-Pandroid.testInstrumentationRunnerArguments.danmakuServerBaseUrl=$emulatorBaseUrl",
-        "-Pandroid.testInstrumentationRunnerArguments.danmakuPairingToken=$RustServerPairingToken"
+        "-Pandroid.testInstrumentationRunnerArguments.danmakuServerBaseUrl=$emulatorBaseUrl"
     )
     $displayArgs = @(
         "--no-daemon",
         ":apps:android-mobile:connectedDebugAndroidTest",
         "-Pandroid.testInstrumentationRunnerArguments.class=$testClass",
-        "-Pandroid.testInstrumentationRunnerArguments.danmakuServerBaseUrl=$emulatorBaseUrl",
-        "-Pandroid.testInstrumentationRunnerArguments.danmakuPairingToken=<redacted>"
+        "-Pandroid.testInstrumentationRunnerArguments.danmakuServerBaseUrl=$emulatorBaseUrl"
     )
 
     Invoke-GradleForSerial -Serial $Serial -GradleArgs $gradleArgs -DisplayArgs $displayArgs

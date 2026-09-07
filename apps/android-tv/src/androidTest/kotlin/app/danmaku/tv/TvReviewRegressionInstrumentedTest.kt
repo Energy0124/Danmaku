@@ -99,7 +99,6 @@ class TvReviewRegressionInstrumentedTest {
                 favoriteStore = AndroidLibraryFavoriteStore(context),
                 catalogCache = AndroidTvCatalogCache(context),
                 defaultServerUrl = server.url("/").toString(),
-                defaultPairingToken = "test-token",
                 ioDispatcher = Dispatchers.IO,
             )
 
@@ -147,7 +146,6 @@ class TvReviewRegressionInstrumentedTest {
                     id = "replacement",
                     displayName = "Replacement PC",
                     baseUrl = "http://replacement.invalid:8686",
-                    pairingToken = "replacement-token",
                 ),
             )
 
@@ -163,7 +161,6 @@ class TvReviewRegressionInstrumentedTest {
         val fixture = createTvQaFixture(seriesCount = 1, episodesPerSeries = 1)
         val firstUrl = "http://pc-a.invalid:8686"
         val secondUrl = "http://pc-b.invalid:8686"
-        val firstToken = "token-a"
         cache.save(firstUrl, fixture.catalog, emptyList())
         val repository = TvLibraryRepository(
             connectionSession = LanLibraryConnectionSession(LanLibraryClient()),
@@ -171,13 +168,11 @@ class TvReviewRegressionInstrumentedTest {
             favoriteStore = AndroidLibraryFavoriteStore(context),
             catalogCache = cache,
             defaultServerUrl = firstUrl,
-            defaultPairingToken = firstToken,
             ioDispatcher = Dispatchers.IO,
         )
         assertTrue(repository.loadCachedCatalog())
 
         repository.updateServerUrl(secondUrl)
-        repository.updatePairingToken("token-b")
         val staleProgress = PlaybackProgress(
             mediaId = fixture.catalog.items.single().id,
             positionMs = 42_000,
@@ -186,7 +181,7 @@ class TvReviewRegressionInstrumentedTest {
         )
 
         val applied = repository.updateProgresses(
-            target = LanPlaybackTarget(firstUrl, firstToken, staleProgress.mediaId),
+            target = LanPlaybackTarget(firstUrl, staleProgress.mediaId),
             progresses = listOf(staleProgress),
         )
 
@@ -231,7 +226,7 @@ class TvReviewRegressionInstrumentedTest {
 
             assertTrue(
                 repository.updateProgresses(
-                    LanPlaybackTarget(server.url("/").toString(), "test-token", "episode-id"),
+                    LanPlaybackTarget(server.url("/").toString(), "episode-id"),
                     emptyList(),
                 ),
             )
@@ -249,7 +244,6 @@ class TvReviewRegressionInstrumentedTest {
             favoriteStore = AndroidLibraryFavoriteStore(context),
             catalogCache = AndroidTvCatalogCache(context),
             defaultServerUrl = server.url("/").toString(),
-            defaultPairingToken = "test-token",
             ioDispatcher = Dispatchers.IO,
         )
 

@@ -170,5 +170,5 @@ Test manifest generation without signing credentials:
 - `[ ]` Validate fullscreen, resizing, hardware decoding, resume, and the
   optional background host manually.
 - `[ ]` Validate Android mobile and TV streaming against the Rust host.
-- `[ ]` Confirm no credentials, pairing tokens, local SDK paths, or generated
+- `[ ]` Confirm no credentials, local SDK paths, or generated
   build output are included.

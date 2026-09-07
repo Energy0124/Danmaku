@@ -9,8 +9,8 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::dandanplay::{HttpRequest, parse_url, send_http_request};
 use crate::hash::sha256_hex;
+use crate::http_client::{HttpRequest, parse_url, send_http_request};
 use crate::{LibraryServerError, Result};
 
 const MAX_POSTER_BYTES: usize = 8 * 1024 * 1024;

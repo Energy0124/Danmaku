@@ -114,7 +114,7 @@ private data class OfflineProgressIndex(
 )
 
 internal fun interface OfflineProgressUploader {
-    fun upload(serverUrl: String, pairingToken: String, progress: PlaybackProgress)
+    fun upload(serverUrl: String, progress: PlaybackProgress)
 }
 
 internal interface OfflineWorkScheduler {
@@ -140,8 +140,8 @@ class AndroidOfflineCacheRepository internal constructor(
         root = cacheRoot(context.applicationContext),
         json = json,
         workScheduler = WorkManagerOfflineWorkScheduler(context.applicationContext),
-        progressUploader = OfflineProgressUploader { serverUrl, pairingToken, progress ->
-            LanLibraryClient().saveProgress(serverUrl, pairingToken, progress)
+        progressUploader = OfflineProgressUploader { serverUrl, progress ->
+            LanLibraryClient().saveProgress(serverUrl, progress)
         },
         atomicMove = OfflineAtomicMove { source, destination ->
             Os.rename(source.absolutePath, destination.absolutePath)
@@ -277,7 +277,6 @@ class AndroidOfflineCacheRepository internal constructor(
 
     fun syncPendingProgress(
         serverUrl: String,
-        pairingToken: String,
         remoteProgress: List<PlaybackProgress>,
     ): List<PlaybackProgress> {
         val normalized = serverUrl.trim().trimEnd('/')
@@ -291,7 +290,7 @@ class AndroidOfflineCacheRepository internal constructor(
                     clearPendingProgress(pendingEntry.key)
                 } else {
                     runCatching {
-                        progressUploader.upload(normalized, pairingToken, pending)
+                        progressUploader.upload(normalized, pending)
                     }.onSuccess {
                         remoteById[pending.mediaId] = pending
                         clearPendingProgress(pendingEntry.key)
@@ -519,22 +518,17 @@ class OfflineDownloadWorker(
     }
 
     private suspend fun download(entry: OfflineCacheEntry) {
-        val token = AndroidLanLibraryConnectionStore(applicationContext)
-            .loadProfiles()
-            .firstOrNull { it.normalizedBaseUrl == entry.serverUrl }
-            ?.pairingToken
-            .orEmpty()
         val directory = repository.directory(entry.key)
         val video = File(directory, "video.${entry.item.relativePath.safeExtension("media")}")
         downloadResumable(
-            url = libraryClient.streamUrl(entry.serverUrl, entry.item, token),
+            url = libraryClient.streamUrl(entry.serverUrl, entry.item),
             destination = video,
             expectedBytes = entry.item.sizeBytes,
             entry = entry,
         )
         ensureEntryActive(entry.key)
 
-        val danmaku = libraryClient.fetchDanmaku(entry.serverUrl, entry.item.id, token)
+        val danmaku = libraryClient.fetchDanmaku(entry.serverUrl, entry.item.id)
         ensureEntryActive(entry.key)
         val danmakuFile = File(directory, "danmaku.json")
         danmakuFile.writeText(DEFAULT_JSON.encodeToString(danmaku))
@@ -543,7 +537,7 @@ class OfflineDownloadWorker(
         val subtitlePaths = entry.item.subtitles.mapIndexedNotNull { index, subtitle ->
             val file = File(directory, "subtitle-$index.${subtitle.relativePath.safeExtension("sub")}")
             try {
-                downloadSmall(libraryClient.subtitleUrl(entry.serverUrl, subtitle, token), file)
+                downloadSmall(libraryClient.subtitleUrl(entry.serverUrl, subtitle), file)
                 ensureEntryActive(entry.key)
                 subtitle.id to file.relativeTo(cacheRoot(applicationContext)).path
             } catch (cancelled: CancellationException) {

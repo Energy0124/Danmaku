@@ -38,10 +38,7 @@ class JvmLanLibraryClient(
         }
     }
 
-    override fun fetchCatalog(
-        baseUrl: String,
-        pairingToken: String,
-    ): LibraryCatalog {
+    override fun fetchCatalog(baseUrl: String): LibraryCatalog {
         val connection = open("${baseUrl.trimEnd('/')}/api/library")
         return try {
             connection.requireResponse(HttpURLConnection.HTTP_OK)
@@ -75,23 +72,20 @@ class JvmLanLibraryClient(
     override fun streamUrl(
         baseUrl: String,
         item: LibraryMediaItem,
-        pairingToken: String,
     ): String =
         "${baseUrl.trimEnd('/')}${item.streamPath}"
 
     override fun subtitleUrl(
         baseUrl: String,
         subtitle: LibrarySubtitleTrack,
-        pairingToken: String,
     ): String =
         "${baseUrl.trimEnd('/')}${subtitle.streamPath}"
 
     override fun fetchProgress(
         baseUrl: String,
         mediaId: String,
-        pairingToken: String,
     ): PlaybackProgress? {
-        val connection = open(progressUrl(baseUrl, mediaId, pairingToken))
+        val connection = open(progressUrl(baseUrl, mediaId))
         return try {
             when (connection.responseCode) {
                 HttpURLConnection.HTTP_NOT_FOUND -> null
@@ -105,11 +99,8 @@ class JvmLanLibraryClient(
         }
     }
 
-    override fun fetchAllProgress(
-        baseUrl: String,
-        pairingToken: String,
-    ): List<PlaybackProgress> {
-        val connection = open(progressListUrl(baseUrl, pairingToken))
+    override fun fetchAllProgress(baseUrl: String): List<PlaybackProgress> {
+        val connection = open(progressListUrl(baseUrl))
         return try {
             connection.requireResponse(HttpURLConnection.HTTP_OK)
             json.decodeFromString(
@@ -123,10 +114,9 @@ class JvmLanLibraryClient(
     override fun fetchDanmaku(
         baseUrl: String,
         mediaId: String,
-        pairingToken: String,
         forceRefresh: Boolean,
     ): LanDanmakuTrack {
-        val connection = open(danmakuUrl(baseUrl, mediaId, pairingToken, forceRefresh))
+        val connection = open(danmakuUrl(baseUrl, mediaId, forceRefresh))
         return try {
             connection.requireResponse(HttpURLConnection.HTTP_OK)
             json.decodeFromString(
@@ -139,10 +129,9 @@ class JvmLanLibraryClient(
 
     override fun saveProgress(
         baseUrl: String,
-        pairingToken: String,
         progress: PlaybackProgress,
     ) {
-        val connection = open(progressUrl(baseUrl, progress.mediaId, pairingToken)).apply {
+        val connection = open(progressUrl(baseUrl, progress.mediaId)).apply {
             requestMethod = "PUT"
             doOutput = true
             setRequestProperty("Content-Type", "application/json; charset=utf-8")
@@ -160,20 +149,15 @@ class JvmLanLibraryClient(
     private fun progressUrl(
         baseUrl: String,
         mediaId: String,
-        pairingToken: String,
     ): String =
         "${baseUrl.trimEnd('/')}/api/progress/${mediaId.encoded()}"
 
-    private fun progressListUrl(
-        baseUrl: String,
-        pairingToken: String,
-    ): String =
+    private fun progressListUrl(baseUrl: String): String =
         "${baseUrl.trimEnd('/')}/api/progress"
 
     private fun danmakuUrl(
         baseUrl: String,
         mediaId: String,
-        pairingToken: String,
         forceRefresh: Boolean,
     ): String =
         "${baseUrl.trimEnd('/')}/api/danmaku/${mediaId.encoded()}?forceRefresh=$forceRefresh"

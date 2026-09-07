@@ -82,7 +82,6 @@ impl LocalHostStatus {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LocalConnection {
     pub base_url: String,
-    pub pairing_token: Option<String>,
 }
 
 const BACKGROUND_HOST_CONFIG_NAME: &str = "background-host.json";
@@ -397,7 +396,7 @@ fn launch_or_attach(
 ) -> SupervisorEvent {
     let package = match target {
         LocalHostTarget::Background(background) => {
-            return wait_for_background_host(generation, &background, &data_directory);
+            return wait_for_background_host(generation, &background);
         }
         LocalHostTarget::Packaged(package) => package,
     };
@@ -406,7 +405,6 @@ fn launch_or_attach(
             generation,
             connection: LocalConnection {
                 base_url: DEFAULT_BASE_URL.to_owned(),
-                pairing_token: read_pairing_token(&data_directory),
             },
             child: None,
             ownership: LocalHostOwnership::External,
@@ -473,13 +471,7 @@ fn launch_server(
     let deadline = Instant::now() + READY_TIMEOUT;
     while Instant::now() < deadline {
         if server_is_ready(&base_url) {
-            return Ok((
-                LocalConnection {
-                    base_url,
-                    pairing_token: read_pairing_token(&data_directory),
-                },
-                child,
-            ));
+            return Ok((LocalConnection { base_url }, child));
         }
         if let Some(status) = child
             .try_wait()
@@ -550,11 +542,7 @@ fn read_background_host_config(
     Ok(Some(config))
 }
 
-fn wait_for_background_host(
-    generation: u64,
-    background: &BackgroundHostConfig,
-    data_directory: &Path,
-) -> SupervisorEvent {
+fn wait_for_background_host(generation: u64, background: &BackgroundHostConfig) -> SupervisorEvent {
     let deadline = Instant::now() + READY_TIMEOUT;
     while Instant::now() < deadline {
         if server_is_ready(&background.base_url) {
@@ -562,7 +550,6 @@ fn wait_for_background_host(
                 generation,
                 connection: LocalConnection {
                     base_url: background.base_url.clone(),
-                    pairing_token: read_pairing_token(data_directory),
                 },
                 child: None,
                 ownership: LocalHostOwnership::BackgroundHost,
@@ -585,20 +572,6 @@ fn open_log(data_directory: &Path) -> Result<File, String> {
         .append(true)
         .open(data_directory.join("sidecar.log"))
         .map_err(|error| format!("failed to open local server log: {error}"))
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ServerSettingsSnapshot {
-    pairing_token: Option<String>,
-}
-
-fn read_pairing_token(data_directory: &Path) -> Option<String> {
-    let body = fs::read_to_string(data_directory.join("server-settings.json")).ok()?;
-    serde_json::from_str::<ServerSettingsSnapshot>(&body)
-        .ok()?
-        .pairing_token
-        .filter(|token| !token.trim().is_empty())
 }
 
 fn normalize_roots(roots: &[String]) -> Vec<PathBuf> {
@@ -690,20 +663,6 @@ mod tests {
         assert!(web_asset_candidates(executable_directory).contains(
             &Path::new("/Applications/Danmaku.app/Contents/MacOS/../Resources/web").to_path_buf()
         ));
-    }
-
-    #[test]
-    fn reads_pairing_token_without_exposing_other_settings() {
-        let directory = TestDirectory::new("host-settings");
-        fs::write(
-            directory.path().join("server-settings.json"),
-            r#"{"pairingToken":"123456","libraryRoots":["W:/Anime"]}"#,
-        )
-        .expect("settings write");
-        assert_eq!(
-            read_pairing_token(directory.path()),
-            Some("123456".to_owned())
-        );
     }
 
     #[test]

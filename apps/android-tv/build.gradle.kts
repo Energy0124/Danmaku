@@ -54,9 +54,6 @@ val updateManifestUrl = providers.gradleProperty("danmaku.updateManifestUrl").ge
 val defaultServerUrl = providers.gradleProperty("danmaku.tv.defaultServerUrl")
     .orElse(providers.environmentVariable("DANMAKU_TV_DEFAULT_SERVER_URL"))
     .getOrElse("")
-val defaultPairingToken = providers.gradleProperty("danmaku.tv.defaultPairingToken")
-    .orElse(providers.environmentVariable("DANMAKU_TV_DEFAULT_PAIRING_TOKEN"))
-    .getOrElse("")
 
 fun String.toBuildConfigString(): String =
     "\"" + replace("\\", "\\\\").replace("\"", "\\\"") + "\""
@@ -73,7 +70,6 @@ android {
         versionName = releaseVersionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "DEFAULT_SERVER_URL", defaultServerUrl.toBuildConfigString())
-        buildConfigField("String", "DEFAULT_PAIRING_TOKEN", defaultPairingToken.toBuildConfigString())
         buildConfigField("boolean", "TV_QA_FIXTURES_ENABLED", "false")
         buildConfigField("String", "UPDATE_MANIFEST_URL", updateManifestUrl.toBuildConfigString())
     }

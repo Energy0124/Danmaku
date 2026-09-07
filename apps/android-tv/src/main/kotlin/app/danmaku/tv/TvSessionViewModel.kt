@@ -50,8 +50,6 @@ internal class TvSessionViewModel(
 
     fun updateServerUrl(value: String) = repository.updateServerUrl(value)
 
-    fun updatePairingToken(value: String) = repository.updatePairingToken(value)
-
     fun refreshLibrary(navigateOnSuccess: Boolean = true) {
         viewModelScope.launch {
             discoveryError.value = null

@@ -44,7 +44,6 @@ class LanProtocolFixtureServer(
     private val forceRefreshCount = AtomicInteger()
 
     val baseUrl: String = "http://127.0.0.1:${socket.localPort}"
-    val pairingToken: String = "token with spaces"
     val danmakuForceRefreshRequests: Int
         get() = forceRefreshCount.get()
     @Volatile

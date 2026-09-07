@@ -32,7 +32,6 @@ internal class TvLibraryRepository(
     private val favoriteStore: AndroidLibraryFavoriteStore,
     private val catalogCache: TvCatalogCache,
     defaultServerUrl: String,
-    defaultPairingToken: String,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val trackingClient: LanExternalTrackingClient = LanExternalTrackingClient(),
 ): TvPlaybackSession {
@@ -44,7 +43,6 @@ internal class TvLibraryRepository(
         TvSessionUiState(
             savedConnections = initialConnections,
             serverUrl = initialConnections.firstOrNull()?.baseUrl ?: defaultServerUrl.trim(),
-            pairingToken = initialConnections.firstOrNull()?.pairingToken ?: defaultPairingToken.trim(),
             favoriteMediaIds = favoriteStore.loadFavoriteMediaIds(),
         ),
     )
@@ -59,21 +57,6 @@ internal class TvLibraryRepository(
         mutableState.update {
             it.copy(
                 serverUrl = serverUrl,
-                isRefreshing = false,
-                errorMessage = null,
-                tracking = TvTrackingState(),
-                folderRefresh = TvFolderRefreshState(),
-            )
-        }
-    }
-
-    fun updatePairingToken(pairingToken: String) {
-        invalidateRefresh()
-        invalidateTracking()
-        invalidateFolderRefresh()
-        mutableState.update {
-            it.copy(
-                pairingToken = pairingToken,
                 isRefreshing = false,
                 errorMessage = null,
                 tracking = TvTrackingState(),
@@ -110,10 +93,7 @@ internal class TvLibraryRepository(
         mutableState.update { it.copy(isRefreshing = true, errorMessage = null) }
         return runCatching {
             withContext(ioDispatcher) {
-                connectionSession.fetchCatalogWithProgress(
-                    baseUrl = request.serverUrl,
-                    pairingToken = request.pairingToken,
-                )
+                connectionSession.fetchCatalogWithProgress(request.serverUrl)
             }
         }.map { snapshot ->
             if (refreshGeneration.get() != generation) {
@@ -130,7 +110,6 @@ internal class TvLibraryRepository(
             withContext(ioDispatcher) {
                 connectionStore.saveCurrentConnection(
                     baseUrl = request.serverUrl,
-                    pairingToken = request.pairingToken,
                     displayName = snapshot.catalog.rootName,
                 )
             }
@@ -203,10 +182,7 @@ internal class TvLibraryRepository(
                 }
             }
             withContext(ioDispatcher) {
-                connectionSession.fetchCatalogWithProgress(
-                    request.serverUrl,
-                    request.pairingToken,
-                )
+                connectionSession.fetchCatalogWithProgress(request.serverUrl)
             }
         }.map { snapshot ->
             if (snapshot == null || !isCurrentFolderRefresh(request, generation)) {
@@ -251,8 +227,7 @@ internal class TvLibraryRepository(
 
     private fun isCurrentFolderRefresh(request: TvSessionUiState, generation: Long): Boolean =
         folderRefreshGeneration.get() == generation &&
-            state.value.serverUrl == request.serverUrl &&
-            state.value.pairingToken == request.pairingToken
+            state.value.serverUrl == request.serverUrl
 
     private fun invalidateFolderRefresh() {
         folderRefreshGeneration.incrementAndGet()
@@ -264,7 +239,6 @@ internal class TvLibraryRepository(
             withContext(ioDispatcher) {
                 connectionStore.saveCurrentConnection(
                     baseUrl = current.serverUrl,
-                    pairingToken = current.pairingToken,
                     displayName = current.catalog?.rootName,
                 )
             }
@@ -280,13 +254,13 @@ internal class TvLibraryRepository(
 
     suspend fun loadTracking(): Result<Unit> {
         val request = state.value
-        if (request.serverUrl.isBlank() || request.pairingToken.isBlank()) return Result.success(Unit)
+        if (request.serverUrl.isBlank()) return Result.success(Unit)
         val generation = trackingGeneration.incrementAndGet()
         mutableState.update { it.copy(tracking = it.tracking.copy(isBusy = true, error = null, errorDetail = null)) }
         return runCatching {
             withContext(ioDispatcher) {
-                trackingClient.fetchAccounts(request.serverUrl, request.pairingToken) to
-                    trackingClient.fetchTracking(request.serverUrl, request.pairingToken)
+                trackingClient.fetchAccounts(request.serverUrl) to
+                    trackingClient.fetchTracking(request.serverUrl)
             }
         }.map { (accounts, document) ->
             if (trackingGeneration.get() == generation && state.value.matches(request)) {
@@ -327,7 +301,7 @@ internal class TvLibraryRepository(
         }
         return runCatching {
             withContext(ioDispatcher) {
-                trackingClient.refreshReadback(request.serverUrl, request.pairingToken)
+                trackingClient.refreshReadback(request.serverUrl)
             }
         }.map { response ->
             if (trackingGeneration.get() == generation && state.value.matches(request)) {
@@ -370,7 +344,7 @@ internal class TvLibraryRepository(
         }
         return runCatching {
             withContext(ioDispatcher) {
-                trackingClient.sync(request.serverUrl, request.pairingToken, updates)
+                trackingClient.sync(request.serverUrl, updates)
             }
         }.map { response ->
             if (trackingGeneration.get() == generation && state.value.matches(request)) {
@@ -412,7 +386,6 @@ internal class TvLibraryRepository(
         mutableState.update {
             it.copy(
                 serverUrl = connection.baseUrl,
-                pairingToken = connection.pairingToken,
                 catalog = null,
                 playbackProgresses = emptyList(),
                 catalogSource = TvCatalogSource.None,
@@ -439,7 +412,6 @@ internal class TvLibraryRepository(
                 current.copy(
                     savedConnections = saved,
                     serverUrl = saved.firstOrNull()?.baseUrl.orEmpty(),
-                    pairingToken = saved.firstOrNull()?.pairingToken.orEmpty(),
                     catalog = null,
                     playbackProgresses = emptyList(),
                     catalogSource = TvCatalogSource.None,
@@ -463,7 +435,6 @@ internal class TvLibraryRepository(
         isQaFixtureInstalled = true
         mutableState.value = TvSessionUiState(
             serverUrl = "http://10.0.2.2:18688",
-            pairingToken = "qa-fixture",
             catalog = fixture.catalog,
             playbackProgresses = fixture.progresses,
             favoriteMediaIds = fixture.favorites,
@@ -527,19 +498,13 @@ internal class TvLibraryRepository(
     }
 
     private fun TvSessionUiState.matches(other: TvSessionUiState): Boolean =
-        serverUrl.trim().trimEnd('/') == other.serverUrl.trim().trimEnd('/') &&
-            pairingToken == other.pairingToken
+        serverUrl.trim().trimEnd('/') == other.serverUrl.trim().trimEnd('/')
 
-    private fun trackingError(error: Throwable): TvTrackingError =
-        if ((error as? LanExternalTrackingException)?.statusCode == 401) {
-            TvTrackingError.ACCESS_CODE_REJECTED
-        } else {
-            TvTrackingError.REQUEST_FAILED
-        }
+    private fun trackingError(error: Throwable): TvTrackingError = TvTrackingError.REQUEST_FAILED
 
     private fun trackingErrorDetail(error: Throwable): String? {
         val providerError = error as? LanExternalTrackingException ?: return null
-        if (providerError.statusCode in setOf(401, 409)) return null
+        if (providerError.statusCode == 409) return null
         return providerError.message
             ?.trim()
             ?.lineSequence()
@@ -554,7 +519,7 @@ internal class TvLibraryRepository(
     ) {
         val accounts = runCatching {
             withContext(ioDispatcher) {
-                trackingClient.fetchAccounts(request.serverUrl, request.pairingToken)
+                trackingClient.fetchAccounts(request.serverUrl)
             }
         }.getOrNull() ?: return
         if (trackingGeneration.get() == generation && state.value.matches(request)) {
@@ -565,8 +530,7 @@ internal class TvLibraryRepository(
     }
 
     private fun TvSessionUiState.matches(target: LanPlaybackTarget): Boolean =
-        serverUrl.trim().trimEnd('/') == target.baseUrl.trim().trimEnd('/') &&
-            pairingToken == target.pairingToken
+        serverUrl.trim().trimEnd('/') == target.baseUrl.trim().trimEnd('/')
 }
 
 private class TvFolderScanException(message: String) : RuntimeException(message)

@@ -583,7 +583,6 @@ class MobileLibraryPageTest {
     fun connectionPanelPrioritizesSavedPcPickerAndRevealsManualFieldsForEditing() {
         val profile = lanLibraryConnectionProfile(
             baseUrl = "http://living-room-pc:8686",
-            pairingToken = "123456",
             displayName = "Living Room PC",
         )
         var selectedConnection: LanLibraryConnectionProfile? = null

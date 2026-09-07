@@ -73,7 +73,7 @@ class LanLibraryClientIntegrationTest {
             val client = LanLibraryClient()
 
             assertEquals(LanLibraryServerStatus(), client.fetchServerStatus(server.baseUrl))
-            assertEquals(catalog, client.fetchCatalog(server.baseUrl, server.pairingToken))
+            assertEquals(catalog, client.fetchCatalog(server.baseUrl))
             client.requestFolderRescan(
                 server.baseUrl,
                 listOf("Example Show", "Season 2"),
@@ -85,23 +85,23 @@ class LanLibraryClientIntegrationTest {
             assertEquals(null, server.lastRescanAuthorization)
             assertArrayEquals(
                 mediaBytes,
-                URI(client.streamUrl(server.baseUrl, item, server.pairingToken))
+                URI(client.streamUrl(server.baseUrl, item))
                     .toURL()
                     .openStream()
                     .use { it.readBytes() },
             )
             assertArrayEquals(
                 subtitleBytes,
-                URI(client.subtitleUrl(server.baseUrl, subtitle, server.pairingToken))
+                URI(client.subtitleUrl(server.baseUrl, subtitle))
                     .toURL()
                     .openStream()
                     .use { it.readBytes() },
             )
             assertEquals(
                 emptyList<PlaybackProgress>(),
-                client.fetchAllProgress(server.baseUrl, server.pairingToken),
+                client.fetchAllProgress(server.baseUrl),
             )
-            assertNull(client.fetchProgress(server.baseUrl, item.id, server.pairingToken))
+            assertNull(client.fetchProgress(server.baseUrl, item.id))
 
             assertEquals(
                 400,
@@ -117,25 +117,24 @@ class LanLibraryClientIntegrationTest {
             )
             assertEquals(
                 emptyList<PlaybackProgress>(),
-                client.fetchAllProgress(server.baseUrl, server.pairingToken),
+                client.fetchAllProgress(server.baseUrl),
             )
 
-            client.saveProgress(server.baseUrl, server.pairingToken, progress)
+            client.saveProgress(server.baseUrl, progress)
 
             assertEquals(
                 progress,
-                client.fetchProgress(server.baseUrl, item.id, server.pairingToken),
+                client.fetchProgress(server.baseUrl, item.id),
             )
             assertEquals(
                 listOf(progress),
-                client.fetchAllProgress(server.baseUrl, server.pairingToken),
+                client.fetchAllProgress(server.baseUrl),
             )
             assertEquals(
                 danmakuTrack,
                 client.fetchDanmaku(
                     server.baseUrl,
                     item.id,
-                    server.pairingToken,
                     forceRefresh = true,
                 ),
             )
@@ -149,7 +148,7 @@ class LanLibraryClientIntegrationTest {
             val client = LanLibraryClient()
 
             val failure = runCatching {
-                client.fetchDanmaku(server.baseUrl, "missing", "", forceRefresh = false)
+                client.fetchDanmaku(server.baseUrl, "missing", forceRefresh = false)
             }.exceptionOrNull()
 
             assertTrue(failure is LanLibraryClientException)

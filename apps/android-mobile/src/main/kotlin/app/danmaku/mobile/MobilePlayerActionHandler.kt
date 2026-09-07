@@ -53,7 +53,6 @@ internal class MobilePlayerActionHandler(
         if (state.catalog != null) return
         connectToLibrary(
             requestedServerUrl = state.serverUrl,
-            requestedPairingToken = state.pairingToken,
             discoverOnFailure = true,
         )
     }
@@ -62,14 +61,13 @@ internal class MobilePlayerActionHandler(
         resetFolderRefresh()
         scope.launch {
             runCatching { discoverFirstServerUrl() }
-                .onSuccess { connectToLibrary(it, "") }
+                .onSuccess { connectToLibrary(it) }
                 .onFailure { state.libraryError = it.message }
         }
     }
 
     fun connectToLibrary(
         requestedServerUrl: String,
-        requestedPairingToken: String,
         fallbackDisplayName: String? = null,
         discoverOnFailure: Boolean = false,
     ) {
@@ -77,12 +75,11 @@ internal class MobilePlayerActionHandler(
         val generation = connectionGeneration.incrementAndGet()
         scope.launch {
             runCatching {
-                fetchCatalogWithProgress(requestedServerUrl, requestedPairingToken)
+                fetchCatalogWithProgress(requestedServerUrl)
             }.onSuccess {
                 if (connectionGeneration.get() != generation) return@onSuccess
                 applyLibraryConnection(
                     requestedServerUrl = requestedServerUrl,
-                    requestedPairingToken = requestedPairingToken,
                     fallbackDisplayName = fallbackDisplayName,
                     snapshot = it,
                     generation = generation,
@@ -99,12 +96,11 @@ internal class MobilePlayerActionHandler(
     }
 
     fun refreshLibrary() {
-        connectToLibrary(state.serverUrl, state.pairingToken)
+        connectToLibrary(state.serverUrl)
     }
 
     fun refreshFolder(path: List<String>) {
         val baseUrl = state.serverUrl.trim().trimEnd('/')
-        val token = state.pairingToken
         if (baseUrl.isBlank()) {
             state.folderRefreshError = MobileFolderRefreshError.REQUEST_FAILED
             state.folderRefreshErrorDetail = null
@@ -125,23 +121,23 @@ internal class MobilePlayerActionHandler(
                     val status = withContext(Dispatchers.IO) {
                         libraryConnectionSession.validateServer(baseUrl)
                     }
-                    if (!isCurrentFolderRefresh(baseUrl, token, generation)) return@launch
+                    if (!isCurrentFolderRefresh(baseUrl, generation)) return@launch
                     state.folderRefreshFilesSeen = status.scanFilesSeen
                     if (!status.scanning) {
                         status.scanError?.let { throw FolderScanException(it) }
                         break
                     }
                 }
-                fetchCatalogWithProgress(baseUrl, token)
+                fetchCatalogWithProgress(baseUrl)
             }.onSuccess { snapshot ->
-                if (!isCurrentFolderRefresh(baseUrl, token, generation)) return@onSuccess
+                if (!isCurrentFolderRefresh(baseUrl, generation)) return@onSuccess
                 state.catalog = snapshot.catalog
                 state.playbackProgresses = snapshot.playbackProgresses
                 state.libraryError = null
                 state.folderRefreshInProgress = false
                 state.folderRefreshFilesSeen = null
             }.onFailure { error ->
-                if (!isCurrentFolderRefresh(baseUrl, token, generation)) return@onFailure
+                if (!isCurrentFolderRefresh(baseUrl, generation)) return@onFailure
                 state.folderRefreshInProgress = false
                 state.folderRefreshError = when {
                     error is LanLibraryClientException && error.statusCode == 409 ->
@@ -154,10 +150,9 @@ internal class MobilePlayerActionHandler(
         }
     }
 
-    private fun isCurrentFolderRefresh(baseUrl: String, token: String, generation: Long): Boolean =
+    private fun isCurrentFolderRefresh(baseUrl: String, generation: Long): Boolean =
         folderRefreshGeneration.get() == generation &&
-            state.serverUrl.trim().trimEnd('/') == baseUrl &&
-            state.pairingToken == token
+            state.serverUrl.trim().trimEnd('/') == baseUrl
 
     private fun resetFolderRefresh() {
         folderRefreshGeneration.incrementAndGet()
@@ -169,11 +164,8 @@ internal class MobilePlayerActionHandler(
 
     fun loadTracking() {
         val baseUrl = state.serverUrl.trim().trimEnd('/')
-        val token = state.pairingToken
-        if (baseUrl.isBlank() || token.isBlank()) {
-            state.tracking = MobileTrackingState(
-                error = MobileTrackingError.ACCESS_CODE_REQUIRED,
-            )
+        if (baseUrl.isBlank()) {
+            state.tracking = MobileTrackingState(error = MobileTrackingError.REQUEST_FAILED)
             return
         }
         val generation = trackingGeneration.incrementAndGet()
@@ -181,14 +173,13 @@ internal class MobilePlayerActionHandler(
         scope.launch {
             runCatching {
                 withContext(Dispatchers.IO) {
-                    trackingClient.fetchAccounts(baseUrl, token) to
-                        trackingClient.fetchTracking(baseUrl, token)
+                    trackingClient.fetchAccounts(baseUrl) to trackingClient.fetchTracking(baseUrl)
                 }
             }.onSuccess { (accounts, document) ->
-                if (!isCurrentTrackingRequest(baseUrl, token, generation)) return@onSuccess
+                if (!isCurrentTrackingRequest(baseUrl, generation)) return@onSuccess
                 state.tracking = MobileTrackingState(accounts = accounts, document = document)
             }.onFailure { error ->
-                if (!isCurrentTrackingRequest(baseUrl, token, generation)) return@onFailure
+                if (!isCurrentTrackingRequest(baseUrl, generation)) return@onFailure
                 state.tracking = state.tracking.copy(
                     isBusy = false,
                     error = trackingError(error),
@@ -200,8 +191,7 @@ internal class MobilePlayerActionHandler(
 
     fun readTracking() {
         val baseUrl = state.serverUrl.trim().trimEnd('/')
-        val token = state.pairingToken
-        if (baseUrl.isBlank() || token.isBlank()) return
+        if (baseUrl.isBlank()) return
         val generation = trackingGeneration.incrementAndGet()
         state.tracking = state.tracking.copy(
             isBusy = true,
@@ -212,9 +202,9 @@ internal class MobilePlayerActionHandler(
             lastResponse = null,
         )
         scope.launch {
-            runCatching { withContext(Dispatchers.IO) { trackingClient.refreshReadback(baseUrl, token) } }
+            runCatching { withContext(Dispatchers.IO) { trackingClient.refreshReadback(baseUrl) } }
                 .onSuccess { response ->
-                    if (!isCurrentTrackingRequest(baseUrl, token, generation)) return@onSuccess
+                    if (!isCurrentTrackingRequest(baseUrl, generation)) return@onSuccess
                     state.tracking = state.tracking.copy(
                         document = response.document,
                         isBusy = false,
@@ -224,13 +214,13 @@ internal class MobilePlayerActionHandler(
                     )
                 }
                 .onFailure { error ->
-                    if (!isCurrentTrackingRequest(baseUrl, token, generation)) return@onFailure
+                    if (!isCurrentTrackingRequest(baseUrl, generation)) return@onFailure
                     state.tracking = state.tracking.copy(
                         isBusy = false,
                         error = trackingError(error),
                         errorDetail = trackingErrorDetail(error),
                     )
-                    refreshTrackingAccountsAfterFailure(baseUrl, token, generation)
+                    refreshTrackingAccountsAfterFailure(baseUrl, generation)
                 }
         }
     }
@@ -241,13 +231,12 @@ internal class MobilePlayerActionHandler(
         val expectedUpdates = current.document?.plan?.updates?.map { it.update }.orEmpty()
         if (expectedUpdates.isEmpty()) return
         val baseUrl = state.serverUrl.trim().trimEnd('/')
-        val token = state.pairingToken
         val generation = trackingGeneration.incrementAndGet()
         state.tracking = current.copy(isBusy = true, hasFreshReadback = false, error = null, errorDetail = null)
         scope.launch {
-            runCatching { withContext(Dispatchers.IO) { trackingClient.sync(baseUrl, token, expectedUpdates) } }
+            runCatching { withContext(Dispatchers.IO) { trackingClient.sync(baseUrl, expectedUpdates) } }
                 .onSuccess { response ->
-                    if (!isCurrentTrackingRequest(baseUrl, token, generation)) return@onSuccess
+                    if (!isCurrentTrackingRequest(baseUrl, generation)) return@onSuccess
                     state.tracking = state.tracking.copy(
                         document = response.document,
                         isBusy = false,
@@ -256,7 +245,7 @@ internal class MobilePlayerActionHandler(
                     )
                 }
                 .onFailure { error ->
-                    if (!isCurrentTrackingRequest(baseUrl, token, generation)) return@onFailure
+                    if (!isCurrentTrackingRequest(baseUrl, generation)) return@onFailure
                     state.tracking = state.tracking.copy(
                         isBusy = false,
                         error = if ((error as? LanExternalTrackingException)?.statusCode == 409) {
@@ -266,20 +255,19 @@ internal class MobilePlayerActionHandler(
                         },
                         errorDetail = trackingErrorDetail(error),
                     )
-                    refreshTrackingAccountsAfterFailure(baseUrl, token, generation)
+                    refreshTrackingAccountsAfterFailure(baseUrl, generation)
                 }
         }
     }
 
     private suspend fun refreshTrackingAccountsAfterFailure(
         baseUrl: String,
-        token: String,
         generation: Long,
     ) {
         val accounts = runCatching {
-            withContext(Dispatchers.IO) { trackingClient.fetchAccounts(baseUrl, token) }
+            withContext(Dispatchers.IO) { trackingClient.fetchAccounts(baseUrl) }
         }.getOrNull() ?: return
-        if (isCurrentTrackingRequest(baseUrl, token, generation)) {
+        if (isCurrentTrackingRequest(baseUrl, generation)) {
             state.tracking = state.tracking.copy(accounts = accounts)
         }
     }
@@ -292,20 +280,15 @@ internal class MobilePlayerActionHandler(
         )
     }
 
-    private fun isCurrentTrackingRequest(baseUrl: String, token: String, generation: Long): Boolean =
+    private fun isCurrentTrackingRequest(baseUrl: String, generation: Long): Boolean =
         trackingGeneration.get() == generation &&
-        state.serverUrl.trim().trimEnd('/') == baseUrl && state.pairingToken == token
+        state.serverUrl.trim().trimEnd('/') == baseUrl
 
-    private fun trackingError(error: Throwable): MobileTrackingError =
-        if ((error as? LanExternalTrackingException)?.statusCode == 401) {
-            MobileTrackingError.ACCESS_CODE_REJECTED
-        } else {
-            MobileTrackingError.REQUEST_FAILED
-        }
+    private fun trackingError(error: Throwable): MobileTrackingError = MobileTrackingError.REQUEST_FAILED
 
     private fun trackingErrorDetail(error: Throwable): String? {
         val providerError = error as? LanExternalTrackingException ?: return null
-        if (providerError.statusCode in setOf(401, 409)) return null
+        if (providerError.statusCode == 409) return null
         return providerError.message
             ?.trim()
             ?.lineSequence()
@@ -320,13 +303,12 @@ internal class MobilePlayerActionHandler(
     ) {
         runCatching {
             val discoveredServerUrl = discoverFirstServerUrl()
-            val snapshot = fetchCatalogWithProgress(discoveredServerUrl, "")
+            val snapshot = fetchCatalogWithProgress(discoveredServerUrl)
             discoveredServerUrl to snapshot
         }.onSuccess { (discoveredServerUrl, snapshot) ->
             if (connectionGeneration.get() != generation) return@onSuccess
             applyLibraryConnection(
                 requestedServerUrl = discoveredServerUrl,
-                requestedPairingToken = "",
                 fallbackDisplayName = null,
                 snapshot = snapshot,
                 generation = generation,
@@ -346,34 +328,24 @@ internal class MobilePlayerActionHandler(
                 ?: throw LanLibraryDiscoveryException("No Windows library server discovered")
         }
 
-    private suspend fun fetchCatalogWithProgress(
-        baseUrl: String,
-        pairingToken: String,
-    ): LanLibraryConnectionSnapshot =
+    private suspend fun fetchCatalogWithProgress(baseUrl: String): LanLibraryConnectionSnapshot =
         withContext(Dispatchers.IO) {
-            libraryConnectionSession.fetchCatalogWithProgress(
-                baseUrl = baseUrl,
-                pairingToken = pairingToken,
-            )
+            libraryConnectionSession.fetchCatalogWithProgress(baseUrl)
         }
 
     private fun applyLibraryConnection(
         requestedServerUrl: String,
-        requestedPairingToken: String,
         fallbackDisplayName: String?,
         snapshot: LanLibraryConnectionSnapshot,
         generation: Long,
     ) {
         val connectedServerUrl = requestedServerUrl.trim().trimEnd('/')
-        val connectedPairingToken = requestedPairingToken
         val connectedRemoteProgress = snapshot.playbackProgresses.toList()
         state.serverUrl = connectedServerUrl
-        state.pairingToken = connectedPairingToken
         state.catalog = snapshot.catalog
         state.playbackProgresses = snapshot.playbackProgresses
         connectionStore.saveCurrentConnection(
             baseUrl = requestedServerUrl,
-            pairingToken = requestedPairingToken,
             displayName = snapshot.catalog.rootName.ifBlank { fallbackDisplayName },
         )
         state.savedConnections = connectionStore.loadProfiles()
@@ -383,13 +355,11 @@ internal class MobilePlayerActionHandler(
             val mergedProgress = withContext(Dispatchers.IO) {
                 offlineCacheRepository.syncPendingProgress(
                     serverUrl = connectedServerUrl,
-                    pairingToken = connectedPairingToken,
                     remoteProgress = connectedRemoteProgress,
                 )
             }
             if (
                 state.serverUrl == connectedServerUrl &&
-                state.pairingToken == connectedPairingToken &&
                 connectionGeneration.get() == generation
             ) {
                 state.playbackProgresses = mergedProgress
@@ -419,20 +389,19 @@ internal class MobilePlayerActionHandler(
         }
 
         val serverUrl = state.serverUrl
-        val pairingToken = state.pairingToken
         val generation = playbackGeneration.incrementAndGet()
         scope.launch {
             val cached = withContext(Dispatchers.IO) {
                 offlineCacheRepository.playable(serverUrl, item.id)
             }
             if (
-                state.serverUrl != serverUrl || state.pairingToken != pairingToken ||
+                state.serverUrl != serverUrl ||
                 playbackGeneration.get() != generation
             ) return@launch
             if (cached != null) {
                 playCached(cached)
             } else {
-                playRemoteEpisode(item, activeController, serverUrl, pairingToken)
+                playRemoteEpisode(item, activeController, serverUrl)
             }
         }
     }
@@ -441,9 +410,8 @@ internal class MobilePlayerActionHandler(
         item: LibraryMediaItem,
         activeController: Media3PlaybackController,
         serverUrl: String,
-        pairingToken: String,
     ) {
-        val target = LanPlaybackTarget(serverUrl, pairingToken, item.id)
+        val target = LanPlaybackTarget(serverUrl, item.id)
         val previousTarget = state.activePlaybackTarget
         if (previousTarget != null && previousTarget != target) {
             val previousSnapshot = activeController.snapshot()
@@ -480,7 +448,6 @@ internal class MobilePlayerActionHandler(
                 }.getOrNull()
                 val preparation = playbackPreparer.prepare(
                     baseUrl = target.baseUrl,
-                    pairingToken = target.pairingToken,
                     item = item,
                     resumePositionMs = resumePosition,
                 )
@@ -611,7 +578,6 @@ internal class MobilePlayerActionHandler(
     fun selectConnection(connection: LanLibraryConnectionProfile) {
         connectToLibrary(
             requestedServerUrl = connection.baseUrl,
-            requestedPairingToken = connection.pairingToken,
             fallbackDisplayName = connection.displayName,
         )
     }
@@ -619,7 +585,6 @@ internal class MobilePlayerActionHandler(
     fun editConnection(connection: LanLibraryConnectionProfile) {
         resetFolderRefresh()
         state.serverUrl = connection.baseUrl
-        state.pairingToken = connection.pairingToken
         state.tracking = MobileTrackingState()
     }
 
@@ -632,7 +597,6 @@ internal class MobilePlayerActionHandler(
         runCatching {
             connectionStore.saveCurrentConnection(
                 baseUrl = state.serverUrl,
-                pairingToken = state.pairingToken,
                 displayName = state.catalog?.rootName,
             )
         }.onSuccess {
@@ -681,11 +645,6 @@ internal class MobilePlayerActionHandler(
             onServerUrlChange = {
                 resetFolderRefresh()
                 state.serverUrl = it
-                state.tracking = MobileTrackingState()
-            },
-            onPairingTokenChange = {
-                resetFolderRefresh()
-                state.pairingToken = it
                 state.tracking = MobileTrackingState()
             },
             onSelectConnection = ::selectConnection,
