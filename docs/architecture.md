@@ -26,14 +26,25 @@ resolves a client folder path against configured roots, scans in the
 background, and atomically merges that subtree into the persisted catalog.
 They follow the catalog's code-free LAN access rather than provider
 administration authentication.
-Library organization is a separate desktop-only mutation boundary. The egui
-client requests a read-only plan, submits the exact approved series manifest,
-and polls progress. `native/library-server` validates the catalog revision,
-configured root, loopback peer, bearer token, and every source/destination;
-then it journals each rename, updates catalog paths without changing media IDs,
-and provides rollback and one-series undo. Android, TV, and browser clients do
-not receive this capability.
-It owns MAL OAuth state/token exchange and encrypted refresh tokens; the native
+Library organization is a separate desktop-only mutation boundary. Focused
+selection and review modules in the egui client cache catalog-derived selection
+and draft-derived queue indexes and virtualize long lists. The server owns an
+atomically persisted revisioned draft; candidate discovery uses dandanplay
+matching/search directly without resolving comments. Identification results are
+normalized draft proposals until explicitly saved to the metadata store.
+
+Previews bind a review group to its draft revision, catalog/root revision, and
+exact manifest. Executable plans are transient and never restored as approvals.
+The shared scan/mutation gate serializes catalog changes. Operations carry both
+source and destination roots; catalog updates preserve media and subtitle IDs.
+Same-volume transfers use no-overwrite moves. Cross-volume transfers stage all
+files, flush and SHA-256 verify them, publish without overwrite, then remove
+verified originals. Journal v2 tracks ownership and durable phases for rollback,
+reverse transfers, and interrupted-drive recovery; v1 history remains readable
+for recovery and undo. The native session capability requires loopback access
+and rejects browser origins; Android, TV, and browser clients do not receive it.
+
+The library server owns MAL OAuthIt owns MAL OAuth state/token exchange and encrypted refresh tokens; the native
 player owns only the fixed loopback browser callback and forwards the short-
 lived authorization code. Bangumi tokens are validated against `/v0/me`
 before encrypted storage.

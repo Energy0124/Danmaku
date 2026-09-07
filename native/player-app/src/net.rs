@@ -84,6 +84,39 @@ pub(crate) fn http_json(
     require_status(response, &[200, 201, 202, 204])?.body_string()
 }
 
+/// Organizer capability bootstrap is limited to the native loopback client.
+pub(crate) fn organizer_json(
+    base_url: &str,
+    method: &str,
+    path: &str,
+    body: Option<&str>,
+) -> Result<String, String> {
+    let base = HttpBase::parse(base_url)?;
+    if base.host != "localhost"
+        && !base
+            .host
+            .parse::<std::net::IpAddr>()
+            .is_ok_and(|ip| ip.is_loopback())
+    {
+        return Err("Library organization is available only on this desktop.".into());
+    }
+    let session = http_json(base_url, "GET", "/api/library/organize/session", None)?;
+    let session: serde_json::Value = serde_json::from_str(&session).map_err(|e| e.to_string())?;
+    let token = session["token"]
+        .as_str()
+        .ok_or_else(|| "Desktop organizer capability is unavailable.".to_owned())?;
+    let authorization = format!("Bearer {token}");
+    let body = body.map(|body| ("application/json; charset=utf-8", body.as_bytes()));
+    let response = http_request_with_headers(
+        base_url,
+        method,
+        path,
+        body,
+        &[("Authorization", &authorization)],
+    )?;
+    require_status(response, &[200, 201, 202, 204])?.body_string()
+}
+
 fn require_status(response: HttpResponse, accepted: &[u16]) -> Result<HttpResponse, String> {
     if accepted.contains(&response.status) {
         Ok(response)

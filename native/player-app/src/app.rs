@@ -865,10 +865,10 @@ impl PlayerApp {
         let Some(session) = &self.session else {
             return;
         };
-        let organizer_active = session
-            .organization_status
-            .as_ref()
-            .is_some_and(|status| matches!(status.state.as_str(), "RUNNING" | "ROLLING_BACK"));
+        let organizer_active = session.organization_status.as_ref().is_some_and(|status| {
+            status.identification.running
+                || matches!(status.state.as_str(), "RUNNING" | "ROLLING_BACK")
+        });
         if !session.connected || (!session.server_scanning && !organizer_active) {
             return;
         }

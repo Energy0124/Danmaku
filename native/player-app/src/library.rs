@@ -8,7 +8,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::net::{http_get, http_json, http_post_json, http_put_json, percent_encode_path_segment};
+use crate::net::{http_get, http_post_json, http_put_json, percent_encode_path_segment};
 
 pub const DEFAULT_NEXT_UP_LIMIT: usize = 8;
 pub const MINIMUM_RESUME_POSITION_MS: i64 = 10_000;
@@ -67,26 +67,15 @@ pub struct AnimeMetadata {
     pub start_year: Option<i32>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase", default)]
-pub struct OrganizationPreviewRequest {
-    pub root: String,
-    pub base_relative_path: String,
-    pub overrides: Vec<OrganizationSeriesOverride>,
-}
-
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase", default)]
-pub struct OrganizationSeriesOverride {
-    pub batch_id: String,
-    pub series_title: String,
-    pub season_number: u32,
-    pub included_nearby_paths: Vec<String>,
-}
+#[path = "library_organizer.rs"]
+mod organizer;
+pub use organizer::*;
 
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct OrganizationPlan {
+    pub draft_id: String,
+    pub draft_revision: u64,
     pub plan_id: String,
     pub catalog_revision: String,
     pub root: String,
@@ -114,6 +103,10 @@ pub struct OrganizationSeriesBatch {
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct OrganizationMove {
+    pub source_signature: Option<String>,
+    pub content_hash: Option<String>,
+    pub source_root: Option<String>,
+    pub destination_root: Option<String>,
     pub media_id: Option<String>,
     pub subtitle_id: Option<String>,
     pub source_relative_path: String,
@@ -127,6 +120,8 @@ pub struct OrganizationMove {
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct OrganizationNearbyFile {
+    pub owner_media_ids: Vec<String>,
+    pub owner_media_id: Option<String>,
     pub relative_path: String,
     pub size_bytes: u64,
     pub recommended: bool,
@@ -137,6 +132,10 @@ pub struct OrganizationNearbyFile {
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct OrganizationStatus {
+    pub draft: Option<OrganizationDraft>,
+    pub identification: IdentificationStatus,
+    pub completed_bytes: u64,
+    pub total_bytes: u64,
     pub state: String,
     pub batch_id: Option<String>,
     pub series_title: Option<String>,
@@ -919,7 +918,7 @@ pub fn preview_organization(
     request: &OrganizationPreviewRequest,
 ) -> Result<OrganizationPlan, String> {
     let body = serde_json::to_string(request).map_err(|error| error.to_string())?;
-    let response = http_json(
+    let response = crate::net::organizer_json(
         base_url,
         "POST",
         "/api/library/organize/preview",
@@ -939,7 +938,7 @@ pub fn execute_organization(
         "expectedMoves": &batch.moves,
     })
     .to_string();
-    http_json(
+    crate::net::organizer_json(
         base_url,
         "POST",
         "/api/library/organize/execute",
@@ -949,17 +948,20 @@ pub fn execute_organization(
 }
 
 pub fn fetch_organization_status(base_url: &str) -> Result<OrganizationStatus, String> {
-    let response = http_json(base_url, "GET", "/api/library/organize/status", None)?;
+    let response =
+        crate::net::organizer_json(base_url, "GET", "/api/library/organize/status", None)?;
     serde_json::from_str(&response).map_err(|error| format!("invalid organizer status: {error}"))
 }
 
 pub fn cancel_organization(base_url: &str) -> Result<(), String> {
-    http_json(base_url, "POST", "/api/library/organize/cancel", Some("{}")).map(|_| ())
+    crate::net::organizer_json(base_url, "POST", "/api/library/organize/cancel", Some("{}"))
+        .map(|_| ())
 }
 
 pub fn undo_organization(base_url: &str, completed_batch_id: &str) -> Result<(), String> {
     let body = serde_json::json!({ "completedBatchId": completed_batch_id }).to_string();
-    http_json(base_url, "POST", "/api/library/organize/undo", Some(&body)).map(|_| ())
+    crate::net::organizer_json(base_url, "POST", "/api/library/organize/undo", Some(&body))
+        .map(|_| ())
 }
 
 pub fn fetch_attention(base_url: &str) -> Result<LibraryAttentionDocument, String> {

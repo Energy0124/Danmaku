@@ -30,12 +30,18 @@ Compose macOS artifact are retired.
   replaces only the selected catalog subtree, preserves sibling folders and
   stable media IDs, and exposes live file counts and scan failures through its
   status endpoint.
-- The native desktop Folders view includes a progressive library organizer.
-  It previews an AniRss-style series/season layout, requires exact per-series
-  approval, never overwrites or deletes files, journals and verifies moves,
-  rolls back failures or cancellation, preserves media IDs, and can undo the
-  last completed series. Mutation endpoints require the desktop token and a
-  loopback connection; LAN clients cannot invoke them.
+- The native desktop Folders view supports persistent multiple-folder/file
+  selection and a saved organizer draft with an explicit destination across
+  configured roots. Matching is asynchronous and independent of comment fetching;
+  ambiguous candidates require selection, and manual titles/seasons and grouping
+  remain editable. The searchable per-series queue supports exclusion, skip,
+  automatic unambiguous subtitle selection, and exact revision-bound approval.
+  Same-volume moves and verified cross-volume transfers preserve catalog IDs;
+  durable journals provide cancellation, rollback, recovery retry, and undo.
+  Identification can be saved separately from moves. Native loopback capability
+  authentication rejects browser and LAN access. Automated fixture coverage is
+  recorded in the [implementation log](design/progressive-library-organizer-implementation.md);
+  supervised GUI and physical-drive release QA remain pending.
 - dandanplay matching/comment cache and repair status; provider metadata,
   settings, secret storage, external mappings, list readback, conflict-aware
   previews, and explicitly acknowledged MAL/Bangumi writes.

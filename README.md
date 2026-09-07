@@ -177,12 +177,22 @@ viewed (or all configured roots at the folder-browser root), shows live scan
 progress, and reloads the catalog when the scan finishes. There is no constant
 background full-library polling.
 
-The Windows desktop Folders view also offers **Organize library** for local
-libraries. It creates an AniRss-style `<series>/Season <number>` preview and
-requires approval one series at a time. Filenames are preserved; existing
-destinations block approval; companion files are opt-in; nothing is deleted or
-overwritten. Moves are journaled and verified, with cancel/rollback and undo for
-the last completed series. This control is intentionally unavailable over LAN.
+The desktop **Folders** view offers selection mode for multiple files and
+folders, **Organize selected**, and **Organize this folder**. Select a destination
+inside any configured library root using the folder picker or absolute path.
+The organizer saves your review across restarts, identifies unmatched videos,
+and lets you correct provider matches, folder titles, seasons, and grouping.
+Unknown seasons show **Season 1 — suggested**; specials can use Season 0.
+
+Review and approve one series at a time. Matching subtitles are selected
+when their association is unambiguous; artwork and other companions are opt-in.
+Filenames are preserved under `<destination>/<series>/Season <number>`.
+Conflicting destinations block approval. Cross-drive transfers stage and verify
+copies before removing originals, preserve catalog IDs, and support cancellation,
+recovery retry, and undo. Identification can be saved separately without moving
+files or downloading comments. These controls require the native loopback
+capability and are unavailable to LAN/browser clients. See the
+[organizer specification](docs/design/progressive-library-organizer.md).
 
 ### MyAnimeList and Bangumi tracking
 

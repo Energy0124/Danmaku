@@ -37,6 +37,46 @@ pub struct DandanplayCacheInspection {
 }
 
 impl DandanplayResolver {
+    /// Identification without fetching comments or choosing an ambiguous candidate.
+    pub async fn identify_only(
+        &self,
+        fingerprint: &DandanplayMediaFingerprint,
+        query: &str,
+        search_only: bool,
+    ) -> Result<Vec<crate::organizer::draft::IdentificationCandidate>> {
+        use crate::organizer::draft::IdentificationCandidate;
+        let mut candidates = Vec::new();
+        if !search_only {
+            for matched in self.client.match_media(fingerprint).await? {
+                if let (Some(anime_id), Some(series_title)) =
+                    (matched.anime_id, matched.anime_title)
+                {
+                    let candidate = IdentificationCandidate {
+                        anime_id,
+                        series_title,
+                        episode_id: Some(matched.episode_id),
+                        episode_title: matched.episode_title.unwrap_or_default(),
+                    };
+                    if !candidates.contains(&candidate) {
+                        candidates.push(candidate);
+                    }
+                }
+            }
+        }
+        if candidates.is_empty() && !query.trim().is_empty() {
+            for anime in self.client.search_episodes(query).await? {
+                // A title search establishes candidate series only, never an episode mapping.
+                candidates.push(IdentificationCandidate {
+                    anime_id: anime.anime_id,
+                    series_title: anime.anime_title,
+                    episode_id: None,
+                    episode_title: String::new(),
+                });
+            }
+        }
+        Ok(candidates)
+    }
+
     pub fn inspect_cache(
         &self,
         media_id: &str,

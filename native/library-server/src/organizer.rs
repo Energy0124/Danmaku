@@ -7,41 +7,26 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use serde::{Deserialize, Serialize};
 
 use crate::catalog::{
-    CatalogStore, HeadlessStoredLibrary, LibraryCatalog, LibraryMediaItem, PathMap,
-    PublishedLibrary, current_epoch_ms,
+    CatalogStore, HeadlessStoredLibrary, LibraryCatalog, PublishedLibrary, current_epoch_ms,
 };
 use crate::hash::sha256_hex;
 use crate::scanner::find_season_number;
 use crate::{LibraryServerError, Result};
 
-const JOURNAL_SCHEMA_VERSION: u32 = 1;
+pub mod draft;
+mod transfer;
+use draft::{IdentificationStatus, OrganizationDraft};
+
+const JOURNAL_SCHEMA_VERSION: u32 = 2;
 const COMPLETED_HISTORY_LIMIT: usize = 20;
 const VIDEO_EXTENSIONS: &[&str] = &["mkv", "mp4", "m4v", "webm", "ts", "m2ts", "avi", "mov"];
 const SUBTITLE_EXTENSIONS: &[&str] = &["ass", "ssa", "srt", "vtt", "sub"];
 
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct OrganizationPreviewRequest {
-    pub root: String,
-    #[serde(default)]
-    pub base_relative_path: String,
-    #[serde(default)]
-    pub overrides: Vec<OrganizationSeriesOverride>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct OrganizationSeriesOverride {
-    pub batch_id: String,
-    pub series_title: String,
-    pub season_number: u32,
-    #[serde(default)]
-    pub included_nearby_paths: Vec<String>,
-}
-
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OrganizationPlan {
+    pub draft_id: String,
+    pub draft_revision: u64,
     pub plan_id: String,
     pub catalog_revision: String,
     pub root: String,
@@ -77,6 +62,14 @@ pub enum OrganizationConfidence {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OrganizationMove {
+    #[serde(default)]
+    pub source_signature: Option<String>,
+    #[serde(default)]
+    pub content_hash: Option<String>,
+    #[serde(default)]
+    pub source_root: Option<PathBuf>,
+    #[serde(default)]
+    pub destination_root: Option<PathBuf>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub media_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -99,9 +92,26 @@ pub enum OrganizationMoveKind {
     Nearby,
 }
 
+impl OrganizationMove {
+    fn source(&self, legacy_root: &Path) -> PathBuf {
+        self.source_root
+            .as_deref()
+            .unwrap_or(legacy_root)
+            .join(path_from_wire(&self.source_relative_path))
+    }
+    fn destination(&self, legacy_root: &Path) -> PathBuf {
+        self.destination_root
+            .as_deref()
+            .unwrap_or(legacy_root)
+            .join(path_from_wire(&self.destination_relative_path))
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OrganizationNearbyFile {
+    pub owner_media_ids: Vec<String>,
+    pub owner_media_id: Option<String>,
     pub relative_path: String,
     pub size_bytes: u64,
     pub recommended: bool,
@@ -133,6 +143,10 @@ pub struct OrganizationAccepted {
 #[derive(Debug, Clone, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OrganizationStatus {
+    pub completed_bytes: u64,
+    pub total_bytes: u64,
+    pub draft: Option<OrganizationDraft>,
+    pub identification: IdentificationStatus,
     pub state: OrganizationState,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub batch_id: Option<String>,
@@ -173,6 +187,21 @@ pub struct LibraryOrganizer {
     journal_file: PathBuf,
     runtime: Mutex<OrganizerRuntime>,
     cancel_requested: AtomicBool,
+    identification_cancel: AtomicBool,
+    desktop_token: Mutex<Option<DesktopToken>>,
+    #[cfg(test)]
+    force_copy: AtomicBool,
+    #[cfg(test)]
+    transfer_failpoint: Mutex<Option<String>>,
+    #[cfg(test)]
+    available_space: Mutex<Option<u64>>,
+}
+
+struct DesktopToken(String);
+impl std::fmt::Debug for DesktopToken {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("DesktopToken([redacted])")
+    }
 }
 
 #[derive(Debug, Default)]
@@ -180,6 +209,9 @@ struct OrganizerRuntime {
     plans: BTreeMap<String, StoredPlan>,
     status: OrganizationStatus,
     journal: OrganizationJournal,
+    draft: Option<OrganizationDraft>,
+    draft_loaded: bool,
+    identification: IdentificationStatus,
 }
 
 #[derive(Debug, Clone)]
@@ -187,6 +219,7 @@ struct StoredPlan {
     catalog_revision: String,
     root: PathBuf,
     batches: BTreeMap<String, StoredBatch>,
+    draft_revision: Option<(String, u64)>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -224,6 +257,12 @@ impl Default for OrganizationJournal {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct JournalTransaction {
+    #[serde(default)]
+    catalog_commit_revision: Option<String>,
+    #[serde(default)]
+    transfers: Vec<transfer::TransferRecord>,
+    #[serde(default)]
+    catalog_committed: bool,
     batch: StoredBatch,
     moved_count: usize,
     undo: bool,
@@ -257,7 +296,9 @@ impl LibraryOrganizer {
                 (journal, false)
             }
         };
-        if journal_loaded && let Some(error) = recover_interrupted(&catalog_store, &mut journal) {
+        if journal_loaded
+            && let Some(error) = recover_interrupted(&catalog_store, &mut journal, &roots)
+        {
             status.state = OrganizationState::RecoveryRequired;
             status.message = Some(error.clone());
             journal.recovery_error = Some(error);
@@ -276,8 +317,17 @@ impl LibraryOrganizer {
                 plans: BTreeMap::new(),
                 status,
                 journal,
+                ..Default::default()
             }),
             cancel_requested: AtomicBool::new(false),
+            identification_cancel: AtomicBool::new(false),
+            desktop_token: Mutex::new(None),
+            #[cfg(test)]
+            force_copy: AtomicBool::new(false),
+            #[cfg(test)]
+            transfer_failpoint: Mutex::new(None),
+            #[cfg(test)]
+            available_space: Mutex::new(None),
         };
         if journal_loaded && let Err(error) = organizer.persist_journal() {
             organizer.finish_failed(
@@ -286,50 +336,6 @@ impl LibraryOrganizer {
             );
         }
         organizer
-    }
-
-    pub fn preview(
-        &self,
-        published: &PublishedLibrary,
-        request: OrganizationPreviewRequest,
-    ) -> Result<OrganizationPlan> {
-        self.ensure_available()?;
-        let root = self.resolve_root(&request.root)?;
-        let base = validate_relative_directory(&request.base_relative_path)?;
-        let catalog_revision = catalog_revision(&published.catalog);
-        let overrides = request
-            .overrides
-            .into_iter()
-            .map(|entry| (entry.batch_id.clone(), entry))
-            .collect::<BTreeMap<_, _>>();
-        let plan = build_plan(published, &root, &base, &catalog_revision, &overrides)?;
-        let stored = StoredPlan {
-            catalog_revision: plan.catalog_revision.clone(),
-            root,
-            batches: plan
-                .batches
-                .iter()
-                .filter(|batch| batch.executable)
-                .map(|batch| {
-                    (
-                        batch.batch_id.clone(),
-                        StoredBatch {
-                            batch_id: batch.batch_id.clone(),
-                            series_title: batch.series_title.clone(),
-                            root: PathBuf::from(&plan.root),
-                            moves: batch.moves.clone(),
-                        },
-                    )
-                })
-                .collect(),
-        };
-        let mut runtime = self
-            .runtime
-            .lock()
-            .expect("organizer lock should not poison");
-        runtime.plans.clear();
-        runtime.plans.insert(plan.plan_id.clone(), stored);
-        Ok(plan)
     }
 
     pub fn prepare_execute(
@@ -353,6 +359,17 @@ impl LibraryOrganizer {
         let plan = runtime.plans.get(&request.plan_id).ok_or_else(|| {
             LibraryServerError::new("The organization plan expired; preview again.")
         })?;
+        if let Some((id, revision)) = &plan.draft_revision {
+            if runtime
+                .draft
+                .as_ref()
+                .is_none_or(|d| &d.id != id || d.revision != *revision)
+            {
+                return Err(LibraryServerError::new(
+                    "The review changed; preview again.",
+                ));
+            }
+        }
         if plan.catalog_revision != current_revision {
             return Err(LibraryServerError::new(
                 "The library changed; preview the plan again.",
@@ -405,86 +422,74 @@ impl LibraryOrganizer {
 
     pub fn execute(&self, prepared: PreparedOrganization) -> Result<PublishedLibrary> {
         let batch = prepared.batch;
-        let transaction = JournalTransaction {
-            batch: batch.clone(),
-            moved_count: 0,
-            undo: prepared.undo,
-        };
-        {
-            let mut runtime = self
+        if let Err(error) = self.execute_transfer(&batch, prepared.undo) {
+            let active = self
                 .runtime
                 .lock()
-                .expect("organizer lock should not poison");
-            runtime.journal.active = Some(transaction);
-        }
-        if let Err(error) = self.persist_journal() {
-            self.finish_failed(
-                format!("The organization journal is unavailable: {error}"),
-                true,
-            );
-            return Err(error);
-        }
-
-        if let Err(error) = preflight_batch(&batch) {
+                .expect("organizer lock")
+                .journal
+                .active
+                .clone();
+            if let Some(active) = active {
+                self.runtime.lock().expect("organizer lock").status.state =
+                    OrganizationState::RollingBack;
+                if let Err(recovery) = self.rollback_transfer(active) {
+                    self.finish_failed(format!("{error}; recovery: {recovery}"), true);
+                    return Err(recovery);
+                }
+            }
             self.finish_failed(error.to_string(), false);
+            if self.cancel_requested.load(Ordering::Acquire) {
+                self.runtime.lock().expect("organizer lock").status.state =
+                    OrganizationState::Cancelled;
+            }
             return Err(error);
         }
-
-        for (index, operation) in batch.moves.iter().enumerate() {
-            if self.cancel_requested.load(Ordering::Acquire) {
-                let error = LibraryServerError::new("Organization cancelled.");
-                self.rollback_active(true)?;
-                return Err(error);
-            }
-            let source = batch
-                .root
-                .join(path_from_wire(&operation.source_relative_path));
-            let destination = batch
-                .root
-                .join(path_from_wire(&operation.destination_relative_path));
-            if let Some(parent) = destination.parent() {
-                if let Err(error) = fs::create_dir_all(parent).map_err(|error| {
-                    LibraryServerError::with_context(
-                        error,
-                        format!("failed to create destination {}", parent.display()),
-                    )
-                }) {
-                    self.rollback_active(false)?;
-                    return Err(error);
-                }
-            }
-            if let Err(error) = move_without_overwrite(&source, &destination) {
-                self.rollback_active(false)?;
-                return Err(error);
-            }
-            {
-                let mut runtime = self
-                    .runtime
-                    .lock()
-                    .expect("organizer lock should not poison");
-                if let Some(active) = runtime.journal.active.as_mut() {
-                    active.moved_count = index + 1;
-                }
-                runtime.status.completed_operations = index + 1;
-            }
-            if let Err(error) = self.persist_journal() {
-                self.rollback_active(false)?;
-                return Err(error);
-            }
-            if let Err(error) = verify_destination(&destination, operation.size_bytes) {
-                self.rollback_active(false)?;
-                return Err(error);
-            }
-        }
-
-        let updated = match self.apply_catalog_moves(&batch) {
+        let recorded_batch = self
+            .runtime
+            .lock()
+            .expect("organizer lock")
+            .journal
+            .active
+            .as_ref()
+            .unwrap()
+            .batch
+            .clone();
+        let updated = match self.apply_catalog_moves(&recorded_batch) {
             Ok(updated) => updated,
             Err(error) => {
-                self.rollback_active(false)?;
+                let active = self
+                    .runtime
+                    .lock()
+                    .expect("organizer lock")
+                    .journal
+                    .active
+                    .clone()
+                    .unwrap();
+                if let Err(recovery) = self.rollback_transfer(active) {
+                    self.finish_failed(recovery.to_string(), true);
+                    return Err(recovery);
+                }
+                self.finish_failed(error.to_string(), false);
                 return Err(error);
             }
         };
-        self.finish_completed(batch, prepared.undo)?;
+        self.transfer_checkpoint("catalog-committed")?;
+        self.runtime
+            .lock()
+            .expect("organizer lock")
+            .journal
+            .active
+            .as_mut()
+            .unwrap()
+            .catalog_committed = true;
+        if let Err(error) = self
+            .persist_journal()
+            .and_then(|_| self.finish_completed(recorded_batch, prepared.undo))
+        {
+            self.finish_failed(error.to_string(), true);
+            return Err(error);
+        }
         Ok(updated.published_library)
     }
 
@@ -492,21 +497,40 @@ impl LibraryOrganizer {
         self.cancel_requested.store(true, Ordering::Release);
     }
 
+    pub fn desktop_token(&self) -> Result<String> {
+        let mut token = self.desktop_token.lock().expect("desktop token lock");
+        if token.is_none() {
+            *token = Some(DesktopToken(draft::unique_id()?));
+        }
+        Ok(token.as_ref().unwrap().0.clone())
+    }
+
+    pub fn recovery_required(&self) -> bool {
+        self.runtime.lock().expect("organizer lock").status.state
+            == OrganizationState::RecoveryRequired
+    }
+
+    pub fn desktop_authorized(&self, supplied: Option<&str>) -> bool {
+        let token = self.desktop_token.lock().expect("desktop token lock");
+        token.as_ref().is_some_and(|token| {
+            supplied.is_some_and(|value| value.strip_prefix("Bearer ") == Some(token.0.as_str()))
+        })
+    }
+
     pub fn status(&self) -> OrganizationStatus {
-        self.runtime
+        let draft = self.draft();
+        let mut status = self
+            .runtime
             .lock()
             .expect("organizer lock should not poison")
             .status
-            .clone()
-    }
-
-    fn resolve_root(&self, supplied: &str) -> Result<PathBuf> {
-        let supplied = normalize_absolute(Path::new(supplied))?;
-        self.roots
-            .iter()
-            .filter_map(|root| normalize_absolute(root).ok())
-            .find(|root| paths_equal(root, &supplied))
-            .ok_or_else(|| LibraryServerError::new("Select one of the configured library roots."))
+            .clone();
+        match draft {
+            Ok(draft) => status.draft = draft,
+            Err(error) => status.message = Some(error.to_string()),
+        }
+        status.identification = self.identification_status();
+        status
     }
 
     fn ensure_available(&self) -> Result<()> {
@@ -540,92 +564,135 @@ impl LibraryOrganizer {
             .load()?
             .ok_or_else(|| LibraryServerError::new("The catalog is unavailable."))?;
         apply_moves_to_stored(&mut stored, &batch.root, &batch.moves)?;
-        stored.saved_at_epoch_ms = current_epoch_ms();
+        stored.saved_at_epoch_ms =
+            current_epoch_ms().max(stored.saved_at_epoch_ms.saturating_add(1));
         stored.published_library.catalog.indexed_at_epoch_ms = stored.saved_at_epoch_ms;
+        if let Some(active) = self
+            .runtime
+            .lock()
+            .expect("organizer lock")
+            .journal
+            .active
+            .as_mut()
+        {
+            active.catalog_commit_revision =
+                Some(catalog_revision(&stored.published_library.catalog));
+        }
+        self.persist_journal()?;
         self.catalog_store.save_stored(&stored)?;
         Ok(stored)
     }
 
-    fn rollback_active(&self, cancelled: bool) -> Result<()> {
-        {
-            let mut runtime = self
-                .runtime
-                .lock()
-                .expect("organizer lock should not poison");
-            runtime.status.state = OrganizationState::RollingBack;
-        }
-        let active = self
-            .runtime
-            .lock()
-            .expect("organizer lock should not poison")
-            .journal
-            .active
-            .clone()
-            .ok_or_else(|| LibraryServerError::new("No organization transaction is active."))?;
-        if let Err(error) = rollback_transaction(&active) {
-            self.finish_failed(error.to_string(), true);
-            return Err(error);
-        }
-        let mut runtime = self
-            .runtime
-            .lock()
-            .expect("organizer lock should not poison");
-        runtime.journal.active = None;
-        runtime.status.state = if cancelled {
-            OrganizationState::Cancelled
-        } else {
-            OrganizationState::Failed
-        };
-        runtime.status.message = Some(if cancelled {
-            "The series was cancelled and rolled back.".to_owned()
-        } else {
-            "The series failed and was rolled back.".to_owned()
-        });
-        drop(runtime);
-        self.persist_journal()
-    }
-
     fn finish_completed(&self, batch: StoredBatch, undo: bool) -> Result<()> {
-        let mut runtime = self
-            .runtime
-            .lock()
-            .expect("organizer lock should not poison");
-        runtime.journal.active = None;
+        let mut runtime = self.runtime.lock().expect("organizer lock");
+        let mut journal = runtime.journal.clone();
+        journal.active = None;
         if undo {
-            let original_id = batch.batch_id.trim_start_matches("undo-");
-            runtime
-                .journal
+            journal
                 .completed
-                .retain(|entry| entry.batch.batch_id != original_id);
+                .retain(|entry| entry.batch.batch_id != batch.batch_id.trim_start_matches("undo-"));
         } else {
-            let completed_batch_id = format!("{}-{}", batch.batch_id, current_epoch_ms());
-            runtime.journal.completed.push(CompletedBatch {
-                completed_batch_id: completed_batch_id.clone(),
+            journal.completed.push(CompletedBatch {
+                completed_batch_id: format!("{}-{}", batch.batch_id, current_epoch_ms()),
                 batch: batch.clone(),
                 completed_at_epoch_ms: current_epoch_ms(),
             });
-            if runtime.journal.completed.len() > COMPLETED_HISTORY_LIMIT {
-                let excess = runtime.journal.completed.len() - COMPLETED_HISTORY_LIMIT;
-                runtime.journal.completed.drain(0..excess);
+            if journal.completed.len() > COMPLETED_HISTORY_LIMIT {
+                journal
+                    .completed
+                    .drain(0..journal.completed.len() - COMPLETED_HISTORY_LIMIT);
             }
-            runtime.status.last_completed_batch_id = Some(completed_batch_id);
         }
+        // Do not retire the active transaction in memory until its completion is durable.
+        write_json_atomically(&self.journal_file, &journal)?;
+        runtime.journal = journal;
         runtime.status.state = OrganizationState::Completed;
         runtime.status.completed_operations = batch.moves.len();
         runtime.status.total_operations = batch.moves.len();
-        runtime.status.message = Some(if undo {
-            "The completed series was restored to its original paths.".to_owned()
-        } else {
-            "The approved series was moved and verified.".to_owned()
-        });
+        runtime.status.completed_bytes = batch.moves.iter().map(|m| m.size_bytes).sum();
         runtime.status.can_undo = !runtime.journal.completed.is_empty();
         runtime.status.last_completed_batch_id = runtime
             .journal
             .completed
             .last()
             .map(|entry| entry.completed_batch_id.clone());
-        drop(runtime);
-        self.persist_journal()
+        runtime.status.message = Some(
+            if undo {
+                "The series was restored to its original paths."
+            } else {
+                "The series was moved and verified."
+            }
+            .into(),
+        );
+        let completed_id = runtime.status.last_completed_batch_id.clone();
+        if let Some(draft) = runtime.draft.as_mut() {
+            if undo {
+                draft
+                    .completed
+                    .remove(batch.batch_id.trim_start_matches("undo-"));
+                for operation in &batch.moves {
+                    if let Some(file) = draft
+                        .files
+                        .iter_mut()
+                        .find(|f| Some(&f.media_id) == operation.media_id.as_ref())
+                    {
+                        file.source_signature =
+                            transfer::signature(&operation.destination(&batch.root))?;
+                    }
+                }
+            } else if draft.files.iter().any(|f| f.group_id == batch.batch_id) {
+                draft
+                    .completed
+                    .insert(batch.batch_id.clone(), completed_id.unwrap_or_default());
+            }
+            draft.active_group = draft
+                .files
+                .iter()
+                .find(|f| {
+                    !f.excluded
+                        && !draft.completed.contains_key(&f.group_id)
+                        && !draft.skipped.contains(&f.group_id)
+                })
+                .map(|f| f.group_id.clone());
+            draft.revision += 1;
+            if let Err(error) = write_json_atomically(
+                &self
+                    .journal_file
+                    .with_file_name("library-organization-draft.json"),
+                draft,
+            ) {
+                runtime.status.message = Some(format!(
+                    "Files moved successfully; saving review position failed: {error}"
+                ));
+            }
+        }
+        runtime.plans.clear();
+        Ok(())
+    }
+
+    pub fn retry_recovery(&self) -> Result<PublishedLibrary> {
+        let mut journal = load_journal(&self.journal_file)?;
+        if let Some(error) = recover_interrupted(&self.catalog_store, &mut journal, &self.roots) {
+            self.finish_failed(error.clone(), true);
+            return Err(LibraryServerError::new(error));
+        }
+        journal.recovery_error = None;
+        {
+            let mut runtime = self.runtime.lock().expect("organizer lock");
+            runtime.journal = journal;
+            runtime.status = OrganizationStatus::default();
+            runtime.status.last_completed_batch_id = runtime
+                .journal
+                .completed
+                .last()
+                .map(|b| b.completed_batch_id.clone());
+            runtime.status.can_undo = runtime.status.last_completed_batch_id.is_some();
+        }
+        self.persist_journal()?;
+        self.catalog_store
+            .load()?
+            .map(|s| s.published_library)
+            .ok_or_else(|| LibraryServerError::new("Catalog unavailable."))
     }
 
     fn finish_failed(&self, message: String, recovery_required: bool) {
@@ -659,348 +726,19 @@ impl LibraryOrganizer {
     }
 }
 
-fn build_plan(
-    published: &PublishedLibrary,
-    root: &Path,
-    base: &Path,
-    catalog_revision: &str,
-    overrides: &BTreeMap<String, OrganizationSeriesOverride>,
-) -> Result<OrganizationPlan> {
-    let root_label = root.to_string_lossy().into_owned();
-    let mut grouped: BTreeMap<String, Vec<&LibraryMediaItem>> = BTreeMap::new();
-    for item in &published.catalog.items {
-        if !item
-            .root_label
-            .as_deref()
-            .is_some_and(|label| paths_equal(Path::new(label), root))
-        {
-            continue;
-        }
-        let series_key = item.anime_metadata.as_ref().map_or_else(
-            || format!("title:{}", normalize_key(&item.series_title)),
-            |metadata| {
-                format!(
-                    "provider:{:?}:{}",
-                    metadata.anime_id.provider, metadata.anime_id.value
-                )
-            },
-        );
-        let detected_season =
-            find_season_number(&format!("{} {}", item.relative_path, item.episode_title));
-        let key = format!("{series_key}:season:{detected_season:?}");
-        grouped.entry(key).or_default().push(item);
-    }
-
-    let all_video_paths = published
-        .files_by_id
-        .values()
-        .filter_map(|path| normalize_absolute(path).ok())
-        .collect::<BTreeSet<_>>();
-    let subtitle_ids = published
-        .subtitle_files_by_id
-        .iter()
-        .filter_map(|(id, path)| normalize_absolute(path).ok().map(|path| (path, id.clone())))
-        .collect::<BTreeMap<_, _>>();
-    let mut batches = Vec::new();
-    let mut unassigned_count = 0;
-    for (group_key, mut items) in grouped {
-        items.sort_by(|left, right| left.relative_path.cmp(&right.relative_path));
-        let batch_id = sha256_hex(&group_key).chars().take(16).collect::<String>();
-        let default_title = items
-            .iter()
-            .find_map(|item| {
-                item.anime_metadata
-                    .as_ref()
-                    .map(|metadata| metadata.display_title.clone())
-            })
-            .unwrap_or_else(|| items[0].series_title.clone());
-        let detected_seasons = items
-            .iter()
-            .filter_map(|item| {
-                find_season_number(&format!("{} {}", item.relative_path, item.episode_title))
-            })
-            .collect::<BTreeSet<_>>();
-        let detected_season = (detected_seasons.len() == 1)
-            .then(|| detected_seasons.iter().next().copied())
-            .flatten();
-        let override_value = overrides.get(&batch_id);
-        let series_title = override_value
-            .map(|value| value.series_title.trim().to_owned())
-            .filter(|value| !value.is_empty())
-            .unwrap_or(default_title);
-        let season_number = override_value
-            .map(|value| value.season_number)
-            .or(detected_season);
-        if season_number.is_none() {
-            unassigned_count += items.len();
-        }
-        let safe_title = sanitize_component(&series_title)?;
-        let selected_nearby = override_value
-            .map(|value| {
-                value
-                    .included_nearby_paths
-                    .iter()
-                    .cloned()
-                    .collect::<BTreeSet<_>>()
-            })
-            .unwrap_or_default();
-        let confidence = if items.iter().any(|item| item.anime_metadata.is_some()) {
-            OrganizationConfidence::Provider
-        } else if season_number.is_some() {
-            OrganizationConfidence::Parsed
-        } else {
-            OrganizationConfidence::NeedsReview
-        };
-        let reason = match confidence {
-            OrganizationConfidence::Provider => {
-                "Matched provider identity and parsed season".to_owned()
-            }
-            OrganizationConfidence::Parsed => {
-                "Grouped from the current catalog title and filename".to_owned()
-            }
-            OrganizationConfidence::NeedsReview => {
-                "Choose a series title and season before approval".to_owned()
-            }
-        };
-        let nearby_files = collect_nearby_files(
-            root,
-            base,
-            &safe_title,
-            season_number,
-            &items,
-            &published.files_by_id,
-            &all_video_paths,
-            &selected_nearby,
-        )?;
-        let mut moves = Vec::new();
-        let mut conflicts = Vec::new();
-        let mut already_count = 0;
-        if let Some(season) = season_number {
-            for item in &items {
-                let source = published.files_by_id.get(&item.id).ok_or_else(|| {
-                    LibraryServerError::new(format!("Missing source path for {}", item.id))
-                })?;
-                let file_name = source.file_name().ok_or_else(|| {
-                    LibraryServerError::new(format!(
-                        "Media path has no file name: {}",
-                        source.display()
-                    ))
-                })?;
-                let destination_relative = base
-                    .join(&safe_title)
-                    .join(format!("Season {season}"))
-                    .join(file_name);
-                let source_relative = relative_wire_path(root, source)?;
-                let destination_relative = wire_path(&destination_relative);
-                if source_relative.eq_ignore_ascii_case(&destination_relative) {
-                    already_count += 1;
-                    continue;
-                }
-                let destination = root.join(path_from_wire(&destination_relative));
-                if destination.exists() {
-                    conflicts.push(format!(
-                        "Destination already exists: {destination_relative}"
-                    ));
-                }
-                moves.push(OrganizationMove {
-                    media_id: Some(item.id.clone()),
-                    subtitle_id: None,
-                    source_relative_path: source_relative,
-                    destination_relative_path: destination_relative,
-                    size_bytes: item.size_bytes,
-                    kind: OrganizationMoveKind::Video,
-                    original_series_title: Some(item.series_title.clone()),
-                    destination_series_title: Some(series_title.clone()),
-                });
-            }
-            for nearby in nearby_files.iter().filter(|nearby| nearby.selected) {
-                let Some(destination_relative_path) = nearby.destination_relative_path.clone()
-                else {
-                    continue;
-                };
-                let destination = root.join(path_from_wire(&destination_relative_path));
-                if destination.exists() {
-                    conflicts.push(format!(
-                        "Destination already exists: {destination_relative_path}"
-                    ));
-                }
-                let absolute = root.join(path_from_wire(&nearby.relative_path));
-                moves.push(OrganizationMove {
-                    media_id: None,
-                    subtitle_id: subtitle_ids.get(&normalize_absolute(&absolute)?).cloned(),
-                    source_relative_path: nearby.relative_path.clone(),
-                    destination_relative_path,
-                    size_bytes: nearby.size_bytes,
-                    kind: if subtitle_ids.contains_key(&normalize_absolute(&absolute)?) {
-                        OrganizationMoveKind::Subtitle
-                    } else {
-                        OrganizationMoveKind::Nearby
-                    },
-                    original_series_title: None,
-                    destination_series_title: None,
-                });
-            }
-        }
-        let already_organized = already_count == items.len();
-        let executable = season_number.is_some()
-            && !moves.is_empty()
-            && conflicts.is_empty()
-            && !already_organized;
-        batches.push(OrganizationSeriesBatch {
-            batch_id,
-            series_title,
-            season_number,
-            confidence,
-            reason,
-            video_count: items.len(),
-            executable,
-            already_organized,
-            conflicts,
-            moves,
-            nearby_files,
-        });
-    }
-    batches.sort_by(|left, right| {
-        left.series_title
-            .to_lowercase()
-            .cmp(&right.series_title.to_lowercase())
-            .then_with(|| left.batch_id.cmp(&right.batch_id))
-    });
-    let base_relative_path = wire_path(base);
-    let plan_material = format!(
-        "{}\n{}\n{}\n{}",
-        catalog_revision,
-        root.display(),
-        base_relative_path,
-        serde_json::to_string(&batches.iter().map(|batch| &batch.moves).collect::<Vec<_>>())?
-    );
-    Ok(OrganizationPlan {
-        plan_id: sha256_hex(&plan_material).chars().take(24).collect(),
-        catalog_revision: catalog_revision.to_owned(),
-        root: root_label,
-        base_relative_path,
-        batches,
-        unassigned_count,
-    })
-}
-
-#[allow(clippy::too_many_arguments)]
-fn collect_nearby_files(
-    root: &Path,
-    base: &Path,
-    safe_title: &str,
-    season_number: Option<u32>,
-    items: &[&LibraryMediaItem],
-    files_by_id: &PathMap,
-    all_video_paths: &BTreeSet<PathBuf>,
-    selected_nearby: &BTreeSet<String>,
-) -> Result<Vec<OrganizationNearbyFile>> {
-    let mut parents = BTreeSet::new();
-    let mut video_stems = BTreeSet::new();
-    for item in items {
-        if let Some(path) = files_by_id.get(&item.id) {
-            if let Some(parent) = path.parent() {
-                parents.insert(parent.to_path_buf());
-                if parent
-                    .file_name()
-                    .is_some_and(|name| looks_like_season_directory(&name.to_string_lossy()))
-                    && let Some(series_parent) = parent.parent()
-                    && series_parent.starts_with(root)
-                {
-                    parents.insert(series_parent.to_path_buf());
-                }
-            }
-            if let Some(stem) = path.file_stem() {
-                video_stems.insert(stem.to_string_lossy().to_lowercase());
-            }
-        }
-    }
-    let normalized_title = normalize_key(safe_title);
-    let mut seen = BTreeSet::new();
-    let mut nearby = Vec::new();
-    for parent in parents {
-        let entries = match fs::read_dir(&parent) {
-            Ok(entries) => entries,
-            Err(_) => continue,
-        };
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if !path.is_file() {
-                continue;
-            }
-            let absolute = normalize_absolute(&path)?;
-            if all_video_paths.contains(&absolute) {
-                continue;
-            }
-            let extension = extension_lowercase(&path);
-            if VIDEO_EXTENSIONS.contains(&extension.as_str()) {
-                continue;
-            }
-            let file_name = path
-                .file_name()
-                .map(|name| name.to_string_lossy().into_owned())
-                .unwrap_or_default();
-            let lower_name = file_name.to_lowercase();
-            let exact_sidecar = video_stems.iter().any(|stem| lower_name.starts_with(stem))
-                && (SUBTITLE_EXTENSIONS.contains(&extension.as_str())
-                    || matches!(
-                        extension.as_str(),
-                        "mka" | "nfo" | "jpg" | "jpeg" | "png" | "webp"
-                    ));
-            let nested_release = !paths_equal(&parent, root);
-            let title_related = normalize_key(&file_name).contains(&normalized_title);
-            if !exact_sidecar && !nested_release && !title_related {
-                continue;
-            }
-            let relative_path = relative_wire_path(root, &path)?;
-            if !seen.insert(relative_path.clone()) {
-                continue;
-            }
-            let series_asset = is_series_asset(&file_name);
-            let destination_relative_path = season_number.map(|season| {
-                let destination = if series_asset {
-                    base.join(safe_title).join(&file_name)
-                } else {
-                    base.join(safe_title)
-                        .join(format!("Season {season}"))
-                        .join(&file_name)
-                };
-                wire_path(&destination)
-            });
-            nearby.push(OrganizationNearbyFile {
-                relative_path: relative_path.clone(),
-                size_bytes: entry.metadata().map(|metadata| metadata.len()).unwrap_or(0),
-                recommended: exact_sidecar,
-                selected: selected_nearby.contains(&relative_path),
-                destination_relative_path,
-            });
-        }
-    }
-    nearby.sort_by(|left, right| left.relative_path.cmp(&right.relative_path));
-    Ok(nearby)
-}
-
 fn preflight_batch(batch: &StoredBatch) -> Result<()> {
-    let normalized_root = normalize_absolute(&batch.root)?;
     let mut destinations = BTreeSet::new();
     for operation in &batch.moves {
-        let source = normalize_absolute(
-            &batch
-                .root
-                .join(path_from_wire(&operation.source_relative_path)),
-        )?;
-        let destination = normalize_absolute(
-            &batch
-                .root
-                .join(path_from_wire(&operation.destination_relative_path)),
-        )?;
-        ensure_within_root(&normalized_root, &source)?;
-        ensure_within_root(&normalized_root, &destination)?;
-        reject_reparse_ancestors(&normalized_root, &source)?;
-        reject_reparse_ancestors(
-            &normalized_root,
-            destination.parent().unwrap_or(&destination),
-        )?;
+        let source_root =
+            normalize_absolute(operation.source_root.as_deref().unwrap_or(&batch.root))?;
+        let destination_root =
+            normalize_absolute(operation.destination_root.as_deref().unwrap_or(&batch.root))?;
+        let source = normalize_absolute(&operation.source(&batch.root))?;
+        let destination = normalize_absolute(&operation.destination(&batch.root))?;
+        ensure_within_root(&source_root, &source)?;
+        ensure_within_root(&destination_root, &destination)?;
+        reject_reparse_ancestors(&source_root, &source)?;
+        reject_reparse_ancestors(&destination_root, &destination)?;
         if !source.is_file() {
             return Err(LibraryServerError::new(format!(
                 "Source file is missing: {}",
@@ -1121,7 +859,7 @@ fn apply_moves_to_stored(
     moves: &[OrganizationMove],
 ) -> Result<()> {
     for operation in moves {
-        let destination = root.join(path_from_wire(&operation.destination_relative_path));
+        let destination = operation.destination(root);
         if let Some(media_id) = &operation.media_id {
             stored
                 .published_library
@@ -1134,6 +872,14 @@ fn apply_moves_to_stored(
                 .iter_mut()
                 .find(|item| item.id == *media_id)
                 .ok_or_else(|| LibraryServerError::new(format!("Unknown media ID {media_id}")))?;
+            item.root_label = Some(
+                operation
+                    .destination_root
+                    .as_deref()
+                    .unwrap_or(root)
+                    .to_string_lossy()
+                    .into_owned(),
+            );
             item.relative_path = operation.destination_relative_path.clone();
             if let Some(series_title) = &operation.destination_series_title {
                 item.series_title = series_title.clone();
@@ -1169,8 +915,72 @@ fn apply_moves_to_stored(
 fn recover_interrupted(
     catalog_store: &CatalogStore,
     journal: &mut OrganizationJournal,
+    roots: &[PathBuf],
 ) -> Option<String> {
     let mut active = journal.active.clone()?;
+    for operation in &active.batch.moves {
+        for root in [
+            operation.source_root.as_ref().unwrap_or(&active.batch.root),
+            operation
+                .destination_root
+                .as_ref()
+                .unwrap_or(&active.batch.root),
+        ] {
+            if !roots.iter().any(|configured| paths_equal(configured, root)) {
+                return Some(
+                    "Restore the transaction's configured roots before retrying recovery.".into(),
+                );
+            }
+        }
+    }
+    if !active.transfers.is_empty() {
+        let committed = catalog_store.load().ok().flatten().is_some_and(|stored| {
+            active.catalog_commit_revision.as_ref()
+                == Some(&catalog_revision(&stored.published_library.catalog))
+        });
+        if committed {
+            for (operation, record) in active.batch.moves.iter().zip(&active.transfers) {
+                if transfer::digest(&operation.destination(&active.batch.root))
+                    .ok()
+                    .as_ref()
+                    != Some(&record.digest)
+                {
+                    return Some("A committed destination is unavailable or changed.".into());
+                }
+            }
+            if !active.undo {
+                journal.completed.push(CompletedBatch {
+                    completed_batch_id: format!("{}-recovered", active.batch.batch_id),
+                    batch: active.batch.clone(),
+                    completed_at_epoch_ms: current_epoch_ms(),
+                });
+            } else {
+                journal.completed.retain(|b| {
+                    b.batch.batch_id != active.batch.batch_id.trim_start_matches("undo-")
+                });
+            }
+            journal.active = None;
+            journal.recovery_error = None;
+            return None;
+        }
+        match transfer::rollback(&mut active, |tx| {
+            journal.active = Some(tx.clone());
+            write_json_atomically(
+                &catalog_store
+                    .file_path()
+                    .with_file_name("library-organization.json"),
+                journal,
+            )
+        }) {
+            Ok(()) => {
+                journal.active = None;
+                journal.recovery_error = None;
+                return None;
+            }
+            Err(error) => return Some(error.to_string()),
+        }
+    }
+
     let mut observed_moved_count = 0;
     for operation in &active.batch.moves {
         let source = active
@@ -1237,6 +1047,8 @@ fn recover_interrupted(
 }
 
 fn reverse_move(mut operation: OrganizationMove) -> OrganizationMove {
+    operation.source_signature = None;
+    std::mem::swap(&mut operation.source_root, &mut operation.destination_root);
     std::mem::swap(
         &mut operation.source_relative_path,
         &mut operation.destination_relative_path,
@@ -1250,6 +1062,10 @@ fn reverse_move(mut operation: OrganizationMove) -> OrganizationMove {
 
 fn running_status(batch: &StoredBatch, undo: bool) -> OrganizationStatus {
     OrganizationStatus {
+        completed_bytes: 0,
+        total_bytes: batch.moves.iter().map(|m| m.size_bytes).sum(),
+        draft: None,
+        identification: IdentificationStatus::default(),
         state: OrganizationState::Running,
         batch_id: Some(batch.batch_id.clone()),
         series_title: Some(batch.series_title.clone()),
@@ -1269,42 +1085,18 @@ fn catalog_revision(catalog: &LibraryCatalog) -> String {
     let material = catalog
         .items
         .iter()
-        .map(|item| format!("{}:{}:{}", item.id, item.relative_path, item.size_bytes))
+        .map(|item| {
+            format!(
+                "{}:{:?}:{}:{}",
+                item.id, item.root_label, item.relative_path, item.size_bytes
+            )
+        })
         .collect::<Vec<_>>()
         .join("\n");
     sha256_hex(&format!("{}\n{material}", catalog.indexed_at_epoch_ms))
         .chars()
         .take(24)
         .collect()
-}
-
-fn validate_relative_directory(value: &str) -> Result<PathBuf> {
-    let trimmed = value.trim().trim_end_matches(['/', '\\']);
-    if trimmed.is_empty() {
-        return Ok(PathBuf::new());
-    }
-    if trimmed.starts_with(['/', '\\']) {
-        return Err(LibraryServerError::new(
-            "The destination base must be a relative folder inside the selected root.",
-        ));
-    }
-
-    let mut path = PathBuf::new();
-    for component in trimmed.split(['/', '\\']).filter(|value| !value.is_empty()) {
-        let mut components = Path::new(component).components();
-        if !matches!(components.next(), Some(Component::Normal(_)))
-            || components.next().is_some()
-            || (component.len() == 2
-                && component.as_bytes()[0].is_ascii_alphabetic()
-                && component.ends_with(':'))
-        {
-            return Err(LibraryServerError::new(
-                "The destination base must be a relative folder inside the selected root.",
-            ));
-        }
-        path.push(sanitize_component(component)?);
-    }
-    Ok(path)
 }
 
 fn sanitize_component(value: &str) -> Result<String> {
@@ -1357,13 +1149,23 @@ fn reject_reparse_ancestors(root: &Path, path: &Path) -> Result<()> {
     let relative = path.strip_prefix(root).map_err(|_| {
         LibraryServerError::new("An organization path escaped the selected library root.")
     })?;
+    if !root.is_dir() {
+        return Err(LibraryServerError::new(
+            "Reconnect the configured library root before organizing files.",
+        ));
+    }
+    let mut paths = vec![root.to_path_buf()];
     let mut current = root.to_path_buf();
     for component in relative.components() {
         current.push(component.as_os_str());
-        if !current.exists() {
-            break;
-        }
-        let metadata = fs::symlink_metadata(&current)?;
+        paths.push(current.clone());
+    }
+    for current in paths {
+        let metadata = match fs::symlink_metadata(&current) {
+            Ok(metadata) => metadata,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => break,
+            Err(error) => return Err(error.into()),
+        };
         if metadata.file_type().is_symlink() {
             return Err(LibraryServerError::new(format!(
                 "Organization does not follow symbolic links or junctions: {}",
@@ -1414,8 +1216,25 @@ fn normalize_absolute(path: &Path) -> Result<PathBuf> {
 }
 
 fn paths_equal(left: &Path, right: &Path) -> bool {
-    left.to_string_lossy()
-        .eq_ignore_ascii_case(&right.to_string_lossy())
+    #[cfg(windows)]
+    {
+        let mut left = left.components();
+        let mut right = right.components();
+        loop {
+            match (left.next(), right.next()) {
+                (None, None) => return true,
+                (Some(a), Some(b))
+                    if a.as_os_str()
+                        .to_string_lossy()
+                        .eq_ignore_ascii_case(&b.as_os_str().to_string_lossy()) => {}
+                _ => return false,
+            }
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        left == right
+    }
 }
 
 fn relative_wire_path(root: &Path, path: &Path) -> Result<String> {
@@ -1466,14 +1285,6 @@ fn is_series_asset(name: &str) -> bool {
     )
 }
 
-fn looks_like_season_directory(value: &str) -> bool {
-    value
-        .trim()
-        .to_ascii_lowercase()
-        .strip_prefix("season ")
-        .is_some_and(|number| number.parse::<u32>().is_ok())
-}
-
 fn load_journal(file: &Path) -> Result<OrganizationJournal> {
     let body = match fs::read_to_string(file) {
         Ok(body) => body,
@@ -1487,9 +1298,13 @@ fn load_journal(file: &Path) -> Result<OrganizationJournal> {
             ));
         }
     };
-    let journal = serde_json::from_str::<OrganizationJournal>(&body).map_err(|error| {
+    let mut journal = serde_json::from_str::<OrganizationJournal>(&body).map_err(|error| {
         LibraryServerError::with_context(error, format!("failed to parse {}", file.display()))
     })?;
+    if journal.schema_version == 1 {
+        // Legacy operations retain their original root until recovery finishes.
+        journal.schema_version = JOURNAL_SCHEMA_VERSION;
+    }
     if journal.schema_version != JOURNAL_SCHEMA_VERSION {
         return Err(LibraryServerError::new(format!(
             "unsupported organization journal schema {} in {}",
@@ -1509,8 +1324,45 @@ fn write_json_atomically<T: Serialize>(file: &Path, value: &T) -> Result<()> {
         .map(|name| name.to_string_lossy().into_owned())
         .ok_or_else(|| LibraryServerError::new("Journal path must include a file name."))?;
     let temporary = file.with_file_name(format!("{file_name}.tmp"));
-    fs::write(&temporary, serde_json::to_string_pretty(value)?)?;
-    fs::rename(&temporary, file)?;
+    use std::io::Write;
+    let mut output = fs::File::create(&temporary)?;
+    output.write_all(serde_json::to_string_pretty(value)?.as_bytes())?;
+    output.sync_all()?;
+    drop(output);
+    #[cfg(windows)]
+    {
+        use std::os::windows::ffi::OsStrExt;
+        use windows_sys::Win32::Storage::FileSystem::{
+            MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH, MoveFileExW,
+        };
+        let source = temporary
+            .as_os_str()
+            .encode_wide()
+            .chain(Some(0))
+            .collect::<Vec<_>>();
+        let destination = file
+            .as_os_str()
+            .encode_wide()
+            .chain(Some(0))
+            .collect::<Vec<_>>();
+        if unsafe {
+            MoveFileExW(
+                source.as_ptr(),
+                destination.as_ptr(),
+                MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH,
+            )
+        } == 0
+        {
+            return Err(std::io::Error::last_os_error().into());
+        }
+    }
+    #[cfg(unix)]
+    {
+        fs::rename(&temporary, file)?;
+        if let Some(parent) = file.parent() {
+            fs::File::open(parent)?.sync_all()?;
+        }
+    }
     Ok(())
 }
 
@@ -1519,35 +1371,10 @@ mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
 
     use crate::catalog::{LibraryCatalog, LibraryItemMetadataStatus, LibraryMediaItem};
-    use crate::scanner::scan_roots;
 
     use super::*;
 
     static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
-
-    #[test]
-    fn relative_directory_uses_portable_separators_and_rejects_roots() {
-        assert_eq!(
-            PathBuf::from("Anime").join("Current Season"),
-            validate_relative_directory("Anime/Current Season").expect("forward slash path")
-        );
-        assert_eq!(
-            PathBuf::from("Anime").join("Current Season"),
-            validate_relative_directory(r"Anime\Current Season").expect("backslash path")
-        );
-        assert_eq!(
-            PathBuf::from("Anime： Shows").join("Current Season"),
-            validate_relative_directory("Anime: Shows/Current Season")
-                .expect("sanitized component")
-        );
-
-        for invalid in ["/Anime", r"\Anime", "../Anime", r"C:\Anime"] {
-            assert!(
-                validate_relative_directory(invalid).is_err(),
-                "{invalid} must remain relative"
-            );
-        }
-    }
 
     #[test]
     fn invalid_journals_require_recovery_without_overwriting_evidence() {
@@ -1568,16 +1395,16 @@ mod tests {
             );
             assert!(
                 organizer
-                    .preview(
+                    .create_draft(
                         &fixture.published,
-                        OrganizationPreviewRequest {
-                            root: fixture.root.display().to_string(),
-                            base_relative_path: String::new(),
-                            overrides: Vec::new(),
-                        },
+                        draft::CreateDraftRequest {
+                            media_ids: vec!["one".into()],
+                            destination: fixture.root.to_string_lossy().into_owned(),
+                        }
                     )
                     .is_err()
             );
+            assert!(organizer.retry_recovery().is_err());
             assert_eq!(
                 body,
                 fs::read_to_string(&journal_file).expect("journal evidence remains")
@@ -1629,6 +1456,9 @@ mod tests {
             .expect("destination parent creates");
         let journal = OrganizationJournal {
             active: Some(JournalTransaction {
+                transfers: Vec::new(),
+                catalog_committed: false,
+                catalog_commit_revision: None,
                 batch,
                 moved_count: 1,
                 undo: false,
@@ -1650,251 +1480,24 @@ mod tests {
         cleanup(fixture.temp);
     }
 
-    #[test]
-    fn preview_requires_review_then_builds_exact_series_manifest() {
-        let fixture = fixture();
-        let organizer = LibraryOrganizer::new(
-            vec![fixture.root.clone()],
-            CatalogStore::new(fixture.data.join("catalog.json")),
-        );
-        let first = organizer
-            .preview(
-                &fixture.published,
-                OrganizationPreviewRequest {
-                    root: fixture.root.display().to_string(),
-                    base_relative_path: "Anime".to_owned(),
-                    overrides: Vec::new(),
-                },
-            )
-            .expect("preview");
-        assert_eq!(1, first.batches.len());
-        assert!(!first.batches[0].executable);
-        assert_eq!(2, first.unassigned_count);
-
-        let second = organizer
-            .preview(
-                &fixture.published,
-                OrganizationPreviewRequest {
-                    root: fixture.root.display().to_string(),
-                    base_relative_path: "Anime".to_owned(),
-                    overrides: vec![OrganizationSeriesOverride {
-                        batch_id: first.batches[0].batch_id.clone(),
-                        series_title: "Example Show".to_owned(),
-                        season_number: 1,
-                        included_nearby_paths: Vec::new(),
-                    }],
-                },
-            )
-            .expect("reviewed preview");
-        assert!(second.batches[0].executable);
-        assert_eq!(
-            "Anime/Example Show/Season 1/[Group] Example Show - 01.mkv",
-            second.batches[0].moves[0].destination_relative_path
-        );
-        cleanup(fixture.temp);
+    pub(super) struct Fixture {
+        pub(super) temp: PathBuf,
+        pub(super) root: PathBuf,
+        pub(super) data: PathBuf,
+        pub(super) published: PublishedLibrary,
     }
 
-    #[test]
-    fn execute_preserves_media_ids_and_undo_restores_original_paths() {
-        let fixture = fixture();
-        let store = CatalogStore::new(fixture.data.join("catalog.json"));
-        store
-            .save(fixture.published.clone())
-            .expect("catalog writes");
-        let organizer = LibraryOrganizer::new(vec![fixture.root.clone()], store.clone());
-        let initial = organizer
-            .preview(
-                &fixture.published,
-                OrganizationPreviewRequest {
-                    root: fixture.root.display().to_string(),
-                    base_relative_path: String::new(),
-                    overrides: Vec::new(),
-                },
-            )
-            .expect("preview");
-        let reviewed = organizer
-            .preview(
-                &fixture.published,
-                OrganizationPreviewRequest {
-                    root: fixture.root.display().to_string(),
-                    base_relative_path: String::new(),
-                    overrides: vec![OrganizationSeriesOverride {
-                        batch_id: initial.batches[0].batch_id.clone(),
-                        series_title: "Example Show".to_owned(),
-                        season_number: 1,
-                        included_nearby_paths: Vec::new(),
-                    }],
-                },
-            )
-            .expect("reviewed preview");
-        let batch = &reviewed.batches[0];
-        let prepared = organizer
-            .prepare_execute(
-                &fixture.published.catalog,
-                OrganizationExecuteRequest {
-                    plan_id: reviewed.plan_id.clone(),
-                    batch_id: batch.batch_id.clone(),
-                    expected_moves: batch.moves.clone(),
-                },
-            )
-            .expect("prepare");
-        let updated = organizer.execute(prepared).expect("execute");
-        assert!(
-            fixture
-                .root
-                .join("Example Show/Season 1/[Group] Example Show - 01.mkv")
-                .is_file()
-        );
-        assert_eq!("one", updated.catalog.items[0].id);
-        let previous = store.load().expect("catalog loads");
-        let rescanned = scan_roots(&[fixture.root.clone()], previous.as_ref()).expect("rescans");
-        assert!(
-            rescanned
-                .published_library
-                .catalog
-                .items
-                .iter()
-                .any(|item| item.id == "one" && item.series_title == "Example Show")
-        );
-        let completed = organizer
-            .status()
-            .last_completed_batch_id
-            .expect("completed batch");
-        let undo = organizer.prepare_undo(&completed).expect("undo prepares");
-        organizer.execute(undo).expect("undo executes");
-        assert!(fixture.root.join("[Group] Example Show - 01.mkv").is_file());
-        assert!(fixture.root.join("Example Show/Season 1").is_dir());
-        cleanup(fixture.temp);
-    }
-
-    #[test]
-    fn conflicts_never_overwrite_existing_destinations() {
-        let fixture = fixture();
-        let destination = fixture.root.join("Example Show/Season 1");
-        fs::create_dir_all(&destination).expect("destination creates");
-        fs::write(
-            destination.join("[Group] Example Show - 01.mkv"),
-            b"different",
-        )
-        .expect("conflict writes");
-        let organizer = LibraryOrganizer::new(
-            vec![fixture.root.clone()],
-            CatalogStore::new(fixture.data.join("catalog.json")),
-        );
-        let first = organizer
-            .preview(
-                &fixture.published,
-                OrganizationPreviewRequest {
-                    root: fixture.root.display().to_string(),
-                    base_relative_path: String::new(),
-                    overrides: Vec::new(),
-                },
-            )
-            .expect("preview");
-        let reviewed = organizer
-            .preview(
-                &fixture.published,
-                OrganizationPreviewRequest {
-                    root: fixture.root.display().to_string(),
-                    base_relative_path: String::new(),
-                    overrides: vec![OrganizationSeriesOverride {
-                        batch_id: first.batches[0].batch_id.clone(),
-                        series_title: "Example Show".to_owned(),
-                        season_number: 1,
-                        included_nearby_paths: Vec::new(),
-                    }],
-                },
-            )
-            .expect("reviewed preview");
-        assert!(!reviewed.batches[0].executable);
-        assert!(!reviewed.batches[0].conflicts.is_empty());
-        assert_eq!(
-            b"different".to_vec(),
-            fs::read(destination.join("[Group] Example Show - 01.mkv")).expect("read")
-        );
-        cleanup(fixture.temp);
-    }
-
-    #[test]
-    fn exact_approval_is_required_and_cancellation_keeps_sources() {
-        let fixture = fixture();
-        let store = CatalogStore::new(fixture.data.join("catalog.json"));
-        store
-            .save(fixture.published.clone())
-            .expect("catalog writes");
-        let organizer = LibraryOrganizer::new(vec![fixture.root.clone()], store);
-        let first = organizer
-            .preview(
-                &fixture.published,
-                OrganizationPreviewRequest {
-                    root: fixture.root.display().to_string(),
-                    base_relative_path: String::new(),
-                    overrides: Vec::new(),
-                },
-            )
-            .expect("preview");
-        let reviewed = organizer
-            .preview(
-                &fixture.published,
-                OrganizationPreviewRequest {
-                    root: fixture.root.display().to_string(),
-                    base_relative_path: String::new(),
-                    overrides: vec![OrganizationSeriesOverride {
-                        batch_id: first.batches[0].batch_id.clone(),
-                        series_title: "Example Show".to_owned(),
-                        season_number: 1,
-                        included_nearby_paths: Vec::new(),
-                    }],
-                },
-            )
-            .expect("reviewed preview");
-        let batch = &reviewed.batches[0];
-        let mut changed_moves = batch.moves.clone();
-        changed_moves[0].destination_relative_path = "unexpected.mkv".to_owned();
-        assert!(
-            organizer
-                .prepare_execute(
-                    &fixture.published.catalog,
-                    OrganizationExecuteRequest {
-                        plan_id: reviewed.plan_id.clone(),
-                        batch_id: batch.batch_id.clone(),
-                        expected_moves: changed_moves,
-                    },
-                )
-                .is_err()
-        );
-
-        let prepared = organizer
-            .prepare_execute(
-                &fixture.published.catalog,
-                OrganizationExecuteRequest {
-                    plan_id: reviewed.plan_id.clone(),
-                    batch_id: batch.batch_id.clone(),
-                    expected_moves: batch.moves.clone(),
-                },
-            )
-            .expect("exact approval prepares");
-        organizer.cancel();
-        assert!(organizer.execute(prepared).is_err());
-        assert!(fixture.root.join("[Group] Example Show - 01.mkv").is_file());
-        assert_eq!(OrganizationState::Cancelled, organizer.status().state);
-        cleanup(fixture.temp);
-    }
-
-    struct Fixture {
-        temp: PathBuf,
-        root: PathBuf,
-        data: PathBuf,
-        published: PublishedLibrary,
-    }
-
-    fn fixture_batch(fixture: &Fixture) -> StoredBatch {
+    pub(super) fn fixture_batch(fixture: &Fixture) -> StoredBatch {
         let source_relative_path = "[Group] Example Show - 01.mkv".to_owned();
         StoredBatch {
             batch_id: "fixture-batch".to_owned(),
             series_title: "Example Show".to_owned(),
             root: fixture.root.clone(),
             moves: vec![OrganizationMove {
+                source_signature: None,
+                content_hash: None,
+                source_root: None,
+                destination_root: None,
                 media_id: Some("one".to_owned()),
                 subtitle_id: None,
                 source_relative_path,
@@ -1908,7 +1511,7 @@ mod tests {
         }
     }
 
-    fn fixture() -> Fixture {
+    pub(super) fn fixture() -> Fixture {
         let temp = std::env::temp_dir().join(format!(
             "danmaku-organizer-{}-{}",
             std::process::id(),
@@ -1956,7 +1559,10 @@ mod tests {
         }
     }
 
-    fn cleanup(path: PathBuf) {
+    pub(super) fn cleanup(path: PathBuf) {
         fs::remove_dir_all(path).expect("fixture deletes");
     }
 }
+
+#[cfg(test)]
+mod workflow_tests;
