@@ -73,7 +73,7 @@ class Media3StreamingIntegrationTest {
                             mediaType = "video/mp4",
                             streamPath = "/media/resume-episode",
                         ),
-                        target = LanPlaybackTarget(server.url, "123456", "resume-episode"),
+                        target = LanPlaybackTarget(server.url, "resume-episode"),
                         source = PlaybackSource.RemoteStream(server.url),
                         resumePositionMs = resumePositionMs,
                     )
