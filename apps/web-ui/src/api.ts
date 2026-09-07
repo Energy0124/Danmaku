@@ -364,6 +364,106 @@ export interface PlaybackProgress {
   updatedAtEpochMs: number;
 }
 
+export type AniRssMode = "DISABLED" | "EXTERNAL" | "MANAGED_WINDOWS";
+export type AniRssSource = "MIKAN" | "ANIBT" | "ANIME_GARDEN" | "CUSTOM_RSS";
+
+export interface AniRssPathMapping {
+  remotePrefix: string;
+  localPrefix: string;
+}
+
+export interface AniRssSettings {
+  mode: AniRssMode;
+  baseUrl: string;
+  hasApiKey: boolean;
+  managedPort: number;
+  automaticRescan: boolean;
+  pathMappings: AniRssPathMapping[];
+  approvedSources: AniRssSource[];
+  supportedSources: AniRssSource[];
+  advancedUiUrl?: string | null;
+}
+
+export interface AniRssSettingsUpdate {
+  mode: AniRssMode;
+  baseUrl: string;
+  apiKey?: string;
+  clearApiKey?: boolean;
+  managedPort: number;
+  automaticRescan: boolean;
+  pathMappings: AniRssPathMapping[];
+}
+
+export interface AniRssStatus {
+  configured: boolean;
+  reachable: boolean;
+  mode: AniRssMode;
+  version?: string | null;
+  message: string;
+}
+
+export interface AniRssSearchRequest {
+  source: AniRssSource;
+  query: string;
+  year?: number;
+  season?: string;
+  bgmUrl?: string;
+}
+
+export interface AniRssSearchResult {
+  source: AniRssSource;
+  id: string;
+  title: string;
+  coverUrl?: string | null;
+  bgmUrl?: string | null;
+  locator: string;
+  alreadySubscribed: boolean;
+}
+
+export interface AniRssGroup {
+  name: string;
+  rssUrl: string;
+  bgmUrl?: string | null;
+  sampleTitles: string[];
+}
+
+export interface AniRssSubscriptionRequest {
+  source: AniRssSource;
+  title: string;
+  rssUrl: string;
+  bgmUrl?: string;
+  subgroup?: string;
+  enabled: boolean;
+}
+
+export interface AniRssSubscriptionPreview extends AniRssSubscriptionRequest {
+  downloadPath?: string | null;
+  sampleTitles: string[];
+}
+
+export interface AniRssSubscription {
+  id: string;
+  title: string;
+  source: AniRssSource;
+  rssUrl?: string | null;
+  subgroup?: string | null;
+  enabled: boolean;
+  currentEpisode?: number | null;
+  totalEpisodes?: number | null;
+  lastDownloadAtEpochMs?: number | null;
+  weekLabel?: string | null;
+}
+
+export interface AniRssDownloadJob {
+  id: string;
+  name: string;
+  state: string;
+  progressPercent: number;
+  completedBytes?: number | null;
+  totalBytes?: number | null;
+  savePath?: string | null;
+}
+
 export interface LibrarySnapshot {
   status: LanLibraryServerStatus;
   catalog: LibraryCatalog;
@@ -377,6 +477,106 @@ export class DanmakuApiError extends Error {
   ) {
     super(message);
   }
+}
+
+const aniRssApi = (baseUrl: string, path: string) =>
+  normalizeBaseUrl(baseUrl) + "/api/automation/ani-rss" + path;
+
+export function fetchAniRssSettings(baseUrl: string): Promise<AniRssSettings> {
+  return readJson(aniRssApi(baseUrl, "/settings"));
+}
+
+export function saveAniRssSettings(
+  baseUrl: string,
+  update: AniRssSettingsUpdate
+): Promise<AniRssSettings> {
+  return writeJson(aniRssApi(baseUrl, "/settings"), "PUT", update);
+}
+
+export function fetchAniRssStatus(baseUrl: string): Promise<AniRssStatus> {
+  return readJson(aniRssApi(baseUrl, "/status"));
+}
+
+export function setAniRssSourceApproval(
+  baseUrl: string,
+  source: AniRssSource,
+  approved: boolean
+): Promise<AniRssSettings> {
+  return writeJson(
+    aniRssApi(baseUrl, `/sources/${encodeURIComponent(source)}/approval`),
+    approved ? "POST" : "DELETE"
+  );
+}
+
+export function searchAniRss(
+  baseUrl: string,
+  request: AniRssSearchRequest
+): Promise<AniRssSearchResult[]> {
+  return writeJson(aniRssApi(baseUrl, "/search"), "POST", request);
+}
+
+export function fetchAniRssGroups(
+  baseUrl: string,
+  source: AniRssSource,
+  locator: string
+): Promise<AniRssGroup[]> {
+  return writeJson(aniRssApi(baseUrl, "/groups"), "POST", { source, locator });
+}
+
+export function previewAniRssSubscription(
+  baseUrl: string,
+  request: AniRssSubscriptionRequest
+): Promise<AniRssSubscriptionPreview> {
+  return writeJson(aniRssApi(baseUrl, "/preview"), "POST", request);
+}
+
+export function createAniRssSubscription(
+  baseUrl: string,
+  request: AniRssSubscriptionRequest
+): Promise<{ accepted: boolean }> {
+  return writeJson(aniRssApi(baseUrl, "/subscriptions"), "POST", request);
+}
+
+export function fetchAniRssSubscriptions(
+  baseUrl: string,
+): Promise<AniRssSubscription[]> {
+  return readJson(aniRssApi(baseUrl, "/subscriptions"));
+}
+
+export function setAniRssSubscriptionEnabled(
+  baseUrl: string,
+  id: string,
+  enabled: boolean
+): Promise<{ accepted: boolean }> {
+  return writeJson(
+    aniRssApi(baseUrl, `/subscriptions/${encodeURIComponent(id)}/enabled`),
+    "PUT",
+    { enabled }
+  );
+}
+
+export function refreshAniRssSubscription(
+  baseUrl: string,
+  id: string
+): Promise<{ accepted: boolean }> {
+  return writeJson(
+    aniRssApi(baseUrl, `/subscriptions/${encodeURIComponent(id)}/refresh`),
+    "POST"
+  );
+}
+
+export function deleteAniRssSubscription(
+  baseUrl: string,
+  id: string
+): Promise<{ accepted: boolean }> {
+  return writeJson(
+    aniRssApi(baseUrl, `/subscriptions/${encodeURIComponent(id)}`),
+    "DELETE"
+  );
+}
+
+export function fetchAniRssDownloads(baseUrl: string): Promise<AniRssDownloadJob[]> {
+  return readJson(aniRssApi(baseUrl, "/downloads"));
 }
 
 export async function fetchServerStatus(baseUrl: string): Promise<LanLibraryServerStatus> {

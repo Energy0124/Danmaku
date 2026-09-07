@@ -1,3 +1,6 @@
+use crate::ani_rss::{AniRssService, SUPPORTED_SOURCES, approved_source_name};
+use crate::managed_ani_rss::ManagedAniRss;
+use crate::settings::{AniRssPathMapping, HeadlessAniRssMode, HeadlessAniRssSettings};
 use std::{
     collections::BTreeMap,
     path::PathBuf,
@@ -177,6 +180,7 @@ pub struct ProviderAdminState {
     secret_store: ProviderSecretStore,
     pub(super) persisted_settings: Mutex<HeadlessServerSettings>,
     pub(super) runtime: RwLock<ProviderRuntimeResources>,
+    managed_ani_rss: Mutex<Option<ManagedAniRss>>,
     attention_failures: AttentionFailureStore,
     tracking_store: ExternalTrackingStore,
     pending_my_anime_list_oauth: Mutex<BTreeMap<String, PendingMyAnimeListOAuth>>,
@@ -207,9 +211,18 @@ impl ProviderAdminState {
         dandanplay_resolver: Option<Arc<DandanplayResolver>>,
         secret_store: ProviderSecretStore,
     ) -> Result<Self> {
+        let managed_ani_rss =
+            match ManagedAniRss::start(&effective_settings.ani_rss, &data_directory) {
+                Ok(sidecar) => sidecar,
+                Err(error) => {
+                    eprintln!("managed ANI-RSS is unavailable: {error}");
+                    None
+                }
+            };
         Ok(Self {
             settings_store: SettingsStore::new(data_directory.join("server-settings.json")),
             secret_store,
+            managed_ani_rss: Mutex::new(managed_ani_rss),
             attention_failures: AttentionFailureStore::open(
                 data_directory.join("library-attention.json"),
             )?,
@@ -792,5 +805,262 @@ fn apply_secret_update(
         )));
     }
     *current = Some(replacement);
+    Ok(())
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct AniRssSettingsUpdate {
+    pub(super) mode: String,
+    base_url: String,
+    #[serde(default)]
+    api_key: Option<String>,
+    #[serde(default)]
+    clear_api_key: bool,
+    #[serde(default = "default_ani_rss_port")]
+    managed_port: u16,
+    #[serde(default = "default_true")]
+    automatic_rescan: bool,
+    #[serde(default)]
+    path_mappings: Vec<AniRssPathMapping>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct AniRssEnabledRequest {
+    pub(super) enabled: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct AniRssSettingsResponse {
+    pub(super) mode: String,
+    base_url: String,
+    has_api_key: bool,
+    managed_port: u16,
+    automatic_rescan: bool,
+    path_mappings: Vec<AniRssPathMapping>,
+    approved_sources: Vec<String>,
+    supported_sources: Vec<&'static str>,
+    advanced_ui_url: Option<String>,
+}
+
+fn default_ani_rss_port() -> u16 {
+    7789
+}
+
+fn default_true() -> bool {
+    true
+}
+
+impl ProviderAdminState {
+    pub(super) fn ani_rss_settings(&self) -> crate::Result<AniRssSettingsResponse> {
+        let settings = self
+            .persisted_settings
+            .lock()
+            .map_err(|_| crate::LibraryServerError::new("provider settings lock is unavailable"))?;
+        Ok(AniRssSettingsResponse::from(&settings.ani_rss))
+    }
+
+    pub(super) fn ani_rss_service(&self) -> crate::Result<(AniRssService, HeadlessAniRssMode)> {
+        let settings = self
+            .persisted_settings
+            .lock()
+            .map_err(|_| crate::LibraryServerError::new("provider settings lock is unavailable"))?;
+        Ok((
+            AniRssService::from_settings(&settings.ani_rss)?,
+            settings.ani_rss.mode,
+        ))
+    }
+
+    pub(super) fn ani_rss_source_is_approved(&self, source: &str) -> crate::Result<bool> {
+        let source = approved_source_name(source)?;
+        let settings = self
+            .persisted_settings
+            .lock()
+            .map_err(|_| crate::LibraryServerError::new("provider settings lock is unavailable"))?;
+        Ok(settings
+            .ani_rss
+            .approved_sources
+            .iter()
+            .any(|approved| approved == source))
+    }
+
+    pub(super) fn ani_rss_automatic_rescan_enabled(&self) -> bool {
+        self.persisted_settings
+            .lock()
+            .map(|settings| {
+                settings.ani_rss.automatic_rescan
+                    && settings.ani_rss.mode != HeadlessAniRssMode::Disabled
+            })
+            .unwrap_or(false)
+    }
+
+    pub(super) fn update_ani_rss(
+        &self,
+        update: AniRssSettingsUpdate,
+    ) -> crate::Result<AniRssSettingsResponse> {
+        let mut persisted = self
+            .persisted_settings
+            .lock()
+            .map_err(|_| crate::LibraryServerError::new("provider settings lock is unavailable"))?;
+        let mut next = persisted.clone();
+        let previous_base_url = next.ani_rss.base_url.clone();
+        apply_ani_rss_settings_update(&mut next.ani_rss, update)?;
+        if next.ani_rss.base_url != previous_base_url {
+            next.ani_rss.approved_sources.clear();
+        }
+        self.commit_settings(&mut persisted, next)?;
+        let ani_rss = persisted.ani_rss.clone();
+        self.restart_managed_ani_rss(&ani_rss)?;
+        Ok(AniRssSettingsResponse::from(&ani_rss))
+    }
+
+    pub(super) fn restart_managed_ani_rss(
+        &self,
+        settings: &HeadlessAniRssSettings,
+    ) -> crate::Result<()> {
+        let mut sidecar = self
+            .managed_ani_rss
+            .lock()
+            .map_err(|_| crate::LibraryServerError::new("managed ANI-RSS lock is unavailable"))?;
+        sidecar.take();
+        *sidecar = ManagedAniRss::start(settings, &self.data_directory)?;
+        let started = sidecar.is_some();
+        drop(sidecar);
+        if !started {
+            return Ok(());
+        }
+
+        let service = AniRssService::from_settings(settings)?;
+        let mut last_message = "managed ANI-RSS did not become ready".to_owned();
+        for _ in 0..30 {
+            let status = service.status(settings.mode);
+            if status.reachable {
+                return Ok(());
+            }
+            last_message = status.message;
+            std::thread::sleep(std::time::Duration::from_millis(500));
+        }
+        Err(crate::LibraryServerError::new(format!(
+            "managed ANI-RSS started but is not ready: {last_message}"
+        )))
+    }
+
+    pub(super) fn set_ani_rss_source_approval(
+        &self,
+        source: &str,
+        approved: bool,
+    ) -> crate::Result<AniRssSettingsResponse> {
+        let source = approved_source_name(source)?.to_owned();
+        let mut persisted = self
+            .persisted_settings
+            .lock()
+            .map_err(|_| crate::LibraryServerError::new("provider settings lock is unavailable"))?;
+        let mut next = persisted.clone();
+        next.ani_rss
+            .approved_sources
+            .retain(|value| value != &source);
+        if approved {
+            next.ani_rss.approved_sources.push(source);
+            next.ani_rss.approved_sources.sort();
+        }
+        self.commit_settings(&mut persisted, next)?;
+        Ok(AniRssSettingsResponse::from(&persisted.ani_rss))
+    }
+}
+
+impl From<&HeadlessAniRssSettings> for AniRssSettingsResponse {
+    fn from(settings: &HeadlessAniRssSettings) -> Self {
+        Self {
+            mode: settings.mode.wire_name().to_owned(),
+            base_url: settings.base_url.clone(),
+            has_api_key: settings.api_key.is_some(),
+            managed_port: settings.managed_port,
+            automatic_rescan: settings.automatic_rescan,
+            path_mappings: settings.path_mappings.clone(),
+            approved_sources: settings.approved_sources.clone(),
+            supported_sources: SUPPORTED_SOURCES.to_vec(),
+            advanced_ui_url: (settings.mode == HeadlessAniRssMode::External)
+                .then(|| settings.base_url.clone()),
+        }
+    }
+}
+
+fn apply_ani_rss_settings_update(
+    settings: &mut HeadlessAniRssSettings,
+    update: AniRssSettingsUpdate,
+) -> crate::Result<()> {
+    let mode = match update.mode.trim().to_ascii_uppercase().as_str() {
+        "DISABLED" => HeadlessAniRssMode::Disabled,
+        "EXTERNAL" => HeadlessAniRssMode::External,
+        "MANAGED_WINDOWS" => HeadlessAniRssMode::ManagedWindows,
+        _ => {
+            return Err(crate::LibraryServerError::new(
+                "ANI-RSS mode must be DISABLED, EXTERNAL, or MANAGED_WINDOWS",
+            ));
+        }
+    };
+    #[cfg(not(windows))]
+    if mode == HeadlessAniRssMode::ManagedWindows {
+        return Err(crate::LibraryServerError::new(
+            "managed ANI-RSS mode is only available on Windows",
+        ));
+    }
+    if !is_http_base_url(&update.base_url) || update.base_url.len() > 2_048 {
+        return Err(crate::LibraryServerError::new(
+            "ANI-RSS baseUrl must be a valid HTTP(S) URL",
+        ));
+    }
+    if update.managed_port == 0 {
+        return Err(crate::LibraryServerError::new(
+            "ANI-RSS managedPort must be between 1 and 65535",
+        ));
+    }
+    if update.path_mappings.len() > 32 {
+        return Err(crate::LibraryServerError::new(
+            "ANI-RSS supports at most 32 path mappings",
+        ));
+    }
+    let mut mappings = Vec::with_capacity(update.path_mappings.len());
+    for mapping in update.path_mappings {
+        let remote_prefix = mapping.remote_prefix.trim();
+        let local_prefix = mapping.local_prefix.trim();
+        if remote_prefix.is_empty() || local_prefix.is_empty() {
+            return Err(crate::LibraryServerError::new(
+                "ANI-RSS path mapping prefixes must not be blank",
+            ));
+        }
+        if remote_prefix.len() > 4_096 || local_prefix.len() > 4_096 {
+            return Err(crate::LibraryServerError::new(
+                "ANI-RSS path mapping prefixes must be no more than 4096 bytes",
+            ));
+        }
+        mappings.push(AniRssPathMapping {
+            remote_prefix: remote_prefix.to_owned(),
+            local_prefix: local_prefix.to_owned(),
+        });
+    }
+    settings.mode = mode;
+    settings.base_url = if mode == HeadlessAniRssMode::ManagedWindows {
+        format!("http://127.0.0.1:{}", update.managed_port)
+    } else {
+        update.base_url.trim().trim_end_matches('/').to_owned()
+    };
+    settings.managed_port = update.managed_port;
+    settings.automatic_rescan = update.automatic_rescan;
+    settings.path_mappings = mappings;
+    apply_secret_update(
+        &mut settings.api_key,
+        update.api_key,
+        update.clear_api_key,
+        "ANI-RSS apiKey",
+    )?;
+    if mode != HeadlessAniRssMode::Disabled && settings.api_key.is_none() {
+        return Err(crate::LibraryServerError::new(
+            "ANI-RSS API key is required when the integration is enabled",
+        ));
+    }
+    settings.has_api_key = settings.api_key.is_some();
     Ok(())
 }

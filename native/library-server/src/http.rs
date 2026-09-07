@@ -105,6 +105,9 @@ impl HttpServerConfig {
     }
 }
 
+mod automation;
+use automation::handle_ani_rss;
+
 mod provider_admin;
 pub use provider_admin::ProviderAdminState;
 use provider_admin::{
@@ -230,6 +233,12 @@ impl HttpServerState {
         }
     }
 
+    pub(crate) fn ani_rss_automatic_rescan_enabled(&self) -> bool {
+        self.provider_admin
+            .as_ref()
+            .is_some_and(|admin| admin.ani_rss_automatic_rescan_enabled())
+    }
+
     /// Snapshot of the currently published library; requests keep using the
     /// snapshot they read even if a rescan swaps the library mid-request.
     fn library(&self) -> Arc<PublishedLibrary> {
@@ -342,6 +351,9 @@ async fn dispatch(State(state): State<HttpServerState>, request: Request<Body>) 
     }
     if path.starts_with("/api/danmaku/") {
         return handle_danmaku(&state, &method, &path, query.as_deref()).await;
+    }
+    if path.starts_with("/api/automation/ani-rss") {
+        return handle_ani_rss(&state, method, &path, body).await;
     }
     if path.starts_with("/api/providers/settings") {
         return handle_provider_settings(&state, method, &path, body).await;

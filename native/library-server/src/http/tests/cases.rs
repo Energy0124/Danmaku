@@ -12,6 +12,7 @@ async fn organizer_requires_desktop_mode_and_loopback_peer() {
         library_roots: vec![fixture.temp.clone()],
         dandanplay: crate::settings::HeadlessDandanplayProviderSettings::default(),
         external_anime: crate::settings::HeadlessExternalAnimeProviderSettings::default(),
+        ani_rss: Default::default(),
     };
     let admin = Arc::new(
         ProviderAdminState::new(fixture.temp.clone(), settings.clone(), settings, None)
@@ -748,6 +749,7 @@ async fn tracking_admin_persists_mapping_and_syncs_previewed_update() {
         library_roots: Vec::new(),
         dandanplay: crate::settings::HeadlessDandanplayProviderSettings::default(),
         external_anime: crate::settings::HeadlessExternalAnimeProviderSettings::default(),
+        ani_rss: Default::default(),
     };
     let admin = Arc::new(
         ProviderAdminState::new(
@@ -919,6 +921,7 @@ async fn provider_accounts_start_mal_oauth_without_network_access() {
         library_roots: Vec::new(),
         dandanplay: crate::settings::HeadlessDandanplayProviderSettings::default(),
         external_anime: crate::settings::HeadlessExternalAnimeProviderSettings::default(),
+        ani_rss: Default::default(),
     };
     settings.external_anime.my_anime_list_client_id = Some("mal-client".to_owned());
     let secret_store = ProviderSecretStore::with_protector(
@@ -994,6 +997,7 @@ fn rejected_mal_refresh_requires_reconnect_but_transient_failure_stays_connected
         library_roots: Vec::new(),
         dandanplay: crate::settings::HeadlessDandanplayProviderSettings::default(),
         external_anime: crate::settings::HeadlessExternalAnimeProviderSettings::default(),
+        ani_rss: Default::default(),
     };
     let external = &mut settings.external_anime;
     external.my_anime_list_client_id = Some("mal-client".to_owned());
@@ -1070,6 +1074,7 @@ async fn provider_settings_redact_secrets_and_reload_runtime() {
         library_roots: Vec::new(),
         dandanplay: crate::settings::HeadlessDandanplayProviderSettings::default(),
         external_anime: crate::settings::HeadlessExternalAnimeProviderSettings::default(),
+        ani_rss: Default::default(),
     };
     let secret_store = ProviderSecretStore::with_protector(
         fixture.temp.join("provider-secrets.json"),
@@ -1444,4 +1449,121 @@ async fn media_route_handles_mpv_open_ended_ranges_and_head() {
                 .to_vec(),
         );
     }
+}
+
+#[tokio::test]
+async fn ani_rss_admin_enforces_source_approval_and_redacts_secrets() {
+    #[derive(Debug)]
+    struct ReversingSecretProtector;
+
+    impl crate::provider_secrets::SecretProtector for ReversingSecretProtector {
+        fn protect(&self, plaintext: &[u8]) -> crate::Result<Vec<u8>> {
+            Ok(plaintext.iter().rev().map(|byte| byte ^ 0x5a).collect())
+        }
+
+        fn unprotect(&self, ciphertext: &[u8]) -> crate::Result<Vec<u8>> {
+            Ok(ciphertext.iter().rev().map(|byte| byte ^ 0x5a).collect())
+        }
+    }
+
+    let fixture = FixtureEnvironment::new();
+    let settings = HeadlessServerSettings {
+        library_roots: Vec::new(),
+        dandanplay: crate::settings::HeadlessDandanplayProviderSettings::default(),
+        external_anime: crate::settings::HeadlessExternalAnimeProviderSettings::default(),
+        ani_rss: Default::default(),
+    };
+    let secret_store = ProviderSecretStore::with_protector(
+        fixture.temp.join("provider-secrets.json"),
+        Arc::new(ReversingSecretProtector),
+    );
+    let admin = Arc::new(ProviderAdminState::new_for_tests(
+        fixture.temp.clone(),
+        settings.clone(),
+        settings.clone(),
+        secret_store,
+    ));
+    let app = app(HttpServerState::new(
+        fixture.library.clone(),
+        Arc::new(PlaybackProgressStore::new(
+            fixture.temp.join("progress-ani-rss.json"),
+        )),
+        HttpServerConfig::headless(None, &settings, None, None, None, admin),
+    ));
+
+    let settings_response = app
+        .clone()
+        .oneshot(get("/api/automation/ani-rss/settings"))
+        .await
+        .expect("settings response");
+    assert_eq!(StatusCode::OK, settings_response.status());
+
+    let search = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/automation/ani-rss/search")
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"source":"MIKAN","query":"Frieren"}"#))
+                .expect("search request"),
+        )
+        .await
+        .expect("search response");
+    assert_eq!(StatusCode::FORBIDDEN, search.status());
+
+    let approval = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/automation/ani-rss/sources/MIKAN/approval")
+                .body(Body::empty())
+                .expect("approval request"),
+        )
+        .await
+        .expect("approval response");
+    assert_eq!(StatusCode::OK, approval.status());
+    let approved: Value = serde_json::from_str(&body_text(approval).await).expect("approval JSON");
+    assert_eq!(json!(["MIKAN"]), approved["approvedSources"]);
+
+    let update = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("PUT")
+                .uri("/api/automation/ani-rss/settings")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "mode": "EXTERNAL",
+                        "baseUrl": "http://127.0.0.1:7790",
+                        "apiKey": "test-ani-rss-key",
+                        "managedPort": 7790,
+                        "automaticRescan": true,
+                        "pathMappings": []
+                    })
+                    .to_string(),
+                ))
+                .expect("settings request"),
+        )
+        .await
+        .expect("settings response");
+    assert_eq!(StatusCode::OK, update.status());
+    let updated: Value = serde_json::from_str(&body_text(update).await).expect("settings JSON");
+    assert_eq!("EXTERNAL", updated["mode"]);
+    assert_eq!(json!([]), updated["approvedSources"]);
+    assert_eq!(true, updated["hasApiKey"]);
+    assert!(updated.get("apiKey").is_none());
+    for file in ["server-settings.json", "provider-secrets.json"] {
+        let contents = fs::read_to_string(fixture.temp.join(file)).expect("persisted settings");
+        assert!(!contents.contains("test-ani-rss-key"));
+    }
+    let secrets = ProviderSecretStore::with_protector(
+        fixture.temp.join("provider-secrets.json"),
+        Arc::new(ReversingSecretProtector),
+    )
+    .load()
+    .expect("persisted secret reloads");
+    assert_eq!(Some("test-ani-rss-key"), secrets.ani_rss_api_key.as_deref());
 }

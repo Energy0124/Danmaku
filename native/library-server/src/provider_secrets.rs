@@ -22,6 +22,7 @@ pub struct ProviderSecrets {
     pub my_anime_list_access_token: Option<String>,
     pub my_anime_list_refresh_token: Option<String>,
     pub bangumi_access_token: Option<String>,
+    pub ani_rss_api_key: Option<String>,
 }
 
 impl ProviderSecrets {
@@ -38,6 +39,7 @@ impl ProviderSecrets {
                 .my_anime_list_refresh_token
                 .clone(),
             bangumi_access_token: settings.external_anime.bangumi_access_token.clone(),
+            ani_rss_api_key: settings.ani_rss.api_key.clone(),
         }
     }
 
@@ -75,6 +77,11 @@ impl ProviderSecrets {
         settings.external_anime.has_bangumi_access_token =
             settings.external_anime.bangumi_access_token.is_some()
                 || settings.external_anime.has_bangumi_access_token;
+        if let Some(api_key) = &self.ani_rss_api_key {
+            settings.ani_rss.api_key = Some(api_key.clone());
+        }
+        settings.ani_rss.has_api_key =
+            settings.ani_rss.api_key.is_some() || settings.ani_rss.has_api_key;
     }
 
     fn is_empty(&self) -> bool {
@@ -83,6 +90,7 @@ impl ProviderSecrets {
             && self.my_anime_list_access_token.is_none()
             && self.my_anime_list_refresh_token.is_none()
             && self.bangumi_access_token.is_none()
+            && self.ani_rss_api_key.is_none()
     }
 }
 
@@ -154,6 +162,7 @@ impl ProviderSecretStore {
             my_anime_list_access_token: self.decrypt(snapshot.my_anime_list_access_token)?,
             my_anime_list_refresh_token: self.decrypt(snapshot.my_anime_list_refresh_token)?,
             bangumi_access_token: self.decrypt(snapshot.bangumi_access_token)?,
+            ani_rss_api_key: self.decrypt(snapshot.ani_rss_api_key)?,
         })
     }
 
@@ -193,6 +202,7 @@ impl ProviderSecretStore {
             my_anime_list_refresh_token: self
                 .encrypt(secrets.my_anime_list_refresh_token.as_deref())?,
             bangumi_access_token: self.encrypt(secrets.bangumi_access_token.as_deref())?,
+            ani_rss_api_key: self.encrypt(secrets.ani_rss_api_key.as_deref())?,
         };
         let body = serde_json::to_string_pretty(&snapshot)?;
         let temp = self.file.with_file_name(format!(
@@ -252,6 +262,8 @@ struct ProviderSecretSnapshot {
     my_anime_list_refresh_token: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     bangumi_access_token: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    ani_rss_api_key: Option<String>,
 }
 
 fn hex_encode(bytes: Vec<u8>) -> String {
@@ -436,6 +448,7 @@ mod tests {
             my_anime_list_access_token: Some("mal-token".to_owned()),
             my_anime_list_refresh_token: Some("mal-refresh-token".to_owned()),
             bangumi_access_token: Some("bangumi-token".to_owned()),
+            ani_rss_api_key: Some("ani-rss-secret".to_owned()),
         };
 
         store.save(&secrets).expect("secrets should save");
@@ -446,6 +459,7 @@ mod tests {
             "mal-token",
             "mal-refresh-token",
             "bangumi-token",
+            "ani-rss-secret",
         ] {
             assert!(!raw.contains(secret));
         }

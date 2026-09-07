@@ -18,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
 import app.danmaku.domain.DanmakuDisplaySettings
 import app.danmaku.domain.LibraryCatalog
@@ -125,6 +126,7 @@ internal fun MobileAppScaffold(
     onInstallUpdate: (String) -> Unit,
 ) {
     var folderPath by remember(state.serverUrl) { mutableStateOf(emptyList<String>()) }
+    val uriHandler = LocalUriHandler.current
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = AppBackground,
@@ -177,6 +179,10 @@ internal fun MobileAppScaffold(
                 onOpenLibrary = actions.onOpenLibrary,
                 onShowLibraryItem = actions.onShowLibraryItem,
                 onConnect = actions.onConnect,
+                onOpenAutoDownloads = {
+                    val url = state.serverUrl.trim().trimEnd('/')
+                    if (url.isNotEmpty()) uriHandler.openUri("$url/web#ani-rss")
+                },
             )
             MobileTab.Watch -> WatchPage(
                 contentPadding = innerPadding,

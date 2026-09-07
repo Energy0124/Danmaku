@@ -25,6 +25,7 @@ import { createPlaybackProgress, resumePositionMs } from "./playbackProgress";
 import { ProviderSettingsPanel } from "./ProviderSettingsPanel";
 import { ProviderAccountsPanel } from "./ProviderAccountsPanel";
 import { TrackingAdminPanel } from "./TrackingAdminPanel";
+import { AniRssPanel } from "./AniRssPanel";
 
 export function App() {
   const defaultBaseUrl = window.location.origin;
@@ -123,6 +124,8 @@ export function App() {
           }
         />
       ) : null}
+
+      {catalog ? <AniRssPanel baseUrl={normalizedBaseUrl} /> : null}
 
       <section className="workspace">
         <aside className="library-pane">
