@@ -34,6 +34,7 @@ import app.danmaku.library.android.OfflineCacheEntry
 import app.danmaku.library.android.OfflineCacheState
 import app.danmaku.domain.itemsInFolder
 import androidx.compose.ui.res.stringResource
+import app.danmaku.updater.android.AppUpdateState
 
 internal data class MobileAppUiState(
     val selectedTab: MobileTab,
@@ -47,7 +48,6 @@ internal data class MobileAppUiState(
     val nowPlaying: LibraryMediaItem?,
     val playbackError: String?,
     val serverUrl: String,
-    val pairingToken: String,
     val savedConnections: List<LanLibraryConnectionProfile>,
     val libraryError: String?,
     val searchText: String,
@@ -92,7 +92,6 @@ internal data class MobileAppActions(
     val onFavoriteFilterChange: (LibraryFavoriteFilter) -> Unit,
     val onSetFavorite: (LibraryMediaItem, Boolean) -> Unit,
     val onServerUrlChange: (String) -> Unit,
-    val onPairingTokenChange: (String) -> Unit,
     val onSelectConnection: (LanLibraryConnectionProfile) -> Unit,
     val onEditConnection: (LanLibraryConnectionProfile) -> Unit,
     val onForgetConnection: (LanLibraryConnectionProfile) -> Unit,
@@ -120,6 +119,11 @@ internal data class MobileAppActions(
 internal fun MobileAppScaffold(
     state: MobileAppUiState,
     actions: MobileAppActions,
+    appUpdateState: AppUpdateState,
+    currentVersionName: String,
+    onCheckForUpdates: () -> Unit,
+    onDownloadUpdate: () -> Unit,
+    onInstallUpdate: (String) -> Unit,
 ) {
     var folderPath by remember(state.serverUrl) { mutableStateOf(emptyList<String>()) }
     val uriHandler = LocalUriHandler.current
@@ -262,7 +266,6 @@ internal fun MobileAppScaffold(
                 snapshot = state.snapshot,
                 nowPlaying = state.nowPlaying,
                 serverUrl = state.serverUrl,
-                pairingToken = state.pairingToken,
                 savedConnections = state.savedConnections,
                 libraryError = state.libraryError,
                 tracking = state.tracking,
@@ -273,12 +276,16 @@ internal fun MobileAppScaffold(
                 onSaveConnection = actions.onSaveConnection,
                 onDiscover = actions.onDiscover,
                 onRefresh = actions.onRefresh,
-                onPairingTokenChange = actions.onPairingTokenChange,
                 onLoadTracking = actions.onLoadTracking,
                 onReadTracking = actions.onReadTracking,
                 onSyncTracking = actions.onSyncTracking,
                 onPlayPause = actions.onPlayPause,
                 onOpenPlayer = actions.onOpenPlayer,
+                appUpdateState = appUpdateState,
+                currentVersionName = currentVersionName,
+                onCheckForUpdates = onCheckForUpdates,
+                onDownloadUpdate = onDownloadUpdate,
+                onInstallUpdate = onInstallUpdate,
             )
         }
     }

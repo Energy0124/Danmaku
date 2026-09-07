@@ -20,7 +20,7 @@ class OfflineCacheRepositoryTest {
     fun pendingProgressSurvivesMediaDeletionUntilUploadSucceeds() {
         val uploads = mutableListOf<PlaybackProgress>()
         val repository = repository(
-            uploader = OfflineProgressUploader { _, _, progress -> uploads += progress },
+            uploader = OfflineProgressUploader { _, progress -> uploads += progress },
         )
         val entry = repository.enqueue(SERVER_URL, listOf(mediaItem())).single()
         val progress = PlaybackProgress("episode-1", 42_000, 90_000, 200)
@@ -29,10 +29,10 @@ class OfflineCacheRepositoryTest {
         repository.delete(entry.key)
 
         assertTrue(repository.entries().isEmpty())
-        assertEquals(listOf(progress), repository.syncPendingProgress(SERVER_URL, "token", emptyList()))
+        assertEquals(listOf(progress), repository.syncPendingProgress(SERVER_URL, emptyList()))
         assertEquals(listOf(progress), uploads)
 
-        repository.syncPendingProgress(SERVER_URL, "token", emptyList())
+        repository.syncPendingProgress(SERVER_URL, emptyList())
         assertEquals(1, uploads.size)
     }
 
@@ -40,7 +40,7 @@ class OfflineCacheRepositoryTest {
     fun clearKeepsProgressTombstoneAndRemoteNewerProgressWins() {
         val uploads = mutableListOf<PlaybackProgress>()
         val repository = repository(
-            uploader = OfflineProgressUploader { _, _, progress -> uploads += progress },
+            uploader = OfflineProgressUploader { _, progress -> uploads += progress },
         )
         val entry = repository.enqueue(SERVER_URL, listOf(mediaItem())).single()
         val pending = PlaybackProgress("episode-1", 20_000, 90_000, 100)
@@ -48,7 +48,7 @@ class OfflineCacheRepositoryTest {
         repository.savePendingProgress(entry.key, pending)
 
         repository.clear()
-        val merged = repository.syncPendingProgress(SERVER_URL, "token", listOf(remote))
+        val merged = repository.syncPendingProgress(SERVER_URL, listOf(remote))
 
         assertEquals(listOf(remote), merged)
         assertTrue(uploads.isEmpty())
@@ -91,7 +91,7 @@ class OfflineCacheRepositoryTest {
 
     private fun repository(
         root: File = temporaryFolder.newFolder(),
-        uploader: OfflineProgressUploader = OfflineProgressUploader { _, _, _ -> },
+        uploader: OfflineProgressUploader = OfflineProgressUploader { _, _ -> },
         scheduler: OfflineWorkScheduler = RecordingScheduler(),
     ): AndroidOfflineCacheRepository = AndroidOfflineCacheRepository(
         root = root,

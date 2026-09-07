@@ -32,13 +32,11 @@ class AndroidLanLibraryConnectionStore(
 
     fun saveCurrentConnection(
         baseUrl: String,
-        pairingToken: String,
         displayName: String? = null,
         connectedAtEpochMs: Long = System.currentTimeMillis(),
     ): LanLibraryConnectionProfile {
         val profile = lanLibraryConnectionProfile(
             baseUrl = baseUrl,
-            pairingToken = pairingToken,
             displayName = displayName,
             lastConnectedAtEpochMs = connectedAtEpochMs,
         )
@@ -73,7 +71,6 @@ class AndroidLanLibraryConnectionStore(
 @Serializable
 private data class StoredConnectionProfile(
     val baseUrl: String,
-    val pairingToken: String,
     val displayName: String,
     val lastConnectedAtEpochMs: Long? = null,
 )
@@ -81,7 +78,6 @@ private data class StoredConnectionProfile(
 private fun LanLibraryConnectionProfile.toStoredProfile(): StoredConnectionProfile =
     StoredConnectionProfile(
         baseUrl = normalizedBaseUrl,
-        pairingToken = pairingToken,
         displayName = displayName,
         lastConnectedAtEpochMs = lastConnectedAtEpochMs,
     )
@@ -90,7 +86,6 @@ private fun StoredConnectionProfile.toConnectionProfileOrNull(): LanLibraryConne
     runCatching {
         lanLibraryConnectionProfile(
             baseUrl = baseUrl,
-            pairingToken = pairingToken,
             displayName = displayName,
             lastConnectedAtEpochMs = lastConnectedAtEpochMs,
         )

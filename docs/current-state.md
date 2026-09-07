@@ -1,6 +1,6 @@
 # Current State
 
-Last reviewed: 2026-08-21.
+Last reviewed: 2026-08-31.
 
 Danmaku's active product is a Rust-native Windows library/player/server with
 Android mobile, Android TV, and browser clients on the same trusted-LAN API,
@@ -17,8 +17,7 @@ Compose macOS artifact are retired.
   discovery, library browsing, progress/resume, previous/next, and auto-next.
 - English and Traditional Chinese UI, durable playback/danmaku preferences,
   a translucent in-player danmaku panel with independent scrolling/top/bottom
-  visibility controls, remembered local roots and server URL, and session-only
-  pairing tokens.
+  visibility controls and remembered local roots and server URL.
 - Unified local mode that starts the sibling Rust server, waits asynchronously
   for readiness, connects, and stops only a child it owns.
 - Optional current-user Task Scheduler background host with install, atomic
@@ -27,7 +26,7 @@ Compose macOS artifact are retired.
   preferences, credentials, and configured roots.
 - Multi-root scanning, normalized catalog snapshots, subtitles, posters,
   streaming/range requests, progress, UDP discovery, and data-directory locks.
-- Authenticated, asynchronous manual rescans of the current folder. The server
+- Asynchronous manual rescans of the current folder. The server
   replaces only the selected catalog subtree, preserves sibling folders and
   stable media IDs, and exposes live file counts and scan failures through its
   status endpoint.
@@ -74,7 +73,7 @@ Compose macOS artifact are retired.
   and explicitly confirmed sync; account/mapping/conflict administration stays
   on Windows and the web UI.
 - ANI-RSS automatic-download administration through a normalized,
-  bearer-authenticated server API and responsive web panel. Desktop and mobile
+  trusted-LAN server API and responsive web panel. Desktop and mobile
   entry points open the same workflow for explicit source approval, series
   search, group selection, preview/confirm, subscription management, and
   download status. The ANI-RSS API key stays in protected server storage.
@@ -89,6 +88,10 @@ Compose macOS artifact are retired.
   journeys.
 - Shared domain, LAN-client, and Media3 modules without a JVM server runtime
   dependency.
+- Android mobile and TV stable-release checks through a shared Android updater.
+  The apps check at most daily, expose manual checks, download only after
+  approval, validate the APK hash/size/package/version/signing certificate,
+  and invoke Android's user-confirmed package installer.
 
 ### Web UI
 
@@ -111,6 +114,9 @@ Compose macOS artifact are retired.
   Authenticode certificate, resolves and verifies the latest stable LGPL x64
   libmpv asset, preserves its recorded DLL hash, and publishes checksums only
   after all build and package checks pass.
+- The same tag requires the durable Android signing key, derives monotonic
+  Android version codes, verifies signed mobile/TV APK metadata, and publishes
+  both APKs plus `android-update.json` in the unified GitHub Release.
 - Windows CI for Rust, Android, web assets, packaging, and libmpv checks;
   separate Rust and Worker proxy jobs.
 - Native macOS CI compiles and tests the Rust workspace, verifies Homebrew

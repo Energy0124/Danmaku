@@ -25,7 +25,6 @@ internal suspend fun prepareTvLibraryItem(
     return withContext(Dispatchers.IO) {
         playbackPreparer.prepare(
             baseUrl = target.baseUrl,
-            pairingToken = target.pairingToken,
             item = item,
             resumePositionMs = resumePosition,
         )
@@ -37,9 +36,6 @@ internal fun loadPreparedTvLibraryItem(
     preparation: LanPlaybackPreparation,
 ) {
     controller.load(preparation)
-    preparation.resumePositionMs?.let {
-        controller.dispatch(PlaybackCommand.SeekTo(it))
-    }
 }
 
 internal fun startLoadedTvLibraryItem(controller: TvPlaybackController) {

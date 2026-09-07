@@ -6,7 +6,6 @@ import kotlinx.serialization.Serializable
 data class LanLibraryServerStatus(
     val appName: String = "Danmaku",
     val apiVersion: Int = CURRENT_API_VERSION,
-    val pairingRequired: Boolean = false,
     val mediaStreaming: Boolean = true,
     val progressSync: Boolean = true,
     val trustedDeviceManagement: Boolean = false,

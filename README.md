@@ -26,6 +26,7 @@ shared/
   domain/                 Platform-neutral models and behavior
   library-client/         Shared LAN client/session/progress policy
   library-client-android/ Android HTTP/discovery/storage adapters
+  app-update-android/     GitHub release checks and verified APK installation
   player-android-media3/  Shared Media3 playback adapter/service
 
 native/
@@ -49,8 +50,7 @@ rescan them.
 - A connected emulator/device only for Android instrumentation tests
 
 `local.properties` is ignored and may hold the Android SDK path and local
-provider credentials. Never commit credentials, pairing tokens, cookies, or
-signed URLs.
+provider credentials. Never commit credentials, cookies, or signed URLs.
 
 ```properties
 sdk.dir=C\:\\path\\to\\Android\\Sdk
@@ -65,7 +65,7 @@ danmaku.myanimelist.clientSecret=your-client-secret
 ```powershell
 cargo fmt --all --check
 cargo test --workspace
-.\gradlew.bat --no-daemon :shared:domain:jvmTest :shared:library-client:jvmTest :shared:library-client-android:testDebugUnitTest :shared:player-android-media3:assembleDebugAndroidTest :apps:android-mobile:assembleDebug :apps:android-tv:assembleDebug
+.\gradlew.bat --no-daemon :shared:domain:jvmTest :shared:library-client:jvmTest :shared:library-client-android:testDebugUnitTest :shared:app-update-android:testDebugUnitTest :shared:player-android-media3:assembleDebugAndroidTest :apps:android-mobile:assembleDebug :apps:android-tv:assembleDebug
 ```
 
 Web UI:
@@ -123,8 +123,8 @@ cargo run -p danmaku-player -- --media "W:\Anime\Show\Episode 01.mkv"
 .\run-rust-player.bat --media "W:\Anime\Show\Episode 01.mkv"
 ```
 
-Use `--help` for playback, danmaku, server, and QA options. Pairing tokens are
-session-only and are not written to player preferences.
+Use `--help` for playback, danmaku, server, and QA options. LAN clients connect
+without authentication, so run the server only on a trusted network.
 
 To keep the packaged server available after the player closes, use its
 current-user background-host manager:
@@ -202,7 +202,7 @@ server binary. Development builds without one show MAL sign-in as unavailable.
 ### ANI-RSS automatic downloads
 
 Open **Settings → Automatic anime downloads** in the Windows player, or open
-`/web/#ani-rss` from desktop or mobile. The authenticated responsive panel can
+`/web/#ani-rss` from desktop or mobile. The trusted-LAN responsive panel can
 configure ANI-RSS, approve each search source once, search Mikan/AniBT/Anime
 Garden, choose a release group, preview and confirm a subscription, pause or
 refresh it, remove it without deleting downloaded files, and inspect download
@@ -224,7 +224,7 @@ the server checks configured library roots every five minutes so completed
 episodes appear in the catalog.
 Managed mode and automatic rescanning changes apply immediately. The advanced
 ANI-RSS UI remains local to the Windows host; mobile clients use Danmaku's
-authenticated panel instead.
+trusted-LAN panel instead.
 Keep both applications on a trusted LAN or private VPN; this integration does
 not make either administration surface safe for direct Internet exposure.
 
@@ -243,6 +243,13 @@ Bangumi state, review pending progress updates, and explicitly confirm the
 exact preview before syncing. Account connection, series mapping, and conflict
 import remain in the Windows app or web administration UI. Android TV remains
 a dedicated module with TV-specific focus and remote-navigation behavior.
+
+Signed mobile and TV builds check the stable GitHub Release manifest at startup
+at most once per day. Updates are downloaded only after approval, verified by
+size, SHA-256, package identity, version code, and the installed signing
+certificate, then handed to Android's system installer for final confirmation.
+The Connect/PC screens also provide a manual update check. Debug builds do not
+contact the update endpoint unless one is explicitly configured.
 
 Connected checks require an emulator or physical device and are documented in
 [CONTRIBUTING.md](CONTRIBUTING.md).

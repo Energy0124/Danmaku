@@ -8,7 +8,8 @@ use serde_json::{Value, json};
 use tokio::task;
 
 use crate::catalog::{ExternalAnimeExternalLink, ExternalAnimeId, ExternalAnimeProvider};
-use crate::dandanplay::{HttpRequest, ParsedUrl, parse_url, send_http_request, url_encode};
+use crate::dandanplay::url_encode;
+use crate::http_client::{HttpRequest, ParsedUrl, parse_url, send_http_request};
 use crate::settings::HeadlessServerSettings;
 use crate::{LibraryServerError, Result};
 
@@ -1527,7 +1528,6 @@ mod tests {
     #[test]
     fn runtime_reason_codes_match_headless_settings() {
         let mut settings = HeadlessServerSettings {
-            pairing_token: "123456".to_owned(),
             library_roots: Vec::new(),
             dandanplay: Default::default(),
             external_anime: Default::default(),

@@ -48,7 +48,6 @@ class LanPlaybackProgressSyncTest {
 
         val preparation = LanPlaybackPreparer(client).prepare(
             baseUrl = "http://192.168.1.20:8686",
-            pairingToken = "123456",
             item = item,
         )
 
@@ -56,7 +55,6 @@ class LanPlaybackProgressSyncTest {
         assertEquals(
             LanPlaybackTarget(
                 baseUrl = "http://192.168.1.20:8686",
-                pairingToken = "123456",
                 mediaId = item.id,
             ),
             preparation.target,
@@ -102,7 +100,6 @@ class LanPlaybackProgressSyncTest {
 
         val preparation = LanPlaybackPreparer(client).prepare(
             baseUrl = "http://192.168.1.20:8686",
-            pairingToken = "123456",
             item = item,
         )
 
@@ -125,7 +122,6 @@ class LanPlaybackProgressSyncTest {
             LanPlaybackProgressSync(client, currentTimeMillis = { 0 }).fetchResumePositionMs(
                 LanPlaybackTarget(
                     baseUrl = "http://192.168.1.20:8686",
-                    pairingToken = "123456",
                     mediaId = "episode-id",
                 ),
             ),
@@ -146,7 +142,6 @@ class LanPlaybackProgressSyncTest {
             listOf(progress),
             LanPlaybackProgressSync(client, currentTimeMillis = { 0 }).fetchAllProgress(
                 baseUrl = "http://192.168.1.20:8686",
-                pairingToken = "123456",
             ),
         )
     }
@@ -156,7 +151,6 @@ class LanPlaybackProgressSyncTest {
         val client = RecordingLanLibraryClient()
         val target = LanPlaybackTarget(
             baseUrl = "http://192.168.1.20:8686",
-            pairingToken = "123456",
             mediaId = "episode-id",
         )
 
@@ -186,7 +180,6 @@ class LanPlaybackProgressSyncTest {
         val client = RecordingLanLibraryClient()
         val target = LanPlaybackTarget(
             baseUrl = "http://192.168.1.20:8686",
-            pairingToken = "123456",
             mediaId = "episode-id",
         )
 
@@ -213,7 +206,7 @@ class LanPlaybackProgressSyncTest {
         override fun fetchServerStatus(baseUrl: String): LanLibraryServerStatus =
             LanLibraryServerStatus()
 
-        override fun fetchCatalog(baseUrl: String, pairingToken: String): LibraryCatalog =
+        override fun fetchCatalog(baseUrl: String): LibraryCatalog =
             error("not used")
 
         override fun requestFolderRescan(
@@ -224,38 +217,30 @@ class LanPlaybackProgressSyncTest {
         override fun streamUrl(
             baseUrl: String,
             item: LibraryMediaItem,
-            pairingToken: String,
         ): String = streamUrl
 
         override fun subtitleUrl(
             baseUrl: String,
             subtitle: LibrarySubtitleTrack,
-            pairingToken: String,
         ): String = subtitleUrl
 
         override fun fetchProgress(
             baseUrl: String,
             mediaId: String,
-            pairingToken: String,
         ): PlaybackProgress? = progress
 
-        override fun fetchAllProgress(
-            baseUrl: String,
-            pairingToken: String,
-        ): List<PlaybackProgress> =
+        override fun fetchAllProgress(baseUrl: String): List<PlaybackProgress> =
             progresses
 
         override fun fetchDanmaku(
             baseUrl: String,
             mediaId: String,
-            pairingToken: String,
             forceRefresh: Boolean,
         ): LanDanmakuTrack =
             LanDanmakuTrack(mediaId = mediaId, status = LanDanmakuLoadStatus.UNAVAILABLE)
 
         override fun saveProgress(
             baseUrl: String,
-            pairingToken: String,
             progress: PlaybackProgress,
         ) {
             savedProgress = progress

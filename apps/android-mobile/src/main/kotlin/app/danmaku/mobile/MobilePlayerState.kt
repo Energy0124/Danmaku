@@ -22,7 +22,7 @@ import app.danmaku.library.android.ProviderAccountsDocument
 import app.danmaku.library.android.OfflineCacheEntry
 
 internal enum class MobileTrackingOperation { READBACK, SYNC }
-internal enum class MobileTrackingError { ACCESS_CODE_REQUIRED, ACCESS_CODE_REJECTED, PREVIEW_CHANGED, REQUEST_FAILED }
+internal enum class MobileTrackingError { PREVIEW_CHANGED, REQUEST_FAILED }
 internal enum class MobileFolderRefreshError { ALREADY_RUNNING, SCAN_FAILED, REQUEST_FAILED }
 
 internal data class MobileTrackingState(
@@ -47,7 +47,6 @@ internal class MobilePlayerState(
     var serverUrl by mutableStateOf(
         initialSavedConnections.firstOrNull()?.baseUrl ?: "http://10.0.2.2:8686",
     )
-    var pairingToken by mutableStateOf(initialSavedConnections.firstOrNull()?.pairingToken.orEmpty())
     var savedConnections by mutableStateOf(initialSavedConnections)
     var catalog by mutableStateOf<LibraryCatalog?>(null)
     var playbackProgresses by mutableStateOf<List<PlaybackProgress>>(emptyList())
@@ -94,7 +93,7 @@ internal class MobilePlayerState(
 
     private val posterEndpoint: LibraryPosterEndpoint?
         get() = catalog?.let {
-            LibraryPosterEndpoint(serverUrl, pairingToken)
+            LibraryPosterEndpoint(serverUrl)
         }
 
     fun toUiState(): MobileAppUiState =
@@ -110,7 +109,6 @@ internal class MobilePlayerState(
             nowPlaying = nowPlaying,
             playbackError = playbackError,
             serverUrl = serverUrl,
-            pairingToken = pairingToken,
             savedConnections = savedConnections,
             libraryError = libraryError,
             searchText = librarySearchText,

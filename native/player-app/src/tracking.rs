@@ -8,7 +8,7 @@ use eframe::egui::{self, Color32, Frame, RichText, TextEdit};
 use serde::{Deserialize, Serialize};
 
 use crate::localization::Language;
-use crate::net::{http_authenticated_json, percent_encode_path_segment};
+use crate::net::{http_json, percent_encode_path_segment};
 use crate::theme::{palette, typography};
 
 pub const MAL_CALLBACK_ADDRESS: &str = "127.0.0.1:18765";
@@ -227,18 +227,14 @@ pub enum TrackingAction {
     },
 }
 
-pub fn fetch_accounts(base_url: &str, token: &str) -> Result<ProviderAccounts, String> {
-    let body = http_authenticated_json(base_url, token, "GET", "/api/providers/accounts", None)?;
+pub fn fetch_accounts(base_url: &str) -> Result<ProviderAccounts, String> {
+    let body = http_json(base_url, "GET", "/api/providers/accounts", None)?;
     serde_json::from_str(&body).map_err(|error| format!("invalid account response: {error}"))
 }
 
-pub fn start_my_anime_list_oauth(
-    base_url: &str,
-    token: &str,
-) -> Result<MyAnimeListOAuthStart, String> {
-    let body = http_authenticated_json(
+pub fn start_my_anime_list_oauth(base_url: &str) -> Result<MyAnimeListOAuthStart, String> {
+    let body = http_json(
         base_url,
-        token,
         "POST",
         "/api/providers/accounts/myanimelist/oauth/start",
         Some("{}"),
@@ -248,15 +244,13 @@ pub fn start_my_anime_list_oauth(
 
 pub fn complete_my_anime_list_oauth(
     base_url: &str,
-    token: &str,
     flow_id: &str,
     state: &str,
     code: &str,
 ) -> Result<ProviderAccounts, String> {
     let request = serde_json::json!({ "flowId": flow_id, "state": state, "code": code });
-    let body = http_authenticated_json(
+    let body = http_json(
         base_url,
-        token,
         "POST",
         "/api/providers/accounts/myanimelist/oauth/complete",
         Some(&request.to_string()),
@@ -264,15 +258,10 @@ pub fn complete_my_anime_list_oauth(
     serde_json::from_str(&body).map_err(|error| format!("invalid account response: {error}"))
 }
 
-pub fn connect_bangumi(
-    base_url: &str,
-    token: &str,
-    access_token: &str,
-) -> Result<ProviderAccounts, String> {
+pub fn connect_bangumi(base_url: &str, access_token: &str) -> Result<ProviderAccounts, String> {
     let request = serde_json::json!({ "accessToken": access_token });
-    let body = http_authenticated_json(
+    let body = http_json(
         base_url,
-        token,
         "PUT",
         "/api/providers/accounts/bangumi",
         Some(&request.to_string()),
@@ -282,7 +271,6 @@ pub fn connect_bangumi(
 
 pub fn disconnect_account(
     base_url: &str,
-    token: &str,
     provider: ExternalProvider,
 ) -> Result<ProviderAccounts, String> {
     let path = match provider {
@@ -290,35 +278,33 @@ pub fn disconnect_account(
         ExternalProvider::Bangumi => "/api/providers/accounts/bangumi",
         ExternalProvider::Dandanplay => return Err("dandanplay is not a list account".to_owned()),
     };
-    let body = http_authenticated_json(base_url, token, "DELETE", path, None)?;
+    let body = http_json(base_url, "DELETE", path, None)?;
     serde_json::from_str(&body).map_err(|error| format!("invalid account response: {error}"))
 }
 
-pub fn fetch_tracking(base_url: &str, token: &str) -> Result<TrackingDocument, String> {
-    let body = http_authenticated_json(base_url, token, "GET", "/api/providers/tracking", None)?;
+pub fn fetch_tracking(base_url: &str) -> Result<TrackingDocument, String> {
+    let body = http_json(base_url, "GET", "/api/providers/tracking", None)?;
     serde_json::from_str(&body).map_err(|error| format!("invalid tracking response: {error}"))
 }
 
-pub fn refresh_readback(base_url: &str, token: &str) -> Result<TrackingDocument, String> {
-    operation_document(base_url, token, "/api/providers/tracking/readback", "{}")
+pub fn refresh_readback(base_url: &str) -> Result<TrackingDocument, String> {
+    operation_document(base_url, "/api/providers/tracking/readback", "{}")
 }
 
 pub fn sync_updates(
     base_url: &str,
-    token: &str,
     updates: &[TrackingUpdateValue],
 ) -> Result<TrackingDocument, String> {
     let body = serde_json::json!({ "expectedUpdates": updates }).to_string();
-    operation_document(base_url, token, "/api/providers/tracking/sync", &body)
+    operation_document(base_url, "/api/providers/tracking/sync", &body)
 }
 
 fn operation_document(
     base_url: &str,
-    token: &str,
     path: &str,
     request: &str,
 ) -> Result<TrackingDocument, String> {
-    let body = http_authenticated_json(base_url, token, "POST", path, Some(request))?;
+    let body = http_json(base_url, "POST", path, Some(request))?;
     let value: serde_json::Value = serde_json::from_str(&body)
         .map_err(|error| format!("invalid tracking response: {error}"))?;
     serde_json::from_value(value["document"].clone())
@@ -327,33 +313,29 @@ fn operation_document(
 
 pub fn save_mapping(
     base_url: &str,
-    token: &str,
     local_series_id: &str,
     anime_id: &ExternalAnimeId,
 ) -> Result<TrackingDocument, String> {
-    mapping_request(base_url, token, "PUT", local_series_id, anime_id)
+    mapping_request(base_url, "PUT", local_series_id, anime_id)
 }
 
 pub fn delete_mapping(
     base_url: &str,
-    token: &str,
     local_series_id: &str,
     anime_id: &ExternalAnimeId,
 ) -> Result<TrackingDocument, String> {
-    mapping_request(base_url, token, "DELETE", local_series_id, anime_id)
+    mapping_request(base_url, "DELETE", local_series_id, anime_id)
 }
 
 fn mapping_request(
     base_url: &str,
-    token: &str,
     method: &str,
     local_series_id: &str,
     anime_id: &ExternalAnimeId,
 ) -> Result<TrackingDocument, String> {
     let request = serde_json::json!({ "localSeriesId": local_series_id, "animeId": anime_id });
-    let body = http_authenticated_json(
+    let body = http_json(
         base_url,
-        token,
         method,
         "/api/providers/tracking/mapping",
         Some(&request.to_string()),
@@ -363,7 +345,6 @@ fn mapping_request(
 
 pub fn import_conflict(
     base_url: &str,
-    token: &str,
     local_series_id: &str,
     anime_id: &ExternalAnimeId,
     expected_external_watched_episodes: u32,
@@ -375,7 +356,6 @@ pub fn import_conflict(
     });
     operation_document(
         base_url,
-        token,
         "/api/providers/tracking/conflicts/import",
         &request.to_string(),
     )

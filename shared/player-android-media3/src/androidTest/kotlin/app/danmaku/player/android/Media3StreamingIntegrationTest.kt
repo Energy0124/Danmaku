@@ -12,6 +12,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySubtitleTrack
+import app.danmaku.domain.LanDanmakuLoadStatus
+import app.danmaku.domain.LanDanmakuTrack
 import app.danmaku.domain.PlaybackCommand
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.domain.PlaybackSource
@@ -19,6 +21,8 @@ import app.danmaku.domain.PlaybackTrackKind
 import app.danmaku.library.LanPlaybackPreparation
 import app.danmaku.library.LanPlaybackTarget
 import app.danmaku.library.LanSubtitlePreparation
+import app.danmaku.library.android.OfflinePlaybackPreparation
+import java.io.File
 import java.net.InetAddress
 import java.net.ServerSocket
 import java.net.Socket
@@ -50,6 +54,80 @@ class Media3StreamingIntegrationTest {
     }
 
     @Test
+    fun appliesResumePositionBeforePreparationCompletes() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val fixture = instrumentation.context.assets
+            .open("short-stream.mp4")
+            .use { it.readBytes() }
+
+        FixtureHttpServer(fixture).use { server ->
+            assertResumePositionApplied { controller, resumePositionMs ->
+                controller.load(
+                    LanPlaybackPreparation(
+                        item = LibraryMediaItem(
+                            id = "resume-episode",
+                            seriesTitle = "Example Show",
+                            episodeTitle = "Episode 01",
+                            relativePath = "Example Show/Episode 01.mp4",
+                            sizeBytes = fixture.size.toLong(),
+                            mediaType = "video/mp4",
+                            streamPath = "/media/resume-episode",
+                        ),
+                        target = LanPlaybackTarget(server.url, "resume-episode"),
+                        source = PlaybackSource.RemoteStream(server.url),
+                        resumePositionMs = resumePositionMs,
+                    )
+                )
+            }
+        }
+    }
+
+    @Test
+    fun appliesFallbackResumePositionToCachedPlaybackBeforePreparationCompletes() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val fixtureFile = File.createTempFile(
+            "danmaku-resume-",
+            ".mp4",
+            instrumentation.targetContext.cacheDir,
+        ).apply {
+            outputStream().use { output ->
+                instrumentation.context.assets.open("short-stream.mp4").use { input ->
+                    input.copyTo(output)
+                }
+            }
+        }
+        val item = LibraryMediaItem(
+            id = "cached-resume-episode",
+            seriesTitle = "Example Show",
+            episodeTitle = "Episode 01",
+            relativePath = "Example Show/Episode 01.mp4",
+            sizeBytes = fixtureFile.length(),
+            mediaType = "video/mp4",
+            streamPath = "/media/cached-resume-episode",
+        )
+        val preparation = OfflinePlaybackPreparation(
+            cacheKey = "cached-resume-episode",
+            serverUrl = "http://pc",
+            item = item,
+            source = PlaybackSource.LocalFile(fixtureFile.absolutePath),
+            subtitles = emptyList(),
+            danmaku = LanDanmakuTrack(
+                mediaId = item.id,
+                status = LanDanmakuLoadStatus.NO_MATCH,
+            ),
+            resumePositionMs = null,
+        )
+
+        try {
+            assertResumePositionApplied { controller, resumePositionMs ->
+                controller.load(preparation, resumePositionMs)
+            }
+        } finally {
+            fixtureFile.delete()
+        }
+    }
+
+    @Test
     fun attachesPreparedLanSubtitlesToMediaItem() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val subtitleTrack = LibrarySubtitleTrack(
@@ -72,17 +150,16 @@ class Media3StreamingIntegrationTest {
             ),
             target = LanPlaybackTarget(
                 baseUrl = "http://127.0.0.1:8686",
-                pairingToken = "123456",
                 mediaId = "episode-id",
             ),
             source = PlaybackSource.RemoteStream(
-                "http://127.0.0.1:8686/media/episode-id?token=123456",
+                "http://127.0.0.1:8686/media/episode-id",
             ),
             subtitles = listOf(
                 LanSubtitlePreparation(
                     track = subtitleTrack,
                     source = PlaybackSource.RemoteStream(
-                        "http://127.0.0.1:8686/subtitles/subtitle-id?token=123456",
+                        "http://127.0.0.1:8686/subtitles/subtitle-id",
                     ),
                 ),
             ),
@@ -95,6 +172,7 @@ class Media3StreamingIntegrationTest {
                 Media3PlaybackController(player).load(preparation)
 
                 val mediaItem = checkNotNull(player.currentMediaItem)
+                assertEquals(0L, player.currentPosition)
                 val subtitle = checkNotNull(mediaItem.localConfiguration)
                     .subtitleConfigurations
                     .single()
@@ -137,14 +215,14 @@ class Media3StreamingIntegrationTest {
                     streamPath = "/media/episode-id",
                     subtitles = listOf(subtitleTrack),
                 ),
-                target = LanPlaybackTarget(server.url, "123456", "episode-id"),
+                target = LanPlaybackTarget(server.url, "episode-id"),
                 source = PlaybackSource.RemoteStream(server.url),
                 resumePositionMs = null,
                 subtitles = listOf(
                     LanSubtitlePreparation(
                         track = subtitleTrack,
                         source = PlaybackSource.RemoteStream(
-                            server.subtitleUrl(subtitleTrack.id, "123456"),
+                            server.subtitleUrl(subtitleTrack.id),
                         ),
                     ),
                 ),
@@ -214,6 +292,52 @@ class Media3StreamingIntegrationTest {
         }
     }
 
+    private fun assertResumePositionApplied(
+        load: (Media3PlaybackController, Long) -> Unit,
+    ) {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val ready = CountDownLatch(1)
+        val playerError = AtomicReference<PlaybackException?>()
+        val resumePositionMs = 250L
+        lateinit var player: ExoPlayer
+
+        instrumentation.runOnMainSync {
+            player = ExoPlayer.Builder(instrumentation.targetContext).build().apply {
+                addListener(
+                    object : Player.Listener {
+                        override fun onPlaybackStateChanged(playbackState: Int) {
+                            if (playbackState == Player.STATE_READY) {
+                                ready.countDown()
+                            }
+                        }
+
+                        override fun onPlayerError(error: PlaybackException) {
+                            playerError.set(error)
+                            ready.countDown()
+                        }
+                    },
+                )
+            }
+            load(Media3PlaybackController(player), resumePositionMs)
+
+            assertEquals(resumePositionMs, player.currentPosition)
+        }
+
+        try {
+            assertTrue("Media3 did not prepare the fixture", ready.await(10, TimeUnit.SECONDS))
+            assertNull(playerError.get()?.message, playerError.get())
+            instrumentation.runOnMainSync {
+                assertEquals(Player.STATE_READY, player.playbackState)
+                assertEquals(resumePositionMs, player.currentPosition)
+                assertFalse(player.playWhenReady)
+            }
+        } finally {
+            instrumentation.runOnMainSync {
+                player.release()
+            }
+        }
+    }
+
     private fun playHttpFixtureToCompletion(
         timeoutSeconds: Long = 15,
         serverFactory: (ByteArray) -> FixtureHttpServer,
@@ -278,7 +402,6 @@ class Media3StreamingIntegrationTest {
         val connected = CountDownLatch(1)
         val connectionError = AtomicReference<Throwable?>()
         val mediaId = "episode 01"
-        val pairingToken = "123456"
         val mainHandler = Handler(Looper.getMainLooper())
 
         FixtureHttpServer(fixture, json).use { server ->
@@ -288,7 +411,7 @@ class Media3StreamingIntegrationTest {
                     onConnected = { controller ->
                         controller.load(
                             PlaybackSource.RemoteStream(
-                                server.streamUrl(mediaId, pairingToken),
+                                server.streamUrl(mediaId),
                             ),
                         )
                         controller.dispatch(PlaybackCommand.SetPlaybackRate(0.1f))
@@ -336,17 +459,11 @@ class Media3StreamingIntegrationTest {
         val url: String =
             "http://127.0.0.1:${serverSocket.localPort}/short-stream.mp4"
 
-        fun streamUrl(
-            mediaId: String,
-            pairingToken: String,
-        ): String =
-            "http://127.0.0.1:${serverSocket.localPort}/media/${mediaId.encoded()}?token=${pairingToken.encoded()}"
+        fun streamUrl(mediaId: String): String =
+            "http://127.0.0.1:${serverSocket.localPort}/media/${mediaId.encoded()}"
 
-        fun subtitleUrl(
-            subtitleId: String,
-            pairingToken: String,
-        ): String =
-            "http://127.0.0.1:${serverSocket.localPort}/subtitles/${subtitleId.encoded()}?token=${pairingToken.encoded()}"
+        fun subtitleUrl(subtitleId: String): String =
+            "http://127.0.0.1:${serverSocket.localPort}/subtitles/${subtitleId.encoded()}"
 
         fun awaitProgress(
             timeout: Long,

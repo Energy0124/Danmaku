@@ -38,7 +38,7 @@ player owns only the fixed loopback browser callback and forwards the short-
 lived authorization code. Bangumi tokens are validated against `/v0/me`
 before encrypted storage.
 ANI-RSS is a provider plugin boundary in the same server. Clients call only the
-normalized `/api/automation/ani-rss/*` contract with the Danmaku bearer token;
+normalized `/api/automation/ani-rss/*` contract through trusted-LAN access;
 the server injects the protected ANI-RSS API key and converts upstream objects
 to Danmaku-owned status, search, group, subscription, preview, and download
 models. Source search is denied until that source is explicitly approved for
@@ -86,12 +86,20 @@ reviewed, server-validated tracking preview, but provider credentials, mappings,
 and conflict reconciliation remain server-owned Windows/web administration.
 Android mobile also owns an app-private, versioned offline-cache index and a
 persistent WorkManager download queue. Cache manifests contain only authorized
-user-owned, DRM-free media assets and never persist pairing tokens. Offline
+user-owned, DRM-free media assets. Offline
 Media3 playback records progress locally and reconciles it with the library
 server after the trusted LAN becomes reachable again.
 Android TV remains a
 dedicated module with TV layouts, D-pad focus, remote navigation, and
 Macrobenchmark coverage.
+
+`shared/app-update-android` owns the stable GitHub Release manifest contract,
+daily check policy, bounded APK download, checksum and package/signing
+verification, unknown-source settings intent, and system-installer handoff.
+The mobile and TV apps own their localized Material/TV dialogs and settings
+cards. Debug builds have no update endpoint by default. Android always retains
+the final installation confirmation; the updater does not attempt silent
+installation.
 
 ### Web UI
 
@@ -120,6 +128,9 @@ shared:library-client-android
   Android HTTP, discovery, connection, persistence, offline cache, and
   background download adapters.
 
+shared:app-update-android
+  GitHub release manifest, verified APK download, and installer handoff.
+
 shared:player-android-media3
   Android Media3 playback service and adapter.
 
@@ -128,9 +139,14 @@ apps:android-mobile / apps:android-tv
 
 native/library-server
   Authoritative desktop catalog/provider/progress host.
+  Shared outbound HTTP transport lives at crate scope; provider administration,
+  route dispatch/assets, and dandanplay cache persistence remain separate
+  responsibilities.
 
 native/player-app
   Windows/macOS UI, library client, playback, and server supervision.
+  Library screens separate orchestration from pure query/grouping policy,
+  poster components, episode/folder rows, and reusable widgets.
 
 native/player-windows-mpv
   Cross-platform Rust-only libmpv loader/render integration and probe.
@@ -150,8 +166,8 @@ apps/web-ui
    server routes; native boundaries are never crossed per rendered comment.
 4. Provider response objects remain at Rust provider boundaries. Persisted
    state uses normalized catalog, mapping, and tracking models.
-5. Pairing tokens and provider secrets must not appear in logs, reports,
-   preferences, or committed fixtures.
+5. Provider secrets must not appear in logs, reports, preferences, or committed
+   fixtures.
 
 ## Compatibility
 

@@ -5,6 +5,11 @@ and Semantic Versioning.
 
 ## [Unreleased]
 
+### Added
+
+- Signed Android mobile and TV GitHub Release APKs with daily update checks,
+  verified downloads, localized prompts, and Android system-installer handoff.
+
 ## [0.1.0]
 
 ### Added

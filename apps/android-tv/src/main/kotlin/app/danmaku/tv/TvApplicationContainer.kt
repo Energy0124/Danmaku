@@ -30,7 +30,6 @@ internal class TvApplicationContainer(
         favoriteStore = favoriteStore,
         catalogCache = AndroidTvCatalogCache(applicationContext),
         defaultServerUrl = BuildConfig.DEFAULT_SERVER_URL,
-        defaultPairingToken = BuildConfig.DEFAULT_PAIRING_TOKEN,
         trackingClient = trackingClient,
     )
     val browsePresenter = TvBrowsePresenter()

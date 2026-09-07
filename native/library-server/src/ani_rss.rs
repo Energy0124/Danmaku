@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
-use crate::dandanplay::{HttpRequest, parse_url, send_http_request};
+use crate::http_client::{HttpRequest, parse_url, send_http_request};
 use crate::settings::{AniRssPathMapping, HeadlessAniRssMode, HeadlessAniRssSettings};
 use crate::{LibraryServerError, Result};
 

@@ -78,7 +78,7 @@ class JvmLanLibraryClientTest {
             val client = JvmLanLibraryClient()
 
             assertEquals(LanLibraryServerStatus(), client.fetchServerStatus(server.baseUrl))
-            assertEquals(catalog, client.fetchCatalog(server.baseUrl, server.pairingToken))
+            assertEquals(catalog, client.fetchCatalog(server.baseUrl))
             client.requestFolderRescan(
                 server.baseUrl,
                 listOf("Example Show", "Season 2"),
@@ -90,17 +90,17 @@ class JvmLanLibraryClientTest {
             assertEquals(null, server.lastRescanAuthorization)
             assertContentEquals(
                 mediaBytes,
-                URI(client.streamUrl(server.baseUrl, item, server.pairingToken))
+                URI(client.streamUrl(server.baseUrl, item))
                     .toURL()
                     .openStream()
                     .use { it.readBytes() },
             )
             assertEquals(
                 "${server.baseUrl}/subtitles/subtitle-id",
-                client.subtitleUrl(server.baseUrl, item.subtitles.single(), server.pairingToken),
+                client.subtitleUrl(server.baseUrl, item.subtitles.single()),
             )
-            assertEquals(emptyList(), client.fetchAllProgress(server.baseUrl, server.pairingToken))
-            assertNull(client.fetchProgress(server.baseUrl, item.id, server.pairingToken))
+            assertEquals(emptyList(), client.fetchAllProgress(server.baseUrl))
+            assertNull(client.fetchProgress(server.baseUrl, item.id))
 
             assertEquals(
                 400,
@@ -114,24 +114,23 @@ class JvmLanLibraryClientTest {
                     progress.copy(mediaId = "missing-id"),
                 ),
             )
-            assertEquals(emptyList(), client.fetchAllProgress(server.baseUrl, server.pairingToken))
+            assertEquals(emptyList(), client.fetchAllProgress(server.baseUrl))
 
-            client.saveProgress(server.baseUrl, server.pairingToken, progress)
+            client.saveProgress(server.baseUrl, progress)
 
             assertEquals(
                 progress,
-                client.fetchProgress(server.baseUrl, item.id, server.pairingToken),
+                client.fetchProgress(server.baseUrl, item.id),
             )
             assertEquals(
                 listOf(progress),
-                client.fetchAllProgress(server.baseUrl, server.pairingToken),
+                client.fetchAllProgress(server.baseUrl),
             )
             assertEquals(
                 danmakuTrack,
                 client.fetchDanmaku(
                     server.baseUrl,
                     item.id,
-                    server.pairingToken,
                     forceRefresh = true,
                 ),
             )
@@ -160,7 +159,7 @@ class JvmLanLibraryClientTest {
         InterruptingCatalogServer(catalog).use { server ->
             val client = JvmLanLibraryClient()
 
-            assertEquals(catalog, client.fetchCatalog(server.baseUrl, "123456"))
+            assertEquals(catalog, client.fetchCatalog(server.baseUrl))
             assertEquals(2, server.acceptedRequests)
         }
     }
@@ -171,7 +170,7 @@ class JvmLanLibraryClientTest {
             val client = JvmLanLibraryClient()
 
             val failure = assertFailsWith<LanLibraryClientException> {
-                client.fetchDanmaku(server.baseUrl, "missing", "", forceRefresh = false)
+                client.fetchDanmaku(server.baseUrl, "missing", forceRefresh = false)
             }
 
             assertEquals("Library server returned HTTP 404", failure.message)
@@ -184,7 +183,7 @@ class JvmLanLibraryClientTest {
             val client = JvmLanLibraryClient(readTimeoutMillis = 100)
 
             assertFailsWith<SocketTimeoutException> {
-                client.fetchCatalog(server.baseUrl, "123456")
+                client.fetchCatalog(server.baseUrl)
             }
         }
     }

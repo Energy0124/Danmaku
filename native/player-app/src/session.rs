@@ -88,7 +88,6 @@ pub struct ServerScanStatus {
 
 pub struct LibrarySession {
     pub base_url: String,
-    pub pairing_token: Option<String>,
     pub catalog: Option<LibraryCatalog>,
     pub attention: Option<LibraryAttentionDocument>,
     pub attention_error: Option<String>,
@@ -126,14 +125,9 @@ pub struct LibrarySession {
 }
 
 impl LibrarySession {
-    pub fn connect(
-        base_url: String,
-        pairing_token: Option<String>,
-        egui_context: egui::Context,
-    ) -> Self {
+    pub fn connect(base_url: String, egui_context: egui::Context) -> Self {
         let mut session = Self {
             base_url,
-            pairing_token,
             catalog: None,
             attention: None,
             attention_error: None,
@@ -174,7 +168,6 @@ impl LibrarySession {
     ) -> Self {
         Self {
             base_url: String::new(),
-            pairing_token: None,
             catalog: Some(catalog),
             attention: None,
             attention_error: None,
@@ -200,9 +193,8 @@ impl LibrarySession {
 
     /// Connects a cache-seeded session to the now-reachable server and kicks
     /// off the refreshes that replace the cached data.
-    pub fn attach(&mut self, base_url: String, pairing_token: Option<String>) {
+    pub fn attach(&mut self, base_url: String) {
         self.base_url = base_url;
-        self.pairing_token = pairing_token;
         self.connected = true;
         self.refresh_catalog();
         self.refresh_attention();
@@ -288,69 +280,61 @@ impl LibrarySession {
     }
 
     pub fn preview_organization(&mut self, request: OrganizationPreviewRequest) {
-        let Some((base_url, token)) = self.authenticated_server() else {
-            self.organization_error = Some("Desktop access token is unavailable".to_owned());
+        let Some(base_url) = self.server() else {
+            self.organization_error = Some("Desktop server is unavailable".to_owned());
             return;
         };
         self.organization_loading = true;
         self.organization_error = None;
         self.spawn(
-            move |_| {
-                SessionEvent::OrganizationPreview(preview_organization(&base_url, &token, &request))
-            },
+            move |_| SessionEvent::OrganizationPreview(preview_organization(&base_url, &request)),
             String::new(),
         );
     }
 
     pub fn execute_organization(&mut self, plan_id: String, batch: OrganizationSeriesBatch) {
-        let Some((base_url, token)) = self.authenticated_server() else {
-            self.organization_error = Some("Desktop access token is unavailable".to_owned());
+        let Some(base_url) = self.server() else {
+            self.organization_error = Some("Desktop server is unavailable".to_owned());
             return;
         };
         self.organization_loading = true;
         self.organization_error = None;
         self.spawn(
             move |_| {
-                SessionEvent::OrganizationCommand(execute_organization(
-                    &base_url, &token, &plan_id, &batch,
-                ))
+                SessionEvent::OrganizationCommand(execute_organization(&base_url, &plan_id, &batch))
             },
             String::new(),
         );
     }
 
     pub fn refresh_organization_status(&self) {
-        let Some((base_url, token)) = self.authenticated_server() else {
+        let Some(base_url) = self.server() else {
             return;
         };
         self.spawn(
-            move |_| SessionEvent::OrganizationStatus(fetch_organization_status(&base_url, &token)),
+            move |_| SessionEvent::OrganizationStatus(fetch_organization_status(&base_url)),
             String::new(),
         );
     }
 
     pub fn cancel_organization(&mut self) {
-        let Some((base_url, token)) = self.authenticated_server() else {
+        let Some(base_url) = self.server() else {
             return;
         };
         self.spawn(
-            move |_| SessionEvent::OrganizationCommand(cancel_organization(&base_url, &token)),
+            move |_| SessionEvent::OrganizationCommand(cancel_organization(&base_url)),
             String::new(),
         );
     }
 
     pub fn undo_organization(&mut self, completed_batch_id: String) {
-        let Some((base_url, token)) = self.authenticated_server() else {
+        let Some(base_url) = self.server() else {
             return;
         };
         self.organization_loading = true;
         self.spawn(
             move |_| {
-                SessionEvent::OrganizationCommand(undo_organization(
-                    &base_url,
-                    &token,
-                    &completed_batch_id,
-                ))
+                SessionEvent::OrganizationCommand(undo_organization(&base_url, &completed_batch_id))
             },
             String::new(),
         );
@@ -503,17 +487,17 @@ impl LibrarySession {
     }
 
     pub fn refresh_provider_accounts(&self) {
-        let Some((base_url, token)) = self.authenticated_server() else {
+        let Some(base_url) = self.server() else {
             return;
         };
         self.spawn(
-            move |_| SessionEvent::ProviderAccounts(fetch_accounts(&base_url, &token)),
+            move |_| SessionEvent::ProviderAccounts(fetch_accounts(&base_url)),
             String::new(),
         );
     }
 
     pub fn start_my_anime_list_oauth(&self) {
-        let Some((base_url, token)) = self.authenticated_server() else {
+        let Some(base_url) = self.server() else {
             return;
         };
         let inbox = Arc::clone(&self.inbox);
@@ -530,7 +514,7 @@ impl LibrarySession {
                     return;
                 }
             };
-            let started = match start_my_anime_list_oauth(&base_url, &token) {
+            let started = match start_my_anime_list_oauth(&base_url) {
                 Ok(started) => started,
                 Err(error) => {
                     push_event(
@@ -547,62 +531,58 @@ impl LibrarySession {
                 SessionEvent::MyAnimeListOAuthReady(Ok(started.authorization_url.clone())),
             );
             let result = wait_for_mal_callback(listener).and_then(|(state, code)| {
-                complete_my_anime_list_oauth(&base_url, &token, &started.flow_id, &state, &code)
+                complete_my_anime_list_oauth(&base_url, &started.flow_id, &state, &code)
             });
             push_event(&inbox, &context, SessionEvent::ProviderAccounts(result));
         });
     }
 
     pub fn connect_bangumi(&self, access_token: String) {
-        let Some((base_url, token)) = self.authenticated_server() else {
+        let Some(base_url) = self.server() else {
             return;
         };
         self.spawn(
-            move |_| {
-                SessionEvent::ProviderAccounts(connect_bangumi(&base_url, &token, &access_token))
-            },
+            move |_| SessionEvent::ProviderAccounts(connect_bangumi(&base_url, &access_token)),
             String::new(),
         );
     }
 
     pub fn disconnect_provider(&self, provider: ExternalProvider) {
-        let Some((base_url, token)) = self.authenticated_server() else {
+        let Some(base_url) = self.server() else {
             return;
         };
         self.spawn(
-            move |_| {
-                SessionEvent::ProviderAccounts(disconnect_account(&base_url, &token, provider))
-            },
+            move |_| SessionEvent::ProviderAccounts(disconnect_account(&base_url, provider)),
             String::new(),
         );
     }
 
     pub fn refresh_tracking(&self) {
-        let Some((base_url, token)) = self.authenticated_server() else {
+        let Some(base_url) = self.server() else {
             return;
         };
         self.spawn(
-            move |_| SessionEvent::Tracking(fetch_tracking(&base_url, &token)),
+            move |_| SessionEvent::Tracking(fetch_tracking(&base_url)),
             String::new(),
         );
     }
 
     pub fn refresh_tracking_readback(&self) {
-        let Some((base_url, token)) = self.authenticated_server() else {
+        let Some(base_url) = self.server() else {
             return;
         };
         self.spawn(
-            move |_| SessionEvent::Tracking(refresh_readback(&base_url, &token)),
+            move |_| SessionEvent::Tracking(refresh_readback(&base_url)),
             String::new(),
         );
     }
 
     pub fn sync_tracking(&self, updates: Vec<TrackingUpdateValue>) {
-        let Some((base_url, token)) = self.authenticated_server() else {
+        let Some(base_url) = self.server() else {
             return;
         };
         self.spawn(
-            move |_| SessionEvent::Tracking(sync_updates(&base_url, &token, &updates)),
+            move |_| SessionEvent::Tracking(sync_updates(&base_url, &updates)),
             String::new(),
         );
     }
@@ -624,30 +604,21 @@ impl LibrarySession {
     }
 
     pub fn save_tracking_mapping(&self, local_series_id: String, anime_id: ExternalAnimeId) {
-        let Some((base_url, token)) = self.authenticated_server() else {
+        let Some(base_url) = self.server() else {
             return;
         };
         self.spawn(
-            move |_| {
-                SessionEvent::Tracking(save_mapping(&base_url, &token, &local_series_id, &anime_id))
-            },
+            move |_| SessionEvent::Tracking(save_mapping(&base_url, &local_series_id, &anime_id)),
             String::new(),
         );
     }
 
     pub fn delete_tracking_mapping(&self, local_series_id: String, anime_id: ExternalAnimeId) {
-        let Some((base_url, token)) = self.authenticated_server() else {
+        let Some(base_url) = self.server() else {
             return;
         };
         self.spawn(
-            move |_| {
-                SessionEvent::Tracking(delete_mapping(
-                    &base_url,
-                    &token,
-                    &local_series_id,
-                    &anime_id,
-                ))
-            },
+            move |_| SessionEvent::Tracking(delete_mapping(&base_url, &local_series_id, &anime_id)),
             String::new(),
         );
     }
@@ -658,14 +629,13 @@ impl LibrarySession {
         anime_id: ExternalAnimeId,
         expected_external_watched_episodes: u32,
     ) {
-        let Some((base_url, token)) = self.authenticated_server() else {
+        let Some(base_url) = self.server() else {
             return;
         };
         self.spawn(
             move |_| {
                 SessionEvent::Tracking(import_conflict(
                     &base_url,
-                    &token,
                     &local_series_id,
                     &anime_id,
                     expected_external_watched_episodes,
@@ -675,11 +645,11 @@ impl LibrarySession {
         );
     }
 
-    fn authenticated_server(&self) -> Option<(String, String)> {
+    fn server(&self) -> Option<String> {
         if !self.connected {
             return None;
         }
-        Some((self.base_url.clone(), self.pairing_token.clone()?))
+        Some(self.base_url.clone())
     }
 
     /// Drains background events into session state and returns the ones the
@@ -797,18 +767,8 @@ impl LibrarySession {
         for_app
     }
 
-    /// Absolute stream URL for an item, carrying the pairing token when one
-    /// is configured (matching the desktop remote client's URLs).
     pub fn stream_url(&self, stream_path: &str) -> String {
-        let base = format!("{}{stream_path}", self.base_url.trim_end_matches('/'));
-        match self
-            .pairing_token
-            .as_deref()
-            .filter(|token| !token.is_empty())
-        {
-            Some(token) => format!("{base}?token={token}"),
-            None => base,
-        }
+        format!("{}{stream_path}", self.base_url.trim_end_matches('/'))
     }
 
     fn spawn(&self, job: impl FnOnce(String) -> SessionEvent + Send + 'static, base_url: String) {
@@ -839,7 +799,6 @@ mod tests {
     fn test_session(base_url: &str) -> LibrarySession {
         LibrarySession {
             base_url: base_url.to_owned(),
-            pairing_token: Some("123456".to_owned()),
             catalog: None,
             attention: None,
             progresses: Vec::new(),
@@ -864,17 +823,10 @@ mod tests {
     }
 
     #[test]
-    fn stream_urls_carry_the_pairing_token() {
+    fn stream_urls_use_the_server_path_directly() {
         let session = test_session("http://127.0.0.1:8686/");
         assert_eq!(
             session.stream_url("/media/abc"),
-            "http://127.0.0.1:8686/media/abc?token=123456",
-        );
-
-        let mut anonymous = test_session("http://127.0.0.1:8686");
-        anonymous.pairing_token = None;
-        assert_eq!(
-            anonymous.stream_url("/media/abc"),
             "http://127.0.0.1:8686/media/abc",
         );
     }
@@ -964,13 +916,10 @@ mod tests {
         std::thread::sleep(std::time::Duration::from_millis(30));
         assert!(session.inbox.lock().expect("inbox lock").is_empty());
 
-        session.attach("http://127.0.0.1:1".to_owned(), Some("123456".to_owned()));
+        session.attach("http://127.0.0.1:1".to_owned());
         assert!(session.connected);
         assert_eq!(session.base_url, "http://127.0.0.1:1");
-        assert_eq!(
-            session.stream_url("/media/a"),
-            "http://127.0.0.1:1/media/a?token=123456"
-        );
+        assert_eq!(session.stream_url("/media/a"), "http://127.0.0.1:1/media/a");
     }
 
     #[test]

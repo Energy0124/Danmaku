@@ -1,4 +1,4 @@
-name: Release Windows Desktop
+name: Release Windows and Android
 
 on:
   push:
@@ -13,8 +13,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  windows-release:
-    name: Signed Windows installer and updates
+  windows-android-release:
+    name: Signed Windows and Android release
     runs-on: windows-latest
 
     steps:
@@ -22,6 +22,15 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v5
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
@@ -46,6 +55,14 @@ jobs:
             throw "Production tags must use vX.Y.Z SemVer format."
           }
           $version = "${{ github.ref_name }}".Substring(1)
+          $parts = $version.Split('.') | ForEach-Object { [int64]$_ }
+          if ($parts[1] -gt 999 -or $parts[2] -gt 999) {
+            throw "Android release minor and patch components must be at most 999."
+          }
+          $androidVersionCode = ($parts[0] * 1000000) + ($parts[1] * 1000) + $parts[2]
+          if ($androidVersionCode -le 0 -or $androidVersionCode -gt 2100000000) {
+            throw "The derived Android version code is outside Android's supported range."
+          }
           $metadata = cargo metadata --format-version 1 --no-deps --locked | ConvertFrom-Json
           foreach ($name in @("danmaku-player", "library-server")) {
             $package = $metadata.packages | Where-Object { $_.name -eq $name } | Select-Object -First 1
@@ -56,12 +73,73 @@ jobs:
           $notes = Join-Path $env:RUNNER_TEMP "release-notes.md"
           .\tools\windows\get-release-notes.ps1 -Version $version -OutputPath $notes
           Add-Content -Path $env:GITHUB_OUTPUT -Value "value=$version"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "android-code=$androidVersionCode"
           Add-Content -Path $env:GITHUB_OUTPUT -Value "notes=$notes"
+
+      - name: Require and decode Android release signing key
+        id: android-signing
+        shell: pwsh
+        env:
+          DANMAKU_ANDROID_KEYSTORE_BASE64: ${{ secrets.DANMAKU_ANDROID_KEYSTORE_BASE64 }}
+          DANMAKU_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.DANMAKU_ANDROID_KEYSTORE_PASSWORD }}
+          DANMAKU_ANDROID_KEY_ALIAS: ${{ secrets.DANMAKU_ANDROID_KEY_ALIAS }}
+          DANMAKU_ANDROID_KEY_PASSWORD: ${{ secrets.DANMAKU_ANDROID_KEY_PASSWORD }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:DANMAKU_ANDROID_KEYSTORE_BASE64) -or
+              [string]::IsNullOrWhiteSpace($env:DANMAKU_ANDROID_KEYSTORE_PASSWORD) -or
+              [string]::IsNullOrWhiteSpace($env:DANMAKU_ANDROID_KEY_ALIAS) -or
+              [string]::IsNullOrWhiteSpace($env:DANMAKU_ANDROID_KEY_PASSWORD)) {
+            throw "Production Android release signing secrets are not configured."
+          }
+          $path = Join-Path $env:RUNNER_TEMP "danmaku-android-release.keystore"
+          [System.IO.File]::WriteAllBytes(
+            $path,
+            [Convert]::FromBase64String($env:DANMAKU_ANDROID_KEYSTORE_BASE64)
+          )
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "keystore=$path"
 
       - name: Check Rust formatting and tests
         run: |
           cargo fmt --all --check
           cargo test --workspace
+
+      - name: Test and build signed Android applications
+        shell: pwsh
+        env:
+          DANMAKU_ANDROID_KEYSTORE_PATH: ${{ steps.android-signing.outputs.keystore }}
+          DANMAKU_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.DANMAKU_ANDROID_KEYSTORE_PASSWORD }}
+          DANMAKU_ANDROID_KEY_ALIAS: ${{ secrets.DANMAKU_ANDROID_KEY_ALIAS }}
+          DANMAKU_ANDROID_KEY_PASSWORD: ${{ secrets.DANMAKU_ANDROID_KEY_PASSWORD }}
+        run: |
+          .\gradlew.bat --no-daemon `
+            "-Pdanmaku.releaseVersionName=${{ steps.version.outputs.value }}" `
+            "-Pdanmaku.releaseVersionCode=${{ steps.version.outputs.android-code }}" `
+            "-Pdanmaku.updateManifestUrl=https://github.com/${{ github.repository }}/releases/latest/download/android-update.json" `
+            :shared:app-update-android:testDebugUnitTest `
+            :apps:android-mobile:assembleRelease `
+            :apps:android-tv:assembleRelease
+
+      - name: Verify and prepare Android release assets
+        shell: pwsh
+        run: |
+          $apkSigner = Get-ChildItem "$env:ANDROID_HOME\build-tools" -Filter "apksigner.bat" -Recurse -File |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1
+          $apkAnalyzer = Get-ChildItem "$env:ANDROID_HOME\cmdline-tools" -Filter "apkanalyzer.bat" -Recurse -File |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1
+          if ($null -eq $apkSigner -or $null -eq $apkAnalyzer) {
+            throw "Android SDK APK verification tools were not found."
+          }
+          .\tools\windows\prepare-android-release.ps1 `
+            -Version "${{ steps.version.outputs.value }}" `
+            -VersionCode "${{ steps.version.outputs.android-code }}" `
+            -Repository "${{ github.repository }}" `
+            -MobileApkPath .\apps\android-mobile\build\outputs\apk\release\android-mobile-release.apk `
+            -TvApkPath .\apps\android-tv\build\outputs\apk\release\android-tv-release.apk `
+            -ApkSignerPath $apkSigner.FullName `
+            -ApkAnalyzerPath $apkAnalyzer.FullName `
+            -RequireVerification
 
       - name: Build packaged web UI
         working-directory: apps/web-ui
@@ -175,6 +253,7 @@ jobs:
                 ($_.Extension -eq ".nupkg" -and $_.Name -like "*-$version-*")
               }
             Get-ChildItem .\build\release\rust-player -Filter "*.zip" -File
+            Get-ChildItem .\build\release\android -File
             Get-Item .\runtime\windows\libmpv\libmpv-provenance.json
           )
           $lines = $assets | Sort-Object Name | ForEach-Object {
@@ -199,6 +278,8 @@ jobs:
               } |
               ForEach-Object FullName
             Get-ChildItem .\build\release\rust-player -Filter "*.zip" -File |
+              ForEach-Object FullName
+            Get-ChildItem .\build\release\android -File |
               ForEach-Object FullName
             (Resolve-Path .\runtime\windows\libmpv\libmpv-provenance.json).Path
             (Resolve-Path .\build\release\SHA256SUMS.txt).Path

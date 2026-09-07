@@ -24,7 +24,7 @@ import {
   setAniRssSubscriptionEnabled
 } from "./api";
 
-type Props = { baseUrl: string; token: string };
+type Props = { baseUrl: string };
 
 const sourceLabels: Record<AniRssSource, string> = {
   MIKAN: "Mikan",
@@ -40,7 +40,7 @@ const emptySubscription: AniRssSubscriptionRequest = {
   enabled: true
 };
 
-export function AniRssPanel({ baseUrl, token }: Props) {
+export function AniRssPanel({ baseUrl }: Props) {
   const [panelOpen, setPanelOpen] = useState(window.location.hash === "#ani-rss");
   const [settings, setSettings] = useState<AniRssSettings | null>(null);
   const [mode, setMode] = useState<AniRssMode>("DISABLED");
@@ -58,10 +58,9 @@ export function AniRssPanel({ baseUrl, token }: Props) {
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
-    if (!token.trim()) return;
     setBusy(true);
     try {
-      const current = await fetchAniRssSettings(baseUrl, token);
+      const current = await fetchAniRssSettings(baseUrl);
       setSettings(current);
       setMode(current.mode);
       setEndpoint(current.baseUrl);
@@ -77,9 +76,9 @@ export function AniRssPanel({ baseUrl, token }: Props) {
           : { ...selected, source: current.approvedSources[0] ?? selected.source }
       );
       const [connection, currentSubscriptions, currentDownloads] = await Promise.all([
-        fetchAniRssStatus(baseUrl, token),
-        current.mode === "DISABLED" ? Promise.resolve([]) : fetchAniRssSubscriptions(baseUrl, token),
-        current.mode === "DISABLED" ? Promise.resolve([]) : fetchAniRssDownloads(baseUrl, token)
+        fetchAniRssStatus(baseUrl),
+        current.mode === "DISABLED" ? Promise.resolve([]) : fetchAniRssSubscriptions(baseUrl),
+        current.mode === "DISABLED" ? Promise.resolve([]) : fetchAniRssDownloads(baseUrl)
       ]);
       setSubscriptions(currentSubscriptions);
       setDownloads(currentDownloads);
@@ -89,7 +88,7 @@ export function AniRssPanel({ baseUrl, token }: Props) {
     } finally {
       setBusy(false);
     }
-  }, [baseUrl, token]);
+  }, [baseUrl]);
 
   useEffect(() => void load(), [load]);
 
@@ -97,7 +96,7 @@ export function AniRssPanel({ baseUrl, token }: Props) {
     event.preventDefault();
     setBusy(true);
     try {
-      const next = await saveAniRssSettings(baseUrl, token, {
+      const next = await saveAniRssSettings(baseUrl, {
         mode,
         baseUrl: endpoint,
         apiKey: apiKey.trim() || undefined,
@@ -120,7 +119,7 @@ export function AniRssPanel({ baseUrl, token }: Props) {
     setBusy(true);
     try {
       const approved = settings.approvedSources.includes(candidate);
-      const next = await setAniRssSourceApproval(baseUrl, token, candidate, !approved);
+      const next = await setAniRssSourceApproval(baseUrl, candidate, !approved);
       setSettings(next);
       const firstSearchSource = next.approvedSources.find((value) => value !== "CUSTOM_RSS");
       setSource((selected) =>
@@ -147,7 +146,7 @@ export function AniRssPanel({ baseUrl, token }: Props) {
     setGroups([]);
     setPreview(null);
     try {
-      setResults(await searchAniRss(baseUrl, token, { source, query }));
+      setResults(await searchAniRss(baseUrl, { source, query }));
       setStatus("Search complete. Choose a series to select its release group.");
     } catch (error) {
       setStatus(describe(error));
@@ -159,7 +158,7 @@ export function AniRssPanel({ baseUrl, token }: Props) {
   async function chooseResult(result: AniRssSearchResult) {
     setBusy(true);
     try {
-      const choices = await fetchAniRssGroups(baseUrl, token, result.source, result.locator);
+      const choices = await fetchAniRssGroups(baseUrl, result.source, result.locator);
       setGroups(choices);
       setDraft({ ...emptySubscription, source: result.source, title: result.title, bgmUrl: result.bgmUrl ?? undefined });
       setStatus(choices.length ? "Choose a release group." : "No release groups were returned.");
@@ -184,7 +183,7 @@ export function AniRssPanel({ baseUrl, token }: Props) {
     event.preventDefault();
     setBusy(true);
     try {
-      setPreview(await previewAniRssSubscription(baseUrl, token, draft));
+      setPreview(await previewAniRssSubscription(baseUrl, draft));
       setStatus("Preview ready. Confirm to enable automatic downloads.");
     } catch (error) {
       setStatus(describe(error));
@@ -196,7 +195,7 @@ export function AniRssPanel({ baseUrl, token }: Props) {
   async function confirmSubscription() {
     setBusy(true);
     try {
-      await createAniRssSubscription(baseUrl, token, draft);
+      await createAniRssSubscription(baseUrl, draft);
       setDraft(emptySubscription);
       setPreview(null);
       setGroups([]);
@@ -266,9 +265,9 @@ export function AniRssPanel({ baseUrl, token }: Props) {
             />
             Rescan the library automatically
           </label>
-          <button disabled={busy || !token.trim()} type="submit">Save and test</button>
+          <button disabled={busy} type="submit">Save and test</button>
           {settings?.advancedUiUrl ? <a href={settings.advancedUiUrl} target="_blank" rel="noreferrer">Open advanced ANI-RSS UI</a> : null}
-          {settings?.mode === "MANAGED_WINDOWS" ? <small>The managed ANI-RSS UI stays on the Windows host; use this authenticated panel from mobile.</small> : null}
+          {settings?.mode === "MANAGED_WINDOWS" ? <small>The managed ANI-RSS UI stays on the Windows host; use this trusted-LAN panel from mobile.</small> : null}
           {settings ? <div className="ani-rss-mappings">
             <strong>Download path mappings</strong>
             {settings.pathMappings.map((mapping, index) => <div key={index}>
@@ -333,7 +332,7 @@ export function AniRssPanel({ baseUrl, token }: Props) {
             <section>
               <div className="ani-rss-section-heading"><h3>Subscriptions</h3><button disabled={busy} onClick={() => void load()} type="button">Refresh</button></div>
               <div className="ani-rss-list">
-                {subscriptions.map((item) => <article key={item.id}><div><strong>{item.title}</strong><small>{sourceLabels[item.source]}{item.subgroup ? ` · ${item.subgroup}` : ""}</small></div><div className="ani-rss-actions"><button onClick={() => void mutateSubscription(() => setAniRssSubscriptionEnabled(baseUrl, token, item.id, !item.enabled), item.enabled ? "Subscription paused." : "Subscription resumed.")} type="button">{item.enabled ? "Pause" : "Resume"}</button><button onClick={() => void mutateSubscription(() => refreshAniRssSubscription(baseUrl, token, item.id), "Refresh requested.")} type="button">Check now</button><button className="danger" onClick={() => void mutateSubscription(() => deleteAniRssSubscription(baseUrl, token, item.id), "Subscription removed; downloaded files were kept.")} type="button">Remove</button></div></article>)}
+                {subscriptions.map((item) => <article key={item.id}><div><strong>{item.title}</strong><small>{sourceLabels[item.source]}{item.subgroup ? ` · ${item.subgroup}` : ""}</small></div><div className="ani-rss-actions"><button onClick={() => void mutateSubscription(() => setAniRssSubscriptionEnabled(baseUrl, item.id, !item.enabled), item.enabled ? "Subscription paused." : "Subscription resumed.")} type="button">{item.enabled ? "Pause" : "Resume"}</button><button onClick={() => void mutateSubscription(() => refreshAniRssSubscription(baseUrl, item.id), "Refresh requested.")} type="button">Check now</button><button className="danger" onClick={() => void mutateSubscription(() => deleteAniRssSubscription(baseUrl, item.id), "Subscription removed; downloaded files were kept.")} type="button">Remove</button></div></article>)}
                 {!subscriptions.length ? <p>No ANI-RSS subscriptions yet.</p> : null}
               </div>
             </section>

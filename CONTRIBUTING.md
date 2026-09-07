@@ -25,8 +25,7 @@ the project's [MIT License](LICENSE).
 - Do not add DRM circumvention.
 - Do not add torrent/search/download behavior without an approved authorized
   source policy.
-- Do not log pairing tokens, credentials, cookies, signed URLs, or raw provider
-  secrets.
+- Do not log credentials, cookies, signed URLs, or raw provider secrets.
 - Keep provider-specific response models at plugin boundaries. Persist
   normalized domain models instead.
 - Treat the current LAN server as trusted-local-network only.
@@ -38,11 +37,13 @@ Run the relevant checks for your change:
 ```powershell
 .\tools\windows\test-verify-libmpv-bundle.ps1
 .\tools\windows\test-install-libmpv-dependency.ps1
+.\tools\windows\test-prepare-android-release.ps1
 cargo fmt --all --check
 cargo test --workspace
 .\gradlew.bat --no-daemon :shared:domain:jvmTest
 .\gradlew.bat --no-daemon :shared:library-client:jvmTest
 .\gradlew.bat --no-daemon :shared:library-client-android:testDebugUnitTest
+.\gradlew.bat --no-daemon :shared:app-update-android:testDebugUnitTest
 .\gradlew.bat --no-daemon :shared:player-android-media3:assembleDebugAndroidTest
 .\gradlew.bat --no-daemon :apps:android-mobile:assembleDebug :apps:android-tv:assembleDebug
 ```
