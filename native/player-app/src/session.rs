@@ -41,7 +41,10 @@ pub enum SessionEvent {
     FolderRescan(Result<(), String>),
     OrganizationPreview(Result<OrganizationPlan, String>),
     OrganizationCommand(Result<(), String>),
-    OrganizationStatus(Result<OrganizationStatus, String>),
+    OrganizationStatus {
+        generation: u64,
+        result: Result<OrganizationStatus, String>,
+    },
     ResumeLookup {
         media_id: String,
         progress: Option<PlaybackProgress>,
@@ -109,6 +112,8 @@ pub struct LibrarySession {
     pub server_scan_error: Option<String>,
     pub organization_plan: Option<OrganizationPlan>,
     pub organization_status: Option<OrganizationStatus>,
+    organization_status_generation: std::sync::Arc<std::sync::atomic::AtomicU64>,
+    organization_status_received: u64,
     pub organization_error: Option<String>,
     pub organization_loading: bool,
     /// Bumped whenever fresh (non-cache) catalog or progress data lands, so
@@ -142,6 +147,8 @@ impl LibrarySession {
             server_scan_error: None,
             organization_plan: None,
             organization_status: None,
+            organization_status_generation: Default::default(),
+            organization_status_received: 0,
             organization_error: None,
             organization_loading: false,
             sync_version: 0,
@@ -182,6 +189,8 @@ impl LibrarySession {
             server_scan_error: None,
             organization_plan: None,
             organization_status: None,
+            organization_status_generation: Default::default(),
+            organization_status_received: 0,
             organization_error: None,
             organization_loading: false,
             sync_version: 0,
@@ -279,6 +288,29 @@ impl LibrarySession {
         );
     }
 
+    pub fn organizer_command(&mut self, method: String, endpoint: String, body: String) {
+        let Some(base_url) = self.server() else {
+            return;
+        };
+        self.organization_loading = true;
+        self.organization_error = None;
+        self.organization_plan = None;
+        self.spawn(
+            move |_| {
+                SessionEvent::OrganizationCommand(
+                    crate::net::organizer_json(
+                        &base_url,
+                        &method,
+                        &format!("/api/library/organize/{endpoint}"),
+                        Some(&body),
+                    )
+                    .map(|_| ()),
+                )
+            },
+            String::new(),
+        );
+    }
+
     pub fn preview_organization(&mut self, request: OrganizationPreviewRequest) {
         let Some(base_url) = self.server() else {
             self.organization_error = Some("Desktop server is unavailable".to_owned());
@@ -311,8 +343,15 @@ impl LibrarySession {
         let Some(base_url) = self.server() else {
             return;
         };
+        let generation = self
+            .organization_status_generation
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+            + 1;
         self.spawn(
-            move |_| SessionEvent::OrganizationStatus(fetch_organization_status(&base_url)),
+            move |_| SessionEvent::OrganizationStatus {
+                generation,
+                result: fetch_organization_status(&base_url),
+            },
             String::new(),
         );
     }
@@ -728,33 +767,43 @@ impl LibrarySession {
                     self.organization_loading = false;
                     match result {
                         Ok(()) => self.refresh_organization_status(),
+                        Err(error) => {
+                            self.organization_error = Some(error);
+                            self.refresh_organization_status();
+                        }
+                    }
+                }
+                SessionEvent::OrganizationStatus { generation, result } => {
+                    if generation < self.organization_status_received {
+                        continue;
+                    }
+                    self.organization_status_received = generation;
+                    match result {
+                        Ok(status) => {
+                            let was_active =
+                                self.organization_status.as_ref().is_some_and(|status| {
+                                    matches!(status.state.as_str(), "RUNNING" | "ROLLING_BACK")
+                                });
+                            let completion_changed = self
+                                .organization_status
+                                .as_ref()
+                                .map(|previous| &previous.last_completed_batch_id)
+                                != Some(&status.last_completed_batch_id);
+                            let is_terminal = matches!(
+                                status.state.as_str(),
+                                "COMPLETED" | "CANCELLED" | "FAILED" | "RECOVERY_REQUIRED"
+                            );
+                            self.organization_status = Some(status);
+                            if is_terminal && (was_active || completion_changed) {
+                                self.organization_plan = None;
+                                self.refresh_catalog();
+                                self.refresh_attention();
+                                self.refresh_progress();
+                            }
+                        }
                         Err(error) => self.organization_error = Some(error),
                     }
                 }
-                SessionEvent::OrganizationStatus(result) => match result {
-                    Ok(status) => {
-                        let was_active = self.organization_status.as_ref().is_some_and(|status| {
-                            matches!(status.state.as_str(), "RUNNING" | "ROLLING_BACK")
-                        });
-                        let completion_changed = self
-                            .organization_status
-                            .as_ref()
-                            .map(|previous| &previous.last_completed_batch_id)
-                            != Some(&status.last_completed_batch_id);
-                        let is_terminal = matches!(
-                            status.state.as_str(),
-                            "COMPLETED" | "CANCELLED" | "FAILED" | "RECOVERY_REQUIRED"
-                        );
-                        self.organization_status = Some(status);
-                        if is_terminal && (was_active || completion_changed) {
-                            self.organization_plan = None;
-                            self.refresh_catalog();
-                            self.refresh_attention();
-                            self.refresh_progress();
-                        }
-                    }
-                    Err(error) => self.organization_error = Some(error),
-                },
                 other => for_app.push(other),
             }
         }
@@ -813,6 +862,8 @@ mod tests {
             server_scan_error: None,
             organization_plan: None,
             organization_status: None,
+            organization_status_generation: Default::default(),
+            organization_status_received: 0,
             organization_error: None,
             organization_loading: false,
             sync_version: 0,

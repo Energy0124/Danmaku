@@ -134,6 +134,15 @@ impl eframe::App for PlayerApp {
                             session.refresh_folder(path);
                         }
                     }
+                    Some(LibraryAction::OrganizerCommand {
+                        method,
+                        endpoint,
+                        body,
+                    }) => {
+                        if let Some(session) = &mut self.session {
+                            session.organizer_command(method, endpoint, body);
+                        }
+                    }
                     Some(LibraryAction::PreviewOrganization(request)) => {
                         if let Some(session) = &mut self.session {
                             session.preview_organization(request);
@@ -402,7 +411,43 @@ impl eframe::App for PlayerApp {
                 }
             }
         }
+        if let Some(session) = &mut self.session {
+            let closing = ctx.input(|i| i.viewport().close_requested());
+            if !self.library_screen.organizer_close(closing) {
+                ctx.send_viewport_cmd(ViewportCommand::CancelClose);
+            }
+            if let Some(action) = self.library_screen.show_organizer(
+                ctx,
+                session,
+                Strings::new(self.preferences.language),
+            ) {
+                match action {
+                    LibraryAction::OrganizerCommand {
+                        method,
+                        endpoint,
+                        body,
+                    } => session.organizer_command(method, endpoint, body),
+                    LibraryAction::PreviewOrganization(request) => {
+                        session.preview_organization(request)
+                    }
+                    LibraryAction::ExecuteOrganization { plan_id, batch } => {
+                        session.execute_organization(plan_id, batch)
+                    }
+                    LibraryAction::RefreshOrganizationStatus => {
+                        session.refresh_organization_status()
+                    }
+                    LibraryAction::CancelOrganization => session.cancel_organization(),
+                    LibraryAction::UndoOrganization { completed_batch_id } => {
+                        session.undo_organization(completed_batch_id)
+                    }
+                    _ => {}
+                }
+            }
+        }
         self.save_preferences_if_changed();
+        if self.library_screen.organizer_close_finished() {
+            ctx.send_viewport_cmd(ViewportCommand::Close);
+        }
         self.finish_qa_screenshot_if_needed(ctx);
     }
 }

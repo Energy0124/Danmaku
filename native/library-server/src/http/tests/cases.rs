@@ -59,17 +59,55 @@ async fn organizer_requires_desktop_mode_and_loopback_peer() {
     assert!(state.try_start_organization());
     assert!(!state.try_start_scan());
     state.finish_organization();
+    let mut snapshot = (*state.library()).clone();
+    snapshot.catalog = state
+        .catalog_metadata
+        .as_ref()
+        .unwrap()
+        .enrich_catalog(&snapshot.catalog);
+    let draft = state
+        .organizer
+        .as_ref()
+        .unwrap()
+        .create_draft(
+            &snapshot,
+            crate::organizer::draft::CreateDraftRequest {
+                media_ids: vec!["episode-id".into(), "episode-id-2".into()],
+                destination: fixture.temp.join("Anime").display().to_string(),
+            },
+        )
+        .expect("draft creates");
+    let token = state.organizer.as_ref().unwrap().desktop_token().unwrap();
     let router = app(state);
-    let body = json!({
-        "root": fixture.temp.display().to_string(),
-        "baseRelativePath": "Anime",
-        "overrides": []
-    })
-    .to_string();
+    let body = json!({"draftId":draft.id,"revision":draft.revision}).to_string();
+    for (origin, expected) in [
+        (false, StatusCode::UNAUTHORIZED),
+        (true, StatusCode::FORBIDDEN),
+    ] {
+        let mut request = Request::builder()
+            .method(Method::GET)
+            .uri("/api/library/organize/status")
+            .extension(ConnectInfo(std::net::SocketAddr::from((
+                [127, 0, 0, 1],
+                5000,
+            ))));
+        if origin {
+            request = request
+                .header("origin", "https://example.invalid")
+                .header("authorization", format!("Bearer {token}"));
+        }
+        let response = router
+            .clone()
+            .oneshot(request.body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(response.status(), expected);
+    }
     let request = |peer: [u8; 4]| {
         Request::builder()
             .method(Method::POST)
             .uri("/api/library/organize/preview")
+            .header("authorization", format!("Bearer {token}"))
             .header(CONTENT_TYPE, "application/json")
             .extension(ConnectInfo(std::net::SocketAddr::from((peer, 5000))))
             .body(Body::from(body.clone()))

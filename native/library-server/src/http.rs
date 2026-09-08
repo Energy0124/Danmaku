@@ -29,8 +29,7 @@ use crate::external_provider::{
 };
 use crate::logging::CatalogScanSummary;
 use crate::organizer::{
-    LibraryOrganizer, OrganizationAccepted, OrganizationExecuteRequest, OrganizationPreviewRequest,
-    OrganizationUndoRequest,
+    LibraryOrganizer, OrganizationAccepted, OrganizationExecuteRequest, OrganizationUndoRequest,
 };
 use crate::poster_cache::PosterCacheStore;
 use crate::progress::PlaybackProgressStore;
@@ -259,6 +258,13 @@ impl HttpServerState {
 
     pub fn try_start_scan(&self) -> bool {
         if self
+            .organizer
+            .as_ref()
+            .is_some_and(|organizer| organizer.recovery_required())
+        {
+            return false;
+        }
+        if self
             .library_mutating
             .compare_exchange(false, true, Ordering::AcqRel, Ordering::Relaxed)
             .is_err()
@@ -335,7 +341,7 @@ async fn dispatch(State(state): State<HttpServerState>, request: Request<Body>) 
         return handle_library_rescan(&state, method, body).await;
     }
     if path.starts_with("/api/library/organize") {
-        return handle_library_organize(&state, peer, method, &path, body).await;
+        return handle_library_organize(&state, peer, method, &path, &headers, body).await;
     }
     if path == "/api/library/attention" {
         return handle_library_attention(&state, &method);
@@ -414,6 +420,7 @@ async fn handle_library_organize(
     peer: Option<SocketAddr>,
     method: Method,
     path: &str,
+    headers: &HeaderMap,
     body: Body,
 ) -> Response<Body> {
     if state.provider_admin.is_none() {
@@ -428,7 +435,118 @@ async fn handle_library_organize(
     let Some(organizer) = state.organizer.as_ref().map(Arc::clone) else {
         return empty_status(StatusCode::NOT_FOUND);
     };
+    // A loopback native client can bootstrap its capability; browser contexts cannot.
+    if headers.contains_key("origin") || headers.contains_key("sec-fetch-site") {
+        return empty_status(StatusCode::FORBIDDEN);
+    }
+    if path == "/api/library/organize/session" {
+        if method != Method::GET {
+            return empty_status(StatusCode::METHOD_NOT_ALLOWED);
+        }
+        return match organizer.desktop_token() {
+            Ok(token) => {
+                let mut response =
+                    json_response(StatusCode::OK, &serde_json::json!({"token":token}));
+                response
+                    .headers_mut()
+                    .insert(CACHE_CONTROL, HeaderValue::from_static("no-store"));
+                response
+            }
+            Err(error) => text_response(StatusCode::SERVICE_UNAVAILABLE, &error.to_string()),
+        };
+    }
+    if !organizer.desktop_authorized(headers.get("authorization").and_then(|h| h.to_str().ok())) {
+        return empty_status(StatusCode::UNAUTHORIZED);
+    }
     match (method, path) {
+        (Method::POST, "/api/library/organize/draft") => {
+            let request =
+                match parse_json_body::<crate::organizer::draft::CreateDraftRequest>(body).await {
+                    Ok(request) => request,
+                    Err(response) => return response,
+                };
+            let mut library = (*state.library()).clone();
+            if let Some(store) = &state.catalog_metadata {
+                library.catalog = store.enrich_catalog(&library.catalog);
+            }
+            match organizer.create_draft(&library, request) {
+                Ok(draft) => {
+                    let request = crate::organizer::draft::IdentifyRequest {
+                        draft_id: draft.id.clone(),
+                        revision: draft.revision,
+                        media_ids: Vec::new(),
+                        query: None,
+                    };
+                    if let Ok(snapshot) = organizer.begin_identification(&request) {
+                        tokio::spawn(organizer.clone().identify(
+                            snapshot,
+                            request,
+                            state.dandanplay_resolver.clone(),
+                        ));
+                    }
+                    json_response(StatusCode::OK, &draft)
+                }
+                Err(error) => text_response(StatusCode::CONFLICT, &error.to_string()),
+            }
+        }
+        (Method::GET, "/api/library/organize/draft") => match organizer.draft() {
+            Ok(draft) => json_response(StatusCode::OK, &draft),
+            Err(error) => text_response(StatusCode::CONFLICT, &error.to_string()),
+        },
+        (Method::PUT, "/api/library/organize/draft") => {
+            let request =
+                match parse_json_body::<crate::organizer::draft::OrganizationDraft>(body).await {
+                    Ok(request) => request,
+                    Err(response) => return response,
+                };
+            match organizer.update_draft(request) {
+                Ok(draft) => json_response(StatusCode::OK, &draft),
+                Err(error) => text_response(StatusCode::CONFLICT, &error.to_string()),
+            }
+        }
+        (Method::DELETE, "/api/library/organize/draft") => match organizer.discard_draft() {
+            Ok(()) => empty_status(StatusCode::OK),
+            Err(error) => text_response(StatusCode::CONFLICT, &error.to_string()),
+        },
+        (Method::POST, "/api/library/organize/identify") => {
+            let request =
+                match parse_json_body::<crate::organizer::draft::IdentifyRequest>(body).await {
+                    Ok(request) => request,
+                    Err(response) => return response,
+                };
+            match organizer.begin_identification(&request) {
+                Ok(snapshot) => {
+                    tokio::spawn(organizer.identify(
+                        snapshot,
+                        request,
+                        state.dandanplay_resolver.clone(),
+                    ));
+                    empty_status(StatusCode::ACCEPTED)
+                }
+                Err(error) => text_response(StatusCode::CONFLICT, &error.to_string()),
+            }
+        }
+        (Method::POST, "/api/library/organize/identify/cancel") => {
+            organizer.cancel_identification();
+            empty_status(StatusCode::OK)
+        }
+        (Method::POST, "/api/library/organize/identify/save") => {
+            let request =
+                match parse_json_body::<crate::organizer::draft::DraftPreviewRequest>(body).await {
+                    Ok(request) => request,
+                    Err(response) => return response,
+                };
+            let Some(store) = &state.catalog_metadata else {
+                return text_response(
+                    StatusCode::CONFLICT,
+                    "Catalog metadata storage is unavailable.",
+                );
+            };
+            match organizer.save_identification(request, store) {
+                Ok(()) => empty_status(StatusCode::OK),
+                Err(error) => text_response(StatusCode::CONFLICT, &error.to_string()),
+            }
+        }
         (Method::GET, "/api/library/organize/status") => {
             json_response(StatusCode::OK, &organizer.status())
         }
@@ -436,11 +554,30 @@ async fn handle_library_organize(
             organizer.cancel();
             empty_status(StatusCode::ACCEPTED)
         }
+        (Method::POST, "/api/library/organize/recover") => {
+            if !state.try_start_organization() {
+                return text_response(
+                    StatusCode::CONFLICT,
+                    "Wait for the current library operation.",
+                );
+            }
+            let result = tokio::task::spawn_blocking(move || organizer.retry_recovery()).await;
+            state.finish_organization();
+            match result {
+                Ok(Ok(library)) => {
+                    state.publish_library(library);
+                    empty_status(StatusCode::OK)
+                }
+                Ok(Err(error)) => text_response(StatusCode::CONFLICT, &error.to_string()),
+                Err(error) => text_response(StatusCode::INTERNAL_SERVER_ERROR, &error.to_string()),
+            }
+        }
         (Method::POST, "/api/library/organize/preview") => {
-            let request = match parse_json_body::<OrganizationPreviewRequest>(body).await {
-                Ok(request) => request,
-                Err(response) => return response,
-            };
+            let request =
+                match parse_json_body::<crate::organizer::draft::DraftPreviewRequest>(body).await {
+                    Ok(request) => request,
+                    Err(response) => return response,
+                };
             let library = state.library();
             let catalog_metadata = state.catalog_metadata.clone();
             match tokio::task::spawn_blocking(move || {
@@ -448,7 +585,7 @@ async fn handle_library_organize(
                 if let Some(store) = catalog_metadata {
                     library.catalog = store.enrich_catalog(&library.catalog);
                 }
-                organizer.preview(&library, request)
+                organizer.preview_draft(&library, request)
             })
             .await
             {

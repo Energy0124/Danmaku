@@ -370,6 +370,13 @@ fn handle_test_connection(mut stream: TcpStream, requests: Arc<StdMutex<Vec<Capt
         body: body.to_owned(),
     });
     let response = match path.as_str() {
+        "/api/v2/match" if body.contains("Unmatched") => r#"{"success":true,"matches":[]}"#,
+        "/api/v2/match" if body.contains("Ambiguous") => {
+            r#"{"success":true,"matches":[{"episodeId":11,"animeId":1,"animeTitle":"First"},{"episodeId":22,"animeId":2,"animeTitle":"Second"}]}"#
+        }
+        "/api/v2/search/episodes" => {
+            r#"{"success":true,"animes":[{"animeId":77,"animeTitle":"Search result","episodes":[{"episodeId":7701,"episodeTitle":"Episode 1"}]}]}"#
+        }
         "/api/v2/match" => {
             r#"{"success":true,"matches":[{"episodeId":123450001,"animeId":12345,"animeTitle":"Example Anime","episodeTitle":"Episode 01","shift":0}]}"#
         }
@@ -391,6 +398,59 @@ fn handle_test_connection(mut stream: TcpStream, requests: Arc<StdMutex<Vec<Capt
         response
     )
     .expect("write response");
+}
+
+#[tokio::test]
+async fn organizer_identification_preserves_candidates_and_never_downloads_comments() {
+    let server = TestServer::start();
+    let temp = temp_dir("organizer-identification-only");
+    let resolver = DandanplayResolver::new(
+        DandanplayDanmakuClient::new(DandanplayConnection::new(
+            server.base_url(),
+            Some("test-app".into()),
+            Some("test-secret".into()),
+            HeadlessDandanplayAuthenticationMode::Signed,
+        )),
+        DandanplayCommentCacheStore::new(temp.join("cache.json")),
+        1,
+        fixed_epoch_ms,
+    );
+    let mut fingerprint = DandanplayMediaFingerprint {
+        file_name: "Unique.mkv".into(),
+        file_hash: "00000000000000000000000000000000".into(),
+        file_size_bytes: 3,
+        video_duration_seconds: None,
+    };
+    let unique = resolver
+        .identify_only(&fingerprint, "Example", false)
+        .await
+        .unwrap();
+    assert_eq!(unique.len(), 1);
+    assert_eq!(unique[0].episode_id, Some(123450001));
+    fingerprint.file_name = "Ambiguous.mkv".into();
+    assert_eq!(
+        resolver
+            .identify_only(&fingerprint, "Example", false)
+            .await
+            .unwrap()
+            .len(),
+        2
+    );
+    fingerprint.file_name = "Unmatched.mkv".into();
+    let searched = resolver
+        .identify_only(&fingerprint, "Example", false)
+        .await
+        .unwrap();
+    assert_eq!(searched[0].anime_id, 77);
+    assert_eq!(searched[0].episode_id, None);
+    assert!(
+        server
+            .requests()
+            .iter()
+            .all(|request| !request.path.contains("comment"))
+    );
+    assert!(!temp.join("cache.json").exists());
+    fs::remove_dir_all(temp).unwrap();
 }
 
 fn read_test_request(stream: &mut TcpStream) -> String {
