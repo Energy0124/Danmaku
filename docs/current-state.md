@@ -31,9 +31,14 @@ Compose macOS artifact are retired.
   stable media IDs, and exposes live file counts and scan failures through its
   status endpoint.
 - The native desktop Folders view supports persistent multiple-folder/file
-  selection and a saved organizer draft with an explicit destination across
+  selection and an independent native organizer window with a saved draft and
+  explicit destination across
   configured roots. Matching is asynchronous and independent of comment fetching;
-  ambiguous candidates require selection, and manual titles/seasons and grouping
+  ordinary fingerprint failures fall back to title search. Quota/authentication
+  failures pause the batch with a saved cooldown; three consecutive failures also
+  stop the batch. Batch retry retains existing candidates, including ambiguous
+  results. Provider error codes/messages remain visible. Ambiguous candidates
+  require selection, and manual titles/seasons and grouping
   remain editable. The searchable per-series queue supports exclusion, skip,
   automatic unambiguous subtitle selection, and exact revision-bound approval.
   Same-volume moves and verified cross-volume transfers preserve catalog IDs;

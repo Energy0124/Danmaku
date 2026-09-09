@@ -34,12 +34,14 @@ pub type Result<T> = std::result::Result<T, LibraryServerError>;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LibraryServerError {
     message: String,
+    pub(crate) provider_retry_after_seconds: Option<u64>,
 }
 
 impl LibraryServerError {
     pub fn new(message: impl Into<String>) -> Self {
         Self {
             message: message.into(),
+            provider_retry_after_seconds: None,
         }
     }
 

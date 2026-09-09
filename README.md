@@ -180,7 +180,8 @@ background full-library polling.
 The desktop **Folders** view offers selection mode for multiple files and
 folders, **Organize selected**, and **Organize this folder**. Select a destination
 inside any configured library root using the folder picker or absolute path.
-The organizer saves your review across restarts, identifies unmatched videos,
+The organizer opens in its own movable desktop window, saves your review across
+restarts, identifies unmatched videos,
 and lets you correct provider matches, folder titles, seasons, and grouping.
 Unknown seasons show **Season 1 — suggested**; specials can use Season 0.
 

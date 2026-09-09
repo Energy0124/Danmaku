@@ -746,3 +746,57 @@ fn already_organized_video_can_move_an_explicit_companion() {
     assert!(fixture.root.join("Example Show/poster.jpg").exists());
     cleanup(fixture.temp);
 }
+
+#[tokio::test]
+async fn repeated_provider_failure_pauses_and_survives_restart_without_touching_remaining_files() {
+    let (fixture, organizer, mut draft, destination) = setup(false);
+    // Extend the immutable test snapshot with IDs sharing the same fixture path.
+    for index in 0..5 {
+        let mut file = draft.files[0].clone();
+        file.media_id = format!("extra-{index}");
+        draft.files.push(file);
+    }
+    organizer.runtime.lock().unwrap().draft = Some(draft.clone());
+    let organizer = std::sync::Arc::new(organizer);
+    let request = super::draft::IdentifyRequest {
+        draft_id: draft.id.clone(),
+        revision: draft.revision,
+        media_ids: Vec::new(),
+        query: None,
+    };
+    let snapshot = organizer.begin_identification(&request).unwrap();
+    organizer.clone().identify(snapshot, request, None).await;
+    let saved = organizer.draft().unwrap().unwrap();
+    assert_eq!(
+        saved
+            .files
+            .iter()
+            .filter(|f| f.identification_error.is_some())
+            .count(),
+        3
+    );
+    assert!(saved.identification_pause.is_some());
+    assert!(!organizer.identification_status().running);
+    assert_eq!(organizer.identification_status().completed, 3);
+    drop(organizer);
+    let restored = LibraryOrganizer::new(
+        vec![fixture.root.clone(), destination],
+        CatalogStore::new(fixture.data.join("catalog.json")),
+    );
+    let saved = restored.draft().unwrap().unwrap();
+    let request = super::draft::IdentifyRequest {
+        draft_id: saved.id.clone(),
+        revision: saved.revision,
+        media_ids: Vec::new(),
+        query: None,
+    };
+    assert!(restored.begin_identification(&request).is_err());
+    let mut edited = saved;
+    edited.files[0].series_title = "Still editable while paused".into();
+    edited.retry_not_before_epoch_ms = None;
+    edited.identification_pause = None;
+    let edited = restored.update_draft(edited).unwrap();
+    assert!(edited.identification_pause.is_some());
+    assert!(edited.retry_not_before_epoch_ms.is_some());
+    cleanup(fixture.temp);
+}
