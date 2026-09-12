@@ -14,6 +14,9 @@ Status: `[x]` done, `[~]` in progress, `[ ]` not started.
   identification, editable grouping/seasons, subtitle association, per-series
   review, exact approval, cross-root and verified cross-drive transfers, recovery,
   and undo. See the [implementation checklist](design/progressive-library-organizer-implementation.md).
+- `[x]` Fix organizer provider error parsing and search fallback; pause quota or
+  repeated failures, preserve candidates on batch retry, and open review in an
+  independent native window.
 - `[ ]` Complete approved organizer desktop interaction/localization QA and
   physical cross-drive/disconnection QA before release.
 - `[x]` Complete the Android TV single-cutover presentation rewrite with

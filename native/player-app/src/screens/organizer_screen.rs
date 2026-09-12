@@ -106,6 +106,21 @@ impl OrganizerScreen {
         }
         let busy = status.is_some_and(|s| matches!(s.state.as_str(), "RUNNING" | "ROLLING_BACK"));
         let identifying = status.is_some_and(|s| s.identification.running);
+        let retry_wait = self
+            .draft
+            .as_ref()
+            .and_then(|d| d.retry_not_before_epoch_ms)
+            .map(|until| {
+                let now = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_millis() as u64;
+                until.saturating_sub(now).div_ceil(1000)
+            })
+            .unwrap_or(0);
+        if retry_wait > 0 {
+            ctx.request_repaint_after(Duration::from_secs(1));
+        }
         if let Some(draft) = &self.draft {
             let key = (draft.id.clone(), draft.revision, self.edit_generation);
             if self.index_key.as_ref() != Some(&key) {
@@ -116,8 +131,16 @@ impl OrganizerScreen {
         let mut action = None;
         let mut changed = false;
         let mut open = self.open;
-        egui::Window::new(s.organizer_title()).open(&mut open).collapsible(false).default_size([1100.0,720.0])
-            .vscroll(true).show(ctx, |ui| {
+        if open {
+            ctx.show_viewport_immediate(
+            egui::ViewportId::from_hash_of("library-organizer"),
+            egui::ViewportBuilder::default().with_title(s.organizer_title())
+                .with_inner_size([1100.0,720.0]).with_min_inner_size([700.0,480.0]).with_taskbar(true),
+            |ctx, class| {
+            if class != egui::ViewportClass::Embedded && ctx.input(|i| i.viewport().close_requested()) {
+                open = false;
+            }
+            let content = |ui: &mut egui::Ui| {
             if let Some(error) = &session.organization_error {
                 ui.colored_label(egui::Color32::LIGHT_RED, error);
                 if ui.button(s.organizer_text(T::Reload)).clicked() {
@@ -166,13 +189,18 @@ impl OrganizerScreen {
                 return;
             }
             let draft = self.draft.as_mut().unwrap();
+            if let Some(reason) = &draft.identification_pause {
+                ui.colored_label(egui::Color32::YELLOW, s.organizer_text(T::IdentificationPaused));
+                ui.label(reason);
+                if retry_wait > 0 { ui.label(format!("{} {retry_wait}s", s.organizer_text(T::RetryAfter))); }
+            }
             ui.add_enabled_ui(!busy && !session.organization_loading && !self.saving, |ui| {
                 ui.horizontal(|ui| {
                     ui.label(s.organizer_text(T::SavedDraft));
                     if ui.button(s.organizer_text(T::Discard)).clicked() {
                         action = Some(command("DELETE","draft",serde_json::json!({})));
                     }
-                    if ui.add_enabled(!identifying && self.changed.is_none(), egui::Button::new(s.organizer_text(T::RetryIdentification))).clicked() {
+                    if ui.add_enabled(!identifying && retry_wait == 0 && self.changed.is_none(), egui::Button::new(s.organizer_text(T::RetryIdentification))).clicked() {
                         action = Some(command("POST","identify",serde_json::json!({"draftId":draft.id,"revision":draft.revision,"mediaIds":self.selected_files})));
                     }
                     if ui.add_enabled(self.changed.is_none() && !identifying, egui::Button::new(s.organizer_text(T::SaveIdentification))).clicked() {
@@ -240,7 +268,7 @@ impl OrganizerScreen {
                     if ui.button(s.organizer_text(T::SelectVisible)).clicked() { self.selected_files.extend(indices.iter().map(|i|draft.files[*i].media_id.clone())); }
                     if ui.button(s.organizer_text(T::Clear)).clicked() { self.selected_files.clear(); }
                     ui.text_edit_singleline(&mut self.search_title);
-                    if ui.add_enabled(!identifying && !self.search_title.trim().is_empty() && !self.selected_files.is_empty(),egui::Button::new(s.organizer_text(T::SearchProvider))).clicked() {
+                    if ui.add_enabled(!identifying && retry_wait == 0 && !self.search_title.trim().is_empty() && !self.selected_files.is_empty(),egui::Button::new(s.organizer_text(T::SearchProvider))).clicked() {
                         action = Some(command("POST","identify",serde_json::json!({"draftId":draft.id,"revision":draft.revision,"mediaIds":self.selected_files,"query":self.search_title})));
                     }
                 });
@@ -322,7 +350,14 @@ impl OrganizerScreen {
                 }
                 if draft.skipped.contains(&group) && ui.button(s.organizer_text(T::ReturnPending)).clicked(){draft.skipped.remove(&group);changed=true;}
             });
+            };
+            if class == egui::ViewportClass::Embedded {
+                egui::Window::new(s.organizer_title()).open(&mut open).vscroll(true).show(ctx, content);
+            } else {
+                egui::CentralPanel::default().show(ctx, |ui| { egui::ScrollArea::vertical().show(ui, content); });
+            }
         });
+        }
         self.open = open;
         if changed {
             self.edit_generation += 1;

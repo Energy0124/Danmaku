@@ -46,3 +46,22 @@ Specification: [Selection, Identification, and Review](progressive-library-organ
   SHA-256, transfer state, and the intended catalog revision.
 - Organizer capability authentication does not restore pairing for catalog,
   playback, Android, or trusted-LAN web administration APIs.
+
+## Follow-up: identification failures and window independence (2026-09-08)
+
+- [x] Preserve provider error codes/messages instead of displaying unknown error.
+- [x] Search fallback after ordinary fingerprint failure; stop on quota/auth errors.
+- [x] Persist cooldown and pause state; retain prior candidates during batch retry.
+- [x] Stop after repeated failures and pace subsequent files with cancellable waits.
+- [x] Native organizer viewport with independent position, size, and taskbar entry.
+- [x] English/Traditional Chinese pause notice and retry countdown.
+- [ ] Supervised detached-window interaction and live-provider quota QA.
+
+Verification: fake-provider tests cover ordinary match failure followed by search,
+HTTP-200 quota errors, HTTP-429 Retry-After, documented error fields, seconds and
+HTTP-date cooldowns, persistence of paused drafts, untouched remaining files,
+and retention of ambiguous candidates. `cargo fmt --all --check` passed;
+`cargo test --workspace` passed all 255 tests (4 core, 118 player, 128 server,
+5 mpv). `git diff --check` and task-scoped diff/status review passed. The existing
+mpv locator unused-mut warning remains. No live-library retries, GUI QA, or
+deployment were performed for this follow-up.

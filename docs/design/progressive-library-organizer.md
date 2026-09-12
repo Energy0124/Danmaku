@@ -143,3 +143,26 @@ Run `cargo fmt --all --check`, `cargo test --workspace`, and `git diff --check`,
 review task-scoped diff/status. English and Traditional Chinese are required.
 Desktop GUI, physical cross-drive, and live-provider QA remain separately
 approval-gated by AGENTS.md.
+
+## Provider failures and independent window (2026-09-08)
+
+The desktop organizer uses a separate native window that can be moved/resized
+independently and appears on the taskbar. Closing review keeps the main player
+open and allows pending draft writes to complete. Platforms without native
+viewports use egui's embedded fallback.
+
+Read the documented `errorCode` and `errorMessage` from HTTP-200 provider
+failures, with `message` accepted for proxy responses. Ordinary match failures
+fall back to series search. Quota/authentication/HTTP-503 failures pause instead
+of generating a second request. After three consecutive other failures, stop
+processing the batch as well. Preserve the pause reason and retry time in the
+draft across restart; edits cannot clear the server-owned cooldown. Honor
+`Retry-After` seconds or HTTP dates, otherwise require at least 60 seconds before
+an explicit retry. This cooldown is not a promise that a daily quota has reset.
+No automatic retry or provider-quota bypass occurs.
+
+Pace files with cancellable waits. Batch retry skips existing candidates,
+including ambiguous results; explicitly selected files can be searched again.
+Keep the current review group when it still exists.
+
+Provider contract: [dandanplay error handling](https://doc.dandanplay.com/open/).

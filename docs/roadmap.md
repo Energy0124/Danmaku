@@ -12,7 +12,8 @@ Status: implemented vertical slice; broader manual QA remains.
 - Validate the implemented organizer selection/review flow in supervised desktop
   QA and exercise physical cross-drive cancellation, disconnection, recovery,
   and undo before release; automated tests use temporary libraries and injected
-  volume boundaries.
+  volume boundaries. Include independent organizer window behavior and provider
+  cooldown/resume feedback in the supervised checks.
 - Keep the signed per-user installer, stable updater feed, delta generation,
   and explicit update/restart UX reproducible; exercise two-version upgrade,
   corruption rejection, rollback, and uninstall preservation in release QA.

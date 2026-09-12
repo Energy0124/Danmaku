@@ -46,8 +46,17 @@ impl DandanplayResolver {
     ) -> Result<Vec<crate::organizer::draft::IdentificationCandidate>> {
         use crate::organizer::draft::IdentificationCandidate;
         let mut candidates = Vec::new();
+        let mut match_error = None;
         if !search_only {
-            for matched in self.client.match_media(fingerprint).await? {
+            let matches = match self.client.match_media(fingerprint).await {
+                Ok(matches) => matches,
+                Err(error) if error.provider_retry_after_seconds.is_some() => return Err(error),
+                Err(error) => {
+                    match_error = Some(error);
+                    Vec::new()
+                }
+            };
+            for matched in matches {
                 if let (Some(anime_id), Some(series_title)) =
                     (matched.anime_id, matched.anime_title)
                 {
@@ -73,6 +82,12 @@ impl DandanplayResolver {
                     episode_title: String::new(),
                 });
             }
+        }
+        if query.trim().is_empty()
+            && candidates.is_empty()
+            && let Some(error) = match_error
+        {
+            return Err(error);
         }
         Ok(candidates)
     }
@@ -301,10 +316,7 @@ impl DandanplayDanmakuClient {
             )
             .await?;
         if json_bool(&data, "success") == Some(false) {
-            return Err(LibraryServerError::new(format!(
-                "dandanplay match failed: {}",
-                json_string(&data, "message").unwrap_or_else(|| "unknown error".to_owned())
-            )));
+            return Err(provider_error("match failed", &data));
         }
         let matches = data
             .get("matches")
@@ -328,10 +340,7 @@ impl DandanplayDanmakuClient {
         let query = with_related.then_some("withRelated=true");
         let data = self.request_json("GET", &api_path, query, None).await?;
         if json_bool(&data, "success") == Some(false) {
-            return Err(LibraryServerError::new(format!(
-                "dandanplay comment fetch failed: {}",
-                json_string(&data, "message").unwrap_or_else(|| "unknown error".to_owned())
-            )));
+            return Err(provider_error("comment fetch failed", &data));
         }
         let comments = data
             .get("comments")
@@ -354,10 +363,7 @@ impl DandanplayDanmakuClient {
             .request_json("GET", "/api/v2/search/episodes", Some(&query), None)
             .await?;
         if json_bool(&data, "success") == Some(false) {
-            return Err(LibraryServerError::new(format!(
-                "dandanplay search failed: {}",
-                json_string(&data, "message").unwrap_or_else(|| "unknown error".to_owned())
-            )));
+            return Err(provider_error("search failed", &data));
         }
         Ok(data
             .get("animes")
@@ -375,10 +381,7 @@ impl DandanplayDanmakuClient {
         let api_path = format!("/api/v2/bangumi/{anime_id}");
         let data = self.request_json("GET", &api_path, None, None).await?;
         if json_bool(&data, "success") == Some(false) {
-            return Err(LibraryServerError::new(format!(
-                "dandanplay bangumi fetch failed: {}",
-                json_string(&data, "message").unwrap_or_else(|| "unknown error".to_owned())
-            )));
+            return Err(provider_error("bangumi fetch failed", &data));
         }
         data.get("bangumi")
             .and_then(DandanplayBangumiDetail::from_json)
@@ -418,12 +421,19 @@ impl DandanplayDanmakuClient {
                 continue;
             }
             if response.status != 200 {
-                return Err(LibraryServerError::new(http_error_message(
+                let mut error = LibraryServerError::new(http_error_message(
                     response.status,
                     &url,
                     response.headers.get("location"),
                     &response.body,
-                )));
+                ));
+                if matches!(response.status, 401 | 403 | 429 | 503) {
+                    error.provider_retry_after_seconds = Some(retry_after_seconds(
+                        response.headers.get("retry-after").map(String::as_str),
+                        (self.now_epoch_seconds)(),
+                    ));
+                }
+                return Err(error);
             }
             return serde_json::from_slice(&response.body).map_err(|error| {
                 LibraryServerError::with_context(error, "dandanplay response was not JSON")
@@ -1501,3 +1511,60 @@ fn _absolute_media_path(path: &Path) -> Result<PathBuf> {
 
 #[cfg(test)]
 mod tests;
+
+// Application failures can arrive with HTTP 200. Never discard their documented code/message.
+fn provider_error(operation: &str, data: &Value) -> LibraryServerError {
+    let message = json_string(data, "errorMessage")
+        .or_else(|| json_string(data, "message"))
+        .unwrap_or_else(|| "Provider returned failure without an explanation".into());
+    let code = data
+        .get("errorCode")
+        .map(Value::to_string)
+        .unwrap_or_else(|| "unspecified".into());
+    let mut error =
+        LibraryServerError::new(format!("dandanplay {operation} (code {code}): {message}"));
+    let lower = message.to_lowercase();
+    if code == "429"
+        || [
+            "quota",
+            "rate limit",
+            "too many",
+            "配额",
+            "配額",
+            "额度",
+            "額度",
+            "限流",
+            "频率",
+            "頻率",
+            "上限",
+            "appsecret",
+            "appid",
+            "signature",
+            "unauthorized",
+        ]
+        .iter()
+        .any(|word| lower.contains(word))
+    {
+        error.provider_retry_after_seconds = Some(60);
+    }
+    error
+}
+
+fn retry_after_seconds(header: Option<&str>, now_epoch_seconds: u64) -> u64 {
+    let Some(value) = header else {
+        return 60;
+    };
+    value
+        .trim()
+        .parse::<u64>()
+        .ok()
+        .or_else(|| {
+            httpdate::parse_http_date(value)
+                .ok()?
+                .duration_since(std::time::UNIX_EPOCH)
+                .ok()
+                .map(|time| time.as_secs().saturating_sub(now_epoch_seconds))
+        })
+        .unwrap_or(60)
+        .max(1)
+}

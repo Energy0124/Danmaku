@@ -35,6 +35,10 @@ pub struct DraftFile {
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OrganizationDraft {
+    #[serde(default)]
+    pub identification_pause: Option<String>,
+    #[serde(default)]
+    pub retry_not_before_epoch_ms: Option<u64>,
     pub id: String,
     pub revision: u64,
     pub destination: String,

@@ -370,6 +370,12 @@ fn handle_test_connection(mut stream: TcpStream, requests: Arc<StdMutex<Vec<Capt
         body: body.to_owned(),
     });
     let response = match path.as_str() {
+        "/api/v2/match" if body.contains("Quota") => {
+            r#"{"success":false,"errorCode":429,"errorMessage":"API quota exceeded"}"#
+        }
+        "/api/v2/match" if body.contains("BusinessFailure") => {
+            r#"{"success":false,"errorCode":9,"errorMessage":"Cannot match this file"}"#
+        }
         "/api/v2/match" if body.contains("Unmatched") => r#"{"success":true,"matches":[]}"#,
         "/api/v2/match" if body.contains("Ambiguous") => {
             r#"{"success":true,"matches":[{"episodeId":11,"animeId":1,"animeTitle":"First"},{"episodeId":22,"animeId":2,"animeTitle":"Second"}]}"#
@@ -385,7 +391,9 @@ fn handle_test_connection(mut stream: TcpStream, requests: Arc<StdMutex<Vec<Capt
         }
         _ => r#"{"success":false,"message":"not found"}"#,
     };
-    let status = if path.starts_with("/api/v2/") {
+    let status = if body.contains("HttpLimit") {
+        "HTTP/1.1 429 Too Many Requests\r\nRetry-After: 120"
+    } else if path.starts_with("/api/v2/") {
         "HTTP/1.1 200 OK"
     } else {
         "HTTP/1.1 404 Not Found"
@@ -449,6 +457,32 @@ async fn organizer_identification_preserves_candidates_and_never_downloads_comme
             .iter()
             .all(|request| !request.path.contains("comment"))
     );
+    fingerprint.file_name = "BusinessFailure.mkv".into();
+    let fallback = resolver
+        .identify_only(&fingerprint, "Example", false)
+        .await
+        .unwrap();
+    assert_eq!(fallback[0].anime_id, 77);
+    let before = server.requests().len();
+    fingerprint.file_name = "Quota.mkv".into();
+    let error = resolver
+        .identify_only(&fingerprint, "Example", false)
+        .await
+        .unwrap_err();
+    assert!(error.to_string().contains("API quota exceeded"));
+    assert!(error.to_string().contains("429"));
+    assert_eq!(error.provider_retry_after_seconds, Some(60));
+    assert_eq!(
+        server.requests().len(),
+        before + 1,
+        "Quota must not trigger another search request"
+    );
+    fingerprint.file_name = "HttpLimit.mkv".into();
+    let error = resolver
+        .identify_only(&fingerprint, "Example", false)
+        .await
+        .unwrap_err();
+    assert_eq!(error.provider_retry_after_seconds, Some(120));
     assert!(!temp.join("cache.json").exists());
     fs::remove_dir_all(temp).unwrap();
 }
@@ -490,4 +524,34 @@ fn temp_dir(prefix: &str) -> PathBuf {
     let _ = fs::remove_dir_all(&path);
     fs::create_dir_all(&path).expect("temp dir");
     path
+}
+
+#[test]
+fn provider_business_error_preserves_documented_reason_and_code() {
+    let error = provider_error(
+        "match failed",
+        &json!({"success":false,"errorCode":123,"errorMessage":"今日配额已用完"}),
+    );
+    assert!(error.to_string().contains("123"));
+    assert!(error.to_string().contains("今日配额已用完"));
+    assert!(error.provider_retry_after_seconds.is_some());
+    assert!(
+        provider_error(
+            "match failed",
+            &json!({"success":false,"errorCode":9,"errorMessage":"Unrecognized file"})
+        )
+        .provider_retry_after_seconds
+        .is_none()
+    );
+}
+
+#[test]
+fn retry_after_supports_seconds_and_http_dates_without_automatic_retry() {
+    assert_eq!(retry_after_seconds(Some("120"), 0), 120);
+    assert_eq!(
+        retry_after_seconds(Some("Thu, 01 Jan 1970 00:02:00 GMT"), 30),
+        90
+    );
+    assert_eq!(retry_after_seconds(Some("invalid"), 30), 60);
+    assert_eq!(retry_after_seconds(None, 30), 60);
 }

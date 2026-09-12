@@ -37,6 +37,10 @@ pub struct DraftFile {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OrganizationDraft {
+    #[serde(default)]
+    pub identification_pause: Option<String>,
+    #[serde(default)]
+    pub retry_not_before_epoch_ms: Option<u64>,
     pub id: String,
     pub revision: u64,
     pub destination: String,
@@ -248,6 +252,8 @@ impl LibraryOrganizer {
             });
         }
         let draft = OrganizationDraft {
+            identification_pause: None,
+            retry_not_before_epoch_ms: None,
             id: unique_id()?,
             revision: 1,
             destination: request.destination,
@@ -330,6 +336,8 @@ impl LibraryOrganizer {
                 apply_candidate_season(file, &candidate);
             }
         }
+        draft.identification_pause = old.identification_pause.clone();
+        draft.retry_not_before_epoch_ms = old.retry_not_before_epoch_ms;
         draft.completed = old.completed.clone();
         draft.revision += 1;
         write_json_atomically(&self.draft_file(), &draft)?;
@@ -446,10 +454,20 @@ impl LibraryOrganizer {
 
     pub fn begin_identification(&self, request: &IdentifyRequest) -> Result<OrganizationDraft> {
         self.ensure_available()?;
-        let draft = self
+        let mut draft = self
             .draft()?
             .ok_or_else(|| LibraryServerError::new("No saved review."))?;
         require_revision(&draft, &request.draft_id, request.revision)?;
+        if draft
+            .retry_not_before_epoch_ms
+            .is_some_and(|until| until > current_epoch_ms())
+        {
+            return Err(LibraryServerError::new(
+                "Identification is paused. Wait for the retry cooldown before continuing.",
+            ));
+        }
+        draft.identification_pause = None;
+        draft.retry_not_before_epoch_ms = None;
         let mut runtime = self.runtime.lock().expect("organizer lock");
         if runtime.identification.running {
             return Err(LibraryServerError::new(
@@ -458,7 +476,14 @@ impl LibraryOrganizer {
         }
         runtime.identification = IdentificationStatus {
             running: true,
-            total: draft.files.len(),
+            total: draft
+                .files
+                .iter()
+                .filter(|file| {
+                    identification_requested(file, &request)
+                        && !draft.completed.contains_key(&file.group_id)
+                })
+                .count(),
             ..Default::default()
         };
         self.identification_cancel.store(false, Ordering::Release);
@@ -471,17 +496,14 @@ impl LibraryOrganizer {
         request: IdentifyRequest,
         resolver: Option<Arc<DandanplayResolver>>,
     ) {
+        let mut consecutive_failures = 0;
         for file in &mut draft.files {
             if self.identification_cancel.load(Ordering::Acquire) {
                 break;
             }
             let explicit = request.media_ids.contains(&file.media_id);
-            if file.excluded
-                || (!request.media_ids.is_empty() && !explicit)
-                || (!explicit
-                    && (file.provider_title.is_some()
-                        || file.manual_assignment
-                        || file.candidate.is_some()))
+            if !identification_requested(file, &request)
+                || draft.completed.contains_key(&file.group_id)
             {
                 continue;
             }
@@ -521,8 +543,14 @@ impl LibraryOrganizer {
                 Ok(Some((key, candidates)))
             }
             .await;
+            self.runtime
+                .lock()
+                .expect("organizer lock")
+                .identification
+                .completed += 1;
             match result {
                 Ok(Some((key, candidates))) => {
+                    consecutive_failures = 0;
                     file.fingerprint = Some(key);
                     file.identification_error = None;
                     if candidates.len() == 1 {
@@ -537,13 +565,31 @@ impl LibraryOrganizer {
                     file.candidates = candidates;
                 }
                 Ok(None) => {}
-                Err(error) => file.identification_error = Some(error.to_string()),
+                Err(error) => {
+                    consecutive_failures += 1;
+                    file.identification_error = Some(error.to_string());
+                    if error.provider_retry_after_seconds.is_some() || consecutive_failures >= 3 {
+                        draft.identification_pause = Some(error.to_string());
+                        draft.retry_not_before_epoch_ms = Some(
+                            current_epoch_ms().saturating_add(
+                                error
+                                    .provider_retry_after_seconds
+                                    .unwrap_or(60)
+                                    .saturating_mul(1000),
+                            ),
+                        );
+                        break;
+                    }
+                }
             }
-            self.runtime
-                .lock()
-                .expect("organizer lock")
-                .identification
-                .completed += 1;
+
+            // Pace batches, checking cancellation between short waits. Never retry automatically.
+            for _ in 0..5 {
+                if self.identification_cancel.load(Ordering::Acquire) {
+                    break;
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+            }
         }
         let mut runtime = self.runtime.lock().expect("organizer lock");
         if runtime
@@ -552,11 +598,17 @@ impl LibraryOrganizer {
             .is_some_and(|current| current.id == draft.id && current.revision == draft.revision)
         {
             draft.revision += 1;
-            draft.active_group = draft
+            if !draft
                 .files
                 .iter()
-                .find(|f| !f.excluded)
-                .map(|f| f.group_id.clone());
+                .any(|f| Some(&f.group_id) == draft.active_group.as_ref())
+            {
+                draft.active_group = draft
+                    .files
+                    .iter()
+                    .find(|f| !f.excluded)
+                    .map(|f| f.group_id.clone());
+            }
             match write_json_atomically(&self.draft_file(), &draft) {
                 Ok(()) => {
                     runtime.draft = Some(draft);
@@ -670,6 +722,27 @@ fn apply_candidate_season(file: &mut DraftFile, candidate: &IdentificationCandid
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn batch_retry_keeps_ambiguous_candidates_until_explicitly_selected() {
+        let mut file: DraftFile = serde_json::from_value(serde_json::json!({
+            "sourceSignature":"test", "mediaId":"one", "sourceRoot":"root", "sourceRelativePath":"one.mkv",
+            "sizeBytes":1,"groupId":"group","seriesTitle":"Show","seasonNumber":1,"seasonEvidence":"SUGGESTED",
+            "excluded":false,"manualAssignment":false,"providerTitle":null,"candidate":null,
+            "candidates":[{"animeId":1,"seriesTitle":"First","episodeId":null,"episodeTitle":""},{"animeId":2,"seriesTitle":"Second","episodeId":null,"episodeTitle":""}],
+            "identificationError":null,"fingerprint":"cached"
+        })).unwrap();
+        let mut request = IdentifyRequest {
+            draft_id: "draft".into(),
+            revision: 1,
+            media_ids: Vec::new(),
+            query: None,
+        };
+        assert!(!identification_requested(&file, &request));
+        request.media_ids.push("one".into());
+        assert!(identification_requested(&file, &request));
+        file.excluded = true;
+        assert!(!identification_requested(&file, &request));
+    }
     #[test]
     fn season_suggestions_do_not_hide_conflicts_or_specials() {
         assert_eq!(
@@ -1037,4 +1110,15 @@ fn subtitle_matches(video: &str, subtitle: &Path) -> bool {
         || subtitle
             .strip_prefix(&stem)
             .is_some_and(|rest| rest.starts_with(['.', '_', '-']))
+}
+
+fn identification_requested(file: &DraftFile, request: &IdentifyRequest) -> bool {
+    let selected = request.media_ids.contains(&file.media_id);
+    !file.excluded
+        && (request.media_ids.is_empty() || selected)
+        && (selected
+            || (file.provider_title.is_none()
+                && !file.manual_assignment
+                && file.candidate.is_none()
+                && file.candidates.is_empty()))
 }

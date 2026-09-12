@@ -28,7 +28,9 @@ They follow the catalog's code-free LAN access rather than provider
 administration authentication.
 Library organization is a separate desktop-only mutation boundary. Focused
 selection and review modules in the egui client cache catalog-derived selection
-and draft-derived queue indexes and virtualize long lists. The server owns an
+and draft-derived queue indexes and virtualize long lists. The organizer uses an
+egui native viewport with its own taskbar window; closing it preserves draft
+synchronization in the main application. The server owns an
 atomically persisted revisioned draft; candidate discovery uses dandanplay
 matching/search directly without resolving comments. Identification results are
 normalized draft proposals until explicitly saved to the metadata store.
