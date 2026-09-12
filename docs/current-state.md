@@ -77,8 +77,14 @@ Compose macOS artifact are retired.
   remain browsable and playable away from the trusted LAN. Downloads support
   byte-range resume, pause, retry, cancel, per-item deletion, and clear-all.
   WorkManager serializes transfers through one persistent chain and throttles
-  durable progress updates. Offline playback progress is checkpointed by the
-  Media3 service in a separate journal that survives cache deletion; the newest
+  durable progress updates. LAN downloads check actual free bytes with a 256 MiB
+  reserve instead of waiting on internet validation or OEM low-storage flags.
+  Opening the mobile app updates older queued requests in place without
+  discarding partial downloads or queue dependencies.
+  Startup errors enter the visible retry/failure state, interrupted transfers
+  can resume, and a failed item does not block later queued items.
+  Offline playback progress is checkpointed by the Media3 service in a separate
+  journal that survives cache deletion; the newest
   pending checkpoint is uploaded after the corresponding PC reconnects.
 - Native MAL/Bangumi account status, provider readback, exact progress preview,
   and explicitly confirmed sync; account/mapping/conflict administration stays

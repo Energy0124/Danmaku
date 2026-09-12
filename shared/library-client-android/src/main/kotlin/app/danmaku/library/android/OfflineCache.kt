@@ -12,11 +12,11 @@ import android.os.Environment
 import android.system.Os
 import androidx.core.app.NotificationCompat
 import androidx.work.BackoffPolicy
-import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.Data
 import androidx.work.ExistingWorkPolicy
 import androidx.work.ForegroundInfo
+import androidx.work.ListenableWorker.Result
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
@@ -119,6 +119,7 @@ internal fun interface OfflineProgressUploader {
 
 internal interface OfflineWorkScheduler {
     fun enqueue(key: String)
+    fun refreshPendingConstraints()
     fun cancelAll()
 }
 
@@ -156,6 +157,9 @@ class AndroidOfflineCacheRepository internal constructor(
     }
 
     fun entries(): List<OfflineCacheEntry> = readIndex().entries
+
+    /** Refresh persisted scheduling policy after app updates. Call off the main thread. */
+    fun refreshPendingWork() = workScheduler.refreshPendingConstraints()
 
     fun availableBytes(): Long = root.usableSpace
 
@@ -444,24 +448,38 @@ private class WorkManagerOfflineWorkScheduler(context: Context) : OfflineWorkSch
     private val workManager = WorkManager.getInstance(context)
 
     override fun enqueue(key: String) {
-        val request = OneTimeWorkRequestBuilder<OfflineDownloadWorker>()
-            .setInputData(Data.Builder().putString(WORK_KEY, key).build())
-            .setConstraints(
-                Constraints.Builder()
-                    .setRequiredNetworkType(NetworkType.CONNECTED)
-                    .setRequiresStorageNotLow(true)
-                    .build(),
-            )
-            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
-            .addTag(WORK_TAG)
-            .addTag(workTag(key))
-            .build()
         workManager.enqueueUniqueWork(
             AndroidOfflineCacheRepository.QUEUE_WORK_NAME,
             ExistingWorkPolicy.APPEND_OR_REPLACE,
-            request,
+            requestBuilder(key).build(),
         )
     }
+
+    override fun refreshPendingConstraints() {
+        val pending = workManager.getWorkInfosForUniqueWork(
+            AndroidOfflineCacheRepository.QUEUE_WORK_NAME,
+        ).get()
+        pending.filter {
+            !it.state.isFinished && (
+                it.constraints.requiredNetworkType != NetworkType.NOT_REQUIRED ||
+                    it.constraints.requiresStorageNotLow()
+                )
+        }.forEach { work ->
+            val key = work.tags.singleOrNull { it.startsWith("$WORK_TAG:") }
+                ?.removePrefix("$WORK_TAG:") ?: return@forEach
+            // Update in place: retain the chain, work IDs, and partial files.
+            workManager.updateWork(requestBuilder(key).setId(work.id).build()).get()
+        }
+    }
+
+    private fun requestBuilder(key: String) =
+        OneTimeWorkRequestBuilder<OfflineDownloadWorker>()
+            .setInputData(Data.Builder().putString(WORK_KEY, key).build())
+            // LAN availability and actual free bytes are checked by the transfer.
+            // Internet validation and OEM low-storage thresholds can block valid downloads.
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
+            .addTag(WORK_TAG)
+            .addTag(workTag(key))
 
     override fun cancelAll() {
         workManager.cancelUniqueWork(AndroidOfflineCacheRepository.QUEUE_WORK_NAME)
@@ -476,43 +494,11 @@ class OfflineDownloadWorker(
     private val libraryClient = LanLibraryClient()
 
     override suspend fun doWork(): Result {
-        val key = inputData.getString(WORK_KEY) ?: return Result.failure()
-        val entry = repository.entryByKey(key) ?: return Result.success()
-        if (entry.state !in setOf(OfflineCacheState.QUEUED, OfflineCacheState.RETRYING)) {
-            return Result.success()
-        }
-        setForeground(foregroundInfo(entry, entry.downloadedBytes))
-        repository.updateEntry(key) {
-            it.copy(
-                state = if (runAttemptCount == 0) OfflineCacheState.DOWNLOADING else OfflineCacheState.RETRYING,
-                errorMessage = null,
-            )
-        }
-        return try {
-            withContext(Dispatchers.IO) { download(entry) }
-            Result.success()
-        } catch (inactive: OfflineEntryInactiveException) {
-            if (repository.entryByKey(key) == null) repository.deleteDirectory(key)
-            Result.success()
-        } catch (cancelled: CancellationException) {
-            if (repository.entryByKey(key) == null) repository.deleteDirectory(key)
-            throw cancelled
-        } catch (error: PermanentDownloadException) {
-            repository.updateEntry(key) {
-                it.copy(state = OfflineCacheState.FAILED, errorMessage = error.message)
-            }
-            Result.failure()
-        } catch (error: Throwable) {
-            if (runAttemptCount >= MAX_RETRIES - 1) {
-                repository.updateEntry(key) {
-                    it.copy(state = OfflineCacheState.FAILED, errorMessage = error.userMessage())
-                }
-                Result.failure()
-            } else {
-                repository.updateEntry(key) {
-                    it.copy(state = OfflineCacheState.RETRYING, errorMessage = error.userMessage())
-                }
-                Result.retry()
+        val key = inputData.getString(WORK_KEY) ?: return Result.success()
+        return withContext(Dispatchers.IO) {
+            repository.runDownloadAttempt(key, runAttemptCount) { entry ->
+                setForeground(foregroundInfo(entry, entry.downloadedBytes))
+                download(entry)
             }
         }
     }
@@ -693,8 +679,52 @@ class OfflineDownloadWorker(
     }
 
     private companion object {
-        const val MAX_RETRIES = 5
         const val PROGRESS_UPDATE_INTERVAL_MS = 1_000L
+    }
+}
+
+internal suspend fun AndroidOfflineCacheRepository.runDownloadAttempt(
+    key: String,
+    runAttemptCount: Int,
+    download: suspend (OfflineCacheEntry) -> Unit,
+): Result {
+    val entry = entryByKey(key) ?: return Result.success()
+    // WorkManager may restart interrupted work whose durable state is DOWNLOADING.
+    if (entry.state !in setOf(OfflineCacheState.QUEUED, OfflineCacheState.RETRYING, OfflineCacheState.DOWNLOADING)) {
+        return Result.success()
+    }
+    return try {
+        updateEntry(key) {
+            it.copy(
+                state = if (runAttemptCount == 0) OfflineCacheState.DOWNLOADING else OfflineCacheState.RETRYING,
+                errorMessage = null,
+            )
+        }
+        download(entry)
+        Result.success()
+    } catch (inactive: OfflineEntryInactiveException) {
+        if (entryByKey(key) == null) deleteDirectory(key)
+        Result.success()
+    } catch (cancelled: CancellationException) {
+        if (entryByKey(key) == null) deleteDirectory(key)
+        throw cancelled
+    } catch (error: Exception) {
+        val retry = error !is PermanentDownloadException && runAttemptCount < 4
+        var active = false
+        updateEntry(key) {
+            if (it.state in setOf(OfflineCacheState.DOWNLOADING, OfflineCacheState.RETRYING)) {
+                active = true
+                it.copy(
+                    state = if (retry) OfflineCacheState.RETRYING else OfflineCacheState.FAILED,
+                    errorMessage = error.userMessage(),
+                )
+            } else {
+                it
+            }
+        }
+        // Item failure belongs in the cache index. Work failure would also fail
+        // every already-appended download without ever running those workers.
+        if (retry && active) Result.retry() else Result.success()
     }
 }
 
@@ -715,6 +745,7 @@ internal suspend fun downloadResumableFile(
         part.delete()
         existingBytes = 0
     }
+    requireDownloadSpace(part.parentFile!!.usableSpace, expectedBytes - existingBytes)
     val connection = openDownloadConnection(url).apply {
         if (existingBytes > 0) setRequestProperty("Range", "bytes=$existingBytes-")
     }
@@ -762,6 +793,12 @@ internal suspend fun downloadResumableFile(
     }
     if (destination.exists()) destination.delete()
     if (!part.renameTo(destination)) throw IllegalStateException("Unable to finalize video cache")
+}
+
+internal fun requireDownloadSpace(availableBytes: Long, remainingBytes: Long) {
+    if (remainingBytes > (availableBytes - SPACE_RESERVE_BYTES).coerceAtLeast(0)) {
+        throw PermanentDownloadException("Not enough free storage for this download")
+    }
 }
 
 private fun openDownloadConnection(url: String): HttpURLConnection =

@@ -219,6 +219,7 @@ private fun MobilePlayerScreen() {
         }
     }
     LaunchedEffect(offlineCacheRepository) {
+        withContext(Dispatchers.IO) { offlineCacheRepository.refreshPendingWork() }
         while (true) {
             val cacheState = withContext(Dispatchers.IO) {
                 offlineCacheRepository.entries() to offlineCacheRepository.availableBytes()

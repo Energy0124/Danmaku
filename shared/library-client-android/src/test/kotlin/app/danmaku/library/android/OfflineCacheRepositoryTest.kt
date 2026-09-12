@@ -1,10 +1,13 @@
 package app.danmaku.library.android
 
+import androidx.work.ListenableWorker.Result
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.PlaybackProgress
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -89,6 +92,89 @@ class OfflineCacheRepositoryTest {
         assertTrue(scheduler.cancelledAll)
     }
 
+    @Test
+    fun downloadSpaceUsesRemainingBytesAndPreservesReserve() {
+        val mib = 1024L * 1024L
+        requireDownloadSpace(6_400 * mib, 369 * mib)
+        requireDownloadSpace(300 * mib, 44 * mib)
+        try {
+            requireDownloadSpace(300 * mib, 45 * mib)
+            throw AssertionError("The download must preserve the 256 MiB reserve")
+        } catch (_: PermanentDownloadException) {
+            // A resumed transfer needs room only for its remaining bytes.
+        }
+    }
+
+    @Test
+    fun failedItemDoesNotFailTheWorkChain() = runBlocking {
+        val repository = repository()
+        val entries = repository.enqueue(
+            SERVER_URL,
+            listOf(mediaItem(), mediaItem().copy(id = "episode-2")),
+        )
+
+        val result = repository.runDownloadAttempt(entries[0].key, 0) {
+            throw PermanentDownloadException("Video is no longer available on the PC")
+        }
+        assertEquals(Result.success(), result)
+        assertEquals(OfflineCacheState.FAILED, repository.entry(entries[0].key)?.state)
+        var nextStarted = false
+        assertEquals(Result.success(), repository.runDownloadAttempt(entries[1].key, 0) {
+            nextStarted = true
+        })
+        assertTrue(nextStarted)
+    }
+
+    @Test
+    fun startupFailureIsVisibleAndRetriesAreBounded() = runBlocking {
+        val repository = repository()
+        val entry = repository.enqueue(SERVER_URL, listOf(mediaItem())).single()
+        val start: suspend (OfflineCacheEntry) -> Unit = {
+            throw IllegalStateException("Foreground startup failed")
+        }
+
+        assertEquals(Result.retry(), repository.runDownloadAttempt(entry.key, 0, start))
+        assertEquals(OfflineCacheState.RETRYING, repository.entry(entry.key)?.state)
+        assertEquals("Foreground startup failed", repository.entry(entry.key)?.errorMessage)
+        assertEquals(Result.success(), repository.runDownloadAttempt(entry.key, 4, start))
+        assertEquals(OfflineCacheState.FAILED, repository.entry(entry.key)?.state)
+    }
+
+    @Test
+    fun interruptedDownloadCanStartAgainWithoutLosingProgress() = runBlocking {
+        val repository = repository()
+        val entry = repository.enqueue(SERVER_URL, listOf(mediaItem())).single()
+        try {
+            repository.runDownloadAttempt(entry.key, 0) {
+                repository.updateEntry(entry.key) { it.copy(downloadedBytes = 3) }
+                throw CancellationException("Worker stopped")
+            }
+            throw AssertionError("Worker cancellation must propagate")
+        } catch (_: CancellationException) {
+            assertEquals(OfflineCacheState.DOWNLOADING, repository.entry(entry.key)?.state)
+        }
+        var restarted = false
+        assertEquals(Result.success(), repository.runDownloadAttempt(entry.key, 1) {
+            restarted = true
+            assertEquals(3L, it.downloadedBytes)
+        })
+        assertTrue(restarted)
+    }
+
+    @Test
+    fun failureAfterPauseDoesNotRequeueThePausedItem() = runBlocking {
+        val repository = repository()
+        val entry = repository.enqueue(SERVER_URL, listOf(mediaItem())).single()
+        assertEquals(Result.success(), repository.runDownloadAttempt(entry.key, 0) {
+            repository.pause(entry.key)
+            throw IllegalStateException("Connection closed")
+        })
+        assertEquals(OfflineCacheState.PAUSED, repository.entry(entry.key)?.state)
+        assertEquals(Result.success(), repository.runDownloadAttempt(entry.key, 1) {
+            throw AssertionError("Paused download must not start")
+        })
+    }
+
     private fun repository(
         root: File = temporaryFolder.newFolder(),
         uploader: OfflineProgressUploader = OfflineProgressUploader { _, _ -> },
@@ -123,6 +209,8 @@ class OfflineCacheRepositoryTest {
         override fun enqueue(key: String) {
             enqueued += key
         }
+
+        override fun refreshPendingConstraints() = Unit
 
         override fun cancelAll() {
             cancelledAll = true
