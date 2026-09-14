@@ -232,13 +232,16 @@ pub fn build_attention_document(
     };
     let mut items = Vec::with_capacity(catalog.items.len());
     for item in &catalog.items {
-        let inspection = resolver.and_then(|resolver| {
+        let stored_identity = metadata_store.and_then(|store| store.get(&item.id));
+        let series_only = stored_identity
+            .as_ref()
+            .is_some_and(|entry| entry.series_only);
+        let inspection = resolver.filter(|_| !series_only).and_then(|resolver| {
             resolver
                 .inspect_cache(&item.id, item.size_bytes)
                 .ok()
                 .flatten()
         });
-        let stored_identity = metadata_store.and_then(|store| store.get(&item.id));
         let anime_id = inspection
             .as_ref()
             .and_then(|entry| entry.anime_id)
@@ -265,11 +268,13 @@ pub fn build_attention_document(
                 AttentionCacheStatus::Stale
             }
             None => {
-                summary.missing_cache += 1;
+                if !series_only {
+                    summary.missing_cache += 1;
+                }
                 AttentionCacheStatus::Missing
             }
         };
-        let last_failure = failures.get(&item.id).cloned();
+        let last_failure = failures.get(&item.id).filter(|_| !series_only).cloned();
         if last_failure.is_some() {
             summary.failed += 1;
         }
@@ -287,7 +292,9 @@ pub fn build_attention_document(
                 issues.insert(AttentionIssueCode::StaleDanmakuCache);
             }
             AttentionCacheStatus::Missing => {
-                issues.insert(AttentionIssueCode::MissingDanmakuCache);
+                if !series_only {
+                    issues.insert(AttentionIssueCode::MissingDanmakuCache);
+                }
             }
         }
         if conflicting {

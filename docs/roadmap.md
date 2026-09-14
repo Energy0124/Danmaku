@@ -13,7 +13,8 @@ Status: implemented vertical slice; broader manual QA remains.
   QA and exercise physical cross-drive cancellation, disconnection, recovery,
   and undo before release; automated tests use temporary libraries and injected
   volume boundaries. Include independent organizer window behavior and provider
-  cooldown/resume feedback in the supervised checks.
+  cooldown/resume feedback in the supervised checks, plus rapid checkbox editing,
+  the numbered usage guide, series-owned companions, and series-only specials.
 - Keep the signed per-user installer, stable updater feed, delta generation,
   and explicit update/restart UX reproducible; exercise two-version upgrade,
   corruption rejection, rollback, and uninstall preservation in release QA.

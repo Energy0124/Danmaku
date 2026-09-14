@@ -16,6 +16,8 @@ pub struct IdentificationCandidate {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DraftFile {
+    #[serde(default)]
+    pub series_only: bool,
     pub source_signature: String,
     pub media_id: String,
     pub source_root: String,
@@ -48,6 +50,8 @@ pub struct OrganizationDraft {
     pub companion_choices: BTreeMap<String, bool>,
     #[serde(default)]
     pub companion_owners: BTreeMap<String, String>,
+    #[serde(default)]
+    pub companion_series_owners: BTreeMap<String, String>,
     pub active_group: Option<String>,
     pub skipped: BTreeSet<String>,
     pub completed: BTreeMap<String, String>,
@@ -220,6 +224,7 @@ impl LibraryOrganizer {
                 .map(|m| format!("{:?}:{}", m.anime_id.provider, m.anime_id.value))
                 .unwrap_or_else(|| normalize_key(&title));
             files.push(DraftFile {
+                series_only: false,
                 source_signature: super::transfer::signature(source)?,
                 media_id: id,
                 source_root: root.to_string_lossy().into_owned(),
@@ -245,7 +250,24 @@ impl LibraryOrganizer {
                     .anime_metadata
                     .as_ref()
                     .map(|m| m.display_title.clone()),
-                candidates: Vec::new(),
+                candidates: item
+                    .anime_metadata
+                    .as_ref()
+                    .filter(|m| {
+                        matches!(
+                            m.anime_id.provider,
+                            crate::catalog::ExternalAnimeProvider::Dandanplay
+                        )
+                    })
+                    .map(|m| {
+                        vec![IdentificationCandidate {
+                            anime_id: m.anime_id.value,
+                            series_title: m.display_title.clone(),
+                            episode_id: None,
+                            episode_title: String::new(),
+                        }]
+                    })
+                    .unwrap_or_default(),
                 candidate: None,
                 identification_error: None,
                 fingerprint: None,
@@ -261,6 +283,7 @@ impl LibraryOrganizer {
             files,
             companion_choices: BTreeMap::new(),
             companion_owners: BTreeMap::new(),
+            companion_series_owners: BTreeMap::new(),
             skipped: BTreeSet::new(),
             completed: BTreeMap::new(),
         };
@@ -311,6 +334,19 @@ impl LibraryOrganizer {
             if let Some(candidate) = &file.candidate {
                 if !original.candidates.contains(candidate)
                     && original.candidate.as_ref() != Some(candidate)
+                    && !(file.series_only
+                        && candidate.episode_id.is_none()
+                        && candidate.episode_title.is_empty()
+                        && old.files.iter().any(|known| {
+                            known
+                                .candidates
+                                .iter()
+                                .chain(known.candidate.iter())
+                                .any(|c| {
+                                    c.anime_id == candidate.anime_id
+                                        && c.series_title == candidate.series_title
+                                })
+                        }))
                 {
                     return Err(LibraryServerError::new(
                         "Select an identification candidate returned by the server.",
@@ -558,6 +594,7 @@ impl LibraryOrganizer {
                         file.series_title = candidate.series_title.clone();
                         file.group_id = format!("dandanplay-{}", candidate.anime_id);
                         apply_candidate_season(file, &candidate);
+                        file.series_only |= candidate.episode_id.is_none();
                         file.candidate = Some(candidate);
                     } else {
                         file.candidate = None;
@@ -633,13 +670,30 @@ impl LibraryOrganizer {
         require_revision(&draft, &request.draft_id, request.revision)?;
         for file in draft.files.iter().filter(|f| !f.excluded) {
             if let Some(candidate) = &file.candidate {
-                store.record_with_episode(
-                    &file.media_id,
-                    candidate.anime_id,
-                    candidate.series_title.clone(),
-                    (!candidate.episode_title.is_empty()).then(|| candidate.episode_title.clone()),
-                    candidate.episode_id,
-                )?;
+                if file.series_only || candidate.episode_id.is_none() {
+                    store.record_series_only(
+                        &file.media_id,
+                        candidate.anime_id,
+                        candidate.series_title.clone(),
+                    )?;
+                } else {
+                    store.record_with_episode(
+                        &file.media_id,
+                        candidate.anime_id,
+                        candidate.series_title.clone(),
+                        (!candidate.episode_title.is_empty())
+                            .then(|| candidate.episode_title.clone()),
+                        candidate.episode_id,
+                    )?;
+                }
+            } else if file.series_only {
+                if let Some(existing) = store.get(&file.media_id) {
+                    store.record_series_only(
+                        &file.media_id,
+                        existing.dandanplay_anime_id,
+                        existing.anime_title,
+                    )?;
+                }
             }
         }
         Ok(())
@@ -906,7 +960,7 @@ fn build_draft_plan(
                     for entry in entries.flatten() {
                         let path = entry.path();
                         if path.is_file()
-                            && is_series_asset(&entry.file_name().to_string_lossy())
+                            && !VIDEO_EXTENSIONS.contains(&extension_lowercase(&path).as_str())
                             && files.iter().all(|f| path.starts_with(&f.source_root))
                         {
                             nearby_owners
@@ -941,20 +995,30 @@ fn build_draft_plan(
             continue;
         }
         let key = path.to_string_lossy().into_owned();
-        if draft
-            .companion_owners
-            .get(&key)
-            .is_some_and(|id| !owners.iter().any(|f| &f.media_id == id))
+        let series_group = draft.companion_series_owners.get(&key);
+        if series_group.is_some() && draft.companion_owners.contains_key(&key) {
+            return Err(LibraryServerError::new(
+                "Choose either a series or a video owner for each companion.",
+            ));
+        }
+        if series_group.is_some_and(|group| !owners.iter().any(|f| &f.group_id == group))
+            || draft
+                .companion_owners
+                .get(&key)
+                .is_some_and(|id| !owners.iter().any(|f| &f.media_id == id))
         {
             continue;
         }
         let recommended = matching.len() == 1 && matching_all.len() == 1;
+        let explicit_series =
+            series_group.and_then(|group| owners.iter().find(|f| &f.group_id == group).copied());
         let explicit_owner = draft
             .companion_owners
             .get(&key)
             .and_then(|id| owners.iter().find(|f| &f.media_id == id).copied());
-        let owner =
-            explicit_owner.unwrap_or_else(|| if recommended { matching[0] } else { owners[0] });
+        let owner = explicit_series
+            .or(explicit_owner)
+            .unwrap_or_else(|| if recommended { matching[0] } else { owners[0] });
         let selected = draft
             .companion_choices
             .get(&key)
@@ -966,7 +1030,9 @@ fn build_draft_plan(
             Ok(t) => t,
             Err(_) => continue,
         };
-        let target = if is_series_asset(&path.file_name().unwrap_or_default().to_string_lossy()) {
+        let target = if explicit_series.is_some()
+            || is_series_asset(&path.file_name().unwrap_or_default().to_string_lossy())
+        {
             destination.join(title)
         } else {
             destination
@@ -979,8 +1045,17 @@ fn build_draft_plan(
         }
         let size = fs::metadata(&path)?.len();
         batch.nearby_files.push(OrganizationNearbyFile {
+            owner_group_ids: owners
+                .iter()
+                .map(|f| f.group_id.clone())
+                .collect::<BTreeSet<_>>()
+                .into_iter()
+                .collect(),
+            owner_group_id: explicit_series.map(|f| f.group_id.clone()),
             owner_media_ids: owners.iter().map(|f| f.media_id.clone()).collect(),
-            owner_media_id: if recommended || explicit_owner.is_some() {
+            owner_media_id: if explicit_series.is_none()
+                && (recommended || explicit_owner.is_some())
+            {
                 Some(owner.media_id.clone())
             } else {
                 None
@@ -991,7 +1066,7 @@ fn build_draft_plan(
             selected,
             destination_relative_path: Some(target.to_string_lossy().into_owned()),
         });
-        if selected && !recommended && explicit_owner.is_none() {
+        if selected && !recommended && explicit_owner.is_none() && explicit_series.is_none() {
             batch.conflicts.push(format!(
                 "Assign an owner for the companion file: {}",
                 path.display()

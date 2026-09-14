@@ -542,6 +542,34 @@ pub(super) async fn handle_dandanplay_resolve(
     if !path.is_file() {
         return text_response(StatusCode::NOT_FOUND, "Media file was not found.");
     }
+    if preferred_episode_id.is_none() && series_only_identity(state, &media_id) {
+        // No fingerprint/provider work or old episode cache for an explicit series-only identity.
+        return json_response(
+            StatusCode::OK,
+            &crate::dandanplay::DandanplayResolveResponse {
+                media_id: media_id.clone(),
+                fingerprint: crate::dandanplay::DandanplayMediaFingerprint {
+                    file_name: path
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .into_owned(),
+                    file_hash: String::new(),
+                    file_size_bytes: library
+                        .catalog
+                        .items
+                        .iter()
+                        .find(|item| item.id == media_id)
+                        .map_or(0, |item| item.size_bytes),
+                    video_duration_seconds: None,
+                },
+                matches: Vec::new(),
+                selected_match: None,
+                comment_count: 0,
+                comments: Vec::new(),
+            },
+        );
+    }
     let Some(resolver) = state.dandanplay_resolver() else {
         return text_response(
             StatusCode::BAD_GATEWAY,
@@ -558,7 +586,12 @@ pub(super) async fn handle_dandanplay_resolve(
         )
         .await
     {
-        Ok(result) => {
+        Ok(mut result) => {
+            if preferred_episode_id.is_none() && series_only_identity(state, &media_id) {
+                result.selected_track = None;
+                result.match_candidates.clear();
+                return json_response(StatusCode::OK, &result.to_provider_response(&media_id));
+            }
             clear_attention_failure(state, &media_id);
             record_recognized_identity(state, &media_id, &result);
             json_response(StatusCode::OK, &result.to_provider_response(&media_id))

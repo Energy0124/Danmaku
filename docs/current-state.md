@@ -43,6 +43,13 @@ Compose macOS artifact are retired.
   automatic unambiguous subtitle selection, and exact revision-bound approval.
   Same-volume moves and verified cross-volume transfers preserve catalog IDs;
   durable journals provide cancellation, rollback, recovery retry, and undo.
+  Series-owned companions (including font files and subtitle archives) move
+  directly into the series folder, once per source, independently of episode
+  ownership. OVAs/specials can reuse a known provider series with no episode;
+  explicitly saved series-only identities suppress automatic episode matching
+  and old episode comments during playback. The review has four numbered steps,
+  bulk-edit controls, and English/Traditional Chinese help. Autosave preserves
+  the visible preview and ongoing edits while fresh validation gates approval.
   Identification can be saved separately from moves. Native loopback capability
   authentication rejects browser and LAN access. Automated fixture coverage is
   recorded in the [implementation log](design/progressive-library-organizer-implementation.md);

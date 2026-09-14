@@ -41,6 +41,7 @@ pub enum SessionEvent {
     FolderRescan(Result<(), String>),
     OrganizationPreview(Result<OrganizationPlan, String>),
     OrganizationCommand(Result<(), String>),
+    OrganizationDraftSaved(Result<crate::library::OrganizationDraft, String>),
     OrganizationStatus {
         generation: u64,
         result: Result<OrganizationStatus, String>,
@@ -116,6 +117,8 @@ pub struct LibrarySession {
     organization_status_received: u64,
     pub organization_error: Option<String>,
     pub organization_loading: bool,
+    pub organization_mutating: bool,
+    pub organization_saved_draft: Option<crate::library::OrganizationDraft>,
     /// Bumped whenever fresh (non-cache) catalog or progress data lands, so
     /// the app knows when to persist the session cache.
     pub sync_version: u64,
@@ -151,6 +154,8 @@ impl LibrarySession {
             organization_status_received: 0,
             organization_error: None,
             organization_loading: false,
+            organization_mutating: false,
+            organization_saved_draft: None,
             sync_version: 0,
             catalog_version: 0,
             inbox: Arc::new(Mutex::new(Vec::new())),
@@ -193,6 +198,8 @@ impl LibrarySession {
             organization_status_received: 0,
             organization_error: None,
             organization_loading: false,
+            organization_mutating: false,
+            organization_saved_draft: None,
             sync_version: 0,
             catalog_version: 1,
             inbox: Arc::new(Mutex::new(Vec::new())),
@@ -294,18 +301,31 @@ impl LibrarySession {
         };
         self.organization_loading = true;
         self.organization_error = None;
-        self.organization_plan = None;
+        // Keep the last preview visible during autosave. Its revision cannot authorize a move.
+        if endpoint == "draft" && method != "PUT" {
+            self.organization_plan = None;
+        }
+        let saving_draft = endpoint == "draft" && method == "PUT";
+        if saving_draft {
+            self.organization_saved_draft = None;
+        }
         self.spawn(
             move |_| {
-                SessionEvent::OrganizationCommand(
-                    crate::net::organizer_json(
-                        &base_url,
-                        &method,
-                        &format!("/api/library/organize/{endpoint}"),
-                        Some(&body),
+                let result = crate::net::organizer_json(
+                    &base_url,
+                    &method,
+                    &format!("/api/library/organize/{endpoint}"),
+                    Some(&body),
+                );
+                if saving_draft {
+                    SessionEvent::OrganizationDraftSaved(
+                        result.and_then(|body| {
+                            serde_json::from_str(&body).map_err(|e| e.to_string())
+                        }),
                     )
-                    .map(|_| ()),
-                )
+                } else {
+                    SessionEvent::OrganizationCommand(result.map(|_| ()))
+                }
             },
             String::new(),
         );
@@ -329,6 +349,7 @@ impl LibrarySession {
             self.organization_error = Some("Desktop server is unavailable".to_owned());
             return;
         };
+        self.organization_mutating = true;
         self.organization_loading = true;
         self.organization_error = None;
         self.spawn(
@@ -370,6 +391,7 @@ impl LibrarySession {
         let Some(base_url) = self.server() else {
             return;
         };
+        self.organization_mutating = true;
         self.organization_loading = true;
         self.spawn(
             move |_| {
@@ -763,11 +785,23 @@ impl LibrarySession {
                         Err(error) => self.organization_error = Some(error),
                     }
                 }
+                SessionEvent::OrganizationDraftSaved(result) => {
+                    self.organization_loading = false;
+                    match result {
+                        Ok(draft) => {
+                            self.organization_saved_draft = Some(draft);
+                            self.organization_error = None;
+                        }
+                        Err(error) => self.organization_error = Some(error),
+                    }
+                    self.refresh_organization_status();
+                }
                 SessionEvent::OrganizationCommand(result) => {
                     self.organization_loading = false;
                     match result {
                         Ok(()) => self.refresh_organization_status(),
                         Err(error) => {
+                            self.organization_mutating = false;
                             self.organization_error = Some(error);
                             self.refresh_organization_status();
                         }
@@ -793,6 +827,10 @@ impl LibrarySession {
                                 status.state.as_str(),
                                 "COMPLETED" | "CANCELLED" | "FAILED" | "RECOVERY_REQUIRED"
                             );
+                            if !self.organization_loading {
+                                self.organization_mutating =
+                                    matches!(status.state.as_str(), "RUNNING" | "ROLLING_BACK");
+                            }
                             self.organization_status = Some(status);
                             if is_terminal && (was_active || completion_changed) {
                                 self.organization_plan = None;
@@ -866,11 +904,62 @@ mod tests {
             organization_status_received: 0,
             organization_error: None,
             organization_loading: false,
+            organization_mutating: false,
+            organization_saved_draft: None,
             sync_version: 0,
             catalog_version: 0,
             inbox: Arc::new(Mutex::new(Vec::new())),
             egui_context: egui::Context::default(),
         }
+    }
+
+    #[test]
+    fn draft_save_ack_keeps_preview_and_catalog_stable_for_continued_editing() {
+        let mut session = test_session("http://127.0.0.1:1");
+        session.connected = false; // Events only; no network requests.
+        let plan = OrganizationPlan {
+            plan_id: "previous-preview".into(),
+            draft_revision: 1,
+            ..Default::default()
+        };
+        session.organization_plan = Some(plan.clone());
+        session.organization_loading = true;
+        let saved = crate::library::OrganizationDraft {
+            id: "draft".into(),
+            revision: 2,
+            ..Default::default()
+        };
+        session
+            .inbox
+            .lock()
+            .unwrap()
+            .push(SessionEvent::OrganizationDraftSaved(Ok(saved.clone())));
+        session.drain_events();
+        assert_eq!(session.organization_plan, Some(plan));
+        assert_eq!(session.organization_saved_draft, Some(saved));
+        assert!(!session.organization_loading);
+        assert!(!session.loading_catalog);
+        assert_eq!(session.catalog_version, 0);
+    }
+
+    #[test]
+    fn old_idle_status_cannot_unlock_editor_while_move_request_is_pending() {
+        let mut session = test_session("http://127.0.0.1:1");
+        session.organization_loading = true;
+        session.organization_mutating = true;
+        session
+            .inbox
+            .lock()
+            .unwrap()
+            .push(SessionEvent::OrganizationStatus {
+                generation: 1,
+                result: Ok(OrganizationStatus {
+                    state: "IDLE".into(),
+                    ..Default::default()
+                }),
+            });
+        session.drain_events();
+        assert!(session.organization_mutating);
     }
 
     #[test]

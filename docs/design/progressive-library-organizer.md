@@ -54,6 +54,12 @@ Confirmed defaults:
 - Allow new searches, alternative candidates, and manual series/season assignment
   without a provider match. Selected files can be excluded, split into a new group,
   or reassigned to an existing group. Folder grouping never merges provider IDs.
+- OVAs/specials may link to a provider series without an episode. Users can
+  explicitly reuse a known draft provider identity for selected videos, retaining
+  their folder/season assignments. Series-only links persist without episode
+  IDs/titles and suppress automatic episode matching/comment reuse during
+  playback until an episode is explicitly chosen. Search-only series candidates
+  have the same semantics; no arbitrary provider identity may be injected.
 - Proposed identities remain draft data until **Save identification** writes the
   metadata store. Saving identity requires neither moves nor comment downloads.
   Undoing file moves does not undo independently saved identification.
@@ -67,7 +73,15 @@ Confirmed defaults:
 - Explain automatically selected subtitles and preserve manual deselection.
   Excluding a video also excludes its dependent companions. Artwork and other
   nearby files remain opt-in. Ambiguous companions require an explicit owner;
-  each companion participates in at most one executed move.
+  each companion participates in at most one executed move. Shared font files,
+  subtitle archives, and artwork can instead belong to a series group, going
+  directly to `<destination>/<series>/<filename>` without a video owner. Ownership
+  types are mutually exclusive and manual deselection always wins.
+- Guide the review with numbered series, video, companion, and approval steps;
+  provide English/Traditional Chinese usage help and contextual bulk editing.
+- Retain the previous preview during autosave/validation without authorizing it.
+  Keep editing enabled and rebase changes made during saving against the exact
+  submitted draft so repeated checkbox toggles are not lost.
 - Debounce valid edits before saving/previewing; show validation inline. Disable
   approval while edits, identification, or preview generation are unresolved.
   Any selection, assignment, destination, or companion change invalidates approval.

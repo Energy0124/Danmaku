@@ -1037,6 +1037,22 @@ fn handle_progress_list_exact(
     json_response(StatusCode::OK, &progress)
 }
 
+fn series_only_identity(state: &HttpServerState, media_id: &str) -> bool {
+    state
+        .catalog_metadata
+        .as_ref()
+        .and_then(|store| store.get(media_id))
+        .is_some_and(|entry| entry.series_only)
+}
+
+fn series_only_track(media_id: String) -> LanDanmakuTrack {
+    LanDanmakuTrack {
+        status: crate::dandanplay::LanDanmakuLoadStatus::NoMatch,
+        message: Some("Series-only identification: no episode mapping selected.".into()),
+        ..LanDanmakuTrack::unavailable(media_id)
+    }
+}
+
 async fn handle_danmaku(
     state: &HttpServerState,
     method: &Method,
@@ -1062,6 +1078,9 @@ async fn handle_danmaku(
         return empty_status(StatusCode::NOT_FOUND);
     }
 
+    if series_only_identity(state, &media_id) {
+        return json_response(StatusCode::OK, &series_only_track(media_id));
+    }
     let Some(resolver) = state.dandanplay_resolver() else {
         return json_response(StatusCode::OK, &LanDanmakuTrack::unavailable(media_id));
     };
@@ -1073,6 +1092,10 @@ async fn handle_danmaku(
         .await
     {
         Ok(result) => {
+            // An organizer save may have completed while the provider request was in flight.
+            if series_only_identity(state, &media_id) {
+                return json_response(StatusCode::OK, &series_only_track(media_id));
+            }
             clear_attention_failure(state, &media_id);
             record_recognized_identity(state, &media_id, &result);
             LanDanmakuTrack::from_resolve_result(media_id, result)

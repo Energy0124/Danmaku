@@ -17,6 +17,8 @@ Status: `[x]` done, `[~]` in progress, `[ ]` not started.
 - `[x]` Fix organizer provider error parsing and search fallback; pause quota or
   repeated failures, preserve candidates on batch retry, and open review in an
   independent native window.
+- `[x]` Add series-owned companions, episode-free provider links for specials,
+  stable autosave/checkbox editing, and localized guided organizer review.
 - `[ ]` Complete approved organizer desktop interaction/localization QA and
   physical cross-drive/disconnection QA before release.
 - `[x]` Complete the Android TV single-cutover presentation rewrite with

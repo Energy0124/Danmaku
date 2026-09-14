@@ -14,6 +14,7 @@ pub(super) struct OrganizerScreen {
     pub selection: Vec<String>,
     draft: Option<OrganizationDraft>,
     baseline: Option<OrganizationDraft>,
+    submitted: Option<OrganizationDraft>,
     observed: Option<(String, u64)>,
     preview_requested: Option<(String, u64)>,
     changed: Option<Instant>,
@@ -26,6 +27,7 @@ pub(super) struct OrganizerScreen {
     assign_title: String,
     assign_season: String,
     assign_group: String,
+    assign_provider: Option<crate::library::IdentificationCandidate>,
     search_title: String,
     destination: String,
     folder_result: Arc<Mutex<Option<String>>>,
@@ -79,13 +81,29 @@ impl OrganizerScreen {
             self.catalog_version = session.catalog_version;
             self.preview_requested = None;
         }
+        if let (Some(sent), Some(saved), Some(local)) = (
+            &self.submitted,
+            &session.organization_saved_draft,
+            &self.draft,
+        ) {
+            if sent.id == saved.id && saved.revision > sent.revision {
+                let merged = rebase_decisions(sent, local, saved);
+                self.changed = (merged != *saved).then(Instant::now);
+                self.draft = Some(merged);
+                self.baseline = Some(saved.clone());
+                self.observed = Some((saved.id.clone(), saved.revision));
+                self.preview_requested = None;
+                self.submitted = None;
+                self.saving = false;
+            }
+        }
         let remote = status.and_then(|s| s.draft.as_ref());
         let revision = remote.map(|d| (d.id.clone(), d.revision));
         let newer = match (&revision, &self.observed) {
             (Some((id, rev)), Some((old_id, old_rev))) => id != old_id || rev > old_rev,
             _ => revision != self.observed,
         };
-        if newer {
+        if newer && !(self.saving && session.organization_loading) {
             self.draft = match (self.baseline.as_ref(), self.draft.as_ref(), remote) {
                 (Some(base), Some(local), Some(remote))
                     if self.changed.is_some() && base.id == remote.id =>
@@ -141,6 +159,12 @@ impl OrganizerScreen {
                 open = false;
             }
             let content = |ui: &mut egui::Ui| {
+            ui.heading(s.organizer_text(T::ReviewWorkflow));
+            egui::CollapsingHeader::new(s.organizer_text(T::UsageGuide)).id_salt("organizer-help").show(ui, |ui| {
+                ui.label(s.organizer_text(T::UsageSteps));
+                ui.label(s.organizer_text(T::UsageSeriesOnly));
+                ui.label(s.organizer_text(T::UsageCompanions));
+            });
             if let Some(error) = &session.organization_error {
                 ui.colored_label(egui::Color32::LIGHT_RED, error);
                 if ui.button(s.organizer_text(T::Reload)).clicked() {
@@ -194,9 +218,10 @@ impl OrganizerScreen {
                 ui.label(reason);
                 if retry_wait > 0 { ui.label(format!("{} {retry_wait}s", s.organizer_text(T::RetryAfter))); }
             }
-            ui.add_enabled_ui(!busy && !session.organization_loading && !self.saving, |ui| {
+            ui.add_enabled_ui(!busy && !session.organization_mutating, |ui| {
                 ui.horizontal(|ui| {
-                    ui.label(s.organizer_text(T::SavedDraft));
+                    ui.label(s.organizer_text(if self.saving || self.changed.is_some() { T::SavingDraft } else { T::SavedDraft }));
+                    ui.add_enabled_ui(!session.organization_loading && !self.saving && self.changed.is_none(), |ui| {
                     if ui.button(s.organizer_text(T::Discard)).clicked() {
                         action = Some(command("DELETE","draft",serde_json::json!({})));
                     }
@@ -206,8 +231,12 @@ impl OrganizerScreen {
                     if ui.add_enabled(self.changed.is_none() && !identifying, egui::Button::new(s.organizer_text(T::SaveIdentification))).clicked() {
                         action = Some(command("POST","identify/save",serde_json::json!({"draftId":draft.id,"revision":draft.revision})));
                     }
+                    });
                 });
-                changed |= destination_row(ui, &mut draft.destination, &self.folder_result, s);
+                egui::CollapsingHeader::new(format!("{}: {}", s.organizer_text(T::Destination), draft.destination)).id_salt("organizer-destination").show(ui, |ui| {
+                    changed |= destination_row(ui, &mut draft.destination, &self.folder_result, s);
+                });
+                ui.heading(s.organizer_text(T::StepSeries));
                 let groups = &self.index.titles;
                 ui.horizontal(|ui| {
                     ui.label(s.organizer_text(T::Search)); ui.text_edit_singleline(&mut self.search);
@@ -234,45 +263,24 @@ impl OrganizerScreen {
                             }
                         }
                     });
-                    columns[1].label(s.organizer_text(T::AssignmentHint));
-                    columns[1].horizontal(|ui| {
-                        ui.label(s.series_title_label()); ui.text_edit_singleline(&mut self.assign_title);
-                    });
-                    columns[1].horizontal(|ui| {
-                        ui.label(s.season_number_label()); ui.add(egui::TextEdit::singleline(&mut self.assign_season).desired_width(60.0));
-                    });
-                    let valid_season = self.assign_season.trim().parse::<u32>().ok();
-                    if !self.assign_season.is_empty() && valid_season.is_none() { columns[1].colored_label(egui::Color32::LIGHT_RED,s.organizer_text(T::InvalidSeason)); }
-                    egui::ComboBox::from_id_salt("assign-group").selected_text(groups.get(&self.assign_group).map(String::as_str).unwrap_or(s.organizer_text(T::NewGroup))).show_ui(&mut columns[1],|ui| {
-                        ui.selectable_value(&mut self.assign_group,String::new(),s.organizer_text(T::NewGroup));
-                        for (id,title) in groups { if !draft.completed.contains_key(id) { ui.selectable_value(&mut self.assign_group,id.clone(),title); } }
-                    });
-                    if columns[1].add_enabled(!self.selected_files.is_empty() && valid_season.is_some() && (!self.assign_title.trim().is_empty() || groups.contains_key(&self.assign_group)),egui::Button::new(s.organizer_text(T::AssignSelected))).clicked() {
-                        let group = if self.assign_group.is_empty() { format!("manual-{}",std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_nanos()) } else { self.assign_group.clone() };
-                        let title = groups.get(&self.assign_group).cloned().unwrap_or_else(||self.assign_title.trim().into());
-                        for file in draft.files.iter_mut().filter(|f| self.selected_files.contains(&f.media_id) && !draft.completed.contains_key(&f.group_id)) {
-                            file.group_id = group.clone(); file.series_title = title.clone(); file.season_number = valid_season; file.season_evidence = "MANUAL".into(); file.manual_assignment = true;
-                        }
-                        draft.active_group = Some(group); changed = true;
-                    }
-                    if columns[1].button(s.organizer_text(T::ExcludeSelected)).clicked() {
-                        for file in draft.files.iter_mut().filter(|f| self.selected_files.contains(&f.media_id) && !draft.completed.contains_key(&f.group_id)) { file.excluded = true; }
-                        changed = true;
-                    }
+                    columns[1].label(s.organizer_text(T::UsageSteps));
+                    columns[1].label(s.organizer_text(T::UsageSeriesOnly));
                 });
                 let Some(group) = draft.active_group.clone() else { ui.label(s.organizer_text(T::ReviewComplete)); return; };
                 ui.separator();
                 let complete = draft.completed.contains_key(&group);
                 let indices = self.index.members.get(&group).cloned().unwrap_or_default();
+                ui.heading(format!("{} · {}", s.organizer_text(T::StepFiles), groups.get(&group).map(String::as_str).unwrap_or("")));
+                ui.label(format!("{}: {}", s.organizer_text(T::SelectedVideos), self.selected_files.len()));
                 ui.horizontal(|ui| {
                     if ui.button(s.organizer_text(T::SelectVisible)).clicked() { self.selected_files.extend(indices.iter().map(|i|draft.files[*i].media_id.clone())); }
                     if ui.button(s.organizer_text(T::Clear)).clicked() { self.selected_files.clear(); }
                     ui.text_edit_singleline(&mut self.search_title);
-                    if ui.add_enabled(!identifying && retry_wait == 0 && !self.search_title.trim().is_empty() && !self.selected_files.is_empty(),egui::Button::new(s.organizer_text(T::SearchProvider))).clicked() {
+                    if ui.add_enabled(!session.organization_loading && self.changed.is_none() && !self.saving && !identifying && retry_wait == 0 && !self.search_title.trim().is_empty() && !self.selected_files.is_empty(),egui::Button::new(s.organizer_text(T::SearchProvider))).clicked() {
                         action = Some(command("POST","identify",serde_json::json!({"draftId":draft.id,"revision":draft.revision,"mediaIds":self.selected_files,"query":self.search_title})));
                     }
                 });
-                egui::ScrollArea::vertical().id_salt("organizer-files").max_height(300.0).show_rows(ui,110.0,indices.len(),|ui,range| {
+                egui::ScrollArea::vertical().id_salt("organizer-files").max_height(300.0).show_rows(ui,155.0,indices.len(),|ui,range| {
                     for index in range {
                         let file = &mut draft.files[indices[index]];
                         ui.add_enabled_ui(!complete, |ui| { ui.push_id(&file.media_id,|ui| {
@@ -293,12 +301,13 @@ impl OrganizerScreen {
                                 ui.label(match file.season_evidence.as_str(){"SUGGESTED"=>s.organizer_text(T::SeasonSuggested),"CONFLICT"=>s.organizer_text(T::SeasonConflict),"MANUAL"=>s.organizer_text(T::Manual),_=>s.organizer_text(T::Parsed)});
                                 changed |= ui.checkbox(&mut file.manual_assignment,s.organizer_text(T::ManualAssignment)).changed();
                             });
+                            changed |= ui.checkbox(&mut file.series_only, s.organizer_text(T::SeriesOnly)).on_hover_text(s.organizer_text(T::UsageSeriesOnly)).changed();
                             if let Some(title)=&file.provider_title { ui.label(format!("{}: {title}",s.organizer_text(T::Identified))); }
                             if !file.candidates.is_empty() {
                                 egui::ComboBox::from_id_salt("candidate").selected_text(file.candidate.as_ref().map(|c|c.series_title.as_str()).unwrap_or(s.organizer_text(T::ChooseMatch))).show_ui(ui,|ui|{
                                     for candidate in &file.candidates {
-                                        if ui.selectable_label(file.candidate.as_ref()==Some(candidate),format!("{} {}",candidate.series_title,candidate.episode_title)).clicked(){
-                                            file.candidate=Some(candidate.clone()); file.series_title=candidate.series_title.clone(); file.group_id=format!("dandanplay-{}",candidate.anime_id); file.manual_assignment=false; changed=true;
+                                        if ui.selectable_label(file.candidate.as_ref()==Some(candidate),format!("{} · {}",candidate.series_title, if file.series_only || candidate.episode_id.is_none() {s.organizer_text(T::NoEpisode)} else {&candidate.episode_title})).clicked(){
+                                            file.series_only |= candidate.episode_id.is_none(); file.candidate=Some(candidate.clone()); file.series_title=candidate.series_title.clone(); file.group_id=format!("dandanplay-{}",candidate.anime_id); file.manual_assignment=false; changed=true;
                                         }
                                     }
                                 });
@@ -308,26 +317,86 @@ impl OrganizerScreen {
                         }); });
                     }
                 });
+                egui::CollapsingHeader::new(s.organizer_text(T::EditSelected)).id_salt("organizer-bulk").default_open(false).show(ui, |ui| {
+                    ui.add_enabled_ui(!complete && !self.selected_files.is_empty(), |ui| {
+                    ui.label(s.organizer_text(T::AssignmentHint));
+                    ui.horizontal(|ui| {
+                        ui.label(s.series_title_label()); ui.text_edit_singleline(&mut self.assign_title);
+                    });
+                    ui.horizontal(|ui| {
+                        ui.label(s.season_number_label()); ui.add(egui::TextEdit::singleline(&mut self.assign_season).desired_width(60.0));
+                    });
+                    let valid_season = self.assign_season.trim().parse::<u32>().ok();
+                    if !self.assign_season.is_empty() && valid_season.is_none() { ui.colored_label(egui::Color32::LIGHT_RED,s.organizer_text(T::InvalidSeason)); }
+                    egui::ComboBox::from_id_salt("assign-group").selected_text(groups.get(&self.assign_group).map(String::as_str).unwrap_or(s.organizer_text(T::NewGroup))).show_ui(ui,|ui| {
+                        ui.selectable_value(&mut self.assign_group,String::new(),s.organizer_text(T::NewGroup));
+                        for (id,title) in groups { if !draft.completed.contains_key(id) { ui.selectable_value(&mut self.assign_group,id.clone(),title); } }
+                    });
+                    if ui.add_enabled(!self.selected_files.is_empty() && valid_season.is_some() && (!self.assign_title.trim().is_empty() || groups.contains_key(&self.assign_group)),egui::Button::new(s.organizer_text(T::AssignSelected))).clicked() {
+                        let group = if self.assign_group.is_empty() { format!("manual-{}",std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_nanos()) } else { self.assign_group.clone() };
+                        let title = groups.get(&self.assign_group).cloned().unwrap_or_else(||self.assign_title.trim().into());
+                        for file in draft.files.iter_mut().filter(|f| self.selected_files.contains(&f.media_id) && !draft.completed.contains_key(&f.group_id)) {
+                            file.group_id = group.clone(); file.series_title = title.clone(); file.season_number = valid_season; file.season_evidence = "MANUAL".into(); file.manual_assignment = true;
+                        }
+                        draft.active_group = Some(group); changed = true;
+                    }
+                    if ui.button(s.organizer_text(T::ExcludeSelected)).clicked() {
+                        for file in draft.files.iter_mut().filter(|f| self.selected_files.contains(&f.media_id) && !draft.completed.contains_key(&f.group_id)) { file.excluded = true; }
+                        changed = true;
+                    }
+                    ui.separator();
+                    ui.label(s.organizer_text(T::LinkKnownSeriesHint));
+                    egui::ComboBox::from_id_salt("organizer-known-series").selected_text(self.assign_provider.as_ref().map(|p|p.series_title.as_str()).unwrap_or(s.organizer_text(T::ChooseMatch))).show_ui(ui, |ui| {
+                        for candidate in self.index.providers.values() { ui.selectable_value(&mut self.assign_provider, Some(candidate.clone()), &candidate.series_title); }
+                    });
+                    if ui.add_enabled(!self.selected_files.is_empty() && self.assign_provider.is_some(), egui::Button::new(s.organizer_text(T::LinkSeriesSelected))).clicked() {
+                        let provider = self.assign_provider.clone().unwrap();
+                        for file in draft.files.iter_mut().filter(|f|self.selected_files.contains(&f.media_id) && !draft.completed.contains_key(&f.group_id)) {
+                            file.candidate=Some(provider.clone()); file.series_only=true; file.manual_assignment=false;
+                        }
+                        changed=true;
+                    }
+                    });
+                });
+                ui.heading(s.organizer_text(T::StepCompanions));
                 let plan_current = session.organization_plan.as_ref().is_some_and(|p|p.draft_id==draft.id&&p.draft_revision==draft.revision) && self.changed.is_none() && !changed && !self.saving && self.preview_requested == self.observed;
                 if let Some(batch) = session.organization_plan.as_ref().and_then(|p|p.batches.iter().find(|b|b.batch_id==group)) {
-                    egui::CollapsingHeader::new(s.nearby_files_label()).show(ui,|ui|{
-                        for nearby in &batch.nearby_files {
+                    egui::CollapsingHeader::new(s.nearby_files_label()).id_salt("organizer-companions").default_open(true).show(ui,|ui|{
+                        egui::ScrollArea::vertical().id_salt("organizer-companion-list").max_height(220.0).show_rows(ui,56.0,batch.nearby_files.len(),|ui,range| {
+                        for index in range {
+                            let nearby = &batch.nearby_files[index];
+                            ui.allocate_ui(egui::vec2(ui.available_width(), 56.0), |ui| {
+                            ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
                             let mut selected = draft.companion_choices.get(&nearby.relative_path).copied().unwrap_or(nearby.selected);
                             let label = if nearby.recommended {format!("{} · {}",nearby.relative_path,s.organizer_text(T::MatchingSubtitle))}else{nearby.relative_path.clone()};
-                            if ui.checkbox(&mut selected,label).changed(){draft.companion_choices.insert(nearby.relative_path.clone(),selected);changed=true;}
-                            if selected && !nearby.recommended {
-                                let selected_owner = draft.companion_owners.get(&nearby.relative_path).or(nearby.owner_media_id.as_ref()).cloned();
-                                let label = selected_owner.as_ref().and_then(|id|draft.files.iter().find(|f|&f.media_id==id)).map(|f|f.source_relative_path.as_str()).unwrap_or(s.organizer_text(T::ChooseCompanionOwner));
+                            if ui.checkbox(&mut selected,label).on_hover_text(&nearby.relative_path).changed(){draft.companion_choices.insert(nearby.relative_path.clone(),selected);changed=true;}
+                            if selected {
+                                let manual_video = draft.companion_owners.get(&nearby.relative_path);
+                                let manual_series = draft.companion_series_owners.get(&nearby.relative_path);
+                                let selected_owner = if manual_series.is_some() { None } else { manual_video.or(nearby.owner_media_id.as_ref()).cloned() };
+                                let series_owner = if manual_video.is_some() { None } else { manual_series.or(nearby.owner_group_id.as_ref()).cloned() };
+                                let video_label = selected_owner.as_ref().and_then(|id|draft.files.iter().find(|f|&f.media_id==id)).map(|f|f.source_relative_path.as_str()).unwrap_or(s.organizer_text(T::ChooseCompanionOwner));
+                                let label = series_owner.as_ref().and_then(|id|groups.get(id)).map(|title|format!("{}: {title}",s.organizer_text(T::SeriesCompanion))).unwrap_or_else(||video_label.to_owned());
                                 egui::ComboBox::from_id_salt((&nearby.relative_path,"owner")).selected_text(label).show_ui(ui,|ui|{
+                                    for id in &nearby.owner_group_ids {
+                                        if ui.selectable_label(series_owner.as_ref()==Some(id),format!("{}: {}",s.organizer_text(T::SeriesCompanion),groups.get(id).map(String::as_str).unwrap_or(id))).clicked() {
+                                            draft.companion_series_owners.insert(nearby.relative_path.clone(), id.clone());
+                                            draft.companion_owners.remove(&nearby.relative_path); changed=true;
+                                        }
+                                    }
                                     for id in &nearby.owner_media_ids {
                                         if let Some(file)=draft.files.iter().find(|f|&f.media_id==id) {
-                                            if ui.selectable_label(selected_owner.as_ref()==Some(id),&file.source_relative_path).clicked(){draft.companion_owners.insert(nearby.relative_path.clone(),id.clone());changed=true;}
+                                            if ui.selectable_label(selected_owner.as_ref()==Some(id),&file.source_relative_path).clicked(){draft.companion_owners.insert(nearby.relative_path.clone(),id.clone());draft.companion_series_owners.remove(&nearby.relative_path);changed=true;}
                                         }
                                     }
                                 });
                             }
+                            });
                         }
+                        });
                     });
+                    ui.heading(s.organizer_text(T::StepApprove));
+                    if !plan_current { ui.label(s.organizer_text(T::PreviewPending)); }
                     for conflict in &batch.conflicts { ui.colored_label(egui::Color32::LIGHT_RED,conflict); }
                     ui.label(s.approved_moves(batch.moves.len()));
                     egui::ScrollArea::both().id_salt("organizer-manifest").max_height(180.0).show_rows(ui,24.0,batch.moves.len(),|ui,range|{
@@ -340,7 +409,7 @@ impl OrganizerScreen {
                             });
                         }
                     });
-                    if ui.add_enabled(plan_current && !changed && !complete && batch.executable && !identifying,egui::Button::new(s.organizer_text(T::ApproveNext))).clicked(){
+                    if ui.add_enabled(plan_current && !session.organization_loading && !changed && !complete && batch.executable && !identifying,egui::Button::new(s.organizer_text(T::ApproveNext))).clicked(){
                         action=Some(LibraryAction::ExecuteOrganization{plan_id:session.organization_plan.as_ref().unwrap().plan_id.clone(),batch:batch.clone()});
                     }
                 } else { ui.label(s.organizer_text(T::UpdatingPreview)); }
@@ -385,6 +454,7 @@ impl OrganizerScreen {
                         .changed
                         .is_some_and(|at| at.elapsed() >= Duration::from_millis(350))
                 {
+                    self.submitted = Some(draft.clone());
                     action = Some(command("PUT", "draft", draft));
                     self.saving = true;
                 } else if self.changed.is_none()
@@ -416,12 +486,24 @@ struct ReviewIndex {
     members: BTreeMap<String, Vec<usize>>,
     counts: BTreeMap<String, usize>,
     needs_review: BTreeSet<String>,
+    providers: BTreeMap<u64, crate::library::IdentificationCandidate>,
 }
 
 impl ReviewIndex {
     fn build(draft: &OrganizationDraft) -> Self {
         let mut index = Self::default();
         for (i, file) in draft.files.iter().enumerate() {
+            for candidate in file.candidates.iter().chain(file.candidate.iter()) {
+                index
+                    .providers
+                    .entry(candidate.anime_id)
+                    .or_insert_with(|| crate::library::IdentificationCandidate {
+                        anime_id: candidate.anime_id,
+                        series_title: candidate.series_title.clone(),
+                        episode_id: None,
+                        episode_title: String::new(),
+                    });
+            }
             index
                 .titles
                 .entry(file.group_id.clone())
@@ -462,16 +544,21 @@ fn rebase_decisions(
     if local.skipped != base.skipped {
         merged.skipped = local.skipped.clone();
     }
-    for (key, value) in &local.companion_choices {
-        if base.companion_choices.get(key) != Some(value) {
-            merged.companion_choices.insert(key.clone(), *value);
-        }
-    }
-    for (key, value) in &local.companion_owners {
-        if base.companion_owners.get(key) != Some(value) {
-            merged.companion_owners.insert(key.clone(), value.clone());
-        }
-    }
+    rebase_map(
+        &base.companion_choices,
+        &local.companion_choices,
+        &mut merged.companion_choices,
+    );
+    rebase_map(
+        &base.companion_owners,
+        &local.companion_owners,
+        &mut merged.companion_owners,
+    );
+    rebase_map(
+        &base.companion_series_owners,
+        &local.companion_series_owners,
+        &mut merged.companion_series_owners,
+    );
     for file in &mut merged.files {
         if merged.completed.contains_key(&file.group_id) {
             continue;
@@ -480,6 +567,9 @@ fn rebase_decisions(
             base.files.iter().find(|f| f.media_id == file.media_id),
             local.files.iter().find(|f| f.media_id == file.media_id),
         ) {
+            if before.series_only != after.series_only {
+                file.series_only = after.series_only;
+            }
             if before.series_title != after.series_title {
                 file.series_title = after.series_title.clone();
             }
@@ -614,6 +704,31 @@ mod tests {
     }
 
     #[test]
+    fn edits_during_save_preserve_reverted_checkboxes_and_switched_companion_owner() {
+        let original = draft();
+        let mut submitted = original.clone();
+        submitted.files[0].excluded = true;
+        submitted
+            .companion_owners
+            .insert("fonts.ttf".into(), "one".into());
+        let mut local = submitted.clone();
+        local.files[0].excluded = false;
+        local.files[0].series_only = true;
+        local.companion_owners.remove("fonts.ttf");
+        local
+            .companion_series_owners
+            .insert("fonts.ttf".into(), "group".into());
+        let mut saved = submitted.clone();
+        saved.revision += 1;
+        let merged = rebase_decisions(&submitted, &local, &saved);
+        assert!(!merged.files[0].excluded);
+        assert!(merged.files[0].series_only);
+        assert!(merged.companion_owners.is_empty());
+        assert_eq!(merged.companion_series_owners["fonts.ttf"], "group");
+        assert_eq!(merged.revision, saved.revision);
+    }
+
+    #[test]
     fn close_waits_for_debounced_draft_save() {
         let mut screen = OrganizerScreen {
             changed: Some(Instant::now()),
@@ -626,5 +741,21 @@ mod tests {
         assert!(!screen.finish_close());
         screen.saving = false;
         assert!(screen.finish_close());
+    }
+}
+
+fn rebase_map<V: Clone + PartialEq>(
+    base: &BTreeMap<String, V>,
+    local: &BTreeMap<String, V>,
+    remote: &mut BTreeMap<String, V>,
+) {
+    for key in base.keys().chain(local.keys()) {
+        if base.get(key) != local.get(key) {
+            if let Some(value) = local.get(key) {
+                remote.insert(key.clone(), value.clone());
+            } else {
+                remote.remove(key);
+            }
+        }
     }
 }
