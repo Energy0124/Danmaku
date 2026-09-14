@@ -65,3 +65,29 @@ and retention of ambiguous candidates. `cargo fmt --all --check` passed;
 5 mpv). `git diff --check` and task-scoped diff/status review passed. The existing
 mpv locator unused-mut warning remains. No live-library retries, GUI QA, or
 deployment were performed for this follow-up.
+
+## Follow-up: series ownership and review usability (2026-09-14)
+
+- [x] Explicit series ownership for nearby font files, subtitle ZIPs and artwork;
+  files go directly in the series directory. Video ownership remains available
+  for episode companions; each file has at most one owner and one move.
+- [x] Per-video series-only identity and bulk reuse of known provider series;
+  provider IDs stay separate from destination titles and seasons.
+- [x] Persist series-only identification without an episode; automatic playback
+  ignores old episode caches and never silently restores an episode mapping.
+- [x] Preserve previews and permit editing during autosave/validation. Acknowledge
+  the exact saved draft and rebase newer decisions against its submitted snapshot.
+- [x] Numbered review steps, contextual bulk edits, selected counts, destination
+  disclosure, and English/Traditional Chinese usage guide.
+- [ ] Supervised GUI/localization/rapid-click QA and physical-drive checks.
+
+Fixture verification covers multi-season series assets, restart, forced-copy
+moves/undo, competing owner rejection, manual deselection, series-only candidate
+reuse and rejection of unknown IDs, identity saving without moves, cached comment
+suppression, explicit episode override, and edits made while a save is pending.
+No live provider, real-library, desktop GUI, or screenshot QA was run.
+
+Final verification: `cargo fmt --all --check` passed; `cargo test --workspace`
+passed all 263 tests (4 core, 121 player, 133 server, 5 mpv), plus doc-test
+targets. The existing mpv locator unused-mut warning remains unrelated.
+Task-scoped diff/status review and `git diff --check` passed.

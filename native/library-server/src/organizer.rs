@@ -110,6 +110,8 @@ impl OrganizationMove {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OrganizationNearbyFile {
+    pub owner_group_ids: Vec<String>,
+    pub owner_group_id: Option<String>,
     pub owner_media_ids: Vec<String>,
     pub owner_media_id: Option<String>,
     pub relative_path: String,

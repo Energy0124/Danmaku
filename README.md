@@ -185,8 +185,25 @@ restarts, identifies unmatched videos,
 and lets you correct provider matches, folder titles, seasons, and grouping.
 Unknown seasons show **Season 1 — suggested**; specials can use Season 0.
 
+Use the numbered review steps and **How to use this organizer** guide in the window:
+choose a series, review its videos, choose companions, then approve. Video
+checkboxes select rows for bulk editing; **Exclude** leaves a file in place.
+You can keep editing during autosave; destinations remain visible while the
+updated preview is validated, and approval waits for that validation.
+
+For an OVA or special without a database episode, select **Series only — no
+episode mapping**. Search for its series or use **Edit selected videos → Link
+selected to series only** to reuse a provider series in the draft. Folder/season
+assignments remain independent. **Save identification** persists this choice;
+automatic playback then leaves it without episode comments until you explicitly
+choose an episode. Series-only search results behave the same way.
+
 Review and approve one series at a time. Matching subtitles are selected
 when their association is unambiguous; artwork and other companions are opt-in.
+For shared font files, subtitle ZIPs, or artwork, select the nearby file and
+choose **Series folder** as its owner. It moves once to
+`<destination>/<series>/<filename>`, independently of any one video or season.
+Video companions retain a video owner; manual deselection is preserved.
 Filenames are preserved under `<destination>/<series>/Season <number>`.
 Conflicting destinations block approval. Cross-drive transfers stage and verify
 copies before removing originals, preserve catalog IDs, and support cancellation,

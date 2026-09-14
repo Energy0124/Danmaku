@@ -34,6 +34,16 @@ synchronization in the main application. The server owns an
 atomically persisted revisioned draft; candidate discovery uses dandanplay
 matching/search directly without resolving comments. Identification results are
 normalized draft proposals until explicitly saved to the metadata store.
+Draft companions have mutually exclusive video or review-group ownership;
+series-owned files target the series directory and share the journaled transfer
+and undo machinery. The metadata store persists an explicit series-only policy,
+separate from provider identity and destination folder/season. Automatic comment
+routes honor that policy (including stale cache suppression); explicit episode
+selection can replace it. Such videos do not generate missing-comment repair
+issues. Native autosave retains previews and acknowledges the saved draft itself;
+subsequent local edits rebase against the submitted snapshot, preventing a second
+checkbox toggle from being lost to an earlier save. Queue/provider choices are
+cached by draft revision and local edit generation.
 
 Previews bind a review group to its draft revision, catalog/root revision, and
 exact manifest. Executable plans are transient and never restored as approvals.

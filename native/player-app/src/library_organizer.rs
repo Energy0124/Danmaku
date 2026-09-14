@@ -14,6 +14,8 @@ pub struct IdentificationCandidate {
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DraftFile {
+    #[serde(default)]
+    pub series_only: bool,
     pub source_signature: String,
     pub media_id: String,
     pub source_root: String,
@@ -46,6 +48,8 @@ pub struct OrganizationDraft {
     pub companion_choices: BTreeMap<String, bool>,
     #[serde(default)]
     pub companion_owners: BTreeMap<String, String>,
+    #[serde(default)]
+    pub companion_series_owners: BTreeMap<String, String>,
     pub active_group: Option<String>,
     pub skipped: BTreeSet<String>,
     pub completed: BTreeMap<String, String>,

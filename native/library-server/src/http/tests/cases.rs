@@ -1605,3 +1605,44 @@ async fn ani_rss_admin_enforces_source_approval_and_redacts_secrets() {
     .expect("persisted secret reloads");
     assert_eq!(Some("test-ani-rss-key"), secrets.ani_rss_api_key.as_deref());
 }
+
+#[tokio::test]
+async fn saved_series_only_ignores_old_comments_and_automatic_matching_until_explicit_episode_choice()
+ {
+    let fixture = FixtureEnvironment::new();
+    let server = MockDandanplayServer::start(MockDandanplayBehavior::default());
+    let store = Arc::new(CatalogMetadataStore::new(
+        fixture.temp.join("series-only.json"),
+    ));
+    let resolver = test_resolver(&fixture, &server);
+    let app = dandanplay_test_app_with_metadata(&fixture, Some(resolver), Some(store.clone()));
+    // Seed a previous incorrect episode cache, then explicitly clear that episode mapping.
+    request_json(&app, "/api/providers/dandanplay/resolve?mediaId=episode-id").await;
+    store
+        .record_series_only("episode-id", 999, "Specials".into())
+        .unwrap();
+    let count = server.requests().len();
+    let track = request_json(&app, "/api/danmaku/episode-id?forceRefresh=true").await;
+    assert_eq!(track["status"], "NO_MATCH");
+    let resolved = request_json(
+        &app,
+        "/api/providers/dandanplay/resolve?mediaId=episode-id&forceRefresh=true",
+    )
+    .await;
+    assert!(resolved["selectedMatch"].is_null());
+    assert_eq!(resolved["commentCount"], 0);
+    assert_eq!(server.requests().len(), count);
+    let attention = crate::attention::build_attention_document(
+        &fixture.library.catalog,
+        None,
+        Some(&store),
+        None,
+    );
+    assert_eq!(attention.summary.needing_attention, 0);
+    assert_eq!(attention.items[0].episode_id, None);
+    let response = request_json(&app, "/api/providers/dandanplay/resolve?mediaId=episode-id&episodeId=9990002&animeId=999&animeTitle=Specials&episodeTitle=OVA").await;
+    assert_eq!(response["selectedMatch"]["episodeId"], 9990002);
+    let saved = store.get("episode-id").unwrap();
+    assert!(!saved.series_only);
+    assert_eq!(saved.dandanplay_episode_id, Some(9990002));
+}

@@ -32,6 +32,9 @@ pub struct CatalogMetadataEntry {
     pub episode_title: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dandanplay_episode_id: Option<u64>,
+    /// Explicitly keep this media linked to the series without automatic episode matching.
+    #[serde(default)]
+    pub series_only: bool,
     pub recorded_at_epoch_ms: u64,
     /// Local path of a cached poster image for the recognized anime, set
     /// separately (best-effort, after an external provider lookup) once the
@@ -48,6 +51,7 @@ impl CatalogMetadataEntry {
             && self.anime_title == other.anime_title
             && self.episode_title == other.episode_title
             && self.dandanplay_episode_id == other.dandanplay_episode_id
+            && self.series_only == other.series_only
     }
 
     fn to_anime_metadata(&self) -> LibraryAnimeMetadata {
@@ -115,6 +119,29 @@ impl CatalogMetadataStore {
         episode_title: Option<String>,
         dandanplay_episode_id: Option<u64>,
     ) -> Result<bool> {
+        self.record_identity(
+            media_id,
+            dandanplay_anime_id,
+            anime_title,
+            episode_title,
+            dandanplay_episode_id,
+            false,
+        )
+    }
+
+    pub fn record_series_only(&self, media_id: &str, anime_id: u64, title: String) -> Result<bool> {
+        self.record_identity(media_id, anime_id, title, None, None, true)
+    }
+
+    fn record_identity(
+        &self,
+        media_id: &str,
+        dandanplay_anime_id: u64,
+        anime_title: String,
+        episode_title: Option<String>,
+        dandanplay_episode_id: Option<u64>,
+        series_only: bool,
+    ) -> Result<bool> {
         let entry = CatalogMetadataEntry {
             media_id: media_id.to_owned(),
             dandanplay_anime_id,
@@ -123,6 +150,7 @@ impl CatalogMetadataStore {
                 .map(|title| title.trim().to_owned())
                 .filter(|title| !title.is_empty()),
             dandanplay_episode_id,
+            series_only,
             recorded_at_epoch_ms: current_epoch_ms(),
             poster_file: None,
         };
