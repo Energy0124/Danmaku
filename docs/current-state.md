@@ -81,6 +81,12 @@ Compose macOS artifact are retired.
   controls. TV provides the same per-type controls in its translucent,
   D-pad-native danmaku panel, with Left/Right value sliders and text sizing down
   to 10%.
+- Android mobile playback controls include previous/next video navigation in
+  fullscreen and inline playback, following catalog order for streaming and
+  ready downloads from the same PC for cached playback. Navigation stops at list
+  boundaries; the file picker is shown only when no video is loaded.
+- Android mobile folder file rows show unwatched, in-progress, or watched labels
+  and playback progress bars, with live updates from the current playback session.
 - Android mobile can explicitly cache one episode, every episode in a series,
   one file from the folder browser, or a one-time recursive folder snapshot.
   Its persistent background queue stores video, resolved danmaku, sidecar

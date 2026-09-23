@@ -298,6 +298,7 @@ private fun MobilePlayerScreen() {
         while (true) {
             val nextSnapshot = activeController.snapshot()
             appState.snapshot = nextSnapshot
+            appState.recordActivePlaybackProgress(nextSnapshot)
             delay(250)
         }
     }
