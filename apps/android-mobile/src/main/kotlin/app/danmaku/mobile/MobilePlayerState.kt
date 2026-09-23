@@ -12,6 +12,13 @@ import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySubtitleFilter
 import app.danmaku.domain.PlaybackProgress
 import app.danmaku.domain.PlaybackSnapshot
+import app.danmaku.domain.PlaybackStatus
+import app.danmaku.domain.toPlaybackProgress
+import app.danmaku.domain.nextItem
+import app.danmaku.domain.previousItem
+import app.danmaku.domain.resumePositionMs
+import app.danmaku.library.android.OfflineCacheState
+import app.danmaku.library.android.OfflinePlaybackPreparation
 import app.danmaku.domain.filteredItems
 import app.danmaku.library.LanLibraryConnectionProfile
 import app.danmaku.library.LanPlaybackTarget
@@ -95,6 +102,52 @@ internal class MobilePlayerState(
         get() = catalog?.let {
             LibraryPosterEndpoint(serverUrl)
         }
+
+    fun adjacentVideo(direction: Int): LibraryMediaItem? {
+        val current = nowPlaying ?: return null
+        if (playbackStartupPhase != MobilePlaybackStartupPhase.Playing) return null
+        val playbackCatalog = if (activeOfflineCacheKey != null) {
+            val source = cacheEntries.firstOrNull { it.key == activeOfflineCacheKey }?.serverUrl
+                ?: return null
+            LibraryCatalog(
+                rootName = "Downloads",
+                indexedAtEpochMs = 0,
+                items = cacheEntries.filter {
+                    it.serverUrl == source && it.state == OfflineCacheState.READY
+                }.map { it.item }.sortedBy { it.relativePath },
+            )
+        } else {
+            if (activePlaybackTarget?.baseUrl != serverUrl) return null
+            catalog ?: return null
+        }
+        return if (direction < 0) playbackCatalog.previousItem(current.id)
+        else playbackCatalog.nextItem(current.id)
+    }
+
+    fun recordActivePlaybackProgress(snapshot: PlaybackSnapshot) {
+        val item = nowPlaying ?: return
+        if (playbackStartupPhase != MobilePlaybackStartupPhase.Playing) return
+        if (snapshot.status != PlaybackStatus.PLAYING &&
+            snapshot.status != PlaybackStatus.PAUSED &&
+            snapshot.status != PlaybackStatus.ENDED
+        ) return
+        if (snapshot.position.positionMs <= 0) return
+        val sourceServer = activePlaybackTarget?.takeIf { it.mediaId == item.id }?.baseUrl
+            ?: cacheEntries.firstOrNull {
+                it.key == activeOfflineCacheKey && it.item.id == item.id
+            }?.serverUrl
+        if (sourceServer != serverUrl) return
+        val progress = snapshot.toPlaybackProgress(item.id, System.currentTimeMillis()) ?: return
+        val previous = playbackProgresses.firstOrNull { it.mediaId == item.id }
+        if (previous?.positionMs == progress.positionMs && previous.durationMs == progress.durationMs) return
+        playbackProgresses = playbackProgresses.filterNot { it.mediaId == item.id } + progress
+    }
+
+    fun cachedResumePositionMs(preparation: OfflinePlaybackPreparation): Long? =
+        preparation.resumePositionMs ?: playbackProgresses
+            .takeIf { serverUrl == preparation.serverUrl }
+            ?.firstOrNull { it.mediaId == preparation.item.id }
+            ?.resumePositionMs()
 
     fun toUiState(): MobileAppUiState =
         MobileAppUiState(

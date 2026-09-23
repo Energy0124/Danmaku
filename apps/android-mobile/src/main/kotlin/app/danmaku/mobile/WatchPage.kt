@@ -38,6 +38,8 @@ import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay10
+import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -95,6 +97,8 @@ internal fun WatchPage(
     playbackStartupPhase: MobilePlaybackStartupPhase = MobilePlaybackStartupPhase.Idle,
     onOpen: () -> Unit,
     onPlayPause: () -> Unit,
+    onPreviousVideo: (() -> Unit)? = null,
+    onNextVideo: (() -> Unit)? = null,
     onSeekTo: (Long) -> Unit,
     onSetVolume: (Int) -> Unit,
     onSetPlaybackRate: (Float) -> Unit = {},
@@ -117,6 +121,8 @@ internal fun WatchPage(
             playbackStartupPhase = playbackStartupPhase,
             onOpen = onOpen,
             onPlayPause = onPlayPause,
+            onPreviousVideo = onPreviousVideo,
+            onNextVideo = onNextVideo,
             onSeekTo = onSeekTo,
             onSetVolume = onSetVolume,
             onSetPlaybackRate = onSetPlaybackRate,
@@ -147,6 +153,8 @@ internal fun WatchPage(
                     playbackStartupPhase = playbackStartupPhase,
                     onOpen = onOpen,
                     onPlayPause = onPlayPause,
+                    onPreviousVideo = onPreviousVideo,
+                    onNextVideo = onNextVideo,
                     onSeekTo = onSeekTo,
                     onSetVolume = onSetVolume,
                     onSetPlaybackRate = onSetPlaybackRate,
@@ -212,6 +220,8 @@ private fun PlayerStage(
     playbackStartupPhase: MobilePlaybackStartupPhase,
     onOpen: () -> Unit,
     onPlayPause: () -> Unit,
+    onPreviousVideo: (() -> Unit)? = null,
+    onNextVideo: (() -> Unit)? = null,
     onSeekTo: (Long) -> Unit,
     onSetVolume: (Int) -> Unit,
     onSetPlaybackRate: (Float) -> Unit,
@@ -299,8 +309,9 @@ private fun PlayerStage(
                     nowPlaying = nowPlaying,
                     danmakuState = danmakuState,
                     playbackStartupPhase = playbackStartupPhase,
-                    onOpen = onOpen,
                     onPlayPause = onPlayPause,
+                    onPreviousVideo = onPreviousVideo,
+                    onNextVideo = onNextVideo,
                     onSeekTo = onSeekTo,
                     onToggleFullscreen = onToggleFullscreen,
                     onOpenOptions = { optionsVisible = true },
@@ -309,8 +320,9 @@ private fun PlayerStage(
                 InlinePlayerChrome(
                     snapshot = snapshot,
                     nowPlaying = nowPlaying,
-                    onOpen = onOpen,
                     onPlayPause = onPlayPause,
+                    onPreviousVideo = onPreviousVideo,
+                    onNextVideo = onNextVideo,
                     onSeekTo = onSeekTo,
                     onSetVolume = onSetVolume,
                     onToggleFullscreen = onToggleFullscreen,
@@ -338,8 +350,9 @@ private fun PlayerChrome(
     nowPlaying: LibraryMediaItem?,
     danmakuState: MobileDanmakuState,
     playbackStartupPhase: MobilePlaybackStartupPhase,
-    onOpen: () -> Unit,
     onPlayPause: () -> Unit,
+    onPreviousVideo: (() -> Unit)? = null,
+    onNextVideo: (() -> Unit)? = null,
     onSeekTo: (Long) -> Unit,
     onToggleFullscreen: () -> Unit,
     onOpenOptions: () -> Unit,
@@ -358,13 +371,14 @@ private fun PlayerChrome(
         PlayerCenterControls(
             snapshot = snapshot,
             onPlayPause = onPlayPause,
+            onPreviousVideo = onPreviousVideo,
+            onNextVideo = onNextVideo,
             onSeekTo = onSeekTo,
             modifier = Modifier.align(Alignment.Center),
         )
         PlayerBottomChrome(
             snapshot = snapshot,
             nowPlaying = nowPlaying,
-            onOpen = onOpen,
             onSeekTo = onSeekTo,
             onToggleFullscreen = onToggleFullscreen,
             modifier = Modifier.align(Alignment.BottomCenter),
@@ -375,8 +389,9 @@ private fun PlayerChrome(
 private fun InlinePlayerChrome(
     snapshot: PlaybackSnapshot,
     nowPlaying: LibraryMediaItem?,
-    onOpen: () -> Unit,
     onPlayPause: () -> Unit,
+    onPreviousVideo: (() -> Unit)? = null,
+    onNextVideo: (() -> Unit)? = null,
     onSeekTo: (Long) -> Unit,
     onSetVolume: (Int) -> Unit,
     onToggleFullscreen: () -> Unit,
@@ -413,6 +428,27 @@ private fun InlinePlayerChrome(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+            InlinePlayerIconButton(
+                onClick = { onSetVolume((snapshot.volumePercent - 10).coerceAtLeast(0)) },
+                enabled = snapshot.source != null && snapshot.volumePercent > 0,
+                icon = Icons.AutoMirrored.Filled.VolumeDown,
+                contentDescription = null,
+                modifier = Modifier.testTag("watch-volume-down"),
+            )
+            Text(
+                "${snapshot.volumePercent}%",
+                color = Color.White.copy(alpha = 0.78f),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.widthIn(min = 32.dp),
+            )
+            InlinePlayerIconButton(
+                onClick = { onSetVolume((snapshot.volumePercent + 10).coerceAtMost(100)) },
+                enabled = snapshot.source != null && snapshot.volumePercent < 100,
+                icon = Icons.AutoMirrored.Filled.VolumeUp,
+                contentDescription = null,
+                modifier = Modifier.testTag("watch-volume-up"),
+            )
             OverlayPill(label = snapshot.status.displayLabel())
             InlinePlayerIconButton(
                 onClick = onOpenOptions,
@@ -442,11 +478,11 @@ private fun InlinePlayerChrome(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 InlinePlayerIconButton(
-                    onClick = onOpen,
-                    enabled = true,
-                    icon = Icons.Filled.FolderOpen,
-                    contentDescription = stringResource(R.string.action_open_video),
-                    modifier = Modifier.testTag("watch-open-video-toolbar"),
+                    onClick = { onPreviousVideo?.invoke() },
+                    enabled = onPreviousVideo != null,
+                    icon = Icons.Filled.SkipPrevious,
+                    contentDescription = stringResource(R.string.action_previous_video),
+                    modifier = Modifier.testTag("watch-previous-video"),
                 )
                 InlinePlayerIconButton(
                     onClick = { onSeekTo(snapshot.position.seekTargetBy(-10_000)) },
@@ -478,28 +514,14 @@ private fun InlinePlayerChrome(
                     contentDescription = "+10s",
                     modifier = Modifier.testTag("watch-seek:+10s"),
                 )
+                InlinePlayerIconButton(
+                    onClick = { onNextVideo?.invoke() },
+                    enabled = onNextVideo != null,
+                    icon = Icons.Filled.SkipNext,
+                    contentDescription = stringResource(R.string.action_next_video),
+                    modifier = Modifier.testTag("watch-next-video"),
+                )
                 Spacer(modifier = Modifier.weight(1f))
-                InlinePlayerIconButton(
-                    onClick = { onSetVolume((snapshot.volumePercent - 10).coerceAtLeast(0)) },
-                    enabled = snapshot.source != null && snapshot.volumePercent > 0,
-                    icon = Icons.AutoMirrored.Filled.VolumeDown,
-                    contentDescription = null,
-                    modifier = Modifier.testTag("watch-volume-down"),
-                )
-                Text(
-                    "${snapshot.volumePercent}%",
-                    color = Color.White.copy(alpha = 0.78f),
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.widthIn(min = 32.dp),
-                )
-                InlinePlayerIconButton(
-                    onClick = { onSetVolume((snapshot.volumePercent + 10).coerceAtMost(100)) },
-                    enabled = snapshot.source != null && snapshot.volumePercent < 100,
-                    icon = Icons.AutoMirrored.Filled.VolumeUp,
-                    contentDescription = null,
-                    modifier = Modifier.testTag("watch-volume-up"),
-                )
                 InlinePlayerIconButton(
                     onClick = onToggleFullscreen,
                     enabled = true,
@@ -586,6 +608,8 @@ private fun PlayerTopChrome(
 private fun PlayerCenterControls(
     snapshot: PlaybackSnapshot,
     onPlayPause: () -> Unit,
+    onPreviousVideo: (() -> Unit)? = null,
+    onNextVideo: (() -> Unit)? = null,
     onSeekTo: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -594,6 +618,13 @@ private fun PlayerCenterControls(
         horizontalArrangement = Arrangement.spacedBy(18.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        PlayerRoundButton(
+            onClick = { onPreviousVideo?.invoke() },
+            enabled = onPreviousVideo != null,
+            icon = Icons.Filled.SkipPrevious,
+            contentDescription = stringResource(R.string.action_previous_video),
+            modifier = Modifier.testTag("watch-previous-video"),
+        )
         PlayerRoundButton(
             onClick = { onSeekTo(snapshot.position.seekTargetBy(-10_000)) },
             enabled = snapshot.source != null,
@@ -636,6 +667,13 @@ private fun PlayerCenterControls(
             contentDescription = "+10s",
             modifier = Modifier.testTag("watch-seek:+10s"),
         )
+        PlayerRoundButton(
+            onClick = { onNextVideo?.invoke() },
+            enabled = onNextVideo != null,
+            icon = Icons.Filled.SkipNext,
+            contentDescription = stringResource(R.string.action_next_video),
+            modifier = Modifier.testTag("watch-next-video"),
+        )
     }
 }
 
@@ -643,7 +681,6 @@ private fun PlayerCenterControls(
 private fun PlayerBottomChrome(
     snapshot: PlaybackSnapshot,
     nowPlaying: LibraryMediaItem?,
-    onOpen: () -> Unit,
     onSeekTo: (Long) -> Unit,
     onToggleFullscreen: () -> Unit,
     modifier: Modifier = Modifier,
@@ -674,16 +711,6 @@ private fun PlayerBottomChrome(
             onSeekTo = onSeekTo,
             compact = true,
         ) {
-            IconButton(
-                onClick = onOpen,
-                modifier = Modifier.testTag("watch-open-video-toolbar"),
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.FolderOpen,
-                    contentDescription = stringResource(R.string.action_open_video),
-                    tint = Color.White,
-                )
-            }
             IconButton(
                 onClick = onToggleFullscreen,
                 modifier = Modifier.testTag("watch-fullscreen-toggle"),

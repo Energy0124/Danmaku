@@ -235,4 +235,9 @@
     <string name="update_download_failed">APK 下載失敗，或內容與發行資訊清單不符。</string>
     <string name="update_verify_failed">下載的 APK 應用程式身分、版本或簽署憑證不符。</string>
     <string name="update_retry">重試</string>
+    <string name="action_previous_video">上一部影片</string>
+    <string name="action_next_video">下一部影片</string>
+    <string name="folder_watch_unwatched">未觀看</string>
+    <string name="folder_watch_in_progress">觀看中</string>
+    <string name="folder_watch_watched">已觀看</string>
 </resources>

@@ -235,4 +235,9 @@
     <string name="update_download_failed">The APK download failed or did not match the release manifest.</string>
     <string name="update_verify_failed">The downloaded APK has the wrong app identity, version, or signing certificate.</string>
     <string name="update_retry">Retry</string>
+    <string name="action_previous_video">Previous video</string>
+    <string name="action_next_video">Next video</string>
+    <string name="folder_watch_unwatched">Unwatched</string>
+    <string name="folder_watch_in_progress">In progress</string>
+    <string name="folder_watch_watched">Watched</string>
 </resources>

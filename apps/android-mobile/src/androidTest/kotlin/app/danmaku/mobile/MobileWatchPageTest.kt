@@ -167,6 +167,8 @@ class MobileWatchPageTest {
     @Test
     fun activePlaybackControlsRoutePlayPauseSeekAndVolume() {
         var playPauseCount = 0
+        var previousCount = 0
+        var nextCount = 0
         var seekTarget: Long? = null
         var volumeTarget: Int? = null
         var fullscreenToggleCount = 0
@@ -187,6 +189,8 @@ class MobileWatchPageTest {
                     isFullscreen = false,
                     onOpen = {},
                     onPlayPause = { playPauseCount += 1 },
+                    onPreviousVideo = { previousCount += 1 },
+                    onNextVideo = { nextCount += 1 },
                     onSeekTo = { seekTarget = it },
                     onSetVolume = { volumeTarget = it },
                     onSelectAudio = {},
@@ -198,6 +202,8 @@ class MobileWatchPageTest {
         }
 
         composeRule.onAllNodesWithText("Playing").assertCountEquals(2)
+        composeRule.onNodeWithTag("watch-previous-video").performSemanticsAction(SemanticsActions.OnClick)
+        composeRule.onNodeWithTag("watch-next-video").performSemanticsAction(SemanticsActions.OnClick)
         composeRule.onNodeWithTag("watch-play-pause").assertExists()
         composeRule.onNodeWithText("Playback connection error: Transient test error").assertExists()
         composeRule.onNodeWithTag("watch-play-pause")
@@ -214,6 +220,8 @@ class MobileWatchPageTest {
 
         composeRule.runOnIdle {
             assertEquals(1, playPauseCount)
+            assertEquals(1, previousCount)
+            assertEquals(1, nextCount)
             assertEquals(70_000L, seekTarget)
             assertEquals(50, volumeTarget)
             assertEquals(1, fullscreenToggleCount)
@@ -222,7 +230,8 @@ class MobileWatchPageTest {
 
     @Test
     fun fullscreenPlayerUsesStandaloneVideoStage() {
-        var openedVideo = false
+        var previousCount = 0
+        var nextCount = 0
         var fullscreenToggleCount = 0
 
         composeRule.setContent {
@@ -239,8 +248,10 @@ class MobileWatchPageTest {
                     nowPlaying = seededItem(),
                     playbackError = null,
                     isFullscreen = true,
-                    onOpen = { openedVideo = true },
+                    onOpen = {},
                     onPlayPause = {},
+                    onPreviousVideo = { previousCount += 1 },
+                    onNextVideo = { nextCount += 1 },
                     onSeekTo = {},
                     onSetVolume = {},
                     onSelectAudio = {},
@@ -268,13 +279,17 @@ class MobileWatchPageTest {
         composeRule.onAllNodesWithTag("watch-volume-down").assertCountEquals(0)
         composeRule.onAllNodesWithTag("watch-volume-up").assertCountEquals(0)
         composeRule.onAllNodesWithText("40%").assertCountEquals(0)
-        composeRule.onNodeWithTag("watch-open-video-toolbar")
+        composeRule.onNodeWithTag("watch-open-video-toolbar").assertDoesNotExist()
+        composeRule.onNodeWithTag("watch-previous-video")
+            .performSemanticsAction(SemanticsActions.OnClick)
+        composeRule.onNodeWithTag("watch-next-video")
             .performSemanticsAction(SemanticsActions.OnClick)
         composeRule.onNodeWithTag("watch-fullscreen-toggle")
             .performSemanticsAction(SemanticsActions.OnClick)
 
         composeRule.runOnIdle {
-            assertTrue(openedVideo)
+            assertEquals(1, previousCount)
+            assertEquals(1, nextCount)
             assertEquals(1, fullscreenToggleCount)
         }
     }

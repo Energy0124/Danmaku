@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -43,6 +44,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryMediaItem
+import app.danmaku.domain.LibraryWatchStatus
+import app.danmaku.domain.LibraryWatchState
+import app.danmaku.domain.PlaybackProgress
+import app.danmaku.domain.watchStatusByMediaId
 import app.danmaku.domain.fileName
 import app.danmaku.domain.folderHeading
 import app.danmaku.domain.folderListing
@@ -56,6 +61,7 @@ internal fun FolderPage(
     onNavigateUp: () -> Unit,
     onPlay: (LibraryMediaItem) -> Unit,
     onConnect: () -> Unit,
+    playbackProgresses: List<PlaybackProgress> = emptyList(),
     isRefreshing: Boolean = false,
     refreshFilesSeen: Long? = null,
     refreshError: MobileFolderRefreshError? = null,
@@ -67,6 +73,9 @@ internal fun FolderPage(
     onOpenDownloads: () -> Unit = {},
 ) {
     val listing = remember(catalog, path) { catalog?.folderListing(path) }
+    val watchStatuses = remember(catalog, playbackProgresses) {
+        catalog?.watchStatusByMediaId(playbackProgresses).orEmpty()
+    }
     val refreshErrorText = refreshError?.let {
         stringResource(
             when (it) {
@@ -206,6 +215,7 @@ internal fun FolderPage(
                         },
                         actionTestTag = "folder-file-cache:${file.id}",
                         actionIsComplete = file.id in cachedMediaIds,
+                        watchStatus = watchStatuses[file.id],
                     )
                 }
             }
@@ -224,6 +234,7 @@ private fun FolderBrowserRow(
     actionDescription: String? = null,
     actionTestTag: String? = null,
     actionIsComplete: Boolean = false,
+    watchStatus: LibraryWatchStatus? = null,
 ) {
     Surface(
         modifier = Modifier
@@ -262,6 +273,37 @@ private fun FolderBrowserRow(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                watchStatus?.let { status ->
+                    val label = stringResource(
+                        when (status.state) {
+                            LibraryWatchState.NEW -> R.string.folder_watch_unwatched
+                            LibraryWatchState.IN_PROGRESS -> R.string.folder_watch_in_progress
+                            LibraryWatchState.WATCHED -> R.string.folder_watch_watched
+                        },
+                    )
+                    val progress = status.progress
+                    val color = if (status.state == LibraryWatchState.WATCHED) AccentAmber else AccentBlue
+                    Text(
+                        text = if (status.state == LibraryWatchState.IN_PROGRESS && progress != null) {
+                            "$label · ${progress.progressLabel()}"
+                        } else label,
+                        color = if (status.state == LibraryWatchState.NEW) SubtleText else color,
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.testTag("$testTag:watch-status"),
+                    )
+                    val duration = progress?.durationMs?.takeIf { it > 0 }
+                    if (status.state != LibraryWatchState.NEW && duration != null) {
+                        LinearProgressIndicator(
+                            progress = {
+                                if (status.state == LibraryWatchState.WATCHED) 1f
+                                else (progress.positionMs.toFloat() / duration).coerceIn(0f, 1f)
+                            },
+                            color = color,
+                            trackColor = Color(0xFF304454),
+                            modifier = Modifier.fillMaxWidth().testTag("$testTag:watch-progress"),
+                        )
+                    }
+                }
             }
             if (onAction != null && actionDescription != null) {
                 IconButton(

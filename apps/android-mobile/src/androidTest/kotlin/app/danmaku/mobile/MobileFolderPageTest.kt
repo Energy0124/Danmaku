@@ -12,9 +12,15 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.unit.dp
 import app.danmaku.domain.LibraryCatalog
 import app.danmaku.domain.LibraryMediaItem
+import app.danmaku.domain.PlaybackProgress
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -80,6 +86,51 @@ class MobileFolderPageTest {
 
         composeRule.onNodeWithText("Connect").performClick()
         composeRule.runOnIdle { assertEquals(1, connectCount) }
+    }
+
+    @Test
+    fun filePreviewUpdatesFromUnwatchedThroughInProgressToWatched() {
+        val file = item("episode", "M:\\Anime", "Example/01.mkv")
+        var progresses by mutableStateOf(emptyList<PlaybackProgress>())
+        composeRule.setContent {
+            MaterialTheme {
+                FolderPage(
+                    contentPadding = PaddingValues(0.dp),
+                    catalog = LibraryCatalog("Anime", 1, listOf(file)),
+                    path = listOf("Example"),
+                    playbackProgresses = progresses,
+                    onOpenFolder = {},
+                    onNavigateUp = {},
+                    onPlay = {},
+                    onConnect = {},
+                )
+            }
+        }
+        composeRule.onNodeWithTag("folder-file:episode").performScrollTo()
+        composeRule.onNodeWithTag("folder-file:episode:watch-status", useUnmergedTree = true)
+            .assertTextEquals("Unwatched")
+        composeRule.onNodeWithTag("folder-file:episode:watch-progress", useUnmergedTree = true)
+            .assertDoesNotExist()
+
+        composeRule.runOnIdle {
+            progresses = listOf(PlaybackProgress(file.id, 60_000, 240_000, 1))
+        }
+        composeRule.onNodeWithTag("folder-file:episode:watch-status", useUnmergedTree = true)
+            .assertTextEquals("In progress · 1:00 / 4:00")
+        composeRule.onNodeWithTag("folder-file:episode:watch-progress", useUnmergedTree = true)
+            .assert(SemanticsMatcher.expectValue(
+                SemanticsProperties.ProgressBarRangeInfo, ProgressBarRangeInfo(0.25f, 0f..1f),
+            ))
+
+        composeRule.runOnIdle {
+            progresses = listOf(PlaybackProgress(file.id, 239_000, 240_000, 2))
+        }
+        composeRule.onNodeWithTag("folder-file:episode:watch-status", useUnmergedTree = true)
+            .assertTextEquals("Watched")
+        composeRule.onNodeWithTag("folder-file:episode:watch-progress", useUnmergedTree = true)
+            .assert(SemanticsMatcher.expectValue(
+                SemanticsProperties.ProgressBarRangeInfo, ProgressBarRangeInfo(1f, 0f..1f),
+            ))
     }
 
     @Test
