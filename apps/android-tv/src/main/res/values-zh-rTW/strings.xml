@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="folder_watch_unwatched">未觀看</string>
+    <string name="folder_watch_in_progress">觀看中</string>
+    <string name="folder_watch_watched">已觀看</string>
+    <string name="folder_watch_position">%1$s · %2$s</string>
+    <string name="folder_watch_position_duration">%1$s · %2$s / %3$s</string>
     <string name="app_name">Danmaku TV</string>
     <string name="nav_home">首頁</string>
     <string name="nav_library">媒體庫</string>

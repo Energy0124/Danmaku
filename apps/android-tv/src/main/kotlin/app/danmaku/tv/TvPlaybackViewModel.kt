@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.media3.common.Player
 import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.PlaybackCommand
+import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.PlaybackStatus
 import app.danmaku.domain.nextItem
 import app.danmaku.library.LanPlaybackTarget
@@ -34,6 +35,7 @@ internal class TvPlaybackViewModel(
     private var preparationJob: Job? = null
     private var danmakuJob: Job? = null
     private var positionJob: Job? = null
+    private var progressSaveJob: Job? = null
     private var playerVisible = false
     private val playerListener = object : Player.Listener {
         override fun onEvents(
@@ -89,11 +91,8 @@ internal class TvPlaybackViewModel(
         }
         pendingPlayItem = null
         val previousTarget = mutableState.value.target
-        if (previousTarget != null) {
-            val previousSnapshot = activeController.snapshot()
-            viewModelScope.launch {
-                runCatching { gateway.saveProgress(previousTarget, previousSnapshot) }
-            }
+        if (previousTarget != null && mutableState.value.startupPhase == TvPlaybackStartupPhase.Playing) {
+            saveProgress(previousTarget, activeController.snapshot(), refresh = false)
         }
         val session = repository.state.value
         val target = LanPlaybackTarget(session.serverUrl, item.id)
@@ -132,8 +131,11 @@ internal class TvPlaybackViewModel(
             }
         }
 
+        val pendingProgressSave = progressSaveJob
         preparationJob = viewModelScope.launch {
             runCatching {
+                // A quick replay must read the checkpoint from the playback just stopped.
+                pendingProgressSave?.join()
                 gateway.prepare(
                     target = target,
                     item = item,
@@ -223,14 +225,21 @@ internal class TvPlaybackViewModel(
         )
         navigator.back()
 
-        if (target != null) {
-            viewModelScope.launch {
-                val updatedProgresses = runCatching {
-                    gateway.saveProgressAndRefresh(target, snapshot)
-                }.getOrNull()
-                if (updatedProgresses != null) {
-                    repository.updateProgresses(target, updatedProgresses)
-                }
+        if (target != null && current.startupPhase == TvPlaybackStartupPhase.Playing) {
+            saveProgress(target, snapshot, refresh = true)
+        }
+    }
+
+    private fun saveProgress(target: LanPlaybackTarget, snapshot: PlaybackSnapshot, refresh: Boolean) {
+        val previousSave = progressSaveJob
+        progressSaveJob = viewModelScope.launch {
+            previousSave?.join()
+            if (refresh) {
+                runCatching { gateway.saveProgressAndRefresh(target, snapshot) }
+                    .getOrNull()
+                    ?.let { repository.updateProgresses(target, it) }
+            } else {
+                runCatching { gateway.saveProgress(target, snapshot) }
             }
         }
     }

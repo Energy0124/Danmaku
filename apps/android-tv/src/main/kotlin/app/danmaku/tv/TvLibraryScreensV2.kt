@@ -3,11 +3,14 @@ package app.danmaku.tv
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.focusGroup
+import androidx.compose.foundation.progressSemantics
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.width
@@ -32,7 +35,10 @@ import androidx.tv.material3.Button
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import app.danmaku.domain.LibraryFolderListing
+import app.danmaku.domain.LibraryMediaItem
 import app.danmaku.domain.LibrarySeries
+import app.danmaku.domain.LibraryWatchStatus
+import app.danmaku.domain.LibraryWatchState
 import app.danmaku.domain.fileName
 import app.danmaku.domain.folderHeading
 import app.danmaku.domain.folderListing
@@ -113,7 +119,7 @@ internal fun TvFolderBrowserScreen(
     session: TvSessionUiState,
     browse: TvBrowseUiState,
     onOpenFolder: (String) -> Unit,
-    onOpenFile: (String) -> Unit,
+    onPlay: (LibraryMediaItem) -> Unit,
     onNavigateUp: () -> Unit,
     onRefresh: () -> Unit,
 ) {
@@ -302,7 +308,8 @@ internal fun TvFolderBrowserScreen(
                         isDefault = listing.folders.isEmpty() && item == listing.files.firstOrNull(),
                         fallbackToDefault = fallbackToDefault,
                         testTag = "folder-file:${item.id}",
-                        onClick = { onOpenFile(item.id) },
+                        onClick = { onPlay(item) },
+                        watchStatus = browse.watchStatusById[item.id],
                     )
                 }
             }
@@ -461,6 +468,7 @@ private fun TvFolderRow(
     fallbackToDefault: Boolean,
     testTag: String,
     onClick: () -> Unit,
+    watchStatus: LibraryWatchStatus? = null,
 ) {
     Button(
         onClick = onClick,
@@ -491,6 +499,66 @@ private fun TvFolderRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+            watchStatus?.let { status ->
+                TvFolderWatchProgress(status, testTag)
+            }
+        }
+    }
+}
+
+@Composable
+private fun TvFolderWatchProgress(status: LibraryWatchStatus, rowTag: String) {
+    val label = stringResource(
+        when (status.state) {
+            LibraryWatchState.NEW -> R.string.folder_watch_unwatched
+            LibraryWatchState.IN_PROGRESS -> R.string.folder_watch_in_progress
+            LibraryWatchState.WATCHED -> R.string.folder_watch_watched
+        },
+    )
+    val progress = status.progress
+    val duration = progress?.durationMs?.takeIf { it > 0 }
+    val color = when (status.state) {
+        LibraryWatchState.NEW -> TvSecondaryContent
+        LibraryWatchState.IN_PROGRESS -> TvAccent
+        LibraryWatchState.WATCHED -> TvSuccess
+    }
+    Text(
+        text = if (status.state == LibraryWatchState.IN_PROGRESS && progress != null) {
+            if (duration != null) {
+                stringResource(
+                    R.string.folder_watch_position_duration,
+                    label,
+                    progress.positionMs.formatPlaybackTime(),
+                    duration.formatPlaybackTime(),
+                )
+            } else {
+                stringResource(
+                    R.string.folder_watch_position,
+                    label,
+                    progress.positionMs.formatPlaybackTime(),
+                )
+            }
+        } else label,
+        color = color,
+        style = MaterialTheme.typography.bodySmall,
+        modifier = Modifier.testTag("$rowTag:watch-status"),
+    )
+    if (status.state != LibraryWatchState.NEW && duration != null) {
+        val fraction = if (status.state == LibraryWatchState.WATCHED) {
+            1f
+        } else {
+            (progress.positionMs.toFloat() / duration).coerceIn(0f, 1f)
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(4.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(TvSurfaceRaised)
+                .progressSemantics(fraction)
+                .testTag("$rowTag:watch-progress"),
+        ) {
+            Box(Modifier.fillMaxWidth(fraction).fillMaxHeight().background(color))
         }
     }
 }
