@@ -375,7 +375,7 @@ class TvFocusNavigationTest {
                     session = session,
                     browse = browse,
                     onOpenFolder = { openedFolder = it },
-                    onOpenFile = {},
+                    onPlay = {},
                     onNavigateUp = {},
                     onRefresh = {},
                 )
@@ -407,7 +407,7 @@ class TvFocusNavigationTest {
                     session = TvSessionUiState(catalog = browse.catalog),
                     browse = browse,
                     onOpenFolder = {},
-                    onOpenFile = {},
+                    onPlay = {},
                     onNavigateUp = {},
                     onRefresh = {},
                 )
@@ -453,7 +453,7 @@ class TvFocusNavigationTest {
                     session = session,
                     browse = browse,
                     onOpenFolder = {},
-                    onOpenFile = {},
+                    onPlay = {},
                     onNavigateUp = {},
                     onRefresh = {
                         refreshCount += 1

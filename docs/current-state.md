@@ -70,6 +70,10 @@ Compose macOS artifact are retired.
   dedicated top-level destination backed by shared folder-listing rules. Both
   provide a manual current-folder refresh action and poll only while that
   requested server scan remains active.
+- TV folder file rows show unwatched, in-progress, or watched status, elapsed
+  playback time, and progress bars. Selecting a file plays that exact file with
+  the shared resume policy; returning refreshes folder progress, and immediate
+  replay waits for the previous checkpoint to finish saving.
 - Mobile playback has a responsive side-panel for playback speed, audio and
   subtitle tracks, plus persistent danmaku visibility, opacity, size, travel
   speed, density, screen area, full-hour timing offset with exact entry and

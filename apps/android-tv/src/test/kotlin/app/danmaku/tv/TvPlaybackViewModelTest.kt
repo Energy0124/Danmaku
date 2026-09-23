@@ -157,6 +157,55 @@ class TvPlaybackViewModelTest {
     }
 
     @Test
+    fun replayFromFolderWaitsForStoppedPlaybackToSave() = runTest(dispatcher) {
+        val item = item("resume")
+        val saveCompleted = CompletableDeferred<Unit>()
+        val gateway = FakeGateway(saveCompleted = saveCompleted)
+        val controller = RecordingController()
+        val session = FakeSession(item)
+        val navigator = TvNavigator(TvRoute.FolderBrowser(listOf("Series")))
+        val viewModel = TvPlaybackViewModel(session, navigator, gateway, InMemoryPreferences())
+            .also { it.attachController(controller) }
+
+        viewModel.play(item)
+        runCurrent()
+        viewModel.stopAndReturn()
+        assertEquals(TvRoute.FolderBrowser(listOf("Series")), navigator.state.value.route)
+        viewModel.play(item)
+        runCurrent()
+
+        assertEquals(1, controller.loaded.size)
+        gateway.resumePositionMs = 42_000
+        saveCompleted.complete(Unit)
+        runCurrent()
+
+        assertEquals(2, controller.loaded.size)
+        assertEquals(42_000L, controller.loaded.last().resumePositionMs)
+    }
+
+    @Test
+    fun cancelingPreparationDoesNotSavePreviousMediaAsTheNewFile() = runTest(dispatcher) {
+        val first = item("first")
+        val second = item("second")
+        val gateway = FakeGateway(deferPreparation = true)
+        val controller = RecordingController()
+        val viewModel = viewModel(FakeSession(first, second), gateway, controller)
+
+        viewModel.play(first)
+        runCurrent()
+        gateway.preparation(first.id).complete(first.preparation())
+        runCurrent()
+        viewModel.play(second)
+        runCurrent()
+        viewModel.stopAndReturn()
+        runCurrent()
+
+        assertEquals(listOf(first.id), gateway.checkpointedTargets.map { it.mediaId })
+        assertEquals(null, gateway.savedTarget)
+        assertEquals(listOf(first.id), controller.loaded.map { it.item.id })
+    }
+
+    @Test
     fun seekIncrementsDiscontinuityGeneration() = runTest(dispatcher) {
         val item = item("seek")
         val session = FakeSession(item)
@@ -323,7 +372,8 @@ class TvPlaybackViewModelTest {
     private inner class FakeGateway(
         private val deferPreparation: Boolean = false,
         private val savedProgresses: List<PlaybackProgress> = emptyList(),
-        private val resumePositionMs: Long? = null,
+        var resumePositionMs: Long? = null,
+        private val saveCompleted: CompletableDeferred<Unit>? = null,
     ) : TvPlaybackGateway {
         private val preparations = mutableMapOf<String, CompletableDeferred<LanPlaybackPreparation>>()
         private val danmaku = mutableMapOf<String, CompletableDeferred<TvDanmakuState>>()
@@ -369,6 +419,7 @@ class TvPlaybackViewModelTest {
         ): List<PlaybackProgress> {
             savedTarget = target
             savedSnapshot = snapshot
+            saveCompleted?.await()
             return savedProgresses
         }
     }
