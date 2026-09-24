@@ -147,7 +147,18 @@ internal fun TvPlayerRoute(
                     setEnableComposeSurfaceSyncWorkaround(true)
                 }
             },
-            update = { it.player = playbackViewModel.androidPlayer() },
+            onReset = { view ->
+                view.player = null
+                view.keepScreenOn = false
+            },
+            onRelease = { view ->
+                view.player = null
+                view.keepScreenOn = false
+            },
+            update = { view ->
+                view.player = playbackViewModel.androidPlayer()
+                view.keepScreenOn = state.snapshot.status == PlaybackStatus.PLAYING
+            },
             modifier = Modifier.fillMaxSize(),
         )
         if (state.danmakuPreferences.enabled) {
