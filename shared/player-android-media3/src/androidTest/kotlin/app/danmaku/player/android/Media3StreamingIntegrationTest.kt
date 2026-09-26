@@ -7,6 +7,8 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.datasource.DataSpec
+import androidx.media3.datasource.FileDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -22,6 +24,7 @@ import app.danmaku.library.LanPlaybackPreparation
 import app.danmaku.library.LanPlaybackTarget
 import app.danmaku.library.LanSubtitlePreparation
 import app.danmaku.library.android.OfflinePlaybackPreparation
+import app.danmaku.library.android.OfflineSubtitlePreparation
 import java.io.File
 import java.net.InetAddress
 import java.net.ServerSocket
@@ -84,9 +87,39 @@ class Media3StreamingIntegrationTest {
 
     @Test
     fun appliesFallbackResumePositionToCachedPlaybackBeforePreparationCompletes() {
+        assertCachedPlaybackPrepares(File::getAbsolutePath)
+    }
+
+    @Test
+    fun opensCachedVideoAndSubtitlesUsingJavaFileUris() {
+        // The cache repository produces file:/... rather than file:///... URLs.
+        assertCachedPlaybackPrepares { it.toURI().toString() }
+    }
+
+    @Test
+    fun preservesContentAndTripleSlashFileUris() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        instrumentation.runOnMainSync {
+            val player = ExoPlayer.Builder(instrumentation.targetContext).build()
+            try {
+                val controller = Media3PlaybackController(player)
+                listOf(
+                    "content://media/external/video/media/42",
+                    "file:///storage/emulated/0/Movies/Episode%20%231.mp4",
+                ).forEach { uri ->
+                    controller.load(PlaybackSource.LocalFile(uri))
+                    assertEquals(uri, player.currentMediaItem?.localConfiguration?.uri.toString())
+                }
+            } finally {
+                player.release()
+            }
+        }
+    }
+
+    private fun assertCachedPlaybackPrepares(sourcePath: (File) -> String) {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val fixtureFile = File.createTempFile(
-            "danmaku-resume-",
+            "danmaku cached #1 中文:-",
             ".mp4",
             instrumentation.targetContext.cacheDir,
         ).apply {
@@ -96,6 +129,16 @@ class Media3StreamingIntegrationTest {
                 }
             }
         }
+        val subtitleFile = File(fixtureFile.parentFile, "${fixtureFile.nameWithoutExtension}.srt")
+        val subtitleText = "1\n00:00:00,000 --> 00:00:01,000\nCached subtitle\n"
+        subtitleFile.writeText(subtitleText)
+        val subtitleTrack = LibrarySubtitleTrack(
+            id = "cached-subtitle",
+            label = "English",
+            relativePath = "Example Show/Episode 01.en.srt",
+            mediaType = "application/x-subrip",
+            streamPath = "/subtitles/cached-subtitle",
+        )
         val item = LibraryMediaItem(
             id = "cached-resume-episode",
             seriesTitle = "Example Show",
@@ -104,13 +147,16 @@ class Media3StreamingIntegrationTest {
             sizeBytes = fixtureFile.length(),
             mediaType = "video/mp4",
             streamPath = "/media/cached-resume-episode",
+            subtitles = listOf(subtitleTrack),
         )
         val preparation = OfflinePlaybackPreparation(
             cacheKey = "cached-resume-episode",
             serverUrl = "http://pc",
             item = item,
-            source = PlaybackSource.LocalFile(fixtureFile.absolutePath),
-            subtitles = emptyList(),
+            source = PlaybackSource.LocalFile(sourcePath(fixtureFile)),
+            subtitles = listOf(
+                OfflineSubtitlePreparation(subtitleTrack, PlaybackSource.LocalFile(sourcePath(subtitleFile))),
+            ),
             danmaku = LanDanmakuTrack(
                 mediaId = item.id,
                 status = LanDanmakuLoadStatus.NO_MATCH,
@@ -121,9 +167,24 @@ class Media3StreamingIntegrationTest {
         try {
             assertResumePositionApplied { controller, resumePositionMs ->
                 controller.load(preparation, resumePositionMs)
+                val configuration = checkNotNull(controller.player.currentMediaItem?.localConfiguration)
+                assertEquals(fixtureFile.absolutePath, configuration.uri.path)
+                val subtitleUri = configuration.subtitleConfigurations.single().uri
+                assertEquals(subtitleFile.absolutePath, subtitleUri.path)
+                // Exercise Media3's file reader with the exact URI handed to the player.
+                val dataSource = FileDataSource()
+                try {
+                    assertEquals(subtitleFile.length(), dataSource.open(DataSpec(subtitleUri)))
+                    val bytes = ByteArray(subtitleFile.length().toInt())
+                    assertEquals(bytes.size, dataSource.read(bytes, 0, bytes.size))
+                    assertEquals(subtitleText, bytes.toString(Charsets.UTF_8))
+                } finally {
+                    dataSource.close()
+                }
             }
         } finally {
             fixtureFile.delete()
+            subtitleFile.delete()
         }
     }
 

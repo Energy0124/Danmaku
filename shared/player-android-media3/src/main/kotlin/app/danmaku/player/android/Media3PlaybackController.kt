@@ -219,8 +219,13 @@ private data class Media3TrackReference(
 
 private fun PlaybackSource.toUri(): Uri =
     when (this) {
-        is PlaybackSource.LocalFile ->
-            if (path.contains("://")) Uri.parse(path) else Uri.fromFile(File(path))
+        is PlaybackSource.LocalFile -> {
+            val file = File(path)
+            val uri = Uri.parse(path)
+            // File.toURI() uses file:/...; a URI scheme does not require ://.
+            // Absolute filesystem paths may also contain colons in their filenames.
+            if (file.isAbsolute || uri.isRelative) Uri.fromFile(file) else uri
+        }
         is PlaybackSource.RemoteStream -> Uri.parse(url)
     }
 

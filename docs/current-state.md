@@ -94,7 +94,9 @@ Compose macOS artifact are retired.
   one file from the folder browser, or a one-time recursive folder snapshot.
   Its persistent background queue stores video, resolved danmaku, sidecar
   subtitles, posters, and item metadata in app-managed storage; cached entries
-  remain browsable and playable away from the trusted LAN. Downloads support
+  remain browsable and playable away from the trusted LAN. The Android player
+  recognizes the cache's `file:/...` video and subtitle URIs without treating
+  them as filesystem paths or encoding them again. Downloads support
   byte-range resume, pause, retry, cancel, per-item deletion, and clear-all.
   WorkManager serializes transfers through one persistent chain and throttles
   durable progress updates. LAN downloads check actual free bytes with a 256 MiB
