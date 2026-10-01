@@ -55,7 +55,11 @@ internal class TvNavigator(
                 current.copy(overlay = null)
             } else {
                 current.copy(
-                    backStack = current.backStack + route,
+                    backStack = if (current.route is TvRoute.Player && route is TvRoute.Player) {
+                        current.backStack.dropLast(1) + route
+                    } else {
+                        current.backStack + route
+                    },
                     overlay = null,
                 )
             }

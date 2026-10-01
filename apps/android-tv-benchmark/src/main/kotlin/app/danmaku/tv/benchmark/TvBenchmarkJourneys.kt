@@ -31,11 +31,23 @@ internal fun MacrobenchmarkScope.openLibraryDetailAndPlayer() {
 
 internal fun MacrobenchmarkScope.traverseOneHundredActions() {
     val actions = buildList {
+        // Traverse transport controls and available episode buttons, then reset focus via the timeline.
+        addAll(
+            listOf(
+                KeyEvent.KEYCODE_DPAD_LEFT,
+                KeyEvent.KEYCODE_DPAD_LEFT,
+                KeyEvent.KEYCODE_DPAD_RIGHT,
+                KeyEvent.KEYCODE_DPAD_RIGHT,
+                KeyEvent.KEYCODE_DPAD_RIGHT,
+                KeyEvent.KEYCODE_DPAD_RIGHT,
+                KeyEvent.KEYCODE_DPAD_UP,
+                KeyEvent.KEYCODE_DPAD_DOWN,
+            ),
+        )
         // Player audio, subtitle, and danmaku overlays.
         addAll(
             listOf(
-                KeyEvent.KEYCODE_DPAD_RIGHT,
-                KeyEvent.KEYCODE_DPAD_RIGHT,
+                KeyEvent.KEYCODE_DPAD_DOWN,
                 KeyEvent.KEYCODE_DPAD_CENTER,
                 KeyEvent.KEYCODE_DPAD_CENTER,
                 KeyEvent.KEYCODE_DPAD_RIGHT,

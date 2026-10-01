@@ -157,6 +157,105 @@ class TvPlaybackViewModelTest {
     }
 
     @Test
+    fun episodeButtonsFollowCatalogOrderAndStopAtBoundaries() = runTest(dispatcher) {
+        val first = item("z-first")
+        val middle = item("a-middle")
+        val last = item("m-last")
+        val gateway = FakeGateway()
+        val controller = RecordingController()
+        val viewModel = viewModel(FakeSession(first, middle, last), gateway, controller)
+
+        viewModel.play(first)
+        runCurrent()
+        assertEquals(null, viewModel.state.value.previousItem)
+        assertEquals(middle, viewModel.state.value.nextItem)
+        viewModel.playPreviousEpisode()
+        runCurrent()
+        assertEquals(1, controller.loaded.size)
+
+        viewModel.playNextEpisode()
+        runCurrent()
+        assertEquals(first, viewModel.state.value.previousItem)
+        assertEquals(last, viewModel.state.value.nextItem)
+        viewModel.playNextEpisode()
+        runCurrent()
+        assertEquals(null, viewModel.state.value.nextItem)
+        viewModel.playNextEpisode()
+        runCurrent()
+        assertEquals(3, controller.loaded.size)
+
+        viewModel.playPreviousEpisode()
+        runCurrent()
+        assertEquals(listOf(first.id, middle.id, last.id, middle.id), controller.loaded.map { it.item.id })
+        assertEquals(listOf(first.id, middle.id, last.id), gateway.checkpointedTargets.map { it.mediaId })
+    }
+
+    @Test
+    fun episodeSwitchWaitsForCheckpointAndReturnsToOriginalFolder() = runTest(dispatcher) {
+        val first = item("first")
+        val second = item("second")
+        val saveCompleted = CompletableDeferred<Unit>()
+        val gateway = FakeGateway(saveCompleted = saveCompleted)
+        val controller = RecordingController()
+        val folder = TvRoute.FolderBrowser(listOf("Series"))
+        val navigator = TvNavigator(folder)
+        val viewModel = TvPlaybackViewModel(
+            FakeSession(first, second), navigator, gateway, InMemoryPreferences(),
+        ).also { it.attachController(controller) }
+
+        viewModel.play(first)
+        runCurrent()
+        navigator.showOverlay(TvOverlay.AudioTracks)
+        viewModel.playNextEpisode()
+        runCurrent()
+
+        assertEquals(listOf(first.id), controller.loaded.map { it.item.id })
+        assertEquals(listOf(first.id), gateway.checkpointedTargets.map { it.mediaId })
+        assertEquals(listOf(folder, TvRoute.Player(second.id)), navigator.state.value.backStack)
+        assertEquals(null, navigator.state.value.overlay)
+
+        gateway.resumePositionMs = 42_000
+        saveCompleted.complete(Unit)
+        runCurrent()
+        assertEquals(42_000L, controller.loaded.last().resumePositionMs)
+        viewModel.playPreviousEpisode()
+        runCurrent()
+        viewModel.stopAndReturn()
+        runCurrent()
+        assertEquals(folder, navigator.state.value.route)
+    }
+
+    @Test
+    fun episodeButtonsIgnoreInputBeforeReadyAndAfterControllerDetaches() = runTest(dispatcher) {
+        val first = item("first")
+        val middle = item("middle")
+        val last = item("last")
+        val gateway = FakeGateway(deferPreparation = true)
+        val controller = RecordingController()
+        val viewModel = viewModel(FakeSession(first, middle, last), gateway, controller)
+
+        viewModel.playPreviousEpisode()
+        viewModel.playNextEpisode()
+        viewModel.play(middle)
+        runCurrent()
+        viewModel.playPreviousEpisode()
+        viewModel.playNextEpisode()
+        runCurrent()
+        assertEquals(middle, viewModel.state.value.item)
+        assertTrue(controller.loaded.isEmpty())
+
+        gateway.preparation(middle.id).complete(middle.preparation())
+        runCurrent()
+        viewModel.detachController()
+        viewModel.playPreviousEpisode()
+        viewModel.playNextEpisode()
+        runCurrent()
+        assertEquals(middle, viewModel.state.value.item)
+        assertEquals(listOf(middle.id), controller.loaded.map { it.item.id })
+        assertTrue(gateway.checkpointedTargets.isEmpty())
+    }
+
+    @Test
     fun replayFromFolderWaitsForStoppedPlaybackToSave() = runTest(dispatcher) {
         val item = item("resume")
         val saveCompleted = CompletableDeferred<Unit>()
@@ -410,6 +509,7 @@ class TvPlaybackViewModelTest {
             snapshot: PlaybackSnapshot,
         ): PlaybackProgress? {
             checkpointedTargets += target
+            saveCompleted?.await()
             return null
         }
 

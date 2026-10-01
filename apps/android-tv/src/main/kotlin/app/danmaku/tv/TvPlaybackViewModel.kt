@@ -8,6 +8,7 @@ import app.danmaku.domain.PlaybackCommand
 import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.PlaybackStatus
 import app.danmaku.domain.nextItem
+import app.danmaku.domain.previousItem
 import app.danmaku.library.LanPlaybackTarget
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -109,6 +110,7 @@ internal class TvPlaybackViewModel(
             controlsVisible = true,
             danmaku = TvDanmakuState.loading(item.id),
             danmakuPreferences = mutableState.value.danmakuPreferences,
+            previousItem = session.catalog?.previousItem(item.id),
             nextItem = session.catalog?.nextItem(item.id),
         )
         navigator.navigate(TvRoute.Player(item.id))
@@ -169,6 +171,18 @@ internal class TvPlaybackViewModel(
                 }
             }
         }
+    }
+
+    fun playPreviousEpisode() {
+        val current = mutableState.value
+        if (!current.controllerReady || current.startupPhase != TvPlaybackStartupPhase.Playing) return
+        current.previousItem?.let(::play)
+    }
+
+    fun playNextEpisode() {
+        val current = mutableState.value
+        if (!current.controllerReady || current.startupPhase != TvPlaybackStartupPhase.Playing) return
+        current.nextItem?.let(::play)
     }
 
     fun dispatch(command: PlaybackCommand) {

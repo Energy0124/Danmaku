@@ -69,6 +69,10 @@ Compose macOS artifact are retired.
 - TV keeps the screen on during active video playback to prevent the screen
   saver from interrupting viewing, and releases it when playback is paused,
   stops, or the player view is removed.
+- TV playback controls include previous/next episode buttons with D-pad focus,
+  following catalog order and disabling navigation at list boundaries or while
+  preparing playback. Switching saves progress and applies the destination's
+  resume policy; Back returns to the original library or folder view.
 - Mobile and TV expose the server's original multi-root folder layout as a
   dedicated top-level destination backed by shared folder-listing rules. Both
   provide a manual current-folder refresh action and poll only while that

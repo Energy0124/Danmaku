@@ -15,7 +15,9 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -183,6 +185,8 @@ class TvFocusNavigationTest {
                     onTogglePlayPause = {},
                     onShowOverlay = {},
                     onStop = {},
+                    onPreviousEpisode = {},
+                    onNextEpisode = {},
                     modifier = Modifier,
                 )
             }
@@ -203,6 +207,88 @@ class TvFocusNavigationTest {
         composeRule.onNodeWithTag("player-progress").assertIsFocused()
             .performKeyInput { pressKey(Key.DirectionDown) }
         composeRule.onNodeWithTag("player-play-pause").assertIsFocused()
+    }
+
+    @Test
+    fun episodeButtonsReceiveRemoteFocusAndReturnFocusAfterSwitching() {
+        val items = createTvQaFixture(seriesCount = 1, episodesPerSeries = 3).catalog.items
+        var state by mutableStateOf(
+            TvPlaybackUiState(
+                controllerReady = true,
+                item = items[1],
+                startupPhase = TvPlaybackStartupPhase.Playing,
+                previousItem = items[0],
+                nextItem = items[2],
+            ),
+        )
+        var previousClicks = 0
+        var nextClicks = 0
+        composeRule.setContent {
+            DanmakuTvTheme {
+                TvPlayerControls(
+                    state = state,
+                    onDispatch = {},
+                    onTogglePlayPause = {},
+                    onShowOverlay = {},
+                    onStop = {},
+                    onPreviousEpisode = { previousClicks += 1 },
+                    onNextEpisode = {
+                        nextClicks += 1
+                        state = state.copy(item = items[2], previousItem = items[1], nextItem = null)
+                    },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("player-play-pause").assertIsFocused()
+            .performKeyInput { pressKey(Key.DirectionLeft) }
+        composeRule.onNodeWithTag("player-rewind").assertIsFocused()
+            .performKeyInput { pressKey(Key.DirectionLeft) }
+        composeRule.onNodeWithTag("player-previous-episode").assertIsFocused().assertIsEnabled()
+            .performKeyInput { pressKey(Key.DirectionCenter) }
+        composeRule.runOnIdle { check(previousClicks == 1) }
+
+        composeRule.onNodeWithTag("player-previous-episode")
+            .performKeyInput {
+                repeat(4) { pressKey(Key.DirectionRight) }
+            }
+        composeRule.onNodeWithTag("player-next-episode").assertIsFocused().assertIsEnabled()
+            .performKeyInput { pressKey(Key.DirectionCenter) }
+        composeRule.runOnIdle { check(nextClicks == 1) }
+        composeRule.onNodeWithTag("player-next-episode").assertIsNotEnabled()
+        composeRule.onNodeWithTag("player-play-pause").assertIsFocused()
+            .performKeyInput { pressKey(Key.DirectionDown) }
+        composeRule.onNodeWithTag("player-audio").assertIsFocused()
+            .performKeyInput { pressKey(Key.DirectionUp) }
+        composeRule.onNodeWithTag("player-play-pause").assertIsFocused()
+    }
+
+    @Test
+    fun remoteSkipsUnavailableEpisodeButtons() {
+        composeRule.setContent {
+            DanmakuTvTheme {
+                TvPlayerControls(
+                    state = TvPlaybackUiState(
+                        controllerReady = true,
+                        startupPhase = TvPlaybackStartupPhase.Playing,
+                    ),
+                    onDispatch = {},
+                    onTogglePlayPause = {},
+                    onShowOverlay = {},
+                    onStop = {},
+                    onPreviousEpisode = { error("Previous is unavailable") },
+                    onNextEpisode = { error("Next is unavailable") },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("player-previous-episode").assertIsNotEnabled()
+        composeRule.onNodeWithTag("player-next-episode").assertIsNotEnabled()
+        composeRule.onNodeWithTag("player-play-pause")
+            .performKeyInput { repeat(2) { pressKey(Key.DirectionLeft) } }
+        composeRule.onNodeWithTag("player-rewind").assertIsFocused()
+            .performKeyInput { repeat(3) { pressKey(Key.DirectionRight) } }
+        composeRule.onNodeWithTag("player-forward").assertIsFocused()
     }
 
     @Test

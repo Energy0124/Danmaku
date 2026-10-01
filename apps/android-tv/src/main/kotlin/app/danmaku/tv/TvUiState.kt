@@ -166,6 +166,7 @@ internal data class TvPlaybackUiState(
     val error: TvPlaybackError? = null,
     val danmaku: TvDanmakuState = TvDanmakuState.Idle,
     val danmakuPreferences: TvDanmakuPreferences = TvDanmakuPreferences(),
+    val previousItem: LibraryMediaItem? = null,
     val nextItem: LibraryMediaItem? = null,
 ) {
     val isActive: Boolean

@@ -181,6 +181,8 @@ internal fun TvPlayerRoute(
                 state = state,
                 onDispatch = playbackViewModel::dispatch,
                 onTogglePlayPause = playbackViewModel::togglePlayPause,
+                onPreviousEpisode = playbackViewModel::playPreviousEpisode,
+                onNextEpisode = playbackViewModel::playNextEpisode,
                 onShowOverlay = navigator::showOverlay,
                 onStop = playbackViewModel::stopAndReturn,
                 modifier = Modifier
@@ -283,17 +285,24 @@ internal fun TvPlayerControls(
     onTogglePlayPause: () -> Unit,
     onShowOverlay: (TvOverlay) -> Unit,
     onStop: () -> Unit,
+    onPreviousEpisode: () -> Unit,
+    onNextEpisode: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val progressRequester = remember { FocusRequester() }
+    val previousRequester = remember { FocusRequester() }
     val rewindRequester = remember { FocusRequester() }
     val playPauseRequester = remember { FocusRequester() }
     val forwardRequester = remember { FocusRequester() }
+    val nextRequester = remember { FocusRequester() }
     val audioRequester = remember { FocusRequester() }
     val subtitlesRequester = remember { FocusRequester() }
     val danmakuRequester = remember { FocusRequester() }
     val stopRequester = remember { FocusRequester() }
-    LaunchedEffect(Unit) {
+    val navigationReady = state.controllerReady && state.startupPhase == TvPlaybackStartupPhase.Playing
+    val previousEnabled = navigationReady && state.previousItem != null
+    val nextEnabled = navigationReady && state.nextItem != null
+    LaunchedEffect(state.item?.id) {
         playPauseRequester.requestFocus()
     }
     Column(
@@ -331,11 +340,27 @@ internal fun TvPlayerControls(
                 modifier = Modifier.width(190.dp),
             )
             TvPlayerControlButton(
+                label = stringResource(R.string.action_previous),
+                enabled = previousEnabled,
+                modifier = Modifier
+                    .focusRequester(previousRequester)
+                    .focusProperties {
+                        up = progressRequester
+                        down = audioRequester
+                        left = FocusRequester.Cancel
+                        right = rewindRequester
+                    }
+                    .testTag("player-previous-episode"),
+                onClick = onPreviousEpisode,
+            )
+            TvPlayerControlButton(
                 label = "-10s",
                 modifier = Modifier
                     .focusRequester(rewindRequester)
                     .focusProperties {
                         up = progressRequester
+                        down = audioRequester
+                        left = if (previousEnabled) previousRequester else FocusRequester.Cancel
                         right = playPauseRequester
                     }
                     .testTag("player-rewind"),
@@ -354,6 +379,7 @@ internal fun TvPlayerControls(
                     .focusRequester(playPauseRequester)
                     .focusProperties {
                         up = progressRequester
+                        down = audioRequester
                         left = rewindRequester
                         right = forwardRequester
                     }
@@ -367,8 +393,9 @@ internal fun TvPlayerControls(
                     .focusRequester(forwardRequester)
                     .focusProperties {
                         up = progressRequester
+                        down = audioRequester
                         left = playPauseRequester
-                        right = audioRequester
+                        right = if (nextEnabled) nextRequester else FocusRequester.Cancel
                     }
                     .testTag("player-forward"),
             ) {
@@ -377,12 +404,32 @@ internal fun TvPlayerControls(
                 )
             }
             TvPlayerControlButton(
+                label = stringResource(R.string.action_next),
+                enabled = nextEnabled,
+                modifier = Modifier
+                    .focusRequester(nextRequester)
+                    .focusProperties {
+                        up = progressRequester
+                        down = audioRequester
+                        left = forwardRequester
+                        right = FocusRequester.Cancel
+                    }
+                    .testTag("player-next-episode"),
+                onClick = onNextEpisode,
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TvPlayerControlButton(
                 label = stringResource(R.string.audio_tracks_title),
                 modifier = Modifier
                     .focusRequester(audioRequester)
                     .focusProperties {
-                        up = progressRequester
-                        left = forwardRequester
+                        up = playPauseRequester
+                        left = FocusRequester.Cancel
                         right = subtitlesRequester
                     }
                     .testTag("player-audio"),
@@ -394,7 +441,7 @@ internal fun TvPlayerControls(
                 modifier = Modifier
                     .focusRequester(subtitlesRequester)
                     .focusProperties {
-                        up = progressRequester
+                        up = playPauseRequester
                         left = audioRequester
                         right = danmakuRequester
                     }
@@ -407,7 +454,7 @@ internal fun TvPlayerControls(
                 modifier = Modifier
                     .focusRequester(danmakuRequester)
                     .focusProperties {
-                        up = progressRequester
+                        up = playPauseRequester
                         left = subtitlesRequester
                         right = stopRequester
                     }
@@ -420,8 +467,9 @@ internal fun TvPlayerControls(
                 modifier = Modifier
                     .focusRequester(stopRequester)
                     .focusProperties {
-                        up = progressRequester
+                        up = playPauseRequester
                         left = danmakuRequester
+                        right = FocusRequester.Cancel
                     }
                     .testTag("player-stop"),
                 onClick = onStop,
@@ -462,10 +510,12 @@ private fun TvPlayerControlButton(
     label: String,
     modifier: Modifier = Modifier,
     selected: Boolean = false,
+    enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
     Button(
         onClick = onClick,
+        enabled = enabled,
         modifier = modifier.tvFocusHalo(RoundedCornerShape(16.dp)),
         colors = tvButtonColors(selected),
         scale = tvButtonScale(),
