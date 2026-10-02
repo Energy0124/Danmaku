@@ -23,6 +23,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performKeyInput
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.pressKey
@@ -35,6 +36,8 @@ import app.danmaku.domain.PlaybackCommand
 import app.danmaku.domain.PlaybackPosition
 import app.danmaku.domain.PlaybackSnapshot
 import app.danmaku.domain.PlaybackStatus
+import app.danmaku.library.LanLibraryConnectionProfile
+import app.danmaku.library.lanLibraryConnectionProfile
 import org.junit.Rule
 import org.junit.Test
 
@@ -50,15 +53,105 @@ class TvFocusNavigationTest {
                 TvOnboardingScreen(
                     navigation = navigator.state.value,
                     navigator = navigator,
-                    isDiscovering = false,
-                    errorMessage = null,
+                    session = TvSessionUiState(),
                     onDiscover = {},
-                    onOpenPc = {},
+                    onSetManualEntry = {},
+                    onConnectAddress = {},
+                    onSelectConnection = {},
                 )
             }
         }
 
         composeRule.onNodeWithTag("onboarding-discover").assertIsFocused()
+    }
+
+    @Test
+    fun discoveringKeepsManualEntryFocusableAndPreventsDuplicateSearches() {
+        val navigator = TvNavigator()
+        var manualRequested = false
+        composeRule.setContent {
+            DanmakuTvTheme {
+                TvOnboardingScreen(
+                    navigation = navigator.state.value,
+                    navigator = navigator,
+                    session = TvSessionUiState(connection = TvConnectionUiState(isDiscovering = true)),
+                    onDiscover = {},
+                    onSetManualEntry = { manualRequested = it },
+                    onConnectAddress = {},
+                    onSelectConnection = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("onboarding-status").assertIsDisplayed()
+        composeRule.onNodeWithTag("onboarding-discover").assertIsNotEnabled()
+        composeRule.onNodeWithTag("onboarding-manual").assertIsFocused()
+            .performKeyInput { pressKey(Key.DirectionCenter) }
+        composeRule.runOnIdle { org.junit.Assert.assertTrue(manualRequested) }
+    }
+
+    @Test
+    fun pcPickerDeduplicatesSavedPcAndSelectsTheFocusedPcWithRemote() {
+        val navigator = TvNavigator()
+        val first = lanLibraryConnectionProfile("http://pc-one:8686", "Living room PC")
+        val second = lanLibraryConnectionProfile("http://pc-two:8686")
+        var selected: LanLibraryConnectionProfile? = null
+        composeRule.setContent {
+            DanmakuTvTheme {
+                TvOnboardingScreen(
+                    navigation = navigator.state.value,
+                    navigator = navigator,
+                    session = TvSessionUiState(
+                        savedConnections = listOf(first),
+                        connection = TvConnectionUiState(
+                            hasSearched = true,
+                            discoveredUrls = listOf(first.baseUrl, second.baseUrl),
+                        ),
+                    ),
+                    onDiscover = {},
+                    onSetManualEntry = {},
+                    onConnectAddress = {},
+                    onSelectConnection = { selected = it },
+                )
+            }
+        }
+
+        composeRule.onAllNodesWithTag("onboarding-pc:${first.id}").assertCountEquals(1)
+        composeRule.onNodeWithTag("onboarding-pc:${first.id}").assertIsFocused()
+            .performKeyInput { pressKey(Key.DirectionDown) }
+        composeRule.onNodeWithTag("onboarding-pc:${second.id}").assertIsFocused()
+            .performKeyInput { pressKey(Key.DirectionCenter) }
+        composeRule.runOnIdle { org.junit.Assert.assertEquals(second.baseUrl, selected?.baseUrl) }
+    }
+
+    @Test
+    fun manualConnectionUsesOneInlineFormAndRestoresFocusOnCancel() {
+        val navigator = TvNavigator()
+        var session by mutableStateOf(TvSessionUiState())
+        var submittedAddress: String? = null
+        composeRule.setContent {
+            DanmakuTvTheme {
+                TvOnboardingScreen(
+                    navigation = navigator.state.value,
+                    navigator = navigator,
+                    session = session,
+                    onDiscover = {},
+                    onSetManualEntry = {
+                        session = session.copy(connection = session.connection.copy(isManualEntry = it))
+                    },
+                    onConnectAddress = { submittedAddress = it },
+                    onSelectConnection = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("onboarding-manual").performClick()
+        composeRule.onNodeWithTag("onboarding-address").assertIsFocused().performTextInput("192.168.1.10")
+        composeRule.onNodeWithTag("onboarding-connect").assertIsEnabled().performClick()
+        composeRule.runOnIdle { org.junit.Assert.assertEquals("192.168.1.10", submittedAddress) }
+        composeRule.onNodeWithTag("onboarding-back").performClick()
+        composeRule.onNodeWithTag("onboarding-discover").assertIsFocused()
+        composeRule.onAllNodesWithTag("onboarding-address").assertCountEquals(0)
     }
 
     @Test

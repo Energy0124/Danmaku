@@ -34,7 +34,7 @@ internal class TvLibraryRepository(
     defaultServerUrl: String,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val trackingClient: LanExternalTrackingClient = LanExternalTrackingClient(),
-): TvPlaybackSession {
+): TvPlaybackSession, TvSessionRepository {
     private val refreshGeneration = AtomicLong()
     private val trackingGeneration = AtomicLong()
     private val folderRefreshGeneration = AtomicLong()
@@ -47,10 +47,10 @@ internal class TvLibraryRepository(
         ),
     )
     override val state: StateFlow<TvSessionUiState> = mutableState.asStateFlow()
-    var isQaFixtureInstalled: Boolean = false
+    override var isQaFixtureInstalled: Boolean = false
         private set
 
-    fun updateServerUrl(serverUrl: String) {
+    override fun updateServerUrl(serverUrl: String) {
         invalidateRefresh()
         invalidateTracking()
         invalidateFolderRefresh()
@@ -65,7 +65,7 @@ internal class TvLibraryRepository(
         }
     }
 
-    suspend fun loadCachedCatalog(): Boolean {
+    override suspend fun loadCachedCatalog(): Boolean {
         val serverUrl = state.value.serverUrl
         if (serverUrl.isBlank()) return false
         val cached = catalogCache.load(serverUrl) ?: return false
@@ -82,7 +82,7 @@ internal class TvLibraryRepository(
         return true
     }
 
-    suspend fun refresh(): Result<TvCatalogRefreshOutcome> {
+    override suspend fun refresh(): Result<TvCatalogRefreshOutcome> {
         val request = state.value
         if (request.serverUrl.isBlank()) {
             val error = IllegalArgumentException("PC server URL is required")
@@ -141,7 +141,7 @@ internal class TvLibraryRepository(
         }
     }
 
-    suspend fun refreshFolder(path: List<String>): Result<TvCatalogRefreshOutcome> {
+    override suspend fun refreshFolder(path: List<String>): Result<TvCatalogRefreshOutcome> {
         val request = state.value
         if (request.serverUrl.isBlank()) {
             val error = IllegalArgumentException("PC address is required")
@@ -233,7 +233,7 @@ internal class TvLibraryRepository(
         folderRefreshGeneration.incrementAndGet()
     }
 
-    suspend fun saveConnection(): Result<Unit> =
+    override suspend fun saveConnection(): Result<Unit> =
         runCatching {
             val current = state.value
             withContext(ioDispatcher) {
@@ -252,7 +252,7 @@ internal class TvLibraryRepository(
             mutableState.update { it.copy(errorMessage = error.message) }
         }
 
-    suspend fun loadTracking(): Result<Unit> {
+    override suspend fun loadTracking(): Result<Unit> {
         val request = state.value
         if (request.serverUrl.isBlank()) return Result.success(Unit)
         val generation = trackingGeneration.incrementAndGet()
@@ -284,7 +284,7 @@ internal class TvLibraryRepository(
         }
     }
 
-    suspend fun readTracking(): Result<Unit> {
+    override suspend fun readTracking(): Result<Unit> {
         val request = state.value
         val generation = trackingGeneration.incrementAndGet()
         mutableState.update {
@@ -333,7 +333,7 @@ internal class TvLibraryRepository(
         }
     }
 
-    suspend fun syncTracking(): Result<Unit> {
+    override suspend fun syncTracking(): Result<Unit> {
         val request = state.value
         if (!request.tracking.hasFreshReadback) return Result.success(Unit)
         val updates = request.tracking.document?.plan?.updates?.map { it.update }.orEmpty()
@@ -379,7 +379,7 @@ internal class TvLibraryRepository(
         }
     }
 
-    suspend fun selectConnection(connection: LanLibraryConnectionProfile) {
+    override suspend fun selectConnection(connection: LanLibraryConnectionProfile) {
         invalidateRefresh()
         invalidateTracking()
         invalidateFolderRefresh()
@@ -389,6 +389,7 @@ internal class TvLibraryRepository(
                 catalog = null,
                 playbackProgresses = emptyList(),
                 catalogSource = TvCatalogSource.None,
+                isRefreshing = false,
                 isOffline = false,
                 errorMessage = null,
                 tracking = TvTrackingState(),
@@ -398,7 +399,7 @@ internal class TvLibraryRepository(
         loadCachedCatalog()
     }
 
-    suspend fun forgetConnection(connection: LanLibraryConnectionProfile) {
+    override suspend fun forgetConnection(connection: LanLibraryConnectionProfile) {
         invalidateRefresh()
         invalidateTracking()
         invalidateFolderRefresh()

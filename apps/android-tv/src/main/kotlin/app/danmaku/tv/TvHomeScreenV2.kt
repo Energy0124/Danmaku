@@ -54,6 +54,34 @@ internal fun TvHomeScreen(
                     ?: stringResource(R.string.home_connect_pc_library),
             )
         }
+        if (session.isOffline) {
+            item {
+                Column(
+                    modifier = Modifier.fillMaxWidth().testTag("home-connection-notice"),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text(
+                        stringResource(
+                            when {
+                                session.isRefreshing -> R.string.status_connecting
+                                session.connection.isDiscovering -> R.string.status_discovering
+                                else -> R.string.connection_failed
+                            },
+                        ),
+                        color = TvSecondaryContent,
+                    )
+                    Button(
+                        onClick = onOpenPc,
+                        enabled = !session.isRefreshing && !session.connection.isDiscovering,
+                        modifier = Modifier
+                            .tvRouteFocus(navigation, navigator, TvRoute.Home, "home-reconnect")
+                            .testTag("home-reconnect"),
+                        colors = tvButtonColors(),
+                        scale = tvButtonScale(),
+                    ) { Text(stringResource(R.string.connection_choose_pc)) }
+                }
+            }
+        }
         val hero = browse.heroItem
         if (hero == null) {
             item {

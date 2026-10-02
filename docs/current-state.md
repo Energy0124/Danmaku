@@ -66,6 +66,13 @@ Compose macOS artifact are retired.
 
 - Discovery/manual connection, catalog browsing, series/episode presentation,
   Media3 streaming, subtitles, playback progress, resume, and danmaku.
+- TV reconnects whenever it enters the foreground, opens cached Home immediately,
+  and refreshes its saved PC in the background. First launch searches automatically;
+  a single discovered PC connects directly, while multiple PCs use a remote-friendly
+  picker. Failed reconnects search again and retry known saved PCs without silently
+  switching to an unknown library. Manual entry accepts a PC name, IP address, or
+  full URL with one Connect action. Tracking loads after Home opens; offline cached
+  Home exposes connection recovery. Active playback and manual entry are preserved.
 - TV keeps the screen on during active video playback to prevent the screen
   saver from interrupting viewing, and releases it when playback is paused,
   stops, or the player view is removed.

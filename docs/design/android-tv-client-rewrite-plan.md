@@ -4,6 +4,19 @@ Date: 2026-07-29
 Status: Implemented; emulator-qualified, physical-device QA deferred
 Target: `apps/android-tv`
 
+Launch connection follow-up (2026-10-01): TV now reconnects on foreground entry,
+opens cached Home before network work, searches automatically on first launch or
+failed reconnect, and presents all discovered/saved PCs when selection is needed.
+Only an unambiguous first connection or a previously saved discovered address is
+automatically selected. Manual entry stays in the connection screen with one
+Connect action, and tracking requests do not delay Home. Physical remote/network
+qualification remains pending; see `docs/current-state.md`.
+
+Verification: TV unit tests (including 16 new connection/startup cases), debug APK
+assembly, and Android instrumentation source compilation pass. D-pad coverage now
+includes discovery progress, the PC picker, and inline manual entry/cancel. The
+connected tests have not been run for this follow-up.
+
 ## Decision
 
 Rewrite the Android TV presentation layer in place as a single product cutover.

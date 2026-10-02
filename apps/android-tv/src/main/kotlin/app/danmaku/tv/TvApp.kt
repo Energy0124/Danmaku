@@ -13,6 +13,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.danmaku.player.android.Media3PlaybackServiceConnection
@@ -84,6 +86,10 @@ internal fun TvApp(container: TvApplicationContainer) {
         Media3PlaybackServiceConnection(context.applicationContext)
     }
 
+    LifecycleEventEffect(Lifecycle.Event.ON_START) {
+        sessionViewModel.onStart()
+    }
+
     LaunchedEffect(updateViewModel) {
         updateViewModel.startAutomaticCheck()
     }
@@ -130,10 +136,11 @@ internal fun TvApp(container: TvApplicationContainer) {
                     TvOnboardingScreen(
                         navigation = navigation,
                         navigator = navigator,
-                        isDiscovering = session.isRefreshing,
-                        errorMessage = session.errorMessage,
+                        session = session,
                         onDiscover = sessionViewModel::discoverPc,
-                        onOpenPc = { navigationViewModel.navigate(TvRoute.Pc) },
+                        onSetManualEntry = sessionViewModel::setManualEntry,
+                        onConnectAddress = sessionViewModel::connectAddress,
+                        onSelectConnection = sessionViewModel::selectConnection,
                     )
                 is TvRoute.Player ->
                     TvPlayerRoute(

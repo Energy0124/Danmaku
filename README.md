@@ -272,6 +272,13 @@ exact preview before syncing. Account connection, series mapping, and conflict
 import remain in the Windows app or web administration UI. Android TV remains
 a dedicated module with TV-specific focus and remote-navigation behavior.
 
+TV searches for the PC automatically on first launch and reconnects when returning
+to the app. A single discovered PC connects directly; select from the PC list when
+more than one is found. Saved libraries open from cache while reconnecting. Keep
+Danmaku running on the PC and both devices on the same trusted network. If discovery
+is unavailable, enter the PC name or IP address (port 8686 by default), or its full
+HTTP/HTTPS address, then select **Connect**. The connection is saved automatically.
+
 Signed mobile and TV builds check the stable GitHub Release manifest at startup
 at most once per day. Updates are downloaded only after approval, verified by
 size, SHA-256, package identity, version code, and the installed signing

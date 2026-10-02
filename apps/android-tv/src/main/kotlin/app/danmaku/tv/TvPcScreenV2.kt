@@ -75,6 +75,7 @@ internal fun TvPcScreen(
             ) {
                 Button(
                     onClick = onDiscover,
+                    enabled = !session.isRefreshing && !session.connection.isDiscovering,
                     modifier = Modifier
                         .tvRouteFocus(
                             navigation,

@@ -97,7 +97,7 @@ internal fun TvConsumerShell(
                     browse = browse,
                     onOpenSeries = { onNavigate(TvRoute.SeriesDetail(it)) },
                     onPlay = playbackViewModel::play,
-                    onOpenPc = { onNavigate(TvRoute.Pc) },
+                    onOpenPc = sessionViewModel::discoverPc,
                 )
             TvRoute.Library ->
                 TvLibraryGridScreen(
@@ -264,14 +264,18 @@ internal fun TvCompactNavigationRail(
             }
             Spacer(Modifier.weight(1f))
             Text(
-                text = if (session.catalog == null) {
-                    stringResource(R.string.pc_offline)
-                } else if (session.isOffline) {
-                    stringResource(R.string.status_cached_offline)
-                } else {
-                    stringResource(R.string.pc_ready)
-                },
-                color = if (session.catalog == null) TvSecondaryContent else TvSuccess,
+                text = stringResource(
+                    when {
+                        session.isRefreshing -> R.string.status_connecting
+                        session.connection.isDiscovering -> R.string.status_discovering
+                        session.catalog == null -> R.string.pc_offline
+                        session.isOffline -> R.string.status_cached_offline
+                        else -> R.string.pc_ready
+                    },
+                ),
+                color = if (session.catalog == null || session.isOffline || session.isRefreshing) {
+                    TvSecondaryContent
+                } else TvSuccess,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )

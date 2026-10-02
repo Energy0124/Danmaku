@@ -47,6 +47,16 @@ internal enum class TvCatalogSource {
     Network,
 }
 
+internal enum class TvConnectionError { DISCOVERY_FAILED, CONNECTION_FAILED, INVALID_ADDRESS }
+
+internal data class TvConnectionUiState(
+    val isManualEntry: Boolean = false,
+    val isDiscovering: Boolean = false,
+    val hasSearched: Boolean = false,
+    val discoveredUrls: List<String> = emptyList(),
+    val error: TvConnectionError? = null,
+)
+
 internal enum class TvLibrarySort {
     TITLE,
     PATH,
@@ -74,6 +84,7 @@ internal data class TvSessionUiState(
     val errorMessage: String? = null,
     val tracking: TvTrackingState = TvTrackingState(),
     val folderRefresh: TvFolderRefreshState = TvFolderRefreshState(),
+    val connection: TvConnectionUiState = TvConnectionUiState(),
 ) {
     val hasConnection: Boolean
         get() = serverUrl.isNotBlank()
