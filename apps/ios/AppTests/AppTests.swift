@@ -41,7 +41,7 @@ private actor DelayedTransport: LibraryTransport {
         if url.host == "slow.local" { try await Task.sleep(for: .milliseconds(150)) }
         let body: String
         switch url.path {
-        case "/api/server/status": body = #"{"appName":"Fixture","apiVersion":1,"mediaStreaming":true}"#
+        case "/api/server/status": body = #"{"hostMode":"headless-server"}"#
         case "/api/library": body = "{\"rootName\":\"" + url.host! + "\",\"indexedAtEpochMs\":0,\"items\":[]}"
         default: body = "[]"
         }

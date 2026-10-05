@@ -96,3 +96,19 @@ command with the Personal Team and paired device identifier to renew it.
 Reinstall the same bundle/team without
 uninstalling to preserve app data; Personal Team profiles need renewal after seven
 days. Real-library/live-provider and visual QA remain separately approved gates.
+
+## Connection Protocol Follow-up
+
+The first deployed iOS build required `appName` and `apiVersion` in server status.
+Rust intentionally omits those fields when they match LAN v1 defaults, so valid
+servers failed with a missing-data decoding error before the catalog request.
+The iOS decoder now applies the documented app name, API version, streaming, and
+scan defaults while preserving explicit values and rejecting unsupported versions.
+The connection regression uses the committed Rust status/catalog/progress responses;
+the application stale-connection fixture also returns omitted default status fields.
+Verification passed all 12 Swift core tests, all 9 iPad application tests, and an
+unsigned device build. Logs are under `build/ios-status-{core-tests,app-tests,device-build}.log`.
+The signed update installed without uninstalling the app; launch was initially
+blocked by the iPad lock screen and succeeded after the user unlocked it.
+Deployment output is recorded in `build/ios-status-device-deployment.log` and
+`build/ios-status-device-launch.json`. No real-library or live-account QA was run.

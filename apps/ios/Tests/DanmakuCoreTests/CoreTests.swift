@@ -66,6 +66,47 @@ final class CoreTests: XCTestCase {
         XCTAssertEqual(catalog.items.first?.subtitles?.first?.id, "subtitle-id")
         XCTAssertNil(catalog.items.first?.animeMetadata)
     }
+    private func lanResponse(_ name: String) throws -> Data {
+        let path = repository.appendingPathComponent("native/library-server/tests/fixtures/lan-protocol/\(name).json")
+        let fixture = try JSONSerialization.jsonObject(with: Data(contentsOf: path)) as! [String: Any]
+        let response = fixture["response"] as! [String: Any]
+        let body = response["body"] as! [String: Any]
+        return Data((body["text"] as! String).utf8)
+    }
+    func testConnectUsesRustStatusCatalogAndProgressResponses() async throws {
+        let statusData = try lanResponse("server-status")
+        let status = try JSONDecoder().decode(ServerStatus.self, from: statusData)
+        XCTAssertEqual(status.appName, "Danmaku")
+        XCTAssertEqual(status.apiVersion, 1)
+        XCTAssertEqual(status.mediaStreaming, true)
+        XCTAssertEqual(status.scanning, false)
+        let client = LibraryClient(transport: ProtocolFixtureTransport(responses: [
+            "/api/server/status": statusData,
+            "/api/library": try lanResponse("catalog"),
+            "/api/progress": try lanResponse("progress-list")]))
+        let (catalog, progress) = try await client.connect(Connection(name: "Fixture", baseURL: "http://fixture.local"))
+        XCTAssertEqual(catalog.items.first?.id, "episode-id")
+        XCTAssertEqual(progress.first?.mediaId, "episode-id")
+        XCTAssertEqual(progress.first?.positionMs, 12345)
+    }
+    func testStatusOverridesDefaultsAndRejectsUnsupportedServer() async throws {
+        let data = Data(#"{"appName":"Custom","apiVersion":2,"mediaStreaming":false,"scanning":true,"scanFilesSeen":12,"scanError":"Failed"}"#.utf8)
+        let status = try JSONDecoder().decode(ServerStatus.self, from: data)
+        XCTAssertEqual(status.appName, "Custom")
+        XCTAssertEqual(status.apiVersion, 2)
+        XCTAssertEqual(status.mediaStreaming, false)
+        XCTAssertEqual(status.scanning, true)
+        XCTAssertEqual(status.scanFilesSeen, 12)
+        XCTAssertEqual(status.scanError, "Failed")
+        for body in [data, Data(#"{"mediaStreaming":false}"#.utf8)] {
+            let client = LibraryClient(transport: ProtocolFixtureTransport(responses: ["/api/server/status": body]))
+            do {
+                _ = try await client.connect(Connection(name: "Fixture", baseURL: "http://fixture.local"))
+                XCTFail("Unsupported server should be rejected")
+            } catch ClientError.incompatibleServer {}
+        }
+        XCTAssertThrowsError(try JSONDecoder().decode(ServerStatus.self, from: Data(#"{"apiVersion":"invalid"}"#.utf8)))
+    }
     func testCheckpointIsolationAndAcknowledgementRace() throws {
         var state = PersistentState()
         let first = PlaybackProgress(mediaId: "same", positionMs: 12_000, durationMs: nil, updatedAtEpochMs: 1)
@@ -121,5 +162,14 @@ final class CoreTests: XCTestCase {
         let raw = Data(#"{"animeId":{"provider":"BANGUMI","value":9007199254740993},"watchedEpisodes":4}"#.utf8)
         let value = try JSONDecoder().decode(JSONValue.self, from: raw)
         XCTAssertEqual(try JSONDecoder().decode(JSONValue.self, from: JSONEncoder().encode(value)), value)
+    }
+}
+
+private struct ProtocolFixtureTransport: LibraryTransport {
+    let responses: [String: Data]
+    func data(for request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        let url = request.url!
+        let data = try XCTUnwrap(responses[url.path], "Unexpected protocol request: \(url.path)")
+        return (data, HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!)
     }
 }
