@@ -11,13 +11,13 @@ struct HomeScreen: View {
                 else { Text("Open Connect to find your library server.") }
                 if model.loading { ProgressView("Connecting…") }
             }
-            let continuing = LibraryPolicy.continuing(model.catalog, progress: model.progress)
+            let continuing = model.continuing
             if !continuing.isEmpty {
                 Section("Continue watching") { ForEach(continuing, id: \.item.id) { EpisodeRow(model: model, item: $0.item) } }
             }
-            Section("Next up") { ForEach(LibraryPolicy.nextUp(model.catalog, progress: model.progress), id: \.item.id) { EpisodeRow(model: model, item: $0.item) } }
+            Section("Next up") { ForEach(model.nextUp, id: \.item.id) { EpisodeRow(model: model, item: $0.item) } }
             Section("Recently added") {
-                ForEach(Array(model.catalog.items.sorted { ($0.indexedAtEpochMs ?? 0) > ($1.indexedAtEpochMs ?? 0) }.prefix(12))) { EpisodeRow(model: model, item: $0) }
+                ForEach(model.library.recent) { EpisodeRow(model: model, item: $0) }
             }
         }.navigationTitle("Home").refreshable { await model.reconnect() }
     }
@@ -28,13 +28,14 @@ struct LibraryScreen: View {
     @State private var query = ""
     @State private var filter = "All"
     @State private var selectedID: String?
-    private var groups: [Series] {
-        let progress = LibraryPolicy.latest(model.progress)
-        return LibraryPolicy.grouped(model.catalog.items.filter { item in
-            let matches = query.isEmpty || [item.title, item.seriesTitle, item.episodeTitle, item.relativePath].joined(separator: " ").localizedCaseInsensitiveContains(query)
-            let state = progress[item.id]?.watchState ?? "NEW"
-            return matches && (filter == "All" || (filter == "Favorites" && model.isFavorite(item)) || (filter == "Unwatched" && state == "NEW") || (filter == "In progress" && state == "IN_PROGRESS") || (filter == "Watched" && state == "WATCHED"))
-        })
+    @State private var groups: [Series] = []
+    private struct FilterRequest: Hashable {
+        var query: String; var filter: String
+        var library: UInt64; var progress: UInt64; var favorites: Set<String>
+    }
+    private var request: FilterRequest {
+        FilterRequest(query: query, filter: filter, library: model.libraryRevision,
+                      progress: model.progressRevision, favorites: model.state.favorites[model.connection?.id ?? ""] ?? [])
     }
     var body: some View {
         GeometryReader { geometry in
@@ -54,14 +55,24 @@ struct LibraryScreen: View {
             }
             .overlay { if groups.isEmpty { ContentUnavailableView("No matching episodes", systemImage: "magnifyingglass", description: Text("Connect to a library or adjust the filters.")) } }
         }.navigationTitle("Library").searchable(text: $query)
+        .task(id: request) {
+            let request = request; let index = model.library; let progress = model.progressByID
+            if !request.query.isEmpty { try? await Task.sleep(for: .milliseconds(150)) }
+            guard !Task.isCancelled else { return }
+            let result = await Task.detached(priority: .userInitiated) {
+                index.filtered(query: request.query, filter: request.filter, progress: progress, favorites: request.favorites)
+            }.value
+            guard !Task.isCancelled else { return }
+            groups = result
+        }
         .toolbar { Button("Refresh", systemImage: "arrow.clockwise") { Task { await model.reconnect() } }.disabled(model.loading) }
     }
     private func seriesLabel(_ group: Series) -> some View {
         HStack {
-            if let item = group.items.first { Poster(item: item, connection: model.connection, local: model.cachedPoster(item)) }
+            if let item = group.seasons.first?.items.first { Poster(item: item, connection: model.connection, local: model.cachedPoster(item)) }
             VStack(alignment: .leading) {
                 Text(group.title).font(.headline)
-                Text("\(group.items.count) episodes").font(.caption).foregroundStyle(.secondary)
+                Text("\(group.episodeCount) episodes").font(.caption).foregroundStyle(.secondary)
             }
         }
     }
@@ -93,28 +104,20 @@ struct FolderScreen: View {
     @ObservedObject var model: AppModel
     @State private var path: [String] = []
     @State private var confirmDownload = false
-    private var items: [MediaItem] { LibraryPolicy.descendants(model.catalog.items, path: path) }
-    private var multiRoot: Bool { Set(model.catalog.items.compactMap(\.rootLabel)).count > 1 }
-    private var folders: [String] {
-        Set(items.compactMap { item in
-            let components = LibraryPolicy.folderComponents(item, multiRoot: multiRoot)
-            return components.count > path.count + 1 ? components[path.count] : nil
-        }).sorted { $0.localizedStandardCompare($1) == .orderedAscending }
-    }
-    private var files: [MediaItem] { items.filter { LibraryPolicy.folderComponents($0, multiRoot: multiRoot).count == path.count + 1 } }
+    private var listing: FolderListing { model.library.folder(path) }
     var body: some View {
         List {
             if !path.isEmpty { Button("Up one folder", systemImage: "arrow.up") { path.removeLast() } }
             if model.scanning { ProgressView("Scanning…"); if let count = model.scanCount { Text("\(count) files found") } }
-            ForEach(folders, id: \.self) { folder in Button { path.append(folder) } label: { Label(folder, systemImage: "folder") } }
-            ForEach(files) { EpisodeRow(model: model, item: $0) }
+            ForEach(listing.folders, id: \.self) { folder in Button { path.append(folder) } label: { Label(folder, systemImage: "folder") } }
+            ForEach(listing.files) { EpisodeRow(model: model, item: $0) }
         }.navigationTitle(path.last ?? NSLocalizedString("Folders", comment: ""))
         .toolbar {
             Button("Refresh folder", systemImage: "arrow.clockwise") { model.rescan(path) }.disabled(!model.online || model.scanning)
-            Button("Download folder", systemImage: "arrow.down.circle") { confirmDownload = true }.disabled(!model.online || items.isEmpty)
+            Button("Download folder", systemImage: "arrow.down.circle") { confirmDownload = true }.disabled(!model.online || listing.descendants.isEmpty)
         }
         .confirmationDialog("Download this folder snapshot?", isPresented: $confirmDownload, titleVisibility: .visible) {
-            Button("Download") { model.download(items) }
+            Button("Download") { model.download(listing.descendants) }
         } message: { Text("Includes files in subfolders. New files are not downloaded automatically.") }
         .onChange(of: model.connection?.id) { _, _ in path = [] }
     }
@@ -142,7 +145,7 @@ struct EpisodeDetail: View {
                 if let root = item.rootLabel { LabeledContent("Library root", value: root) }
                 LabeledContent("File size", value: ByteCountFormatter.string(fromByteCount: item.sizeBytes, countStyle: .file))
                 LabeledContent("Format", value: item.mediaType)
-                if let row = LibraryPolicy.latest(model.progress)[item.id] {
+                if let row = model.progressByID[item.id] {
                     LabeledContent("Playback position", value: timeLabel(row.positionMs))
                     if let duration = row.durationMs { LabeledContent("Duration", value: timeLabel(duration)) }
                 }

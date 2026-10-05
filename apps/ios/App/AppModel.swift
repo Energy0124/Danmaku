@@ -1,11 +1,18 @@
 import Foundation
 import Combine
+import UIKit
 import DanmakuCore
 
 @MainActor final class AppModel: ObservableObject {
     @Published var state = PersistentState()
     @Published var catalog = Catalog()
-    @Published var progress: [PlaybackProgress] = []
+    @Published private(set) var progress: [PlaybackProgress] = []
+    @Published private(set) var library = LibraryIndex()
+    @Published private(set) var progressByID: [String: PlaybackProgress] = [:]
+    @Published private(set) var continuing: [NextUp] = []
+    @Published private(set) var nextUp: [NextUp] = []
+    @Published private(set) var libraryRevision: UInt64 = 0
+    @Published private(set) var progressRevision: UInt64 = 0
     @Published var connection: Connection?
     @Published var loading = false
     @Published var online = false
@@ -23,6 +30,10 @@ import DanmakuCore
     private let stateURL: URL
     private let persistence: any StatePersistence
     private var storageHealthy = true
+    private let storageQueue = DispatchQueue(label: "app.danmaku.ios.state", qos: .utility)
+    private let storedState: Task<(PersistentState, LibrarySnapshot), Error>
+    private var restored = false
+    private var homeTask: Task<Void, Never>?
     private var generation = RequestGeneration()
     private var playbackGeneration = RequestGeneration()
     private var scanTask: Task<Void, Never>?
@@ -41,38 +52,98 @@ import DanmakuCore
         return AppModel()
     }
 
-    init(root: URL? = nil, backgroundDownloads: Bool = true, client: LibraryClient = LibraryClient()) {
+    init(root: URL? = nil, backgroundDownloads: Bool = true, client: LibraryClient = LibraryClient(), persistence: (any StatePersistence)? = nil) {
         self.client = client
         let root = root ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Danmaku")
         stateURL = root.appendingPathComponent("state.json")
-        persistence = FileStatePersistence(url: stateURL)
-        downloads = Downloads(root: root.appendingPathComponent("Downloads"), background: backgroundDownloads)
-        do { state = try persistence.load() }
-        catch { self.error = error.localizedDescription; storageHealthy = false }
-        if let saved = state.connections.first(where: { $0.id == state.selectedServer }) {
-            connection = saved; catalog = state.catalogs[saved.id] ?? Catalog(); progress = state.progress[saved.id] ?? []
+        let storage = persistence ?? FileStatePersistence(url: stateURL)
+        self.persistence = storage
+        storedState = Task.detached(priority: .userInitiated) {
+            let state = try storage.load()
+            let server = state.selectedServer ?? ""
+            return (state, LibrarySnapshot(catalog: state.catalogs[server] ?? Catalog(), progress: state.progress[server] ?? []))
         }
+        downloads = Downloads(root: root.appendingPathComponent("Downloads"), background: backgroundDownloads)
         player.checkpoint = { [weak self] position, duration in self?.checkpoint(position: position, duration: duration) }
         player.navigate = { [weak self] direction in self?.navigate(direction) }
         downloads.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &subscriptions)
     }
+    func restore() async {
+        guard !restored else { return }
+        do {
+            let (saved, snapshot) = try await storedState.value
+            guard !restored else { return }
+            restored = true; state = saved
+            connection = saved.connections.first { $0.id == saved.selectedServer }
+            publish(snapshot)
+        } catch {
+            guard !restored else { return }
+            restored = true; storageHealthy = false; self.error = error.localizedDescription
+        }
+    }
     func persist() {
-        guard storageHealthy else { return }
-        do { try persistence.save(state) } catch { self.error = error.localizedDescription }
+        guard restored, storageHealthy else { return }
+        let snapshot = state; let persistence = persistence
+        let backgroundTask = UIApplication.shared.beginBackgroundTask(withName: "Save library state")
+        // FIFO writes keep the newest checkpoint last without encoding the catalog on the UI thread.
+        storageQueue.async { [weak self] in
+            var failure: Error?
+            do { try persistence.save(snapshot) } catch { failure = error }
+            let error = failure
+            Task { @MainActor in
+                if let error { self?.error = error.localizedDescription }
+                if backgroundTask != .invalid { UIApplication.shared.endBackgroundTask(backgroundTask) }
+            }
+        }
+    }
+    func flushPersistence() async {
+        await withCheckedContinuation { continuation in storageQueue.async { continuation.resume() } }
+    }
+    private func publish(_ snapshot: LibrarySnapshot) {
+        homeTask?.cancel()
+        catalog = snapshot.catalog; library = snapshot.index; libraryRevision &+= 1
+        progress = snapshot.progress; progressByID = snapshot.progressByID; progressRevision &+= 1
+        continuing = snapshot.continuing; nextUp = snapshot.nextUp
+    }
+    private func snapshot(_ catalog: Catalog, progress: [PlaybackProgress]) async -> LibrarySnapshot {
+        await Task.detached(priority: .userInitiated) { LibrarySnapshot(catalog: catalog, progress: progress) }.value
+    }
+    private func updateProgress(_ rows: [PlaybackProgress]) {
+        progress = rows; progressByID = LibraryPolicy.latest(rows); progressRevision &+= 1
+        let revision = progressRevision; let catalog = catalog
+        homeTask?.cancel()
+        homeTask = Task {
+            let home = await Task.detached(priority: .utility) {
+                (LibraryPolicy.continuing(catalog, progress: rows), LibraryPolicy.nextUp(catalog, progress: rows))
+            }.value
+            guard !Task.isCancelled, revision == progressRevision else { return }
+            continuing = home.0; nextUp = home.1
+        }
     }
     func connect(_ target: Connection) async {
+        await restore()
+        let previous = connection?.id
         let ticket = generation.advance()
         scanTask?.cancel(); scanning = false; scanCount = nil
         connection = target; online = false; accounts = .null; tracking = .null; trackingResult = nil
-        catalog = state.catalogs[target.id] ?? Catalog(); progress = state.progress[target.id] ?? []
+        if previous != target.id { publish(LibrarySnapshot()) }
         loading = true; error = nil
         defer { if generation.accepts(ticket) { loading = false } }
         do {
+            if previous != target.id, let cached = state.catalogs[target.id] {
+                let prepared = await snapshot(cached, progress: state.progress[target.id] ?? [])
+                guard generation.accepts(ticket) else { return }
+                publish(prepared)
+            }
             let (catalog, remote) = try await client.connect(target)
             guard generation.accepts(ticket) else { return }
-            self.catalog = catalog; self.online = true
             let local = state.pending.filter { $0.server == target.id }.map(\.progress)
-            progress = Array(LibraryPolicy.latest(remote + local).values)
+            let rows = Array(LibraryPolicy.latest(remote + local).values)
+            let prepared = await snapshot(catalog, progress: rows)
+            guard generation.accepts(ticket) else { return }
+            publish(prepared); self.online = true
+            let newestLocal = state.pending.filter { $0.server == target.id }.map(\.progress)
+            if newestLocal != local { updateProgress(Array(LibraryPolicy.latest(remote + newestLocal).values)) }
             state.catalogs[target.id] = catalog; state.progress[target.id] = progress
             state.selectedServer = target.id
             if !state.connections.contains(where: { $0.id == target.id }) { state.connections.append(target) }
@@ -108,7 +179,7 @@ import DanmakuCore
         state.connections.removeAll { $0.id == target.id }
         if connection?.id == target.id {
             generation.advance(); scanTask?.cancel(); connection = nil; online = false; loading = false; scanning = false; scanCount = nil
-            catalog = Catalog(); progress = []; state.selectedServer = nil; tracking = .null; accounts = .null
+            publish(LibrarySnapshot()); state.selectedServer = nil; tracking = .null; accounts = .null
         }
         persist()
     }
@@ -129,7 +200,12 @@ import DanmakuCore
                         if let scanError = status.scanError { error = scanError }
                         let updated: Catalog = try await client.request(target, path: "/api/library")
                         guard generation.accepts(ticket) else { return }
-                        catalog = updated; state.catalogs[target.id] = updated; persist(); return
+                        let prepared = await snapshot(updated, progress: progress)
+                        guard generation.accepts(ticket) else { return }
+                        let latest = state.progress[target.id] ?? []
+                        publish(prepared)
+                        if latest != prepared.progress { updateProgress(latest) }
+                        state.catalogs[target.id] = updated; persist(); return
                     }
                     try await Task.sleep(for: .seconds(1))
                 }
@@ -240,12 +316,12 @@ import DanmakuCore
         let row = PlaybackProgress(mediaId: item.id, positionMs: position, durationMs: duration,
                                    updatedAtEpochMs: Int64(Date().timeIntervalSince1970 * 1000))
         state.checkpoint(server: target.id, progress: row)
-        if connection?.id == target.id { progress = state.progress[target.id] ?? [] }
+        if connection?.id == target.id { updateProgress(state.progress[target.id] ?? []) }
         persist()
         if online, connection?.id == target.id { reconcile(target, remote: []) }
     }
     private func reconcile(_ target: Connection, remote: [PlaybackProgress]) {
-        guard uploadTask == nil else { return }
+        guard uploadTask == nil, state.pending.contains(where: { $0.server == target.id }) else { return }
         uploadTask = Task {
             var failed = false
             defer {

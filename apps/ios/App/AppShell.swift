@@ -78,7 +78,7 @@ struct EpisodeRow: View {
     @ObservedObject var model: AppModel
     var item: MediaItem
     var body: some View {
-        let progress = LibraryPolicy.latest(model.progress)[item.id]
+        let progress = model.progressByID[item.id]
         HStack(spacing: 12) {
             Poster(item: item, connection: model.connection, local: model.cachedPoster(item))
             VStack(alignment: .leading, spacing: 5) {

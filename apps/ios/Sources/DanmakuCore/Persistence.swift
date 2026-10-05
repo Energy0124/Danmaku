@@ -4,7 +4,7 @@ public struct Checkpoint: Codable, Sendable {
     public var server: String
     public var progress: PlaybackProgress
 }
-public struct PersistentState: Codable {
+public struct PersistentState: Codable, Sendable {
     public var connections: [Connection] = []
     public var selectedServer: String?
     public var catalogs: [String: Catalog] = [:]
@@ -32,7 +32,7 @@ public struct PersistentState: Codable {
     }
 }
 
-public protocol StatePersistence {
+public protocol StatePersistence: Sendable {
     func load() throws -> PersistentState
     func save(_ state: PersistentState) throws
 }
