@@ -30,7 +30,7 @@ final class PlaybackTests: XCTestCase {
             window.makeKeyAndVisible()
             defer { engine.stop(); window.isHidden = true }
             engine.load(url: url, title: "Synthetic \(ext)", resume: 0, subtitles: [("SRT", srt), ("ASS", ass)])
-            try await eventually({ engine.playing && engine.position >= 1000 && engine.audioTracks.filter { $0.id >= 0 }.count >= 2 }, details: { engine.diagnostic })
+            try await eventually({ engine.playing && engine.position >= 1000 && engine.decodedVideoFrames > 0 && engine.displayedVideoFrames > 0 && engine.audioTracks.filter { $0.id >= 0 }.count >= 2 }, details: { engine.diagnostic })
             try await eventually({ engine.subtitleTracks.filter { $0.id >= 0 }.count >= 2 }, details: { engine.diagnostic })
             let audio = try XCTUnwrap(engine.audioTracks.last)
             engine.audio(audio.id)

@@ -28,17 +28,17 @@ try {
             $report = Join-Path $repo "build/ios-fixture-device-$format.json"
             Remove-Item -LiteralPath $report -Force -ErrorAction SilentlyContinue
             $deadline = [DateTime]::UtcNow.AddSeconds(20)
+            $result = $null
             do {
                 Start-Sleep -Seconds 2
                 & xcrun devicectl device copy from --quiet --device $DeviceId --source "Documents/Fixture/result-$format.json" --destination $report --domain-type appDataContainer --domain-identifier app.danmaku.ios
-            } while ($LASTEXITCODE -ne 0 -and [DateTime]::UtcNow -lt $deadline)
-            if ($LASTEXITCODE -ne 0) { throw "No $format playback report arrived from the device." }
-            $result = Get-Content -LiteralPath $report -Raw | ConvertFrom-Json
-            if ($result.runId -ne $runId -or $result.playing -ne 'true' -or [long]$result.positionMs -lt 1000 -or $result.error -ne '') { throw "The $format fixture did not play successfully." }
-            Write-Host "$format fixture played: $($result.audioTracks) audio tracks, $($result.subtitleTracks) subtitle tracks. Report: $report"
+                if ($LASTEXITCODE -eq 0) { $result = Get-Content -LiteralPath $report -Raw | ConvertFrom-Json }
+            } while ($result.runId -ne $runId -and [DateTime]::UtcNow -lt $deadline)
+            if ($result.runId -ne $runId) { throw "No current $format playback report arrived from the device." }
+            if ($result.playing -ne 'true' -or [long]$result.positionMs -lt 1000 -or [long]$result.decodedVideoFrames -le 0 -or [long]$result.displayedVideoFrames -le 0 -or [long]$result.audioTracks -lt 2 -or [long]$result.subtitleTracks -lt 2 -or $result.error -ne '') { throw "The $format fixture did not play successfully." }
+            Write-Host "$format fixture played: $($result.displayedVideoFrames) displayed video frames, $($result.audioTracks) audio tracks, $($result.subtitleTracks) subtitle tracks. Report: $report"
         }
-    } else {
-        & xcrun devicectl device process launch --device $DeviceId app.danmaku.ios
-        if ($LASTEXITCODE -ne 0) { throw 'Launch failed. Check developer certificate trust on the device.' }
     }
+    & xcrun devicectl device process launch --terminate-existing --device $DeviceId app.danmaku.ios
+    if ($LASTEXITCODE -ne 0) { throw 'Launch failed. Check developer certificate trust on the device.' }
 } finally { Pop-Location }

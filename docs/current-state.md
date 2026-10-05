@@ -207,9 +207,9 @@ Compose macOS artifact are retired.
 
 ## Partial Or Pending
 
-- iOS physical-device installation/playback, visual rotation/multitasking QA,
-  and release distribution require separate verification. The connected iPad
-  needs Apple development signing and Developer Mode before installation.
+- iOS signed installation and synthetic MP4/MKV playback passed on the connected
+  Energy iPad Pro. Visual rotation/multitasking QA and release distribution remain
+  pending; see the iOS implementation log for evidence and remaining checks.
 
 - Supervised Windows fullscreen, multi-display, hardware decode, and broader
   real-media release matrices still require manual QA.

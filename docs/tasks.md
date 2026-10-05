@@ -10,8 +10,9 @@ Status: `[x]` done, `[~]` in progress, `[ ]` not started.
 - `[x]` Add native iPhone/iPad library, playback, danmaku, offline downloads,
   progress reconciliation, tracking review, Bonjour discovery, and build tooling.
 - `[x]` Verify Swift core and iPad/iPhone simulator playback/download fixtures.
-- `[~]` Complete signed iPad installation/playback, rotation/multitasking,
-  and release QA. See [iOS client](design/ios-ipad-client.md).
+- `[x]` Complete signed iPad installation, launch, and synthetic MP4/MKV playback.
+- `[ ]` Complete rotation/multitasking and release QA.
+  See [iOS client](design/ios-ipad-client.md).
 
 - `[x]` Retire the Kotlin Compose desktop app, JVM library server/host modules,
   JNA bridge, legacy database importer, compatibility artifact, and macOS

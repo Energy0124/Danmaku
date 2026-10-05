@@ -50,17 +50,21 @@ routes; confirmed writes preserve the exact preview object and reject stale prev
   seek, pause, rate, and resumed clocks were verified.
 - Debug-only device fixture launch was exercised headlessly on the iPad simulator;
   MP4/MKV reports confirmed playback with two audio tracks and sidecar subtitles.
+  The strengthened probe also requires decoded and displayed video frames;
+  the playback suite passed with these checks before physical deployment.
   It uses isolated state and skips saved-library connections. The deployment tool
   copies synthetic fixtures and retrieves playback reports without screenshots.
 - Download/tracking tests use a loopback-only fixture HTTP server. Generated
   fixture media and test results live under ignored `build/` directories.
-- No real-library, live provider account, desktop screenshot, or physical iPad
-  playback QA has been performed.
+- Signed installation and normal launch passed on the Energy iPad Pro.
+  Synthetic MP4 reported 114 decoded/34 displayed video frames, two audio tracks,
+  and four subtitle tracks; MKV reported 102 decoded/28 displayed frames, two
+  audio tracks, and five subtitle tracks. Both advanced past one second without
+  errors. Fixture runs used isolated state; the tool then launched the normal app.
+- No real-library, live provider account, or desktop screenshot QA was performed.
 
 ## Remaining Gates
 
-- The user's connected iPad currently requires Developer Mode and a valid
-  Apple Personal Team signing identity before signed installation and launch.
 - Confirm portrait/landscape/narrow iPad multitasking, iPhone compact navigation,
   physical decoder performance, permissions, and background suspension/resume.
 - Native resume data is owned by iOS; if it becomes unavailable, retry restarts
@@ -73,14 +77,22 @@ routes; confirmed writes preserve the exact preview object and reject stale prev
 Ignored local verification output:
 `build/ios-core-tests-final.log`, `build/ios-rust-tests-final.log`,
 `build/ios-device-build-final.log`, `build/ios-ipad-tests-final.xcresult`,
-`build/ios-iphone-tests.xcresult`, `build/ios-reproducible-tests.log`, and `build/ios-fixture-simulator-{mp4,mkv}.json`.
+`build/ios-iphone-tests.xcresult`, `build/ios-reproducible-tests.log`,
+`build/ios-fixture-simulator-{mp4,mkv}.json`, `build/ios-device-handoff-tests.log`,
+`build/ios-device-build-handoff.log`, `build/ios-device-deployment-final.log`,
+and `build/ios-fixture-device-{mp4,mkv}.json`.
 The GitHub macOS job builds unsigned device output and runs the same fixture suite;
 CI itself has not run for this local branch yet.
 
 The paired Energy iPad Pro (12.9-inch, fifth generation) is running iPadOS 26.5.
-The last local readback still shows Developer Mode disabled and zero valid signing
-identities. No signed installation has been attempted. After the user's Xcode
-account and Developer Mode setup, run the documented deploy command with the
-Personal Team and paired device identifier. Reinstall the same bundle/team without
+Developer Mode is now enabled and an Apple Development certificate exists.
+The initial signing attempt rejected the saved Apple account session; the user
+reauthenticated and created the certificate. The signed retry succeeded and
+installed the application. Local signature validation passed, and the provisioning
+profile includes the paired device. After the user trusted the developer profile
+on iPadOS, both fixture launches and the final normal app launch succeeded.
+The local provisioning profile expires October 12, 2026. Run the documented deploy
+command with the Personal Team and paired device identifier to renew it.
+Reinstall the same bundle/team without
 uninstalling to preserve app data; Personal Team profiles need renewal after seven
 days. Real-library/live-provider and visual QA remain separately approved gates.

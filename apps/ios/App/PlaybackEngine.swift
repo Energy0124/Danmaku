@@ -34,7 +34,7 @@ final class PlaybackEngine: NSObject, ObservableObject, PlaybackControlling, VLC
     @Published var danmakuStatus = ""
     @Published private(set) var comments: [DanmakuEvent] = []
     let surface = UIView()
-    private let player = VLCMediaPlayer(options: ["--quiet", "--no-video-title-show"])
+    private let player = VLCMediaPlayer(options: ["--quiet", "--no-video-title-show", "--stats"])
     private var timer: Timer?
     private var anchor = Date()
     private var lastCheckpoint = Date()
@@ -46,6 +46,8 @@ final class PlaybackEngine: NSObject, ObservableObject, PlaybackControlling, VLC
     #if DEBUG
     var fixtureReportURL: URL?
     var fixtureRunID = ""
+    var decodedVideoFrames: Int { Int(player.media?.statistics.decodedVideo ?? 0) }
+    var displayedVideoFrames: Int { Int(player.media?.statistics.displayedPictures ?? 0) }
     private var reportedFixture = false
     var diagnostic: String { "state=\(player.state.rawValue) playing=\(player.isPlaying) position=\(position) audio=\(audioTracks.count) subtitles=\(subtitleTracks.count) duration=\(duration) audioRaw=\(String(describing: player.audioTrackIndexes)) names=\(String(describing: player.audioTrackNames))" }
     #endif
@@ -126,8 +128,9 @@ final class PlaybackEngine: NSObject, ObservableObject, PlaybackControlling, VLC
         if player.state == .error { error = NSLocalizedString("Playback failed. Check the connection and media file.", comment: "") }
         #if DEBUG
         if let report = fixtureReportURL, !reportedFixture,
-           (playing && position >= 1000 && audioTracks.filter({ $0.id >= 0 }).count >= 2 && subtitleTracks.filter({ $0.id >= 0 }).count >= 2) || error != nil {
+           (playing && position >= 1000 && decodedVideoFrames > 0 && displayedVideoFrames > 0 && audioTracks.filter({ $0.id >= 0 }).count >= 2 && subtitleTracks.filter({ $0.id >= 0 }).count >= 2) || error != nil {
             let result = ["runId": fixtureRunID, "playing": String(playing), "positionMs": String(position), "durationMs": String(duration),
+                          "decodedVideoFrames": String(decodedVideoFrames), "displayedVideoFrames": String(displayedVideoFrames),
                           "audioTracks": String(audioTracks.filter { $0.id >= 0 }.count),
                           "subtitleTracks": String(subtitleTracks.filter { $0.id >= 0 }.count), "error": error ?? ""]
             do { try AtomicFile.write(result, to: report); reportedFixture = true }

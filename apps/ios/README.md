@@ -43,6 +43,8 @@ Sign into your Apple account in Xcode Settings and select its Personal Team.
 Enable Settings → Privacy & Security → Developer Mode on the device, restart,
 and confirm. Keep the device paired, unlocked, and trusted. Find its identifier
 with `xcrun devicectl list devices` and the team identifier in Xcode signing settings.
+On first installation, iPadOS may require trusting your developer account under
+Settings → General → VPN & Device Management before the app can launch.
 
 ```powershell
 ./tools/macos/deploy-ios.ps1 -TeamId <team-id> -DeviceId <device-identifier> -FixturePlayback
@@ -50,9 +52,10 @@ with `xcrun devicectl list devices` and the team identifier in Xcode signing set
 
 The command signs, installs, and launches the app. `-FixturePlayback` copies only
 generated synthetic media to Documents/Fixture, verifies MP4 and MKV playback
-with two audio tracks and sidecar subtitles, and saves device reports under
-`build/`. The Debug-only fixture launch uses isolated state and skips saved server connections. Omit
-this flag for normal launch. It never uninstalls an existing
+with decoded/displayed video frames, two audio tracks and sidecar subtitles, and
+saves device reports under `build/`. The Debug-only fixture launch uses isolated
+state and skips saved server connections. Omit this flag to skip the fixtures.
+The command finishes with a normal app launch. It never uninstalls an existing
 copy. Reinstall using the same bundle ID and team to preserve saved connections,
 downloads, preferences, and progress. Free Personal Team provisioning expires
 after seven days; rebuild and reinstall to renew it. Signing accounts, private
