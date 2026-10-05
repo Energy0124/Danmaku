@@ -139,3 +139,21 @@ recorded a maximum 75 ms gap across 96 ticks. The unsigned device build passed,
 and the signed update installed without deleting app data. Automatic launch was
 blocked by the device lock screen; the user can unlock and open the app.
 Real-library and live-provider QA remain separate gates.
+
+## Bonjour Address Follow-up
+
+A native Network-framework probe could browse and resolve the advertised server,
+but the resolved IPv4 endpoint's debug description included an interface suffix
+such as `192.0.2.10%en0`. The app interpolated that description into an HTTP URL;
+Foundation rejected the URL and the discovery result was silently discarded.
+The resolver now formats IPv4 bytes without a scope suffix and formats IPv6 bytes
+with URI brackets and an escaped zone for link-local addresses. Browser and
+resolver waiting/failure states now surface the existing localized discovery error.
+
+All 13 core and 12 application tests passed, including scoped IPv4, link-local and
+global IPv6, hostname, and unresolved-service cases. Logs are recorded under
+`build/ios-discovery-{tests,device-build,device-deployment}.log`.
+The unsigned device build passed, and the signed update installed without deleting
+app data. Automatic launch was blocked by the iPad lock screen.
+The network probe inspected service announcements and TCP address resolution only;
+it did not request catalog, progress, media, or provider data.
