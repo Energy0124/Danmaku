@@ -107,6 +107,20 @@ final class CoreTests: XCTestCase {
         }
         XCTAssertThrowsError(try JSONDecoder().decode(ServerStatus.self, from: Data(#"{"apiVersion":"invalid"}"#.utf8)))
     }
+    func testLibraryIndexPreservesOrderingFoldersAndFilters() throws {
+        let (catalog, progress, _) = try inputs("series-grouping")
+        let index = LibraryIndex(catalog)
+        XCTAssertEqual(index.series.map { $0.items.map(\.id) }, LibraryPolicy.grouped(catalog.items).map { $0.items.map(\.id) })
+        let root = index.folder([])
+        XCTAssertEqual(root.descendants.map(\.id), catalog.items.map(\.id))
+        for folder in root.folders {
+            XCTAssertEqual(index.folder([folder]).descendants.map(\.id), LibraryPolicy.descendants(catalog.items, path: [folder]).map(\.id))
+        }
+        let item = try XCTUnwrap(catalog.items.first)
+        XCTAssertEqual(index.filtered(query: "", filter: "Favorites", progress: LibraryPolicy.latest(progress), favorites: [item.id]).flatMap(\.items).map(\.id), [item.id])
+        XCTAssertTrue(index.filtered(query: "nonexistent-search-term", filter: "All", progress: [:], favorites: []).isEmpty)
+        XCTAssertEqual(index.filtered(query: "", filter: "Watched", progress: [item.id: PlaybackProgress(mediaId: item.id, positionMs: 60000, durationMs: 60000, updatedAtEpochMs: 1)], favorites: []).flatMap(\.items).map(\.id), [item.id])
+    }
     func testCheckpointIsolationAndAcknowledgementRace() throws {
         var state = PersistentState()
         let first = PlaybackProgress(mediaId: "same", positionMs: 12_000, durationMs: nil, updatedAtEpochMs: 1)

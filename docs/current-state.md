@@ -190,6 +190,8 @@ Compose macOS artifact are retired.
   presentation, compact iPhone navigation, and English/Traditional Chinese text.
 - Bonjour/manual/saved connection management, cached catalog, Home/next-up,
   grouping, search/watch/favorite filters, multi-root folders and manual rescans.
+- Cached catalog/progress projections and background state storage keep large
+  libraries responsive, with synthetic 10,000-episode connection/browsing coverage.
 - MobileVLCKit 3.7.2 streaming/local playback, fullscreen, seek/rate controls,
   audio and embedded/sidecar subtitle selection, previous/next, and resume.
 - Clock-driven scrolling/top/bottom danmaku with persistent display and timing

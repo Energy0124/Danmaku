@@ -12,18 +12,21 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @StateObject private var model = AppModel.forLaunch()
     @Environment(\.scenePhase) private var phase
+    @State private var started = false
     var body: some Scene {
         WindowGroup {
             AppShell(model: model)
                 .task {
+                    await model.restore()
                     AppDelegate.downloads = model.downloads
                     #if DEBUG
                     if model.launchFixture() { return }
                     #endif
                     await model.reconnect()
+                    started = true
                 }
                 .onChange(of: phase) { _, phase in
-                    if phase == .active {
+                    if phase == .active && started && !model.loading {
                         #if DEBUG
                         if ProcessInfo.processInfo.arguments.contains("--qa-fixture") { return }
                         #endif

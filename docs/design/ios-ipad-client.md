@@ -112,3 +112,30 @@ The signed update installed without uninstalling the app; launch was initially
 blocked by the iPad lock screen and succeeded after the user unlocked it.
 Deployment output is recorded in `build/ios-status-device-deployment.log` and
 `build/ios-status-device-launch.json`. No real-library or live-account QA was run.
+
+## Large-library Responsiveness Follow-up
+
+The first library views regrouped the entire catalog repeatedly during SwiftUI
+drawing, rebuilt progress maps per episode row, and recalculated root membership
+inside folder filtering. State restoration and full-catalog JSON saves also ran
+on the main thread. These paths caused stalls with thousands of episodes.
+
+The Swift core now builds reusable series/recent/folder/search projections once
+per catalog. Episode ordering parses numbers once per item with shared regexes;
+next-up uses an ID index instead of a linear catalog scan per progress row.
+Views read shared progress lookups, cached Home rows, and folder listings. Search
+runs on a worker after a short debounce and discards canceled results.
+State restoration runs on a worker; atomic saves use a FIFO queue and OS background
+tasks, preserving snapshot order and the existing on-disk format. Connection and
+rescan publication reject stale work and retain newer playback checkpoints.
+Startup no longer issues duplicate reconnects from task and initial scene activation.
+
+Tests cover cached offline server switching, grouping/folder/filter semantics,
+off-main persistence, ordered favorite saves, and UI run-loop responsiveness while
+connecting and browsing a synthetic 10,000-episode library. Logs are under
+`build/ios-performance-{tests,device-build,device-deployment}.log`.
+All 13 core and 11 application tests passed. The final iPad simulator heartbeat
+recorded a maximum 75 ms gap across 96 ticks. The unsigned device build passed,
+and the signed update installed without deleting app data. Automatic launch was
+blocked by the device lock screen; the user can unlock and open the app.
+Real-library and live-provider QA remain separate gates.

@@ -134,6 +134,11 @@ URLSession transport, Bonjour discovery, and durable storage are platform
 adapters. MobileVLCKit 3.7.2 remains behind the playback controller; presentation
 does not import media-engine types.
 
+Catalog snapshots precompute series order, recent items, folder listings, and
+progress lookups on workers. SwiftUI reads these projections; search filters run
+off the main actor and discard canceled results. State restoration and FIFO atomic
+writes also run off the main thread, with a bounded OS background task for saves.
+
 The Rust server additionally advertises `_danmaku._tcp.local.` with its bound
 HTTP port and `apiVersion=1`. iOS declares that service and requests Local
 Network access; it does not request the restricted multicast entitlement.
