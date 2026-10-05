@@ -1,10 +1,27 @@
 import XCTest
 import UIKit
 import SwiftUI
+import Network
 @testable import Danmaku
 import DanmakuCore
 
 final class AppTests: XCTestCase {
+    func testBonjourResolvedAddressesProduceHTTPURLs() throws {
+        let scopedIPv4 = try XCTUnwrap(IPv4Address("192.0.2.10%lo0"))
+        XCTAssertNotNil(scopedIPv4.interface)
+        let ipv4 = try Discovery.connection(name: "Fixture", endpoint: .hostPort(host: .ipv4(scopedIPv4), port: 8686))
+        XCTAssertEqual(ipv4.baseURL, "http://192.0.2.10:8686")
+        XCTAssertEqual(try ipv4.url(path: "/api/server/status").absoluteString, "http://192.0.2.10:8686/api/server/status")
+        let scopedIPv6 = try XCTUnwrap(IPv6Address("fe80::1234%lo0"))
+        XCTAssertNotNil(scopedIPv6.interface)
+        let ipv6 = try Discovery.connection(name: "Fixture", endpoint: .hostPort(host: .ipv6(scopedIPv6), port: 8686))
+        XCTAssertEqual(ipv6.baseURL, "http://[fe80::1234%25lo0]:8686")
+        XCTAssertEqual(try ipv6.url(path: "/api/server/status").absoluteString, ipv6.baseURL + "/api/server/status")
+        let globalIPv6 = try XCTUnwrap(IPv6Address("2001:db8::1234%lo0"))
+        XCTAssertEqual(try Discovery.connection(name: "Fixture", endpoint: .hostPort(host: .ipv6(globalIPv6), port: 12345)).baseURL, "http://[2001:db8::1234]:12345")
+        XCTAssertEqual(try Discovery.connection(name: "Fixture", endpoint: .hostPort(host: .name("fixture.local", nil), port: 12345)).baseURL, "http://fixture.local:12345")
+        XCTAssertThrowsError(try Discovery.connection(name: "Fixture", endpoint: .service(name: "Fixture", type: "_danmaku._tcp", domain: "local.", interface: nil)))
+    }
     func testPlaybackEngineStartsStopped() {
         let player = PlaybackEngine()
         XCTAssertFalse(player.loaded)
