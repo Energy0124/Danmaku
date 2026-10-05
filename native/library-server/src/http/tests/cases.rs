@@ -1382,6 +1382,94 @@ fn maps_matroska_stream_content_type() {
 }
 
 #[tokio::test]
+async fn media_resume_validates_last_modified_before_applying_range() {
+    let fixture = FixtureEnvironment::new();
+    let state = HttpServerState::new(
+        fixture.library.clone(),
+        Arc::new(PlaybackProgressStore::new(
+            fixture.temp.join("ios-resume.json"),
+        )),
+        HttpServerConfig::fixture(fixture.web_root.clone()),
+    );
+    let app = app(state);
+    let head = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("HEAD")
+                .uri("/media/episode-id")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let modified = head
+        .headers()
+        .get("last-modified")
+        .expect("resume validator")
+        .clone();
+    let etag = head
+        .headers()
+        .get("etag")
+        .expect("precise resume validator")
+        .clone();
+    for (validator, expected) in [
+        (modified, StatusCode::PARTIAL_CONTENT),
+        (etag.clone(), StatusCode::PARTIAL_CONTENT),
+        (
+            HeaderValue::from_static("Thu, 01 Jan 1970 00:00:00 GMT"),
+            StatusCode::OK,
+        ),
+        (
+            HeaderValue::from_static("\"unsupported-etag\""),
+            StatusCode::OK,
+        ),
+    ] {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/media/episode-id")
+                    .header("range", "bytes=3-")
+                    .header("if-range", validator)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(expected, response.status());
+        assert!(response.headers().contains_key("last-modified"));
+        let body = to_bytes(response.into_body(), 1024).await.unwrap();
+        assert_eq!(if expected == StatusCode::OK { 6 } else { 3 }, body.len());
+    }
+    // A replacement with the same length must invalidate the previous precise tag.
+    std::fs::write(
+        fixture.library.files_by_id.get("episode-id").unwrap(),
+        b"newnew",
+    )
+    .unwrap();
+    let replacement = app
+        .oneshot(
+            Request::builder()
+                .uri("/media/episode-id")
+                .header("range", "bytes=3-")
+                .header("if-range", etag)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(StatusCode::OK, replacement.status());
+    assert_eq!(
+        b"newnew".as_slice(),
+        to_bytes(replacement.into_body(), 1024)
+            .await
+            .unwrap()
+            .as_ref()
+    );
+}
+
+#[tokio::test]
 async fn media_route_handles_mpv_open_ended_ranges_and_head() {
     let fixture = FixtureEnvironment::new();
     let state = HttpServerState::new(

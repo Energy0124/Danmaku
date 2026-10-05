@@ -14,9 +14,9 @@ const DISCOVERY_INTERVAL: Duration = Duration::from_millis(1_500);
 const PROTOCOL: &str = "danmaku-library";
 const VERSION: u8 = 1;
 
-#[derive(Debug)]
 pub struct DiscoveryAnnouncer {
     task: JoinHandle<()>,
+    bonjour: Option<(mdns_sd::ServiceDaemon, String)>,
 }
 
 impl DiscoveryAnnouncer {
@@ -39,14 +39,48 @@ impl DiscoveryAnnouncer {
                 }
             }
         });
-        Ok(Self { task })
+        // Bonjour is additive: a blocked mDNS port must not stop HTTP or UDP.
+        let bonjour = start_bonjour(server_port).ok();
+        Ok(Self { task, bonjour })
     }
 }
 
 impl Drop for DiscoveryAnnouncer {
     fn drop(&mut self) {
         self.task.abort();
+        if let Some((daemon, fullname)) = &self.bonjour {
+            let _ = daemon.unregister(fullname);
+            let _ = daemon.shutdown();
+        }
     }
+}
+
+const BONJOUR_SERVICE: &str = "_danmaku._tcp.local.";
+
+fn bonjour_service(port: u16) -> std::result::Result<mdns_sd::ServiceInfo, mdns_sd::Error> {
+    let name = format!("Danmaku-{}", std::process::id());
+    mdns_sd::ServiceInfo::new(
+        BONJOUR_SERVICE,
+        &name,
+        &format!("danmaku-{}.local.", std::process::id()),
+        "",
+        port,
+        &[("apiVersion", "1")][..],
+    )
+    .map(|service| service.enable_addr_auto())
+}
+
+fn start_bonjour(
+    port: u16,
+) -> std::result::Result<(mdns_sd::ServiceDaemon, String), mdns_sd::Error> {
+    let service = bonjour_service(port)?;
+    let fullname = service.get_fullname().to_owned();
+    let daemon = mdns_sd::ServiceDaemon::new()?;
+    if let Err(error) = daemon.register(service) {
+        let _ = daemon.shutdown();
+        return Err(error);
+    }
+    Ok((daemon, fullname))
 }
 
 pub fn discovery_payload(port: u16) -> Result<Vec<u8>> {
@@ -183,6 +217,14 @@ fn is_default_version(version: &u8) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn bonjour_advertises_bound_port_and_api_version() {
+        let service = bonjour_service(12345).expect("service");
+        assert_eq!(12345, service.get_port());
+        assert_eq!(BONJOUR_SERVICE, service.get_type());
+        assert_eq!(Some("1"), service.get_property_val_str("apiVersion"));
+    }
 
     #[test]
     fn default_discovery_payload_matches_kotlin_fixture() {

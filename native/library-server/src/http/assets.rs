@@ -21,9 +21,24 @@ pub(super) async fn handle_media(
         return empty_status(StatusCode::NOT_FOUND);
     }
     let file_size = metadata.len();
-    let range_header = headers.get("range").and_then(|value| value.to_str().ok());
+    let modification_time = metadata.modified().ok();
+    let modified = modification_time.map(httpdate::fmt_http_date);
+    // Preserve subsecond filesystem identity: HTTP dates alone cannot distinguish
+    // two writes in the same second. Native clients prefer this validator.
+    let etag = modification_time
+        .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|time| format!("\"{file_size:x}-{:x}\"", time.as_nanos()));
+    let if_range_matches = headers.get("if-range").is_none_or(|value| {
+        value.to_str().ok().is_some_and(|validator| {
+            etag.as_deref() == Some(validator) || modified.as_deref() == Some(validator)
+        })
+    });
+    let range_header = headers
+        .get("range")
+        .and_then(|value| value.to_str().ok())
+        .filter(|_| if_range_matches);
     let range = range_header.and_then(|header| parse_range(header, file_size));
-    if headers.contains_key("range") && range.is_none() {
+    if if_range_matches && headers.contains_key("range") && range.is_none() {
         let mut response_headers = HeaderMap::new();
         response_headers.insert(CONTENT_RANGE, header_value(format!("bytes */{file_size}")));
         response_headers.insert(CONTENT_LENGTH, HeaderValue::from_static("0"));
@@ -39,6 +54,12 @@ pub(super) async fn handle_media(
         .map(|range| range.1 - range.0 + 1)
         .unwrap_or(file_size);
     let mut response_headers = HeaderMap::new();
+    if let Some(modified) = modified {
+        response_headers.insert("last-modified", header_value(modified));
+    }
+    if let Some(etag) = etag {
+        response_headers.insert("etag", header_value(etag));
+    }
     response_headers.insert(ACCEPT_RANGES, HeaderValue::from_static("bytes"));
     response_headers.insert(CONTENT_TYPE, header_value(content_type(path)));
     response_headers.insert(CONTENT_LENGTH, header_value(content_length.to_string()));

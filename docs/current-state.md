@@ -1,9 +1,9 @@
 # Current State
 
-Last reviewed: 2026-08-31.
+Last reviewed: 2026-10-05.
 
 Danmaku's active product is a Rust-native Windows library/player/server with
-Android mobile, Android TV, and browser clients on the same trusted-LAN API,
+Android mobile, Android TV, iPhone/iPad, and browser clients on the same trusted-LAN API,
 plus an experimental native Rust macOS build. The Kotlin Compose desktop app,
 JVM server/host modules, JNA bridge, legacy desktop database importer, and old
 Compose macOS artifact are retired.
@@ -184,7 +184,32 @@ Compose macOS artifact are retired.
   does not redistribute an unreviewed libmpv build; target Macs need
   `brew install mpv`.
 
+### iPhone And iPad Development Client
+
+- Native SwiftUI universal app for iOS/iPadOS 17+, iPad sidebar/library-detail
+  presentation, compact iPhone navigation, and English/Traditional Chinese text.
+- Bonjour/manual/saved connection management, cached catalog, Home/next-up,
+  grouping, search/watch/favorite filters, multi-root folders and manual rescans.
+- MobileVLCKit 3.7.2 streaming/local playback, fullscreen, seek/rate controls,
+  audio and embedded/sidecar subtitle selection, previous/next, and resume.
+- Clock-driven scrolling/top/bottom danmaku with persistent display and timing
+  controls; collision scheduling is pure Swift and independent of frame callbacks.
+- Serialized background URLSession episode/series/folder snapshot downloads,
+  pause/resume/retry/cancel/deletion, cached metadata/danmaku/subtitles/posters,
+  and a progress journal preserved across cache deletion.
+- MAL/Bangumi status/readback, exact update review and confirmed sync; account,
+  mapping and provider-ahead administration stay in server/web UI.
+- Committed Xcode project/workspace/scheme, locked CocoaPods/Gem dependencies,
+  PowerShell build/test/install tools, and macOS iOS CI coverage. Verification and
+  device signing status are recorded in [iOS implementation](design/ios-ipad-client.md).
+- Rust Bonjour advertising supplements UDP; media Last-Modified/ETag/If-Range supports
+  resumable transfers without changing LAN API version 1.
+
 ## Partial Or Pending
+
+- iOS signed installation and synthetic MP4/MKV playback passed on the connected
+  Energy iPad Pro. Visual rotation/multitasking QA and release distribution remain
+  pending; see the iOS implementation log for evidence and remaining checks.
 
 - Supervised Windows fullscreen, multi-display, hardware decode, and broader
   real-media release matrices still require manual QA.

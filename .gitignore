@@ -25,5 +25,10 @@ runtime/windows/libmpv/
 *.iml
 *.log
 *.tmp
+apps/ios/Pods/
+apps/ios/.bundle/
+apps/ios/.build/
+**/xcuserdata/
+*.xcuserstate
 .DS_Store
 Thumbs.db

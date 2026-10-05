@@ -39,6 +39,7 @@ Keep this guide limited to durable repository rules; use the canonical documents
 | `shared/player-android-media3` | `:shared:player-android-media3:assembleDebugAndroidTest`  |
 | `apps/android-mobile`         | `:apps:android-mobile:assembleDebug`                       |
 | `apps/android-tv`             | `:apps:android-tv:assembleDebug`                           |
+| `apps/ios`                   | `swift test --package-path apps/ios` and `./tools/macos/build-ios.ps1 -Platform Device`; playback/adapter changes also run `./tools/macos/test-ios.ps1 -SimulatorId <uuid>` |
 | `native/` (Rust)              | `cargo fmt --all --check` then `cargo test --workspace`    |
 | `tools/dandanplay-worker-proxy` | `npm run typecheck` and `npm test` in that directory     |
 | `apps/web-ui`                 | `npm install` and `npm run build` in that directory        |
@@ -74,6 +75,8 @@ libraries, emulators, or take over the desktop session:
 
 - Use Rust/egui for Windows and macOS application/server code; use
   Kotlin/Compose for Android application code.
+- Use SwiftUI for iPhone/iPad presentation with platform adapters and a
+  fixture-verified Swift core; keep MobileVLCKit behind the playback controller.
 - Share domain models, repositories, playback state, source contracts, and
   danmaku scheduling logic where practical.
 - Keep Android TV as a dedicated app module with TV-specific layouts, focus

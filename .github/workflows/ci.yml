@@ -262,6 +262,45 @@ jobs:
           path: build/release/macos/*.zip
           if-no-files-found: error
 
+  ios:
+    name: iPhone and iPad build and fixture tests
+    runs-on: macos-15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+      - name: Install iOS build tooling
+        run: |
+          brew install ruby powershell ffmpeg
+          echo "$(brew --prefix ruby)/bin" >> "$GITHUB_PATH"
+      - name: Install locked CocoaPods tooling
+        working-directory: apps/ios
+        run: |
+          gem install bundler -v 4.0.20 --no-document
+          export PATH="$(ruby -e 'puts Gem.bindir'):$PATH"
+          echo "$(ruby -e 'puts Gem.bindir')" >> "$GITHUB_PATH"
+          bundle config set --local path ../../build/ios-gems
+          bundle install
+      - name: Build unsigned device app
+        shell: pwsh
+        run: ./tools/macos/build-ios.ps1 -Platform Device
+      - name: Select iPad simulator
+        id: simulator
+        run: |
+          device_id=$(xcrun simctl list devices available --json | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(v["udid"] for group in reversed(list(d["devices"].values())) for v in group if v["isAvailable"] and v["name"].startswith("iPad")))')
+          echo "id=$device_id" >> "$GITHUB_OUTPUT"
+      - name: Test Swift core and synthetic playback
+        shell: pwsh
+        run: ./tools/macos/test-ios.ps1 -SimulatorId '${{ steps.simulator.outputs.id }}'
+      - name: Upload unsigned iOS build and test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: danmaku-ios-verification
+          path: |
+            build/ios-device/Build/Products/Debug-iphoneos/Danmaku.app
+            build/ios-tests-*.xcresult
+          if-no-files-found: warn
+
   dandanplay-worker-proxy:
     name: Dandanplay Worker proxy
     runs-on: ubuntu-latest

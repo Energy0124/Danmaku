@@ -55,6 +55,15 @@ With an Android emulator or device online, also run:
 .\gradlew.bat --no-daemon :apps:android-tv:connectedDebugAndroidTest
 ```
 
+## iOS Verification
+
+See [iOS build and test setup](apps/ios/README.md). Run Swift core tests and
+`./tools/macos/build-ios.ps1 -Platform Device` for iOS changes. Application,
+download, and playback changes additionally require
+`./tools/macos/test-ios.ps1 -SimulatorId <iOS-simulator-uuid>`. The tests generate
+synthetic media and do not require a real library, Apple account, or physical
+device. Physical device deployment needs signing and Developer Mode.
+
 ## Documentation
 
 Update documentation when a change affects architecture, platform behavior,

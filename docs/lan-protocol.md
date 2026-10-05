@@ -725,6 +725,25 @@ duration. It never writes provider-ahead progress back to the provider.
 The former `/api/providers/list/entry` direct read/write route is removed;
 provider writes only occur through previewed tracking sync.
 
+## Bonjour Discovery (iOS/iPadOS)
+
+The Rust server also registers `_danmaku._tcp.local.` with its actual bound HTTP
+port and TXT `apiVersion=1`. Registration exists only while the host is running;
+registration failure leaves HTTP/manual connection and UDP discovery available.
+iOS browses this declared service, resolves its address, and validates
+`GET /api/server/status` before loading the library. This addition does not
+change HTTP or UDP protocol version 1.
+
+Media GET/HEAD responses include `Last-Modified` and a quoted `ETag` derived
+from file length and precise filesystem modification time when available. Native
+clients should prefer the tag to distinguish writes within the same HTTP-date
+second. With `Range` and an exactly matching tag or date `If-Range`, the
+normal byte-range response applies. An `If-Range` validator that cannot be
+matched (including an unsupported entity tag) ignores the range and returns the complete current
+representation. A request without `If-Range` retains ordinary range behavior.
+The date validator has HTTP's one-second precision; media should not be edited
+in place during playback/download.
+
 ## UDP Discovery
 
 `LocalLibraryDiscoveryAnnouncer` sends UDP datagrams every 1,500 ms after
