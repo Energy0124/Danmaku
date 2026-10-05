@@ -86,6 +86,20 @@ public struct ServerStatus: Decodable, Sendable {
     public var scanning: Bool?
     public var scanFilesSeen: Int64?
     public var scanError: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case appName, apiVersion, mediaStreaming, scanning, scanFilesSeen, scanError
+    }
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        // LAN v1 omits default status fields; match the Rust/Android defaults.
+        appName = try values.decodeIfPresent(String.self, forKey: .appName) ?? "Danmaku"
+        apiVersion = try values.decodeIfPresent(Int.self, forKey: .apiVersion) ?? 1
+        mediaStreaming = try values.decodeIfPresent(Bool.self, forKey: .mediaStreaming) ?? true
+        scanning = try values.decodeIfPresent(Bool.self, forKey: .scanning) ?? false
+        scanFilesSeen = try values.decodeIfPresent(Int64.self, forKey: .scanFilesSeen)
+        scanError = try values.decodeIfPresent(String.self, forKey: .scanError)
+    }
 }
 
 public struct Connection: Codable, Identifiable, Equatable, Sendable {
