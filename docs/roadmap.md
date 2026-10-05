@@ -77,5 +77,7 @@ Status: macOS development slice implemented; release promotion deferred.
   treating the local macOS server as feature-complete.
 - Run supervised Apple Silicon and Intel playback/resize/fullscreen/hardware
   decode QA before promotion.
-- Consider Linux, iOS/iPadOS, and broader web delivery only after the
-  first-class release gates pass.
+- iOS/iPadOS now has a native SwiftUI development client with Android mobile
+  feature coverage. Verify physical-device signing/playback and iPad
+  rotation/multitasking, then define release distribution before promotion.
+- Consider Linux and broader web delivery after the first-class release gates pass.

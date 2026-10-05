@@ -4,7 +4,8 @@
 
 Danmaku is a local-first anime library, player, and danmaku application. The
 first-class targets are the Rust-native Windows player, Android mobile/tablet,
-and Android TV, with an experimental native macOS build. A Rust library server
+and Android TV, with an experimental native macOS build and a native iPhone/iPad
+development client. A Rust library server
 publishes authorized local media to the clients over a trusted LAN and serves
 the browser administration UI.
 
@@ -20,6 +21,7 @@ apps/
   android-mobile/         Android phone/tablet client
   android-tv/             Dedicated Android TV client
   android-tv-benchmark/   Android TV Macrobenchmark journeys
+  ios/                   Native SwiftUI iPhone/iPad LAN and offline client
   web-ui/                 Trusted-LAN server administration UI
 
 shared/
@@ -289,8 +291,21 @@ contact the update endpoint unless one is explicitly configured.
 Connected checks require an emulator or physical device and are documented in
 [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## iPhone and iPad
+
+The SwiftUI client supports iOS/iPadOS 17+, native MobileVLCKit playback,
+subtitles, danmaku, library/folder browsing, progress, offline downloads, and
+reviewed tracking sync. It adapts to iPad split layouts and compact iPhone
+navigation, with English and Traditional Chinese text. The Rust server now
+advertises Bonjour in addition to Android UDP discovery.
+
+Build with Xcode and the locked CocoaPods dependencies; signing with an Xcode
+Personal Team allows direct installation on a paired device with Developer
+Mode enabled. See [iOS setup, tests, and deployment](apps/ios/README.md).
+
 ## Documentation
 
+- [iOS implementation and verification](docs/design/ios-ipad-client.md)
 - [Current state](docs/current-state.md)
 - [Architecture](docs/architecture.md)
 - [Roadmap](docs/roadmap.md)

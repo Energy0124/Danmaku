@@ -124,6 +124,32 @@ cards. Debug builds have no update endpoint by default. Android always retains
 the final installation confirmation; the updater does not attempt silent
 installation.
 
+### iPhone And iPad
+
+`apps/ios` is a SwiftUI trusted-LAN client for iOS/iPadOS 17+. Its Swift core owns
+normalized models, library projections, watch/resume policy, progress journals,
+and batched danmaku scheduling. Rust LAN and Android domain fixtures verify
+cross-platform semantics without adding a Kotlin or Rust per-frame boundary.
+URLSession transport, Bonjour discovery, and durable storage are platform
+adapters. MobileVLCKit 3.7.2 remains behind the playback controller; presentation
+does not import media-engine types.
+
+The Rust server additionally advertises `_danmaku._tcp.local.` with its bound
+HTTP port and `apiVersion=1`. iOS declares that service and requests Local
+Network access; it does not request the restricted multicast entitlement.
+Existing Android UDP discovery remains active. Media responses provide
+Last-Modified/ETag and If-Range semantics for native resumable downloads.
+
+iOS owns a serialized background URLSession download queue and atomic cache
+manifest in Application Support, excluded from backup. Video, optional sidecar
+subtitles/posters, catalog metadata, and resolved danmaku form an explicit
+snapshot. iOS controls background scheduling and resume-data retention.
+Progress checkpoints are stored independently of cache assets and reconciled
+only with their originating server. Provider secrets, account setup, mapping,
+and conflict administration remain server-owned; every provider write submits
+the exact reviewed preview. Free-team development installation is supported;
+App Store distribution and release promotion are pending.
+
 ### Web UI
 
 `apps/web-ui` is served by the Rust server under `/web/`. It provides catalog
@@ -176,6 +202,9 @@ native/player-windows-mpv
 
 apps/web-ui
   Browser client and server administration.
+
+apps/ios
+  SwiftUI iPhone/iPad presentation, platform adapters, and fixture-verified Swift core.
 ```
 
 ## Data Flow
