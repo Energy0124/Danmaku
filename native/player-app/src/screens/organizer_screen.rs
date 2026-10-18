@@ -654,10 +654,15 @@ impl OrganizerScreen {
         s: Strings,
         out: &mut Out,
     ) {
+        let skipped = self.model.count(QueueFilter::Skipped);
         ui.label(
-            RichText::new(s.organizer_text(T::AllDone))
-                .font(typography::hero())
-                .color(palette::TEXT_PRIMARY),
+            RichText::new(s.organizer_text(if skipped > 0 {
+                T::NothingLeft
+            } else {
+                T::AllDone
+            }))
+            .font(typography::hero())
+            .color(palette::TEXT_PRIMARY),
         );
         ui.label(s.organizer_done_summary(
             self.model.count(QueueFilter::Done),

@@ -932,6 +932,7 @@ pub enum OrganizerText {
     StartHint,
     StartReview,
     AllDone,
+    NothingLeft,
     ReviewSkipped,
     FilterSeries,
     FilterToDo,
@@ -1040,6 +1041,7 @@ impl Strings {
             OrganizerText::StartHint => self.text("In Folders, turn on Select, tick the folders or videos to organize, then choose Organize. You can also use Organize this folder inside any folder.", "請在「資料夾」中開啟「選取」，勾選要整理的資料夾或影片後按「整理」。也可以在任一資料夾內使用「整理此資料夾」。"),
             OrganizerText::StartReview => self.text("Start review", "開始檢閱"),
             OrganizerText::AllDone => self.text("Every series is done", "所有系列都已完成"),
+            OrganizerText::NothingLeft => self.text("Nothing left to do", "沒有待處理的系列"),
             OrganizerText::ReviewSkipped => self.text("Review skipped series", "檢閱已略過的系列"),
             OrganizerText::FilterSeries => self.text("Filter series", "篩選系列"),
             OrganizerText::FilterToDo => self.text("To do", "待處理"),
@@ -1135,19 +1137,32 @@ impl Strings {
         )
     }
     pub fn organizer_needs_match(self, count: usize) -> String {
-        self.en_zh(format!("{count} need a match"), format!("{count} 部待辨識"))
+        self.en_zh(
+            format!(
+                "{count} {} a match",
+                if count == 1 { "needs" } else { "need" }
+            ),
+            format!("{count} 部待辨識"),
+        )
     }
     pub fn organizer_needs_match_long(self, count: usize) -> String {
         self.en_zh(
             format!(
-                "{count} videos have no match. Choose one with Change match, or Use folder name."
+                "{} no match. Choose one with Change match, or Use folder name.",
+                match count {
+                    1 => "1 video has".to_owned(),
+                    _ => format!("{count} videos have"),
+                }
             ),
             format!("{count} 部影片尚未辨識。請以「變更辨識」選擇，或「使用資料夾名稱」。"),
         )
     }
     pub fn organizer_needs_season(self, count: usize) -> String {
         self.en_zh(
-            format!("Choose a season for {count} videos."),
+            format!(
+                "Choose a season for {count} {}.",
+                if count == 1 { "video" } else { "videos" }
+            ),
             format!("請為 {count} 部影片選擇季數。"),
         )
     }
@@ -1157,7 +1172,10 @@ impl Strings {
     pub fn organizer_move_summary(self, moves: usize, bytes: u64) -> String {
         let size = format_bytes(bytes);
         self.en_zh(
-            format!("Ready: {moves} files ({size}) will move."),
+            format!(
+                "Ready: {moves} {} ({size}) will move.",
+                if moves == 1 { "file" } else { "files" }
+            ),
             format!("可核准：將移動 {moves} 個檔案（{size}）。"),
         )
     }

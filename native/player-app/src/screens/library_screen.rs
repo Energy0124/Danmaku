@@ -1091,19 +1091,24 @@ impl LibraryScreen {
                 let ids = super::organizer_selection::folder_ids(catalog, &self.folder_path);
                 action = Some(self.organizer.open_with(Some(ids.into_iter().collect())));
             }
-            let resume = session.organizer.draft.is_some();
-            if ui
-                .add_enabled(
-                    !session.server_scanning,
-                    egui::Button::new(strings.organizer_text(if resume {
-                        OrganizerText::ResumeReview
-                    } else {
-                        OrganizerText::OpenOrganizer
-                    })),
-                )
-                .clicked()
+            if session.organizer.draft.is_some() {
+                if ui
+                    .add_enabled(
+                        !session.server_scanning,
+                        egui::Button::new(strings.organizer_text(OrganizerText::ResumeReview)),
+                    )
+                    .clicked()
+                {
+                    action = Some(self.organizer.open_with(None));
+                }
+            } else if !self.selection.enabled
+                && ui
+                    .button(strings.organizer_text(OrganizerText::OpenOrganizer))
+                    .on_hover_text(strings.organizer_text(OrganizerText::SelectModeHint))
+                    .clicked()
             {
-                action = Some(self.organizer.open_with(None));
+                // Organizing starts by choosing what to organize.
+                self.selection.enabled = true;
             }
         });
         if self.selection.enabled {
