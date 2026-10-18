@@ -1013,7 +1013,7 @@ impl Strings {
             OrganizerText::OrganizeFolder => self.text("Organize this folder", "整理此資料夾"),
             OrganizerText::OpenOrganizer => self.text("Organize…", "整理…"),
             OrganizerText::ResumeReview => self.text("Resume organizing", "繼續整理"),
-            OrganizerText::ReviewMenu => self.text("Review", "檢閱"),
+            OrganizerText::ReviewMenu => self.text("End review ▾", "結束檢閱 ▾"),
             OrganizerText::FinishReview => self.text("Finish review", "結束檢閱"),
             OrganizerText::FinishReviewHint => self.text("Closes this review. Moved files stay where they are and can still be undone.", "關閉此檢閱。已移動的檔案會留在原處，仍可復原。"),
             OrganizerText::HowItWorks => self.text("How organizing works", "整理方式說明"),

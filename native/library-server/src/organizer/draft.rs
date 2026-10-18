@@ -605,8 +605,10 @@ pub(super) fn apply_op(draft: &mut OrganizationDraft, op: DraftOp) -> Result<()>
                 file.series_title = title.clone();
                 file.manual_assignment = true;
             }
+            // The user named this folder: identification never retitles it.
             for file in draft.files.iter_mut().filter(|f| f.group_id == target) {
                 file.series_title = title.clone();
+                file.manual_assignment = true;
             }
             if target != group_id
                 && let Some(results) = draft.group_candidates.remove(&group_id)
@@ -676,7 +678,23 @@ pub(super) fn apply_op(draft: &mut OrganizationDraft, op: DraftOp) -> Result<()>
                     "Select an identification candidate returned by the server.",
                 ));
             }
-            let mut retitle = Vec::new();
+            // Only a match for a whole series renames its folder, and never one
+            // the user named; picking one video's episode leaves it in place.
+            let retitle = media_ids
+                .iter()
+                .filter_map(|id| draft.files.iter().find(|f| &f.media_id == id))
+                .map(|f| f.group_id.clone())
+                .collect::<BTreeSet<_>>()
+                .into_iter()
+                .filter(|group| {
+                    let mut members = draft
+                        .files
+                        .iter()
+                        .filter(|f| &f.group_id == group && draft.editable(f));
+                    members.clone().all(|f| !f.manual_assignment)
+                        && members.all(|f| f.excluded || media_ids.contains(&f.media_id))
+                })
+                .collect::<Vec<_>>();
             for file in files_mut(draft, &media_ids) {
                 match &candidate {
                     None => {
@@ -694,21 +712,20 @@ pub(super) fn apply_op(draft: &mut OrganizationDraft, op: DraftOp) -> Result<()>
                         file.series_only = chosen.episode_id.is_none();
                         apply_candidate_season(file, &chosen);
                         file.candidate = Some(chosen);
-                        if !file.manual_assignment {
-                            retitle.push(file.media_id.clone());
-                        }
                     }
                 }
             }
             if let Some(candidate) = candidate {
                 let title = split_season_suffix(&candidate.series_title).0;
-                if !retitle.is_empty() {
-                    let target = draft.group_for_title(&title, None);
-                    for file in draft
-                        .files
-                        .iter_mut()
-                        .filter(|f| retitle.contains(&f.media_id))
-                    {
+                for group in retitle {
+                    // Join an open series with this title, else keep the group's ID.
+                    let target = draft.group_for_title(&title, Some(&group));
+                    let target = if draft.files.iter().any(|f| f.group_id == target) {
+                        target
+                    } else {
+                        group.clone()
+                    };
+                    for file in draft.files.iter_mut().filter(|f| f.group_id == group) {
                         file.group_id = target.clone();
                         file.series_title = title.clone();
                     }
@@ -997,6 +1014,69 @@ mod tests {
                 },
             )
             .is_err()
+        );
+    }
+
+    #[test]
+    fn matching_never_splits_a_series_or_renames_a_folder_the_user_named() {
+        let episode = |id: u64, n: u64| IdentificationCandidate {
+            anime_id: id,
+            episode_id: Some(id * 100 + n),
+            series_title: "葬送的芙莉莲".into(),
+            episode_title: format!("第{n}话"),
+        };
+        let mut files = vec![
+            file("01", "g", "Sousou no Frieren"),
+            file("02", "g", "Sousou no Frieren"),
+            file("03", "g", "Sousou no Frieren"),
+        ];
+        for (n, file) in files.iter_mut().enumerate() {
+            file.candidates = vec![episode(7, n as u64 + 1)];
+        }
+        let mut draft = draft(files);
+        // One video's episode: the series stays together under its folder name.
+        apply_op(
+            &mut draft,
+            DraftOp::SetMatch {
+                media_ids: vec!["01".into()],
+                candidate: Some(episode(7, 1)),
+            },
+        )
+        .unwrap();
+        assert!(draft.files.iter().all(|f| f.group_id == "g"));
+        assert!(
+            draft
+                .files
+                .iter()
+                .all(|f| f.series_title == "Sousou no Frieren")
+        );
+        // After the user names the folder, a series match keeps every video there.
+        apply_op(
+            &mut draft,
+            DraftOp::RenameGroup {
+                group_id: "g".into(),
+                title: "Frieren".into(),
+            },
+        )
+        .unwrap();
+        let series = IdentificationCandidate {
+            episode_id: None,
+            episode_title: String::new(),
+            ..episode(7, 0)
+        };
+        apply_op(
+            &mut draft,
+            DraftOp::SetMatch {
+                media_ids: vec!["01".into(), "02".into(), "03".into()],
+                candidate: Some(series),
+            },
+        )
+        .unwrap();
+        assert!(draft.files.iter().all(|f| f.group_id == "g"));
+        assert!(draft.files.iter().all(|f| f.series_title == "Frieren"));
+        assert_eq!(
+            draft.files[2].candidate.as_ref().unwrap().episode_id,
+            Some(703)
         );
     }
 

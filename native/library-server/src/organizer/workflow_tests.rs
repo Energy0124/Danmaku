@@ -643,11 +643,29 @@ fn identification_save_does_not_move_files_or_use_folder_title_as_provider_ident
         episode_title: "Episode 1".into(),
     };
     provide(&organizer, "one", vec![candidate.clone()]);
+    let folder_title = draft.files[0].series_title.clone();
+    // Choosing one video's episode never renames or splits its series.
     let draft = ops(
         &organizer,
         &draft,
         vec![DraftOp::SetMatch {
             media_ids: ids(&["one"]),
+            candidate: Some(candidate.clone()),
+        }],
+    );
+    assert_eq!(draft.files[0].series_title, folder_title);
+    let members = draft
+        .files
+        .iter()
+        .filter(|f| f.group_id == group(&draft, "one"))
+        .map(|f| f.media_id.clone())
+        .collect::<Vec<_>>();
+    // A match for the whole series files it under the provider title.
+    let draft = ops(
+        &organizer,
+        &draft,
+        vec![DraftOp::SetMatch {
+            media_ids: members,
             candidate: Some(candidate),
         }],
     );
