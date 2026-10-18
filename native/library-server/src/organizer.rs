@@ -14,8 +14,12 @@ use crate::scanner::find_season_number;
 use crate::{LibraryServerError, Result};
 
 pub mod draft;
+pub mod identify;
+mod naming;
+mod plan;
 mod transfer;
-use draft::{IdentificationStatus, OrganizationDraft};
+use draft::OrganizationDraft;
+use identify::IdentificationStatus;
 
 const JOURNAL_SCHEMA_VERSION: u32 = 2;
 const COMPLETED_HISTORY_LIMIT: usize = 20;
@@ -26,13 +30,12 @@ const SUBTITLE_EXTENSIONS: &[&str] = &["ass", "ssa", "srt", "vtt", "sub"];
 #[serde(rename_all = "camelCase")]
 pub struct OrganizationPlan {
     pub draft_id: String,
-    pub draft_revision: u64,
+    /// Digest of the group's decisions this manifest was built from.
+    pub group_signature: String,
     pub plan_id: String,
     pub catalog_revision: String,
     pub root: String,
-    pub base_relative_path: String,
     pub batches: Vec<OrganizationSeriesBatch>,
-    pub unassigned_count: usize,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -189,7 +192,6 @@ pub struct LibraryOrganizer {
     journal_file: PathBuf,
     runtime: Mutex<OrganizerRuntime>,
     cancel_requested: AtomicBool,
-    identification_cancel: AtomicBool,
     desktop_token: Mutex<Option<DesktopToken>>,
     #[cfg(test)]
     force_copy: AtomicBool,
@@ -214,6 +216,8 @@ struct OrganizerRuntime {
     draft: Option<OrganizationDraft>,
     draft_loaded: bool,
     identification: IdentificationStatus,
+    /// Incremented to stop the running identification task.
+    identification_generation: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -221,7 +225,8 @@ struct StoredPlan {
     catalog_revision: String,
     root: PathBuf,
     batches: BTreeMap<String, StoredBatch>,
-    draft_revision: Option<(String, u64)>,
+    /// Draft ID, review group and group signature a draft plan was built from.
+    draft_group: Option<(String, String, String)>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -322,7 +327,6 @@ impl LibraryOrganizer {
                 ..Default::default()
             }),
             cancel_requested: AtomicBool::new(false),
-            identification_cancel: AtomicBool::new(false),
             desktop_token: Mutex::new(None),
             #[cfg(test)]
             force_copy: AtomicBool::new(false),
@@ -361,16 +365,16 @@ impl LibraryOrganizer {
         let plan = runtime.plans.get(&request.plan_id).ok_or_else(|| {
             LibraryServerError::new("The organization plan expired; preview again.")
         })?;
-        if let Some((id, revision)) = &plan.draft_revision {
-            if runtime
-                .draft
-                .as_ref()
-                .is_none_or(|d| &d.id != id || d.revision != *revision)
-            {
-                return Err(LibraryServerError::new(
-                    "The review changed; preview again.",
-                ));
-            }
+        if let Some((id, group, signature)) = &plan.draft_group
+            && runtime.draft.as_ref().is_none_or(|d| {
+                &d.id != id
+                    || d.completed.contains_key(group)
+                    || &plan::group_signature(d, group) != signature
+            })
+        {
+            return Err(LibraryServerError::new(
+                "This series changed after the preview. Review it again.",
+            ));
         }
         if plan.catalog_revision != current_revision {
             return Err(LibraryServerError::new(
@@ -647,15 +651,6 @@ impl LibraryOrganizer {
                     .completed
                     .insert(batch.batch_id.clone(), completed_id.unwrap_or_default());
             }
-            draft.active_group = draft
-                .files
-                .iter()
-                .find(|f| {
-                    !f.excluded
-                        && !draft.completed.contains_key(&f.group_id)
-                        && !draft.skipped.contains(&f.group_id)
-                })
-                .map(|f| f.group_id.clone());
             draft.revision += 1;
             if let Err(error) = write_json_atomically(
                 &self
@@ -1402,6 +1397,7 @@ mod tests {
                         draft::CreateDraftRequest {
                             media_ids: vec!["one".into()],
                             destination: fixture.root.to_string_lossy().into_owned(),
+                            replace: false,
                         }
                     )
                     .is_err()

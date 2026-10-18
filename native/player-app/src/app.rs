@@ -862,13 +862,10 @@ impl PlayerApp {
     /// While the server reports a background library scan, keep polling its
     /// status; the session refreshes the catalog once the scan completes.
     fn poll_server_scan(&mut self, ctx: &egui::Context, now: Instant) {
-        let Some(session) = &self.session else {
+        let Some(session) = &mut self.session else {
             return;
         };
-        let organizer_active = session.organization_status.as_ref().is_some_and(|status| {
-            status.identification.running
-                || matches!(status.state.as_str(), "RUNNING" | "ROLLING_BACK")
-        });
+        let organizer_active = session.organizer.identifying() || session.organizer.transferring();
         if !session.connected || (!session.server_scanning && !organizer_active) {
             return;
         }
@@ -878,7 +875,7 @@ impl PlayerApp {
                 session.refresh_server_scan();
             }
             if organizer_active {
-                session.refresh_organization_status();
+                session.organizer(crate::library::OrganizerRequest::Status);
             }
         }
         ctx.request_repaint_after(Duration::from_millis(400));

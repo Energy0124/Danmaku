@@ -65,6 +65,7 @@ pub use connect::{ConnectAction, ConnectRequest, ConnectScreen};
 // ---------------------------------------------------------------------------
 
 mod library_screen;
+mod organizer_review;
 mod organizer_screen;
 mod organizer_selection;
 pub use library_screen::{BangumiDetailState, LibraryAction, LibraryScreen};

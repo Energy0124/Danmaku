@@ -6,11 +6,11 @@ use crate::{
     library::{
         AttentionRepairRequest, DEFAULT_NEXT_UP_LIMIT, FolderListing, LibraryAttentionDocument,
         LibraryCatalog, MINIMUM_REMAINING_MS, MINIMUM_RESUME_POSITION_MS, MediaItem, NextUpItem,
-        OrganizationPreviewRequest, OrganizationSeriesBatch, PlaybackProgress, Series,
-        continue_watching_items, folder_grouped_series, grouped_series, library_folder_shortcuts,
-        library_root_labels, matched_anime_series, next_up_items, scoped_folder_listing,
+        OrganizerRequest, PlaybackProgress, Series, continue_watching_items, folder_grouped_series,
+        grouped_series, library_folder_shortcuts, library_root_labels, matched_anime_series,
+        next_up_items, scoped_folder_listing,
     },
-    localization::Strings,
+    localization::{OrganizerText, Strings},
     posters::PosterCache,
     session::LibrarySession,
     theme::{metrics, palette, typography},
@@ -56,21 +56,10 @@ pub enum LibraryAction {
     RescanFolder {
         path: Vec<String>,
     },
-    PreviewOrganization(OrganizationPreviewRequest),
-    OrganizerCommand {
-        method: String,
-        endpoint: String,
-        body: String,
-    },
-    ExecuteOrganization {
-        plan_id: String,
-        batch: OrganizationSeriesBatch,
-    },
-    RefreshOrganizationStatus,
-    CancelOrganization,
-    UndoOrganization {
-        completed_batch_id: String,
-    },
+    /// A library organizer request (status, review creation, preview…).
+    Organizer(OrganizerRequest),
+    /// Review edits, applied in order by the server.
+    OrganizerOps(Vec<crate::library::DraftOp>),
     Disconnect,
     Settings,
 }
@@ -191,6 +180,7 @@ pub struct LibraryScreen {
     cached_folder_listing_key: Option<(u64, Vec<String>)>,
     organizer: super::organizer_screen::OrganizerScreen,
     selection: super::organizer_selection::FolderSelection,
+    organizer_checked: bool,
 }
 
 impl Default for LibraryScreen {
@@ -216,6 +206,7 @@ impl Default for LibraryScreen {
             cached_folder_listing_key: None,
             organizer: Default::default(),
             selection: Default::default(),
+            organizer_checked: false,
         }
     }
 }
@@ -1074,52 +1065,76 @@ impl LibraryScreen {
             let local = session.base_url.starts_with("http://127.")
                 || session.base_url.starts_with("http://localhost")
                 || session.base_url.starts_with("http://[::1]");
-            self.selection
-                .toolbar(ui, catalog, &self.folder_path, strings);
-            if ui
-                .add_enabled(
-                    local && !session.server_scanning,
-                    egui::Button::new(strings.organize_library()),
-                )
-                .clicked()
-            {
-                self.organizer.open = true;
-                action = Some(LibraryAction::RefreshOrganizationStatus);
+            if !local {
+                return;
             }
-            let ids = self.selection.resolved(catalog, session.catalog_version);
-            if ui
-                .add_enabled(
-                    local && !ids.is_empty(),
-                    egui::Button::new(
-                        strings
-                            .organizer_text(crate::localization::OrganizerText::OrganizeSelected),
-                    ),
-                )
-                .clicked()
-            {
-                self.organizer.open = true;
-                self.organizer.selection = ids.iter().cloned().collect();
-                action = Some(LibraryAction::RefreshOrganizationStatus);
+            if !self.organizer_checked {
+                // Learn whether an unfinished review exists so the entry point can say so.
+                self.organizer_checked = true;
+                action = Some(LibraryAction::Organizer(OrganizerRequest::Status));
             }
-            if !self.folder_path.is_empty()
+            ui.separator();
+            ui.toggle_value(
+                &mut self.selection.enabled,
+                strings.organizer_text(OrganizerText::Select),
+            )
+            .on_hover_text(strings.organizer_text(OrganizerText::SelectModeHint));
+            if !self.selection.enabled
+                && !self.folder_path.is_empty()
                 && ui
                     .add_enabled(
-                        local,
-                        egui::Button::new(
-                            strings
-                                .organizer_text(crate::localization::OrganizerText::OrganizeFolder),
-                        ),
+                        !session.server_scanning,
+                        egui::Button::new(strings.organizer_text(OrganizerText::OrganizeFolder)),
                     )
                     .clicked()
             {
-                self.organizer.open = true;
-                self.organizer.selection =
-                    super::organizer_selection::folder_ids(catalog, &self.folder_path)
-                        .into_iter()
-                        .collect();
-                action = Some(LibraryAction::RefreshOrganizationStatus);
+                let ids = super::organizer_selection::folder_ids(catalog, &self.folder_path);
+                action = Some(self.organizer.open_with(Some(ids.into_iter().collect())));
+            }
+            let resume = session.organizer.draft.is_some();
+            if ui
+                .add_enabled(
+                    !session.server_scanning,
+                    egui::Button::new(strings.organizer_text(if resume {
+                        OrganizerText::ResumeReview
+                    } else {
+                        OrganizerText::OpenOrganizer
+                    })),
+                )
+                .clicked()
+            {
+                action = Some(self.organizer.open_with(None));
             }
         });
+        if self.selection.enabled {
+            let ids = self
+                .selection
+                .resolved(catalog, session.catalog_version)
+                .clone();
+            ui.horizontal_wrapped(|ui| {
+                ui.add_space(PAGE_GUTTER);
+                self.selection.toolbar(
+                    ui,
+                    &self.folder_path,
+                    &visible_folders,
+                    &visible_files,
+                    strings,
+                );
+                if ui
+                    .add_enabled(
+                        !ids.is_empty() && !session.server_scanning,
+                        egui::Button::new(
+                            RichText::new(strings.organizer_organize_selected(ids.len()))
+                                .color(palette::TEXT_PRIMARY),
+                        )
+                        .fill(palette::ACCENT),
+                    )
+                    .clicked()
+                {
+                    action = Some(self.organizer.open_with(Some(ids.into_iter().collect())));
+                }
+            });
+        }
         if let Some(error) = &session.server_scan_error {
             ui.horizontal(|ui| {
                 ui.add_space(PAGE_GUTTER);
@@ -1137,12 +1152,12 @@ impl LibraryScreen {
         if self.selection.enabled {
             self.selection.rows(
                 ui,
-                catalog,
                 &self.folder_path,
                 &visible_folders,
                 &visible_files,
                 strings,
                 &mut navigate,
+                PAGE_GUTTER,
             );
         } else {
             for folder in visible_folders {
@@ -1177,12 +1192,12 @@ impl LibraryScreen {
         action
     }
 
-    pub fn organizer_close(&mut self, requested: bool) -> bool {
-        self.organizer.prepare_close(requested)
+    pub fn organizer_close(&mut self, requested: bool, saving: bool) -> bool {
+        self.organizer.prepare_close(requested, saving)
     }
 
-    pub fn organizer_close_finished(&mut self) -> bool {
-        self.organizer.finish_close()
+    pub fn organizer_close_finished(&mut self, saving: bool) -> bool {
+        self.organizer.finish_close(saving)
     }
 
     pub fn show_organizer(
@@ -1190,11 +1205,11 @@ impl LibraryScreen {
         ctx: &egui::Context,
         session: &LibrarySession,
         strings: Strings,
-    ) -> Option<LibraryAction> {
-        if self.organizer.open || self.organizer.needs_tick() {
+    ) -> Vec<LibraryAction> {
+        if self.organizer.open || self.organizer.needs_tick(session) {
             self.organizer.show(ctx, session, strings)
         } else {
-            None
+            Vec::new()
         }
     }
 

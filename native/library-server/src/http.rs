@@ -471,18 +471,14 @@ async fn handle_library_organize(
             }
             match organizer.create_draft(&library, request) {
                 Ok(draft) => {
-                    let request = crate::organizer::draft::IdentifyRequest {
-                        draft_id: draft.id.clone(),
-                        revision: draft.revision,
-                        media_ids: Vec::new(),
-                        query: None,
-                    };
-                    if let Ok(snapshot) = organizer.begin_identification(&request) {
-                        tokio::spawn(organizer.clone().identify(
-                            snapshot,
-                            request,
-                            state.dandanplay_resolver.clone(),
-                        ));
+                    if let Some(resolver) = state.dandanplay_resolver.clone() {
+                        let request = crate::organizer::identify::IdentifyRequest {
+                            draft_id: draft.id.clone(),
+                            media_ids: Vec::new(),
+                        };
+                        if let Ok(run) = organizer.begin_identification(&request) {
+                            tokio::spawn(organizer.clone().identify(run, resolver));
+                        }
                     }
                     json_response(StatusCode::OK, &draft)
                 }
@@ -493,34 +489,55 @@ async fn handle_library_organize(
             Ok(draft) => json_response(StatusCode::OK, &draft),
             Err(error) => text_response(StatusCode::CONFLICT, &error.to_string()),
         },
-        (Method::PUT, "/api/library/organize/draft") => {
-            let request =
-                match parse_json_body::<crate::organizer::draft::OrganizationDraft>(body).await {
-                    Ok(request) => request,
-                    Err(response) => return response,
-                };
-            match organizer.update_draft(request) {
-                Ok(draft) => json_response(StatusCode::OK, &draft),
-                Err(error) => text_response(StatusCode::CONFLICT, &error.to_string()),
-            }
-        }
         (Method::DELETE, "/api/library/organize/draft") => match organizer.discard_draft() {
             Ok(()) => empty_status(StatusCode::OK),
             Err(error) => text_response(StatusCode::CONFLICT, &error.to_string()),
         },
-        (Method::POST, "/api/library/organize/identify") => {
+        (Method::POST, "/api/library/organize/draft/ops") => {
             let request =
-                match parse_json_body::<crate::organizer::draft::IdentifyRequest>(body).await {
+                match parse_json_body::<crate::organizer::draft::DraftOpsRequest>(body).await {
                     Ok(request) => request,
                     Err(response) => return response,
                 };
+            let finished = request
+                .ops
+                .iter()
+                .filter_map(|op| match op {
+                    crate::organizer::draft::DraftOp::MarkDone { group_id } => {
+                        Some(group_id.clone())
+                    }
+                    _ => None,
+                })
+                .collect::<Vec<_>>();
+            match organizer.apply_ops(request) {
+                Ok(draft) => {
+                    // Finishing a series in place keeps its identification, like approval does.
+                    if !finished.is_empty()
+                        && let Some(store) = &state.catalog_metadata
+                        && let Err(error) = organizer.save_identification(Some(&finished), store)
+                    {
+                        eprintln!("organizer identification save failed: {error}");
+                    }
+                    json_response(StatusCode::OK, &draft)
+                }
+                Err(error) => text_response(StatusCode::CONFLICT, &error.to_string()),
+            }
+        }
+        (Method::POST, "/api/library/organize/identify") => {
+            let request =
+                match parse_json_body::<crate::organizer::identify::IdentifyRequest>(body).await {
+                    Ok(request) => request,
+                    Err(response) => return response,
+                };
+            let Some(resolver) = state.dandanplay_resolver.clone() else {
+                return text_response(
+                    StatusCode::CONFLICT,
+                    "Automatic matching is off. Add dandanplay credentials in Settings.",
+                );
+            };
             match organizer.begin_identification(&request) {
-                Ok(snapshot) => {
-                    tokio::spawn(organizer.identify(
-                        snapshot,
-                        request,
-                        state.dandanplay_resolver.clone(),
-                    ));
+                Ok(run) => {
+                    tokio::spawn(organizer.identify(run, resolver));
                     empty_status(StatusCode::ACCEPTED)
                 }
                 Err(error) => text_response(StatusCode::CONFLICT, &error.to_string()),
@@ -530,25 +547,27 @@ async fn handle_library_organize(
             organizer.cancel_identification();
             empty_status(StatusCode::OK)
         }
-        (Method::POST, "/api/library/organize/identify/save") => {
+        (Method::POST, "/api/library/organize/search") => {
             let request =
-                match parse_json_body::<crate::organizer::draft::DraftPreviewRequest>(body).await {
+                match parse_json_body::<crate::organizer::identify::SearchRequest>(body).await {
                     Ok(request) => request,
                     Err(response) => return response,
                 };
-            let Some(store) = &state.catalog_metadata else {
+            let Some(resolver) = state.dandanplay_resolver.clone() else {
                 return text_response(
                     StatusCode::CONFLICT,
-                    "Catalog metadata storage is unavailable.",
+                    "Series search needs dandanplay credentials in Settings.",
                 );
             };
-            match organizer.save_identification(request, store) {
-                Ok(()) => empty_status(StatusCode::OK),
+            match organizer.search_group(request, &resolver).await {
+                Ok(draft) => json_response(StatusCode::OK, &draft),
                 Err(error) => text_response(StatusCode::CONFLICT, &error.to_string()),
             }
         }
         (Method::GET, "/api/library/organize/status") => {
-            json_response(StatusCode::OK, &organizer.status())
+            let mut status = organizer.status();
+            status.identification.available = state.dandanplay_resolver.is_some();
+            json_response(StatusCode::OK, &status)
         }
         (Method::POST, "/api/library/organize/cancel") => {
             organizer.cancel();
@@ -613,6 +632,13 @@ async fn handle_library_organize(
                     return text_response(StatusCode::CONFLICT, &error.to_string());
                 }
             };
+            // Approval also records the series' provider identities.
+            if let Some(store) = &state.catalog_metadata
+                && let Err(error) =
+                    organizer.save_identification(Some(std::slice::from_ref(&batch_id)), store)
+            {
+                eprintln!("organizer identification save failed: {error}");
+            }
             spawn_organization(state.clone(), organizer, prepared);
             json_response(
                 StatusCode::ACCEPTED,
@@ -652,6 +678,8 @@ async fn handle_library_organize(
         }
         (_, "/api/library/organize/status") => empty_status(StatusCode::METHOD_NOT_ALLOWED),
         (_, "/api/library/organize/cancel")
+        | (_, "/api/library/organize/draft/ops")
+        | (_, "/api/library/organize/search")
         | (_, "/api/library/organize/preview")
         | (_, "/api/library/organize/execute")
         | (_, "/api/library/organize/undo") => empty_status(StatusCode::METHOD_NOT_ALLOWED),

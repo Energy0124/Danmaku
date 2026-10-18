@@ -26,6 +26,11 @@ Status: `[x]` done, `[~]` in progress, `[ ]` not started.
   independent native window.
 - `[x]` Add series-owned companions, episode-free provider links for specials,
   stable autosave/checkbox editing, and localized guided organizer review.
+- `[x]` Rework the organizer review: operation-based draft edits, incremental
+  identification that edits never cancel, natural ordering and file-name series
+  grouping, group-scoped approvals, queue/detail window with blocker reporting,
+  mark done for in-place series, replace-review prompt, and partial folder
+  selection with exclusions.
 - `[ ]` Complete approved organizer desktop interaction/localization QA and
   physical cross-drive/disconnection QA before release.
 - `[x]` Complete the Android TV single-cutover presentation rewrite with

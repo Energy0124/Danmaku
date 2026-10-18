@@ -23,12 +23,11 @@ Confirmed defaults:
 
 ## Selection and destination
 
-- Folders provides selection mode, checkboxes, Ctrl-click toggles, Shift-click
-  ranges, Select all visible, and Clear selection. Normal browsing/playback
-  remains available outside selection mode.
-- Preserve selection across navigation and display selected folder/resolved video
-  counts across all folders. Folder selection includes catalogued descendants;
-  overlapping folders/files deduplicate by media ID. Individual exclusions win.
+- Folders provides selection mode with checkboxes, Shift-click ranges, Select
+  all here, and Clear selection; clicking a folder name still opens it.
+- Preserve selection across navigation and display the resolved video count.
+  The most specific rule wins: a folder can be selected while a subfolder or
+  file inside it is left out, and folders show a partial mark.
 - **Organize selected** and **Organize this folder** explicitly define scope.
   Empty selection never falls back to the whole library.
 - Snapshot media IDs and source identities when creating a draft; later scans
@@ -43,8 +42,10 @@ Confirmed defaults:
   for unmatched selected videos, followed by parsed-title series search if no
   usable fingerprint candidate is found.
 - Identification runs sequentially off the UI thread, with per-file progress,
-  cancellation, retry, and errors that leave manual review usable. Reuse results
-  for unchanged fingerprints and reject results from superseded draft revisions.
+  cancellation, retry, and errors that leave manual review usable. Each result is
+  merged into the current draft as it arrives; edits never cancel a run. Reuse
+  results for unchanged fingerprints. Results never retitle a group the user
+  named, and never replace a match the user chose.
 - Call matching/search primitives directly: no comment downloads or first-result
   selection. A unique candidate may populate a proposal; ambiguity requires a
   choice. Never identify an entire folder from a single episode.
@@ -60,61 +61,72 @@ Confirmed defaults:
   IDs/titles and suppress automatic episode matching/comment reuse during
   playback until an episode is explicitly chosen. Search-only series candidates
   have the same semantics; no arbitrary provider identity may be injected.
-- Proposed identities remain draft data until **Save identification** writes the
-  metadata store. Saving identity requires neither moves nor comment downloads.
-  Undoing file moves does not undo independently saved identification.
+- Proposed identities remain draft data until the group is approved or marked
+  done, which writes the metadata store without downloading comments. Undoing
+  file moves does not undo saved identification.
 
 ## Persistent review queue
 
-- Dedicated workspace: searchable queue, per-file details, source/destination
-  columns, and Pending / Needs review / Blocked / Skipped / Completed filters.
+- Dedicated window, modeled on FileBot and Sonarr manual import: a searchable
+  series queue (To do / Ready / Skipped / Done / All with counts), the selected
+  series with tabs for Videos, Extras and Moves, and a fixed action bar. The bar
+  always states what approval moves or lists every blocker.
 - One review group represents one series folder and may include multiple seasons.
-  Preserve per-file assignments and every other group's edits.
+  Groups are keyed by normalized title without season markers; renaming a group
+  to an open group's title merges them. Files are kept in natural path order and
+  the queue is sorted by title.
+- Initial titles: provider title, else the release title parsed from the file
+  name when the folder holds several shows (download dumps), else the folder name.
+  Season markers in titles (`S2`, `Season 2`, `2nd Season`, `第二季`) become season
+  numbers; contradictory evidence requires review.
+- A group links to one provider series (search result or fingerprint match);
+  each video keeps its own fingerprint episode when it belongs to that series,
+  otherwise it becomes series-only. **Use folder name** accepts the folder title
+  without a provider identity.
 - Explain automatically selected subtitles and preserve manual deselection.
   Excluding a video also excludes its dependent companions. Artwork and other
-  nearby files remain opt-in. Ambiguous companions require an explicit owner;
-  each companion participates in at most one executed move. Shared font files,
-  subtitle archives, and artwork can instead belong to a series group, going
-  directly to `<destination>/<series>/<filename>` without a video owner. Ownership
-  types are mutually exclusive and manual deselection always wins.
-- Guide the review with numbered series, video, companion, and approval steps;
-  provide English/Traditional Chinese usage help and contextual bulk editing.
-- Retain the previous preview during autosave/validation without authorizing it.
-  Keep editing enabled and rebase changes made during saving against the exact
-  submitted draft so repeated checkbox toggles are not lost.
-- Debounce valid edits before saving/previewing; show validation inline. Disable
-  approval while edits, identification, or preview generation are unresolved.
-  Any selection, assignment, destination, or companion change invalidates approval.
+  nearby files remain opt-in; ticking one with a single candidate series assigns
+  that series folder. Ambiguous companions require an explicit owner; each
+  companion participates in at most one executed move.
+- Edits are intent operations applied by the server to the current draft; the
+  client never rebases a local copy. Operations are sent in order, one batch at a
+  time; a rejected batch reports its reason and resynchronizes.
+- Previews are requested per group when that group's decisions change. A plan
+  stays executable while the group's decision signature and the catalog are
+  unchanged, so edits and identification in other groups never expire it.
+- **Approve & next** moves only the displayed series and advances to the next
+  to-do series. **Skip** advances without moving. Series already in place offer
+  **Mark done**, which needs no identity. Approving or marking done saves the
+  group's identities to the metadata store.
 - Detect existing/duplicate destinations before executing. Users may exclude
   conflicting files or correct assignments, never silently overwrite or rename.
-- **Approve and next** moves only the displayed series, marks it Completed,
-  refreshes catalog data, and advances while preserving other edits. Skip advances
-  without moving. Failed/skipped groups remain reviewable and retryable.
-- Already-organized videos do not prevent moving missing companions.
+- Opening a new selection while a review exists offers to keep it or to start
+  over; finished moves stay undoable either way.
 - Persist selection, assignments, exclusions, companion decisions, destination,
-  queue position, and completion references. Restore decisions, never executable
-  approvals. Revalidate after restart, scans, and completed moves.
+  search results, skipped and completed groups. Restore decisions, never
+  executable approvals. Revalidate after restart, scans, and completed moves.
 
 ## Interfaces and ownership
 
-- Keep organizer wire models, selection logic, and UI state in focused modules.
-- Persist one server-owned draft with ID/revision, immutable media snapshot, stable
-  group IDs, assignments/candidates, destination, companions, skipped/completed
-  groups, and active group. Updates require the current revision and atomic storage.
-- `/api/library/organize/draft`: POST create, GET read, PUT update, DELETE discard.
-- `/identify`: POST start/retry; `/identify/cancel`: POST cancel;
-  `/identify/save`: POST explicitly save selected candidate identities.
-- `/preview`: POST draft ID, revision, and optional review group. Return a transient
-  manifest bound to draft/catalog revisions. `/execute` requires its plan ID,
-  group ID, and exact approved move list.
-- `/status`: GET transfer/identification progress and saved draft. `/cancel`,
-  `/undo`, and `/recover`: POST the corresponding operation.
+- Organizer wire models, the sync state machine, the pure review model, the
+  selection model and the window live in separate client modules.
+- Persist one server-owned draft with ID/revision, immutable media snapshot,
+  assignments/candidates, destination, companions, group search results, and
+  skipped/completed groups.
+- `/api/library/organize/draft`: POST create (`replace` discards an unfinished
+  review), GET read, DELETE discard. `/draft/ops`: POST ordered intent operations.
+- `/identify`: POST start/retry (explicit media IDs are identified again);
+  `/identify/cancel`: POST stop. `/search`: POST one series search for a group.
+- `/preview`: POST draft and group ID; returns a transient manifest with the
+  group signature. `/execute` requires its plan ID, group ID, and exact approved
+  move list, and saves the group's identities.
+- `/status`: GET transfer/identification progress (including whether a provider
+  is configured) and the saved draft. `/cancel`, `/undo`, `/recover`: POST.
 - Require native loopback access and a bearer capability for organizer operations.
   `/session` bootstraps that memory-only capability for native loopback requests;
   browser Origin/Fetch Metadata requests and LAN peers are rejected. Do not log
   the capability. This boundary is isolated from pairing-free trusted-LAN access.
-- Cache folder expansion/queue membership by catalog/draft revision and virtualize
-  long lists. Rendering never enumerates files, hashes videos, or calls providers.
+- Rendering never enumerates files, hashes videos, or calls providers.
 
 ## Transfer and recovery
 

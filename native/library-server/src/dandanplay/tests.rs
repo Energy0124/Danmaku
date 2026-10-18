@@ -317,13 +317,13 @@ struct CapturedRequest {
     body: String,
 }
 
-struct TestServer {
+pub(crate) struct TestServer {
     address: String,
     requests: Arc<StdMutex<Vec<CapturedRequest>>>,
 }
 
 impl TestServer {
-    fn start() -> Self {
+    pub(crate) fn start() -> Self {
         let listener = TcpListener::bind("127.0.0.1:0").expect("bind");
         let address = listener.local_addr().expect("addr").to_string();
         let requests = Arc::new(StdMutex::new(Vec::new()));
@@ -338,7 +338,7 @@ impl TestServer {
         Self { address, requests }
     }
 
-    fn base_url(&self) -> String {
+    pub(crate) fn base_url(&self) -> String {
         format!("http://{}", self.address)
     }
 
@@ -554,4 +554,19 @@ fn retry_after_supports_seconds_and_http_dates_without_automatic_retry() {
     );
     assert_eq!(retry_after_seconds(Some("invalid"), 30), 60);
     assert_eq!(retry_after_seconds(None, 30), 60);
+}
+
+/// Signed resolver against a local fake provider, for organizer workflow tests.
+pub(crate) fn test_resolver(server: &TestServer, cache: &Path) -> DandanplayResolver {
+    DandanplayResolver::new(
+        DandanplayDanmakuClient::new(DandanplayConnection::new(
+            server.base_url(),
+            Some("test-app".into()),
+            Some("test-secret".into()),
+            HeadlessDandanplayAuthenticationMode::Signed,
+        )),
+        DandanplayCommentCacheStore::new(cache.to_path_buf()),
+        1,
+        fixed_epoch_ms,
+    )
 }

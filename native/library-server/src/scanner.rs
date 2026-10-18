@@ -863,7 +863,7 @@ fn is_season_directory_name(value: &str) -> bool {
         .is_some_and(|number| number.parse::<u32>().is_ok())
 }
 
-fn infer_root_file_series_title(file_stem: &str) -> String {
+pub(crate) fn infer_root_file_series_title(file_stem: &str) -> String {
     let trimmed = file_stem.trim();
     let candidate = strip_leading_release_group(trimmed);
     let marker_start = [

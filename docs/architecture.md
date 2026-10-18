@@ -31,9 +31,14 @@ selection and review modules in the egui client cache catalog-derived selection
 and draft-derived queue indexes and virtualize long lists. The organizer uses an
 egui native viewport with its own taskbar window; closing it preserves draft
 synchronization in the main application. The server owns an
-atomically persisted revisioned draft; candidate discovery uses dandanplay
-matching/search directly without resolving comments. Identification results are
-normalized draft proposals until explicitly saved to the metadata store.
+atomically persisted revisioned draft changed only through intent operations
+(`/draft/ops`) applied to its current state; the client renders the latest server
+draft and keeps only UI state. Identification merges each provider result into
+the current draft, so it never conflicts with edits. Previews are scoped to one
+review group and bound to a signature of that group's decisions plus the catalog
+revision. Candidate discovery uses dandanplay matching/search directly without
+resolving comments. Identities are saved to the metadata store when a group is
+approved or marked done.
 Draft companions have mutually exclusive video or review-group ownership;
 series-owned files target the series directory and share the journaled transfer
 and undo machinery. The metadata store persists an explicit series-only policy,
