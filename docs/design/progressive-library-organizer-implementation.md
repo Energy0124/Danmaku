@@ -117,9 +117,21 @@ updates; the window was one scrolling column with nested scroll areas.
 - [x] English and Traditional Chinese strings.
 
 Verification: `cargo fmt --all --check`, `cargo test --workspace` (4 core,
-120 player, 143 server, 5 mpv) and `git diff --check` passed on Linux. GUI checks
-ran the real server and player under a Linux virtual display with a fixture
-library and a local fake dandanplay API: selection with partial folders, start,
-live identification while editing, rename/merge, move to new series, search and
-link, season derivation, approve, undo, skip, mark done, replace prompt, finish,
-and zh-TW layout. Windows GUI and physical cross-drive QA remain pending.
+121 player, 145 server, 5 mpv) and `git diff --check` passed. GUI checks ran the
+real server and player under a Linux virtual display with a fixture library and
+a local fake dandanplay API, then on Windows 11 (4K display) with a throwaway
+fixture library, an isolated profile and the live dandanplay API: selection with
+partial folders, start, switching series and editing during identification,
+rename/merge, move to series, series search and link, per-video episode choice,
+season derivation (`S2`, `第二季`), extras ownership, approve, undo, skip,
+mark done, replace prompt, finish, Organize/Resume entry points and zh-TW
+layout. A small loopback API pass confirmed browser-origin (403) and
+missing-capability (401) rejection, stale-draft/invalid-op/unknown-candidate
+rejection, group preview, and removal of the old PUT and save endpoints.
+
+Windows QA fixes: table columns share the window width instead of keeping
+stale resizable widths; extras already in the series folder stay listed as
+In place; owner choices follow episode order; Organize/Resume raises the
+window; choosing one video's episode no longer splits it into a new series, and
+a series match never renames a folder the user named; English singular forms;
+Organize… with no review enters Select. Physical cross-drive QA remains pending.

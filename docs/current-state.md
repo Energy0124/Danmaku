@@ -49,9 +49,9 @@ Compose macOS artifact are retired.
   and undo. Series-owned companions move once into the series folder.
   Series-only identities suppress automatic episode matching during playback.
   Native loopback capability authentication rejects browser and LAN access.
-  Automated fixture coverage and Linux virtual-display GUI checks are recorded in
+  Automated fixture coverage and Linux and Windows GUI checks are recorded in
   the [implementation log](design/progressive-library-organizer-implementation.md);
-  supervised Windows GUI and physical-drive release QA remain pending.
+  physical cross-drive release QA remains pending.
 - dandanplay matching/comment cache and repair status; provider metadata,
   settings, secret storage, external mappings, list readback, conflict-aware
   previews, and explicitly acknowledged MAL/Bangumi writes.

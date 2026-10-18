@@ -31,8 +31,9 @@ Status: `[x]` done, `[~]` in progress, `[ ]` not started.
   grouping, group-scoped approvals, queue/detail window with blocker reporting,
   mark done for in-place series, replace-review prompt, and partial folder
   selection with exclusions.
-- `[ ]` Complete approved organizer desktop interaction/localization QA and
-  physical cross-drive/disconnection QA before release.
+- `[x]` Complete supervised organizer desktop interaction/localization QA on
+  Windows.
+- `[ ]` Complete organizer physical cross-drive/disconnection QA before release.
 - `[x]` Complete the Android TV single-cutover presentation rewrite with
   lifecycle-owned state, cached/off-composition catalog derivation,
   non-blocking danmaku, typed navigation, D-pad/focus coverage, screenshots,

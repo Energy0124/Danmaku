@@ -182,9 +182,9 @@ background full-library polling.
 In the desktop **Folders** view, turn on **Select** and tick folders or videos
 (folders show a partial mark when only some of their videos are selected; untick
 a subfolder or file to leave it out), then choose **Organize N selected**.
-**Organize this folder** covers the folder you are viewing, and **Organize…** /
-**Resume organizing** reopens the review. If a review is already open, the
-window offers to keep it or start over with the new selection.
+**Organize this folder** covers the folder you are viewing; **Organize…** turns
+on Select, and **Resume organizing** reopens an unfinished review. If a review is
+already open, the window offers to keep it or start over with the new selection.
 
 The organizer opens in its own movable window with the series queue on the left,
 the selected series in the middle, and an action bar that always says what
