@@ -1,5 +1,6 @@
 //! Transient, group-scoped move manifests computed from the saved draft.
 use super::draft::{DraftFile, OrganizationDraft};
+use super::naming::natural_cmp;
 use super::*;
 
 impl LibraryOrganizer {
@@ -257,7 +258,11 @@ fn build_draft_plan(
     }
     for (path, owners) in nearby_owners {
         let mut owners = owners;
-        owners.sort_by(|a, b| a.media_id.cmp(&b.media_id));
+        // Natural path order, so owner choices read 01, 02, … 10.
+        owners.sort_by(|a, b| {
+            natural_cmp(&a.source_root, &b.source_root)
+                .then_with(|| natural_cmp(&a.source_relative_path, &b.source_relative_path))
+        });
         owners.dedup_by_key(|f| &f.media_id);
         let matching = owners
             .iter()
@@ -322,9 +327,8 @@ fn build_draft_plan(
                 .join(format!("Season {}", owner.season_number.unwrap_or(1)))
         }
         .join(path.file_name().unwrap_or_default());
-        if paths_equal(&path, &target) {
-            continue;
-        }
+        // Listed even when already in place, so a ticked file never disappears.
+        let in_place = paths_equal(&path, &target);
         let size = fs::metadata(&path)?.len();
         batch.nearby_files.push(OrganizationNearbyFile {
             owner_group_ids: owners
@@ -346,8 +350,11 @@ fn build_draft_plan(
             size_bytes: size,
             recommended,
             selected,
-            destination_relative_path: Some(target.to_string_lossy().into_owned()),
+            destination_relative_path: (!in_place).then(|| target.to_string_lossy().into_owned()),
         });
+        if in_place {
+            continue;
+        }
         if selected && !recommended && explicit_owner.is_none() && explicit_series.is_none() {
             batch.conflicts.push(format!(
                 "Assign an owner for the companion file: {}",

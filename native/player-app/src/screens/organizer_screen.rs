@@ -23,6 +23,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 const ROW_HEIGHT: f32 = 30.0;
+const CHECK_WIDTH: f32 = 28.0;
 const QUEUE_ROW_HEIGHT: f32 = 46.0;
 const ATTENTION: Color32 = Color32::from_rgb(240, 180, 90);
 
@@ -65,6 +66,8 @@ pub(super) struct OrganizerScreen {
     /// Every series is done or skipped; show the summary instead of a series.
     finished: bool,
     closing: bool,
+    /// Bring the window to the front on the next frame (it may be behind the player).
+    raise: bool,
 }
 
 impl Default for OrganizerScreen {
@@ -96,6 +99,7 @@ impl Default for OrganizerScreen {
             help: false,
             finished: false,
             closing: false,
+            raise: false,
         }
     }
 }
@@ -117,6 +121,7 @@ impl Out {
 impl OrganizerScreen {
     /// Opens the window; `selection` starts (or offers to replace) a review.
     pub fn open_with(&mut self, selection: Option<Vec<String>>) -> LibraryAction {
+        self.raise = self.open;
         self.open = true;
         if selection.is_some() {
             self.pending_selection = selection;
@@ -174,6 +179,9 @@ impl OrganizerScreen {
                     .with_min_inner_size([860.0, 540.0])
                     .with_taskbar(true),
                 |ctx, class| {
+                    if std::mem::take(&mut self.raise) {
+                        ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+                    }
                     if class == egui::ViewportClass::Embedded {
                         egui::Window::new(s.organizer_text(T::WindowTitle))
                             .default_size([1100.0, 700.0])
@@ -1282,17 +1290,22 @@ impl OrganizerScreen {
             .and_then(|s| s.identification.media_id.clone());
         let mut toggles = Vec::<(usize, bool)>::new();
         let shift = ui.input(|i| i.modifiers.shift);
+        let widths = column_widths(
+            ui.available_width(),
+            ui.spacing().item_spacing.x,
+            &[CHECK_WIDTH, 96.0],
+            &[(0.45, 180.0), (0.32, 140.0), (0.23, 100.0)],
+        );
         TableBuilder::new(ui)
             .id_salt("organizer-videos")
             .striped(true)
-            .resizable(true)
             .auto_shrink([false, false])
             .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
-            .column(Column::exact(28.0))
-            .column(Column::remainder().at_least(220.0).clip(true))
-            .column(Column::initial(96.0).at_least(80.0))
-            .column(Column::initial(240.0).at_least(140.0).clip(true))
-            .column(Column::initial(160.0).at_least(100.0).clip(true))
+            .column(Column::exact(CHECK_WIDTH))
+            .column(Column::exact(widths[0]).clip(true))
+            .column(Column::exact(96.0))
+            .column(Column::exact(widths[1]).clip(true))
+            .column(Column::exact(widths[2]).clip(true))
             .header(24.0, |mut header| {
                 let all_selected = !group.members.is_empty()
                     && group
@@ -1601,15 +1614,20 @@ impl OrganizerScreen {
             ui.label(RichText::new(s.organizer_text(T::NoExtras)).color(palette::TEXT_MUTED));
             return;
         }
+        let widths = column_widths(
+            ui.available_width(),
+            ui.spacing().item_spacing.x,
+            &[CHECK_WIDTH],
+            &[(0.6, 200.0), (0.4, 160.0)],
+        );
         TableBuilder::new(ui)
             .id_salt("organizer-extras")
             .striped(true)
-            .resizable(true)
             .auto_shrink([false, false])
             .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
-            .column(Column::exact(28.0))
-            .column(Column::remainder().at_least(220.0).clip(true))
-            .column(Column::initial(260.0).at_least(160.0).clip(true))
+            .column(Column::exact(CHECK_WIDTH))
+            .column(Column::exact(widths[0]).clip(true))
+            .column(Column::exact(widths[1]).clip(true))
             .header(24.0, |mut header| {
                 header.col(|_| {});
                 for key in [T::ColumnFile, T::ColumnBelongsTo] {
@@ -1662,7 +1680,13 @@ impl OrganizerScreen {
                         }
                         ui.add(egui::Label::new(text).truncate())
                             .on_hover_text(&nearby.relative_path);
-                        if nearby.recommended {
+                        if nearby.destination_relative_path.is_none() {
+                            ui.label(
+                                RichText::new(s.organizer_text(T::InPlaceShort))
+                                    .font(typography::small())
+                                    .color(palette::TEXT_MUTED),
+                            );
+                        } else if nearby.recommended {
                             ui.label(
                                 RichText::new(s.organizer_text(T::MatchingSubtitle))
                                     .font(typography::small())
@@ -1819,14 +1843,19 @@ fn moves_table(ui: &mut egui::Ui, batch: Option<&OrganizationSeriesBatch>, s: St
         ui.label(RichText::new(s.organizer_text(T::InPlace)).color(palette::TEXT_MUTED));
         return;
     }
+    let widths = column_widths(
+        ui.available_width(),
+        ui.spacing().item_spacing.x,
+        &[],
+        &[(0.5, 200.0), (0.5, 200.0)],
+    );
     TableBuilder::new(ui)
         .id_salt("organizer-moves")
         .striped(true)
-        .resizable(true)
         .auto_shrink([false, false])
         .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
-        .column(Column::initial(420.0).at_least(200.0).clip(true))
-        .column(Column::remainder().at_least(200.0).clip(true))
+        .column(Column::exact(widths[0]).clip(true))
+        .column(Column::exact(widths[1]).clip(true))
         .header(24.0, |mut header| {
             for key in [T::ColumnFrom, T::ColumnTo] {
                 header.col(|ui| {
@@ -1855,6 +1884,18 @@ fn moves_table(ui: &mut egui::Ui, batch: Option<&OrganizationSeriesBatch>, s: St
                 });
             });
         });
+}
+
+/// Column widths for a table that fills `available`: fixed columns keep their
+/// width and the rest is shared by weight, so every column stays visible when
+/// the window is resized (egui would otherwise keep stale widths).
+fn column_widths(available: f32, spacing: f32, fixed: &[f32], shares: &[(f32, f32)]) -> Vec<f32> {
+    let gaps = spacing * (fixed.len() + shares.len()).saturating_sub(1) as f32;
+    let free = (available - fixed.iter().sum::<f32>() - gaps).max(0.0);
+    shares
+        .iter()
+        .map(|&(share, min)| (free * share).max(min))
+        .collect()
 }
 
 /// The batch for this group when its preview matches the current decisions.
@@ -1924,6 +1965,17 @@ mod tests {
         assert_eq!(folder_of("Anime/Show/Season 1/ep.mkv", "Show"), "Season 1/");
         assert_eq!(folder_of("Show/ep.mkv", "Show"), "./");
         assert_eq!(folder_of("Other/Season 2/ep.mkv", "Show"), "Season 2/");
+    }
+
+    #[test]
+    fn table_columns_share_the_available_width_and_keep_minimums() {
+        let widths = column_widths(1000.0, 8.0, &[28.0, 96.0], &[(0.5, 100.0), (0.5, 100.0)]);
+        let used = 28.0 + 96.0 + widths.iter().sum::<f32>() + 8.0 * 3.0;
+        assert!((used - 1000.0).abs() < 0.01);
+        assert_eq!(
+            column_widths(300.0, 8.0, &[28.0], &[(0.6, 200.0), (0.4, 160.0)]),
+            vec![200.0, 160.0]
+        );
     }
 
     #[test]

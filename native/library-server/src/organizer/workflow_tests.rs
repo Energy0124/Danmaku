@@ -1471,3 +1471,70 @@ fn already_organized_groups_can_be_marked_done_and_stay_done_after_restart() {
     );
     cleanup(fixture.temp);
 }
+
+#[test]
+fn extras_already_in_the_series_folder_stay_listed_without_a_move() {
+    let mut fixture = fixture();
+    for episode in [10, 2] {
+        add_video(
+            &mut fixture,
+            &format!("bocchi-{episode}"),
+            &format!("Bocchi the Rock/Bocchi the Rock - {episode:02}.mkv"),
+            "Bocchi the Rock",
+        );
+    }
+    let fonts = fixture.root.join("Bocchi the Rock").join("fonts.zip");
+    fs::write(&fonts, b"fonts").unwrap();
+    let store = CatalogStore::new(fixture.data.join("catalog.json"));
+    store.save(fixture.published.clone()).unwrap();
+    let organizer = LibraryOrganizer::new(vec![fixture.root.clone()], store);
+    let draft = organizer
+        .create_draft(
+            &fixture.published,
+            CreateDraftRequest {
+                media_ids: ids(&["bocchi-10", "bocchi-2"]),
+                destination: fixture.root.display().to_string(),
+                replace: false,
+            },
+        )
+        .unwrap();
+    let key = fonts.to_string_lossy().into_owned();
+    let before = preview(&organizer, &fixture.published, &draft);
+    let listed = &before.batches[0].nearby_files[0];
+    // Owner choices follow episode order, not hashed IDs.
+    assert_eq!(listed.owner_media_ids, ids(&["bocchi-2", "bocchi-10"]));
+    assert!(listed.destination_relative_path.is_some());
+    let draft = ops(
+        &organizer,
+        &draft,
+        vec![
+            DraftOp::SetCompanion {
+                path: key.clone(),
+                selected: true,
+            },
+            DraftOp::SetCompanionOwner {
+                path: key.clone(),
+                owner: CompanionOwner::Series {
+                    group_id: group(&draft, "bocchi-2"),
+                },
+            },
+        ],
+    );
+    let draft = manual(&organizer, draft);
+    let plan = preview(&organizer, &fixture.published, &draft);
+    let batch = &plan.batches[0];
+    let fonts_entry = batch
+        .nearby_files
+        .iter()
+        .find(|n| n.relative_path == key)
+        .expect("ticked extra stays listed");
+    assert_eq!(fonts_entry.destination_relative_path, None);
+    assert!(
+        batch
+            .moves
+            .iter()
+            .all(|m| !m.source_relative_path.ends_with("fonts.zip"))
+    );
+    assert!(batch.conflicts.is_empty(), "{:?}", batch.conflicts);
+    cleanup(fixture.temp);
+}
