@@ -179,39 +179,38 @@ viewed (or all configured roots at the folder-browser root), shows live scan
 progress, and reloads the catalog when the scan finishes. There is no constant
 background full-library polling.
 
-The desktop **Folders** view offers selection mode for multiple files and
-folders, **Organize selected**, and **Organize this folder**. Select a destination
-inside any configured library root using the folder picker or absolute path.
-The organizer opens in its own movable desktop window, saves your review across
-restarts, identifies unmatched videos,
-and lets you correct provider matches, folder titles, seasons, and grouping.
-Unknown seasons show **Season 1 — suggested**; specials can use Season 0.
+In the desktop **Folders** view, turn on **Select** and tick folders or videos
+(folders show a partial mark when only some of their videos are selected; untick
+a subfolder or file to leave it out), then choose **Organize N selected**.
+**Organize this folder** covers the folder you are viewing; **Organize…** turns
+on Select, and **Resume organizing** reopens an unfinished review. If a review is
+already open, the window offers to keep it or start over with the new selection.
 
-Use the numbered review steps and **How to use this organizer** guide in the window:
-choose a series, review its videos, choose companions, then approve. Video
-checkboxes select rows for bulk editing; **Exclude** leaves a file in place.
-You can keep editing during autosave; destinations remain visible while the
-updated preview is validated, and approval waits for that validation.
+The organizer opens in its own movable window with the series queue on the left,
+the selected series in the middle, and an action bar that always says what
+approval will move or what blocks it. Videos are grouped by series using the
+provider match, the folder name, or the release name parsed from download file
+names, and listed in natural episode order. Seasons come from the path, file
+name, or provider title (for example `第二季`); otherwise **Season 1** is
+suggested. Matching with dandanplay runs in the background and fills in results
+as they arrive; your edits never interrupt or discard it.
 
-For an OVA or special without a database episode, select **Series only — no
-episode mapping**. Search for its series or use **Edit selected videos → Link
-selected to series only** to reuse a provider series in the draft. Folder/season
-assignments remain independent. **Save identification** persists this choice;
-automatic playback then leaves it without episode comments until you explicitly
-choose an episode. Series-only search results behave the same way.
+For each series: check the **Series folder** name (renaming to an existing
+series merges them), pick a provider series with **Change match…** or accept the
+folder name with **Use folder name**, then **Approve & next**. Tick videos to set
+their season, move them to another series, or exclude them. Series already in
+place offer **Mark done**; **Skip** leaves a series for later. Approving or
+marking a series done also saves its matches to the library; matches without an
+episode (OVAs and specials) are saved as series-only links.
 
-Review and approve one series at a time. Matching subtitles are selected
-when their association is unambiguous; artwork and other companions are opt-in.
-For shared font files, subtitle ZIPs, or artwork, select the nearby file and
-choose **Series folder** as its owner. It moves once to
-`<destination>/<series>/<filename>`, independently of any one video or season.
-Video companions retain a video owner; manual deselection is preserved.
-Filenames are preserved under `<destination>/<series>/Season <number>`.
-Conflicting destinations block approval. Cross-drive transfers stage and verify
-copies before removing originals, preserve catalog IDs, and support cancellation,
-recovery retry, and undo. Identification can be saved separately without moving
-files or downloading comments. These controls require the native loopback
-capability and are unavailable to LAN/browser clients. See the
+The **Extras** tab lists nearby files. Matching subtitles move with their video;
+fonts, subtitle packs and artwork can go once into `<destination>/<series>/`.
+Videos keep their file names under `<destination>/<series>/Season <number>/`.
+Nothing is overwritten or deleted; conflicting destinations block approval.
+Cross-drive transfers stage and verify copies before removing originals,
+preserve catalog IDs, and support cancellation, recovery retry, and **Undo last
+move**. These controls require the native loopback capability and are
+unavailable to LAN/browser clients. See the
 [organizer specification](docs/design/progressive-library-organizer.md).
 
 ### MyAnimeList and Bangumi tracking

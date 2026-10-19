@@ -74,12 +74,13 @@ async fn organizer_requires_desktop_mode_and_loopback_peer() {
             crate::organizer::draft::CreateDraftRequest {
                 media_ids: vec!["episode-id".into(), "episode-id-2".into()],
                 destination: fixture.temp.join("Anime").display().to_string(),
+                replace: false,
             },
         )
         .expect("draft creates");
     let token = state.organizer.as_ref().unwrap().desktop_token().unwrap();
     let router = app(state);
-    let body = json!({"draftId":draft.id,"revision":draft.revision}).to_string();
+    let body = json!({"draftId":draft.id,"groupId":draft.files[0].group_id}).to_string();
     for (origin, expected) in [
         (false, StatusCode::UNAUTHORIZED),
         (true, StatusCode::FORBIDDEN),

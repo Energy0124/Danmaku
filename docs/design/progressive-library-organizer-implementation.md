@@ -91,3 +91,47 @@ Final verification: `cargo fmt --all --check` passed; `cargo test --workspace`
 passed all 263 tests (4 core, 121 player, 133 server, 5 mpv), plus doc-test
 targets. The existing mpv locator unused-mut warning remains unrelated.
 Task-scoped diff/status review and `git diff --check` passed.
+
+## Rework: review flow and window (2026-10-17)
+
+Findings in the previous flow: any edit (including clicking a series) cancelled
+background identification and discarded its results; files and the queue were
+ordered by hashed IDs; a new selection was silently ignored while a draft
+existed; approval was disabled without saying why; already-organized series and
+unmatched folders could not be finished; whole-draft autosave raced provider
+updates; the window was one scrolling column with nested scroll areas.
+
+- [x] Intent operations (`/draft/ops`) replace whole-draft PUT and client rebasing.
+- [x] Incremental identification merged per file; edits never cancel it; provider
+  availability reported in status; one series search per group (`/search`).
+- [x] Natural file order; title-sorted queue; groups keyed by normalized title;
+  file-name series parsing for download folders; `第N季`/`SN`/`Nth Season` split.
+- [x] Group-scoped previews bound to a decision signature; approval of one group
+  survives edits elsewhere.
+- [x] Mark done for in-place series (no identity required); identities saved on
+  approval and mark done; explicit save endpoint removed.
+- [x] Replace-review prompt; create with `replace`.
+- [x] Queue/detail window with tables, fixed action bar and blocker list; finished
+  summary; session notice for move/undo results.
+- [x] Folder selection: most-specific rule, partial marks, subfolder exclusion.
+- [x] English and Traditional Chinese strings.
+
+Verification: `cargo fmt --all --check`, `cargo test --workspace` (4 core,
+121 player, 145 server, 5 mpv) and `git diff --check` passed. GUI checks ran the
+real server and player under a Linux virtual display with a fixture library and
+a local fake dandanplay API, then on Windows 11 (4K display) with a throwaway
+fixture library, an isolated profile and the live dandanplay API: selection with
+partial folders, start, switching series and editing during identification,
+rename/merge, move to series, series search and link, per-video episode choice,
+season derivation (`S2`, `第二季`), extras ownership, approve, undo, skip,
+mark done, replace prompt, finish, Organize/Resume entry points and zh-TW
+layout. A small loopback API pass confirmed browser-origin (403) and
+missing-capability (401) rejection, stale-draft/invalid-op/unknown-candidate
+rejection, group preview, and removal of the old PUT and save endpoints.
+
+Windows QA fixes: table columns share the window width instead of keeping
+stale resizable widths; extras already in the series folder stay listed as
+In place; owner choices follow episode order; Organize/Resume raises the
+window; choosing one video's episode no longer splits it into a new series, and
+a series match never renames a folder the user named; English singular forms;
+Organize… with no review enters Select. Physical cross-drive QA remains pending.

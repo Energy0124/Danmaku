@@ -1,6 +1,12 @@
-use super::draft::{CreateDraftRequest, DraftPreviewRequest, OrganizationDraft};
+use super::draft::{
+    CompanionOwner, CreateDraftRequest, DraftOp, DraftOpsRequest, DraftPreviewRequest,
+    IdentificationCandidate, OrganizationDraft,
+};
+use super::identify::IdentifyRequest;
 use super::tests::{Fixture, cleanup, fixture};
 use super::*;
+use crate::dandanplay::DandanplayResolver;
+use std::sync::Arc;
 
 fn setup(copy: bool) -> (Fixture, LibraryOrganizer, OrganizationDraft, PathBuf) {
     let fixture = fixture();
@@ -16,34 +22,115 @@ fn setup(copy: bool) -> (Fixture, LibraryOrganizer, OrganizationDraft, PathBuf) 
             CreateDraftRequest {
                 media_ids: vec!["one".into(), "one".into(), "two".into()],
                 destination: destination.to_string_lossy().into_owned(),
+                replace: false,
             },
         )
         .unwrap();
     (fixture, organizer, draft, destination)
 }
 
-fn manual(organizer: &LibraryOrganizer, mut draft: OrganizationDraft) -> OrganizationDraft {
-    for file in &mut draft.files {
-        file.manual_assignment = true;
-    }
-    organizer.update_draft(draft).unwrap()
+fn ops(
+    organizer: &LibraryOrganizer,
+    draft: &OrganizationDraft,
+    ops: Vec<DraftOp>,
+) -> OrganizationDraft {
+    organizer
+        .apply_ops(DraftOpsRequest {
+            draft_id: draft.id.clone(),
+            ops,
+        })
+        .unwrap()
 }
 
-fn preview(
+fn group(draft: &OrganizationDraft, media_id: &str) -> String {
+    draft
+        .files
+        .iter()
+        .find(|f| f.media_id == media_id)
+        .unwrap()
+        .group_id
+        .clone()
+}
+
+fn ids(values: &[&str]) -> Vec<String> {
+    values.iter().map(|v| (*v).to_owned()).collect()
+}
+
+/// Accept folder titles for every open group.
+fn manual(organizer: &LibraryOrganizer, draft: OrganizationDraft) -> OrganizationDraft {
+    let groups = draft
+        .files
+        .iter()
+        .filter(|f| !draft.completed.contains_key(&f.group_id))
+        .map(|f| f.group_id.clone())
+        .collect::<BTreeSet<_>>();
+    let confirm = groups
+        .into_iter()
+        .map(|group_id| DraftOp::ConfirmGroup { group_id })
+        .collect();
+    ops(organizer, &draft, confirm)
+}
+
+/// Simulates provider results arriving for the stored draft.
+fn provide(organizer: &LibraryOrganizer, media_id: &str, candidates: Vec<IdentificationCandidate>) {
+    let mut runtime = organizer.runtime.lock().unwrap();
+    let draft = runtime.draft.as_mut().unwrap();
+    draft
+        .files
+        .iter_mut()
+        .find(|f| f.media_id == media_id)
+        .unwrap()
+        .candidates = candidates;
+}
+
+fn preview_group(
     organizer: &LibraryOrganizer,
     library: &PublishedLibrary,
     draft: &OrganizationDraft,
+    group_id: &str,
 ) -> OrganizationPlan {
     organizer
         .preview_draft(
             library,
             DraftPreviewRequest {
-                group_id: None,
                 draft_id: draft.id.clone(),
-                revision: draft.revision,
+                group_id: group_id.into(),
             },
         )
         .unwrap()
+}
+
+/// Preview the first open group.
+fn preview(
+    organizer: &LibraryOrganizer,
+    library: &PublishedLibrary,
+    draft: &OrganizationDraft,
+) -> OrganizationPlan {
+    let group = draft
+        .files
+        .iter()
+        .find(|f| !draft.completed.contains_key(&f.group_id))
+        .unwrap_or(&draft.files[0])
+        .group_id
+        .clone();
+    preview_group(organizer, library, draft, &group)
+}
+
+fn unreachable_resolver(fixture: &Fixture) -> Arc<DandanplayResolver> {
+    use crate::dandanplay::{
+        DandanplayCommentCacheStore, DandanplayConnection, DandanplayDanmakuClient,
+    };
+    Arc::new(DandanplayResolver::new(
+        DandanplayDanmakuClient::new(DandanplayConnection::new(
+            "http://127.0.0.1:9",
+            Some("app".into()),
+            Some("secret".into()),
+            crate::settings::HeadlessDandanplayAuthenticationMode::Signed,
+        )),
+        DandanplayCommentCacheStore::new(fixture.data.join("cache.json")),
+        1,
+        crate::catalog::current_epoch_ms,
+    ))
 }
 
 fn prepare(
@@ -83,12 +170,26 @@ fn draft_snapshot_deduplicates_and_requires_identification_or_manual_confirmatio
 
 #[test]
 fn saved_draft_restores_edits_but_not_an_executable_manifest() {
-    let (fixture, organizer, mut draft, destination) = setup(false);
-    draft.files[0].series_title = "Changed".into();
-    draft.files[0].group_id = "split".into();
-    draft.files[0].season_number = Some(0);
-    draft.files[1].excluded = true;
-    draft.skipped.insert("other".into());
+    let (fixture, organizer, draft, destination) = setup(false);
+    let draft = ops(
+        &organizer,
+        &draft,
+        vec![
+            DraftOp::MoveFiles {
+                media_ids: ids(&["one"]),
+                group_id: None,
+                title: Some("Changed".into()),
+            },
+            DraftOp::SetSeason {
+                media_ids: ids(&["one"]),
+                season: 0,
+            },
+            DraftOp::SetExcluded {
+                media_ids: ids(&["two"]),
+                excluded: true,
+            },
+        ],
+    );
     let draft = manual(&organizer, draft);
     let plan = preview(&organizer, &fixture.published, &draft);
     drop(organizer);
@@ -114,15 +215,59 @@ fn saved_draft_restores_edits_but_not_an_executable_manifest() {
 
 #[test]
 fn destination_or_assignment_edits_reject_old_approval_and_preserve_other_groups() {
-    let (fixture, organizer, mut draft, destination) = setup(false);
-    draft.files[1].group_id = "second".into();
-    draft.files[1].series_title = "Second".into();
+    let (fixture, organizer, draft, destination) = setup(false);
+    let draft = ops(
+        &organizer,
+        &draft,
+        vec![DraftOp::MoveFiles {
+            media_ids: ids(&["two"]),
+            group_id: None,
+            title: Some("Second".into()),
+        }],
+    );
     let draft = manual(&organizer, draft);
-    let plan = preview(&organizer, &fixture.published, &draft);
-    let mut edited = draft.clone();
-    edited.destination = destination.join("edited").display().to_string();
-    let updated = organizer.update_draft(edited).unwrap();
-    assert_eq!(updated.files, draft.files);
+    let plan = preview_group(
+        &organizer,
+        &fixture.published,
+        &draft,
+        &group(&draft, "one"),
+    );
+    // Edits in another group keep this approval valid.
+    let other = ops(
+        &organizer,
+        &draft,
+        vec![DraftOp::SetSeason {
+            media_ids: ids(&["two"]),
+            season: 4,
+        }],
+    );
+    assert!(
+        organizer
+            .prepare_execute(
+                &fixture.published.catalog,
+                OrganizationExecuteRequest {
+                    plan_id: plan.plan_id.clone(),
+                    batch_id: plan.batches[0].batch_id.clone(),
+                    expected_moves: plan.batches[0].moves.clone()
+                }
+            )
+            .is_ok()
+    );
+    organizer.runtime.lock().unwrap().status = OrganizationStatus::default();
+    let plan = preview_group(
+        &organizer,
+        &fixture.published,
+        &other,
+        &group(&other, "one"),
+    );
+    let updated = ops(
+        &organizer,
+        &other,
+        vec![DraftOp::SetDestination {
+            destination: destination.join("edited").display().to_string(),
+        }],
+    );
+    assert_eq!(updated.files, other.files);
     assert!(
         organizer
             .prepare_execute(
@@ -135,7 +280,14 @@ fn destination_or_assignment_edits_reject_old_approval_and_preserve_other_groups
             )
             .is_err()
     );
-    assert!(organizer.update_draft(draft).is_err());
+    assert!(
+        organizer
+            .apply_ops(DraftOpsRequest {
+                draft_id: "replaced".into(),
+                ops: Vec::new(),
+            })
+            .is_err()
+    );
     cleanup(fixture.temp);
 }
 
@@ -284,23 +436,36 @@ fn fs_content(id: &str) -> Vec<u8> {
 
 #[test]
 fn completion_advances_to_next_group_without_losing_edits() {
-    let (fixture, organizer, mut draft, _) = setup(false);
-    draft.files[1].group_id = "second".into();
-    draft.files[1].series_title = "Second edited".into();
-    draft.files[1].season_number = Some(7);
+    let (fixture, organizer, draft, _) = setup(false);
+    let draft = ops(
+        &organizer,
+        &draft,
+        vec![
+            DraftOp::MoveFiles {
+                media_ids: ids(&["two"]),
+                group_id: None,
+                title: Some("Second edited".into()),
+            },
+            DraftOp::SetSeason {
+                media_ids: ids(&["two"]),
+                season: 7,
+            },
+        ],
+    );
     let draft = manual(&organizer, draft);
-    let plan = preview(&organizer, &fixture.published, &draft);
+    let plan = preview_group(
+        &organizer,
+        &fixture.published,
+        &draft,
+        &group(&draft, "one"),
+    );
     organizer
         .execute(prepare(&organizer, &fixture.published, &plan))
         .unwrap();
     let after = organizer.draft().unwrap().unwrap();
     assert_eq!(after.files, draft.files);
-    assert!(
-        after
-            .active_group
-            .as_ref()
-            .is_some_and(|g| !after.completed.contains_key(g))
-    );
+    assert!(after.completed.contains_key(&group(&draft, "one")));
+    assert!(!after.completed.contains_key(&group(&draft, "two")));
     cleanup(fixture.temp);
 }
 
@@ -423,7 +588,7 @@ fn subtitles_are_selected_exclusions_win_and_manual_deselection_survives() {
     let (fixture, organizer, draft, _) = setup(false);
     let path = fixture.root.join("[Group] Example Show - 01.zh-TW.ass");
     fs::write(&path, b"subtitle").unwrap();
-    let mut draft = manual(&organizer, draft);
+    let draft = manual(&organizer, draft);
     let plan = preview(&organizer, &fixture.published, &draft);
     let sidecar = plan.batches[0]
         .nearby_files
@@ -431,26 +596,34 @@ fn subtitles_are_selected_exclusions_win_and_manual_deselection_survives() {
         .find(|f| f.relative_path == path.to_string_lossy())
         .unwrap();
     assert!(sidecar.recommended && sidecar.selected);
-    draft
-        .companion_choices
-        .insert(sidecar.relative_path.clone(), false);
-    let mut draft = organizer.update_draft(draft).unwrap();
+    let draft = ops(
+        &organizer,
+        &draft,
+        vec![DraftOp::SetCompanion {
+            path: sidecar.relative_path.clone(),
+            selected: false,
+        }],
+    );
     assert!(
         preview(&organizer, &fixture.published, &draft).batches[0]
             .moves
             .iter()
             .all(|m| !m.source_relative_path.ends_with(".ass"))
     );
-    draft
-        .companion_choices
-        .insert(path.to_string_lossy().into_owned(), true);
-    draft
-        .files
-        .iter_mut()
-        .find(|f| f.media_id == "one")
-        .unwrap()
-        .excluded = true;
-    let draft = organizer.update_draft(draft).unwrap();
+    let draft = ops(
+        &organizer,
+        &draft,
+        vec![
+            DraftOp::SetCompanion {
+                path: path.to_string_lossy().into_owned(),
+                selected: true,
+            },
+            DraftOp::SetExcluded {
+                media_ids: ids(&["one"]),
+                excluded: true,
+            },
+        ],
+    );
     assert!(
         preview(&organizer, &fixture.published, &draft).batches[0]
             .moves
@@ -461,39 +634,54 @@ fn subtitles_are_selected_exclusions_win_and_manual_deselection_survives() {
 }
 
 #[test]
-fn explicit_identification_save_does_not_move_files_or_use_folder_title_as_provider_identity() {
-    let (fixture, organizer, mut draft, _) = setup(false);
-    let candidate = super::draft::IdentificationCandidate {
+fn identification_save_does_not_move_files_or_use_folder_title_as_provider_identity() {
+    let (fixture, organizer, draft, _) = setup(false);
+    let candidate = IdentificationCandidate {
         anime_id: 42,
         episode_id: Some(4201),
         series_title: "Provider title".into(),
         episode_title: "Episode 1".into(),
     };
-    organizer
-        .runtime
-        .lock()
-        .unwrap()
-        .draft
-        .as_mut()
-        .unwrap()
-        .files[0]
-        .candidates = vec![candidate.clone()];
-    draft.files[0].candidate = Some(candidate.clone());
-    draft.files[0].candidates = vec![candidate];
-    draft.files[0].series_title = "My folder name".into();
-    let draft = organizer.update_draft(draft).unwrap();
+    provide(&organizer, "one", vec![candidate.clone()]);
+    let folder_title = draft.files[0].series_title.clone();
+    // Choosing one video's episode never renames or splits its series.
+    let draft = ops(
+        &organizer,
+        &draft,
+        vec![DraftOp::SetMatch {
+            media_ids: ids(&["one"]),
+            candidate: Some(candidate.clone()),
+        }],
+    );
+    assert_eq!(draft.files[0].series_title, folder_title);
+    let members = draft
+        .files
+        .iter()
+        .filter(|f| f.group_id == group(&draft, "one"))
+        .map(|f| f.media_id.clone())
+        .collect::<Vec<_>>();
+    // A match for the whole series files it under the provider title.
+    let draft = ops(
+        &organizer,
+        &draft,
+        vec![DraftOp::SetMatch {
+            media_ids: members,
+            candidate: Some(candidate),
+        }],
+    );
+    assert_eq!(draft.files[0].series_title, "Provider title");
+    let draft = ops(
+        &organizer,
+        &draft,
+        vec![DraftOp::RenameGroup {
+            group_id: group(&draft, "one"),
+            title: "My folder name".into(),
+        }],
+    );
+    assert_eq!(draft.files[0].series_title, "My folder name");
     let metadata =
         crate::catalog_metadata::CatalogMetadataStore::new(fixture.data.join("metadata.json"));
-    organizer
-        .save_identification(
-            DraftPreviewRequest {
-                draft_id: draft.id,
-                revision: draft.revision,
-                group_id: None,
-            },
-            &metadata,
-        )
-        .unwrap();
+    organizer.save_identification(None, &metadata).unwrap();
     let enriched = metadata.enrich_catalog(&fixture.published.catalog);
     assert_eq!(
         enriched.items[0]
@@ -509,20 +697,23 @@ fn explicit_identification_save_does_not_move_files_or_use_folder_title_as_provi
 
 #[test]
 fn focused_preview_only_contains_the_requested_review_group() {
-    let (fixture, organizer, mut draft, _) = setup(false);
-    draft.files[0].group_id = "first".into();
-    draft.files[1].group_id = "second".into();
+    let (fixture, organizer, draft, _) = setup(false);
+    let draft = ops(
+        &organizer,
+        &draft,
+        vec![DraftOp::MoveFiles {
+            media_ids: ids(&["two"]),
+            group_id: None,
+            title: Some("Second".into()),
+        }],
+    );
     let draft = manual(&organizer, draft);
-    let plan = organizer
-        .preview_draft(
-            &fixture.published,
-            DraftPreviewRequest {
-                draft_id: draft.id.clone(),
-                revision: draft.revision,
-                group_id: Some("first".into()),
-            },
-        )
-        .unwrap();
+    let plan = preview_group(
+        &organizer,
+        &fixture.published,
+        &draft,
+        &group(&draft, "one"),
+    );
     assert_eq!(plan.batches.len(), 1);
     assert_eq!(plan.batches[0].video_count, 1);
     cleanup(fixture.temp);
@@ -628,34 +819,77 @@ fn restart_after_undo_catalog_commit_revalidates_restored_draft() {
 }
 
 #[tokio::test]
-async fn provider_failure_preserves_manual_review_and_stale_identification_is_discarded() {
+async fn edits_during_identification_are_kept_and_results_merge_per_file() {
     let (fixture, organizer, draft, _) = setup(false);
-    let organizer = std::sync::Arc::new(organizer);
-    let request = super::draft::IdentifyRequest {
-        draft_id: draft.id.clone(),
-        revision: draft.revision,
-        media_ids: Vec::new(),
-        query: None,
-    };
-    let snapshot = organizer.begin_identification(&request).unwrap();
-    organizer.clone().identify(snapshot, request, None).await;
+    let server = crate::dandanplay::tests::TestServer::start();
+    let resolver = Arc::new(crate::dandanplay::tests::test_resolver(
+        &server,
+        &fixture.data.join("cache.json"),
+    ));
+    let organizer = Arc::new(organizer);
+    let run = organizer
+        .begin_identification(&IdentifyRequest {
+            draft_id: draft.id.clone(),
+            media_ids: Vec::new(),
+        })
+        .unwrap();
+    assert!(organizer.identification_status().running);
+    // A user edit while identification runs neither cancels nor loses it.
+    ops(
+        &organizer,
+        &draft,
+        vec![DraftOp::SetSeason {
+            media_ids: ids(&["two"]),
+            season: 3,
+        }],
+    );
+    organizer.clone().identify(run, resolver).await;
+    let draft = organizer.draft().unwrap().unwrap();
+    assert!(!organizer.identification_status().running);
+    assert!(draft.files.iter().all(|f| f.candidate.is_some()));
+    assert!(
+        draft
+            .files
+            .iter()
+            .all(|f| f.series_title == "Example Anime")
+    );
+    assert_eq!(draft.files[1].season_number, Some(3));
+    assert_eq!(draft.files[1].season_evidence, "MANUAL");
+    assert_eq!(group(&draft, "one"), group(&draft, "two"));
+    cleanup(fixture.temp);
+}
+
+#[tokio::test]
+async fn manual_titles_survive_identification_and_failures_keep_review_usable() {
+    let (fixture, organizer, draft, _) = setup(false);
+    let draft = ops(
+        &organizer,
+        &draft,
+        vec![DraftOp::RenameGroup {
+            group_id: group(&draft, "one"),
+            title: "My Folder".into(),
+        }],
+    );
+    let organizer = Arc::new(organizer);
+    let run = organizer
+        .begin_identification(&IdentifyRequest {
+            draft_id: draft.id.clone(),
+            media_ids: Vec::new(),
+        })
+        .unwrap();
+    organizer
+        .clone()
+        .identify(run, unreachable_resolver(&fixture))
+        .await;
     let draft = organizer.draft().unwrap().unwrap();
     assert!(draft.files.iter().all(|f| f.identification_error.is_some()));
-    let request = super::draft::IdentifyRequest {
-        draft_id: draft.id.clone(),
-        revision: draft.revision,
-        media_ids: Vec::new(),
-        query: None,
-    };
-    let snapshot = organizer.begin_identification(&request).unwrap();
-    let edited = manual(&organizer, draft);
-    organizer.clone().identify(snapshot, request, None).await;
-    assert_eq!(organizer.draft().unwrap(), Some(edited));
+    assert!(draft.files.iter().all(|f| f.series_title == "My Folder"));
+    assert!(preview(&organizer, &fixture.published, &draft).batches[0].executable);
     cleanup(fixture.temp);
 }
 
 #[test]
-fn duplicate_destinations_across_groups_block_focused_approval() {
+fn duplicate_destinations_block_approval() {
     let mut fixture = fixture();
     let second = fixture
         .root
@@ -672,28 +906,20 @@ fn duplicate_destinations_across_groups_block_focused_approval() {
     let store = CatalogStore::new(fixture.data.join("catalog.json"));
     store.save(fixture.published.clone()).unwrap();
     let organizer = LibraryOrganizer::new(vec![fixture.root.clone()], store);
-    let mut draft = organizer
+    let draft = organizer
         .create_draft(
             &fixture.published,
             CreateDraftRequest {
                 media_ids: vec!["one".into(), "two".into()],
                 destination: fixture.root.to_string_lossy().into_owned(),
+                replace: false,
             },
         )
         .unwrap();
-    draft.files[0].group_id = "first".into();
-    draft.files[1].group_id = "second".into();
+    // Same file name and series title in two folders: one destination.
+    assert_eq!(group(&draft, "one"), group(&draft, "two"));
     let draft = manual(&organizer, draft);
-    let plan = organizer
-        .preview_draft(
-            &fixture.published,
-            DraftPreviewRequest {
-                draft_id: draft.id,
-                revision: draft.revision,
-                group_id: Some("first".into()),
-            },
-        )
-        .unwrap();
+    let plan = preview(&organizer, &fixture.published, &draft);
     assert!(!plan.batches[0].executable);
     assert!(!plan.batches[0].conflicts.is_empty());
     assert!(fixture.published.files_by_id.values().all(|p| p.exists()));
@@ -725,17 +951,31 @@ fn already_organized_video_can_move_an_explicit_companion() {
             CreateDraftRequest {
                 media_ids: vec!["one".into()],
                 destination: fixture.root.to_string_lossy().into_owned(),
+                replace: false,
             },
         )
         .unwrap();
     let draft = manual(&organizer, draft);
     let initial = preview(&organizer, &fixture.published, &draft);
+    assert!(initial.batches[0].already_organized || !initial.batches[0].nearby_files.is_empty());
     assert!(!initial.batches[0].nearby_files.is_empty(), "{initial:?}");
     let key = initial.batches[0].nearby_files[0].relative_path.clone();
-    let mut draft = draft;
-    draft.companion_choices.insert(key.clone(), true);
-    draft.companion_owners.insert(key, "one".into());
-    let draft = organizer.update_draft(draft).unwrap();
+    let draft = ops(
+        &organizer,
+        &draft,
+        vec![
+            DraftOp::SetCompanion {
+                path: key.clone(),
+                selected: true,
+            },
+            DraftOp::SetCompanionOwner {
+                path: key,
+                owner: CompanionOwner::Video {
+                    media_id: "one".into(),
+                },
+            },
+        ],
+    );
     let plan = preview(&organizer, &fixture.published, &draft);
     assert_eq!(plan.batches[0].moves.len(), 1);
     assert!(plan.batches[0].moves[0].media_id.is_none());
@@ -757,15 +997,16 @@ async fn repeated_provider_failure_pauses_and_survives_restart_without_touching_
         draft.files.push(file);
     }
     organizer.runtime.lock().unwrap().draft = Some(draft.clone());
-    let organizer = std::sync::Arc::new(organizer);
-    let request = super::draft::IdentifyRequest {
+    let organizer = Arc::new(organizer);
+    let request = IdentifyRequest {
         draft_id: draft.id.clone(),
-        revision: draft.revision,
         media_ids: Vec::new(),
-        query: None,
     };
-    let snapshot = organizer.begin_identification(&request).unwrap();
-    organizer.clone().identify(snapshot, request, None).await;
+    let run = organizer.begin_identification(&request).unwrap();
+    organizer
+        .clone()
+        .identify(run, unreachable_resolver(&fixture))
+        .await;
     let saved = organizer.draft().unwrap().unwrap();
     assert_eq!(
         saved
@@ -784,18 +1025,15 @@ async fn repeated_provider_failure_pauses_and_survives_restart_without_touching_
         CatalogStore::new(fixture.data.join("catalog.json")),
     );
     let saved = restored.draft().unwrap().unwrap();
-    let request = super::draft::IdentifyRequest {
-        draft_id: saved.id.clone(),
-        revision: saved.revision,
-        media_ids: Vec::new(),
-        query: None,
-    };
     assert!(restored.begin_identification(&request).is_err());
-    let mut edited = saved;
-    edited.files[0].series_title = "Still editable while paused".into();
-    edited.retry_not_before_epoch_ms = None;
-    edited.identification_pause = None;
-    let edited = restored.update_draft(edited).unwrap();
+    let edited = ops(
+        &restored,
+        &saved,
+        vec![DraftOp::RenameGroup {
+            group_id: saved.files[0].group_id.clone(),
+            title: "Still editable while paused".into(),
+        }],
+    );
     assert!(edited.identification_pause.is_some());
     assert!(edited.retry_not_before_epoch_ms.is_some());
     cleanup(fixture.temp);
@@ -803,17 +1041,29 @@ async fn repeated_provider_failure_pauses_and_survives_restart_without_touching_
 
 #[test]
 fn series_companions_move_once_to_series_folder_across_seasons_and_undo() {
-    let (fixture, organizer, mut draft, destination) = setup(true);
-    draft.files[1].season_number = Some(0);
+    let (fixture, organizer, draft, destination) = setup(true);
     let group = draft.files[0].group_id.clone();
     let title = draft.files[0].series_title.clone();
+    let mut edits = vec![DraftOp::SetSeason {
+        media_ids: ids(&["two"]),
+        season: 0,
+    }];
     for name in ["fonts.ttf", "subtitles.zip"] {
         let path = fixture.root.join(name);
         fs::write(&path, name.as_bytes()).unwrap();
         let key = path.to_string_lossy().into_owned();
-        draft.companion_choices.insert(key.clone(), true);
-        draft.companion_series_owners.insert(key, group.clone());
+        edits.push(DraftOp::SetCompanion {
+            path: key.clone(),
+            selected: true,
+        });
+        edits.push(DraftOp::SetCompanionOwner {
+            path: key,
+            owner: CompanionOwner::Series {
+                group_id: group.clone(),
+            },
+        });
     }
+    let draft = ops(&organizer, &draft, edits);
     let draft = manual(&organizer, draft);
     // Choices survive restart without becoming approvals.
     drop(organizer);
@@ -865,35 +1115,58 @@ fn series_companions_move_once_to_series_folder_across_seasons_and_undo() {
 
 #[test]
 fn series_companions_require_one_explicit_owner_and_respect_deselection() {
-    let (fixture, organizer, mut draft, _) = setup(false);
+    let (fixture, organizer, draft, _) = setup(false);
     let path = fixture.root.join("subtitles.zip");
     fs::write(&path, b"archive").unwrap();
     let key = path.to_string_lossy().into_owned();
-    draft.companion_choices.insert(key.clone(), true);
-    let mut draft = manual(&organizer, draft);
-    assert!(!preview(&organizer, &fixture.published, &draft).batches[0].executable);
-    draft
-        .companion_series_owners
-        .insert(key.clone(), draft.files[0].group_id.clone());
-    draft
-        .companion_owners
-        .insert(key.clone(), draft.files[0].media_id.clone());
-    let mut draft = organizer.update_draft(draft).unwrap();
-    assert!(
-        organizer
-            .preview_draft(
-                &fixture.published,
-                DraftPreviewRequest {
-                    draft_id: draft.id.clone(),
-                    revision: draft.revision,
-                    group_id: None
-                }
-            )
-            .is_err()
+    let draft = ops(
+        &organizer,
+        &draft,
+        vec![DraftOp::SetCompanion {
+            path: key.clone(),
+            selected: true,
+        }],
     );
-    draft.companion_owners.remove(&key);
-    draft.companion_choices.insert(key.clone(), false);
-    let draft = organizer.update_draft(draft).unwrap();
+    let draft = manual(&organizer, draft);
+    assert!(!preview(&organizer, &fixture.published, &draft).batches[0].executable);
+    let owned = ops(
+        &organizer,
+        &draft,
+        vec![
+            DraftOp::SetCompanionOwner {
+                path: key.clone(),
+                owner: CompanionOwner::Video {
+                    media_id: "one".into(),
+                },
+            },
+            DraftOp::SetCompanionOwner {
+                path: key.clone(),
+                owner: CompanionOwner::Series {
+                    group_id: draft.files[0].group_id.clone(),
+                },
+            },
+        ],
+    );
+    // Choosing a series owner replaces the video owner: one owner, one move.
+    assert!(owned.companion_owners.is_empty());
+    let plan = preview(&organizer, &fixture.published, &owned);
+    assert!(plan.batches[0].executable);
+    assert_eq!(
+        plan.batches[0]
+            .moves
+            .iter()
+            .filter(|m| m.source_relative_path.ends_with(".zip"))
+            .count(),
+        1
+    );
+    let draft = ops(
+        &organizer,
+        &owned,
+        vec![DraftOp::SetCompanion {
+            path: key,
+            selected: false,
+        }],
+    );
     let plan = preview(&organizer, &fixture.published, &draft);
     assert!(plan.batches[0].executable);
     assert!(
@@ -907,42 +1180,41 @@ fn series_companions_require_one_explicit_owner_and_respect_deselection() {
 
 #[test]
 fn series_only_can_reuse_known_provider_without_borrowing_an_episode() {
-    let (fixture, organizer, mut draft, _) = setup(false);
-    let episode = super::draft::IdentificationCandidate {
+    let (fixture, organizer, draft, _) = setup(false);
+    let episode = IdentificationCandidate {
         anime_id: 42,
         series_title: "Provider title".into(),
         episode_id: Some(420001),
         episode_title: "Episode 1".into(),
     };
-    organizer
-        .runtime
-        .lock()
-        .unwrap()
-        .draft
-        .as_mut()
-        .unwrap()
-        .files[0]
-        .candidates = vec![episode.clone()];
-    draft.files[0].candidate = Some(episode.clone());
+    provide(&organizer, "one", vec![episode.clone()]);
     let mut series = episode.clone();
     series.episode_id = None;
     series.episode_title.clear();
-    draft.files[1].candidate = Some(series);
-    draft.files[1].series_only = true;
-    draft.files[1].series_title = "My specials folder".into();
-    let draft = organizer.update_draft(draft).unwrap();
+    let draft = ops(
+        &organizer,
+        &draft,
+        vec![
+            DraftOp::SetMatch {
+                media_ids: ids(&["one"]),
+                candidate: Some(episode),
+            },
+            DraftOp::MoveFiles {
+                media_ids: ids(&["two"]),
+                group_id: None,
+                title: Some("My specials folder".into()),
+            },
+            DraftOp::SetMatch {
+                media_ids: ids(&["two"]),
+                candidate: Some(series.clone()),
+            },
+        ],
+    );
+    assert!(draft.files[1].series_only);
+    assert_eq!(draft.files[1].series_title, "My specials folder");
     let path = fixture.data.join("metadata.json");
     let metadata = crate::catalog_metadata::CatalogMetadataStore::new(&path);
-    organizer
-        .save_identification(
-            DraftPreviewRequest {
-                draft_id: draft.id.clone(),
-                revision: draft.revision,
-                group_id: None,
-            },
-            &metadata,
-        )
-        .unwrap();
+    organizer.save_identification(None, &metadata).unwrap();
     let reloaded = crate::catalog_metadata::CatalogMetadataStore::new(&path);
     let special = reloaded.get(&draft.files[1].media_id).unwrap();
     assert!(special.series_only);
@@ -956,9 +1228,18 @@ fn series_only_can_reuse_known_provider_without_borrowing_an_episode() {
             .dandanplay_episode_id,
         Some(420001)
     );
-    let mut invalid = draft;
-    invalid.files[1].candidate.as_mut().unwrap().anime_id = 999;
-    assert!(organizer.update_draft(invalid).is_err());
+    series.anime_id = 999;
+    assert!(
+        organizer
+            .apply_ops(DraftOpsRequest {
+                draft_id: draft.id.clone(),
+                ops: vec![DraftOp::SetMatch {
+                    media_ids: ids(&["two"]),
+                    candidate: Some(series),
+                }],
+            })
+            .is_err()
+    );
     assert!(fixture.published.files_by_id.values().all(|p| p.exists()));
     cleanup(fixture.temp);
 }
@@ -987,21 +1268,38 @@ fn series_assets_are_discovered_above_season_folders_without_a_video_owner() {
     let store = CatalogStore::new(fixture.data.join("catalog.json"));
     store.save(fixture.published.clone()).unwrap();
     let organizer = LibraryOrganizer::new(vec![fixture.root.clone(), destination], store);
-    let mut draft = organizer
+    let draft = organizer
         .create_draft(
             &fixture.published,
             CreateDraftRequest {
                 media_ids: vec!["one".into(), "two".into()],
                 destination: fixture.temp.join("destination").display().to_string(),
+                replace: false,
             },
         )
         .unwrap();
     let key = asset.to_string_lossy().into_owned();
-    draft.companion_choices.insert(key.clone(), true);
-    draft
-        .companion_series_owners
-        .insert(key, draft.files[0].group_id.clone());
-    draft.files[0].excluded = true; // The shared archive is not dependent on this video.
+    let draft = ops(
+        &organizer,
+        &draft,
+        vec![
+            DraftOp::SetCompanion {
+                path: key.clone(),
+                selected: true,
+            },
+            DraftOp::SetCompanionOwner {
+                path: key,
+                owner: CompanionOwner::Series {
+                    group_id: draft.files[0].group_id.clone(),
+                },
+            },
+            // The shared archive is not dependent on this video.
+            DraftOp::SetExcluded {
+                media_ids: ids(&["one"]),
+                excluded: true,
+            },
+        ],
+    );
     let draft = manual(&organizer, draft);
     let plan = preview(&organizer, &fixture.published, &draft);
     assert!(plan.batches[0].executable);
@@ -1020,5 +1318,241 @@ fn series_assets_are_discovered_above_season_folders_without_a_video_owner() {
             .iter()
             .all(|m| m.media_id.as_deref() != Some("one"))
     );
+    cleanup(fixture.temp);
+}
+
+/// Adds a video in `folder` under the fixture root with catalog title `folder_title`.
+fn add_video(fixture: &mut Fixture, id: &str, relative: &str, folder_title: &str) {
+    let path = fixture.root.join(relative);
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    fs::write(&path, id.as_bytes()).unwrap();
+    let mut item = fixture.published.catalog.items[0].clone();
+    item.id = id.into();
+    item.series_title = folder_title.into();
+    item.episode_title = path.file_stem().unwrap().to_string_lossy().into_owned();
+    item.relative_path = relative.into();
+    item.size_bytes = id.len() as u64;
+    fixture.published.catalog.items.push(item);
+    fixture.published.files_by_id.insert(id.into(), path);
+}
+
+#[test]
+fn download_dumps_group_by_file_title_in_natural_order_and_series_folders_keep_their_name() {
+    let mut fixture = fixture();
+    for episode in [10, 2, 1] {
+        add_video(
+            &mut fixture,
+            &format!("frieren-{episode}"),
+            &format!("Downloads/[Sub] Sousou no Frieren - {episode:02} (1080p).mkv"),
+            "Downloads",
+        );
+    }
+    add_video(
+        &mut fixture,
+        "kusuriya",
+        "Downloads/Kusuriya no Hitorigoto S2 - E1.mkv",
+        "Downloads",
+    );
+    add_video(
+        &mut fixture,
+        "clip",
+        "Downloads/random clip.mp4",
+        "Downloads",
+    );
+    add_video(
+        &mut fixture,
+        "bocchi",
+        "Bocchi the Rock/Bocchi the Rock! - 01.mp4",
+        "Bocchi the Rock",
+    );
+    let store = CatalogStore::new(fixture.data.join("catalog.json"));
+    store.save(fixture.published.clone()).unwrap();
+    let organizer = LibraryOrganizer::new(vec![fixture.root.clone()], store);
+    let draft = organizer
+        .create_draft(
+            &fixture.published,
+            CreateDraftRequest {
+                media_ids: fixture.published.files_by_id.keys().cloned().collect(),
+                destination: fixture.root.display().to_string(),
+                replace: false,
+            },
+        )
+        .unwrap();
+    let title = |id: &str| {
+        draft
+            .files
+            .iter()
+            .find(|f| f.media_id == id)
+            .unwrap()
+            .series_title
+            .clone()
+    };
+    assert_eq!(title("frieren-1"), "Sousou no Frieren");
+    assert_eq!(title("kusuriya"), "Kusuriya no Hitorigoto");
+    assert_eq!(
+        draft
+            .files
+            .iter()
+            .find(|f| f.media_id == "kusuriya")
+            .unwrap()
+            .season_number,
+        Some(2)
+    );
+    assert_eq!(title("clip"), "Downloads");
+    assert_eq!(title("bocchi"), "Bocchi the Rock");
+    let frieren = draft
+        .files
+        .iter()
+        .filter(|f| f.media_id.starts_with("frieren"))
+        .map(|f| f.media_id.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(frieren, ["frieren-1", "frieren-2", "frieren-10"]);
+    assert_eq!(group(&draft, "frieren-1"), group(&draft, "frieren-10"));
+    cleanup(fixture.temp);
+}
+
+#[test]
+fn a_new_selection_replaces_an_unfinished_review_only_when_asked() {
+    let (fixture, organizer, draft, destination) = setup(false);
+    let request = |replace| CreateDraftRequest {
+        media_ids: vec!["two".into()],
+        destination: destination.display().to_string(),
+        replace,
+    };
+    assert!(
+        organizer
+            .create_draft(&fixture.published, request(false))
+            .is_err()
+    );
+    let replaced = organizer
+        .create_draft(&fixture.published, request(true))
+        .unwrap();
+    assert_ne!(replaced.id, draft.id);
+    assert_eq!(replaced.files.len(), 1);
+    assert!(
+        organizer
+            .apply_ops(DraftOpsRequest {
+                draft_id: draft.id,
+                ops: Vec::new(),
+            })
+            .is_err()
+    );
+    cleanup(fixture.temp);
+}
+
+#[test]
+fn already_organized_groups_can_be_marked_done_and_stay_done_after_restart() {
+    let mut fixture = fixture();
+    add_video(
+        &mut fixture,
+        "placed",
+        "Example Show/Season 1/[Group] Example Show - 03.mkv",
+        "Example Show",
+    );
+    let store = CatalogStore::new(fixture.data.join("catalog.json"));
+    store.save(fixture.published.clone()).unwrap();
+    let organizer = LibraryOrganizer::new(vec![fixture.root.clone()], store);
+    let draft = organizer
+        .create_draft(
+            &fixture.published,
+            CreateDraftRequest {
+                media_ids: vec!["placed".into()],
+                destination: fixture.root.display().to_string(),
+                replace: false,
+            },
+        )
+        .unwrap();
+    // Files already in place can be finished without a match or confirmation.
+    let plan = preview(&organizer, &fixture.published, &draft);
+    assert!(plan.batches[0].already_organized);
+    assert!(!plan.batches[0].executable);
+    let group = group(&draft, "placed");
+    ops(
+        &organizer,
+        &draft,
+        vec![DraftOp::MarkDone {
+            group_id: group.clone(),
+        }],
+    );
+    drop(organizer);
+    let restored = LibraryOrganizer::new(
+        vec![fixture.root.clone()],
+        CatalogStore::new(fixture.data.join("catalog.json")),
+    );
+    assert!(
+        restored
+            .draft()
+            .unwrap()
+            .unwrap()
+            .completed
+            .contains_key(&group)
+    );
+    cleanup(fixture.temp);
+}
+
+#[test]
+fn extras_already_in_the_series_folder_stay_listed_without_a_move() {
+    let mut fixture = fixture();
+    for episode in [10, 2] {
+        add_video(
+            &mut fixture,
+            &format!("bocchi-{episode}"),
+            &format!("Bocchi the Rock/Bocchi the Rock - {episode:02}.mkv"),
+            "Bocchi the Rock",
+        );
+    }
+    let fonts = fixture.root.join("Bocchi the Rock").join("fonts.zip");
+    fs::write(&fonts, b"fonts").unwrap();
+    let store = CatalogStore::new(fixture.data.join("catalog.json"));
+    store.save(fixture.published.clone()).unwrap();
+    let organizer = LibraryOrganizer::new(vec![fixture.root.clone()], store);
+    let draft = organizer
+        .create_draft(
+            &fixture.published,
+            CreateDraftRequest {
+                media_ids: ids(&["bocchi-10", "bocchi-2"]),
+                destination: fixture.root.display().to_string(),
+                replace: false,
+            },
+        )
+        .unwrap();
+    let key = fonts.to_string_lossy().into_owned();
+    let before = preview(&organizer, &fixture.published, &draft);
+    let listed = &before.batches[0].nearby_files[0];
+    // Owner choices follow episode order, not hashed IDs.
+    assert_eq!(listed.owner_media_ids, ids(&["bocchi-2", "bocchi-10"]));
+    assert!(listed.destination_relative_path.is_some());
+    let draft = ops(
+        &organizer,
+        &draft,
+        vec![
+            DraftOp::SetCompanion {
+                path: key.clone(),
+                selected: true,
+            },
+            DraftOp::SetCompanionOwner {
+                path: key.clone(),
+                owner: CompanionOwner::Series {
+                    group_id: group(&draft, "bocchi-2"),
+                },
+            },
+        ],
+    );
+    let draft = manual(&organizer, draft);
+    let plan = preview(&organizer, &fixture.published, &draft);
+    let batch = &plan.batches[0];
+    let fonts_entry = batch
+        .nearby_files
+        .iter()
+        .find(|n| n.relative_path == key)
+        .expect("ticked extra stays listed");
+    assert_eq!(fonts_entry.destination_relative_path, None);
+    assert!(
+        batch
+            .moves
+            .iter()
+            .all(|m| !m.source_relative_path.ends_with("fonts.zip"))
+    );
+    assert!(batch.conflicts.is_empty(), "{:?}", batch.conflicts);
     cleanup(fixture.temp);
 }

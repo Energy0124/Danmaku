@@ -126,94 +126,6 @@ impl Strings {
     pub fn refresh_folder(self) -> &'static str {
         self.text("Refresh current folder", "重新掃描目前資料夾")
     }
-    pub fn organize_library(self) -> &'static str {
-        self.text("Organize library", "整理媒體庫")
-    }
-    pub fn organizer_title(self) -> &'static str {
-        self.text("Progressive library organizer", "漸進式媒體庫整理")
-    }
-    pub fn organizer_safety(self) -> &'static str {
-        self.text(
-            "Nothing is overwritten or deleted. Review and approve one series at a time.",
-            "不會覆寫或刪除任何內容。請逐一檢查並核准每個系列。",
-        )
-    }
-    pub fn organizer_root(self) -> &'static str {
-        self.text("Library root", "媒體庫根目錄")
-    }
-    pub fn organizer_base(self) -> &'static str {
-        self.text("Destination base inside root", "根目錄內的目標資料夾")
-    }
-    pub fn generate_preview(self) -> &'static str {
-        self.text("Generate preview", "產生預覽")
-    }
-    pub fn series_title_label(self) -> &'static str {
-        self.text("Series title", "系列名稱")
-    }
-    pub fn season_number_label(self) -> &'static str {
-        self.text("Season number", "季度編號")
-    }
-    pub fn nearby_files_label(self) -> &'static str {
-        self.text("Nearby files (optional)", "附近檔案（選填）")
-    }
-    pub fn update_preview(self) -> &'static str {
-        self.text("Update exact preview", "更新精確預覽")
-    }
-    pub fn approved_moves(self, count: usize) -> String {
-        match self.language {
-            Language::English => format!("{count} exact moves"),
-            Language::TraditionalChinese => format!("{count} 個精確移動"),
-        }
-    }
-    pub fn approve_series(self) -> &'static str {
-        self.text("Approve and move this series", "核准並移動此系列")
-    }
-    pub fn organizer_cancel(self) -> &'static str {
-        self.text("Cancel and roll back", "取消並復原")
-    }
-    pub fn undo_last_series(self) -> &'static str {
-        self.text("Undo last completed series", "復原上一個已完成系列")
-    }
-    pub fn organizer_conflicts(self) -> &'static str {
-        self.text(
-            "Resolve these conflicts before approval:",
-            "核准前請先解決以下衝突：",
-        )
-    }
-    pub fn organizer_batch_summary(self, title: &str, videos: usize, ready: bool) -> String {
-        match self.language {
-            Language::English => format!(
-                "{title} · {videos} videos{}",
-                if ready { " · already organized" } else { "" }
-            ),
-            Language::TraditionalChinese => format!(
-                "{title} · {videos} 個影片{}",
-                if ready { " · 已整理" } else { "" }
-            ),
-        }
-    }
-    pub fn organizer_reason(self, confidence: &str) -> &'static str {
-        match confidence {
-            "PROVIDER" => self.text("Matched provider identity", "已比對外部資料庫識別"),
-            "PARSED" => self.text("Grouped from title and filename", "依標題與檔名分組"),
-            _ => self.text(
-                "Choose a series title and season before approval",
-                "核准前請選擇系列名稱與季度",
-            ),
-        }
-    }
-    pub fn organizer_status(self, state: &str, done: usize, total: usize) -> String {
-        let label = match state {
-            "RUNNING" => self.text("Moving approved files", "正在移動已核准的檔案"),
-            "ROLLING_BACK" => self.text("Rolling back", "正在復原"),
-            "COMPLETED" => self.text("Completed", "已完成"),
-            "CANCELLED" => self.text("Cancelled and rolled back", "已取消並復原"),
-            "FAILED" => self.text("Failed and rolled back", "失敗並已復原"),
-            "RECOVERY_REQUIRED" => self.text("Recovery required", "需要復原"),
-            _ => self.text("Ready", "就緒"),
-        };
-        format!("{label} · {done}/{total}")
-    }
     pub fn close(self) -> &'static str {
         self.text("Close", "關閉")
     }
@@ -984,150 +896,394 @@ mod tests {
 
 #[derive(Clone, Copy)]
 pub enum OrganizerText {
-    ChooseCompanionOwner,
+    WindowTitle,
     Select,
+    SelectModeHint,
     SelectVisible,
-    Clear,
-    Folders,
-    SelectedVideos,
-    OpenFolder,
-    OrganizeSelected,
+    ClearSelection,
+    OpenFolderHint,
     OrganizeFolder,
-    Reload,
-    RetryRecovery,
-    Identifying,
-    StopIdentifying,
-    IdentificationPaused,
-    RetryAfter,
-    ReviewWorkflow,
-    UsageGuide,
-    UsageSteps,
-    UsageSeriesOnly,
-    UsageCompanions,
-    StepSeries,
-    StepFiles,
-    StepCompanions,
-    StepApprove,
-    SavingDraft,
-    SeriesOnly,
-    NoEpisode,
-    LinkKnownSeriesHint,
-    LinkSeriesSelected,
-    EditSelected,
-    SeriesCompanion,
-    PreviewPending,
-
-    SelectHint,
-    StartReview,
-    SavedDraft,
-    Discard,
-    RetryIdentification,
-    SaveIdentification,
-    Search,
-    AssignmentHint,
-    InvalidSeason,
-    NewGroup,
-    AssignSelected,
-    ExcludeSelected,
-    ReviewComplete,
-    SearchProvider,
-    Exclude,
-    Source,
-    ConfirmSeason,
-    SeasonSuggested,
-    SeasonConflict,
-    Manual,
-    Parsed,
-    ManualAssignment,
-    Identified,
-    ChooseMatch,
-    MatchingSubtitle,
-    ApproveNext,
-    UpdatingPreview,
-    SkipNext,
-    ReturnPending,
+    OpenOrganizer,
+    ResumeReview,
+    ReviewMenu,
+    FinishReview,
+    FinishReviewHint,
+    HowItWorks,
+    HelpFlow,
+    HelpMatching,
+    HelpExtras,
+    HelpSafety,
+    UndoLast,
+    UndoLastHint,
+    StopMatching,
+    MatchingOff,
+    MatchingOffHint,
+    MatchingPaused,
+    ResumeMatching,
     Destination,
+    DestinationHint,
+    DestinationExplain,
     Browse,
-    Pending,
-    NeedsReview,
-    Blocked,
-    Skipped,
-    Completed,
-    All,
+    CancelMove,
+    RecoveryRequired,
+    RetryRecovery,
+    StartHeading,
+    StartBody,
+    StartHint,
+    StartReview,
+    AllDone,
+    NothingLeft,
+    ReviewSkipped,
+    FilterSeries,
+    FilterToDo,
+    FilterReady,
+    FilterSkipped,
+    FilterDone,
+    FilterAll,
+    QueueEmpty,
+    KeepReview,
+    ReplaceReviewHint,
+    NeedsSeason,
+    StateSkipped,
+    StateDone,
+    StateExcluded,
+    Unskip,
+    MarkDone,
+    MarkDoneHint,
+    ApproveNext,
+    Skip,
+    SkipHint,
+    AllExcluded,
+    MoveRunning,
+    InPlace,
+    InPlaceShort,
+    Checking,
+    CheckAgain,
+    SeriesFolder,
+    Match,
+    MixedMatches,
+    NoMatch,
+    FolderNameOnly,
+    UseFolderName,
+    UseFolderNameHint,
+    ChangeMatch,
+    SearchHint,
+    Search,
+    NoResults,
+    ClearMatch,
+    MatchAgain,
+    MatchAgainHint,
+    ColumnFile,
+    ColumnSeason,
+    ColumnEpisode,
+    ColumnDestination,
+    ColumnBelongsTo,
+    ColumnFrom,
+    ColumnTo,
+    Excluded,
+    SeasonConflict,
+    SeasonSuggested,
+    SelectHint,
+    SetSeason,
+    MoveTo,
+    MoveToHint,
+    NewSeriesHint,
+    Create,
+    Exclude,
+    Include,
+    ExtrasHint,
+    NoExtras,
+    MatchingSubtitle,
+    SeriesFolderOwner,
+    ChooseOwner,
+    Matching,
+    MatchFailed,
+    SeriesOnly,
+    FromLibrary,
 }
 
 impl Strings {
     pub fn organizer_text(self, key: OrganizerText) -> &'static str {
         match key {
-            OrganizerText::ChooseCompanionOwner => self.text("Choose the video this file belongs to", "選擇此檔案所屬的影片"),
-            OrganizerText::Select => self.text("Select files and folders", "選取檔案與資料夾"),
-            OrganizerText::SelectVisible => self.text("Select all visible", "選取所有可見項目"),
-            OrganizerText::Clear => self.text("Clear selection", "清除選取"),
-            OrganizerText::Folders => self.text("folders", "個資料夾"),
-            OrganizerText::SelectedVideos => self.text("selected videos (all folders)", "部已選影片（所有資料夾）"),
-            OrganizerText::OpenFolder => self.text("Open folder", "開啟資料夾"),
-            OrganizerText::OrganizeSelected => self.text("Organize selected", "整理選取項目"),
+            OrganizerText::WindowTitle => self.text("Organize library", "整理媒體庫"),
+            OrganizerText::Select => self.text("Select", "選取"),
+            OrganizerText::SelectModeHint => self.text("Tick folders and videos to organize. Click a folder name to open it.", "勾選要整理的資料夾與影片。按資料夾名稱可開啟它。"),
+            OrganizerText::SelectVisible => self.text("Select all here", "選取此處全部"),
+            OrganizerText::ClearSelection => self.text("Clear selection", "清除選取"),
+            OrganizerText::OpenFolderHint => self.text("Open folder", "開啟資料夾"),
             OrganizerText::OrganizeFolder => self.text("Organize this folder", "整理此資料夾"),
-            OrganizerText::Reload => self.text("Reload / retry", "重新載入／重試"),
-            OrganizerText::RetryRecovery => self.text("Retry recovery", "重試復原"),
-            OrganizerText::Identifying => self.text("Identifying selected videos…", "正在辨識選取的影片…"),
-            OrganizerText::ReviewWorkflow => self.text("Organize your library", "整理媒體庫"),
-            OrganizerText::UsageGuide => self.text("How to use this organizer", "整理工具使用說明"),
-            OrganizerText::UsageSteps => self.text("1. Choose a series. 2. Select videos to edit their folder, season or identification. 3. Choose companions and their owner. 4. Review destinations, then approve this series. Edits save automatically.", "1. 選擇系列。2. 勾選影片以修改資料夾、季度或辨識結果。3. 選擇附加檔案及其歸屬。4. 檢查目的路徑後核准此系列。編輯會自動儲存。"),
-            OrganizerText::UsageSeriesOnly => self.text("Provider identity and folder assignment are separate. For an OVA or special without a matching database episode, choose Series only. You can search for a series or reuse one already identified in this draft. No episode mapping will be saved.", "來源辨識與資料夾指定彼此獨立。若 OVA 或特別篇沒有對應的資料庫集數，請選擇「僅連結系列」。可搜尋系列或使用此檢閱中已辨識的系列，不會儲存集數對應。"),
-            OrganizerText::UsageCompanions => self.text("Matching subtitles are selected automatically. For shared fonts, subtitle ZIPs or artwork, select the companion and choose Series folder as owner. These files go directly in the series folder. A video owner puts other companions in that video’s season folder.", "相符字幕會自動勾選。共用字型、字幕 ZIP 或圖片請勾選後將歸屬設為「系列資料夾」，檔案會直接放入系列資料夾。選擇影片歸屬時，其他附加檔案會放入該影片的季度資料夾。"),
-            OrganizerText::StepSeries => self.text("1 · Choose a series", "1 · 選擇系列"),
-            OrganizerText::StepFiles => self.text("2 · Review videos and identification", "2 · 檢查影片與辨識結果"),
-            OrganizerText::StepCompanions => self.text("3 · Choose companion files", "3 · 選擇附加檔案"),
-            OrganizerText::StepApprove => self.text("4 · Review destinations and approve", "4 · 檢查目的路徑並核准"),
-            OrganizerText::SavingDraft => self.text("Saving edits…", "正在儲存編輯…"),
-            OrganizerText::SeriesOnly => self.text("Series only — no episode mapping", "僅連結系列，不對應集數"),
-            OrganizerText::NoEpisode => self.text("No episode mapping", "不對應集數"),
-            OrganizerText::LinkKnownSeriesHint => self.text("Link selected videos to an identified series without assigning episodes:", "將選取的影片連結至已辨識的系列，不指定集數："),
-            OrganizerText::LinkSeriesSelected => self.text("Link selected to series only", "將選取影片僅連結至系列"),
-            OrganizerText::EditSelected => self.text("Edit selected videos", "編輯選取的影片"),
-            OrganizerText::SeriesCompanion => self.text("Series folder", "系列資料夾"),
-            OrganizerText::PreviewPending => self.text("Updating destinations… You can keep editing; approval is available after validation.", "正在更新目的路徑… 您可以繼續編輯，驗證完成後即可核准。"),
-            OrganizerText::RetryAfter => self.text("Retry available in", "可重試倒數"),
-            OrganizerText::IdentificationPaused => self.text("Identification paused. Results are saved. Retry after the provider cooldown, or assign files manually.", "辨識已暫停，結果已儲存。請在來源冷卻時間結束後重試，或手動指定檔案。"),
-            OrganizerText::StopIdentifying => self.text("Stop identification", "停止辨識"),
-            OrganizerText::SelectHint => self.text("Select folders or videos in Folders, then choose Organize selected. Refresh the folder first if a video is missing.", "請在資料夾中選取資料夾或影片，再按「整理選取項目」。若缺少影片，請先重新整理資料夾。"),
-            OrganizerText::StartReview => self.text("Identify and review selection", "辨識並檢閱選取項目"),
-            OrganizerText::SavedDraft => self.text("Review saved on this server", "檢閱草稿儲存於此伺服器"),
-            OrganizerText::Discard => self.text("Discard this review", "捨棄此檢閱"),
-            OrganizerText::RetryIdentification => self.text("Identify / retry selected", "辨識／重試選取項目"),
-            OrganizerText::SaveIdentification => self.text("Save identification", "儲存辨識結果"),
-            OrganizerText::Search => self.text("Search series", "搜尋系列"),
-            OrganizerText::AssignmentHint => self.text("Select files below to assign a series and season or split them into another group. Provider identity remains separate.", "選取下方檔案以指定系列與季數，或拆分到其他群組。來源辨識保持獨立。"),
-            OrganizerText::InvalidSeason => self.text("Enter a whole season number, including 0 for specials.", "請輸入整數季數；特別篇可使用 0。"),
-            OrganizerText::NewGroup => self.text("New group", "新群組"),
-            OrganizerText::AssignSelected => self.text("Assign selected files", "指定選取的檔案"),
-            OrganizerText::ExcludeSelected => self.text("Exclude selected files", "排除選取的檔案"),
-            OrganizerText::ReviewComplete => self.text("No pending series. Use filters to revisit skipped or completed groups.", "沒有待處理系列。可使用篩選查看已略過或完成的群組。"),
-            OrganizerText::SearchProvider => self.text("Search provider for selected files", "搜尋選取檔案的來源"),
-            OrganizerText::Exclude => self.text("Exclude from moves", "排除移動"),
-            OrganizerText::Source => self.text("Source root", "來源根目錄"),
-            OrganizerText::ConfirmSeason => self.text("Confirm season", "確認季數"),
-            OrganizerText::SeasonSuggested => self.text("Season 1 — suggested", "第 1 季 — 建議值"),
-            OrganizerText::SeasonConflict => self.text("Conflicting season evidence: choose a season", "季數資訊衝突：請選擇季數"),
-            OrganizerText::Manual => self.text("Manually assigned", "手動指定"),
-            OrganizerText::Parsed => self.text("Detected from path/title", "由路徑／標題偵測"),
-            OrganizerText::ManualAssignment => self.text("Confirm manual series assignment", "確認手動指定系列"),
-            OrganizerText::Identified => self.text("Identified series", "已辨識系列"),
-            OrganizerText::ChooseMatch => self.text("Choose a match", "選擇辨識結果"),
-            OrganizerText::MatchingSubtitle => self.text("Matching subtitle — selected by default", "相符字幕 — 預設選取"),
-            OrganizerText::ApproveNext => self.text("Approve and next", "核准並前往下一個"),
-            OrganizerText::UpdatingPreview => self.text("Preparing the current move preview…", "正在準備目前的移動預覽…"),
-            OrganizerText::SkipNext => self.text("Skip and next", "略過並前往下一個"),
-            OrganizerText::ReturnPending => self.text("Return to pending", "移回待處理"),
-            OrganizerText::Destination => self.text("Destination base (full path)", "目的地基底（完整路徑）"),
+            OrganizerText::OpenOrganizer => self.text("Organize…", "整理…"),
+            OrganizerText::ResumeReview => self.text("Resume organizing", "繼續整理"),
+            OrganizerText::ReviewMenu => self.text("End review…", "結束檢閱…"),
+            OrganizerText::FinishReview => self.text("Finish review", "結束檢閱"),
+            OrganizerText::FinishReviewHint => self.text("Closes this review. Moved files stay where they are and can still be undone.", "關閉此檢閱。已移動的檔案會留在原處，仍可復原。"),
+            OrganizerText::HowItWorks => self.text("How organizing works", "整理方式說明"),
+            OrganizerText::HelpFlow => self.text("Pick a series on the left, check its folder name, seasons and match, then Approve & next. Each approval moves one series; nothing else changes.", "在左側選擇系列，確認資料夾名稱、季數與辨識結果，再按「核准並下一個」。每次核准只移動一個系列，其他項目不受影響。"),
+            OrganizerText::HelpMatching => self.text("Videos are matched with dandanplay in the background while you work. A series with no match can use its folder name instead.", "整理時會在背景以彈彈play辨識影片。沒有辨識結果的系列可直接使用資料夾名稱。"),
+            OrganizerText::HelpExtras => self.text("Matching subtitles move with their video. Fonts, subtitle packs and artwork can go in the series folder from the Extras tab.", "相符的字幕會隨影片一起移動。字型、字幕包與圖片可在「附加檔案」分頁放入系列資料夾。"),
+            OrganizerText::HelpSafety => self.text("Nothing is overwritten or deleted. Use Undo to move the last series back.", "不會覆寫或刪除任何檔案。可使用「復原」將上一個系列移回原處。"),
+            OrganizerText::UndoLast => self.text("Undo last move", "復原上次移動"),
+            OrganizerText::UndoLastHint => self.text("Moves the most recently organized series back to where it was.", "將最近整理的系列移回原來位置。"),
+            OrganizerText::StopMatching => self.text("Stop", "停止"),
+            OrganizerText::MatchingOff => self.text("Automatic matching is off", "自動辨識已關閉"),
+            OrganizerText::MatchingOffHint => self.text("Add dandanplay credentials in Settings to match videos automatically.", "請在設定中加入彈彈play憑證，以自動辨識影片。"),
+            OrganizerText::MatchingPaused => self.text("Matching paused", "辨識已暫停"),
+            OrganizerText::ResumeMatching => self.text("Resume matching", "繼續辨識"),
+            OrganizerText::Destination => self.text("Destination", "目的地"),
+            OrganizerText::DestinationHint => self.text("Folder inside a library root, e.g. D:\\Anime", "媒體庫根目錄內的資料夾，例如 D:\\Anime"),
+            OrganizerText::DestinationExplain => self.text("Each series goes to <destination>/<series>/Season N/ and keeps its file names.", "每個系列會放到 <目的地>/<系列>/Season N/，並保留原檔名。"),
             OrganizerText::Browse => self.text("Browse…", "瀏覽…"),
-            OrganizerText::Pending => self.text("Pending", "待處理"),
-            OrganizerText::NeedsReview => self.text("Needs review", "需要檢閱"),
-            OrganizerText::Blocked => self.text("Blocked", "受阻"),
-            OrganizerText::Skipped => self.text("Skipped", "已略過"),
-            OrganizerText::Completed => self.text("Completed", "已完成"),
-            OrganizerText::All => self.text("All series", "所有系列"),
+            OrganizerText::CancelMove => self.text("Cancel", "取消"),
+            OrganizerText::RecoveryRequired => self.text("An interrupted move needs recovery.", "有中斷的移動需要復原。"),
+            OrganizerText::RetryRecovery => self.text("Retry recovery", "重試復原"),
+            OrganizerText::StartHeading => self.text("Organize videos into series folders", "將影片整理到系列資料夾"),
+            OrganizerText::StartBody => self.text("Review one series at a time. Nothing is overwritten or deleted, and each move can be undone.", "逐一檢閱每個系列。不會覆寫或刪除任何檔案，每次移動都可以復原。"),
+            OrganizerText::StartHint => self.text("In Folders, turn on Select, tick the folders or videos to organize, then choose Organize. You can also use Organize this folder inside any folder.", "請在「資料夾」中開啟「選取」，勾選要整理的資料夾或影片後按「整理」。也可以在任一資料夾內使用「整理此資料夾」。"),
+            OrganizerText::StartReview => self.text("Start review", "開始檢閱"),
+            OrganizerText::AllDone => self.text("Every series is done", "所有系列都已完成"),
+            OrganizerText::NothingLeft => self.text("Nothing left to do", "沒有待處理的系列"),
+            OrganizerText::ReviewSkipped => self.text("Review skipped series", "檢閱已略過的系列"),
+            OrganizerText::FilterSeries => self.text("Filter series", "篩選系列"),
+            OrganizerText::FilterToDo => self.text("To do", "待處理"),
+            OrganizerText::FilterReady => self.text("Ready", "可核准"),
+            OrganizerText::FilterSkipped => self.text("Skipped", "已略過"),
+            OrganizerText::FilterDone => self.text("Done", "已完成"),
+            OrganizerText::FilterAll => self.text("All", "全部"),
+            OrganizerText::QueueEmpty => self.text("No series in this list.", "此清單中沒有系列。"),
+            OrganizerText::KeepReview => self.text("Keep current review", "保留目前的檢閱"),
+            OrganizerText::ReplaceReviewHint => self.text("Starts a new review with your selection. Decisions for unfinished series are discarded; finished moves stay and can still be undone.", "以目前的選取開始新的檢閱。未完成系列的設定會被捨棄；已完成的移動會保留，仍可復原。"),
+            OrganizerText::NeedsSeason => self.text("choose a season", "請選擇季數"),
+            OrganizerText::StateSkipped => self.text("skipped", "已略過"),
+            OrganizerText::StateDone => self.text("Done", "已完成"),
+            OrganizerText::StateExcluded => self.text("all excluded", "全部排除"),
+            OrganizerText::Unskip => self.text("Move back to To do", "移回待處理"),
+            OrganizerText::MarkDone => self.text("Mark done", "標記為完成"),
+            OrganizerText::MarkDoneHint => self.text("These videos are already in place. Saves their matches without moving anything.", "這些影片已在正確位置。只儲存辨識結果，不移動任何檔案。"),
+            OrganizerText::ApproveNext => self.text("Approve & next", "核准並下一個"),
+            OrganizerText::Skip => self.text("Skip", "略過"),
+            OrganizerText::SkipHint => self.text("Leave this series as it is for now.", "暫時不處理此系列。"),
+            OrganizerText::AllExcluded => self.text("Every video in this series is excluded; nothing will move.", "此系列的所有影片都已排除，不會移動任何檔案。"),
+            OrganizerText::MoveRunning => self.text("Moving files…", "正在移動檔案…"),
+            OrganizerText::InPlace => self.text("Already in place — nothing to move.", "已在正確位置，無需移動。"),
+            OrganizerText::InPlaceShort => self.text("In place", "已在原位"),
+            OrganizerText::Checking => self.text("Checking destinations…", "正在檢查目的地…"),
+            OrganizerText::CheckAgain => self.text("Check again", "重新檢查"),
+            OrganizerText::SeriesFolder => self.text("Series folder", "系列資料夾"),
+            OrganizerText::Match => self.text("Match:", "辨識結果："),
+            OrganizerText::MixedMatches => self.text("Several series — see each video", "多個系列，請查看各影片"),
+            OrganizerText::NoMatch => self.text("No match yet", "尚未辨識"),
+            OrganizerText::FolderNameOnly => self.text("Folder name", "資料夾名稱"),
+            OrganizerText::UseFolderName => self.text("Use folder name", "使用資料夾名稱"),
+            OrganizerText::UseFolderNameHint => self.text("Organize these videos under the folder name without a database match.", "不使用資料庫辨識，直接以資料夾名稱整理這些影片。"),
+            OrganizerText::ChangeMatch => self.text("Change match…", "變更辨識…"),
+            OrganizerText::SearchHint => self.text("Series title", "系列名稱"),
+            OrganizerText::Search => self.text("Search", "搜尋"),
+            OrganizerText::NoResults => self.text("No results yet. Search for the series title.", "尚無結果。請搜尋系列名稱。"),
+            OrganizerText::ClearMatch => self.text("Clear match", "清除辨識"),
+            OrganizerText::MatchAgain => self.text("Match again", "重新辨識"),
+            OrganizerText::MatchAgainHint => self.text("Fingerprint these videos with dandanplay again.", "以彈彈play重新比對這些影片。"),
+            OrganizerText::ColumnFile => self.text("File", "檔案"),
+            OrganizerText::ColumnSeason => self.text("Season", "季"),
+            OrganizerText::ColumnEpisode => self.text("Episode match", "集數辨識"),
+            OrganizerText::ColumnDestination => self.text("Goes to", "目的地"),
+            OrganizerText::ColumnBelongsTo => self.text("Goes with", "歸屬"),
+            OrganizerText::ColumnFrom => self.text("From", "來源"),
+            OrganizerText::ColumnTo => self.text("To", "目的地"),
+            OrganizerText::Excluded => self.text("Excluded", "已排除"),
+            OrganizerText::SeasonConflict => self.text("The path and title disagree about the season. Choose one.", "路徑與標題的季數不一致，請選擇一個。"),
+            OrganizerText::SeasonSuggested => self.text("No season found; Season 1 is suggested.", "找不到季數，建議為第 1 季。"),
+            OrganizerText::SelectHint => self.text("Tick videos to edit together", "勾選影片以一併編輯"),
+            OrganizerText::SetSeason => self.text("Set season", "設定季數"),
+            OrganizerText::MoveTo => self.text("Move to series…", "移到系列…"),
+            OrganizerText::MoveToHint => self.text("Move the selected videos to another series folder.", "將選取的影片移到其他系列資料夾。"),
+            OrganizerText::NewSeriesHint => self.text("New series name", "新系列名稱"),
+            OrganizerText::Create => self.text("Create", "建立"),
+            OrganizerText::Exclude => self.text("Exclude", "排除"),
+            OrganizerText::Include => self.text("Include", "納入"),
+            OrganizerText::ExtrasHint => self.text("Matching subtitles are ticked automatically. Fonts, subtitle packs and artwork can go in the series folder.", "相符字幕會自動勾選。字型、字幕包與圖片可放入系列資料夾。"),
+            OrganizerText::NoExtras => self.text("No subtitles or other files next to these videos.", "這些影片旁沒有字幕或其他檔案。"),
+            OrganizerText::MatchingSubtitle => self.text("matching subtitle", "相符字幕"),
+            OrganizerText::SeriesFolderOwner => self.text("Series folder", "系列資料夾"),
+            OrganizerText::ChooseOwner => self.text("Choose where it goes", "選擇放置位置"),
+            OrganizerText::Matching => self.text("Matching…", "辨識中…"),
+            OrganizerText::MatchFailed => self.text("Match failed", "辨識失敗"),
+            OrganizerText::SeriesOnly => self.text("Series only", "僅系列"),
+            OrganizerText::FromLibrary => self.text("From library", "來自媒體庫"),
         }
+    }
+
+    pub fn organizer_selected_videos(self, count: usize) -> String {
+        self.en_zh(
+            format!(
+                "{count} {} selected",
+                if count == 1 { "video" } else { "videos" }
+            ),
+            format!("已選取 {count} 部影片"),
+        )
+    }
+    pub fn organizer_organize_selected(self, count: usize) -> String {
+        self.en_zh(
+            format!("Organize {count} selected"),
+            format!("整理選取的 {count} 部"),
+        )
+    }
+    pub fn organizer_selected_count(self, count: usize) -> String {
+        self.en_zh(format!("{count} selected"), format!("已選取 {count} 部"))
+    }
+    pub fn organizer_video_count(self, count: usize) -> String {
+        self.en_zh(
+            format!("{count} {}", if count == 1 { "video" } else { "videos" }),
+            format!("{count} 部影片"),
+        )
+    }
+    pub fn organizer_needs_match(self, count: usize) -> String {
+        self.en_zh(
+            format!(
+                "{count} {} a match",
+                if count == 1 { "needs" } else { "need" }
+            ),
+            format!("{count} 部待辨識"),
+        )
+    }
+    pub fn organizer_needs_match_long(self, count: usize) -> String {
+        self.en_zh(
+            format!(
+                "{} no match. Choose one with Change match, or Use folder name.",
+                match count {
+                    1 => "1 video has".to_owned(),
+                    _ => format!("{count} videos have"),
+                }
+            ),
+            format!("{count} 部影片尚未辨識。請以「變更辨識」選擇，或「使用資料夾名稱」。"),
+        )
+    }
+    pub fn organizer_needs_season(self, count: usize) -> String {
+        self.en_zh(
+            format!(
+                "Choose a season for {count} {}.",
+                if count == 1 { "video" } else { "videos" }
+            ),
+            format!("請為 {count} 部影片選擇季數。"),
+        )
+    }
+    pub fn organizer_more(self, count: usize) -> String {
+        self.en_zh(format!("(+{count} more)"), format!("（另有 {count} 項）"))
+    }
+    pub fn organizer_move_summary(self, moves: usize, bytes: u64) -> String {
+        let size = format_bytes(bytes);
+        self.en_zh(
+            format!(
+                "Ready: {moves} {} ({size}) will move.",
+                if moves == 1 { "file" } else { "files" }
+            ),
+            format!("可核准：將移動 {moves} 個檔案（{size}）。"),
+        )
+    }
+    pub fn organizer_tab_videos(self, count: usize) -> String {
+        self.en_zh(format!("Videos ({count})"), format!("影片（{count}）"))
+    }
+    pub fn organizer_tab_extras(self, count: usize) -> String {
+        self.en_zh(format!("Extras ({count})"), format!("附加檔案（{count}）"))
+    }
+    pub fn organizer_tab_moves(self, count: usize) -> String {
+        self.en_zh(format!("Moves ({count})"), format!("移動（{count}）"))
+    }
+    pub fn organizer_folder_preview(
+        self,
+        destination: &str,
+        title: &str,
+        seasons: &[u32],
+    ) -> String {
+        let season = match seasons {
+            [one] => format!("Season {one}"),
+            _ => "Season N".to_owned(),
+        };
+        let path = format!(
+            "{}/{title}/{season}/",
+            destination.trim_end_matches(['/', '\\'])
+        );
+        self.en_zh(format!("Files go to {path}"), format!("檔案將放到 {path}"))
+    }
+    pub fn organizer_apply_to(self, count: usize, selected: bool) -> String {
+        if selected {
+            self.en_zh(
+                format!("A match you pick applies to the {count} selected videos."),
+                format!("選擇的辨識結果會套用到選取的 {count} 部影片。"),
+            )
+        } else {
+            self.en_zh(
+                format!("A match you pick applies to every video in this series ({count})."),
+                format!("選擇的辨識結果會套用到此系列的全部 {count} 部影片。"),
+            )
+        }
+    }
+    pub fn organizer_choose_of(self, count: usize) -> String {
+        self.en_zh(format!("Choose ({count})…"), format!("選擇（{count}）…"))
+    }
+    pub fn organizer_matching(self, done: usize, total: usize) -> String {
+        self.en_zh(
+            format!("Matching {done} of {total}"),
+            format!("辨識中 {done}/{total}"),
+        )
+    }
+    pub fn organizer_paused_wait(self, seconds: u64) -> String {
+        self.en_zh(
+            format!("Matching paused · retry in {seconds}s"),
+            format!("辨識已暫停 · {seconds} 秒後可重試"),
+        )
+    }
+    pub fn organizer_moving(self, title: &str, done: usize, total: usize) -> String {
+        self.en_zh(
+            format!("Moving {title} · {done} of {total} files"),
+            format!("正在移動 {title} · {done}/{total} 個檔案"),
+        )
+    }
+    pub fn organizer_progress(self, done: usize, total: usize) -> String {
+        self.en_zh(
+            format!("{done} of {total} series done"),
+            format!("已完成 {done}/{total} 個系列"),
+        )
+    }
+    pub fn organizer_done_summary(self, done: usize, skipped: usize) -> String {
+        self.en_zh(
+            format!(
+                "{done} organized, {skipped} skipped. Finish the review, or revisit skipped series."
+            ),
+            format!("已整理 {done} 個，略過 {skipped} 個。可結束檢閱，或回頭處理已略過的系列。"),
+        )
+    }
+    pub fn organizer_unfinished(self, done: usize, total: usize) -> String {
+        self.en_zh(
+            format!("A review is already open ({done} of {total} series done)."),
+            format!("已有進行中的檢閱（已完成 {done}/{total} 個系列）。"),
+        )
+    }
+    pub fn organizer_replace_review(self, count: usize) -> String {
+        self.en_zh(
+            format!("Start over with {count} selected"),
+            format!("以選取的 {count} 部重新開始"),
+        )
+    }
+
+    fn en_zh(self, english: String, chinese: String) -> String {
+        match self.language {
+            Language::English => english,
+            Language::TraditionalChinese => chinese,
+        }
+    }
+}
+
+fn format_bytes(bytes: u64) -> String {
+    const UNITS: [&str; 4] = ["B", "KB", "MB", "GB"];
+    let mut value = bytes as f64;
+    let mut unit = 0;
+    while value >= 1024.0 && unit < UNITS.len() - 1 {
+        value /= 1024.0;
+        unit += 1;
+    }
+    if unit == 0 {
+        format!("{bytes} B")
+    } else {
+        format!("{value:.1} {}", UNITS[unit])
     }
 }

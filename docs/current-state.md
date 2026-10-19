@@ -30,30 +30,28 @@ Compose macOS artifact are retired.
   replaces only the selected catalog subtree, preserves sibling folders and
   stable media IDs, and exposes live file counts and scan failures through its
   status endpoint.
-- The native desktop Folders view supports persistent multiple-folder/file
-  selection and an independent native organizer window with a saved draft and
-  explicit destination across
-  configured roots. Matching is asynchronous and independent of comment fetching;
-  ordinary fingerprint failures fall back to title search. Quota/authentication
-  failures pause the batch with a saved cooldown; three consecutive failures also
-  stop the batch. Batch retry retains existing candidates, including ambiguous
-  results. Provider error codes/messages remain visible. Ambiguous candidates
-  require selection, and manual titles/seasons and grouping
-  remain editable. The searchable per-series queue supports exclusion, skip,
-  automatic unambiguous subtitle selection, and exact revision-bound approval.
-  Same-volume moves and verified cross-volume transfers preserve catalog IDs;
-  durable journals provide cancellation, rollback, recovery retry, and undo.
-  Series-owned companions (including font files and subtitle archives) move
-  directly into the series folder, once per source, independently of episode
-  ownership. OVAs/specials can reuse a known provider series with no episode;
-  explicitly saved series-only identities suppress automatic episode matching
-  and old episode comments during playback. The review has four numbered steps,
-  bulk-edit controls, and English/Traditional Chinese help. Autosave preserves
-  the visible preview and ongoing edits while fresh validation gates approval.
-  Identification can be saved separately from moves. Native loopback capability
-  authentication rejects browser and LAN access. Automated fixture coverage is
-  recorded in the [implementation log](design/progressive-library-organizer-implementation.md);
-  supervised GUI and physical-drive release QA remain pending.
+- The native desktop Folders view supports multiple-folder/file selection with
+  partial folder marks and subfolder/file exclusions, and an independent native
+  organizer window (series queue, series detail, fixed approval bar) over a
+  server-saved review. Videos are grouped by provider title, folder name, or
+  release names parsed from download file names, with season markers (including
+  `第N季`) split into season numbers, and listed in natural order. Edits are small
+  server-applied operations, so background dandanplay matching merges each result
+  as it arrives and is never cancelled or discarded by edits. Ordinary fingerprint
+  failures fall back to title search; quota/authentication failures pause with a
+  saved cooldown, as do three consecutive failures. Groups can be linked to a
+  series search result, accepted under their folder name, renamed (merging same
+  titles), split, skipped, or marked done when already in place. Approval is
+  bound to the group's own decisions, so edits elsewhere never expire it; the
+  action bar lists blockers. Approving or marking done saves the group's
+  identities. Same-volume moves and verified cross-volume transfers preserve
+  catalog IDs; durable journals provide cancellation, rollback, recovery retry,
+  and undo. Series-owned companions move once into the series folder.
+  Series-only identities suppress automatic episode matching during playback.
+  Native loopback capability authentication rejects browser and LAN access.
+  Automated fixture coverage and Linux and Windows GUI checks are recorded in
+  the [implementation log](design/progressive-library-organizer-implementation.md);
+  physical cross-drive release QA remains pending.
 - dandanplay matching/comment cache and repair status; provider metadata,
   settings, secret storage, external mappings, list readback, conflict-aware
   previews, and explicitly acknowledged MAL/Bangumi writes.

@@ -92,6 +92,25 @@ impl DandanplayResolver {
         Ok(candidates)
     }
 
+    /// Series candidates for a title search; never an episode mapping.
+    pub async fn search_series(
+        &self,
+        query: &str,
+    ) -> Result<Vec<crate::organizer::draft::IdentificationCandidate>> {
+        Ok(self
+            .client
+            .search_episodes(query)
+            .await?
+            .into_iter()
+            .map(|anime| crate::organizer::draft::IdentificationCandidate {
+                anime_id: anime.anime_id,
+                series_title: anime.anime_title,
+                episode_id: None,
+                episode_title: String::new(),
+            })
+            .collect())
+    }
+
     pub fn inspect_cache(
         &self,
         media_id: &str,
@@ -1510,7 +1529,7 @@ fn _absolute_media_path(path: &Path) -> Result<PathBuf> {
 }
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 
 // Application failures can arrive with HTTP 200. Never discard their documented code/message.
 fn provider_error(operation: &str, data: &Value) -> LibraryServerError {

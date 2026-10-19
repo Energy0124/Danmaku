@@ -91,6 +91,8 @@ pub(crate) fn organizer_json(
     path: &str,
     body: Option<&str>,
 ) -> Result<String, String> {
+    // The memory-only capability is reused until the server rejects it.
+    static TOKEN: std::sync::Mutex<Option<(String, String)>> = std::sync::Mutex::new(None);
     let base = HttpBase::parse(base_url)?;
     if base.host != "localhost"
         && !base
@@ -100,21 +102,53 @@ pub(crate) fn organizer_json(
     {
         return Err("Library organization is available only on this desktop.".into());
     }
-    let session = http_json(base_url, "GET", "/api/library/organize/session", None)?;
-    let session: serde_json::Value = serde_json::from_str(&session).map_err(|e| e.to_string())?;
-    let token = session["token"]
-        .as_str()
-        .ok_or_else(|| "Desktop organizer capability is unavailable.".to_owned())?;
-    let authorization = format!("Bearer {token}");
-    let body = body.map(|body| ("application/json; charset=utf-8", body.as_bytes()));
-    let response = http_request_with_headers(
-        base_url,
-        method,
-        path,
-        body,
-        &[("Authorization", &authorization)],
-    )?;
-    require_status(response, &[200, 201, 202, 204])?.body_string()
+    for attempt in 0..2 {
+        let cached = TOKEN
+            .lock()
+            .ok()
+            .and_then(|token| token.clone())
+            .filter(|(base, _)| base == base_url)
+            .map(|(_, token)| token);
+        let token = match cached {
+            Some(token) => token,
+            None => {
+                let session = http_json(base_url, "GET", "/api/library/organize/session", None)?;
+                let session: serde_json::Value =
+                    serde_json::from_str(&session).map_err(|e| e.to_string())?;
+                let token = session["token"]
+                    .as_str()
+                    .ok_or_else(|| "Desktop organizer capability is unavailable.".to_owned())?
+                    .to_owned();
+                if let Ok(mut cache) = TOKEN.lock() {
+                    *cache = Some((base_url.to_owned(), token.clone()));
+                }
+                token
+            }
+        };
+        let authorization = format!("Bearer {token}");
+        let response = http_request_with_headers(
+            base_url,
+            method,
+            path,
+            body.map(|body| ("application/json; charset=utf-8", body.as_bytes())),
+            &[("Authorization", &authorization)],
+        )?;
+        if response.status == 401 && attempt == 0 {
+            if let Ok(mut cache) = TOKEN.lock() {
+                *cache = None;
+            }
+            continue;
+        }
+        if matches!(response.status, 400 | 409) {
+            // Organizer conflicts carry a user-facing explanation.
+            let detail = String::from_utf8_lossy(&response.body).trim().to_owned();
+            if !detail.is_empty() {
+                return Err(detail);
+            }
+        }
+        return require_status(response, &[200, 201, 202, 204])?.body_string();
+    }
+    Err("Desktop organizer capability was rejected.".into())
 }
 
 fn require_status(response: HttpResponse, accepted: &[u16]) -> Result<HttpResponse, String> {
