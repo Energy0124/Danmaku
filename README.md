@@ -111,6 +111,25 @@ installing the pinned Velopack 1.2.0 `vpk` tool:
 .\tools\windows\prepare-windows-installer.ps1
 ```
 
+### One-Click Local Deploy
+
+`deploy.bat` chains the whole local release path: it pulls `main`, builds the
+portable package and the unsigned installer, installs it over the current
+per-user installation, refreshes the library server background host from the
+same build, and relaunches the player. Both installed binaries are verified
+against the build by hash, and a full transcript is written to `deploy.log`.
+
+```powershell
+.\deploy.bat
+.\deploy.bat -BuildOnly    # stop after the installer
+.\deploy.bat -SkipPull     # keep the current checkout
+```
+
+It refuses to run when tracked files have local changes, and asks before
+closing a running player or library server unless `-Yes` is passed. The
+installer only replaces the player client, so the background-host refresh is
+what moves the server to the new build.
+
 The package contains `danmaku-player.exe`, `library-server.exe`, the web UI,
 the release-resolved and digest-verified `libmpv-2.dll`, background-host
 scripts, licenses, and dependency inventories. On first launch, select one or
