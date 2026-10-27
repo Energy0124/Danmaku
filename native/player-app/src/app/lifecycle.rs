@@ -416,5 +416,13 @@ impl eframe::App for PlayerApp {
             ctx.send_viewport_cmd(ViewportCommand::Close);
         }
         self.finish_qa_screenshot_if_needed(ctx);
+        let playing = self
+            .with_renderer(|renderer| {
+                renderer.property_string("idle-active").as_deref() == Some("no")
+                    && renderer.property_string("pause").as_deref() == Some("no")
+                    && renderer.property_string("eof-reached").as_deref() != Some("yes")
+            })
+            .unwrap_or(false);
+        self.playback_wake_request.set_playing(playing);
     }
 }

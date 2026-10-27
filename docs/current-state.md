@@ -15,6 +15,8 @@ Compose macOS artifact are retired.
 - egui/glow player with embedded libmpv video, playback controls, fullscreen,
   tracks, seeking, playback rate, native danmaku, local overlay attachment,
   discovery, library browsing, progress/resume, previous/next, and auto-next.
+- Windows playback keeps the display and system awake while video is playing,
+  then releases the request on pause, stop, or end of playback.
 - English and Traditional Chinese UI, durable playback/danmaku preferences,
   a translucent in-player danmaku panel with independent scrolling/top/bottom
   visibility controls and remembered local roots and server URL.

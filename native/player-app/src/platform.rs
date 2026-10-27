@@ -39,6 +39,46 @@ pub fn apply_rounded_corners(frame: &eframe::Frame) {
 #[cfg(not(windows))]
 pub fn apply_rounded_corners(_frame: &eframe::Frame) {}
 
+/// Keeps the display and system awake only while video is playing. Windows
+/// execution state belongs to the calling thread, so update and drop this from
+/// the egui thread.
+#[derive(Default)]
+pub struct PlaybackWakeRequest {
+    active: bool,
+}
+
+impl PlaybackWakeRequest {
+    pub fn set_playing(&mut self, playing: bool) {
+        if self.active == playing {
+            return;
+        }
+        #[cfg(windows)]
+        {
+            use windows_sys::Win32::System::Power::{
+                ES_CONTINUOUS, ES_DISPLAY_REQUIRED, ES_SYSTEM_REQUIRED, SetThreadExecutionState,
+            };
+
+            let flags = if playing {
+                ES_CONTINUOUS | ES_DISPLAY_REQUIRED | ES_SYSTEM_REQUIRED
+            } else {
+                ES_CONTINUOUS
+            };
+            // SAFETY: This changes only the current UI thread's execution state.
+            // Drop clears it on the same thread when the app closes.
+            if unsafe { SetThreadExecutionState(flags) } == 0 {
+                return;
+            }
+        }
+        self.active = playing;
+    }
+}
+
+impl Drop for PlaybackWakeRequest {
+    fn drop(&mut self) {
+        self.set_playing(false);
+    }
+}
+
 /// The Windows shell draws its own title bar. macOS and other desktop hosts
 /// keep native decorations so standard traffic-light controls and window
 /// behaviors remain available.
